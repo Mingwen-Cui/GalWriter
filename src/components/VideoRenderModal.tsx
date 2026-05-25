@@ -1,12 +1,13 @@
 ﻿import React, { useMemo, useRef, useState } from 'react';
 import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
-import { Clock, Download, Film, GripVertical, Image, Layers, Loader2, Music, Pause, Play, Settings, Trash2, Video, X } from 'lucide-react';
+import { Clock, Download, Film, GripVertical, Image, Layers, Loader2, MoveHorizontal, Music, Pause, Play, Settings, Trash2, Video, X } from 'lucide-react';
 import JSZip from 'jszip';
 import { htmlToSpeechText } from '../lib/tts';
 import type { Language } from '../lib/i18n';
 
 type RenderStatus = 'idle' | 'rendering' | 'done' | 'error';
 type ExportFormat = 'webm' | 'mp4' | 'mkv';
+type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 
 type VideoRenderModalProps = {
   nodes: FlowNode[];
@@ -29,6 +30,8 @@ type RenderStyle = {
   titleColor: string;
   bodyColor: string;
   panelColor: string;
+  titleAnimation: TextAnimation;
+  bodyAnimation: TextAnimation;
 };
 
 type SegmentRenderInfo = {
@@ -45,6 +48,17 @@ type HighPerfSegmentPayload = {
   videoPath?: string;
   audioPath?: string;
   durationSecs?: number;
+};
+
+type RenderedFramePayload = {
+  bytes: number[];
+  durationSecs: number;
+};
+
+type AssetRegionOption = {
+  id: string;
+  label: string;
+  type: 'all' | 'outside' | 'dynamicGroup' | 'background';
 };
 
 const DEFAULT_VIDEO_BITRATE = '6000k';
@@ -64,6 +78,13 @@ const ENCODER_OPTIONS = [
   { label: 'NVIDIA NVENC', value: 'h264_nvenc' },
   { label: 'Intel QSV', value: 'h264_qsv' },
   { label: 'AMD AMF', value: 'h264_amf' },
+];
+
+const TEXT_ANIMATION_OPTIONS: { value: TextAnimation; zh: string; en: string }[] = [
+  { value: 'none', zh: '无', en: 'None' },
+  { value: 'fade', zh: '淡入', en: 'Fade' },
+  { value: 'slideUp', zh: '上滑', en: 'Rise' },
+  { value: 'typewriter', zh: '打字', en: 'Type' },
 ];
 
 const EXPORT_FORMAT_OPTIONS: {
@@ -109,13 +130,37 @@ const getSupportedMimeType = (format: ExportFormat) => {
   return option.mimeCandidates.find(candidate => MediaRecorder.isTypeSupported(candidate)) || '';
 };
 
+const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();
+
 const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => resolve(img);
-  img.onerror = () => reject(new Error('Failed to load image.'));
-  img.src = src;
+  const prefersCrossOrigin = /^https?:\/\//i.test(src);
+  const tryLoad = (useCrossOrigin: boolean) => {
+    const img = new window.Image();
+    if (useCrossOrigin) img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      if (!useCrossOrigin) {
+        tryLoad(true);
+        return;
+      }
+      reject(new Error('Failed to load image.'));
+    };
+    img.src = src;
+  };
+  tryLoad(prefersCrossOrigin);
 });
+
+const loadCachedImage = (src: string) => {
+  const cached = imageLoadCache.get(src);
+  if (cached) return cached;
+
+  const request = loadImage(src).catch(error => {
+    imageLoadCache.delete(src);
+    throw error;
+  });
+  imageLoadCache.set(src, request);
+  return request;
+};
 
 const getAudioDuration = (src: string) => new Promise<number>((resolve) => {
   const audio = new Audio();
@@ -296,6 +341,93 @@ const getOrderedStoryNodes = (nodes: FlowNode[], edges: FlowEdge[]) => {
   return ordered;
 };
 
+const readNumber = (value: unknown, fallback: number) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
+
+const getNodeSize = (node: FlowNode, fallbackWidth = 220, fallbackHeight = 140) => ({
+  width: readNumber(node.width ?? node.measured?.width ?? node.style?.width, fallbackWidth),
+  height: readNumber(node.height ?? node.measured?.height ?? node.style?.height, fallbackHeight),
+});
+
+const getNodeCenter = (node: FlowNode, fallbackWidth = 220, fallbackHeight = 140) => {
+  const size = getNodeSize(node, fallbackWidth, fallbackHeight);
+  return {
+    x: node.position.x + size.width / 2,
+    y: node.position.y + size.height / 2,
+  };
+};
+
+const pointInRect = (point: { x: number; y: number }, rect: { x: number; y: number; width: number; height: number }) => (
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height
+);
+
+const getAssetRegionOptions = (nodes: FlowNode[], isZh: boolean): AssetRegionOption[] => {
+  const regionOptions = nodes
+    .filter(node => (node.type === 'groupNode' || node.type === 'backgroundNode') && !node.data?.hidden)
+    .map(node => ({
+      id: node.id,
+      label: String(node.data?.title || (node.type === 'groupNode' ? (isZh ? '动态包裹' : 'Dynamic wrap') : (isZh ? '背景区域' : 'Background'))),
+      type: node.type === 'groupNode' ? 'dynamicGroup' as const : 'background' as const,
+    }));
+
+  return [
+    { id: 'all', label: isZh ? '全部素材' : 'All assets', type: 'all' },
+    { id: 'outside', label: isZh ? '画布外/未归组' : 'Outside regions', type: 'outside' },
+    ...regionOptions,
+  ];
+};
+
+const getStoryNodeRegion = (node: FlowNode, nodes: FlowNode[]): AssetRegionOption | null => {
+  const directGroup = nodes.find(regionNode => {
+    if (regionNode.type !== 'groupNode') return false;
+    const childIds = (regionNode.data?.childIds as string[]) || [];
+    return childIds.includes(node.id);
+  });
+  if (directGroup) {
+    return {
+      id: directGroup.id,
+      label: String(directGroup.data?.title || '动态包裹'),
+      type: 'dynamicGroup',
+    };
+  }
+
+  const center = getNodeCenter(node);
+  const containingBackgrounds = nodes
+    .filter(regionNode => regionNode.type === 'backgroundNode' && regionNode.id !== node.id)
+    .map(regionNode => {
+      const size = getNodeSize(regionNode, 600, 400);
+      return {
+        node: regionNode,
+        area: size.width * size.height,
+        rect: {
+          x: regionNode.position.x,
+          y: regionNode.position.y,
+          width: size.width,
+          height: size.height,
+        },
+      };
+    })
+    .filter(region => pointInRect(center, region.rect))
+    .sort((a, b) => a.area - b.area);
+
+  const background = containingBackgrounds[0]?.node;
+  if (!background) return null;
+  return {
+    id: background.id,
+    label: String(background.data?.title || '背景区域'),
+    type: 'background',
+  };
+};
+
 const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: number) => {
   const totalDuration = segments.reduce((sum, segment) => sum + segment.durationSecs, 0);
   if (totalDuration <= 0) return undefined;
@@ -329,15 +461,129 @@ const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: number) => 
   return encodeWav(rendered);
 };
 
+type DragSizeControlProps = {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+};
+
+function DragSizeControl({ label, value, min, max, step, onChange }: DragSizeControlProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const dragRef = useRef<{ startX: number; startValue: number; moved: boolean } | null>(null);
+
+  React.useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [editing, value]);
+
+  const clampValue = (nextValue: number) => Math.min(max, Math.max(min, nextValue));
+  const commitDraft = () => {
+    const parsed = Number(draft);
+    if (Number.isFinite(parsed)) onChange(clampValue(parsed));
+    else setDraft(String(value));
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        type="text"
+        inputMode="numeric"
+        autoFocus
+        value={draft}
+        onChange={event => setDraft(event.target.value.replace(/[^\d.]/g, ''))}
+        onBlur={commitDraft}
+        onKeyDown={event => {
+          if (event.key === 'Enter') commitDraft();
+          if (event.key === 'Escape') {
+            setDraft(String(value));
+            setEditing(false);
+          }
+        }}
+        className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-accent)] text-sm font-black text-[var(--vr-text)] outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onPointerDown={event => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dragRef.current = { startX: event.clientX, startValue: value, moved: false };
+      }}
+      onPointerMove={event => {
+        const drag = dragRef.current;
+        if (!drag) return;
+        const delta = event.clientX - drag.startX;
+        if (Math.abs(delta) > 3) drag.moved = true;
+        if (!drag.moved) return;
+        const nextValue = Math.round((drag.startValue + delta * step) / step) * step;
+        onChange(clampValue(nextValue));
+      }}
+      onPointerUp={event => {
+        const drag = dragRef.current;
+        dragRef.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        if (!drag?.moved) setEditing(true);
+      }}
+      className="group w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)] flex items-center justify-between cursor-ew-resize hover:border-[var(--vr-accent)] transition-colors select-none"
+      title={label}
+    >
+      <span className="font-black">{value}px</span>
+      <MoveHorizontal className="w-4 h-4 text-[var(--vr-text-muted)] group-hover:text-[var(--vr-accent)]" />
+    </button>
+  );
+}
+
+type RangeControlProps = {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  valueLabel?: string;
+  disabled?: boolean;
+};
+
+function RangeControl({ label, value, min, max, step, onChange, valueLabel, disabled }: RangeControlProps) {
+  const percent = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3 text-[11px] font-black text-[var(--vr-text-soft)]">
+        <span>{label}</span>
+        <span className="tabular-nums text-[var(--vr-accent-strong)]">{valueLabel ?? value}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={event => onChange(Number(event.target.value))}
+        className="video-render-range w-full"
+        style={{ '--range-progress': `${Math.min(100, Math.max(0, percent))}%` } as React.CSSProperties}
+      />
+    </div>
+  );
+}
+
 export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(orderedNodes.map(node => node.id)));
   const [timelineIds, setTimelineIds] = useState<string[]>(() => orderedNodes.map(node => node.id));
   const [activePreviewId, setActivePreviewId] = useState<string>(() => orderedNodes[0]?.id || '');
+  const [assetRegionFilter, setAssetRegionFilter] = useState('all');
   const [resolutionIndex, setResolutionIndex] = useState(0);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('webm');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('mp4');
   const [speed, setSpeed] = useState(1);
   const [defaultSeconds, setDefaultSeconds] = useState(4);
+  const [animationLeadSeconds, setAnimationLeadSeconds] = useState(0);
   const [frameRate, setFrameRate] = useState(30);
   const [encoder, setEncoder] = useState('libx264');
   const [typewriterEnabled, setTypewriterEnabled] = useState(true);
@@ -349,6 +595,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     titleColor: '#ffffff',
     bodyColor: '#f8fafc',
     panelColor: '#111827',
+    titleAnimation: 'fade',
+    bodyAnimation: 'typewriter',
   });
   const [status, setStatus] = useState<RenderStatus>('idle');
   const [progress, setProgress] = useState('');
@@ -361,6 +609,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [savedPath, setSavedPath] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
+  const previewDrawIdRef = useRef(0);
 
   const nodeById = useMemo(() => new Map(orderedNodes.map(node => [node.id, node])), [orderedNodes]);
   const timelineNodes = useMemo(() => timelineIds.map(id => nodeById.get(id)).filter(Boolean) as FlowNode[], [nodeById, timelineIds]);
@@ -369,6 +619,16 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const resolution = RESOLUTION_OPTIONS[resolutionIndex] || RESOLUTION_OPTIONS[0];
   const isZh = language === 'zh';
   const fallbackEstimatedSeconds = selectedNodes.length * defaultSeconds / speed;
+  const assetRegionOptions = useMemo(() => getAssetRegionOptions(nodes, isZh), [nodes, isZh]);
+  const nodeRegionById = useMemo(() => {
+    const entries = orderedNodes.map(node => [node.id, getStoryNodeRegion(node, nodes)] as const);
+    return new Map(entries);
+  }, [orderedNodes, nodes]);
+  const visibleAssetNodes = useMemo(() => {
+    if (assetRegionFilter === 'all') return orderedNodes;
+    if (assetRegionFilter === 'outside') return orderedNodes.filter(node => !nodeRegionById.get(node.id));
+    return orderedNodes.filter(node => nodeRegionById.get(node.id)?.id === assetRegionFilter);
+  }, [assetRegionFilter, orderedNodes, nodeRegionById]);
 
   React.useEffect(() => {
     const validIds = new Set(orderedNodes.map(node => node.id));
@@ -380,6 +640,13 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setSelectedIds(prev => new Set([...prev].filter(id => validIds.has(id))));
     setActivePreviewId(prev => (prev && validIds.has(prev) ? prev : orderedNodes[0]?.id || ''));
   }, [orderedNodes]);
+
+  React.useEffect(() => {
+    if (assetRegionFilter === 'all' || assetRegionFilter === 'outside') return;
+    if (!assetRegionOptions.some(option => option.id === assetRegionFilter)) {
+      setAssetRegionFilter('all');
+    }
+  }, [assetRegionFilter, assetRegionOptions]);
 
   React.useEffect(() => {
     setPreviewTime(0);
@@ -507,6 +774,63 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setProgressValue(percent);
   };
 
+  const getNodeRenderDuration = async (node: FlowNode) => {
+    const videoUrl = node.data?.videoUrl as string | undefined;
+    const audioUrl = node.data?.audioUrl as string | undefined;
+    if (videoUrl) {
+      try {
+        const video = await loadVideo(videoUrl);
+        return (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : defaultSeconds) / speed;
+      } catch {
+        return defaultSeconds / speed;
+      }
+    }
+    const audioDuration = audioUrl ? await getAudioDuration(audioUrl) : 0;
+    return (audioDuration > 0 ? audioDuration : defaultSeconds) / speed;
+  };
+
+  const renderStaticFramesWithFfmpeg = async () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) throw new Error(isZh ? '预览画布不可用。' : 'Preview canvas is unavailable.');
+
+    const { invoke } = await import('@tauri-apps/api/core');
+    canvas.width = resolution.width;
+    canvas.height = resolution.height;
+
+    const frames: RenderedFramePayload[] = [];
+    const audioSegments: SegmentRenderInfo[] = [];
+    for (let index = 0; index < selectedNodes.length; index += 1) {
+      const node = selectedNodes[index];
+      const durationSecs = await getNodeRenderDuration(node);
+      updateProgress(isZh ? '生成图片帧' : 'Rendering still frames', index + 1, selectedNodes.length + 2);
+      await drawFrame(ctx, node, resolution.width, resolution.height, undefined, undefined, undefined, true);
+      frames.push({
+        bytes: await canvasToPngBytes(canvas),
+        durationSecs,
+      });
+      audioSegments.push({
+        node,
+        durationSecs,
+        audioUrl: node.data?.audioUrl as string | undefined,
+        videoUrl: node.data?.videoUrl as string | undefined,
+      });
+    }
+
+    updateProgress(isZh ? '合成音频轨' : 'Mixing audio track', selectedNodes.length + 1, selectedNodes.length + 2);
+    const audioBytes = await buildAudioTrack(audioSegments, speed);
+    updateProgress(isZh ? '调用 FFmpeg 导出' : 'Exporting with FFmpeg', selectedNodes.length + 2, selectedNodes.length + 2);
+    const result = await invoke<TauriRenderSaveResult>('save_rendered_frames', {
+      fileName: `galwriter-render-${Date.now()}`,
+      format: exportFormat,
+      frames,
+      audioBytes,
+      outputDir,
+      videoBitrate: DEFAULT_VIDEO_BITRATE,
+    });
+    setSavedPath(result.path);
+  };
+
   const writeZipAssetsToSession = async (zip: JSZip, workDir: string, invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) => {
     const assetFiles = Object.values(zip.files).filter(file => !file.dir && file.name.startsWith('assets/'));
     for (let fileIndex = 0; fileIndex < assetFiles.length; fileIndex += 1) {
@@ -565,7 +889,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       defaultSeconds,
       outputDir,
       encoder,
-      typewriter: typewriterEnabled,
+      typewriter: renderStyle.bodyAnimation === 'typewriter',
       textStyle: {
         titleFontSize: renderStyle.titleFontSize,
         bodyFontSize: renderStyle.bodyFontSize,
@@ -579,32 +903,75 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
   };
 
+  const revealLines = (lines: string[], visibleChars: number) => {
+    let remaining = visibleChars;
+    return lines.map(line => {
+      if (remaining <= 0) return '';
+      const shown = line.slice(0, remaining);
+      remaining -= line.length;
+      return shown;
+    });
+  };
+
+  const animatedTextState = (animation: TextAnimation, lines: string[], elapsed?: number, duration?: number, forceFinal = false) => {
+    if (forceFinal || !elapsed || !duration || animation === 'none') {
+      return { lines, alpha: 1, offsetY: 0 };
+    }
+
+    const animationDuration = Math.max(0.1, duration - animationLeadSeconds);
+    const progress = Math.min(1, Math.max(0, elapsed / animationDuration));
+    if (animation === 'fade') {
+      return { lines, alpha: progress, offsetY: 0 };
+    }
+    if (animation === 'slideUp') {
+      return { lines, alpha: progress, offsetY: (1 - progress) * 28 };
+    }
+
+    const totalChars = lines.reduce((sum, line) => sum + line.length, 0);
+    return {
+      lines: revealLines(lines, Math.ceil(totalChars * progress)),
+      alpha: 1,
+      offsetY: 0,
+    };
+  };
+
   const drawFrame = async (
     ctx: CanvasRenderingContext2D,
     node: FlowNode,
     width: number,
     height: number,
     media?: { source: CanvasImageSource; width: number; height: number },
+    elapsed?: number,
+    duration?: number,
+    forceFinalText = false,
   ) => {
     const title = htmlToSpeechText(String(node.data?.title || ''));
     const body = htmlToSpeechText(String(node.data?.text || ''));
+    const imageUrl = !media ? node.data?.imageUrl as string | undefined : undefined;
+    let image: HTMLImageElement | undefined;
+    let imageFailed = false;
+
+    if (imageUrl) {
+      try {
+        image = await loadCachedImage(imageUrl);
+      } catch {
+        imageFailed = true;
+      }
+    }
 
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, width, height);
 
     if (media) {
       drawCoverImage(ctx, media.source, media.width || width, media.height || height, width, height);
+    } else if (image) {
+      drawCoverImage(ctx, image, image.naturalWidth || width, image.naturalHeight || height, width, height);
+    } else if (imageFailed) {
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(0, 0, width, height);
     } else {
-      const imageUrl = node.data?.imageUrl as string | undefined;
-      if (imageUrl) {
-        try {
-          const image = await loadImage(imageUrl);
-          drawCoverImage(ctx, image, image.naturalWidth || width, image.naturalHeight || height, width, height);
-        } catch {
-          ctx.fillStyle = '#1f2937';
-          ctx.fillRect(0, 0, width, height);
-        }
-      }
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, width, height);
     }
 
     const gradient = ctx.createLinearGradient(0, height * 0.45, 0, height);
@@ -636,18 +1003,26 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     ctx.shadowBlur = 12;
     ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
     ctx.fillStyle = renderStyle.titleColor;
-    titleLines.forEach(line => {
-      ctx.fillText(line, margin, y);
+    const titleState = animatedTextState(renderStyle.titleAnimation, titleLines, elapsed, duration, forceFinalText);
+    ctx.save();
+    ctx.globalAlpha = titleState.alpha;
+    titleState.lines.forEach(line => {
+      ctx.fillText(line, margin, y + titleState.offsetY);
       y += titleLineHeight;
     });
+    ctx.restore();
 
     if (bodyLines.length) y += Math.round(bodySize * 0.6);
     ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
     ctx.fillStyle = renderStyle.bodyColor;
-    bodyLines.forEach(line => {
-      ctx.fillText(line, margin, y);
+    const bodyState = animatedTextState(renderStyle.bodyAnimation, bodyLines, elapsed, duration, forceFinalText);
+    ctx.save();
+    ctx.globalAlpha = bodyState.alpha;
+    bodyState.lines.forEach(line => {
+      ctx.fillText(line, margin, y + bodyState.offsetY);
       y += bodyLineHeight;
     });
+    ctx.restore();
     ctx.shadowBlur = 0;
   };
 
@@ -685,6 +1060,14 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       canvas.width = resolution.width;
       canvas.height = resolution.height;
 
+      if (shouldUseTauriExport && exportFormat !== 'webm' && selectedNodes.every(node => !node.data?.videoUrl)) {
+        await renderStaticFramesWithFfmpeg();
+        setStatus('done');
+        setProgressValue(100);
+        setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
+        return;
+      }
+
       const videoStream = canvas.captureStream(frameRate);
       const audioContext = new AudioContext();
       const audioDestination = audioContext.createMediaStreamDestination();
@@ -719,11 +1102,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           const renderStart = performance.now();
           const durationMs = Math.max(500, ((video.duration || defaultSeconds) / speed) * 1000);
           while (performance.now() - renderStart < durationMs) {
+            const elapsedSecs = (performance.now() - renderStart) / 1000;
             await drawFrame(ctx, node, resolution.width, resolution.height, {
               source: video,
               width: video.videoWidth || resolution.width,
               height: video.videoHeight || resolution.height,
-            });
+            }, elapsedSecs, durationMs / 1000);
             await wait(1000 / 30);
           }
           video.pause();
@@ -731,23 +1115,30 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           continue;
         }
 
-        await drawFrame(ctx, node, resolution.width, resolution.height);
+        let audio: HTMLAudioElement | undefined;
+        let audioSource: MediaElementAudioSourceNode | undefined;
+        let durationMs = Math.max(500, (defaultSeconds / speed) * 1000);
 
         if (audioUrl) {
-          const audio = new Audio(audioUrl);
+          audio = new Audio(audioUrl);
           audio.crossOrigin = 'anonymous';
           audio.playbackRate = speed;
-          const source = audioContext.createMediaElementSource(audio);
-          source.connect(audioDestination);
-          source.connect(audioContext.destination);
-          await audio.play();
+          audioSource = audioContext.createMediaElementSource(audio);
+          audioSource.connect(audioDestination);
+          audioSource.connect(audioContext.destination);
           const duration = await getAudioDuration(audioUrl);
-          await wait(Math.max(400, (duration / speed) * 1000));
-          audio.pause();
-          source.disconnect();
-        } else {
-          await wait(Math.max(500, (defaultSeconds / speed) * 1000));
+          durationMs = Math.max(400, (duration / speed) * 1000);
+          await audio.play();
         }
+
+        const renderStart = performance.now();
+        while (performance.now() - renderStart < durationMs) {
+          await drawFrame(ctx, node, resolution.width, resolution.height, undefined, (performance.now() - renderStart) / 1000, durationMs / 1000);
+          await wait(1000 / frameRate);
+        }
+
+        if (audio) audio.pause();
+        if (audioSource) audioSource.disconnect();
       }
 
       recorder.stop();
@@ -823,27 +1214,36 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     let cancelled = false;
-    canvas.width = resolution.width;
-    canvas.height = resolution.height;
+    if (canvas.width !== resolution.width) canvas.width = resolution.width;
+    if (canvas.height !== resolution.height) canvas.height = resolution.height;
 
     const drawPreview = async () => {
+      const drawId = ++previewDrawIdRef.current;
       const videoUrl = activePreviewNode.data?.videoUrl as string | undefined;
       if (videoUrl) {
         try {
-          const video = await loadVideo(videoUrl);
+          if (previewVideoRef.current?.url !== videoUrl) {
+            previewVideoRef.current?.video.pause();
+            previewVideoRef.current = { url: videoUrl, video: await loadVideo(videoUrl) };
+          }
+          const video = previewVideoRef.current.video;
           await seekVideo(video, previewTime);
-          if (cancelled) return;
+          if (cancelled || drawId !== previewDrawIdRef.current) return;
           await drawFrame(ctx, activePreviewNode, resolution.width, resolution.height, {
             source: video,
             width: video.videoWidth || resolution.width,
             height: video.videoHeight || resolution.height,
-          });
+          }, previewTime, previewDuration);
           return;
         } catch {
           if (cancelled) return;
         }
+      } else if (previewVideoRef.current) {
+        previewVideoRef.current.video.pause();
+        previewVideoRef.current = null;
       }
-      await drawFrame(ctx, activePreviewNode, resolution.width, resolution.height);
+      if (cancelled || drawId !== previewDrawIdRef.current) return;
+      await drawFrame(ctx, activePreviewNode, resolution.width, resolution.height, undefined, previewTime, previewDuration);
     };
 
     drawPreview().catch(() => {
@@ -854,7 +1254,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     return () => {
       cancelled = true;
     };
-  }, [activePreviewNode, previewTime, resolution.width, resolution.height, renderStyle, status]);
+  }, [activePreviewNode, previewTime, resolution.width, resolution.height, renderStyle, animationLeadSeconds, status]);
 
   React.useEffect(() => {
     if (!previewPlaying || status === 'rendering') return;
@@ -896,43 +1296,68 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   };
 
   return (
-    <div className="fixed inset-0 z-[350] bg-[#0b1020] text-slate-100">
-      <div className="h-full w-full grid grid-rows-[56px_minmax(0,1fr)_230px]">
-        <header className="h-14 px-4 border-b border-white/10 bg-[#111827] flex items-center justify-between">
+    <div className="video-render-workspace fixed inset-0 z-[350] bg-[var(--vr-bg)] text-[var(--vr-text)]">
+      <div className="h-full w-full grid grid-rows-[56px_minmax(0,1fr)_250px]">
+        <header className="h-14 px-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 backdrop-blur-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-200">
+            <div className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] border border-[var(--vr-border)] flex items-center justify-center text-[var(--vr-accent-strong)]">
               <Film className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-black truncate">{isZh ? '渲染剧本视频' : 'Render Script Video'}</h2>
-              <p className="text-[11px] text-slate-400 truncate">{isZh ? '素材、预览、导出和时间线集中在一个全屏工作台。' : 'Assets, preview, export and timeline in a full-screen workspace.'}</p>
+              <p className="text-[11px] text-[var(--vr-text-muted)] truncate">{isZh ? '素材、预览、导出和时间线集中在一个全屏工作台。' : 'Assets, preview, export and timeline in a full-screen workspace.'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10" title={isZh ? '关闭' : 'Close'}>
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={renderVideo}
+              disabled={status === 'rendering' || selectedNodes.length === 0}
+              className="h-9 px-3 rounded-lg bg-[var(--vr-accent)] text-white text-xs font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] hover:brightness-105 shadow-sm"
+              title={isZh ? '一键导出视频' : 'Export Video'}
+            >
+              {status === 'rendering' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span className="hidden sm:inline">{status === 'rendering' ? (isZh ? '渲染中...' : 'Rendering...') : (isZh ? '一键导出视频' : 'Export Video')}</span>
+            </button>
+            <button onClick={onClose} className="p-2 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]" title={isZh ? '关闭' : 'Close'}>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
-        <main className="min-h-0 grid grid-cols-[280px_minmax(420px,1fr)_340px] bg-[#0b1020]">
-          <aside className="min-h-0 border-r border-white/10 bg-[#111827] flex flex-col">
-            <div className="h-12 px-4 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-300">
-                <Layers className="w-4 h-4 text-sky-300" />
+        <main className="min-h-0 grid grid-cols-[320px_minmax(440px,1fr)_380px] bg-[var(--vr-bg)]">
+          <aside className="min-h-0 border-r border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
+            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+                <Layers className="w-4 h-4 text-[var(--vr-accent)]" />
                 {isZh ? '素材卡片' : 'Asset Cards'}
               </div>
-              <span className="text-[11px] text-slate-500">{orderedNodes.length}</span>
+              <span className="text-[11px] text-[var(--vr-text-muted)]">{visibleAssetNodes.length}/{orderedNodes.length}</span>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
-              {orderedNodes.map((node, index) => (
+            <div className="px-3 py-2 border-b border-[var(--vr-border)]">
+              <select
+                value={assetRegionFilter}
+                onChange={event => setAssetRegionFilter(event.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-xs font-bold text-[var(--vr-text)]"
+              >
+                {assetRegionOptions.map(option => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
+              {visibleAssetNodes.map((node) => {
+                const originalIndex = orderedNodes.findIndex(item => item.id === node.id);
+                const region = nodeRegionById.get(node.id);
+                return (
                 <div
                   key={node.id}
                   draggable
                   onDragStart={event => handleAssetDragStart(event, node.id)}
                   onClick={() => setActivePreviewId(node.id)}
-                  className={`group cursor-grab active:cursor-grabbing rounded-lg border p-2.5 transition-all ${activePreviewNode?.id === node.id ? 'border-sky-400 bg-sky-400/10' : 'border-white/10 bg-white/[0.04] hover:border-sky-400/50 hover:bg-white/[0.07]'}`}
+                  className={`group cursor-grab active:cursor-grabbing rounded-lg border p-2.5 transition-all ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
                 >
                   <div className="flex gap-3">
-                    <div className="relative w-20 h-14 rounded-md overflow-hidden bg-slate-950 border border-white/10 shrink-0 flex items-center justify-center text-slate-400">
+                    <div className="relative w-20 h-14 rounded-md overflow-hidden bg-black border border-[var(--vr-border)] shrink-0 flex items-center justify-center text-[var(--vr-text-muted)]">
                       {node.data?.imageUrl ? (
                         <img src={node.data.imageUrl as string} alt="" className="w-full h-full object-cover" />
                       ) : node.data?.videoUrl ? (
@@ -940,42 +1365,53 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       ) : (
                         mediaIcon(node, 'w-5 h-5')
                       )}
-                      <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-black text-white">{index + 1}</span>
+                      <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-black text-white">{originalIndex + 1}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-400">
+                      <div className="flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text-muted)]">
                         {mediaIcon(node, 'w-3.5 h-3.5')}
                         <span>{mediaKind(node).toUpperCase()}</span>
                       </div>
-                      <div className="mt-1 text-xs font-black text-slate-100 truncate">{segmentTitle(node)}</div>
-                      <div className="mt-1 text-[11px] text-slate-500 truncate">{segmentText(node) || (isZh ? '无正文' : 'No body text')}</div>
+                      <div className="mt-1 text-xs font-black text-[var(--vr-text)] truncate">{segmentTitle(node)}</div>
+                      <div className="mt-1 text-[11px] text-[var(--vr-text-muted)] truncate">
+                        {region ? `${region.type === 'dynamicGroup' ? (isZh ? '包裹' : 'Wrap') : (isZh ? '背景' : 'Background')} · ${region.label}` : (segmentText(node) || (isZh ? '无正文' : 'No body text'))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              {visibleAssetNodes.length === 0 && (
+                <div className="rounded-lg border border-dashed border-[var(--vr-border-strong)] px-3 py-8 text-center text-xs font-bold text-[var(--vr-text-muted)]">
+                  {isZh ? '这个区域里暂无可渲染卡片' : 'No renderable cards in this region'}
+                </div>
+              )}
             </div>
           </aside>
 
-          <section className="min-h-0 bg-[#090d19] flex flex-col">
-            <div className="h-12 px-4 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-300">
-                <Play className="w-4 h-4 text-emerald-300" />
+          <section className="min-h-0 bg-[var(--vr-surface-soft)] flex flex-col">
+            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+                <Play className="w-4 h-4 text-[var(--vr-accent)]" />
                 {isZh ? '测试预览窗口' : 'Preview Monitor'}
               </div>
-              <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
+              <div className="flex items-center gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
                 <span>{resolution.label}</span>
                 <span>{frameRate} fps</span>
               </div>
             </div>
-            <div className="min-h-0 flex-1 p-6 flex items-center justify-center">
-              <div className="w-full max-w-5xl">
-                <div className="relative rounded-lg bg-black border border-white/10 shadow-2xl overflow-hidden">
-                  <canvas ref={canvasRef} className="w-full aspect-video block bg-black" />
+            <div className="min-h-0 flex-1 p-4 xl:p-5">
+              <div className="h-full min-h-0 grid grid-rows-[minmax(0,1fr)_auto] gap-3">
+                <div className="min-h-0 flex items-center justify-center">
+                  <div className="relative h-full max-h-full max-w-full aspect-video rounded-lg bg-black border border-[var(--vr-border-strong)] overflow-hidden" style={{ boxShadow: 'var(--vr-shadow)' }}>
+                    <canvas ref={canvasRef} className="w-full h-full block bg-black" />
                   <div className="absolute left-3 top-3 rounded bg-black/55 px-2 py-1 text-[11px] font-black text-white">
                     {activePreviewNode ? segmentTitle(activePreviewNode) : (isZh ? '暂无预览' : 'No preview')}
                   </div>
+                  </div>
                 </div>
-                <div className="mt-3 rounded-lg border border-white/10 bg-[#111827] px-3 py-2 flex items-center gap-3">
+                <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -983,36 +1419,38 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       setPreviewPlaying(prev => !prev);
                     }}
                     disabled={!activePreviewNode || status === 'rendering'}
-                    className="w-9 h-9 rounded-lg bg-white/10 text-white flex items-center justify-center hover:bg-white/15 disabled:opacity-40"
+                    className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
                     title={previewPlaying ? (isZh ? '暂停预览' : 'Pause preview') : (isZh ? '播放预览' : 'Play preview')}
                   >
                     {previewPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </button>
-                  <span className="w-12 text-right text-[11px] font-bold text-slate-400">{formatSeconds(previewTime)}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max={Math.max(0.1, previewDuration)}
-                    step="0.05"
-                    value={Math.min(previewTime, previewDuration)}
-                    onChange={event => {
-                      setPreviewPlaying(false);
-                      setPreviewTime(Math.max(0, Number(event.target.value) || 0));
-                    }}
-                    className="min-w-0 flex-1 accent-sky-400"
-                  />
-                  <span className="w-12 text-[11px] font-bold text-slate-400">{formatSeconds(previewDuration)}</span>
+                    <div className="min-w-0 flex-1">
+                      <RangeControl
+                        label={isZh ? '预览位置' : 'Preview position'}
+                        min={0}
+                        max={Math.max(0.1, previewDuration)}
+                        step={0.05}
+                        value={Math.min(previewTime, previewDuration)}
+                        valueLabel={`${formatSeconds(previewTime)} / ${formatSeconds(previewDuration)}`}
+                        disabled={!activePreviewNode || status === 'rendering'}
+                        onChange={nextValue => {
+                          setPreviewPlaying(false);
+                          setPreviewTime(Math.max(0, nextValue || 0));
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <aside className="min-h-0 border-l border-white/10 bg-[#111827] flex flex-col">
-            <div className="h-12 px-4 border-b border-white/10 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-300">
-              <Settings className="w-4 h-4 text-amber-300" />
+          <aside className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
+            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+              <Settings className="w-4 h-4 text-[var(--vr-accent)]" />
               {isZh ? '导出设置' : 'Export Settings'}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
             {false && isTauriRuntime() && exportFormat !== 'webm' && (
               <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3 space-y-3">
                 <input
@@ -1041,91 +1479,127 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               </div>
             )}
             <div className="space-y-3">
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '分辨率' : 'Resolution'}</span>
-                <select value={resolutionIndex} onChange={e => setResolutionIndex(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100">
-                  {RESOLUTION_OPTIONS.map((option, index) => <option key={option.label} value={index}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '导出格式' : 'Export format'}</span>
-                <select value={exportFormat} onChange={e => setExportFormat(e.target.value as ExportFormat)} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100">
-                  {EXPORT_FORMAT_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '播放倍速' : 'Playback speed'}</span>
-                <div className="px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10">
-                  <div className="flex items-center justify-between text-sm font-bold text-slate-100">
-                    <span>{speed.toFixed(2)}x</span>
-                    <span>{isZh ? `预计 ${formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}` : `Est. ${formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}`}</span>
-                  </div>
-                  <input type="range" min="0.25" max="3" step="0.25" value={speed} onChange={e => setSpeed(Math.max(0.25, Number(e.target.value) || 1))} className="w-full accent-sky-400" />
-                </div>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '视频帧率' : 'Frame rate'}</span>
-                <select value={frameRate} onChange={e => setFrameRate(Number(e.target.value) || 30)} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100">
-                  {FRAME_RATE_OPTIONS.map(option => <option key={option} value={option}>{option} fps</option>)}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? 'GPU/编码器' : 'GPU / Encoder'}</span>
-                <select value={encoder} onChange={e => setEncoder(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100">
-                  {ENCODER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '无音频片段停留秒数' : 'Seconds for segments without audio'}</span>
-                <input type="number" min="1" max="30" step="1" value={defaultSeconds} onChange={e => setDefaultSeconds(Math.max(1, Number(e.target.value) || 4))} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '标题字号' : 'Title size'}</span>
-                <input type="number" min="18" max="120" step="2" value={renderStyle.titleFontSize} onChange={e => updateRenderStyle('titleFontSize', Math.max(18, Number(e.target.value) || 56))} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '正文字号' : 'Body size'}</span>
-                <input type="number" min="16" max="96" step="2" value={renderStyle.bodyFontSize} onChange={e => updateRenderStyle('bodyFontSize', Math.max(16, Number(e.target.value) || 38))} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100" />
-              </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-2">
-                  <span className="text-xs font-black text-slate-300">{isZh ? '标题' : 'Title'}</span>
-                  <input type="color" value={renderStyle.titleColor} onChange={e => updateRenderStyle('titleColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[#0b1020] border border-white/10" />
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '分辨率' : 'Resolution'}</span>
+                  <select value={resolutionIndex} onChange={e => setResolutionIndex(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {RESOLUTION_OPTIONS.map((option, index) => <option key={option.label} value={index}>{option.label}</option>)}
+                  </select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-xs font-black text-slate-300">{isZh ? '正文' : 'Body'}</span>
-                  <input type="color" value={renderStyle.bodyColor} onChange={e => updateRenderStyle('bodyColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[#0b1020] border border-white/10" />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-black text-slate-300">{isZh ? '底色' : 'Panel'}</span>
-                  <input type="color" value={renderStyle.panelColor} onChange={e => updateRenderStyle('panelColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[#0b1020] border border-white/10" />
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '导出格式' : 'Export format'}</span>
+                  <select value={exportFormat} onChange={e => setExportFormat(e.target.value as ExportFormat)} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {EXPORT_FORMAT_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <label className="space-y-2">
-                <span className="text-xs font-black text-slate-300">{isZh ? '保存位置' : 'Save location'}</span>
-                <input type="text" value={outputDir} onChange={e => setOutputDir(e.target.value)} placeholder={isZh ? '默认保存到系统下载目录' : 'Defaults to Downloads'} className="w-full px-3 py-2 rounded-lg bg-[#0b1020] border border-white/10 text-sm text-slate-100" />
+                <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '播放倍速' : 'Playback speed'}</span>
+                <div className="px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]">
+                  <RangeControl
+                    label={isZh ? '速度' : 'Speed'}
+                    min={0.25}
+                    max={3}
+                    step={0.25}
+                    value={speed}
+                    valueLabel={`${speed.toFixed(2)}x · ${isZh ? '预计' : 'Est.'} ${formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}`}
+                    onChange={nextValue => setSpeed(Math.max(0.25, nextValue || 1))}
+                  />
+                </div>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '视频帧率' : 'Frame rate'}</span>
+                  <select value={frameRate} onChange={e => setFrameRate(Number(e.target.value) || 30)} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {FRAME_RATE_OPTIONS.map(option => <option key={option} value={option}>{option} fps</option>)}
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '编码器' : 'Encoder'}</span>
+                  <select value={encoder} onChange={e => setEncoder(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {ENCODER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '无音频停留秒数' : 'No-audio hold'}</span>
+                  <input type="number" min="1" max="30" step="1" value={defaultSeconds} onChange={e => setDefaultSeconds(Math.max(1, Number(e.target.value) || 4))} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]" />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '提前完成动画(秒)' : 'Finish animation early'}</span>
+                  <input type="number" min="0" max="30" step="0.1" value={animationLeadSeconds} onChange={e => setAnimationLeadSeconds(Math.max(0, Number(e.target.value) || 0))} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]" />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '标题字号' : 'Title size'}</span>
+                  <DragSizeControl
+                    label={isZh ? '拖动调整标题字号，单击输入精确数字' : 'Drag to adjust title size, click to type an exact value'}
+                    value={renderStyle.titleFontSize}
+                    min={18}
+                    max={120}
+                    step={1}
+                    onChange={nextValue => updateRenderStyle('titleFontSize', nextValue)}
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '标题动画' : 'Title animation'}</span>
+                  <select value={renderStyle.titleAnimation} onChange={e => updateRenderStyle('titleAnimation', e.target.value as TextAnimation)} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {TEXT_ANIMATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{isZh ? option.zh : option.en}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '正文字号' : 'Body size'}</span>
+                  <DragSizeControl
+                    label={isZh ? '拖动调整正文字号，单击输入精确数字' : 'Drag to adjust body size, click to type an exact value'}
+                    value={renderStyle.bodyFontSize}
+                    min={16}
+                    max={96}
+                    step={1}
+                    onChange={nextValue => updateRenderStyle('bodyFontSize', nextValue)}
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '正文动画' : 'Body animation'}</span>
+                  <select value={renderStyle.bodyAnimation} onChange={e => updateRenderStyle('bodyAnimation', e.target.value as TextAnimation)} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]">
+                    {TEXT_ANIMATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{isZh ? option.zh : option.en}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '标题' : 'Title'}</span>
+                  <input type="color" value={renderStyle.titleColor} onChange={e => updateRenderStyle('titleColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]" />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '正文' : 'Body'}</span>
+                  <input type="color" value={renderStyle.bodyColor} onChange={e => updateRenderStyle('bodyColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]" />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '底色' : 'Panel'}</span>
+                  <input type="color" value={renderStyle.panelColor} onChange={e => updateRenderStyle('panelColor', e.target.value)} className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]" />
+                </label>
+              </div>
+              <label className="space-y-2">
+                <span className="text-xs font-black text-[var(--vr-text-soft)]">{isZh ? '保存位置' : 'Save location'}</span>
+                <input type="text" value={outputDir} onChange={e => setOutputDir(e.target.value)} placeholder={isZh ? '默认保存到系统下载目录' : 'Defaults to Downloads'} className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]" />
               </label>
             </div>
-            <button
-              onClick={renderVideo}
-              disabled={status === 'rendering' || selectedNodes.length === 0}
-              className="w-full py-3 rounded-lg bg-sky-400 text-slate-950 text-sm font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] hover:bg-sky-300"
-            >
-              {status === 'rendering' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {status === 'rendering' ? (isZh ? '渲染中...' : 'Rendering...') : (isZh ? '一键导出视频' : 'Export Video')}
-            </button>
             {(progress || error) && (
               <div className="space-y-2">
                 {!error && (
-                  <div className="h-2 rounded-full bg-black/30 border border-white/10 overflow-hidden">
-                    <div className="h-full bg-sky-400 transition-all" style={{ width: `${progressValue}%` }} />
+                  <div className="h-2 rounded-full bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] overflow-hidden">
+                    <div className="h-full bg-[var(--vr-accent)] transition-all" style={{ width: `${progressValue}%` }} />
                   </div>
                 )}
-                <p className={`text-xs font-bold ${error ? 'text-rose-400' : 'text-slate-400'}`}>
+                <p className={`text-xs font-bold ${error ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--vr-text-muted)]'}`}>
                   {error || progress}
                 </p>
               </div>
@@ -1139,17 +1613,17 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           </aside>
         </main>
 
-        <section className="min-h-0 border-t border-white/10 bg-[#111827] grid grid-rows-[44px_minmax(0,1fr)]">
-          <div className="px-4 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-300">
-              <Clock className="w-4 h-4 text-fuchsia-300" />
+        <section className="min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)]">
+          <div className="px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+              <Clock className="w-4 h-4 text-[var(--vr-accent)]" />
               {isZh ? '视频编辑时间线' : 'Editing Timeline'}
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setSelectedIds(new Set(timelineIds))} className="px-3 py-1.5 text-xs font-black rounded-lg bg-white/10 text-slate-200 hover:bg-white/15">
+              <button onClick={() => setSelectedIds(new Set(timelineIds))} className="px-3 py-1.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]">
                 {isZh ? '全选轨道' : 'All tracks'}
               </button>
-              <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 text-xs font-black rounded-lg bg-white/10 text-slate-200 hover:bg-white/15">
+              <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]">
                 {isZh ? '静音全部' : 'Disable all'}
               </button>
             </div>
@@ -1164,7 +1638,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           >
             <div className="min-w-max space-y-3">
               <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                <div className="text-[11px] font-black text-slate-500">{isZh ? '视频轨' : 'Video'}</div>
+                <div className="text-[11px] font-black text-[var(--vr-text-muted)]">{isZh ? '视频轨' : 'Video'}</div>
                 <div className="flex items-stretch gap-2">
                   {timelineNodes.map((node, index) => {
                     const enabled = selectedIds.has(node.id);
@@ -1181,10 +1655,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                         }}
                         onDrop={event => handleTimelineDrop(event, node.id)}
                         onClick={() => setActivePreviewId(node.id)}
-                        className={`${widthClass} h-20 rounded-lg border p-2 shrink-0 cursor-grab active:cursor-grabbing transition-all ${enabled ? 'border-sky-400/70 bg-sky-400/12' : 'border-white/10 bg-white/[0.03] opacity-55'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-sky-300/50' : ''}`}
+                        className={`${widthClass} h-20 rounded-lg border p-2 shrink-0 cursor-grab active:cursor-grabbing transition-all ${enabled ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] opacity-60'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-accent)]/35' : ''}`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-black text-slate-400">#{index + 1}</span>
+                          <span className="text-[10px] font-black text-[var(--vr-text-muted)]">#{index + 1}</span>
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
@@ -1193,44 +1667,44 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                                 removeTimelineNode(node.id);
                               }}
                               onDragStart={event => event.preventDefault()}
-                              className="w-5 h-5 rounded text-slate-500 hover:text-rose-300 hover:bg-rose-400/10 flex items-center justify-center"
+                              className="w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
                               title={isZh ? '从时间线删除' : 'Remove from timeline'}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <GripVertical className="w-3.5 h-3.5 text-slate-500" />
+                            <GripVertical className="w-3.5 h-3.5 text-[var(--vr-text-muted)]" />
                           </div>
                         </div>
-                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-slate-200">
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text)]">
                           {mediaIcon(node, 'w-3.5 h-3.5')}
                           <span className="truncate">{segmentTitle(node)}</span>
                         </div>
-                        <div className="mt-1 text-[10px] text-slate-500 truncate">{segmentDurationLabel(node)}</div>
+                        <div className="mt-1 text-[10px] text-[var(--vr-text-muted)] truncate">{segmentDurationLabel(node)}</div>
                       </div>
                     );
                   })}
                   {timelineNodes.length === 0 && (
-                    <div className="w-[520px] h-20 rounded-lg border border-dashed border-white/15 flex items-center justify-center text-xs font-bold text-slate-500">
+                    <div className="w-[520px] h-20 rounded-lg border border-dashed border-[var(--vr-border-strong)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]">
                       {isZh ? '把左侧素材拖到这里' : 'Drag assets here'}
                     </div>
                   )}
                 </div>
               </div>
               <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                <div className="text-[11px] font-black text-slate-500">{isZh ? '音频轨' : 'Audio'}</div>
+                <div className="text-[11px] font-black text-[var(--vr-text-muted)]">{isZh ? '音频轨' : 'Audio'}</div>
                 <div className="flex items-stretch gap-2">
                   {timelineNodes.map(node => (
                     <button
                       key={`${node.id}-audio`}
                       type="button"
                       onClick={() => toggleNode(node.id)}
-                      className={`h-12 rounded-lg border px-3 shrink-0 text-left transition-all ${node.data?.audioUrl || node.data?.videoUrl ? 'w-40' : 'w-32'} ${selectedIds.has(node.id) ? 'border-emerald-400/60 bg-emerald-400/10' : 'border-white/10 bg-white/[0.03] opacity-55'}`}
+                      className={`h-12 rounded-lg border px-3 shrink-0 text-left transition-all ${node.data?.audioUrl || node.data?.videoUrl ? 'w-40' : 'w-32'} ${selectedIds.has(node.id) ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] opacity-55'}`}
                     >
-                      <div className="flex items-center gap-2 text-[11px] font-black text-slate-200">
-                        <Music className="w-3.5 h-3.5 text-emerald-300" />
+                      <div className="flex items-center gap-2 text-[11px] font-black text-[var(--vr-text)]">
+                        <Music className="w-3.5 h-3.5 text-[var(--vr-accent)]" />
                         <span className="truncate">{node.data?.audioUrl || node.data?.videoUrl ? (isZh ? '关联音频' : 'Linked audio') : (isZh ? '默认停留' : 'Hold')}</span>
                       </div>
-                      <div className="mt-1 text-[10px] text-slate-500 truncate">{segmentDurationLabel(node)}</div>
+                      <div className="mt-1 text-[10px] text-[var(--vr-text-muted)] truncate">{segmentDurationLabel(node)}</div>
                     </button>
                   ))}
                 </div>

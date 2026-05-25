@@ -4,8 +4,9 @@ use std::{
   io::Write,
   path::{Path, PathBuf},
   process::Command,
+  time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WindowEvent};
 
 #[derive(serde::Serialize)]
 struct RenderSaveResult {
@@ -86,6 +87,39 @@ fn unique_path(dir: &Path, stem: &str, extension: &str) -> PathBuf {
   }
 
   candidate
+}
+
+fn powershell_encoded_command(script: &str) -> String {
+  let bytes: Vec<u8> = script
+    .encode_utf16()
+    .flat_map(|unit| unit.to_le_bytes())
+    .collect();
+  const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let mut encoded = String::new();
+
+  for chunk in bytes.chunks(3) {
+    let b0 = chunk[0];
+    let b1 = *chunk.get(1).unwrap_or(&0);
+    let b2 = *chunk.get(2).unwrap_or(&0);
+    encoded.push(TABLE[(b0 >> 2) as usize] as char);
+    encoded.push(TABLE[(((b0 & 0b0000_0011) << 4) | (b1 >> 4)) as usize] as char);
+    if chunk.len() > 1 {
+      encoded.push(TABLE[(((b1 & 0b0000_1111) << 2) | (b2 >> 6)) as usize] as char);
+    } else {
+      encoded.push('=');
+    }
+    if chunk.len() > 2 {
+      encoded.push(TABLE[(b2 & 0b0011_1111) as usize] as char);
+    } else {
+      encoded.push('=');
+    }
+  }
+
+  encoded
+}
+
+fn powershell_single_quoted(value: &str) -> String {
+  format!("'{}'", value.replace('\'', "''"))
 }
 
 fn escape_concat_path(path: &Path) -> String {
@@ -293,6 +327,67 @@ fn default_render_dir() -> Result<RenderSaveResult, String> {
   Ok(RenderSaveResult {
     path: dir.to_string_lossy().to_string(),
   })
+}
+
+#[tauri::command]
+fn synthesize_system_speech(text: String) -> Result<Vec<u8>, String> {
+  let input = text.trim();
+  if input.is_empty() {
+    return Err("No text to synthesize.".to_string());
+  }
+
+  let mut output_path = env::temp_dir();
+  let timestamp = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|err| format!("System clock error: {err}"))?
+    .as_millis();
+  output_path.push(format!("galwriter-system-tts-{timestamp}.wav"));
+
+  let text_json = serde_json::to_string(input).map_err(|err| format!("Failed to encode speech text: {err}"))?;
+  let path_json = serde_json::to_string(&output_path.to_string_lossy().to_string())
+    .map_err(|err| format!("Failed to encode speech path: {err}"))?;
+  let text_json_literal = powershell_single_quoted(&text_json);
+  let path_json_literal = powershell_single_quoted(&path_json);
+  let script = format!(
+    r#"
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Speech
+$text = ConvertFrom-Json -InputObject {text_json_literal}
+$path = ConvertFrom-Json -InputObject {path_json_literal}
+$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+try {{
+  $synth.SetOutputToWaveFile($path)
+  $synth.Speak($text)
+}} finally {{
+  $synth.Dispose()
+}}
+"#
+  );
+
+  let output = Command::new("powershell")
+    .arg("-NoProfile")
+    .arg("-NonInteractive")
+    .arg("-ExecutionPolicy")
+    .arg("Bypass")
+    .arg("-EncodedCommand")
+    .arg(powershell_encoded_command(&script))
+    .output()
+    .map_err(|err| format!("Failed to start Windows speech synthesizer: {err}"))?;
+
+  if !output.status.success() {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let _ = fs::remove_file(&output_path);
+    return Err(format!("System speech synthesis failed: {stderr}"));
+  }
+
+  let bytes = fs::read(&output_path).map_err(|err| format!("Failed to read synthesized audio: {err}"))?;
+  let _ = fs::remove_file(&output_path);
+  Ok(bytes)
+}
+
+#[tauri::command]
+fn force_quit_app(app: AppHandle) {
+  app.exit(0);
 }
 
 #[tauri::command]
@@ -966,8 +1061,16 @@ fn save_rendered_frames(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .on_window_event(|window, event| {
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        api.prevent_close();
+        let _ = window.minimize();
+      }
+    })
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
+      synthesize_system_speech,
+      force_quit_app,
       save_rendered_video,
       save_rendered_frames,
       create_render_session,

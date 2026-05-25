@@ -52,9 +52,9 @@ import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
 const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 const DEFAULT_IMAGE_SIZE = '2K';
-const DEFAULT_TTS_API_URL = 'https://api.openai.com/v1/audio/speech';
-const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts';
-const DEFAULT_TTS_VOICE = 'alloy';
+const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
+const DEFAULT_TTS_MODEL = '';
+const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const SEEDREAM_DIMENSION_SIZE = '2048x2048';
 const SEEDREAM_MIN_PIXELS = 3686400;
 
@@ -577,6 +577,7 @@ export function StoryEditor() {
   const [ttsApiUrl, setTtsApiUrl] = useState(DEFAULT_TTS_API_URL);
   const [ttsModel, setTtsModel] = useState(DEFAULT_TTS_MODEL);
   const [ttsVoice, setTtsVoice] = useState(DEFAULT_TTS_VOICE);
+  const [ttsProvider, setTtsProvider] = useState<'system' | 'youdao'>('system');
   const [ttsLoading, setTtsLoading] = useState(false);
   // NOTE: 'gemini' 使用 Google GenAI和deepseek' 使用 DeepSeek OpenAI 兼容接口
   const [aiProvider, setAiProvider] = useState<'gemini' | 'deepseek' | 'openai'>('deepseek');
@@ -757,7 +758,7 @@ export function StoryEditor() {
   // 这样无论右键框选后拖动画布、滚轮平移/缩放、MiniMap/Controls 改变视野，菜单都会跟着所选节点走。
   const selectedNodes = useMemo(() => nodes.filter(n => n.selected), [nodes]);
   const showSelectionMenu = selectedNodes.length >= 2;
-  const canRenderVideo = useMemo(() => isTauriRuntime(), []);
+  const canRenderVideo = true;
   const selectionMenuRef = useRef<HTMLDivElement>(null);
   const selectionBoundsRef = useRef<{ minX: number; minY: number; maxX: number } | null>(null);
   const selectionMenuRafRef = useRef<number | null>(null);
@@ -878,6 +879,7 @@ export function StoryEditor() {
       ttsApiUrl,
       ttsModel,
       ttsVoice,
+      ttsProvider,
       thinkingMode,
       aiPrompts,
       aiButtonsConfig,
@@ -903,7 +905,7 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -1534,8 +1536,11 @@ export function StoryEditor() {
           : `Generating narration ${index + 1}/${storyNodes.length}`);
 
         const audio = await generateSpeechAudio(speechText, {
+          provider: ttsProvider,
           apiUrl: ttsApiUrl,
           apiKey: ttsApiKey,
+          appKey: ttsModel,
+          appSecret: ttsApiKey,
           model: ttsModel,
           voice: ttsVoice,
         });
@@ -1557,7 +1562,7 @@ export function StoryEditor() {
     } finally {
       setTtsLoading(false);
     }
-  }, [nodes, language, setNodes, showToast, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsLoading]);
+  }, [nodes, language, setNodes, showToast, ttsProvider, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsLoading]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2075,7 +2080,6 @@ export function StoryEditor() {
               ...n.data,
               imageUrl: imageSrc,
               videoUrl: undefined,
-              audioUrl: undefined,
               objectFit: n.data.objectFit || 'cover',
               showTextOverlay: true,
               titleHeightAdded: showTitles,
@@ -2858,6 +2862,7 @@ export function StoryEditor() {
           if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
           if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
           if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
+          if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao') setTtsProvider(data.settings.ttsProvider);
           if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
           if (data.settings.aiPrompts) setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
           if (data.settings.aiButtonsConfig) setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
@@ -3538,13 +3543,21 @@ ${direction}
       const ny = node.position.y;
 
       // 寻找被覆盖的目标节点
-      const targetNode = nodes.find(n =>
-        n.id !== node.id &&
-        (n.type === 'storyNode' || n.type === 'aiNode') &&
-        !n.data.imageUrl && !n.data.videoUrl && !n.data.audioUrl &&
-        nx > n.position.x && nx < n.position.x + (n.measured?.width || 300) &&
-        ny > n.position.y && ny < n.position.y + (n.measured?.height || 200)
-      );
+      const sourceHasVisual = !!(node.data.imageUrl || node.data.videoUrl);
+      const sourceHasAudio = !!node.data.audioUrl;
+      const targetNode = nodes.find(n => {
+        const targetHasVisual = !!(n.data.imageUrl || n.data.videoUrl);
+        const targetHasAudio = !!n.data.audioUrl;
+        const canAttachMedia = !targetHasVisual && !targetHasAudio
+          || (sourceHasAudio && !targetHasAudio)
+          || (sourceHasVisual && !targetHasVisual);
+
+        return n.id !== node.id &&
+          (n.type === 'storyNode' || n.type === 'aiNode') &&
+          canAttachMedia &&
+          nx > n.position.x && nx < n.position.x + (n.measured?.width || 300) &&
+          ny > n.position.y && ny < n.position.y + (n.measured?.height || 200);
+      });
 
       if (targetNode) {
         if (targetNode.type === 'aiNode') {
@@ -3557,9 +3570,9 @@ ${direction}
         } else {
           // NOTE: 重构：当媒体拖入普通节点时，将其转换为原生媒体卡片格式
           handleUpdateNode(targetNode.id, {
-            imageUrl: node.data.imageUrl || undefined,
-            videoUrl: node.data.videoUrl || undefined,
-            audioUrl: node.data.audioUrl || undefined,
+            imageUrl: node.data.imageUrl || targetNode.data.imageUrl || undefined,
+            videoUrl: node.data.videoUrl || targetNode.data.videoUrl || undefined,
+            audioUrl: node.data.audioUrl || targetNode.data.audioUrl || undefined,
             showTextOverlay: true, // 保持文字可见
             // 自动增加高度以容纳媒体            
             style: {
@@ -3948,10 +3961,10 @@ ${direction}
             <button
               onClick={() => setShowVideoRender(true)}
               className="p-2 md:px-4 md:py-2 bg-sky-600 text-white text-sm font-bold rounded-md hover:bg-sky-700 flex items-center gap-2 shadow-sm transition-all active:scale-95"
-              title={language === 'zh' ? '渲染视频' : 'Render Video'}
+              title={language === 'zh' ? '一键导出视频' : 'Export Video'}
             >
               <Film className="w-4 h-4" />
-              {!isMobile && (language === 'zh' ? '渲染视频' : 'Render')}
+              {!isMobile && (language === 'zh' ? '一键导出视频' : 'Export Video')}
             </button>
           )}
 
@@ -4635,6 +4648,8 @@ ${direction}
           setImageSize={setImageSize}
           ttsApiKey={ttsApiKey}
           setTtsApiKey={setTtsApiKey}
+          ttsProvider={ttsProvider}
+          setTtsProvider={setTtsProvider}
           ttsApiUrl={ttsApiUrl}
           setTtsApiUrl={setTtsApiUrl}
           ttsModel={ttsModel}
@@ -4737,6 +4752,7 @@ ${direction}
                       if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
                       if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
                       if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
+                      if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao') setTtsProvider(data.settings.ttsProvider);
                       if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
                       if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
                       if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);

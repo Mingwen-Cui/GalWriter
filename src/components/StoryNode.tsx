@@ -621,6 +621,16 @@ export function StoryNode({ id, data, selected }: NodeProps) {
             </div>
           ) : null}
 
+          {audioUrl && (imageUrl || videoUrl) && (
+            <div className="w-full shrink-0 px-3 py-2 border-t border-[var(--card-border)]/30 bg-[var(--card-bg)]/85 backdrop-blur-sm nodrag">
+              {zoom < 0.3 ? (
+                <div className="text-center text-lg opacity-40">Audio</div>
+              ) : (
+                <audio src={audioUrl} controls preload="metadata" className="w-full h-8" />
+              )}
+            </div>
+          )}
+
 
           {showRichTextTools && (
             <div 

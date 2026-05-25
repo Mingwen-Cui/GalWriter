@@ -148,6 +148,7 @@ export function PlayTestModal({
     
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const audioPreloadRef = useRef<Map<string, HTMLAudioElement>>(new Map());
     const choicesRef = useRef<HTMLDivElement>(null);
 
     const [showSettings, setShowSettings] = useState(false);
@@ -483,6 +484,28 @@ export function PlayTestModal({
             }
         }
     }, [currentNodeId, videoAutoPlay]);
+
+    useEffect(() => {
+        if (!currentNodeId || currentNodeId === 'THE_END') return;
+
+        const preloadAudio = (url: unknown) => {
+            if (typeof url !== 'string' || !url.trim() || audioPreloadRef.current.has(url)) return;
+            const audio = new Audio(url);
+            audio.preload = 'auto';
+            audio.load();
+            audioPreloadRef.current.set(url, audio);
+        };
+
+        const preloadNodeAudio = (nodeId: string) => {
+            const node = nodes.find(n => n.id === nodeId);
+            preloadAudio(node?.data.audioUrl);
+        };
+
+        preloadNodeAudio(currentNodeId);
+        edges
+            .filter(edge => edge.source === currentNodeId)
+            .forEach(edge => preloadNodeAudio(edge.target));
+    }, [currentNodeId, nodes, edges]);
 
     // 自动跳过数字判断卡片
     const lastJumpedNode = useRef<string | null>(null);
@@ -980,6 +1003,7 @@ export function PlayTestModal({
                                                         key={currentNodeId}
                                                         ref={audioRef}
                                                         src={currentNode.data.audioUrl as string}
+                                                        preload="auto"
                                                         controls
                                                         className="w-full h-7 opacity-75 hover:opacity-100 transition-opacity"
                                                     />
@@ -1107,6 +1131,7 @@ export function PlayTestModal({
                                                 key={currentNodeId}
                                                 ref={audioRef}
                                                 src={currentNode.data.audioUrl as string}
+                                                preload="auto"
                                                 controls
                                                 className="w-full h-8 opacity-80 hover:opacity-100 transition-opacity"
                                             />
