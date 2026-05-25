@@ -4,7 +4,24 @@ dist/
 coverage/
 landingpage/
 landingoage/
-.DS_Store
+
+# Tauri/Rust generated output
+src-tauri/target/
+src-tauri/gen/
+
+# Local diagnostics and temporary error captures
+errors_context.txt
+tsc_errors*.txt
+tsc_output.txt
+*.tsbuildinfo
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.DS_Store
 .env*
 !.env.example
