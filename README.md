@@ -121,7 +121,9 @@ git tag app-v1.2.5
 git push origin app-v1.2.5
 ```
 
-GitHub 会自动执行 `.github/workflows/release.yml`，构建 Tauri 安装包，并发布到 Releases 的 Assets 中。用户进入 GitHub Releases 页面后，直接下载 Windows 安装包即可使用。
+GitHub 会自动执行 `.github/workflows/release.yml`，构建 Tauri 桌面程序，并把 `app.exe` 重命名后发布到 Releases 的 Assets 中。用户进入 GitHub Releases 页面后，下载 `GalWriter-AI-vX.X.X-windows-x64.exe` 并双击运行即可。
+
+GitHub Release 页面会自动附带 `Source code (zip)` 和 `Source code (tar.gz)`，那是 GitHub 的默认源码快照，不是给普通用户安装的软件。
 
 版本号建议同步更新：
 

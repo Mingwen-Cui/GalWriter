@@ -1,14 +1,13 @@
 name: Release Desktop App
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "app-v*"
 
 jobs:
   publish-tauri:
-    name: Build Windows installer
+    name: Build Windows app.exe
     runs-on: windows-latest
     permissions:
       contents: write
@@ -29,13 +28,23 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build and publish Tauri release
-        uses: tauri-apps/tauri-action@v1
+      - name: Build Tauri app
+        run: npm run tauri build
+
+      - name: Prepare app.exe asset
+        shell: pwsh
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $assetName = "GalWriter-AI-v$($config.version)-windows-x64.exe"
+          Copy-Item "src-tauri/target/release/app.exe" $assetName
+          "RELEASE_ASSET=$assetName" >> $env:GITHUB_ENV
+          "APP_VERSION=$($config.version)" >> $env:GITHUB_ENV
+
+      - name: Publish GitHub release
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: app-v__VERSION__
-          releaseName: "GalWriter AI v__VERSION__"
-          releaseBody: "下载 Assets 中的 Windows 安装包即可安装 GalWriter AI。"
-          releaseDraft: false
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" "$env:RELEASE_ASSET" `
+            --title "GalWriter AI v$env:APP_VERSION" `
+            --notes "下载 Assets 中的 $env:RELEASE_ASSET，双击即可运行 GalWriter AI。GitHub 自动附带的 Source code 压缩包不需要下载。"
