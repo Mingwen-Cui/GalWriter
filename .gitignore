@@ -6,7 +6,6 @@ landingpage/
 landingoage/
 
 # Tauri/Rust generated output
-src-tauri/target/
 src-tauri/gen/
 
 # Local diagnostics and temporary error captures

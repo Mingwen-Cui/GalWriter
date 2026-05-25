@@ -1,8 +1,9 @@
 import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
 import { Handle, Position, NodeProps, NodeToolbar, useStore, NodeResizer, useStoreApi, useUpdateNodeInternals, useReactFlow } from '@xyflow/react';
-import { Trash2, UserCircle2, Settings2, Image as ImageIcon, Check, Copy, ChevronDown, ChevronRight, Plus, Globe, Upload, Dices, Loader2 } from 'lucide-react';
+import { Trash2, UserCircle2, Settings2, Image as ImageIcon, Check, Copy, ChevronDown, ChevronRight, Plus, Globe, Upload, Dices, Loader2, WandSparkles, Download } from 'lucide-react';
 import { translations, Language } from '../lib/i18n';
 import { formatCharacterNodeText } from '../lib/export';
+import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import {
   buildCharacterSettingPrompt,
   buildCharacterUpdates,
@@ -53,6 +54,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   const outfits = (data.outfits as { id: string, name: string, imageUrl?: string }[]) || [];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
+  const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -115,6 +117,14 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   ].filter(Boolean).length || 1;
 
   const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(activeTraitsCount, outfits.length);
+  const hasCharacterText = [
+    name,
+    traits,
+    data.personality,
+    data.features,
+    data.background,
+    data.other,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
   const syncNodeHeightToMinimum = useCallback((nextMinHeight = calculatedMinHeight) => {
     if (isMinimized) return;
@@ -339,6 +349,27 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  const handleGenerateSettingImage = async () => {
+    const generateSettingImage = data.onGenerateSettingImage as ((id: string, type: 'character' | 'scene') => Promise<void>) | undefined;
+    if (!generateSettingImage || isGeneratingSettingImage || !hasCharacterText) return;
+
+    setIsGeneratingSettingImage(true);
+    try {
+      await generateSettingImage(id, 'character');
+    } finally {
+      setIsGeneratingSettingImage(false);
+    }
+  };
+
+  const handleDownloadOutfitImage = async (event: React.MouseEvent<HTMLButtonElement>, outfit: { id: string, name: string, imageUrl?: string }) => {
+    event.stopPropagation();
+    if (!outfit.imageUrl) return;
+
+    const fallbackLabel = lang === 'zh' ? '三视图' : 'three-view';
+    const safeName = getSafeDownloadName(`${name || (lang === 'zh' ? '角色' : 'character')}-${outfit.name || fallbackLabel}`);
+    await downloadImageUrl(outfit.imageUrl, `${safeName}.${getImageExtension(outfit.imageUrl)}`);
+  };
+
   return (
     <div
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
@@ -427,6 +458,16 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
               >
                 {isRollingSetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Dices className="w-4 h-4" />}
               </button>
+              {hasCharacterText && (
+                <button
+                  onClick={handleGenerateSettingImage}
+                  disabled={isGeneratingSettingImage}
+                  className={`shrink-0 w-8 h-8 rounded-lg transition-colors flex items-center justify-center border border-fuchsia-500/20 ${isGeneratingSettingImage ? 'text-fuchsia-500 bg-fuchsia-500/10 cursor-wait' : 'text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-500/10'}`}
+                  title={lang === 'zh' ? '根据人物设定一键生图' : 'Generate image from character setting'}
+                >
+                  {isGeneratingSettingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <WandSparkles className="w-4 h-4" />}
+                </button>
+              )}
             </div>
 
             {/* Traits */}
@@ -554,6 +595,15 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
+                      {outfit.imageUrl && (
+                        <button
+                          onClick={(event) => handleDownloadOutfitImage(event, outfit)}
+                          className="opacity-0 group-hover/outfit:opacity-100 p-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded transition-opacity"
+                          title={lang === 'zh' ? '下载三视图' : 'Download three-view'}
+                        >
+                          <Download className="w-3 h-3" />
+                        </button>
+                      )}
                       {/* Outfit Handles */}
                       <Handle
                         type="source"

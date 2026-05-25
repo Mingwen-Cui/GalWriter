@@ -118,6 +118,14 @@ interface SettingsModalProps {
   setImageModel: (model: string) => void;
   imageSize: string;
   setImageSize: (size: string) => void;
+  ttsApiKey: string;
+  setTtsApiKey: (key: string) => void;
+  ttsApiUrl: string;
+  setTtsApiUrl: (url: string) => void;
+  ttsModel: string;
+  setTtsModel: (model: string) => void;
+  ttsVoice: string;
+  setTtsVoice: (voice: string) => void;
   generateLength: string;
   setGenerateLength: (len: string) => void;
   thinkingMode: boolean;
@@ -200,6 +208,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setImageModel,
   imageSize,
   setImageSize,
+  ttsApiKey,
+  setTtsApiKey,
+  ttsApiUrl,
+  setTtsApiUrl,
+  ttsModel,
+  setTtsModel,
+  ttsVoice,
+  setTtsVoice,
   generateLength,
   setGenerateLength,
   thinkingMode,
@@ -860,7 +876,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <Check className={`w-5 h-5 transition-all ${customApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '注：留空则使用公共额度（有限制），填入私人Key可解锁无限次生成。' : 'Public quota used if empty. Use private key for unlimited access.'}</p>
+                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2"></p>
+                      <a
+                        href="https://ai.google.dev/gemini-api/docs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'Gemini API 官方文档' : 'Gemini API Docs'}
+                      </a>
                     </div>
                   ) : aiProvider === 'openai' ? (
                     <div className="space-y-3">
@@ -881,6 +905,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
                       <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 gpt-4o 等系列模型。' : 'Supports gpt-4o models.'}</p>
+                      <a
+                        href="https://platform.openai.com/docs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'OpenAI API 官方文档' : 'OpenAI API Docs'}
+                      </a>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -900,7 +932,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <Check className={`w-5 h-5 transition-all ${deepseekApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 deepseek-chat 模型和 deepseek-reasoner 模型。' : 'Supports chat and reasoner models.'}</p>
+                      <a
+                        href="https://api-docs.deepseek.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'DeepSeek API 官方文档' : 'DeepSeek API Docs'}
+                      </a>
                     </div>
                   )}
                 </div>
@@ -1083,6 +1122,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
                     {language === 'zh' ? '普通文字卡片会使用这里的配置生成图片。即梦/火山方舟会自动把 OpenAI 默认地址、gpt-image-1 和过小尺寸转换成可测试的 Seedream 请求。' : 'Text cards use this configuration to generate images. Seedream / Volcengine requests automatically convert the OpenAI default endpoint, gpt-image-1, and undersized images into a testable Seedream request.'}
+                  </p>
+                </div>
+              </section>
+
+              <section className="space-y-5 pt-2 border-t border-[var(--header-border)]">
+                <header className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-sky-500 rounded-full" />
+                  <h3 className="text-base font-black text-[var(--text-primary)]">
+                    {language === 'zh' ? '文字转语音' : 'Text to Speech'}
+                  </h3>
+                </header>
+                <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-[var(--text-primary)]">
+                      {language === 'zh' ? 'TTS API 地址 / Base URL' : 'TTS API Endpoint / Base URL'}
+                    </label>
+                    <input
+                      type="text"
+                      value={ttsApiUrl}
+                      onChange={e => setTtsApiUrl(e.target.value)}
+                      placeholder="https://api.openai.com/v1/audio/speech"
+                      className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-[var(--text-primary)]">
+                      {language === 'zh' ? 'TTS API 密钥' : 'TTS API Key'}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={ttsApiKey}
+                        onChange={e => setTtsApiKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                      />
+                      <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${ttsApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-[var(--text-primary)]">
+                        {language === 'zh' ? '语音模型' : 'Speech Model'}
+                      </label>
+                      <input
+                        type="text"
+                        value={ttsModel}
+                        onChange={e => setTtsModel(e.target.value)}
+                        placeholder="gpt-4o-mini-tts"
+                        className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-[var(--text-primary)]">
+                        {language === 'zh' ? '声音' : 'Voice'}
+                      </label>
+                      <input
+                        type="text"
+                        value={ttsVoice}
+                        onChange={e => setTtsVoice(e.target.value)}
+                        placeholder="alloy"
+                        className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
+                    {language === 'zh' ? '框选剧情卡片后，使用框选菜单里的“生成朗读音频”会把每张卡片的标题和正文合成为音频，并自动关联到 audioUrl。兼容 OpenAI /audio/speech 风格接口。' : 'After selecting story cards, use Generate narration audio in the selection menu to synthesize each card title and body into audio and attach it to audioUrl. Compatible with OpenAI /audio/speech style endpoints.'}
                   </p>
                 </div>
               </section>

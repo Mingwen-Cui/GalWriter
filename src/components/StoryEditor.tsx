@@ -23,7 +23,7 @@ import {
   PlayCircle, Square, Diamond, Image as ImageIcon,
   Eye, EyeOff, Upload, Settings, Save, Undo2, Redo2, Layers, BrainCircuit,
   Languages, ChevronLeft, ChevronRight, ChevronDown, Menu, X, PlusCircle, FileArchive, Type,
-  Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2
+  Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Language, translations } from '../lib/i18n';
@@ -47,10 +47,14 @@ import {
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
 import { CustomEdge } from './CustomEdge';
 import { saveAutoSave, getAutoSave, clearAutoSave } from '../lib/db';
+import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
 
 const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 const DEFAULT_IMAGE_SIZE = '2K';
+const DEFAULT_TTS_API_URL = 'https://api.openai.com/v1/audio/speech';
+const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts';
+const DEFAULT_TTS_VOICE = 'alloy';
 const SEEDREAM_DIMENSION_SIZE = '2048x2048';
 const SEEDREAM_MIN_PIXELS = 3686400;
 
@@ -316,6 +320,7 @@ const PlayTestModal = lazy(() => import('./PlayTestModal').then(module => ({ def
 const ZenEditor = lazy(() => import('./ZenEditor').then(module => ({ default: module.ZenEditor })));
 const SettingsModal = lazy(() => import('./SettingsModal').then(module => ({ default: module.SettingsModal })));
 const CharacterNode = lazy(() => import('./CharacterNode').then(module => ({ default: module.MemoizedCharacterNode })));
+const VideoRenderModal = lazy(() => import('./VideoRenderModal').then(module => ({ default: module.VideoRenderModal })));
 
 
 const nodeTypes = {
@@ -334,6 +339,15 @@ const nodeTypes = {
 
 const edgeTypes = {
   customEdge: CustomEdge,
+};
+
+const isTauriRuntime = () => {
+  if (typeof window === 'undefined') return false;
+  const runtimeWindow = window as Window & {
+    __TAURI__?: unknown;
+    __TAURI_INTERNALS__?: unknown;
+  };
+  return !!runtimeWindow.__TAURI__ || !!runtimeWindow.__TAURI_INTERNALS__;
 };
 
 const defaultEdgeOptions = {
@@ -545,6 +559,7 @@ export function StoryEditor() {
   const [nodes, setNodes] = useNodesState(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState([]);
   const [showPlayTest, setShowPlayTest] = useState(false);
+  const [showVideoRender, setShowVideoRender] = useState(false);
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   // false = default loose connection mode, true = we can enforce something else if we want, but ReactFlow naturally uses Select on drag.
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
@@ -558,6 +573,11 @@ export function StoryEditor() {
   const [imageApiUrl, setImageApiUrl] = useState(DEFAULT_IMAGE_API_URL);
   const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL);
   const [imageSize, setImageSize] = useState(DEFAULT_IMAGE_SIZE);
+  const [ttsApiKey, setTtsApiKey] = useState('');
+  const [ttsApiUrl, setTtsApiUrl] = useState(DEFAULT_TTS_API_URL);
+  const [ttsModel, setTtsModel] = useState(DEFAULT_TTS_MODEL);
+  const [ttsVoice, setTtsVoice] = useState(DEFAULT_TTS_VOICE);
+  const [ttsLoading, setTtsLoading] = useState(false);
   // NOTE: 'gemini' 使用 Google GenAI和deepseek' 使用 DeepSeek OpenAI 兼容接口
   const [aiProvider, setAiProvider] = useState<'gemini' | 'deepseek' | 'openai'>('deepseek');
   // NOTE: 思考模式仅在DeepSeek 时有效，使用 deepseek-reasoner 模型
@@ -737,6 +757,7 @@ export function StoryEditor() {
   // 这样无论右键框选后拖动画布、滚轮平移/缩放、MiniMap/Controls 改变视野，菜单都会跟着所选节点走。
   const selectedNodes = useMemo(() => nodes.filter(n => n.selected), [nodes]);
   const showSelectionMenu = selectedNodes.length >= 2;
+  const canRenderVideo = useMemo(() => isTauriRuntime(), []);
   const selectionMenuRef = useRef<HTMLDivElement>(null);
   const selectionBoundsRef = useRef<{ minX: number; minY: number; maxX: number } | null>(null);
   const selectionMenuRafRef = useRef<number | null>(null);
@@ -853,6 +874,10 @@ export function StoryEditor() {
       imageApiUrl,
       imageModel,
       imageSize,
+      ttsApiKey,
+      ttsApiUrl,
+      ttsModel,
+      ttsVoice,
       thinkingMode,
       aiPrompts,
       aiButtonsConfig,
@@ -878,7 +903,7 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -1484,6 +1509,56 @@ export function StoryEditor() {
     showToast(language === 'zh' ? `已隐藏${selectedNodeIds.length} 个卡片` : `${selectedNodeIds.length} cards hidden`);
   }, [nodes, setNodes, language, showToast]);
 
+  const handleGenerateSelectedSpeech = useCallback(async () => {
+    if (ttsLoading) return;
+    const storyNodes = nodes
+      .filter(n => n.selected && n.type === 'storyNode')
+      .sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x));
+
+    if (storyNodes.length === 0) {
+      showToast(language === 'zh' ? '请先框选需要朗读的剧情卡片' : 'Select story cards to narrate first');
+      return;
+    }
+
+    setTtsLoading(true);
+    try {
+      for (let index = 0; index < storyNodes.length; index += 1) {
+        const node = storyNodes[index];
+        const titleText = htmlToSpeechText(String(node.data.title || ''));
+        const bodyText = htmlToSpeechText(String(node.data.text || ''));
+        const speechText = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+        if (!speechText) continue;
+
+        showToast(language === 'zh'
+          ? `正在生成朗读音频 ${index + 1}/${storyNodes.length}`
+          : `Generating narration ${index + 1}/${storyNodes.length}`);
+
+        const audio = await generateSpeechAudio(speechText, {
+          apiUrl: ttsApiUrl,
+          apiKey: ttsApiKey,
+          model: ttsModel,
+          voice: ttsVoice,
+        });
+
+        setNodes(nds => nds.map(n => n.id === node.id ? {
+          ...n,
+          data: {
+            ...n.data,
+            audioUrl: audio.url,
+            ttsGenerated: true,
+          },
+        } : n));
+      }
+
+      showToast(language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached');
+    } catch (error: any) {
+      console.error('TTS generation failed:', error);
+      alert(`${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${error.message || 'Unknown error'}`);
+    } finally {
+      setTtsLoading(false);
+    }
+  }, [nodes, language, setNodes, showToast, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsLoading]);
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeTag = document.activeElement?.tagName.toLowerCase();
@@ -1735,6 +1810,157 @@ export function StoryEditor() {
     const doc = new DOMParser().parseFromString(html || '', 'text/html');
     return (doc.body.textContent || '').trim();
   };
+
+  const requestGeneratedImage = useCallback(async (prompt: string) => {
+    if (!imageApiKey.trim()) {
+      alert(language === 'zh' ? '请先在设置中填写图片生成 API 密钥。' : 'Configure the image generation API key in Settings first.');
+      return null;
+    }
+
+    const imageRequest = buildImageGenerationRequest(imageApiUrl, imageModel, imageSize, prompt, imageApiKey);
+    const imageRequestBody = JSON.stringify(imageRequest.body);
+    const imageRequestHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${imageApiKey.trim()}`,
+    };
+    const sendImageRequest = (url: string) => fetch(url, {
+      method: 'POST',
+      headers: imageRequestHeaders,
+      body: imageRequestBody,
+    });
+
+    let response: Response;
+    let activeImageRequestUrl = imageRequest.url;
+    try {
+      response = await sendImageRequest(activeImageRequestUrl);
+    } catch (fetchError) {
+      const fallbackArkProxyUrl = typeof window !== 'undefined' && /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
+        ? '/api/ark-image'
+        : 'http://127.0.0.1:3000/api/ark-image';
+      const canRetryArkProxy = imageRequest.usesSeedream && imageRequest.url !== fallbackArkProxyUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http');
+      if (!canRetryArkProxy) {
+        throw new Error(`${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+      }
+      activeImageRequestUrl = fallbackArkProxyUrl;
+      response = await sendImageRequest(activeImageRequestUrl);
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      const shouldRetrySeedreamSize =
+        imageRequest.usesSeedream &&
+        /InvalidParameter|size|pixels/i.test(errText) &&
+        imageRequest.body.size !== SEEDREAM_DIMENSION_SIZE;
+
+      if (shouldRetrySeedreamSize) {
+        response = await fetch(activeImageRequestUrl, {
+          method: 'POST',
+          headers: imageRequestHeaders,
+          body: JSON.stringify({
+            ...imageRequest.body,
+            size: SEEDREAM_DIMENSION_SIZE,
+          }),
+        });
+
+        if (response.ok) {
+          setImageSize(SEEDREAM_DIMENSION_SIZE);
+        } else {
+          const retryErrText = await response.text();
+          throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+        }
+      } else {
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+    }
+
+    const result = await response.json();
+    const imageData = result?.data?.[0];
+    const imageSrc = imageData?.b64_json
+      ? `data:image/png;base64,${imageData.b64_json}`
+      : imageData?.url;
+
+    if (!imageSrc) {
+      throw new Error(language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.');
+    }
+
+    return imageSrc as string;
+  }, [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize]);
+
+  const handleGenerateSettingNodeImage = useCallback(async (id: string, type: 'character' | 'scene') => {
+    const node = nodes.find(n => n.id === id);
+    if (!node) return;
+
+    try {
+      const titleText = type === 'character'
+        ? ((node.data.characterName as string) || (language === 'zh' ? '未命名角色' : 'Unnamed Character'))
+        : ((node.data.sceneName as string) || (language === 'zh' ? '未命名场景' : 'Unnamed Scene'));
+      const bodyText = type === 'character'
+        ? formatCharacterNodeText(node.data as Record<string, unknown>)
+        : formatSceneNodeText(node.data as Record<string, unknown>);
+      const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+
+      if (!basePrompt) {
+        alert(language === 'zh' ? '请先填写人物或场景设定。' : 'Fill in the character or scene setting first.');
+        return;
+      }
+
+      const prompt = type === 'character'
+        ? `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
+        : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
+
+      const imageSrc = await requestGeneratedImage(prompt);
+      if (!imageSrc) return;
+
+      setNodes((nds) => nds.map((n) => {
+        if (n.id !== id) return n;
+
+        if (type === 'character') {
+          const generatedOutfitId = (n.data.generatedSettingImageId as string) || uuidv4();
+          const currentOutfits = ((n.data.outfits as any[]) || []);
+          const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
+          const hasGeneratedOutfit = currentOutfits.some(outfit => outfit.id === generatedOutfitId);
+          const nextOutfits = hasGeneratedOutfit
+            ? currentOutfits.map(outfit => outfit.id === generatedOutfitId ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc } : outfit)
+            : [{ id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc }, ...currentOutfits];
+
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              avatarUrl: imageSrc,
+              outfits: nextOutfits,
+              generatedSettingImageId: generatedOutfitId,
+            },
+          };
+        }
+
+        const generatedImageId = (n.data.generatedSettingImageId as string) || uuidv4();
+        const currentImages = ((n.data.images as any[]) || []);
+        const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
+        const hasGeneratedImage = currentImages.some(image => image.id === generatedImageId);
+        const nextImages = hasGeneratedImage
+          ? currentImages.map(image => image.id === generatedImageId ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc } : image)
+          : [{ id: generatedImageId, name: generatedImageName, imageUrl: imageSrc }, ...currentImages];
+
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            coverImageUrl: imageSrc,
+            images: nextImages,
+            generatedSettingImageId: generatedImageId,
+          },
+        };
+      }));
+
+      showToast(type === 'character'
+        ? (language === 'zh' ? '人物三视图已生成' : 'Character three-view generated')
+        : (language === 'zh' ? '场景图片已生成' : 'Scene image generated'));
+    } catch (error: any) {
+      console.error('Setting image generation failed:', error);
+      alert(`${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`);
+    }
+  }, [nodes, language, requestGeneratedImage, setNodes, showToast]);
 
   const handleGenerateStoryNodeImage = useCallback(async (id: string) => {
     const node = nodes.find(n => n.id === id);
@@ -2628,6 +2854,10 @@ export function StoryEditor() {
           if (data.settings.imageApiUrl) setImageApiUrl(data.settings.imageApiUrl);
           if (data.settings.imageModel) setImageModel(data.settings.imageModel);
           if (data.settings.imageSize) setImageSize(data.settings.imageSize);
+          if (data.settings.ttsApiKey) setTtsApiKey(data.settings.ttsApiKey);
+          if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
+          if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
+          if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
           if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
           if (data.settings.aiPrompts) setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
           if (data.settings.aiButtonsConfig) setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
@@ -3553,6 +3783,7 @@ ${direction}
           onAIGenerate: handleAIButtonClick,
           onAIAnalyze: handleAIAnalyze,
           onGenerateImage: handleGenerateStoryNodeImage,
+          onGenerateSettingImage: handleGenerateSettingNodeImage,
           onAddTextToImage: handleAddTextToImage,
           onRemoveTextFromImage: handleRemoveTextFromImage,
           onExtractMedia: handleExtractMedia,
@@ -3576,7 +3807,7 @@ ${direction}
     });
     // NOTE: 补充 highlightedPath、handleAIAnalyze、toggleStorylineHighlight 为正确依赖，
     // 防止闭包过期导致这些引用读到旧值
-  }, [nodes, showTitles, aiLoadingNodeId, handleUpdateNode, handleAddConnectedNode, handleDeleteNode, handleAIButtonClick, handleAIAnalyze, handleGenerateStoryNodeImage, handleAddTextToImage, handleRemoveTextFromImage, handleExtractMedia, handleGenerateSettingText, handlePlotStructureGenerate, toggleStorylineHighlight, highlightedPath, pasteAsPlainText, showNodeActions, language, theme]);
+  }, [nodes, showTitles, aiLoadingNodeId, handleUpdateNode, handleAddConnectedNode, handleDeleteNode, handleAIButtonClick, handleAIAnalyze, handleGenerateStoryNodeImage, handleGenerateSettingNodeImage, handleAddTextToImage, handleRemoveTextFromImage, handleExtractMedia, handleGenerateSettingText, handlePlotStructureGenerate, toggleStorylineHighlight, highlightedPath, pasteAsPlainText, showNodeActions, language, theme]);
 
   const edgesWithData = useMemo(() => {
     const hiddenNodeIds = new Set(
@@ -3712,6 +3943,17 @@ ${direction}
             <PlayCircle className="w-4 h-4" />
             {!isMobile && t.playTest}
           </button>
+
+          {canRenderVideo && (
+            <button
+              onClick={() => setShowVideoRender(true)}
+              className="p-2 md:px-4 md:py-2 bg-sky-600 text-white text-sm font-bold rounded-md hover:bg-sky-700 flex items-center gap-2 shadow-sm transition-all active:scale-95"
+              title={language === 'zh' ? '渲染视频' : 'Render Video'}
+            >
+              <Film className="w-4 h-4" />
+              {!isMobile && (language === 'zh' ? '渲染视频' : 'Render')}
+            </button>
+          )}
 
           <button
             onClick={handleExportJSON}
@@ -4123,6 +4365,22 @@ ${direction}
             )}
 
             <button
+              onClick={handleGenerateSelectedSpeech}
+              disabled={ttsLoading}
+              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all shrink-0 disabled:opacity-50 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+              title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
+            >
+              <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
+              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '生成朗读音频' : 'Narration'}</span>
+            </button>
+
+            {selectionMenuLayout === 'horizontal' ? (
+              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+            ) : (
+              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+            )}
+
+            <button
               onClick={deleteSelected}
               className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
               title={language === 'zh' ? '删除' : 'Delete'}
@@ -4320,6 +4578,17 @@ ${direction}
 
       {/* 设置界面弹窗 */}
       <Suspense fallback={null}>
+        {canRenderVideo && showVideoRender && (
+          <VideoRenderModal
+            nodes={nodes}
+            edges={edges}
+            onClose={() => setShowVideoRender(false)}
+            language={language}
+          />
+        )}
+      </Suspense>
+
+      <Suspense fallback={null}>
         <SettingsModal
           showSettings={showSettings}
           setShowSettings={setShowSettings}
@@ -4364,6 +4633,14 @@ ${direction}
           setImageModel={setImageModel}
           imageSize={imageSize}
           setImageSize={setImageSize}
+          ttsApiKey={ttsApiKey}
+          setTtsApiKey={setTtsApiKey}
+          ttsApiUrl={ttsApiUrl}
+          setTtsApiUrl={setTtsApiUrl}
+          ttsModel={ttsModel}
+          setTtsModel={setTtsModel}
+          ttsVoice={ttsVoice}
+          setTtsVoice={setTtsVoice}
           generateLength={generateLength}
           setGenerateLength={setGenerateLength}
           thinkingMode={thinkingMode}
@@ -4456,6 +4733,10 @@ ${direction}
                       if (data.settings.imageApiUrl) setImageApiUrl(data.settings.imageApiUrl);
                       if (data.settings.imageModel) setImageModel(data.settings.imageModel);
                       if (data.settings.imageSize) setImageSize(data.settings.imageSize);
+                      if (data.settings.ttsApiKey) setTtsApiKey(data.settings.ttsApiKey);
+                      if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
+                      if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
+                      if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
                       if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
                       if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
                       if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
