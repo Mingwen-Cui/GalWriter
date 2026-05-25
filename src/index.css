@@ -1,0 +1,236 @@
+@import '@xyflow/react/dist/style.css';
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --app-bg: #F9FAFB;
+  --card-bg: #FFFFFF;
+  --card-bg-rgb: 255, 255, 255;
+  --card-border: #E2E8F0;
+  --header-bg: #FFFFFF;
+  --header-border: #E2E8F0;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --node-handle-bg: #FBBF24;
+  --node-handle-border: #FFFFFF;
+  --ring-offset: #FFFFFF;
+  --toolbar-bg: rgba(255, 255, 255, 0.9);
+  --toolbar-border: #E2E8F0;
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  
+  --transition-speed: 0.3s;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --icon-color: #475569;
+}
+
+[data-theme='dark'] {
+  --app-bg: #0F172A;
+  --card-bg: #1E293B;
+  --card-bg-rgb: 30, 41, 59;
+  --card-border: #334155;
+  --header-bg: #0F172A;
+  --header-border: #334155;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --node-handle-bg: #FBBF24;
+  --node-handle-border: #1E293B;
+  --ring-offset: #1E293B;
+  --toolbar-bg: rgba(30, 41, 59, 0.9);
+  --toolbar-border: #334155;
+  --panel-bg: rgba(15, 23, 42, 0.95);
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --icon-color: #ffffff;
+}
+
+[data-theme='dark'] .xyflow__controls button {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+[data-theme='dark'] .xyflow__controls button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+}
+
+.xyflow {
+  background-color: transparent;
+}
+
+.xyflow .react-flow__edge-path {
+  stroke: #CBD5E1;
+  stroke-width: 2;
+}
+
+.xyflow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #6366F1;
+  stroke-width: 2;
+  stroke-dasharray: 4;
+}
+
+/* Hide native number input arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Custom Range Input Styling */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+input[type=range]:focus {
+  outline: none;
+}
+
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0 2px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  font-weight: 700;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: nowrap;
+  user-select: all;
+  cursor: default;
+}
+
+.mention-chip-character {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.mention-chip-scene {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .mention-chip-character {
+  color: #a5b4fc;
+  background: rgba(129, 140, 248, 0.18);
+}
+
+[data-theme="dark"] .mention-chip-scene {
+  color: #93c5fd;
+  background: rgba(96, 165, 250, 0.18);
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  margin-top: -5px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  border: 2px solid currentColor;
+  transition: transform 0.1s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+[data-theme='dark'] input[type=range]::-webkit-slider-runnable-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Firefox */
+input[type=range]::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: 2px solid currentColor;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+[data-theme='dark'] input[type=range]::-moz-range-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+@keyframes toolbarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toolbar-animate {
+  animation: toolbarSlideUp 0.3s ease-out;
+}
+
+/* 优化合并后的控制按钮样式 */
+.react-flow__controls-button {
+  border: none !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme='dark'] .react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+}
+
+[data-theme='dark'] .theme-invert {
+  /* 优化：不再使用强制黑白化，而是使用反色并增强亮度，保留更多细节 */
+  filter: invert(1) brightness(1.2);
+}

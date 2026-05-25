@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GalWriter AI - 交互式剧本编辑器</title>
+    <meta name="description" content="数字生命之歌 - 专业、智能的交互式剧本编辑器，赋能创作新次元。">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+SC:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/header/menu/menu.css">
+    <link rel="stylesheet" href="/css/anime.css">
+    <link rel="stylesheet" href="style.css">
+
+    <style id="redesign-styles">
+        /* 核心 Bento 布局与组件 */
+        .bento-section {
+            padding: 6rem 0;
+            position: relative;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .bento-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 24px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+            display: flex;
+            flex-direction: column;
+            z-index: 1;
+        }
+
+        .bento-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #111111;
+        }
+
+        .bento-card p {
+            color: #52525b;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        /* Grid 配置 */
+        .col-span-12 {
+            grid-column: span 12;
+        }
+
+        .col-span-8 {
+            grid-column: span 8;
+        }
+
+        .col-span-6 {
+            grid-column: span 6;
+        }
+
+        .col-span-4 {
+            grid-column: span 4;
+        }
+
+        @media (max-width: 1024px) {
+
+            .col-span-8,
+            .col-span-6,
+            .col-span-4 {
+                grid-column: span 12;
+            }
+        }
+
+        /* 渐变文字与图标 */
+        /* NOTE: 深色渐变，确保白底页面可读；从深蓝紫到黑色，视觉高级感强 */
+        .text-gradient {
+            background: linear-gradient(135deg, #111111 0%, #4f46e5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .icon-box {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+            color: #3f3f46;
+        }
+
+        .icon-box.primary {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        .icon-box.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .icon-box.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+
+        .icon-box.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .icon-box.info {
+            background: rgba(6, 182, 212, 0.1);
+            color: #22d3ee;
+            border-color: rgba(6, 182, 212, 0.2);
+        }
+
+
+
+        /* AI 助手特别版块 */
+        .ai-features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.2rem;
+        }
+
+        .ai-mode-card {
+            background: #f4f4f5;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 16px;
+            padding: 1.2rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            transition: all 0.3s;
+        }
+
+        .ai-mode-card:hover {
+            background: #e4e4e7;
+            border-color: rgba(0, 0, 0, 0.1);
+            transform: translateX(5px);
+        }
+
+        .ai-mode-icon {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Custom Tags */
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: auto;
+            padding-top: 1.5rem;
+        }
+
+        .tag {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 99px;
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #52525b;
+        }
+
+        /* 截图占位容器 */
+        /* 截图占位容器 */
+        .screenshot-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-top: 1.5rem;
+            background-color: #ffffff;
+            /* 确保容器背景也是白色 */
+        }
+
+        .screenshot-container img {
+            width: 105%;
+            max-width: 800px;
+            height: auto;
+            display: block;
+
+            /* 👇 核心修改：使用多重线性渐变遮罩，让上下左右所有边缘完美羽化 */
+            -webkit-mask-image:
+                linear-gradient(to bottom, transparent 0%, black 5%),
+                linear-gradient(to top, transparent 0%, black 5%),
+                linear-gradient(to right, transparent 0%, black 5%),
+                linear-gradient(to left, transparent 0%, black 5%);
+            mask-image:
+                linear-gradient(to bottom, transparent 0%, black 5%),
+                linear-gradient(to top, transparent 0%, black 5%),
+                linear-gradient(to right, transparent 0%, black 5%),
+                linear-gradient(to left, transparent 0%, black 5%);
+
+            /* 必须合并遮罩源，否则四边会互相裁剪 */
+            -webkit-mask-composite: destination-in;
+            mask-composite: intersect;
+        }
+
+        .screenshot-instruction {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.6);
+            color: #d4d4d8;
+            font-size: 0.9rem;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+        }
+
+        /* 当换成真实截图时，可以删掉 .screenshot-instruction 节点 */
+    </style>
+</head>
+
+<body data-theme-color="#4f46e5">
+    <div id="transition-layer"></div>
+    <div id="bubble-container"></div>
+    <button class="menu-btn" id="menuBtn" style="display: none;">
+        <div class="btn-inner"><span></span><span></span><span></span><span></span></div>
+    </button>
+    <div class="bg-mesh"></div>
+
+    <header>
+        <nav>
+            <a href="#" class="logo-container">
+                <img src="logo.png" alt="GalWriter Logo" class="logo-img">
+                <span class="logo-text">GalWriter AI</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">创作矩阵</a>
+                <a href="#testing">沉浸测试</a>
+                <a href="#ai">AI 智库</a>
+                <a href="#settings">高阶控制</a>
+                <a href="https://www.bilibili.com/video/BV1LiRFBcEmR/?share_source=copy_web&vd_source=be45385094d234f09e36fff61e629706"
+                    target="_blank">演示视频</a>
+            </div>
+            <a href="/portfolio/" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;"
+                onclick="event.preventDefault(); window.PageTransition ? window.PageTransition.transitionTo(this.href) : window.location.href=this.href;">返回作品集</a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <h1>重塑您的交互式<br>剧本创作体验</h1>
+                <p>GalWriter AI 是一款专为视觉小说和交互式剧本设计的专业编辑器。结合强大的 AI 赋能与直观的节点流设计，助您轻松编织宏大叙事。</p>
+                <div class="cta-buttons">
+                    <a href="/online/index.html" class="btn btn-primary">
+                        <i data-lucide="play"></i> 立即体验在线版
+                    </a>
+                    <a href="app.exe" download="app.exe" class="btn btn-outline">
+                        <i data-lucide="download"></i> 下载桌面版
+                    </a>
+                </div>
+                <div class="download-notice"
+                    style="font-size: 0.85rem; color: var(--text-dim); margin-top: 1.5rem; animation: fadeInUp 0.8s ease-out 0.5s backwards; display: flex; align-items: center; justify-content: center; gap: 0.4rem; opacity: 0.8;">
+                    <i data-lucide="info" style="width: 14px; height: 14px;"></i>
+                    <span>注：桌面版下载时可能遭遇 Windows Defender 误报拦截，此为独立开发者程序未数字签名正常现象，请放心保留或添加信任。</span>
+                </div>
+
+                <div class="banner-container">
+                    <img src="hero.png" alt="GalWriter Preview" class="banner-img">
+                </div>
+            </div>
+        </section>
+
+        <!-- 重新构想的创作者工作台 (Bento Grid) -->
+        <section id="features" class="bento-section">
+            <div class="container">
+                <div class="section-title text-center" style="text-align: center;">
+                    <h2 class="text-gradient">全能的创作矩阵</h2>
+                    <p style="color: var(--text-dim); font-size: 1.1rem; margin-top: 0.5rem;">
+                        化繁为简，每一个组件都为极致的创作心流而生，所见即所得</p>
+                </div>
+
+                <div class="bento-grid">
+                    <!-- 核心：节点逻辑编辑器 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box primary" style="margin-bottom: 1rem;"><i data-lucide="git-branch"></i>
+                        </div>
+                        <h3 style="margin-bottom: 0.5rem;">节点式逻辑引擎</h3>
+                        <p style="margin-bottom: 0;">无限画板与自由连线，让复杂的剧情分支与条件判定一目了然。</p>
+                        <div class="screenshot-container">
+                            <img src="nodes.png" alt="节点逻辑编辑器截图">
+                        </div>
+                    </div>
+
+                    <!-- AI 智能生成 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box info"
+                            style="background: rgba(168, 85, 247, 0.1); color: #9333ea; border-color: rgba(168, 85, 247, 0.2); margin-bottom: 1rem;">
+                            <i data-lucide="sparkles"></i>
+                        </div>
+                        <h3 style="margin-bottom: 0.5rem;">AI 深度共创节点</h3>
+                        <p style="margin-bottom: 0;">内置上下文感知引擎。提供顺延、发散、润色等定制化生成，与思路无缝对接。</p>
+                        <div class="screenshot-container">
+                            <img src="AI.png" alt="AI功能截图">
+                        </div>
+                    </div>
+
+                    <!-- 动态包裹 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box warning" style="margin-bottom: 1rem;"><i data-lucide="layers"></i></div>
+                        <h3 style="margin-bottom: 0.5rem;">动态包裹与收纳</h3>
+                        <p style="margin-bottom: 0;">使用包裹节点将剧情分支进行视觉分组，支持一键折叠，大型项目不再杂乱。</p>
+                        <div class="screenshot-container">
+                            <img src="bag.png" alt="Group Node截图">
+                        </div>
+                    </div>
+
+                    <!-- 强大的导出系统 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box success" style="margin-bottom: 1rem;"><i data-lucide="archive"></i></div>
+                        <h3 style="margin-bottom: 0.5rem;">工程级一键导出</h3>
+                        <p style="margin-bottom: 0;">一键打包 JSON 剧本与多媒体素材，无缝对接主流游戏引擎与前端框架。</p>
+                        <div class="screenshot-container">
+                            <img src="import.png" alt="导出功能截图">
+                        </div>
+                    </div>
+
+                    <!-- 批量替换与文本提取 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box danger" style="margin-bottom: 1rem;"><i data-lucide="replace-all"></i>
+                        </div>
+                        <h3 style="margin-bottom: 0.5rem;">高阶批量工具</h3>
+                        <p style="margin-bottom: 0;">全局查找替换与纯文本聚合导出。释放后期校对工作量，让修改像写代码一样高效。</p>
+                        <div class="screenshot-container">
+                            <img src="tool.png" alt="批量工具截图">
+                        </div>
+                    </div>
+
+                    <!-- 沉浸式测试 -->
+                    <div class="bento-card col-span-4" style="padding: 2rem;">
+                        <div class="icon-box"
+                            style="background: rgba(52, 211, 153, 0.1); color: #34d399; border-color: rgba(52, 211, 153, 0.2); margin-bottom: 1rem;">
+                            <i data-lucide="play-circle"></i>
+                        </div>
+                        <h3 style="margin-bottom: 0.5rem;">沉浸式实时测试</h3>
+                        <p style="margin-bottom: 0;">无需编译，即刻体验玩家视角。右侧还原画面，左侧记录时间线，掌控叙事节奏。</p>
+                        <div class="screenshot-container">
+                            <img src="real.png" alt="沉浸测试截图">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+
+        <!-- AI 智能引擎 -->
+        <section id="ai" class="bento-section">
+            <div class="container">
+                <div class="bento-card" style="padding: 4rem 3rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 4rem; align-items: center;">
+                        <div>
+                            <div class="icon-box"
+                                style="background: linear-gradient(135deg, #c084fc, #818cf8); border: none; box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3); color: #fff;">
+                                <i data-lucide="sparkles"></i>
+                            </div>
+                            <h2 style="font-size: 2.5rem; margin-bottom: 1.5rem; color: #111111;">灵感不竭的<br>AI 创作大脑</h2>
+                            <p style="color: #52525b; font-size: 1.1rem; line-height: 1.7; margin-bottom: 2rem;">
+                                深度集成 Gemini 与 DeepSeek 顶级大模型。一键唤起智能助手，从宏观结构分析到微观台词润色，打破创作瓶颈期的阻碍。
+                            </p>
+                            <ul
+                                style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1.2rem; color: #3f3f46;">
+                                <li style="display: flex; gap: 0.8rem; align-items: center;">
+                                    <i data-lucide="check-circle-2" style="color: #059669;"></i>
+                                    <span><strong>全局智库分析</strong>：连线多节点，自动提取逻辑脉络</span>
+                                </li>
+                                <li style="display: flex; gap: 0.8rem; align-items: center;">
+                                    <i data-lucide="check-circle-2" style="color: #059669;"></i>
+                                    <span><strong>深度思考模式</strong>：展示推理过程，AI 构思更透明</span>
+                                </li>
+                                <li style="display: flex; gap: 0.8rem; align-items: center;">
+                                    <i data-lucide="check-circle-2" style="color: #059669;"></i>
+                                    <span><strong>智能剧情插值</strong>：提供首尾节点，一键生成过渡桥段</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ai-features-grid">
+                            <div class="ai-mode-card">
+                                <i data-lucide="pen-tool" class="ai-mode-icon" style="color: #6366f1;"></i>
+                                <div>
+                                    <h4 style="color:#111111; margin-bottom: 0.3rem;">前文顺延续写</h4>
+                                    <p style="color:#52525b; font-size:0.85rem;">自然延续当前剧情走向，精确保持人设与行文风格。</p>
+                                </div>
+                            </div>
+                            <div class="ai-mode-card">
+                                <i data-lucide="lightbulb" class="ai-mode-icon" style="color: #d97706;"></i>
+                                <div>
+                                    <h4 style="color:#111111; margin-bottom: 0.3rem;">脑洞创意发散</h4>
+                                    <p style="color:#52525b; font-size:0.85rem;">提供截然不同的多个后续发展方向建议，激发新灵感。</p>
+                                </div>
+                            </div>
+                            <div class="ai-mode-card">
+                                <i data-lucide="wand-2" class="ai-mode-icon" style="color: #059669;"></i>
+                                <div>
+                                    <h4 style="color:#111111; margin-bottom: 0.3rem;">场景/对话提纯</h4>
+                                    <p style="color:#52525b; font-size:0.85rem;">支持仅增加环境场景描写，或仅补充角色的台词互动。</p>
+                                </div>
+                            </div>
+                            <div class="ai-mode-card">
+                                <i data-lucide="refresh-cw" class="ai-mode-icon" style="color: #0891b2;"></i>
+                                <div>
+                                    <h4 style="color:#111111; margin-bottom: 0.3rem;">极致润色重写</h4>
+                                    <p style="color:#52525b; font-size:0.85rem;">保留核心要素，修缮修辞手法，全面提升文本表现力。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advanced Settings -->
+        <section id="settings" class="bento-section" style="padding-top: 2rem; padding-bottom: 8rem;">
+            <div class="container">
+                <div class="section-title text-center" style="text-align: center; margin-bottom: 3rem;">
+                    <h2 class="text-gradient">极高自由度的定制化</h2>
+                    <p style="color: var(--text-dim); font-size: 1.1rem; margin-top: 0.5rem;">从界面视觉到交互习惯，深度打磨您的专属工作流</p>
+                </div>
+                <div class="bento-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 0; gap: 2rem;">
+                    <div class="bento-card" style="padding: 2.5rem 2rem;">
+                        <h4
+                            style="color: #111111; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.2rem;">
+                            <i data-lucide="eye" style="color: #6366f1;"></i> 视觉呈现
+                        </h4>
+                        <ul
+                            style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; color: #52525b;">
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 阶梯 /
+                                贝塞尔连线无缝切换</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 全局标题显隐控制
+                            </li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i>
+                                迷你小地图实时导航辅助</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 故事线路径动态高亮
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="bento-card" style="padding: 2.5rem 2rem;">
+                        <h4
+                            style="color: #111111; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.2rem;">
+                            <i data-lucide="mouse-pointer-click" style="color: #059669;"></i> 交互习惯
+                        </h4>
+                        <ul
+                            style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; color: #52525b;">
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i>
+                                视频自动播放智能开关</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i>
+                                节点底部多列按钮灵活布局</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i>
+                                工具栏功能快速折叠自定义</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i>
+                                剪贴板纯文本粘贴模式处理</li>
+                        </ul>
+                    </div>
+                    <div class="bento-card" style="padding: 2.5rem 2rem;">
+                        <h4
+                            style="color: #111111; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; font-size: 1.2rem;">
+                            <i data-lucide="cpu" style="color: #d97706;"></i> 系统配置
+                        </h4>
+                        <ul
+                            style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; color: #52525b;">
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 私密 API
+                                密钥本地安全配置</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> AI
+                                生成文本长度自由调节</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 底座模型
+                                token 消耗实时统计</li>
+                            <li style="display: flex; align-items: flex-start;"><i data-lucide="check"
+                                    style="width:16px; margin-right:8px; color:#a1a1aa; margin-top: 2px;"></i> 跨平台 Tauri
+                                原生桌面应用支持</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-logo logo-container">
+                        <img src="logo.png" alt="Logo" class="logo-img">
+                        <span class="logo-text">GalWriter AI</span>
+                    </div>
+                    <p class="footer-desc">赋能全球创作者，让每一个数字生命都拥有属于自己的动人歌谣。</p>
+                </div>
+                <div class="footer-links">
+                    <h4>产品</h4>
+                    <ul>
+                        <li><a href="#">快速开始</a></li>
+                        <li><a href="#">功能手册</a></li>
+                        <li><a href="#">常见问题</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>联系与反馈</h4>
+                    <ul>
+                        <li><a href="#">作者: 崔铭文</a></li>
+                        <li><a href="/contact/"
+                                onclick="event.preventDefault(); window.PageTransition ? window.PageTransition.transitionTo(this.href) : window.location.href=this.href;">报告
+                                Bug</a></li>
+                        <li><a href="#">版本更新</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                &copy; 2026 GalWriter AI. All rights reserved. Built with Love and Digital Soul.
+            </div>
+        </div>
+    </footer>
+
+    <script src="/translation.js"></script>
+    <script src="/header/menu/menu.js"></script>
+    <script>
+        // 初始化 Lucide 图标
+        lucide.createIcons();
+
+        // 绑定卡片 hover 发光鼠标效果
+        document.querySelectorAll('.bento-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // 简单的进入动画监听
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.bento-card, .script-test-showcase').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.6s ease-out';
+            observer.observe(el);
+        });
+    </script>
+</body>
+
+</html>
