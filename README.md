@@ -112,6 +112,22 @@ src-tauri/target/release/bundle
 
 Windows 桌面版如果未进行数字签名，下载或运行时可能触发 Windows Defender/SmartScreen 提示。这是独立开发者应用的常见现象，正式分发时建议配置代码签名。
 
+## 发布到 GitHub Release
+
+项目已配置 GitHub Actions 自动打包 Windows 桌面安装包。发布新版时：
+
+```bash
+git tag app-v1.2.5
+git push origin app-v1.2.5
+```
+
+GitHub 会自动执行 `.github/workflows/release.yml`，构建 Tauri 安装包，并发布到 Releases 的 Assets 中。用户进入 GitHub Releases 页面后，直接下载 Windows 安装包即可使用。
+
+版本号建议同步更新：
+
+- `src-tauri/tauri.conf.json` 中的 `version`
+- `package.json` 中的 `version`
+
 ## 项目结构
 
 ```text
