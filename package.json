@@ -1,7 +1,7 @@
 {
   "name": "galwriter-ai",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.5",
   "type": "module",
   "description": "交互式剧本编辑器 - GalWriter AI",
   "author": "GalWriter",
