@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "GalWriter AI 多结局AI剧本生成器",
-        "width": 1000,
-        "height": 800,
+        "width": 1200,
+        "height": 900,
         "resizable": true,
         "fullscreen": false,
         "center": true,
