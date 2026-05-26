@@ -24,7 +24,7 @@ import {
   Eye, EyeOff, Upload, Settings, Save, Undo2, Redo2, Layers, BrainCircuit,
   Languages, ChevronLeft, ChevronRight, ChevronDown, Menu, X, PlusCircle, FileArchive, Type,
   Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film,
-  Send, Mic, Loader2, Sparkles
+  Send, Mic, Loader2
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Language, translations } from '../lib/i18n';
@@ -546,8 +546,20 @@ type AssistantMessage = {
 };
 
 type AssistantCardDraft = {
+  type?: 'story' | 'character' | 'scene';
   title?: string;
   text?: string;
+  characterName?: string;
+  traits?: string;
+  personality?: string;
+  features?: string;
+  background?: string;
+  sceneName?: string;
+  description?: string;
+  location?: string;
+  items?: string;
+  atmosphere?: string;
+  other?: string;
 };
 
 type AssistantTask = {
@@ -566,7 +578,7 @@ type AITextResult = {
 const createAssistantWelcomeMessage = (): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
-  content: '你好，我是你的剧本 AI 助手。选中卡片后告诉我你想怎么推进，我可以给建议，也可以直接帮你布置新卡片并填充内容。',
+  content: '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
 });
 
 export const defaultAIPrompts: AIPromptsConfig = {
@@ -654,8 +666,9 @@ export function StoryEditor() {
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [saveFileName, setSaveFileName] = useState('story-project');
   const [language, setLanguage] = useState<Language>('zh');
+  const [projectTitle, setProjectTitle] = useState('交互式剧本编辑器');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal' | 'topbar'>('topbar');
+  const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('horizontal');
 
   const [playTestDarkMode, setPlayTestDarkMode] = useState(() => {
@@ -715,6 +728,8 @@ export function StoryEditor() {
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(true);
+  const [assistantWidth, setAssistantWidth] = useState(360);
+  const assistantResizeRef = useRef<{ startX: number; startWidth: number; dragged: boolean } | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantListening, setAssistantListening] = useState(false);
@@ -722,7 +737,7 @@ export function StoryEditor() {
   const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskIdRef.current);
   const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [{
     id: initialAssistantTaskIdRef.current,
-    title: '任务 1',
+    title: language === 'zh' ? '对话 1' : 'Conversation 1',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     messages: [createAssistantWelcomeMessage()],
@@ -736,6 +751,7 @@ export function StoryEditor() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout>();
 
   const isMobile = flowWidth < 768;
+  const assistantPanelWidth = Math.min(Math.max(assistantWidth, 300), Math.min(560, Math.max(320, flowWidth - 180)));
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
@@ -786,7 +802,7 @@ export function StoryEditor() {
     setAssistantTasks((tasks) => [
       {
         id,
-        title: `任务 ${tasks.length + 1}`,
+        title: language === 'zh' ? `对话 ${tasks.length + 1}` : `Conversation ${tasks.length + 1}`,
         createdAt: now,
         updatedAt: now,
         messages: [createAssistantWelcomeMessage()],
@@ -795,7 +811,46 @@ export function StoryEditor() {
     ]);
     setActiveAssistantTaskId(id);
     setAssistantInput('');
-  }, []);
+  }, [language]);
+
+  const handleCloseAssistantTask = useCallback((taskId: string) => {
+    const task = assistantTasks.find((item) => item.id === taskId);
+    const title = task?.title || (language === 'zh' ? '这个对话' : 'this conversation');
+    const confirmed = window.confirm(
+      language === 'zh'
+        ? `确定要关闭「${title}」吗？`
+        : `Close "${title}"?`
+    );
+    if (!confirmed) return;
+
+    if (assistantThoughtTimerRef.current !== null && taskId === activeAssistantTaskId) {
+      window.clearInterval(assistantThoughtTimerRef.current);
+      assistantThoughtTimerRef.current = null;
+    }
+
+    setAssistantTasks((tasks) => {
+      if (tasks.length <= 1) {
+        const id = uuidv4();
+        const now = Date.now();
+        setActiveAssistantTaskId(id);
+        return [{
+          id,
+          title: language === 'zh' ? '对话 1' : 'Conversation 1',
+          createdAt: now,
+          updatedAt: now,
+          messages: [createAssistantWelcomeMessage()],
+        }];
+      }
+
+      const taskIndex = tasks.findIndex((item) => item.id === taskId);
+      const nextTasks = tasks.filter((item) => item.id !== taskId);
+      if (taskId === activeAssistantTaskId) {
+        const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
+        setActiveAssistantTaskId(nextActiveTask.id);
+      }
+      return nextTasks;
+    });
+  }, [activeAssistantTaskId, assistantTasks, language]);
 
   const handleContactCopy = (text: string, type: 'qq' | 'email') => {
     const performCopy = async () => {
@@ -852,6 +907,52 @@ export function StoryEditor() {
   const showSelectionMenu = selectedNodes.length >= 2;
   const canRenderVideo = true;
   const selectedStoryNodes = useMemo(() => selectedNodes.filter(n => n.type === 'storyNode'), [selectedNodes]);
+  const selectedAssistantTargetNodes = useMemo(
+    () => selectedNodes.filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
+    [selectedNodes]
+  );
+  const footerHint = useMemo(() => {
+    if (assistantOpen) {
+      return language === 'zh'
+        ? 'AI 生成内容仅供参考，请结合自己的剧情判断使用。'
+        : 'AI-generated content is for reference only; review it against your own story. Save important settings and project work regularly to avoid losing changes.';
+    }
+
+    const selectedType = selectedNodes.length === 1 ? selectedNodes[0].type : selectedNodes.length > 1 ? 'multi' : 'default';
+    const hints: Record<string, string> = language === 'zh'
+      ? {
+        storyNode: '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
+        characterNode: '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
+        sceneNode: '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
+        plotStructureNode: '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+        summaryNode: '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
+        batchReplaceNode: '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
+        numberConditionNode: '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
+        textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
+        backgroundNode: '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
+        groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
+        aiNode: 'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
+        multi: '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
+        default: t.footerHint,
+      }
+      : {
+        storyNode: 'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
+        characterNode: 'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
+        sceneNode: 'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
+        plotStructureNode: 'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+        summaryNode: 'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
+        batchReplaceNode: 'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
+        numberConditionNode: 'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
+        textNode: 'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
+        backgroundNode: 'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
+        groupNode: 'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
+        aiNode: 'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
+        multi: 'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
+        default: t.footerHint,
+      };
+
+    return hints[selectedType || 'default'] || hints.default;
+  }, [assistantOpen, language, selectedNodes, t.footerHint]);
   const selectionMenuRef = useRef<HTMLDivElement>(null);
   const selectionBoundsRef = useRef<{ minX: number; minY: number; maxX: number } | null>(null);
   const selectionMenuRafRef = useRef<number | null>(null);
@@ -994,6 +1095,7 @@ export function StoryEditor() {
       miniMapPosition,
       showControls,
 
+      projectTitle,
       toolbarLayout,
       selectionMenuLayout,
       language,
@@ -1012,7 +1114,7 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, projectTitle, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -2976,8 +3078,9 @@ export function StoryEditor() {
           if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
           if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
           if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
+          if (typeof data.settings.projectTitle === 'string') setProjectTitle(data.settings.projectTitle);
           if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-          if (data.settings.toolbarLayout) setToolbarLayout(data.settings.toolbarLayout);
+          if (data.settings.toolbarLayout === 'horizontal' || data.settings.toolbarLayout === 'vertical') setToolbarLayout(data.settings.toolbarLayout);
           if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
           if (data.settings.language) setLanguage(data.settings.language);
           if (data.settings.theme) setTheme(data.settings.theme);
@@ -3388,40 +3491,122 @@ export function StoryEditor() {
   }, [callAIForTextResult, thinkingMode]);
 
   const createAssistantCards = useCallback((cards: AssistantCardDraft[], mode: 'append' | 'fill-selected' = 'append') => {
+    const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+    const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+      if (card.type === 'character' || card.type === 'scene' || card.type === 'story') return card.type;
+      if (cleanText(card.characterName) || cleanText(card.personality) || cleanText(card.features) || cleanText(card.background)) return 'character';
+      if (cleanText(card.sceneName) || cleanText(card.location) || cleanText(card.items) || cleanText(card.atmosphere)) return 'scene';
+      return 'story';
+    };
+
     const validCards = cards
       .map((card) => ({
-        title: (card.title || '').trim() || 'AI 剧情卡片',
-        text: (card.text || '').trim(),
+        ...card,
+        type: getDraftType(card),
+        title: cleanText(card.title),
+        text: cleanText(card.text),
+        characterName: cleanText(card.characterName),
+        traits: cleanText(card.traits),
+        personality: cleanText(card.personality),
+        features: cleanText(card.features),
+        background: cleanText(card.background),
+        sceneName: cleanText(card.sceneName),
+        description: cleanText(card.description),
+        location: cleanText(card.location),
+        items: cleanText(card.items),
+        atmosphere: cleanText(card.atmosphere),
+        other: cleanText(card.other),
       }))
-      .filter((card) => card.text || card.title);
+      .filter((card) => {
+        if (card.type === 'character') {
+          return card.characterName || card.traits || card.personality || card.features || card.background || card.other || card.title || card.text;
+        }
+        if (card.type === 'scene') {
+          return card.sceneName || card.description || card.location || card.items || card.atmosphere || card.other || card.title || card.text;
+        }
+        return card.text || card.title;
+      });
 
     if (validCards.length === 0) return 0;
 
-    const selectedStories = nodes.filter(n => n.selected && n.type === 'storyNode');
+    const selectedFillTargets = nodes.filter(n =>
+      n.selected &&
+      (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode')
+    );
+    const usedDraftIndexes = new Set<number>();
+    const usedTargetIds = new Set<string>();
     let filledCount = 0;
 
-    if (mode === 'fill-selected' && selectedStories.length > 0) {
-      const fillTargets = selectedStories.slice(0, validCards.length);
+    if (mode === 'fill-selected' && selectedFillTargets.length > 0) {
       setNodes((nds) => nds.map((node) => {
-        const targetIndex = fillTargets.findIndex((target) => target.id === node.id);
-        if (targetIndex === -1) return node;
-        const draft = validCards[targetIndex];
+        if (!selectedFillTargets.some(target => target.id === node.id) || usedTargetIds.has(node.id)) return node;
+        const compatibleType =
+          node.type === 'characterNode' ? 'character' :
+            node.type === 'sceneNode' ? 'scene' :
+              'story';
+        const draftIndex = validCards.findIndex((draft, index) => draft.type === compatibleType && !usedDraftIndexes.has(index));
+        if (draftIndex === -1) return node;
+
+        const draft = validCards[draftIndex];
+        usedDraftIndexes.add(draftIndex);
+        usedTargetIds.add(node.id);
         filledCount += 1;
+
+        if (compatibleType === 'character') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              characterName: draft.characterName || draft.title || node.data.characterName,
+              traits: draft.traits || draft.text || node.data.traits || '',
+              personality: draft.personality || node.data.personality || '',
+              features: draft.features || node.data.features || '',
+              background: draft.background || node.data.background || '',
+              other: draft.other || node.data.other || '',
+              showPersonality: !!(draft.personality || node.data.showPersonality),
+              showFeatures: !!(draft.features || node.data.showFeatures),
+              showBackground: !!(draft.background || node.data.showBackground),
+              showOther: !!(draft.other || node.data.showOther),
+            },
+          };
+        }
+
+        if (compatibleType === 'scene') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              sceneName: draft.sceneName || draft.title || node.data.sceneName,
+              description: draft.description || draft.text || node.data.description || '',
+              location: draft.location || node.data.location || '',
+              items: draft.items || node.data.items || '',
+              atmosphere: draft.atmosphere || node.data.atmosphere || '',
+              other: draft.other || node.data.other || '',
+              showLocation: !!(draft.location || node.data.showLocation),
+              showItems: !!(draft.items || node.data.showItems),
+              showAtmosphere: !!(draft.atmosphere || node.data.showAtmosphere),
+              showOther: !!(draft.other || node.data.showOther),
+            },
+          };
+        }
+
         return {
           ...node,
           data: {
             ...node.data,
-            title: draft.title,
-            text: draft.text,
+            title: draft.title || node.data.title,
+            text: draft.text || node.data.text || '',
           },
         };
       }));
     }
 
-    const remainingCards = validCards.slice(filledCount);
+    const remainingCards = validCards.filter((_, index) => !usedDraftIndexes.has(index));
     if (remainingCards.length === 0) return filledCount;
 
-    const anchorNodes = selectedStories.length > 0 ? selectedStories : nodes.filter(n => n.type === 'storyNode');
+    const selectedStories = nodes.filter(n => n.selected && n.type === 'storyNode');
+    const selectedTargets = selectedFillTargets.length > 0 ? selectedFillTargets : selectedStories;
+    const anchorNodes = selectedTargets.length > 0 ? selectedTargets : nodes.filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode');
     const center = getCenterPosition();
     const sourceNode = selectedStories[0] || null;
     const sourceWidth = sourceNode ? (sourceNode.measured?.width || (sourceNode.style?.width as number) || 300) : 300;
@@ -3429,11 +3614,57 @@ export function StoryEditor() {
       ? sourceNode.position.x + sourceWidth / 2 - 150
       : center.x - 150;
     const baseY = anchorNodes.length
-      ? Math.max(...anchorNodes.map(n => n.position.y + (n.measured?.height || (n.style?.height as number) || 200))) + 120
+      ? Math.max(...anchorNodes.map(n => n.position.y + (n.measured?.height || (n.style?.height as number) || 220))) + 120
       : center.y - 100;
 
     const newNodes: Node[] = remainingCards.map((card, index) => {
       const id = uuidv4();
+      if (card.type === 'character') {
+        return {
+          id,
+          type: 'characterNode',
+          position: { x: baseX, y: baseY + index * 420 },
+          selected: index === 0,
+          style: { width: 280, height: 420, minHeight: 420 },
+          data: {
+            id,
+            characterName: card.characterName || card.title || (language === 'zh' ? 'AI 角色' : 'AI Character'),
+            traits: card.traits || card.text || '',
+            personality: card.personality || '',
+            features: card.features || '',
+            background: card.background || '',
+            other: card.other || '',
+            showPersonality: !!card.personality,
+            showFeatures: !!card.features,
+            showBackground: !!card.background,
+            showOther: !!card.other,
+          },
+        };
+      }
+
+      if (card.type === 'scene') {
+        return {
+          id,
+          type: 'sceneNode',
+          position: { x: baseX, y: baseY + index * 420 },
+          selected: index === 0,
+          style: { width: 280, height: 420, minHeight: 420 },
+          data: {
+            id,
+            sceneName: card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene'),
+            description: card.description || card.text || '',
+            location: card.location || '',
+            items: card.items || '',
+            atmosphere: card.atmosphere || '',
+            other: card.other || '',
+            showLocation: !!card.location,
+            showItems: !!card.items,
+            showAtmosphere: !!card.atmosphere,
+            showOther: !!card.other,
+          },
+        };
+      }
+
       return {
         id,
         type: 'storyNode',
@@ -3442,7 +3673,7 @@ export function StoryEditor() {
         style: { width: 300, height: 200 },
         data: {
           id,
-          title: card.title,
+          title: card.title || (language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card'),
           text: card.text,
           shape: 'square',
           color: '#ffffff',
@@ -3450,23 +3681,24 @@ export function StoryEditor() {
       };
     });
 
+    const storyNodesToLink = newNodes.filter(node => node.type === 'storyNode');
     const newEdges: Edge[] = [];
-    if (sourceNode && newNodes[0]) {
+    if (sourceNode && storyNodesToLink[0]) {
       newEdges.push({
-        id: `e-${sourceNode.id}-${newNodes[0].id}`,
+        id: `e-${sourceNode.id}-${storyNodesToLink[0].id}`,
         source: sourceNode.id,
         sourceHandle: 'bottom',
-        target: newNodes[0].id,
+        target: storyNodesToLink[0].id,
         targetHandle: 'top',
         type: 'customEdge',
       });
     }
-    for (let i = 0; i < newNodes.length - 1; i += 1) {
+    for (let i = 0; i < storyNodesToLink.length - 1; i += 1) {
       newEdges.push({
-        id: `e-${newNodes[i].id}-${newNodes[i + 1].id}`,
-        source: newNodes[i].id,
+        id: `e-${storyNodesToLink[i].id}-${storyNodesToLink[i + 1].id}`,
+        source: storyNodesToLink[i].id,
         sourceHandle: 'bottom',
-        target: newNodes[i + 1].id,
+        target: storyNodesToLink[i + 1].id,
         targetHandle: 'top',
         type: 'customEdge',
       });
@@ -3475,7 +3707,7 @@ export function StoryEditor() {
     setNodes((nds) => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
     if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
     return filledCount + remainingCards.length;
-  }, [nodes, setNodes, setEdges, getCenterPosition]);
+  }, [nodes, setNodes, setEdges, getCenterPosition, language]);
 
   const playAssistantThought = useCallback((reasoning?: string) => {
     const text = (reasoning || '').trim();
@@ -3540,15 +3772,33 @@ export function StoryEditor() {
     const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
     setAssistantMessages((messages) => [...messages, userMessage]);
 
-    const selectedContext = selectedStoryNodes
-      .map((node, index) => `#${index + 1} ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`)
+    const describeAssistantNode = (node: Node, index: number) => {
+      if (node.type === 'characterNode') {
+        return `#${index + 1} [character] ${String(node.data?.characterName || 'Unnamed Character')}\n${formatCharacterNodeText(node.data as Record<string, unknown>)}`;
+      }
+      if (node.type === 'sceneNode') {
+        return `#${index + 1} [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}\n${formatSceneNodeText(node.data as Record<string, unknown>)}`;
+      }
+      return `#${index + 1} [story] ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`;
+    };
+
+    const selectedContext = selectedAssistantTargetNodes
+      .map((node, index) => describeAssistantNode(node, index))
       .join('\n\n---\n\n');
     const canvasContext = nodes
-      .filter(n => n.type === 'storyNode')
+      .filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode')
       .slice(0, 20)
-      .map((node, index) => `${index + 1}. ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`)
+      .map((node, index) => {
+        if (node.type === 'characterNode') {
+          return `${index + 1}. [character] ${String(node.data?.characterName || 'Unnamed Character')}: ${formatCharacterNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+        }
+        if (node.type === 'sceneNode') {
+          return `${index + 1}. [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}: ${formatSceneNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+        }
+        return `${index + 1}. [story] ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`;
+      })
       .join('\n');
-    const wantsCards = /卡片|节点|生成|布置|填充|续写|创建|安排|layout|card|node|continue/i.test(userText);
+    const wantsCards = /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(userText);
     const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
 
     const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
@@ -3557,11 +3807,15 @@ export function StoryEditor() {
 必须只返回 JSON，不要使用 Markdown 代码块：
 {
   "reply": "给用户看的中文回复，说明思路和你做了什么",
-  "cards": [{"title": "卡片标题", "text": "卡片正文"}],
+  "cards": [
+    {"type": "story", "title": "剧情卡片标题", "text": "剧情卡片正文"},
+    {"type": "character", "characterName": "人物名", "traits": "综合设定", "personality": "性格", "features": "人物特点", "background": "人物背景", "other": "其他设定"},
+    {"type": "scene", "sceneName": "场景名", "description": "综合描述", "location": "位置描写", "items": "场景物品", "atmosphere": "氛围环境", "other": "其他设定"}
+  ],
   "mode": "append" 或 "fill-selected"
 }
 
-当用户只是咨询建议时，cards 返回空数组。卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
+当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
 
 用户请求：
 ${userText}
@@ -3608,7 +3862,7 @@ ${canvasContext || '无'}`;
     } finally {
       setAssistantLoading(false);
     }
-  }, [assistantInput, assistantLoading, selectedStoryNodes, nodes, callAIForTextResult, playAssistantThought, createAssistantCards, setAssistantMessages]);
+  }, [assistantInput, assistantLoading, selectedAssistantTargetNodes, nodes, callAIForTextResult, playAssistantThought, createAssistantCards, setAssistantMessages]);
 
   const handleAssistantVoiceInput = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -4215,8 +4469,44 @@ ${direction}
     });
   }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath]);
 
+  const handleAssistantResizePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (isMobile) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    assistantResizeRef.current = {
+      startX: event.clientX,
+      startWidth: assistantPanelWidth,
+      dragged: false,
+    };
+  }, [assistantPanelWidth, isMobile]);
+
+  const handleAssistantResizePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const resize = assistantResizeRef.current;
+    if (!resize || isMobile) return;
+
+    const delta = resize.startX - event.clientX;
+    if (Math.abs(delta) > 4) resize.dragged = true;
+
+    const maxWidth = Math.min(560, Math.max(320, flowWidth - 180));
+    const nextWidth = Math.min(Math.max(resize.startWidth + delta, 300), maxWidth);
+    setAssistantWidth(nextWidth);
+  }, [flowWidth, isMobile]);
+
+  const handleAssistantResizePointerUp = useCallback(() => {
+    assistantResizeRef.current = null;
+  }, []);
+
+  const projectTitleInputUnits = useMemo(() => {
+    const fallbackTitle = language === 'zh' ? '项目标题' : 'Project title';
+    const title = projectTitle.trim() || fallbackTitle;
+    return (Array.from(title) as string[]).reduce((units: number, char: string) => units + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
+  }, [language, projectTitle]);
+
+  const projectTitleInputWidth = `clamp(${isMobile ? '8rem' : '9rem'}, ${Math.min(Math.max(projectTitleInputUnits + 2, 10), 28)}ch, ${isMobile ? '13rem' : '18rem'})`;
+
   return (
-    <div className="w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300" style={{ backgroundColor: canvasBg }}>
+    <div className="relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300" style={{ backgroundColor: canvasBg }}>
       <style>{`
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
@@ -4232,20 +4522,115 @@ ${direction}
         background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
-      <header className="h-14 border-b border-[var(--header-border)] bg-[var(--header-bg)] flex items-center justify-between px-6 z-20 shrink-0 shadow-sm relative">
-        <div className="flex items-center gap-3">
-          <img src="./icon.png" className="w-8 h-8 rounded shadow-sm shrink-0 theme-invert" alt="Logo" />
-          {!isMobile && (
-            <h1 className="text-lg font-normal tracking-tight whitespace-nowrap">
-              <span className="text-slate-900 dark:text-white">{t.editorTitle}</span>
-              <span className="text-slate-400 dark:text-slate-500 text-xs ml-2">{t.author}</span>
-            </h1>
+      <div
+        className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3"
+      >
+        <div className="pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl">
+          <img src="./icon.png" className="w-8 h-8 rounded-xl shadow-sm shrink-0 theme-invert" alt="Logo" />
+          <input
+            value={projectTitle}
+            onChange={(event) => setProjectTitle(event.target.value)}
+            placeholder={language === 'zh' ? '项目标题' : 'Project title'}
+            className="min-w-[8rem] max-w-[18rem] bg-transparent text-sm md:text-base font-bold tracking-tight text-slate-900 dark:text-white outline-none placeholder:text-slate-400 transition-[width]"
+            style={{ width: projectTitleInputWidth }}
+            aria-label={language === 'zh' ? '项目标题' : 'Project title'}
+          />
+          {!isMobile && <span className="text-slate-400 dark:text-slate-500 text-xs pr-1 whitespace-nowrap">{t.author}</span>}
+          <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+          <button
+            onClick={() => setShowPlayTest(true)}
+            className="w-9 h-9 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center transition-colors hover:bg-slate-900 dark:hover:bg-slate-50"
+            title={t.playTest}
+          >
+            <PlayCircle className="w-4 h-4" />
+          </button>
+
+          {canRenderVideo && (
+            <button
+              onClick={() => setShowVideoRender(true)}
+              className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center transition-colors hover:bg-sky-700"
+              title={language === 'zh' ? '一键导出视频' : 'Export Video'}
+            >
+              <Film className="w-4 h-4" />
+            </button>
           )}
+
+          <button
+            onClick={handleExportJSON}
+            className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDirty ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            title={isDirty ? (language === 'zh' ? "有未保存的更改 - 点击保存" : "Unsaved changes - Click to save") : t.save}
+          >
+            <Save className="w-4 h-4" />
+            {isDirty && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+          </button>
+
+          <button
+            onClick={() => jsonInputRef.current?.click()}
+            className="w-9 h-9 rounded-xl text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
+            title={t.import}
+          >
+            <Upload className="w-4 h-4" />
+          </button>
+          <input type="file" accept=".zip,.json" className="hidden" ref={jsonInputRef} onChange={handleImportZIP} />
         </div>
 
-        <div className="flex items-center gap-1.5 md:gap-3">
-          {toolbarLayout === 'topbar' && !isMobile && (
-            <div className="flex items-center gap-1 mr-4 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]">
+        <div className="hidden">
+          {false && (
+            <div className="pointer-events-auto flex items-center gap-1.5 mr-2 rounded-2xl border border-[var(--header-border)] bg-white/75 dark:bg-slate-900/75 px-2 py-1 shadow-sm backdrop-blur-xl">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all flex items-center justify-center"
+                title={t.settings}
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setShowTitles(!showTitles)}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all flex items-center justify-center"
+                title={showTitles ? t.hideTitles : t.showTitles}
+              >
+                {showTitles ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+              <button
+                onClick={undo}
+                disabled={history.past.length === 0}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all disabled:opacity-30 flex items-center justify-center"
+                title="鎾ら攢 (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={redo}
+                disabled={history.future.length === 0}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all disabled:opacity-30 flex items-center justify-center"
+                title="閲嶅仛 (Ctrl+Y)"
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+              <div className="flex items-center gap-1.5 px-1">
+                {presetColors.map((color, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCanvasBg(color)}
+                    className={`w-5 h-5 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
+                    style={{ backgroundColor: color }}
+                    title={`${language === 'zh' ? '鑳屾櫙棰滆壊' : 'BG Color'} ${idx + 1}`}
+                  ></button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {false && (
+            <div className="pointer-events-auto flex items-center gap-1 mr-4 bg-[var(--app-bg)]/50 p-1 rounded-2xl border border-[var(--header-border)] shadow-sm backdrop-blur-xl">
               <button
                 onClick={() => setShowSettings(true)}
                 className="p-2 rounded-md hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-[var(--icon-color)] transition-all"
@@ -4301,65 +4686,29 @@ ${direction}
           {isMobile && (
             <button
               onClick={() => setShowSettings(true)}
-              className="p-2 bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center shadow-sm transition-colors border border-slate-200 dark:border-slate-700"
+              className="pointer-events-auto p-2 bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center shadow-sm transition-colors border border-slate-200 dark:border-slate-700"
               title={t.settings}
             >
               <Settings className="w-4 h-4" />
             </button>
           )}
-          <button
-            onClick={() => setAssistantOpen((open) => !open)}
-            className={`p-2 md:px-3 md:py-2 text-sm font-bold rounded-md flex items-center gap-2 shadow-sm transition-all active:scale-95 border ${assistantOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-            title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
-          >
-            <BrainCircuit className="w-4 h-4" />
-            {!isMobile && (language === 'zh' ? 'AI 助手' : 'AI Assistant')}
-          </button>
-          <button
-            onClick={() => setShowPlayTest(true)}
-            className="p-2 md:px-4 md:py-2 bg-slate-800 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-md hover:bg-slate-900 dark:hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all active:scale-95"
-            title={t.playTest}
-          >
-            <PlayCircle className="w-4 h-4" />
-            {!isMobile && t.playTest}
-          </button>
-
-          {canRenderVideo && (
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2 py-1 shadow-sm backdrop-blur-xl">
             <button
-              onClick={() => setShowVideoRender(true)}
-              className="p-2 md:px-4 md:py-2 bg-sky-600 text-white text-sm font-bold rounded-md hover:bg-sky-700 flex items-center gap-2 shadow-sm transition-all active:scale-95"
-              title={language === 'zh' ? '一键导出视频' : 'Export Video'}
+              onClick={() => setAssistantOpen((open) => !open)}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${assistantOpen ? 'bg-indigo-600 text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
             >
-              <Film className="w-4 h-4" />
-              {!isMobile && (language === 'zh' ? '一键导出视频' : 'Export Video')}
+              <BrainCircuit className="w-4 h-4" />
             </button>
-          )}
-
-          <button
-            onClick={handleExportJSON}
-            className={`p-2 rounded-md flex items-center shadow-sm transition-colors border ${isDirty ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white border-indigo-200 dark:border-indigo-500/30' : 'bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] border-slate-200 dark:border-slate-700'} hover:bg-indigo-100 dark:hover:bg-slate-700`}
-            title={isDirty ? (language === 'zh' ? "有未保存的更改 - 点击保存" : "Unsaved changes - Click to save") : t.save}
-          >
-            <Save className="w-4 h-4" />
-            {isDirty && <span className="ml-1 md:ml-1.5 text-[10px] font-bold">{t.unsaved}</span>}
-          </button>
-
-          <button
-            onClick={() => jsonInputRef.current?.click()}
-            className="p-2 bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center shadow-sm transition-colors border border-slate-200 dark:border-slate-700"
-            title={t.import}
-          >
-            <Upload className="w-4 h-4" />
-          </button>
-          <input type="file" accept=".zip,.json" className="hidden" ref={jsonInputRef} onChange={handleImportZIP} />
+          </div>
         </div>
-      </header>
+      </div>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
         {/* Floating Toolbar */}
         <div
-          className={`absolute ${isMobile ? 'top-20 left-4' : 'top-6 left-6'} z-20 flex flex-col gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out w-[52px] ${toolbarCollapsed ? 'h-12 overflow-hidden' : ''}`}
+          className={`absolute ${isMobile ? 'top-20 left-4' : 'top-20 left-6'} z-20 flex flex-col gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out w-[52px] ${toolbarCollapsed ? 'h-12 overflow-hidden' : ''}`}
         >
           <button
             onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
@@ -4501,10 +4850,20 @@ ${direction}
         </div>
 
         {/* Right Floating Toolbar */}
-        {!isMobile && toolbarLayout !== 'topbar' && (
+        {!isMobile && (
           <div
-            className={`absolute top-6 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-12 overflow-hidden' : 'h-12 overflow-hidden') : ''}`}
+            className={`absolute top-4 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px] overflow-hidden' : 'h-[104px] overflow-hidden') : ''}`}
           >
+            <button
+              onClick={() => setAssistantOpen((open) => !open)}
+              className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} rounded-xl flex items-center justify-center transition-colors shrink-0 mx-auto ${assistantOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+              title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
+            >
+              <BrainCircuit className="w-5 h-5" />
+            </button>
+
+            <div className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}></div>
+
             <button
               onClick={() => setRightToolbarCollapsed(!rightToolbarCollapsed)}
               className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} flex items-center justify-center text-slate-400 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-white transition-all duration-300 shrink-0 mx-auto`}
@@ -4769,71 +5128,84 @@ ${direction}
       </div>
 
         {assistantOpen && (
-          <aside className={`${isMobile ? 'absolute inset-x-3 top-16 bottom-3 z-[180] rounded-2xl shadow-2xl' : 'w-[360px] shrink-0 border-l border-[var(--header-border)]'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}>
-            <div className="h-14 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-black text-slate-900 dark:text-white truncate">AI 助手</div>
-                  <div className="text-[10px] font-bold text-slate-400 truncate">
-                    {selectedStoryNodes.length > 0 ? `已选中 ${selectedStoryNodes.length} 张剧情卡片` : '可建议、思考和生成卡片'}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setAssistantOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title={language === 'zh' ? '关闭 AI 助手' : 'Close AI Assistant'}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+          <aside
+            className={`${isMobile ? 'fixed inset-y-0 right-0 left-6 z-[220] shadow-2xl' : 'relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-2xl'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}
+            style={isMobile ? undefined : { width: assistantPanelWidth }}
+          >
+            {!isMobile && (
+              <div
+                onPointerDown={handleAssistantResizePointerDown}
+                onPointerMove={handleAssistantResizePointerMove}
+                onPointerUp={handleAssistantResizePointerUp}
+                className="absolute left-0 top-0 bottom-0 z-20 w-2 -translate-x-1 cursor-ew-resize bg-transparent hover:bg-indigo-400/20"
+                title={language === 'zh' ? '拖拽调整 AI 助手宽度' : 'Drag to resize AI assistant'}
+              />
+            )}
             <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 shrink-0">
               <div className="flex items-center gap-2 mb-2">
                 <button
                   onClick={handleNewAssistantTask}
                   disabled={assistantLoading}
                   className="flex-1 h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center gap-1.5 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                  title={language === 'zh' ? '新建 AI 任务' : 'New AI task'}
+                  title={language === 'zh' ? '新对话' : 'New conversation'}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  新建任务
+                  新对话
                 </button>
                 <button
                   onClick={undo}
                   disabled={history.past.length === 0}
-                  className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 disabled:opacity-40 transition-colors shrink-0"
                   title={language === 'zh' ? '撤回最近一次画布修改' : 'Undo canvas change'}
                 >
-                  <Undo2 className="w-3.5 h-3.5" />
+                  <Undo2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={redo}
                   disabled={history.future.length === 0}
-                  className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 disabled:opacity-40 transition-colors shrink-0"
                   title={language === 'zh' ? '恢复撤回的画布修改' : 'Redo canvas change'}
                 >
-                  <Redo2 className="w-3.5 h-3.5" />
+                  <Redo2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setAssistantOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-40 transition-colors shrink-0"
+                  title={language === 'zh' ? '关闭 AI 助手' : 'Close AI Assistant'}
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
                 {assistantTasks.map((task) => (
-                  <button
+                  <div
                     key={task.id}
-                    onClick={() => setActiveAssistantTaskId(task.id)}
-                    className={`min-w-[112px] max-w-[160px] px-2.5 py-1.5 rounded-lg text-left border transition-colors ${
+                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${
                       task.id === activeAssistantTaskId
                         ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
                         : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                     }`}
                     title={task.title}
                   >
-                    <div className="text-[11px] font-black truncate">{task.title}</div>
-                    <div className="text-[9px] opacity-60 truncate">{new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  </button>
+                    <div className="flex items-start gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveAssistantTaskId(task.id)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="text-[11px] font-black truncate">{task.title}</div>
+                        <div className="text-[9px] opacity-60 truncate">{new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCloseAssistantTask(task.id)}
+                        className="w-4 h-4 mt-0.5 flex items-center justify-center text-slate-400 hover:text-rose-500 dark:hover:text-rose-300 transition-colors shrink-0"
+                        title={language === 'zh' ? '关闭对话' : 'Close conversation'}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -4898,8 +5270,8 @@ ${direction}
                   生成卡片
                 </button>
                 <button
-                  onClick={() => handleAssistantSend('填充选中的空白剧情卡片，保持标题和正文可以直接使用。')}
-                  disabled={assistantLoading || selectedStoryNodes.length === 0}
+                  onClick={() => handleAssistantSend('填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。')}
+                  disabled={assistantLoading || selectedAssistantTargetNodes.length === 0}
                   className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 disabled:opacity-50 transition-colors"
                 >
                   填充选中
@@ -4915,7 +5287,7 @@ ${direction}
                       handleAssistantSend();
                     }
                   }}
-                  placeholder="和 AI 讨论剧情，或让它生成/填充卡片..."
+                  placeholder="和 AI 讨论剧情，或让它生成/修改人物、场景、剧情卡片..."
                   rows={2}
                   className="flex-1 resize-none bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 outline-none max-h-28 custom-scrollbar"
                 />
@@ -4948,7 +5320,7 @@ ${direction}
             <span className="flex items-center gap-1.5"><div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}</span>
           </div>
           <div className="opacity-60 font-medium">
-            {t.footerHint}
+            {footerHint}
           </div>
         </footer>
       )}
@@ -5277,8 +5649,9 @@ ${direction}
                       if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
                       if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
                       if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
+                      if (typeof data.settings.projectTitle === 'string') setProjectTitle(data.settings.projectTitle);
                       if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-                      if (data.settings.toolbarLayout) setToolbarLayout(data.settings.toolbarLayout);
+                      if (data.settings.toolbarLayout === 'horizontal' || data.settings.toolbarLayout === 'vertical') setToolbarLayout(data.settings.toolbarLayout);
                       if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
                       if (data.settings.language) setLanguage(data.settings.language);
                       if (data.settings.theme) setTheme(data.settings.theme);

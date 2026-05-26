@@ -88,8 +88,8 @@ interface SettingsModalProps {
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
   setPresetColors: (colors: string[]) => void;
-  toolbarLayout: 'vertical' | 'horizontal' | 'topbar';
-  setToolbarLayout: (layout: 'vertical' | 'horizontal' | 'topbar') => void;
+  toolbarLayout: 'vertical' | 'horizontal';
+  setToolbarLayout: (layout: 'vertical' | 'horizontal') => void;
   selectionMenuLayout: 'horizontal' | 'vertical';
   setSelectionMenuLayout: (layout: 'horizontal' | 'vertical') => void;
   edgeStyle: 'step' | 'bezier';
@@ -426,7 +426,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
                   <button onClick={() => setToolbarLayout('vertical')} className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'vertical' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>{t.vertical}</button>
                   <button onClick={() => setToolbarLayout('horizontal')} className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'horizontal' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>{t.horizontal}</button>
-                  <button onClick={() => setToolbarLayout('topbar')} className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'topbar' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>{t.topbar}</button>
                 </div>
               </section>
 
