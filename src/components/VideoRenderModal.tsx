@@ -1,6 +1,6 @@
 ﻿import React, { useMemo, useRef, useState } from 'react';
 import type { Node as FlowNode, Edge as FlowEdge } from '@xyflow/react';
-import { Clock, Download, Film, GripVertical, Image, Layers, Loader2, MoveHorizontal, Music, Pause, Play, Settings, Trash2, Video, X } from 'lucide-react';
+import { Clock, Download, Film, GripVertical, Image, Layers, Loader2, MoveHorizontal, Music, Pause, Play, Redo2, Settings, Trash2, Undo2, Video, X } from 'lucide-react';
 import JSZip from 'jszip';
 import { htmlToSpeechText } from '../lib/tts';
 import type { Language } from '../lib/i18n';
@@ -14,6 +14,10 @@ type VideoRenderModalProps = {
   edges: FlowEdge[];
   onClose: () => void;
   language: Language;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 };
 
 type TauriRenderSaveResult = {
@@ -573,7 +577,7 @@ function RangeControl({ label, value, min, max, step, onChange, valueLabel, disa
   );
 }
 
-export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
+export function VideoRenderModal({ nodes, edges, onClose, language, onUndo, onRedo, canUndo = false, canRedo = false }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(orderedNodes.map(node => node.id)));
   const [timelineIds, setTimelineIds] = useState<string[]>(() => orderedNodes.map(node => node.id));
@@ -1309,6 +1313,28 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {onUndo && onRedo && (
+              <div className="flex items-center gap-1 border-r border-[var(--vr-border)] pr-2 mr-1">
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo || status === 'rendering'}
+                  className="h-9 w-9 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-35 disabled:hover:text-[var(--vr-text-muted)] disabled:hover:bg-transparent transition-colors flex items-center justify-center"
+                  title={isZh ? '撤销 (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
+                >
+                  <Undo2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo || status === 'rendering'}
+                  className="h-9 w-9 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-35 disabled:hover:text-[var(--vr-text-muted)] disabled:hover:bg-transparent transition-colors flex items-center justify-center"
+                  title={isZh ? '重做 (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
+                >
+                  <Redo2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <button
               onClick={renderVideo}
               disabled={status === 'rendering' || selectedNodes.length === 0}
@@ -1605,7 +1631,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               </div>
             )}
             {savedPath && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 break-all">
+              <div className="rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)] break-all">
                 {isZh ? '已保存到：' : 'Saved to: '}{savedPath}
               </div>
             )}

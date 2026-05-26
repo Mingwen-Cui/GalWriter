@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Settings,
   ImageIcon,
@@ -84,6 +84,8 @@ interface SettingsModalProps {
   setLanguage: (lang: Language) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  bubbleStyle: 'glass' | 'flat';
+  setBubbleStyle: (style: 'glass' | 'flat') => void;
   canvasBg: string;
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
@@ -178,6 +180,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setLanguage,
   theme,
   setTheme,
+  bubbleStyle,
+  setBubbleStyle,
   canvasBg,
   setCanvasBg,
   presetColors,
@@ -323,8 +327,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!showSettings) return null;
 
   return (
-    <div className={`fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}>
-      <div className="bg-[var(--panel-bg)] backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-3xl h-[600px] max-h-[85vh] flex overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+    <div className={`fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}>
+      <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-3xl h-[600px] max-h-[85vh] flex overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
 
         {/* Sidebar Navigation */}
         <div className="w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
@@ -399,7 +403,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">{language === 'zh' ? '绯荤粺璇█' : 'Language'}</label>
+                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">{language === 'zh' ? '系统语言' : 'Language'}</label>
                     <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
                       <button
                         onClick={() => setLanguage('zh')}
@@ -426,6 +430,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
                   <button onClick={() => setToolbarLayout('vertical')} className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'vertical' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>{t.vertical}</button>
                   <button onClick={() => setToolbarLayout('horizontal')} className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'horizontal' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>{t.horizontal}</button>
+                </div>
+              </section>
+
+              <section>
+                <header className="flex items-center gap-3 mb-6">
+                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
+                  <h3 className="text-base font-black text-[var(--text-primary)]">{language === 'zh' ? '工具栏气泡质感' : 'Toolbar Bubble Style'}</h3>
+                </header>
+                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                  <button
+                    onClick={() => setBubbleStyle('glass')}
+                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${bubbleStyle === 'glass' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    {language === 'zh' ? '玻璃' : 'Glass'}
+                  </button>
+                  <button
+                    onClick={() => setBubbleStyle('flat')}
+                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${bubbleStyle === 'flat' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    {language === 'zh' ? '扁平' : 'Flat'}
+                  </button>
                 </div>
               </section>
 
@@ -915,126 +940,126 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button onClick={() => setAiProvider('openai')} className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'openai' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>OpenAI</button>
                     </div>
 
-                <div className="bg-[var(--app-bg)]/30 p-8 rounded-xl border border-[var(--header-border)] shadow-inner space-y-6">
-                  {aiProvider === 'gemini' ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between ml-1">
-                        <label className="text-sm font-black text-[var(--text-primary)]">{t.geminiKey}</label>
-                        <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">Google AI Studio</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          placeholder="AI Studio API Key"
-                          value={customApiKey}
-                          onChange={e => setCustomApiKey(e.target.value)}
-                          className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <Check className={`w-5 h-5 transition-all ${customApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                    <div className="bg-[var(--app-bg)]/30 p-8 rounded-xl border border-[var(--header-border)] shadow-inner space-y-6">
+                      {aiProvider === 'gemini' ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between ml-1">
+                            <label className="text-sm font-black text-[var(--text-primary)]">{t.geminiKey}</label>
+                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">Google AI Studio</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="password"
+                              placeholder="AI Studio API Key"
+                              value={customApiKey}
+                              onChange={e => setCustomApiKey(e.target.value)}
+                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                              <Check className={`w-5 h-5 transition-all ${customApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                            </div>
+                          </div>
+                          <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2"></p>
+                          <a
+                            href="https://ai.google.dev/gemini-api/docs"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                          >
+                            {language === 'zh' ? 'Gemini API 官方文档' : 'Gemini API Docs'}
+                          </a>
                         </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2"></p>
-                      <a
-                        href="https://ai.google.dev/gemini-api/docs"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                      >
-                        {language === 'zh' ? 'Gemini API 官方文档' : 'Gemini API Docs'}
-                      </a>
-                    </div>
-                  ) : aiProvider === 'openai' ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between ml-1">
-                        <label className="text-sm font-black text-[var(--text-primary)]">{t.openaiKey}</label>
-                        <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">OpenAI Platform</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          placeholder="OpenAI API Key (sk-...)"
-                          value={openaiApiKey}
-                          onChange={e => setOpenaiApiKey(e.target.value)}
-                          className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <Check className={`w-5 h-5 transition-all ${openaiApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                      ) : aiProvider === 'openai' ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between ml-1">
+                            <label className="text-sm font-black text-[var(--text-primary)]">{t.openaiKey}</label>
+                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">OpenAI Platform</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="password"
+                              placeholder="OpenAI API Key (sk-...)"
+                              value={openaiApiKey}
+                              onChange={e => setOpenaiApiKey(e.target.value)}
+                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                              <Check className={`w-5 h-5 transition-all ${openaiApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                            </div>
+                          </div>
+                          <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 gpt-4o 等系列模型。' : 'Supports gpt-4o models.'}</p>
+                          <a
+                            href="https://platform.openai.com/docs"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                          >
+                            {language === 'zh' ? 'OpenAI API 官方文档' : 'OpenAI API Docs'}
+                          </a>
                         </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 gpt-4o 等系列模型。' : 'Supports gpt-4o models.'}</p>
-                      <a
-                        href="https://platform.openai.com/docs"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                      >
-                        {language === 'zh' ? 'OpenAI API 官方文档' : 'OpenAI API Docs'}
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between ml-1">
-                        <label className="text-sm font-black text-[var(--text-primary)]">{t.deepseekKey}</label>
-                        <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">DeepSeek Platform</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          placeholder="DeepSeek Platform API Key"
-                          value={deepseekApiKey}
-                          onChange={e => setDeepseekApiKey(e.target.value)}
-                          className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <Check className={`w-5 h-5 transition-all ${deepseekApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between ml-1">
+                            <label className="text-sm font-black text-[var(--text-primary)]">{t.deepseekKey}</label>
+                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">DeepSeek Platform</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="password"
+                              placeholder="DeepSeek Platform API Key"
+                              value={deepseekApiKey}
+                              onChange={e => setDeepseekApiKey(e.target.value)}
+                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                              <Check className={`w-5 h-5 transition-all ${deepseekApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                            </div>
+                          </div>
+                          <a
+                            href="https://api-docs.deepseek.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                          >
+                            {language === 'zh' ? 'DeepSeek API 官方文档' : 'DeepSeek API Docs'}
+                          </a>
                         </div>
-                      </div>
-                      <a
-                        href="https://api-docs.deepseek.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                      >
-                        {language === 'zh' ? 'DeepSeek API 官方文档' : 'DeepSeek API Docs'}
-                      </a>
+                      )}
                     </div>
-                  )}
-                </div>
                     <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between px-2">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-black text-[var(--text-primary)]">{t.genLength}</h4>
-                    <p className="text-xs text-[var(--text-muted)] font-medium">{language === 'zh' ? '控制 AI 续写内容的字数深度' : 'Control AI output depth'}</p>
-                  </div>
-                  <select
-                    value={generateLength}
-                    onChange={(e) => setGenerateLength(e.target.value)}
-                    className="px-6 py-3 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all cursor-pointer"
-                  >
-                    {['1句话', '2-3句话', '100字', '200字', '500字', '1000字'].map(len => (
-                      <option key={len} value={len} className={theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>{language === 'zh' ? len : len.replace('句话', ' sentences').replace('字', ' words')}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className={`p-6 rounded-xl border-2 transition-all duration-700 ${aiProvider === 'deepseek' || aiProvider === 'gemini' || aiProvider === 'openai' ? 'bg-[var(--card-bg)] border-[var(--accent)]/30 shadow-xl' : 'bg-[var(--app-bg)] border-[var(--card-border)] opacity-40 grayscale pointer-events-none'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-black text-[var(--text-primary)]">{t.thinkingMode}</h4>
-                        <span className="px-2 py-0.5 bg-[var(--accent)] text-[10px] font-black text-white rounded-full uppercase tracking-tighter shadow-sm">Exclusive</span>
+                      <div className="flex items-center justify-between px-2">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-black text-[var(--text-primary)]">{t.genLength}</h4>
+                          <p className="text-xs text-[var(--text-muted)] font-medium">{language === 'zh' ? '控制 AI 续写内容的字数深度' : 'Control AI output depth'}</p>
+                        </div>
+                        <select
+                          value={generateLength}
+                          onChange={(e) => setGenerateLength(e.target.value)}
+                          className="px-6 py-3 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all cursor-pointer"
+                        >
+                          {['1句话', '2-3句话', '100字', '200字', '500字', '1000字'].map(len => (
+                            <option key={len} value={len} className={theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>{language === 'zh' ? len : len.replace('句话', ' sentences').replace('字', ' words')}</option>
+                          ))}
+                        </select>
                       </div>
-                      <p className="text-xs text-[var(--text-muted)] font-medium max-w-[280px] leading-relaxed">{t.thinkingModeDesc}</p>
-                    </div>
-                    <button
-                      onClick={() => setThinkingMode(!thinkingMode)}
-                      className={`w-14 h-7 rounded-full transition-all duration-500 relative ${thinkingMode ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)] shadow-inner'}`}
-                    >
-                      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-500 shadow-md ${thinkingMode ? 'left-8' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
+
+                      <div className={`p-6 rounded-xl border-2 transition-all duration-700 ${aiProvider === 'deepseek' || aiProvider === 'gemini' || aiProvider === 'openai' ? 'bg-[var(--card-bg)] border-[var(--accent)]/30 shadow-xl' : 'bg-[var(--app-bg)] border-[var(--card-border)] opacity-40 grayscale pointer-events-none'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-[var(--text-primary)]">{t.thinkingMode}</h4>
+                              <span className="px-2 py-0.5 bg-[var(--accent)] text-[10px] font-black text-white rounded-full uppercase tracking-tighter shadow-sm">Exclusive</span>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] font-medium max-w-[280px] leading-relaxed">{t.thinkingModeDesc}</p>
+                          </div>
+                          <button
+                            onClick={() => setThinkingMode(!thinkingMode)}
+                            className={`w-14 h-7 rounded-full transition-all duration-500 relative ${thinkingMode ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)] shadow-inner'}`}
+                          >
+                            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-500 shadow-md ${thinkingMode ? 'left-8' : 'left-1'}`} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1059,142 +1084,142 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </header>
                 {openAiPanels.image && (
                   <div className="p-6">
-                <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
-                  <button
-                    type="button"
-                    onClick={importImageTemplateFromClipboard}
-                    className="relative z-10 w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--accent)] text-white rounded-xl text-xs font-black shadow-md transition-all hover:shadow-lg active:scale-95"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                    <span>{language === 'zh' ? '剪贴板导入填入' : 'Clipboard import and filling in'}</span>
-                  </button>
-                  {imageTemplateImportStatus !== 'idle' && (
-                    <p className={`text-[10px] leading-relaxed font-bold px-1 ${imageTemplateImportStatus === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {imageTemplateImportStatus === 'success'
-                        ? (language === 'zh' ? '已从剪贴板填入可识别的接口信息。' : 'Imported recognized API fields from clipboard.')
-                        : imageTemplateImportStatus === 'blocked'
-                          ? (language === 'zh' ? '无法直接读取剪贴板，请粘贴到下方文本框导入。' : 'Clipboard access was blocked. Paste into the box below to import.')
-                          : (language === 'zh' ? '剪贴板里没有识别到 API 地址、密钥、模型或尺寸。' : 'No API URL, key, model, or size was recognized in clipboard.')
-                      }
-                    </p>
-                  )}
-                  {(imageTemplateImportStatus === 'blocked' || imageTemplateImportStatus === 'empty') && (
-                    <div className="space-y-2">
-                      <textarea
-                        value={manualImageTemplate}
-                        onChange={e => {
-                          const value = e.target.value;
-                          setManualImageTemplate(value);
-                          if (value.trim()) importManualImageTemplate(value);
-                        }}
-                        onPaste={e => {
-                          const pasted = e.clipboardData.getData('text');
-                          if (pasted.trim()) {
-                            setManualImageTemplate(pasted);
-                            importManualImageTemplate(pasted);
-                          }
-                        }}
-                        placeholder={language === 'zh' ? '在这里 Ctrl+V 粘贴官方模板、curl、JSON 或 API Key' : 'Ctrl+V official template, curl, JSON, or API key here'}
-                        className="w-full min-h-24 px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)] resize-y"
-                      />
+                    <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
                       <button
                         type="button"
-                        onClick={() => importManualImageTemplate(manualImageTemplate)}
-                        className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg text-xs font-black text-[var(--text-primary)] hover:text-[var(--accent)] transition-all active:scale-95"
+                        onClick={importImageTemplateFromClipboard}
+                        className="relative z-10 w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--accent)] text-white rounded-xl text-xs font-black shadow-md transition-all hover:shadow-lg active:scale-95"
                       >
-                        {language === 'zh' ? '导入粘贴内容' : 'Import Pasted Text'}
+                        <ImageIcon className="w-4 h-4" />
+                        <span>{language === 'zh' ? '剪贴板导入填入' : 'Clipboard import and filling in'}</span>
                       </button>
+                      {imageTemplateImportStatus !== 'idle' && (
+                        <p className={`text-[10px] leading-relaxed font-bold px-1 ${imageTemplateImportStatus === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {imageTemplateImportStatus === 'success'
+                            ? (language === 'zh' ? '已从剪贴板填入可识别的接口信息。' : 'Imported recognized API fields from clipboard.')
+                            : imageTemplateImportStatus === 'blocked'
+                              ? (language === 'zh' ? '无法直接读取剪贴板，请粘贴到下方文本框导入。' : 'Clipboard access was blocked. Paste into the box below to import.')
+                              : (language === 'zh' ? '剪贴板里没有识别到 API 地址、密钥、模型或尺寸。' : 'No API URL, key, model, or size was recognized in clipboard.')
+                          }
+                        </p>
+                      )}
+                      {(imageTemplateImportStatus === 'blocked' || imageTemplateImportStatus === 'empty') && (
+                        <div className="space-y-2">
+                          <textarea
+                            value={manualImageTemplate}
+                            onChange={e => {
+                              const value = e.target.value;
+                              setManualImageTemplate(value);
+                              if (value.trim()) importManualImageTemplate(value);
+                            }}
+                            onPaste={e => {
+                              const pasted = e.clipboardData.getData('text');
+                              if (pasted.trim()) {
+                                setManualImageTemplate(pasted);
+                                importManualImageTemplate(pasted);
+                              }
+                            }}
+                            placeholder={language === 'zh' ? '在这里 Ctrl+V 粘贴官方模板、curl、JSON 或 API Key' : 'Ctrl+V official template, curl, JSON, or API key here'}
+                            className="w-full min-h-24 px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)] resize-y"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => importManualImageTemplate(manualImageTemplate)}
+                            className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg text-xs font-black text-[var(--text-primary)] hover:text-[var(--accent)] transition-all active:scale-95"
+                          >
+                            {language === 'zh' ? '导入粘贴内容' : 'Import Pasted Text'}
+                          </button>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-[var(--text-primary)]">
+                          {language === 'zh' ? 'API 地址 / Base URL' : 'API Endpoint / Base URL'}
+                        </label>
+                        <input
+                          type="text"
+                          value={imageApiUrl}
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (!applyImageTemplate(value)) setImageApiUrl(value);
+                          }}
+                          placeholder={SEEDREAM_IMAGE_API_URL}
+                          className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-[var(--text-primary)]">
+                          {language === 'zh' ? 'API 密钥' : 'API Key'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            value={imageApiKey}
+                            onChange={e => setImageApiKey(e.target.value)}
+                            placeholder="Image API Key"
+                            className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                          />
+                          <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${imageApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-[var(--text-primary)]">
+                            {language === 'zh' ? '模型' : 'Model'}
+                          </label>
+                          <input
+                            type="text"
+                            value={imageModel}
+                            onChange={e => setImageModel(e.target.value)}
+                            placeholder={SEEDREAM_IMAGE_MODEL}
+                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-[var(--text-primary)]">
+                            {language === 'zh' ? '自定义尺寸' : 'Custom Size'}
+                          </label>
+                          <input
+                            type="text"
+                            value={imageSize}
+                            onChange={e => setImageSize(e.target.value)}
+                            placeholder={SEEDREAM_IMAGE_SIZE}
+                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono font-bold shadow-sm text-[var(--text-primary)]"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-xs font-black text-[var(--text-primary)]">
+                            {language === 'zh' ? '主流尺寸预设' : 'Popular Size Presets'}
+                          </label>
+                          <span className="text-[10px] font-bold text-[var(--text-muted)]">
+                            {language === 'zh' ? '点击快速填入' : 'Click to fill'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {IMAGE_SIZE_PRESETS.map(size => (
+                            <button
+                              key={size.value}
+                              type="button"
+                              onClick={() => setImageSize(size.value)}
+                              className={`px-3 py-2 rounded-lg border text-left transition-all active:scale-95 ${imageSize === size.value
+                                ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-md'
+                                : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--card-border)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                                }`}
+                              title={size.value}
+                            >
+                              <div className="text-xs font-black">{size.value}</div>
+                              <div className={`text-[9px] font-bold mt-0.5 ${imageSize === size.value ? 'text-white/70' : 'text-[var(--text-muted)]'}`}>
+                                {language === 'zh' ? size.zh : size.en}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
+                        {language === 'zh' ? '普通文字卡片会使用这里的配置生成图片。即梦/火山方舟会自动把 OpenAI 默认地址、gpt-image-1 和过小尺寸转换成可测试的 Seedream 请求。' : 'Text cards use this configuration to generate images. Seedream / Volcengine requests automatically convert the OpenAI default endpoint, gpt-image-1, and undersized images into a testable Seedream request.'}
+                      </p>
                     </div>
-                  )}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? 'API 地址 / Base URL' : 'API Endpoint / Base URL'}
-                    </label>
-                    <input
-                      type="text"
-                      value={imageApiUrl}
-                      onChange={e => {
-                        const value = e.target.value;
-                        if (!applyImageTemplate(value)) setImageApiUrl(value);
-                      }}
-                      placeholder={SEEDREAM_IMAGE_API_URL}
-                      className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? 'API 密钥' : 'API Key'}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="password"
-                        value={imageApiKey}
-                        onChange={e => setImageApiKey(e.target.value)}
-                        placeholder="Image API Key"
-                        className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                      />
-                      <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${imageApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '模型' : 'Model'}
-                      </label>
-                      <input
-                        type="text"
-                        value={imageModel}
-                        onChange={e => setImageModel(e.target.value)}
-                        placeholder={SEEDREAM_IMAGE_MODEL}
-                        className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '自定义尺寸' : 'Custom Size'}
-                      </label>
-                      <input
-                        type="text"
-                        value={imageSize}
-                        onChange={e => setImageSize(e.target.value)}
-                        placeholder={SEEDREAM_IMAGE_SIZE}
-                        className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono font-bold shadow-sm text-[var(--text-primary)]"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                      <label className="text-xs font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '主流尺寸预设' : 'Popular Size Presets'}
-                      </label>
-                      <span className="text-[10px] font-bold text-[var(--text-muted)]">
-                        {language === 'zh' ? '点击快速填入' : 'Click to fill'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {IMAGE_SIZE_PRESETS.map(size => (
-                        <button
-                          key={size.value}
-                          type="button"
-                          onClick={() => setImageSize(size.value)}
-                          className={`px-3 py-2 rounded-lg border text-left transition-all active:scale-95 ${imageSize === size.value
-                            ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-md'
-                            : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--card-border)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                            }`}
-                          title={size.value}
-                        >
-                          <div className="text-xs font-black">{size.value}</div>
-                          <div className={`text-[9px] font-bold mt-0.5 ${imageSize === size.value ? 'text-white/70' : 'text-[var(--text-muted)]'}`}>
-                            {language === 'zh' ? size.zh : size.en}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
-                    {language === 'zh' ? '普通文字卡片会使用这里的配置生成图片。即梦/火山方舟会自动把 OpenAI 默认地址、gpt-image-1 和过小尺寸转换成可测试的 Seedream 请求。' : 'Text cards use this configuration to generate images. Seedream / Volcengine requests automatically convert the OpenAI default endpoint, gpt-image-1, and undersized images into a testable Seedream request.'}
-                  </p>
-                </div>
                   </div>
                 )}
               </section>
@@ -1218,80 +1243,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </header>
                 {openAiPanels.voice && (
                   <div className="p-6">
-                <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setTtsProvider('system')}
-                      className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'system' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                    >
-                      {language === 'zh' ? '系统自带语音' : 'System Voice'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTtsProvider('youdao')}
-                      className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'youdao' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                    >
-                      {language === 'zh' ? '有道云 API' : 'Youdao API'}
-                    </button>
-                  </div>
-                  {ttsProvider === 'youdao' && (
-                    <>
-                      <input type="hidden" value={ttsApiUrl} onChange={e => setTtsApiUrl(e.target.value)} />
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-[var(--text-primary)]">
-                            {language === 'zh' ? '应用 ID' : 'Application ID'}
-                          </label>
-                          <input
-                            type="text"
-                            value={ttsModel}
-                            onChange={e => setTtsModel(e.target.value)}
-                            placeholder="65a6f7935fd78c5b"
-                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-[var(--text-primary)]">
-                            {language === 'zh' ? '应用密钥' : 'Application Secret'}
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              value={ttsApiKey}
-                              onChange={e => setTtsApiKey(e.target.value)}
-                              placeholder={language === 'zh' ? '控制台里的应用密钥' : 'Application secret'}
-                              className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                            />
-                            <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${ttsApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                    <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
+                      <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setTtsProvider('system')}
+                          className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'system' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        >
+                          {language === 'zh' ? '系统自带语音' : 'System Voice'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTtsProvider('youdao')}
+                          className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'youdao' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        >
+                          {language === 'zh' ? '有道云 API' : 'Youdao API'}
+                        </button>
+                      </div>
+                      {ttsProvider === 'youdao' && (
+                        <>
+                          <input type="hidden" value={ttsApiUrl} onChange={e => setTtsApiUrl(e.target.value)} />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-xs font-black text-[var(--text-primary)]">
+                                {language === 'zh' ? '应用 ID' : 'Application ID'}
+                              </label>
+                              <input
+                                type="text"
+                                value={ttsModel}
+                                onChange={e => setTtsModel(e.target.value)}
+                                placeholder="65a6f7935fd78c5b"
+                                className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-black text-[var(--text-primary)]">
+                                {language === 'zh' ? '应用密钥' : 'Application Secret'}
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="password"
+                                  value={ttsApiKey}
+                                  onChange={e => setTtsApiKey(e.target.value)}
+                                  placeholder={language === 'zh' ? '控制台里的应用密钥' : 'Application secret'}
+                                  className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                                />
+                                <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${ttsApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                              </div>
+                            </div>
                           </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-black text-[var(--text-primary)]">
+                              {language === 'zh' ? '发音人' : 'Voice Name'}
+                            </label>
+                            <input
+                              type="text"
+                              value={ttsVoice}
+                              onChange={e => setTtsVoice(e.target.value)}
+                              placeholder="youxiaoqin"
+                              className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                            />
+                          </div>
+                        </>
+                      )}
+                      {ttsProvider === 'system' && (
+                        <div className="px-4 py-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
+                          <p className="text-xs leading-relaxed text-[var(--text-muted)] font-bold">
+                            {language === 'zh' ? '使用 Windows 系统内置语音生成 WAV 音频，不需要联网，也不会增加模型体积。' : 'Uses the built-in Windows voice to generate WAV audio without network access or bundled models.'}
+                          </p>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-[var(--text-primary)]">
-                          {language === 'zh' ? '发音人' : 'Voice Name'}
-                        </label>
-                        <input
-                          type="text"
-                          value={ttsVoice}
-                          onChange={e => setTtsVoice(e.target.value)}
-                          placeholder="youxiaoqin"
-                          className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {ttsProvider === 'system' && (
-                    <div className="px-4 py-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
-                      <p className="text-xs leading-relaxed text-[var(--text-muted)] font-bold">
-                        {language === 'zh' ? '使用 Windows 系统内置语音生成 WAV 音频，不需要联网，也不会增加模型体积。' : 'Uses the built-in Windows voice to generate WAV audio without network access or bundled models.'}
+                      )}
+                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
+                        {language === 'zh' ? '框选剧情卡片后，使用框选菜单里的“生成朗读音频”会把每张卡片的标题和正文合成为音频，并自动关联到 audioUrl。' : 'After selecting story cards, use Generate narration audio in the selection menu to synthesize each card title and body into audio and attach it to audioUrl.'}
                       </p>
                     </div>
-                  )}
-                  <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
-                    {language === 'zh' ? '框选剧情卡片后，使用框选菜单里的“生成朗读音频”会把每张卡片的标题和正文合成为音频，并自动关联到 audioUrl。' : 'After selecting story cards, use Generate narration audio in the selection menu to synthesize each card title and body into audio and attach it to audioUrl.'}
-                  </p>
-                </div>
                   </div>
                 )}
               </section>

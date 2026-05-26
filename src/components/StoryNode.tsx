@@ -247,7 +247,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
         <div style={{ transform: `scale(${zoom * 0.6})`, transformOrigin: 'bottom center' }}>
           <div
-            className="bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
+            className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
           >
             {/* 第一行：颜色、形状、文字工具、视图 - 完全扁平化以实现平均散开分布 */}
             <ToolbarRow className="w-full justify-between gap-0">

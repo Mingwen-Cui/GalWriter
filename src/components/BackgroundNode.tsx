@@ -222,7 +222,7 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
         position={Position.Top}
         offset={10}
       >
-        <div className="bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center">
+        <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center">
           <button
             onClick={toggleLock}
             className={`p-1 rounded hover:bg-[var(--app-bg)] transition-colors ${locked ? 'text-indigo-500' : 'text-[var(--text-secondary)]'

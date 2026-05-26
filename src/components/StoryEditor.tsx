@@ -24,7 +24,7 @@ import {
   Eye, EyeOff, Upload, Settings, Save, Undo2, Redo2, Layers, BrainCircuit,
   Languages, ChevronLeft, ChevronRight, ChevronDown, Menu, X, PlusCircle, FileArchive, Type,
   Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film,
-  Send, Mic, Loader2
+  Send, Mic, Loader2, Sparkles
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Language, translations } from '../lib/i18n';
@@ -49,6 +49,7 @@ import type { PlotStructureGenerateParams } from './PlotStructureNode';
 import { CustomEdge } from './CustomEdge';
 import { saveAutoSave, getAutoSave, clearAutoSave } from '../lib/db';
 import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
@@ -668,6 +669,7 @@ export function StoryEditor() {
   const [language, setLanguage] = useState<Language>('zh');
   const [projectTitle, setProjectTitle] = useState('交互式剧本编辑器');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('horizontal');
 
@@ -1100,6 +1102,7 @@ export function StoryEditor() {
       selectionMenuLayout,
       language,
       theme,
+      bubbleStyle,
       playTestDarkMode,
       playTestChoicesColumns,
       playTestVideoAutoPlay,
@@ -1114,7 +1117,7 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, projectTitle, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, projectTitle, toolbarLayout, selectionMenuLayout, language, theme, bubbleStyle, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -3084,6 +3087,7 @@ export function StoryEditor() {
           if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
           if (data.settings.language) setLanguage(data.settings.language);
           if (data.settings.theme) setTheme(data.settings.theme);
+          if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat') setBubbleStyle(data.settings.bubbleStyle);
           if (data.settings.playTestDarkMode !== undefined) setPlayTestDarkMode(data.settings.playTestDarkMode);
           if (data.settings.playTestChoicesColumns !== undefined) setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
           if (data.settings.playTestVideoAutoPlay !== undefined) setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
@@ -4433,7 +4437,7 @@ ${direction}
     });
     // NOTE: 补充 highlightedPath、handleAIAnalyze、toggleStorylineHighlight 为正确依赖，
     // 防止闭包过期导致这些引用读到旧值
-  }, [nodes, showTitles, aiLoadingNodeId, handleUpdateNode, handleAddConnectedNode, handleDeleteNode, handleAIButtonClick, handleAIAnalyze, handleGenerateStoryNodeImage, handleGenerateSettingNodeImage, handleAddTextToImage, handleRemoveTextFromImage, handleExtractMedia, handleGenerateSettingText, handlePlotStructureGenerate, toggleStorylineHighlight, highlightedPath, pasteAsPlainText, showNodeActions, language, theme]);
+  }, [nodes, showTitles, aiLoadingNodeId, handleUpdateNode, handleAddConnectedNode, handleDeleteNode, handleAIButtonClick, handleAIAnalyze, handleGenerateStoryNodeImage, handleGenerateSettingNodeImage, handleAddTextToImage, handleRemoveTextFromImage, handleExtractMedia, handleGenerateSettingText, handlePlotStructureGenerate, toggleStorylineHighlight, highlightedPath, pasteAsPlainText, showNodeActions, language, theme, bubbleStyle]);
 
   const edgesWithData = useMemo(() => {
     const hiddenNodeIds = new Set(
@@ -4506,7 +4510,7 @@ ${direction}
   const projectTitleInputWidth = `clamp(${isMobile ? '8rem' : '9rem'}, ${Math.min(Math.max(projectTitleInputUnits + 2, 10), 28)}ch, ${isMobile ? '13rem' : '18rem'})`;
 
   return (
-    <div className="relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300" style={{ backgroundColor: canvasBg }}>
+    <div className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`} style={{ backgroundColor: canvasBg }}>
       <style>{`
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
@@ -4525,8 +4529,8 @@ ${direction}
       <div
         className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3"
       >
-        <div className="pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl">
-          <img src="./icon.png" className="w-8 h-8 rounded-xl shadow-sm shrink-0 theme-invert" alt="Logo" />
+        <div className="toolbar-bubble-surface pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl">
+          <img src="./icon.png" className="w-8 h-8 theme-invert" alt="Logo" />
           <input
             value={projectTitle}
             onChange={(event) => setProjectTitle(event.target.value)}
@@ -4692,13 +4696,13 @@ ${direction}
               <Settings className="w-4 h-4" />
             </button>
           )}
-          <div className="pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2 py-1 shadow-sm backdrop-blur-xl">
+          <div className="toolbar-bubble-surface pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2 py-1 shadow-sm backdrop-blur-xl">
             <button
               onClick={() => setAssistantOpen((open) => !open)}
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${assistantOpen ? 'bg-indigo-600 text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
               title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
             >
-              <BrainCircuit className="w-4 h-4" />
+              <Sparkles className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -4706,41 +4710,41 @@ ${direction}
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
-        {/* Floating Toolbar */}
-        <div
-          className={`absolute ${isMobile ? 'top-20 left-4' : 'top-20 left-6'} z-20 flex flex-col gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out w-[52px] ${toolbarCollapsed ? 'h-12 overflow-hidden' : ''}`}
-        >
-          <button
-            onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-            className="p-2.5 flex items-center justify-center text-slate-400 dark:text-slate-200 hover:text-slate-600 dark:hover:text-white transition-colors duration-300 shrink-0 mx-auto"
-            title={toolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
+          {/* Floating Toolbar */}
+          <div
+            className={`toolbar-bubble-surface glass-toolbar absolute ${isMobile ? 'top-20 left-4' : 'top-20 left-6'} z-20 flex flex-col bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out overflow-hidden w-[52px] ${toolbarCollapsed ? 'h-[52px]' : ''}`}
           >
-            <div className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}>
-              <ChevronDown className="w-6 h-6" />
-            </div>
-          </button>
+            <button
+              onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
+              className="p-2.5 flex items-center justify-center text-slate-400 dark:text-slate-200 hover:text-slate-600 dark:hover:text-white transition-colors duration-300 shrink-0 mx-auto"
+              title={toolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
+            >
+              <div className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}>
+                <ChevronDown className="w-6 h-6" />
+              </div>
+            </button>
 
-          {!toolbarCollapsed && (
-            <div className="flex flex-col gap-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors group relative"
-                onClick={() => addNewShape('square')}
-                title={t.toolSquare}
-              >
-                <Square strokeWidth={3} className="w-5 h-5" />
-              </button>
+            {!toolbarCollapsed && (
+              <div className="flex flex-col animate-in fade-in slide-in-from-top-2 duration-300">
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors group relative"
+                  onClick={() => addNewShape('square')}
+                  title={t.toolSquare}
+                >
+                  <Square strokeWidth={3} className="w-5 h-5" />
+                </button>
 
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewTextNode()}
-                title={t.toolText}
-              >
-                <Type strokeWidth={2.5} className="w-5 h-5" />
-              </button>
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewTextNode()}
+                  title={t.toolText}
+                >
+                  <Type strokeWidth={2.5} className="w-5 h-5" />
+                </button>
 
-              <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
+                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
 
-              {/* <button
+                {/* <button
                 className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
                 onClick={() => addNewBackground()}
                 title={t.toolBg}
@@ -4750,386 +4754,392 @@ ${direction}
 
               <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div> */}
 
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewCharacterNode()}
-                title={language === 'zh' ? '添加人物卡片' : 'Add Character Card'}
-              >
-                <UserCircle2 strokeWidth={2.5} className="w-5 h-5" />
-              </button>
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewCharacterNode()}
+                  title={language === 'zh' ? '添加人物卡片' : 'Add Character Card'}
+                >
+                  <UserCircle2 strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewSceneNode()}
+                  title={t.toolScene}
+                >
+                  <MapPin strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewPlotStructureNode()}
+                  title={t.toolPlotStructure}
+                >
+                  <BookOpen strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewSummaryNode()}
+                  title={language === 'zh' ? '文本转换/汇总' : 'Text Summary'}
+                >
+                  <FileText strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewBatchReplaceNode()}
+                  title={t.toolBatchReplace}
+                >
+                  <Replace strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => addNewNumberConditionNode()}
+                  title={language === 'zh' ? '数字判断卡片' : 'Number Condition'}
+                >
+                  <Calculator strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
+
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t.toolMedia}
+                >
+                  <ImageIcon strokeWidth={2.5} className="w-5 h-5" />
+                </button>
+
+
+                {isMobile && (
+                  <>
+                    <div className="h-px bg-slate-100 w-full my-1"></div>
+                    <button
+                      onClick={undo}
+                      disabled={history.past.length === 0}
+                      className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
+                      title="Undo"
+                    >
+                      <Undo2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={redo}
+                      disabled={history.future.length === 0}
+                      className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
+                      title="Redo"
+                    >
+                      <Redo2 className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            <input type="file" accept="image/*,video/*,audio/*" className="hidden" ref={fileInputRef} onChange={handleMediaUpload} multiple />
+
+            {nodes.some(n => n.data?.hidden) && (
+              <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center">
+                <button
+                  className="p-2.5 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors animate-pulse"
+                  onClick={unhideAllNodes}
+                  title={t.unhideAll}
+                >
+                  <Eye className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right Floating Toolbar */}
+          {!isMobile && (
+            <div
+              className={`toolbar-bubble-surface glass-toolbar absolute top-4 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out overflow-hidden ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px]' : 'h-[104px]') : ''}`}
+            >
 
               <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewSceneNode()}
-                title={t.toolScene}
+                onClick={() => setAssistantOpen((open) => !open)}
+                className={`exclude-glass w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto' : 'my-1.5 mx-auto'} ${assistantOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
               >
-                <MapPin strokeWidth={2.5} className="w-5 h-5" />
+                <Sparkles className="w-5 h-5" />
               </button>
+
+              <div className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}></div>
 
               <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewPlotStructureNode()}
-                title={t.toolPlotStructure}
+                onClick={() => setRightToolbarCollapsed(!rightToolbarCollapsed)}
+                className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} flex items-center justify-center text-slate-400 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-white transition-all duration-300 shrink-0 mx-auto`}
+                title={rightToolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
               >
-                <BookOpen strokeWidth={2.5} className="w-5 h-5" />
+                <div className={`transition-transform duration-500 ${rightToolbarCollapsed ? 'rotate-0' : (toolbarLayout === 'horizontal' ? '-rotate-90' : 'rotate-180')}`}>
+                  <ChevronDown className="w-6 h-6" />
+                </div>
               </button>
 
-              <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
+              {!rightToolbarCollapsed && (
+                <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col'} animate-in fade-in slide-in-from-top-2 duration-300`}>
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-colors"
+                    title={t.settings}
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
 
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewSummaryNode()}
-                title={language === 'zh' ? '文本转换/汇总' : 'Text Summary'}
-              >
-                <FileText strokeWidth={2.5} className="w-5 h-5" />
-              </button>
+                  <button
+                    onClick={() => setShowTitles(!showTitles)}
+                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
+                    title={showTitles ? t.hideTitles : t.showTitles}
+                  >
+                    {showTitles ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
 
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewBatchReplaceNode()}
-                title={t.toolBatchReplace}
-              >
-                <Replace strokeWidth={2.5} className="w-5 h-5" />
-              </button>
+                  <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
 
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewNumberConditionNode()}
-                title={language === 'zh' ? '数字判断卡片' : 'Number Condition'}
-              >
-                <Calculator strokeWidth={2.5} className="w-5 h-5" />
-              </button>
-
-              <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-                title={t.toolMedia}
-              >
-                <ImageIcon strokeWidth={2.5} className="w-5 h-5" />
-              </button>
-
-
-              {isMobile && (
-                <>
-                  <div className="h-px bg-slate-100 w-full my-1"></div>
                   <button
                     onClick={undo}
                     disabled={history.past.length === 0}
                     className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                    title="Undo"
+                    title="撤销 (Ctrl+Z)"
                   >
                     <Undo2 className="w-5 h-5" />
                   </button>
+
                   <button
                     onClick={redo}
                     disabled={history.future.length === 0}
                     className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                    title="Redo"
+                    title="重做 (Ctrl+Y)"
                   >
                     <Redo2 className="w-5 h-5" />
                   </button>
-                </>
+
+                  <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
+
+                  <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row mx-1.5' : 'flex-col my-1.5'} items-center gap-2 py-1`}>
+                    {presetColors.map((color, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCanvasBg(color)}
+                        className={`exclude-glass w-6 h-6 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
+                        style={{ backgroundColor: color }}
+                        title={`${language === 'zh' ? '背景颜色' : 'BG Color'} ${idx + 1}`}
+                      ></button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
-          <input type="file" accept="image/*,video/*,audio/*" className="hidden" ref={fileInputRef} onChange={handleMediaUpload} multiple />
 
-          {nodes.some(n => n.data?.hidden) && (
-            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center">
+          <div
+            ref={canvasWrapperRef}
+            className={`w-full h-full relative ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
+            onMouseDownCapture={handleMouseDown}
+            onMouseMoveCapture={handleMouseMove}
+            onMouseUpCapture={handleMouseUp}
+            onTouchStartCapture={handleTouchStart}
+            onTouchMoveCapture={handleTouchMove}
+            onTouchEndCapture={handleTouchEnd}
+            style={{ touchAction: (interactionMode === 'box' || isRightDragging) ? 'none' : 'auto' }}
+          >
+            {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}
+            <div
+              ref={selectionBoxRef}
+              className="fixed pointer-events-none z-[9999] border-2 border-dashed border-indigo-500 bg-indigo-500/10 rounded-sm"
+              style={{ display: 'none' }}
+            />
+            <ReactFlow
+              nodes={nodesWithCallbacks}
+              edges={edgesWithData}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onEdgeDoubleClick={onEdgeDoubleClick}
+              onEdgeContextMenu={onEdgeContextMenu}
+              onNodeContextMenu={(event, node) => {
+                // 默认阻止所有节点的右键菜单，除非是特定解锁逻辑
+                event.preventDefault();
+                if (node.data?.locked && (node.type === 'backgroundNode' || node.type === 'groupNode')) {
+                  handleUpdateNode(node.id, { locked: false });
+                }
+              }}
+              onPaneContextMenu={(e) => {
+                // NOTE: 阻止右键菜单，确保右键拖拽时能正常触发框选 
+                e.preventDefault();
+              }}
+              onSelectionEnd={() => {
+                setIsRightDragging(false);
+              }}
+              onMove={handleViewportMove}
+              onNodeDragStop={onNodeDragStop}
+              // NOTE: 文件拖入由 canvasWrapperRef 上的原生捕获阶段监听器处理，此处无需重复
+              nodeTypes={nodeTypesMemo}
+              edgeTypes={edgeTypesMemo}
+              connectionMode={ConnectionMode.Loose}
+              defaultEdgeOptions={defaultEdgeOptions}
+              panOnDrag={isRightDragging ? false : (interactionMode === 'select' ? [0] : false)}
+              selectionOnDrag={false}
+              selectionMode="partial"
+              panOnScroll={scrollMode === 'pan'}
+              zoomOnScroll={scrollMode === 'zoom'}
+              panOnScrollMode={scrollMode === 'pan' ? 'vertical' : undefined}
+              selectionKeyCode="Shift"
+              deleteKeyCode={null}
+              proOptions={{ hideAttribution: true }}
+              fitView
+              minZoom={0.1}
+              maxZoom={1.5}
+            >
+              <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#334155' : '#cbd5e1'} gap={24} size={1} />
+              {showMiniMap && (
+                <div className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}>
+                  <MiniMap
+                    pannable={true}
+                    zoomable={true}
+                    className="!static !bg-transparent !border-none !m-0"
+                    nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : 'var(--card-bg)'}
+                    nodeStrokeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : 'var(--card-border)'}
+                    nodeBorderRadius={6}
+                    maskColor={bubbleStyle === 'glass' ? (theme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.08)') : undefined}
+                    style={{ height: 120, width: 160 }}
+                  />
+                  {showControls && (
+                    <div className="border-t border-[var(--toolbar-border)] flex items-center h-8 w-full bg-transparent">
+                      <Controls
+                        showInteractive={false}
+                        showZoom={true}
+                        showFit={true}
+                        showLock={false}
+                        orientation="horizontal"
+                        className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              {!showMiniMap && showControls && (
+                <div className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}>
+                  <Controls
+                    showInteractive={false}
+                    showZoom={true}
+                    showFit={true}
+                    showLock={false}
+                    orientation="horizontal"
+                    className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0"
+                  />
+                </div>
+              )}
+              <SmartGuides hLines={horizontalGuides} vLines={verticalGuides} />
+            </ReactFlow>
+          </div>
+
+          {/* Selection Context Menu */}
+          {showSelectionMenu && (
+            <div
+              ref={selectionMenuRef}
+              className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] flex ${selectionMenuLayout === 'horizontal' ? 'flex-row items-center flex-nowrap shrink-0 h-[52px]' : 'flex-col w-40'} bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
+              style={{ transform: 'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)', willChange: 'transform' }}
+            >
+
               <button
-                className="p-2.5 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors animate-pulse"
-                onClick={unhideAllNodes}
-                title={t.unhideAll}
+                onClick={wrapWithDynamicGroup}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={t.dynamicWrap}
               >
-                <Eye className="w-5 h-5" />
+                <Layers className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.dynamicWrap}</span>
+              </button>
+
+              {selectionMenuLayout === 'horizontal' ? (
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+              ) : (
+                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+              )}
+
+              <button
+                onClick={wrapSelectedWithBackground}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={t.bgCard}
+              >
+                <Square className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.bgCard}</span>
+              </button>
+
+              {selectionMenuLayout === 'horizontal' ? (
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+              ) : (
+                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+              )}
+
+              <button
+                onClick={connectSelectedToSummaryNode}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[var(--icon-color)] hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={language === 'zh' ? '批量文本导出' : 'Batch Export'}
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '批量文本导出' : 'Batch Export'}</span>
+              </button>
+
+
+              {selectionMenuLayout === 'horizontal' ? (
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+              ) : (
+                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+              )}
+
+              <button
+                onClick={handleGenerateSelectedSpeech}
+                disabled={ttsLoading}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all shrink-0 disabled:opacity-50 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
+              >
+                <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '生成朗读音频' : 'Narration'}</span>
+              </button>
+
+              {selectionMenuLayout === 'horizontal' ? (
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+              ) : (
+                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+              )}
+
+              <button
+                onClick={deleteSelected}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={language === 'zh' ? '删除' : 'Delete'}
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '删除' : 'Delete'}</span>
+              </button>
+
+              <button
+                onClick={handleCopy}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={language === 'zh' ? '复制' : 'Copy'}
+              >
+                <Copy className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '复制' : 'Copy'}</span>
+              </button>
+
+              <button
+                onClick={hideSelected}
+                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
+                title={language === 'zh' ? '隐藏' : 'Hide'}
+              >
+                <EyeOff className="w-4 h-4 shrink-0" />
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '隐藏' : 'Hide'}</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Right Floating Toolbar */}
-        {!isMobile && (
-          <div
-            className={`absolute top-4 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px] overflow-hidden' : 'h-[104px] overflow-hidden') : ''}`}
-          >
-            <button
-              onClick={() => setAssistantOpen((open) => !open)}
-              className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} rounded-xl flex items-center justify-center transition-colors shrink-0 mx-auto ${assistantOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-              title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
-            >
-              <BrainCircuit className="w-5 h-5" />
-            </button>
-
-            <div className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}></div>
-
-            <button
-              onClick={() => setRightToolbarCollapsed(!rightToolbarCollapsed)}
-              className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} flex items-center justify-center text-slate-400 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-white transition-all duration-300 shrink-0 mx-auto`}
-              title={rightToolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
-            >
-              <div className={`transition-transform duration-500 ${rightToolbarCollapsed ? 'rotate-0' : (toolbarLayout === 'horizontal' ? '-rotate-90' : 'rotate-180')}`}>
-                <ChevronDown className="w-6 h-6" />
-              </div>
-            </button>
-
-            {!rightToolbarCollapsed && (
-              <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col pb-2'} gap-2 animate-in fade-in slide-in-from-top-2 duration-300`}>
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-colors"
-                  title={t.settings}
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() => setShowTitles(!showTitles)}
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  title={showTitles ? t.hideTitles : t.showTitles}
-                >
-                  {showTitles ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-
-                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                <button
-                  onClick={undo}
-                  disabled={history.past.length === 0}
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                  title="撤销 (Ctrl+Z)"
-                >
-                  <Undo2 className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={redo}
-                  disabled={history.future.length === 0}
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                  title="重做 (Ctrl+Y)"
-                >
-                  <Redo2 className="w-5 h-5" />
-                </button>
-
-                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row' : 'flex-col'} items-center gap-2 py-1`}>
-                  {presetColors.map((color, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCanvasBg(color)}
-                      className={`w-6 h-6 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-2' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
-                      style={{ backgroundColor: color }}
-                      title={`${language === 'zh' ? '背景颜色' : 'BG Color'} ${idx + 1}`}
-                    ></button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div
-          ref={canvasWrapperRef}
-          className="w-full h-full relative"
-          onMouseDownCapture={handleMouseDown}
-          onMouseMoveCapture={handleMouseMove}
-          onMouseUpCapture={handleMouseUp}
-          onTouchStartCapture={handleTouchStart}
-          onTouchMoveCapture={handleTouchMove}
-          onTouchEndCapture={handleTouchEnd}
-          style={{ touchAction: (interactionMode === 'box' || isRightDragging) ? 'none' : 'auto' }}
-        >
-          {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}
-          <div
-            ref={selectionBoxRef}
-            className="fixed pointer-events-none z-[9999] border-2 border-dashed border-indigo-500 bg-indigo-500/10 rounded-sm"
-            style={{ display: 'none' }}
-          />
-          <ReactFlow
-            nodes={nodesWithCallbacks}
-            edges={edgesWithData}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onEdgeDoubleClick={onEdgeDoubleClick}
-            onEdgeContextMenu={onEdgeContextMenu}
-            onNodeContextMenu={(event, node) => {
-              // 默认阻止所有节点的右键菜单，除非是特定解锁逻辑
-              event.preventDefault();
-              if (node.data?.locked && (node.type === 'backgroundNode' || node.type === 'groupNode')) {
-                handleUpdateNode(node.id, { locked: false });
-              }
-            }}
-            onPaneContextMenu={(e) => {
-              // NOTE: 阻止右键菜单，确保右键拖拽时能正常触发框选 
-              e.preventDefault();
-            }}
-            onSelectionEnd={() => {
-              setIsRightDragging(false);
-            }}
-            onMove={handleViewportMove}
-            onNodeDragStop={onNodeDragStop}
-            // NOTE: 文件拖入由 canvasWrapperRef 上的原生捕获阶段监听器处理，此处无需重复
-            nodeTypes={nodeTypesMemo}
-            edgeTypes={edgeTypesMemo}
-            connectionMode={ConnectionMode.Loose}
-            defaultEdgeOptions={defaultEdgeOptions}
-            panOnDrag={isRightDragging ? false : (interactionMode === 'select' ? [0] : false)}
-            selectionOnDrag={false}
-            selectionMode="partial"
-            panOnScroll={scrollMode === 'pan'}
-            zoomOnScroll={scrollMode === 'zoom'}
-            panOnScrollMode={scrollMode === 'pan' ? 'vertical' : undefined}
-            selectionKeyCode="Shift"
-            deleteKeyCode={null}
-            proOptions={{ hideAttribution: true }}
-            fitView
-            minZoom={0.1}
-            maxZoom={1.5}
-          >
-            <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#334155' : '#cbd5e1'} gap={24} size={1} />
-            {showMiniMap && (
-              <div className={`absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}>
-                <MiniMap
-                  pannable={true}
-                  zoomable={true}
-                  className="!static !bg-transparent !border-none !m-0"
-                  style={{ height: 120, width: 160 }}
-                />
-                {showControls && (
-                  <div className="border-t border-[var(--toolbar-border)] flex items-center h-8 bg-[var(--app-bg)]/30 backdrop-blur-sm">
-                    <Controls
-                      showInteractive={false}
-                      showZoom={true}
-                      showFit={true}
-                      showLock={false}
-                      orientation="horizontal"
-                      className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-            {!showMiniMap && showControls && (
-              <div className={`absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}>
-                <Controls
-                  showInteractive={false}
-                  showZoom={true}
-                  showFit={true}
-                  showLock={false}
-                  orientation="horizontal"
-                  className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0"
-                />
-              </div>
-            )}
-            <SmartGuides hLines={horizontalGuides} vLines={verticalGuides} />
-          </ReactFlow>
-        </div>
-
-        {/* Selection Context Menu */}
-        {showSelectionMenu && (
-          <div
-            ref={selectionMenuRef}
-            className={`fixed left-0 top-0 z-[100] flex ${selectionMenuLayout === 'horizontal' ? 'items-center gap-1 flex-nowrap shrink-0' : 'flex-col gap-1 w-40'} bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)]`}
-            style={{ transform: 'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)', willChange: 'transform' }}
-          >
-            <button
-              onClick={wrapWithDynamicGroup}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={t.dynamicWrap}
-            >
-              <Layers className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.dynamicWrap}</span>
-            </button>
-
-            {selectionMenuLayout === 'horizontal' ? (
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-            ) : (
-              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-            )}
-
-            <button
-              onClick={wrapSelectedWithBackground}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={t.bgCard}
-            >
-              <Square className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.bgCard}</span>
-            </button>
-
-            {selectionMenuLayout === 'horizontal' ? (
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-            ) : (
-              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-            )}
-
-            <button
-              onClick={connectSelectedToSummaryNode}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[var(--icon-color)] hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={language === 'zh' ? '批量文本导出' : 'Batch Export'}
-            >
-              <FileText className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '批量文本导出' : 'Batch Export'}</span>
-            </button>
-
-
-            {selectionMenuLayout === 'horizontal' ? (
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-            ) : (
-              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-            )}
-
-            <button
-              onClick={handleGenerateSelectedSpeech}
-              disabled={ttsLoading}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all shrink-0 disabled:opacity-50 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
-            >
-              <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '生成朗读音频' : 'Narration'}</span>
-            </button>
-
-            {selectionMenuLayout === 'horizontal' ? (
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-            ) : (
-              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-            )}
-
-            <button
-              onClick={deleteSelected}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={language === 'zh' ? '删除' : 'Delete'}
-            >
-              <Trash2 className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '删除' : 'Delete'}</span>
-            </button>
-
-            <button
-              onClick={handleCopy}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={language === 'zh' ? '复制' : 'Copy'}
-            >
-              <Copy className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '复制' : 'Copy'}</span>
-            </button>
-
-            <button
-              onClick={hideSelected}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={language === 'zh' ? '隐藏' : 'Hide'}
-            >
-              <EyeOff className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '隐藏' : 'Hide'}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
         {assistantOpen && (
           <aside
-            className={`${isMobile ? 'fixed inset-y-0 right-0 left-6 z-[220] shadow-2xl' : 'relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-2xl'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}
+            className={`${isMobile ? 'fixed inset-y-0 right-0 left-6 z-[220] shadow-md' : 'relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-md'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}
             style={isMobile ? undefined : { width: assistantPanelWidth }}
           >
             {!isMobile && (
@@ -5180,11 +5190,10 @@ ${direction}
                 {assistantTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${
-                      task.id === activeAssistantTaskId
-                        ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
-                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
-                    }`}
+                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${task.id === activeAssistantTaskId
+                      ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                      : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                      }`}
                     title={task.title}
                   >
                     <div className="flex items-start gap-1.5">
@@ -5233,11 +5242,10 @@ ${direction}
                   </div>
                 ) : (
                   <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                      message.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-md'
-                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
-                    }`}>
+                    <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${message.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-br-md'
+                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
+                      }`}>
                       {message.content}
                     </div>
                   </div>
@@ -5346,7 +5354,7 @@ ${direction}
           onClick={() => { setShowAIActionModal(false); setPendingAINodeId(null); }}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-5 md:p-6 w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300 border border-transparent dark:border-slate-800"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-md p-5 md:p-6 w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300 border border-transparent dark:border-slate-800"
             onClick={e => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">{t.aiAssistant}</h3>
@@ -5487,6 +5495,10 @@ ${direction}
             edges={edges}
             onClose={() => setShowVideoRender(false)}
             language={language}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={history.past.length > 0}
+            canRedo={history.future.length > 0}
           />
         )}
       </Suspense>
@@ -5499,6 +5511,8 @@ ${direction}
           setLanguage={setLanguage}
           theme={theme}
           setTheme={setTheme}
+          bubbleStyle={bubbleStyle}
+          setBubbleStyle={setBubbleStyle}
           canvasBg={canvasBg}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}
@@ -5655,6 +5669,7 @@ ${direction}
                       if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
                       if (data.settings.language) setLanguage(data.settings.language);
                       if (data.settings.theme) setTheme(data.settings.theme);
+                      if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat') setBubbleStyle(data.settings.bubbleStyle);
                       if (data.settings.playTestDarkMode !== undefined) setPlayTestDarkMode(data.settings.playTestDarkMode);
                       if (data.settings.playTestChoicesColumns !== undefined) setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
                       if (data.settings.playTestVideoAutoPlay !== undefined) setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);

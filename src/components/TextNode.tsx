@@ -49,7 +49,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       />
 
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>
-        <div className="bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-[var(--toolbar-border)] flex flex-col gap-2 min-w-[280px]">
+        <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-[var(--toolbar-border)] flex flex-col gap-2 min-w-[280px]">
           {/* Row 1: Style & Actions */}
           <div className="flex items-center gap-2 px-1">
             <div className="relative flex-1 group/select">

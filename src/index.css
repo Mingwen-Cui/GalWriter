@@ -19,7 +19,7 @@
   --toolbar-bg: rgba(255, 255, 255, 0.9);
   --toolbar-border: #E2E8F0;
   --panel-bg: rgba(255, 255, 255, 0.95);
-  
+
   --transition-speed: 0.3s;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
@@ -51,6 +51,7 @@
   color: #ffffff !important;
   fill: #ffffff !important;
 }
+
 [data-theme='dark'] .xyflow__controls button:hover {
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
@@ -157,7 +158,9 @@
   color: #111113 !important;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -183,6 +186,50 @@ html, body, #root {
   stroke-width: 2;
   stroke-dasharray: 4;
 }
+
+.bubble-glass-mode .toolbar-bubble-surface {
+  isolation: isolate;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .toolbar-bubble-surface {
+  background: rgba(24, 24, 27, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.bubble-glass-mode .toolbar-bubble-surface:not(.absolute):not(.fixed) {
+  position: relative;
+}
+
+[data-theme='dark'] .bubble-glass-mode .toolbar-bubble-surface:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24) !important;
+}
+
+.bubble-glass-mode .react-flow__minimap-node {
+  fill: rgba(255, 255, 255, 0.38) !important;
+  fill-opacity: 0.78;
+  stroke: rgba(255, 255, 255, 0.88) !important;
+  stroke-width: 1.7;
+  filter:
+    drop-shadow(0 1px 1px rgba(255, 255, 255, 0.55)) drop-shadow(0 4px 8px rgba(15, 23, 42, 0.22));
+}
+
+[data-theme='dark'] .bubble-glass-mode .react-flow__minimap-node {
+  fill: rgba(84, 185, 251, 0.20) !important;
+  stroke: rgba(255, 255, 255, 0.34) !important;
+  filter:
+    drop-shadow(0 1px 1px rgba(255, 255, 255, 0.18)) drop-shadow(0 5px 10px rgba(0, 0, 0, 0.42));
+}
+
+.bubble-glass-mode .react-flow__minimap-node:hover {
+  fill-opacity: 0.92;
+  stroke-width: 2;
+}
+
 
 /* Hide native number input arrows */
 input::-webkit-outer-spin-button,
@@ -249,7 +296,7 @@ input[type=range]::-webkit-slider-thumb {
   background: #ffffff;
   cursor: pointer;
   margin-top: -5px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
   border: 2px solid currentColor;
   transition: transform 0.1s ease;
 }
@@ -278,7 +325,7 @@ input[type=range]::-moz-range-thumb {
   background: #ffffff;
   cursor: pointer;
   border: 2px solid currentColor;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
 input[type=range]::-moz-range-track {
@@ -304,9 +351,9 @@ input[type=range]::-moz-range-track {
   --vr-text: #172033;
   --vr-text-soft: #475569;
   --vr-text-muted: #8290a3;
-  --vr-accent: #0ea5a4;
-  --vr-accent-strong: #0f766e;
-  --vr-accent-soft: rgba(20, 184, 166, 0.14);
+  --vr-accent: var(--accent);
+  --vr-accent-strong: var(--accent-hover);
+  --vr-accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --vr-danger-soft: rgba(244, 63, 94, 0.10);
   --vr-shadow: 0 18px 54px rgba(15, 23, 42, 0.12);
 }
@@ -322,9 +369,9 @@ input[type=range]::-moz-range-track {
   --vr-text: #f4f4f5;
   --vr-text-soft: #c7c7cc;
   --vr-text-muted: #85858c;
-  --vr-accent: #54b9fb;
-  --vr-accent-strong: #8bd1ff;
-  --vr-accent-soft: rgba(84, 185, 251, 0.14);
+  --vr-accent: var(--accent);
+  --vr-accent-strong: var(--accent-hover);
+  --vr-accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --vr-danger-soft: rgba(251, 113, 133, 0.12);
   --vr-shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
 }
@@ -343,7 +390,7 @@ input[type=range]::-moz-range-track {
 
 .video-render-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(14, 165, 164, 0.55) transparent;
+  scrollbar-color: var(--vr-accent) transparent;
 }
 
 .video-render-scroll::-webkit-scrollbar {
@@ -356,14 +403,14 @@ input[type=range]::-moz-range-track {
 }
 
 .video-render-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(14, 165, 164, 0.76), rgba(15, 118, 110, 0.62));
+  background: linear-gradient(180deg, var(--vr-accent), var(--vr-accent-strong));
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
 }
 
 .video-render-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(14, 165, 164, 0.95), rgba(15, 118, 110, 0.82));
+  background: linear-gradient(180deg, var(--vr-accent), var(--vr-accent-strong));
   background-clip: padding-box;
 }
 
@@ -414,11 +461,13 @@ input[type=range]::-moz-range-track {
 .video-render-range:disabled {
   opacity: 0.45;
 }
+
 @keyframes toolbarSlideUp {
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -442,16 +491,94 @@ input[type=range]::-moz-range-track {
   height: 100% !important;
 }
 
+/* 
 .react-flow__controls-button:hover {
   background: rgba(0, 0, 0, 0.05) !important;
-}
+} */
 
-[data-theme='dark'] .react-flow__controls-button:hover {
+/* [data-theme='dark'] .react-flow__controls-button:hover {
   background: rgba(255, 255, 255, 0.1) !important;
-}
+} */
 
 .react-flow__controls-button svg {
   fill: currentColor !important;
+}
+
+/* 玻璃模式下，Controls 三个按钮完全贴合容器边缘 */
+.bubble-glass-mode .react-flow__controls-button {
+  margin: 0 !important;
+  flex: 1 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+}
+
+.bubble-glass-mode .react-flow__controls-button:not(:last-child) {
+  border-right: 1px solid var(--toolbar-border) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.bubble-glass-mode .react-flow__controls-button:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+  transform: none !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: none !important;
+}
+
+/* 玻璃模式下，通用工具栏贴边玻璃按钮效果 */
+.bubble-glass-mode .glass-toolbar {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.bubble-glass-mode .glass-toolbar button:not(.exclude-glass) {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.bubble-glass-mode .glass-toolbar.flex-col button:not(.exclude-glass) {
+  width: 100% !important;
+  min-height: 52px !important;
+}
+
+.bubble-glass-mode .glass-toolbar.flex-row button:not(.exclude-glass),
+.bubble-glass-mode .glass-toolbar.flex-row-reverse button:not(.exclude-glass) {
+  height: 100% !important;
+  min-width: 52px !important;
+  padding: 0 12px !important;
+}
+
+
+
+.bubble-glass-mode .glass-toolbar button:not(.exclude-glass):hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+  transform: none !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .glass-toolbar button:not(.exclude-glass):hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: none !important;
 }
 
 [data-theme='dark'] .theme-invert {
