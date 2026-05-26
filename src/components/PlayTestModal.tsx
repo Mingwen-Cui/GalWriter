@@ -148,6 +148,7 @@ export function PlayTestModal({
     
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const audioPreloadRef = useRef<Map<string, HTMLAudioElement>>(new Map());
     const choicesRef = useRef<HTMLDivElement>(null);
 
     const [showSettings, setShowSettings] = useState(false);
@@ -484,6 +485,28 @@ export function PlayTestModal({
         }
     }, [currentNodeId, videoAutoPlay]);
 
+    useEffect(() => {
+        if (!currentNodeId || currentNodeId === 'THE_END') return;
+
+        const preloadAudio = (url: unknown) => {
+            if (typeof url !== 'string' || !url.trim() || audioPreloadRef.current.has(url)) return;
+            const audio = new Audio(url);
+            audio.preload = 'auto';
+            audio.load();
+            audioPreloadRef.current.set(url, audio);
+        };
+
+        const preloadNodeAudio = (nodeId: string) => {
+            const node = nodes.find(n => n.id === nodeId);
+            preloadAudio(node?.data.audioUrl);
+        };
+
+        preloadNodeAudio(currentNodeId);
+        edges
+            .filter(edge => edge.source === currentNodeId)
+            .forEach(edge => preloadNodeAudio(edge.target));
+    }, [currentNodeId, nodes, edges]);
+
     // 自动跳过数字判断卡片
     const lastJumpedNode = useRef<string | null>(null);
 
@@ -686,14 +709,14 @@ export function PlayTestModal({
                         {showSettings && (
                             <div 
                                 onClick={(e) => e.stopPropagation()}
-                                className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border z-[110] p-4 scale-in max-h-[85vh] overflow-y-auto ${
+                                className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border z-[110] p-4 scale-in max-h-[85vh] overflow-y-auto flex flex-col ${
                                     layoutMode === 'immersive'
                                         ? 'bg-black/85 border-white/10 text-white backdrop-blur-md'
                                         : (isDarkMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800')
                                 }`}
                             >
                                 {/* 界面排版选择 */}
-                                <div className="mb-4">
+                                <div className="mb-4 order-0">
                                     <div className={`text-xs font-bold uppercase tracking-wider mb-2 ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} px-1`}>
                                         {t.playtestLayoutMode}
                                     </div>
@@ -713,7 +736,7 @@ export function PlayTestModal({
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5">
+                                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5 order-9">
                                     <span className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                         {t.videoAutoPlay}
                                     </span>
@@ -725,7 +748,7 @@ export function PlayTestModal({
                                     </button>
                                 </div>
 
-                                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5">
+                                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5 order-8">
                                     <span className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                         {t.dimBackground}
                                     </span>
@@ -737,10 +760,10 @@ export function PlayTestModal({
                                     </button>
                                 </div>
 
-                                <div className={`text-xs font-bold uppercase tracking-wider mb-3 ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} px-1 border-t pt-3 border-white/5`}>
+                                <div className={`text-xs font-bold uppercase tracking-wider mb-3 order-2 ${choicesPosition === 'center' ? 'hidden' : ''} ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} px-1 border-t pt-3 border-white/5`}>
                                     {t.choiceColumns}
                                 </div>
-                                <div className="flex flex-col gap-1">
+                                <div className={`flex flex-col gap-1 order-2 ${choicesPosition === 'center' ? 'hidden' : ''}`}>
                                     {[1, 2, 3].map(cols => (
                                         <button
                                             key={cols}
@@ -757,7 +780,7 @@ export function PlayTestModal({
                                     ))}
                                 </div>
 
-                                <div className="border-t border-white/10 pt-3 mt-3 space-y-3">
+                                <div className="border-t border-white/10 pt-3 mt-3 space-y-3 order-6">
                                     <div className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} px-1`}>
                                         {language === 'zh' ? '文本显示' : 'Text Transition'}
                                     </div>
@@ -813,7 +836,7 @@ export function PlayTestModal({
                                     )}
                                 </div>
 
-                                <div className="border-t border-white/10 pt-3 mt-3 space-y-3">
+                                <div className="border-t border-white/10 pt-3 mt-3 space-y-3 order-1">
                                     <div className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')} px-1`}>
                                         {language === 'zh' ? '选项按钮位置' : 'Choices Position'}
                                     </div>
@@ -832,7 +855,7 @@ export function PlayTestModal({
                                     </select>
                                 </div>
 
-                                <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1">
+                                <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 order-3">
                                     <span className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                         {language === 'zh' ? '选项背景虚化' : 'Blur Background'}
                                     </span>
@@ -845,7 +868,7 @@ export function PlayTestModal({
                                 </div>
 
                                 {blurBackground && (
-                                    <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200">
+                                    <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200 order-4">
                                         <span className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                             {language === 'zh' ? '虚化模糊文字' : 'Blur Story Text'}
                                         </span>
@@ -859,7 +882,7 @@ export function PlayTestModal({
                                 )}
 
                                 {choicesPosition === 'center' && (
-                                    <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200">
+                                    <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200 order-5">
                                         <span className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : (isDarkMode ? 'text-slate-500' : 'text-slate-400')}`}>
                                             {language === 'zh' ? '单选项隐藏弹窗' : 'Skip Single Popup'}
                                         </span>
@@ -980,6 +1003,7 @@ export function PlayTestModal({
                                                         key={currentNodeId}
                                                         ref={audioRef}
                                                         src={currentNode.data.audioUrl as string}
+                                                        preload="auto"
                                                         controls
                                                         className="w-full h-7 opacity-75 hover:opacity-100 transition-opacity"
                                                     />
@@ -1107,6 +1131,7 @@ export function PlayTestModal({
                                                 key={currentNodeId}
                                                 ref={audioRef}
                                                 src={currentNode.data.audioUrl as string}
+                                                preload="auto"
                                                 controls
                                                 className="w-full h-8 opacity-80 hover:opacity-100 transition-opacity"
                                             />

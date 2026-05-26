@@ -2,10 +2,11 @@ import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useStore, useStoreApi, useUpdateNodeInternals, useReactFlow } from '@xyflow/react';
 import {
   Trash2, MapPin, Settings2, Image as ImageIcon, Check, Copy, ChevronDown, ChevronRight,
-  Plus, Globe, Upload, RotateCw, Package, Dices, Loader2
+  Plus, Globe, Upload, RotateCw, Package, Dices, Loader2, WandSparkles, Download
 } from 'lucide-react';
 import { Language } from '../lib/i18n';
 import { formatSceneNodeText } from '../lib/export';
+import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import {
   buildSceneSettingPrompt,
   buildSceneUpdates,
@@ -58,6 +59,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
   const images = (data.images as SceneImage[]) || [];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
+  const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
   const [expandedPanorama, setExpandedPanorama] = useState<{ url: string; title: string } | null>(null);
 
   const storeApi = useStoreApi();
@@ -110,6 +112,14 @@ export function SceneNode({ id, data, selected }: NodeProps) {
   ].filter(Boolean).length || 1;
 
   const calculatedMinHeight = getCalculatedSceneNodeMinHeight(activeDetailsCount, images.length);
+  const hasSceneText = [
+    name,
+    description,
+    data.location,
+    data.items,
+    data.atmosphere,
+    data.other,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
   const syncNodeHeightToMinimum = useCallback((nextMinHeight = calculatedMinHeight) => {
     if (isMinimized) return;
@@ -331,6 +341,27 @@ export function SceneNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  const handleGenerateSettingImage = async () => {
+    const generateSettingImage = data.onGenerateSettingImage as ((id: string, type: 'character' | 'scene') => Promise<void>) | undefined;
+    if (!generateSettingImage || isGeneratingSettingImage || !hasSceneText) return;
+
+    setIsGeneratingSettingImage(true);
+    try {
+      await generateSettingImage(id, 'scene');
+    } finally {
+      setIsGeneratingSettingImage(false);
+    }
+  };
+
+  const handleDownloadSceneImage = async (event: React.MouseEvent<HTMLButtonElement>, image: SceneImage) => {
+    event.stopPropagation();
+    if (!image.imageUrl) return;
+
+    const fallbackLabel = lang === 'zh' ? '场景图片' : 'scene-image';
+    const safeName = getSafeDownloadName(`${name || (lang === 'zh' ? '场景' : 'scene')}-${image.name || fallbackLabel}`);
+    await downloadImageUrl(image.imageUrl, `${safeName}.${getImageExtension(image.imageUrl)}`);
+  };
+
   return (
     <>
       <div
@@ -422,6 +453,16 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                 >
                   {isRollingSetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Dices className="w-4 h-4" />}
                 </button>
+                {hasSceneText && (
+                  <button
+                    onClick={handleGenerateSettingImage}
+                    disabled={isGeneratingSettingImage}
+                    className={`shrink-0 w-8 h-8 rounded-lg transition-colors flex items-center justify-center border border-cyan-500/20 ${isGeneratingSettingImage ? 'text-cyan-600 bg-cyan-500/10 cursor-wait' : 'text-cyan-600 hover:text-cyan-700 hover:bg-cyan-500/10'}`}
+                    title={lang === 'zh' ? '根据场景设定一键生图' : 'Generate image from scene setting'}
+                  >
+                    {isGeneratingSettingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <WandSparkles className="w-4 h-4" />}
+                  </button>
+                )}
               </div>
 
               <div className="px-3 pt-3 pb-3 flex flex-col flex-1 min-h-min">
@@ -574,6 +615,15 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                             <Upload className="w-3 h-3" />
                             <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, image.id)} />
                           </label>
+                          {image.imageUrl && (
+                            <button
+                              onClick={(event) => handleDownloadSceneImage(event, image)}
+                              className="opacity-0 group-hover/image:opacity-100 p-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded transition-opacity"
+                              title={lang === 'zh' ? '下载场景图片' : 'Download scene image'}
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          )}
                           <button
                             onClick={() => removeImage(image.id)}
                             className="opacity-0 group-hover/image:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"

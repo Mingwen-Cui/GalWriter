@@ -13,7 +13,8 @@ import {
   ExternalLink,
   HelpCircle,
   ArrowLeft,
-  ShieldAlert
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
 import { Language, translations } from '../lib/i18n';
 import { defaultAIPrompts, defaultAIButtonsConfig, AIButtonsConfig } from './StoryEditor';
@@ -118,6 +119,16 @@ interface SettingsModalProps {
   setImageModel: (model: string) => void;
   imageSize: string;
   setImageSize: (size: string) => void;
+  ttsApiKey: string;
+  setTtsApiKey: (key: string) => void;
+  ttsProvider: 'system' | 'youdao';
+  setTtsProvider: (provider: 'system' | 'youdao') => void;
+  ttsApiUrl: string;
+  setTtsApiUrl: (url: string) => void;
+  ttsModel: string;
+  setTtsModel: (model: string) => void;
+  ttsVoice: string;
+  setTtsVoice: (voice: string) => void;
   generateLength: string;
   setGenerateLength: (len: string) => void;
   thinkingMode: boolean;
@@ -200,6 +211,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setImageModel,
   imageSize,
   setImageSize,
+  ttsApiKey,
+  setTtsApiKey,
+  ttsProvider,
+  setTtsProvider,
+  ttsApiUrl,
+  setTtsApiUrl,
+  ttsModel,
+  setTtsModel,
+  ttsVoice,
+  setTtsVoice,
   generateLength,
   setGenerateLength,
   thinkingMode,
@@ -243,6 +264,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
   const [imageTemplateImportStatus, setImageTemplateImportStatus] = useState<'idle' | 'success' | 'empty' | 'blocked'>('idle');
   const [manualImageTemplate, setManualImageTemplate] = useState('');
+  const [openAiPanels, setOpenAiPanels] = useState({ text: true, image: true, voice: true });
+  const toggleAiPanel = (panel: 'text' | 'image' | 'voice') => {
+    setOpenAiPanels(current => ({ ...current, [panel]: !current[panel] }));
+  };
+  const forceQuitApp = async () => {
+    try {
+      const tauriCore = await import('@tauri-apps/api/core');
+      const invoke = tauriCore.invoke || (tauriCore as any).default?.invoke || (window as any).__TAURI__?.core?.invoke;
+      if (invoke) {
+        await invoke('force_quit_app');
+        return;
+      }
+    } catch (error) {
+      console.error('Force quit failed:', error);
+    }
+    window.close();
+  };
   const t = translations[language];
 
   const applyImageTemplate = (template: string) => {
@@ -825,21 +863,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {activeSettingsTab === 'ai' && (
-            <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
-              <section className="space-y-6">
-                <header className="flex items-center justify-between mb-4">
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
+              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
+                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh' ? '文本 AI' : 'Text AI'}
                     </h3>
                   </div>
-                  <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)] shadow-inner">
-                    <button onClick={() => setAiProvider('deepseek')} className={`px-6 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'deepseek' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>DeepSeek</button>
-                    <button onClick={() => setAiProvider('gemini')} className={`px-6 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'gemini' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>Gemini</button>
-                    <button onClick={() => setAiProvider('openai')} className={`px-6 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'openai' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>OpenAI</button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleAiPanel('text')}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
+                    title={openAiPanels.text ? (language === 'zh' ? '折叠' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${openAiPanels.text ? 'rotate-180' : ''}`} />
+                  </button>
                 </header>
+
+                {openAiPanels.text && (
+                  <div className="p-6 space-y-6">
+                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)] shadow-inner">
+                      <button onClick={() => setAiProvider('deepseek')} className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'deepseek' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>DeepSeek</button>
+                      <button onClick={() => setAiProvider('gemini')} className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'gemini' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>Gemini</button>
+                      <button onClick={() => setAiProvider('openai')} className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'openai' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}>OpenAI</button>
+                    </div>
 
                 <div className="bg-[var(--app-bg)]/30 p-8 rounded-xl border border-[var(--header-border)] shadow-inner space-y-6">
                   {aiProvider === 'gemini' ? (
@@ -860,7 +909,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <Check className={`w-5 h-5 transition-all ${customApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '注：留空则使用公共额度（有限制），填入私人Key可解锁无限次生成。' : 'Public quota used if empty. Use private key for unlimited access.'}</p>
+                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2"></p>
+                      <a
+                        href="https://ai.google.dev/gemini-api/docs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'Gemini API 官方文档' : 'Gemini API Docs'}
+                      </a>
                     </div>
                   ) : aiProvider === 'openai' ? (
                     <div className="space-y-3">
@@ -881,6 +938,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
                       <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 gpt-4o 等系列模型。' : 'Supports gpt-4o models.'}</p>
+                      <a
+                        href="https://platform.openai.com/docs"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'OpenAI API 官方文档' : 'OpenAI API Docs'}
+                      </a>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -900,13 +965,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <Check className={`w-5 h-5 transition-all ${deepseekApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">{language === 'zh' ? '支持 deepseek-chat 模型和 deepseek-reasoner 模型。' : 'Supports chat and reasoner models.'}</p>
+                      <a
+                        href="https://api-docs.deepseek.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
+                      >
+                        {language === 'zh' ? 'DeepSeek API 官方文档' : 'DeepSeek API Docs'}
+                      </a>
                     </div>
                   )}
                 </div>
-              </section>
-
-              <section className="space-y-4 pt-2">
+                    <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between px-2">
                   <div className="space-y-1">
                     <h4 className="text-sm font-black text-[var(--text-primary)]">{t.genLength}</h4>
@@ -940,15 +1010,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   </div>
                 </div>
+                    </div>
+                  </div>
+                )}
               </section>
 
-              <section className="space-y-5 pt-2 border-t border-[var(--header-border)]">
-                <header className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '图片 AI' : 'Image AI'}
-                  </h3>
+              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
+                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
+                    <h3 className="text-base font-black text-[var(--text-primary)]">
+                      {language === 'zh' ? '图片 AI' : 'Image AI'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleAiPanel('image')}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
+                    title={openAiPanels.image ? (language === 'zh' ? '折叠' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${openAiPanels.image ? 'rotate-180' : ''}`} />
+                  </button>
                 </header>
+                {openAiPanels.image && (
+                  <div className="p-6">
                 <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
                   <button
                     type="button"
@@ -1085,6 +1170,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {language === 'zh' ? '普通文字卡片会使用这里的配置生成图片。即梦/火山方舟会自动把 OpenAI 默认地址、gpt-image-1 和过小尺寸转换成可测试的 Seedream 请求。' : 'Text cards use this configuration to generate images. Seedream / Volcengine requests automatically convert the OpenAI default endpoint, gpt-image-1, and undersized images into a testable Seedream request.'}
                   </p>
                 </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
+                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-sky-500 rounded-full" />
+                    <h3 className="text-base font-black text-[var(--text-primary)]">
+                      {language === 'zh' ? '语音 AI' : 'Voice AI'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleAiPanel('voice')}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
+                    title={openAiPanels.voice ? (language === 'zh' ? '折叠' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${openAiPanels.voice ? 'rotate-180' : ''}`} />
+                  </button>
+                </header>
+                {openAiPanels.voice && (
+                  <div className="p-6">
+                <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setTtsProvider('system')}
+                      className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'system' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    >
+                      {language === 'zh' ? '系统自带语音' : 'System Voice'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTtsProvider('youdao')}
+                      className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'youdao' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    >
+                      {language === 'zh' ? '有道云 API' : 'Youdao API'}
+                    </button>
+                  </div>
+                  {ttsProvider === 'youdao' && (
+                    <>
+                      <input type="hidden" value={ttsApiUrl} onChange={e => setTtsApiUrl(e.target.value)} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-[var(--text-primary)]">
+                            {language === 'zh' ? '应用 ID' : 'Application ID'}
+                          </label>
+                          <input
+                            type="text"
+                            value={ttsModel}
+                            onChange={e => setTtsModel(e.target.value)}
+                            placeholder="65a6f7935fd78c5b"
+                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-[var(--text-primary)]">
+                            {language === 'zh' ? '应用密钥' : 'Application Secret'}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="password"
+                              value={ttsApiKey}
+                              onChange={e => setTtsApiKey(e.target.value)}
+                              placeholder={language === 'zh' ? '控制台里的应用密钥' : 'Application secret'}
+                              className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                            />
+                            <Check className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${ttsApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-[var(--text-primary)]">
+                          {language === 'zh' ? '发音人' : 'Voice Name'}
+                        </label>
+                        <input
+                          type="text"
+                          value={ttsVoice}
+                          onChange={e => setTtsVoice(e.target.value)}
+                          placeholder="youxiaoqin"
+                          className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {ttsProvider === 'system' && (
+                    <div className="px-4 py-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
+                      <p className="text-xs leading-relaxed text-[var(--text-muted)] font-bold">
+                        {language === 'zh' ? '使用 Windows 系统内置语音生成 WAV 音频，不需要联网，也不会增加模型体积。' : 'Uses the built-in Windows voice to generate WAV audio without network access or bundled models.'}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
+                    {language === 'zh' ? '框选剧情卡片后，使用框选菜单里的“生成朗读音频”会把每张卡片的标题和正文合成为音频，并自动关联到 audioUrl。' : 'After selecting story cards, use Generate narration audio in the selection menu to synthesize each card title and body into audio and attach it to audioUrl.'}
+                  </p>
+                </div>
+                  </div>
+                )}
               </section>
 
               {/* AI 续写弹窗按钮可见性配置 */}
@@ -1282,6 +1466,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className="text-[9px] font-bold text-slate-400/60 dark:text-slate-500 uppercase tracking-widest">Stable Release</p>
                 </div>
               </div>
+
+              <section className="pt-4 border-t border-rose-500/20">
+                <button
+                  type="button"
+                  onClick={forceQuitApp}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-rose-600 text-white text-sm font-black shadow-lg transition-all hover:bg-rose-700 hover:shadow-xl active:scale-95"
+                  title={language === 'zh' ? '强制退出应用' : 'Force quit app'}
+                >
+                  <X className="w-4 h-4" />
+                  <span>{language === 'zh' ? '强制关闭 GalWriter AI' : 'Force Close GalWriter AI'}</span>
+                </button>
+                <p className="mt-3 text-center text-[10px] leading-relaxed font-bold text-rose-500/80">
+                  {language === 'zh'
+                    ? '当窗口关闭按钮只会最小化时，可以用这个按钮直接退出桌面应用。'
+                    : 'Use this when the window close button only minimizes the desktop app.'}
+                </p>
+              </section>
             </div>
           )}
 
