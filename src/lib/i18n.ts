@@ -84,6 +84,9 @@ export const translations = {
     // MiniMap
     showMiniMap: '显示小地图 (预览窗)',
     showControls: '显示缩放控制按钮',
+    miniMapPosition: '小地图位置',
+    miniMapLeft: '靠左',
+    miniMapRight: '靠右',
 
 
     // Theme
@@ -241,6 +244,9 @@ export const translations = {
     // MiniMap
     showMiniMap: 'Show MiniMap',
     showControls: 'Show Zoom Controls',
+    miniMapPosition: 'MiniMap Position',
+    miniMapLeft: 'Left',
+    miniMapRight: 'Right',
 
 
     // Theme

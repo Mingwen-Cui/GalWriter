@@ -3,7 +3,8 @@ build/
 dist/
 coverage/
 landingpage/
-landingoage/
+php-backend/
+public/downloads/
 
 # Tauri/Rust generated output
 src-tauri/gen/

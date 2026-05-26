@@ -13,6 +13,7 @@ import {
   ExternalLink,
   HelpCircle,
   ArrowLeft,
+  ArrowRight,
   ShieldAlert,
   ChevronDown
 } from 'lucide-react';
@@ -101,6 +102,8 @@ interface SettingsModalProps {
   setShowStats: (val: boolean) => void;
   showMiniMap: boolean;
   setShowMiniMap: (val: boolean) => void;
+  miniMapPosition: 'left' | 'right';
+  setMiniMapPosition: (position: 'left' | 'right') => void;
   showControls: boolean;
   setShowControls: (val: boolean) => void;
   aiProvider: 'gemini' | 'deepseek' | 'openai';
@@ -193,6 +196,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setShowStats,
   showMiniMap,
   setShowMiniMap,
+  miniMapPosition,
+  setMiniMapPosition,
   showControls,
   setShowControls,
   aiProvider,
@@ -530,6 +535,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   ))}
                 </div>
+                {showMiniMap && (
+                  <div className="mt-5 max-w-sm rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/50 p-1.5">
+                    <div className="mb-1.5 px-2 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t.miniMapPosition}</div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setMiniMapPosition('left')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black rounded-lg transition-all ${miniMapPosition === 'left' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        {t.miniMapLeft}
+                      </button>
+                      <button
+                        onClick={() => setMiniMapPosition('right')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black rounded-lg transition-all ${miniMapPosition === 'right' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                      >
+                        {t.miniMapRight}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
 
 

@@ -23,7 +23,8 @@ import {
   PlayCircle, Square, Diamond, Image as ImageIcon,
   Eye, EyeOff, Upload, Settings, Save, Undo2, Redo2, Layers, BrainCircuit,
   Languages, ChevronLeft, ChevronRight, ChevronDown, Menu, X, PlusCircle, FileArchive, Type,
-  Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film
+  Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film,
+  Send, Mic, Loader2, Sparkles
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Language, translations } from '../lib/i18n';
@@ -537,6 +538,37 @@ export const defaultAIButtonsConfig: AIButtonsConfig = {
   dialogue_only: true,
 };
 
+type AssistantMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'thought';
+  content: string;
+  collapsed?: boolean;
+};
+
+type AssistantCardDraft = {
+  title?: string;
+  text?: string;
+};
+
+type AssistantTask = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: AssistantMessage[];
+};
+
+type AITextResult = {
+  content: string;
+  reasoning?: string;
+};
+
+const createAssistantWelcomeMessage = (): AssistantMessage => ({
+  id: uuidv4(),
+  role: 'assistant',
+  content: '你好，我是你的剧本 AI 助手。选中卡片后告诉我你想怎么推进，我可以给建议，也可以直接帮你布置新卡片并填充内容。',
+});
+
 export const defaultAIPrompts: AIPromptsConfig = {
   basePrompt: "你是一位专业的互动剧本创作者，正在协助创作一部视觉小说。\n\n前文语境：\n{{contextText}}\n\n当前片段：\n{{currentText}}\n\n",
   continue: "请根据前文，自然地续写当前片段，{{generateLength}}。只返回续写内容，不要包含多余说明。",
@@ -609,6 +641,7 @@ export function StoryEditor() {
 
   const [scrollMode, setScrollMode] = useState<'zoom' | 'pan'>('zoom');
   const [showMiniMap, setShowMiniMap] = useState(true);
+  const [miniMapPosition, setMiniMapPosition] = useState<'left' | 'right'>('left');
   const [showControls, setShowControls] = useState(true);
   const [highlightedPath, setHighlightedPath] = useState<{ nodes: Set<string>, edges: Set<string> } | null>(null);
 
@@ -622,7 +655,7 @@ export function StoryEditor() {
   const [saveFileName, setSaveFileName] = useState('story-project');
   const [language, setLanguage] = useState<Language>('zh');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal' | 'topbar'>('vertical');
+  const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal' | 'topbar'>('topbar');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('horizontal');
 
   const [playTestDarkMode, setPlayTestDarkMode] = useState(() => {
@@ -681,6 +714,21 @@ export function StoryEditor() {
 
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(true);
+  const [assistantInput, setAssistantInput] = useState('');
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantListening, setAssistantListening] = useState(false);
+  const initialAssistantTaskIdRef = useRef(uuidv4());
+  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskIdRef.current);
+  const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [{
+    id: initialAssistantTaskIdRef.current,
+    title: '任务 1',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: [createAssistantWelcomeMessage()],
+  }]);
+  const assistantMessagesRef = useRef<HTMLDivElement>(null);
+  const assistantThoughtTimerRef = useRef<number | null>(null);
 
   // Auto-save states
   const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
@@ -703,6 +751,50 @@ export function StoryEditor() {
   const showToast = useCallback((message: string) => {
     setToast({ message, visible: true });
     setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
+  }, []);
+
+  const activeAssistantTask = useMemo(
+    () => assistantTasks.find((task) => task.id === activeAssistantTaskId) || assistantTasks[0],
+    [assistantTasks, activeAssistantTaskId]
+  );
+  const assistantMessages = activeAssistantTask?.messages || [];
+
+  const setAssistantMessages = useCallback((updater: React.SetStateAction<AssistantMessage[]>) => {
+    setAssistantTasks((tasks) => tasks.map((task) => {
+      if (task.id !== activeAssistantTaskId) return task;
+      const nextMessages = typeof updater === 'function'
+        ? (updater as (messages: AssistantMessage[]) => AssistantMessage[])(task.messages)
+        : updater;
+      const firstUserMessage = nextMessages.find((message) => message.role === 'user')?.content.trim();
+      const nextTitle = firstUserMessage ? firstUserMessage.slice(0, 18) : task.title;
+      return {
+        ...task,
+        title: nextTitle,
+        updatedAt: Date.now(),
+        messages: nextMessages,
+      };
+    }));
+  }, [activeAssistantTaskId]);
+
+  const handleNewAssistantTask = useCallback(() => {
+    if (assistantThoughtTimerRef.current !== null) {
+      window.clearInterval(assistantThoughtTimerRef.current);
+      assistantThoughtTimerRef.current = null;
+    }
+    const id = uuidv4();
+    const now = Date.now();
+    setAssistantTasks((tasks) => [
+      {
+        id,
+        title: `任务 ${tasks.length + 1}`,
+        createdAt: now,
+        updatedAt: now,
+        messages: [createAssistantWelcomeMessage()],
+      },
+      ...tasks,
+    ]);
+    setActiveAssistantTaskId(id);
+    setAssistantInput('');
   }, []);
 
   const handleContactCopy = (text: string, type: 'qq' | 'email') => {
@@ -759,6 +851,7 @@ export function StoryEditor() {
   const selectedNodes = useMemo(() => nodes.filter(n => n.selected), [nodes]);
   const showSelectionMenu = selectedNodes.length >= 2;
   const canRenderVideo = true;
+  const selectedStoryNodes = useMemo(() => selectedNodes.filter(n => n.type === 'storyNode'), [selectedNodes]);
   const selectionMenuRef = useRef<HTMLDivElement>(null);
   const selectionBoundsRef = useRef<{ minX: number; minY: number; maxX: number } | null>(null);
   const selectionMenuRafRef = useRef<number | null>(null);
@@ -826,6 +919,19 @@ export function StoryEditor() {
   }, [showSelectionMenu, scheduleSelectionMenuPosition]);
 
   React.useEffect(() => {
+    const el = assistantMessagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [assistantMessages, assistantLoading]);
+
+  React.useEffect(() => {
+    return () => {
+      if (assistantThoughtTimerRef.current !== null) {
+        window.clearInterval(assistantThoughtTimerRef.current);
+      }
+    };
+  }, []);
+
+  React.useEffect(() => {
     return () => {
       if (selectionMenuRafRef.current !== null) {
         cancelAnimationFrame(selectionMenuRafRef.current);
@@ -885,6 +991,7 @@ export function StoryEditor() {
       aiButtonsConfig,
       scrollMode,
       showMiniMap,
+      miniMapPosition,
       showControls,
 
       toolbarLayout,
@@ -905,7 +1012,7 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, toolbarLayout, selectionMenuLayout, language, theme, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -2867,6 +2974,7 @@ export function StoryEditor() {
           if (data.settings.aiPrompts) setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
           if (data.settings.aiButtonsConfig) setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
           if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
+          if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
           if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
           if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
           if (data.settings.toolbarLayout) setToolbarLayout(data.settings.toolbarLayout);
@@ -3201,7 +3309,7 @@ export function StoryEditor() {
     }
   }, [nodes, edges, aiProvider, deepseekApiKey, customApiKey, openaiApiKey, thinkingMode, buildContextText, buildCharacterContext, buildSceneContext, handleUpdateNode, buildPrompt]);
 
-  const callAIForText = useCallback(async (prompt: string): Promise<string> => {
+  const callAIForTextResult = useCallback(async (prompt: string): Promise<AITextResult> => {
     if (aiProvider === 'deepseek') {
       const key = deepseekApiKey;
       if (key && key.trim() !== '') {
@@ -3221,18 +3329,16 @@ export function StoryEditor() {
         }
         const data = await response.json();
         const choice = data.choices?.[0];
-        if (thinkingMode && choice?.message?.reasoning_content) {
-          setThinkingContent(choice.message.reasoning_content);
-          setTimeout(() => setThinkingContent(null), 8000);
-        }
-        return choice?.message?.content || '';
+        return {
+          content: choice?.message?.content || '',
+          reasoning: thinkingMode ? choice?.message?.reasoning_content : undefined,
+        };
       }
       const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-      if (thinkingMode && data.reasoning) {
-        setThinkingContent(data.reasoning);
-        setTimeout(() => setThinkingContent(null), 8000);
-      }
-      return data.content || '';
+      return {
+        content: data.content || '',
+        reasoning: thinkingMode ? data.reasoning : undefined,
+      };
     }
 
     if (aiProvider === 'openai') {
@@ -3252,10 +3358,10 @@ export function StoryEditor() {
           throw new Error(`OpenAI API 错误: ${errText}`);
         }
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || '';
+        return { content: data.choices?.[0]?.message?.content || '' };
       }
       const data = await callAIProxy('openai', prompt, {});
-      return data.content || '';
+      return { content: data.content || '' };
     }
 
     const key = customApiKey;
@@ -3266,11 +3372,264 @@ export function StoryEditor() {
         model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
         contents: prompt,
       });
-      return response.text || '';
+      return { content: response.text || '' };
     }
     const data = await callAIProxy('gemini', prompt, { thinkingMode });
-    return data.content || '';
+    return { content: data.content || '', reasoning: thinkingMode ? data.reasoning : undefined };
   }, [aiProvider, deepseekApiKey, openaiApiKey, customApiKey, thinkingMode]);
+
+  const callAIForText = useCallback(async (prompt: string): Promise<string> => {
+    const result = await callAIForTextResult(prompt);
+    if (thinkingMode && result.reasoning) {
+      setThinkingContent(result.reasoning);
+      setTimeout(() => setThinkingContent(null), 8000);
+    }
+    return result.content;
+  }, [callAIForTextResult, thinkingMode]);
+
+  const createAssistantCards = useCallback((cards: AssistantCardDraft[], mode: 'append' | 'fill-selected' = 'append') => {
+    const validCards = cards
+      .map((card) => ({
+        title: (card.title || '').trim() || 'AI 剧情卡片',
+        text: (card.text || '').trim(),
+      }))
+      .filter((card) => card.text || card.title);
+
+    if (validCards.length === 0) return 0;
+
+    const selectedStories = nodes.filter(n => n.selected && n.type === 'storyNode');
+    let filledCount = 0;
+
+    if (mode === 'fill-selected' && selectedStories.length > 0) {
+      const fillTargets = selectedStories.slice(0, validCards.length);
+      setNodes((nds) => nds.map((node) => {
+        const targetIndex = fillTargets.findIndex((target) => target.id === node.id);
+        if (targetIndex === -1) return node;
+        const draft = validCards[targetIndex];
+        filledCount += 1;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            title: draft.title,
+            text: draft.text,
+          },
+        };
+      }));
+    }
+
+    const remainingCards = validCards.slice(filledCount);
+    if (remainingCards.length === 0) return filledCount;
+
+    const anchorNodes = selectedStories.length > 0 ? selectedStories : nodes.filter(n => n.type === 'storyNode');
+    const center = getCenterPosition();
+    const sourceNode = selectedStories[0] || null;
+    const sourceWidth = sourceNode ? (sourceNode.measured?.width || (sourceNode.style?.width as number) || 300) : 300;
+    const baseX = sourceNode
+      ? sourceNode.position.x + sourceWidth / 2 - 150
+      : center.x - 150;
+    const baseY = anchorNodes.length
+      ? Math.max(...anchorNodes.map(n => n.position.y + (n.measured?.height || (n.style?.height as number) || 200))) + 120
+      : center.y - 100;
+
+    const newNodes: Node[] = remainingCards.map((card, index) => {
+      const id = uuidv4();
+      return {
+        id,
+        type: 'storyNode',
+        position: { x: baseX, y: baseY + index * 280 },
+        selected: index === 0,
+        style: { width: 300, height: 200 },
+        data: {
+          id,
+          title: card.title,
+          text: card.text,
+          shape: 'square',
+          color: '#ffffff',
+        },
+      };
+    });
+
+    const newEdges: Edge[] = [];
+    if (sourceNode && newNodes[0]) {
+      newEdges.push({
+        id: `e-${sourceNode.id}-${newNodes[0].id}`,
+        source: sourceNode.id,
+        sourceHandle: 'bottom',
+        target: newNodes[0].id,
+        targetHandle: 'top',
+        type: 'customEdge',
+      });
+    }
+    for (let i = 0; i < newNodes.length - 1; i += 1) {
+      newEdges.push({
+        id: `e-${newNodes[i].id}-${newNodes[i + 1].id}`,
+        source: newNodes[i].id,
+        sourceHandle: 'bottom',
+        target: newNodes[i + 1].id,
+        targetHandle: 'top',
+        type: 'customEdge',
+      });
+    }
+
+    setNodes((nds) => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
+    if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
+    return filledCount + remainingCards.length;
+  }, [nodes, setNodes, setEdges, getCenterPosition]);
+
+  const playAssistantThought = useCallback((reasoning?: string) => {
+    const text = (reasoning || '').trim();
+    if (!text) return Promise.resolve();
+
+    if (assistantThoughtTimerRef.current !== null) {
+      window.clearInterval(assistantThoughtTimerRef.current);
+      assistantThoughtTimerRef.current = null;
+    }
+
+    const thoughtId = uuidv4();
+    setAssistantMessages((messages) => [
+      ...messages,
+      { id: thoughtId, role: 'thought', content: '', collapsed: false },
+    ]);
+
+    return new Promise<void>((resolve) => {
+      let index = 0;
+      assistantThoughtTimerRef.current = window.setInterval(() => {
+        index += 1;
+        const nextContent = text.slice(0, index);
+        setAssistantMessages((messages) =>
+          messages.map((message) =>
+            message.id === thoughtId
+              ? { ...message, content: nextContent, collapsed: false }
+              : message
+          )
+        );
+
+        if (index >= text.length) {
+          if (assistantThoughtTimerRef.current !== null) {
+            window.clearInterval(assistantThoughtTimerRef.current);
+            assistantThoughtTimerRef.current = null;
+          }
+          window.setTimeout(() => {
+            setAssistantMessages((messages) =>
+              messages.map((message) =>
+                message.id === thoughtId ? { ...message, collapsed: true } : message
+              )
+            );
+            resolve();
+          }, 500);
+        }
+      }, 18);
+    });
+  }, [setAssistantMessages]);
+
+  const toggleAssistantThought = useCallback((messageId: string) => {
+    setAssistantMessages((messages) =>
+      messages.map((message) =>
+        message.id === messageId ? { ...message, collapsed: !message.collapsed } : message
+      )
+    );
+  }, [setAssistantMessages]);
+
+  const handleAssistantSend = useCallback(async (overrideText?: string) => {
+    const userText = (overrideText ?? assistantInput).trim();
+    if (!userText || assistantLoading) return;
+
+    setAssistantInput('');
+    setAssistantLoading(true);
+    const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
+    setAssistantMessages((messages) => [...messages, userMessage]);
+
+    const selectedContext = selectedStoryNodes
+      .map((node, index) => `#${index + 1} ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`)
+      .join('\n\n---\n\n');
+    const canvasContext = nodes
+      .filter(n => n.type === 'storyNode')
+      .slice(0, 20)
+      .map((node, index) => `${index + 1}. ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`)
+      .join('\n');
+    const wantsCards = /卡片|节点|生成|布置|填充|续写|创建|安排|layout|card|node|continue/i.test(userText);
+    const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
+
+    const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
+请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
+
+必须只返回 JSON，不要使用 Markdown 代码块：
+{
+  "reply": "给用户看的中文回复，说明思路和你做了什么",
+  "cards": [{"title": "卡片标题", "text": "卡片正文"}],
+  "mode": "append" 或 "fill-selected"
+}
+
+当用户只是咨询建议时，cards 返回空数组。卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
+
+用户请求：
+${userText}
+
+选中卡片：
+${selectedContext || '无'}
+
+画布摘要：
+${canvasContext || '无'}`;
+
+    try {
+      const aiResult = await callAIForTextResult(prompt);
+      await playAssistantThought(aiResult.reasoning);
+      const raw = aiResult.content;
+      const jsonText = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      let parsed: { reply?: string; cards?: AssistantCardDraft[]; mode?: 'append' | 'fill-selected' };
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        parsed = { reply: raw, cards: [] };
+      }
+
+      const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+      const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
+      const shouldPlaceCards = wantsCards || cards.length > 0;
+      const placedCount = shouldPlaceCards ? createAssistantCards(cards, mode) : 0;
+      const actionText = placedCount > 0 ? `\n\n已在画布上处理 ${placedCount} 张卡片。` : '';
+      const assistantMessage: AssistantMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: `${parsed.reply || raw}${actionText}`,
+      };
+      setAssistantMessages((messages) => [...messages, assistantMessage]);
+    } catch (error: any) {
+      console.error('AI Assistant failed:', error);
+      setAssistantMessages((messages) => [
+        ...messages,
+        {
+          id: uuidv4(),
+          role: 'assistant',
+          content: `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`,
+        },
+      ]);
+    } finally {
+      setAssistantLoading(false);
+    }
+  }, [assistantInput, assistantLoading, selectedStoryNodes, nodes, callAIForTextResult, playAssistantThought, createAssistantCards, setAssistantMessages]);
+
+  const handleAssistantVoiceInput = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('当前浏览器不支持语音输入。');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language === 'zh' ? 'zh-CN' : 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setAssistantListening(true);
+    recognition.onend = () => setAssistantListening(false);
+    recognition.onerror = () => setAssistantListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || '';
+      if (transcript) setAssistantInput((value) => value ? `${value} ${transcript}` : transcript);
+    };
+    recognition.start();
+  }, [language]);
 
   const handleGenerateSettingText = useCallback((prompt: string) => {
     return callAIForText(prompt);
@@ -3949,6 +4308,14 @@ ${direction}
             </button>
           )}
           <button
+            onClick={() => setAssistantOpen((open) => !open)}
+            className={`p-2 md:px-3 md:py-2 text-sm font-bold rounded-md flex items-center gap-2 shadow-sm transition-all active:scale-95 border ${assistantOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+            title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
+          >
+            <BrainCircuit className="w-4 h-4" />
+            {!isMobile && (language === 'zh' ? 'AI 助手' : 'AI Assistant')}
+          </button>
+          <button
             onClick={() => setShowPlayTest(true)}
             className="p-2 md:px-4 md:py-2 bg-slate-800 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-md hover:bg-slate-900 dark:hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all active:scale-95"
             title={t.playTest}
@@ -3988,7 +4355,8 @@ ${direction}
         </div>
       </header>
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 relative overflow-hidden">
         {/* Floating Toolbar */}
         <div
           className={`absolute ${isMobile ? 'top-20 left-4' : 'top-6 left-6'} z-20 flex flex-col gap-2 bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out w-[52px] ${toolbarCollapsed ? 'h-12 overflow-hidden' : ''}`}
@@ -4081,14 +4449,6 @@ ${direction}
                 title={language === 'zh' ? '数字判断卡片' : 'Number Condition'}
               >
                 <Calculator strokeWidth={2.5} className="w-5 h-5" />
-              </button>
-
-              <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewAIHub()}
-                title={t.toolAIHub}
-              >
-                <BrainCircuit strokeWidth={2.5} className="w-5 h-5" />
               </button>
 
               <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
@@ -4272,7 +4632,7 @@ ${direction}
           >
             <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#334155' : '#cbd5e1'} gap={24} size={1} />
             {showMiniMap && (
-              <div className="absolute right-4 bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+              <div className={`absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}>
                 <MiniMap
                   pannable={true}
                   zoomable={true}
@@ -4294,7 +4654,7 @@ ${direction}
               </div>
             )}
             {!showMiniMap && showControls && (
-              <div className="absolute right-4 bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300">
+              <div className={`absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}>
                 <Controls
                   showInteractive={false}
                   showZoom={true}
@@ -4338,21 +4698,6 @@ ${direction}
             >
               <Square className="w-4 h-4 shrink-0" />
               <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.bgCard}</span>
-            </button>
-
-            {selectionMenuLayout === 'horizontal' ? (
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-            ) : (
-              <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-            )}
-
-            <button
-              onClick={connectSelectedToAIHub}
-              className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-              title={t.connectToAIHub}
-            >
-              <BrainCircuit className="w-4 h-4 shrink-0" />
-              <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.connectToAIHub}</span>
             </button>
 
             {selectionMenuLayout === 'horizontal' ? (
@@ -4423,6 +4768,179 @@ ${direction}
         )}
       </div>
 
+        {assistantOpen && (
+          <aside className={`${isMobile ? 'absolute inset-x-3 top-16 bottom-3 z-[180] rounded-2xl shadow-2xl' : 'w-[360px] shrink-0 border-l border-[var(--header-border)]'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}>
+            <div className="h-14 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-slate-900 dark:text-white truncate">AI 助手</div>
+                  <div className="text-[10px] font-bold text-slate-400 truncate">
+                    {selectedStoryNodes.length > 0 ? `已选中 ${selectedStoryNodes.length} 张剧情卡片` : '可建议、思考和生成卡片'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setAssistantOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title={language === 'zh' ? '关闭 AI 助手' : 'Close AI Assistant'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 shrink-0">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={handleNewAssistantTask}
+                  disabled={assistantLoading}
+                  className="flex-1 h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center gap-1.5 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  title={language === 'zh' ? '新建 AI 任务' : 'New AI task'}
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  新建任务
+                </button>
+                <button
+                  onClick={undo}
+                  disabled={history.past.length === 0}
+                  className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                  title={language === 'zh' ? '撤回最近一次画布修改' : 'Undo canvas change'}
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={history.future.length === 0}
+                  className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                  title={language === 'zh' ? '恢复撤回的画布修改' : 'Redo canvas change'}
+                >
+                  <Redo2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                {assistantTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    onClick={() => setActiveAssistantTaskId(task.id)}
+                    className={`min-w-[112px] max-w-[160px] px-2.5 py-1.5 rounded-lg text-left border transition-colors ${
+                      task.id === activeAssistantTaskId
+                        ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    }`}
+                    title={task.title}
+                  >
+                    <div className="text-[11px] font-black truncate">{task.title}</div>
+                    <div className="text-[9px] opacity-60 truncate">{new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div ref={assistantMessagesRef} className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
+              {assistantMessages.map((message) => (
+                message.role === 'thought' ? (
+                  <div key={message.id} className="flex justify-start">
+                    <button
+                      type="button"
+                      onClick={() => toggleAssistantThought(message.id)}
+                      className="max-w-[88%] text-left rounded-2xl rounded-bl-md px-3.5 py-2.5 text-xs leading-relaxed bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 font-black mb-1">
+                        <BrainCircuit className="w-3.5 h-3.5" />
+                        <span>{message.collapsed ? 'AI 已完成思考' : 'AI 正在思考'}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${message.collapsed ? '-rotate-90' : ''}`} />
+                      </div>
+                      {!message.collapsed && (
+                        <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
+                          {message.content}
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                      message.role === 'user'
+                        ? 'bg-indigo-600 text-white rounded-br-md'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
+                    }`}>
+                      {message.content}
+                    </div>
+                  </div>
+                )
+              ))}
+              {assistantLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-slate-500 dark:text-slate-300 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    正在思考和整理卡片...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={() => handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')}
+                  disabled={assistantLoading}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                >
+                  建议
+                </button>
+                <button
+                  onClick={() => handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')}
+                  disabled={assistantLoading}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 disabled:opacity-50 transition-colors"
+                >
+                  生成卡片
+                </button>
+                <button
+                  onClick={() => handleAssistantSend('填充选中的空白剧情卡片，保持标题和正文可以直接使用。')}
+                  disabled={assistantLoading || selectedStoryNodes.length === 0}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 disabled:opacity-50 transition-colors"
+                >
+                  填充选中
+                </button>
+              </div>
+              <div className="flex items-end gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-2">
+                <textarea
+                  value={assistantInput}
+                  onChange={(event) => setAssistantInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handleAssistantSend();
+                    }
+                  }}
+                  placeholder="和 AI 讨论剧情，或让它生成/填充卡片..."
+                  rows={2}
+                  className="flex-1 resize-none bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 outline-none max-h-28 custom-scrollbar"
+                />
+                <button
+                  onClick={handleAssistantVoiceInput}
+                  disabled={assistantLoading || assistantListening}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${assistantListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-white border border-slate-200 dark:border-slate-700'} disabled:opacity-50`}
+                  title={language === 'zh' ? '语音输入' : 'Voice input'}
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleAssistantSend()}
+                  disabled={assistantLoading || !assistantInput.trim()}
+                  className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shrink-0"
+                  title={language === 'zh' ? '发送' : 'Send'}
+                >
+                  {assistantLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </aside>
+        )}
+      </div>
+
       {!isMobile && showStats && (
         <footer className="h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
           <div className="flex gap-4">
@@ -4436,7 +4954,7 @@ ${direction}
       )}
 
       {/* 思考内容右上角浮层：DeepSeek思考模式下短暂显示 */}
-      {thinkingContent && (
+      {false && thinkingContent && (
         <div
           className="fixed top-20 right-20 z-[500] max-w-sm w-80 bg-slate-900/95 border border-indigo-500/40 rounded-xl shadow-2xl p-4 backdrop-blur-md animate-in slide-in-from-right-4 duration-300"
           style={{ maxHeight: '50vh', overflowY: 'auto' }}
@@ -4627,6 +5145,8 @@ ${direction}
           setShowStats={setShowStats}
           showMiniMap={showMiniMap}
           setShowMiniMap={setShowMiniMap}
+          miniMapPosition={miniMapPosition}
+          setMiniMapPosition={setMiniMapPosition}
           showControls={showControls}
           setShowControls={setShowControls}
 
@@ -4755,6 +5275,7 @@ ${direction}
                       if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao') setTtsProvider(data.settings.ttsProvider);
                       if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
                       if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
+                      if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
                       if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
                       if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
                       if (data.settings.toolbarLayout) setToolbarLayout(data.settings.toolbarLayout);
