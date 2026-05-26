@@ -157,4 +157,4 @@ npm run tauri build  # 打包桌面应用
 
 ## 作者
 
-Created by Mingwen Cui.
+Created by Mingwen Cui, Tommy Ren.
