@@ -1,55 +1,97 @@
-import React, { useCallback, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import {
-  ReactFlow,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
-  Connection,
-  Node,
-  Edge,
-  applyNodeChanges,
   applyEdgeChanges,
-  ConnectionMode,
-  MarkerType,
-  useStore,
-  MiniMap,
+  applyNodeChanges,
+  Background,
   BackgroundVariant,
+  Connection,
+  ConnectionMode,
+  Controls,
+  Edge,
+  MarkerType,
+  MiniMap,
+  Node,
+  NodeChange,
+  PanOnScrollMode,
+  ReactFlow,
+  SelectionMode,
+  useEdgesState,
+  useNodesState,
   useReactFlow,
+  useStore,
 } from '@xyflow/react';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  PlayCircle, Square, Diamond, Image as ImageIcon,
-  Eye, EyeOff, Upload, Settings, Save, Undo2, Redo2, Layers, BrainCircuit,
-  Languages, ChevronLeft, ChevronRight, ChevronDown, Menu, X, PlusCircle, FileArchive, Type,
-  Mail, MessageCircle, Copy, Check, FileText, Calculator, Replace, UserCircle2, BookOpen, MapPin, Trash2, Volume2, Film,
-  Send, Mic, Loader2, Sparkles
-} from 'lucide-react';
 import JSZip from 'jszip';
+import {
+  BookOpen,
+  BrainCircuit,
+  Calculator,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Diamond,
+  Eye,
+  EyeOff,
+  FileArchive,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Languages,
+  Layers,
+  Loader2,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Mic,
+  PlayCircle,
+  PlusCircle,
+  Redo2,
+  Replace,
+  Save,
+  Send,
+  Settings,
+  Sparkles,
+  Square,
+  Trash2,
+  Type,
+  Undo2,
+  Upload,
+  UserCircle2,
+  Volume2,
+  X,
+} from 'lucide-react';
+import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+
+import { clearAutoSave, getAutoSave, saveAutoSave } from '../lib/db';
+import {
+  downloadText,
+  exportPaths,
+  formatCharacterNodeText,
+  formatSceneNodeText,
+} from '../lib/export';
 import { Language, translations } from '../lib/i18n';
-import { MemoizedStoryNode } from './StoryNode';
-import { MemoizedBackgroundNode } from './BackgroundNode';
-import { MemoizedGroupNode } from './GroupNode';
-import { MemoizedAINode } from './AINode';
-import { MemoizedTextNode } from './TextNode';
-import { MemoizedSummaryNode } from './SummaryNode';
-import { MemoizedNumberConditionNode } from './NumberConditionNode';
-import { MemoizedBatchReplaceNode } from './BatchReplaceNode';
-import { MemoizedPlotStructureNode } from './PlotStructureNode';
-import { MemoizedCharacterNode } from './CharacterNode';
-import { MemoizedSceneNode } from './SceneNode';
-import { exportPaths, downloadText, formatCharacterNodeText, formatSceneNodeText } from '../lib/export';
 import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
   parseGeneratedPlotCards,
 } from '../lib/plotStructure';
-import type { PlotStructureGenerateParams } from './PlotStructureNode';
-import { CustomEdge } from './CustomEdge';
-import { saveAutoSave, getAutoSave, clearAutoSave } from '../lib/db';
 import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
-import { LiquidGlassSurface } from './LiquidGlassSurface';
+import { MemoizedAINode } from './AINode';
+import { MemoizedBackgroundNode } from './BackgroundNode';
+import { MemoizedBatchReplaceNode } from './BatchReplaceNode';
+import { MemoizedCharacterNode } from './CharacterNode';
+import { CustomEdge } from './CustomEdge';
+import { MemoizedGroupNode } from './GroupNode';
+import { MemoizedNumberConditionNode } from './NumberConditionNode';
+import type { PlotStructureGenerateParams } from './PlotStructureNode';
+import { MemoizedPlotStructureNode } from './PlotStructureNode';
+import { MemoizedSceneNode } from './SceneNode';
+import { MemoizedStoryNode } from './StoryNode';
+import { MemoizedSummaryNode } from './SummaryNode';
+import { MemoizedTextNode } from './TextNode';
 
 const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
@@ -76,8 +118,10 @@ const normalizeImageApiUrl = (url: string, model: string, apiKey = '') => {
   const usesArkKey = /^ark-/i.test(apiKey.trim());
 
   if (!rawUrl) return DEFAULT_IMAGE_API_URL;
-  if ((usesSeedream || usesArkKey) && rawUrl === 'https://api.openai.com/v1/images/generations') return DEFAULT_IMAGE_API_URL;
-  if (/ark\.cn-beijing\.volces\.com\/?$/.test(rawUrl)) return `${rawUrl.replace(/\/$/, '')}/api/v3/images/generations`;
+  if ((usesSeedream || usesArkKey) && rawUrl === 'https://api.openai.com/v1/images/generations')
+    return DEFAULT_IMAGE_API_URL;
+  if (/ark\.cn-beijing\.volces\.com\/?$/.test(rawUrl))
+    return `${rawUrl.replace(/\/$/, '')}/api/v3/images/generations`;
   if (/\/api\/v3\/?$/.test(rawUrl)) return `${rawUrl.replace(/\/$/, '')}/images/generations`;
   return rawUrl;
 };
@@ -121,7 +165,12 @@ const getEdgeHandleForNode = (edge: Edge, nodeId: string) => {
   return '';
 };
 
-const pushUniqueReference = (references: ImageReference[], seen: Set<string>, url: unknown, label: string) => {
+const pushUniqueReference = (
+  references: ImageReference[],
+  seen: Set<string>,
+  url: unknown,
+  label: string,
+) => {
   if (typeof url !== 'string') return;
   const trimmed = url.trim();
   if (!trimmed || seen.has(trimmed)) return;
@@ -134,22 +183,32 @@ const collectCharacterImageReferences = (
   references: ImageReference[],
   seen: Set<string>,
   handleId = '',
-  labelPrefix = ''
+  labelPrefix = '',
 ) => {
   const characterName = ((node.data.characterName as string) || '角色').trim();
   const labelName = labelPrefix ? `${labelPrefix}${characterName}` : characterName;
   const outfits = (node.data.outfits as { id: string; name?: string; imageUrl?: string }[]) || [];
   const outfitId = handleId.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
-  const connectedOutfit = outfitId ? outfits.find(outfit => outfit.id === outfitId) : null;
+  const connectedOutfit = outfitId ? outfits.find((outfit) => outfit.id === outfitId) : null;
 
   if (connectedOutfit) {
-    pushUniqueReference(references, seen, connectedOutfit.imageUrl, `${labelName} - ${connectedOutfit.name || '服装'}`);
+    pushUniqueReference(
+      references,
+      seen,
+      connectedOutfit.imageUrl,
+      `${labelName} - ${connectedOutfit.name || '服装'}`,
+    );
     return;
   }
 
   pushUniqueReference(references, seen, node.data.avatarUrl, `${labelName} - 头像`);
-  outfits.forEach(outfit => {
-    pushUniqueReference(references, seen, outfit.imageUrl, `${labelName} - ${outfit.name || '服装'}`);
+  outfits.forEach((outfit) => {
+    pushUniqueReference(
+      references,
+      seen,
+      outfit.imageUrl,
+      `${labelName} - ${outfit.name || '服装'}`,
+    );
   });
 };
 
@@ -158,72 +217,117 @@ const collectSceneImageReferences = (
   references: ImageReference[],
   seen: Set<string>,
   handleId = '',
-  labelPrefix = ''
+  labelPrefix = '',
 ) => {
   const sceneName = ((node.data.sceneName as string) || '场景').trim();
   const labelName = labelPrefix ? `${labelPrefix}${sceneName}` : sceneName;
   const images = (node.data.images as { id: string; name?: string; imageUrl?: string }[]) || [];
   const imageId = handleId.match(/^image-(?:in|out)-(.+)$/)?.[1];
-  const connectedImage = imageId ? images.find(image => image.id === imageId) : null;
+  const connectedImage = imageId ? images.find((image) => image.id === imageId) : null;
 
   if (connectedImage) {
-    pushUniqueReference(references, seen, connectedImage.imageUrl, `${labelName} - ${connectedImage.name || '场景图'}`);
+    pushUniqueReference(
+      references,
+      seen,
+      connectedImage.imageUrl,
+      `${labelName} - ${connectedImage.name || '场景图'}`,
+    );
     return;
   }
 
   pushUniqueReference(references, seen, node.data.coverImageUrl, `${labelName} - 封面`);
-  images.forEach(image => {
-    pushUniqueReference(references, seen, image.imageUrl, `${labelName} - ${image.name || '场景图'}`);
+  images.forEach((image) => {
+    pushUniqueReference(
+      references,
+      seen,
+      image.imageUrl,
+      `${labelName} - ${image.name || '场景图'}`,
+    );
   });
 };
 
 const getConnectedImageReferences = (allNodes: Node[], allEdges: Edge[], storyNodeId: string) => {
   const references: ImageReference[] = [];
   const seen = new Set<string>();
-  const storyNode = allNodes.find(node => node.id === storyNodeId);
-  const currentImageUrl = typeof storyNode?.data?.imageUrl === 'string' ? storyNode.data.imageUrl.trim() : '';
+  const storyNode = allNodes.find((node) => node.id === storyNodeId);
+  const currentImageUrl =
+    typeof storyNode?.data?.imageUrl === 'string' ? storyNode.data.imageUrl.trim() : '';
   if (currentImageUrl) {
     seen.add(currentImageUrl);
   }
-  const connectedEdges = allEdges.filter(edge => edge.source === storyNodeId || edge.target === storyNodeId);
+  const connectedEdges = allEdges.filter(
+    (edge) => edge.source === storyNodeId || edge.target === storyNodeId,
+  );
   const connectedNodeIds = new Set<string>();
 
   connectedEdges.forEach((edge) => {
     const connectedNodeId = edge.source === storyNodeId ? edge.target : edge.source;
-    const connectedNode = allNodes.find(n => n.id === connectedNodeId);
+    const connectedNode = allNodes.find((n) => n.id === connectedNodeId);
     if (!connectedNode) return;
     connectedNodeIds.add(connectedNode.id);
 
     if (connectedNode.type === 'characterNode') {
       const characterName = ((connectedNode.data.characterName as string) || '角色').trim();
-      const outfits = (connectedNode.data.outfits as { id: string; name?: string; imageUrl?: string }[]) || [];
+      const outfits =
+        (connectedNode.data.outfits as { id: string; name?: string; imageUrl?: string }[]) || [];
       const handleId = getEdgeHandleForNode(edge, connectedNode.id);
       const outfitId = handleId.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
-      const connectedOutfit = outfitId ? outfits.find(outfit => outfit.id === outfitId) : null;
+      const connectedOutfit = outfitId ? outfits.find((outfit) => outfit.id === outfitId) : null;
 
       if (connectedOutfit) {
-        pushUniqueReference(references, seen, connectedOutfit.imageUrl, `${characterName} - ${connectedOutfit.name || '服装'}`);
+        pushUniqueReference(
+          references,
+          seen,
+          connectedOutfit.imageUrl,
+          `${characterName} - ${connectedOutfit.name || '服装'}`,
+        );
       } else {
-        pushUniqueReference(references, seen, connectedNode.data.avatarUrl, `${characterName} - 头像`);
-        outfits.forEach(outfit => {
-          pushUniqueReference(references, seen, outfit.imageUrl, `${characterName} - ${outfit.name || '服装'}`);
+        pushUniqueReference(
+          references,
+          seen,
+          connectedNode.data.avatarUrl,
+          `${characterName} - 头像`,
+        );
+        outfits.forEach((outfit) => {
+          pushUniqueReference(
+            references,
+            seen,
+            outfit.imageUrl,
+            `${characterName} - ${outfit.name || '服装'}`,
+          );
         });
       }
     }
 
     if (connectedNode.type === 'sceneNode') {
       const sceneName = ((connectedNode.data.sceneName as string) || '场景').trim();
-      const images = (connectedNode.data.images as { id: string; name?: string; imageUrl?: string }[]) || [];
+      const images =
+        (connectedNode.data.images as { id: string; name?: string; imageUrl?: string }[]) || [];
       const handleId = getEdgeHandleForNode(edge, connectedNode.id);
       const imageId = handleId.match(/^image-(?:in|out)-(.+)$/)?.[1];
-      const connectedImage = imageId ? images.find(image => image.id === imageId) : null;
+      const connectedImage = imageId ? images.find((image) => image.id === imageId) : null;
 
       if (connectedImage) {
-        pushUniqueReference(references, seen, connectedImage.imageUrl, `${sceneName} - ${connectedImage.name || '场景图'}`);
+        pushUniqueReference(
+          references,
+          seen,
+          connectedImage.imageUrl,
+          `${sceneName} - ${connectedImage.name || '场景图'}`,
+        );
       } else {
-        pushUniqueReference(references, seen, connectedNode.data.coverImageUrl, `${sceneName} - 封面`);
-        images.forEach(image => {
-          pushUniqueReference(references, seen, image.imageUrl, `${sceneName} - ${image.name || '场景图'}`);
+        pushUniqueReference(
+          references,
+          seen,
+          connectedNode.data.coverImageUrl,
+          `${sceneName} - 封面`,
+        );
+        images.forEach((image) => {
+          pushUniqueReference(
+            references,
+            seen,
+            image.imageUrl,
+            `${sceneName} - ${image.name || '场景图'}`,
+          );
         });
       }
     }
@@ -248,19 +352,21 @@ const getConnectedImageReferences = (allNodes: Node[], allEdges: Edge[], storyNo
   return references.slice(0, 10);
 };
 
-const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result || ''));
-  reader.onerror = () => reject(reader.error || new Error('Failed to read reference image.'));
-  reader.readAsDataURL(blob);
-});
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Failed to read reference image.'));
+    reader.readAsDataURL(blob);
+  });
 
 const toApiImageReference = async (url: string) => {
   if (/^data:image\//i.test(url)) return url;
   if (/^https?:\/\//i.test(url)) return url;
   if (/^blob:/i.test(url)) {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to read local reference image: HTTP ${response.status}`);
+    if (!response.ok)
+      throw new Error(`Failed to read local reference image: HTTP ${response.status}`);
     return blobToDataUrl(await response.blob());
   }
   return url;
@@ -269,24 +375,35 @@ const toApiImageReference = async (url: string) => {
 const buildReferencePrompt = (references: ImageReference[]) => {
   if (references.length === 0) return '';
 
-  const labels = references.map((reference, index) => `${index + 1}. ${reference.label}`).join('\n');
+  const labels = references
+    .map((reference, index) => `${index + 1}. ${reference.label}`)
+    .join('\n');
   return `\n\n参考图要求：已附加以下人物/场景参考图，请尽量保持人物脸型、发型、服装、色彩特征，以及场景空间布局和氛围一致。不要照搬水印或界面元素。\n${labels}`;
 };
 
-const buildImageGenerationRequest = (url: string, model: string, size: string, prompt: string, apiKey = '', referenceImages: string[] = []) => {
+const buildImageGenerationRequest = (
+  url: string,
+  model: string,
+  size: string,
+  prompt: string,
+  apiKey = '',
+  referenceImages: string[] = [],
+) => {
   const normalizedModel = normalizeImageModel(url, model, apiKey);
   const normalizedUrl = normalizeImageApiUrl(url, normalizedModel, apiKey);
-  const usesSeedream = /doubao|seedream/i.test(normalizedModel) || /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl);
+  const usesSeedream =
+    /doubao|seedream/i.test(normalizedModel) || /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl);
   const localArkProxyUrl = (() => {
     if (typeof window === 'undefined') return '/api/ark-image';
     const origin = window.location.origin;
     const isViteDevOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(origin);
     return isViteDevOrigin ? '/api/ark-image' : 'http://127.0.0.1:3000/api/ark-image';
   })();
-  const requestUrl = usesSeedream && /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl) && import.meta.env.DEV
-    ? localArkProxyUrl
-    : normalizedUrl;
-  const normalizedSize = usesSeedream ? normalizeSeedreamSize(size) : (size.trim() || '1024x1024');
+  const requestUrl =
+    usesSeedream && /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl) && import.meta.env.DEV
+      ? localArkProxyUrl
+      : normalizedUrl;
+  const normalizedSize = usesSeedream ? normalizeSeedreamSize(size) : size.trim() || '1024x1024';
 
   if (usesSeedream) {
     return {
@@ -318,12 +435,21 @@ const buildImageGenerationRequest = (url: string, model: string, size: string, p
 };
 
 // 使用懒加载减少首屏体验
-const PlayTestModal = lazy(() => import('./PlayTestModal').then(module => ({ default: module.PlayTestModal })));
-const ZenEditor = lazy(() => import('./ZenEditor').then(module => ({ default: module.ZenEditor })));
-const SettingsModal = lazy(() => import('./SettingsModal').then(module => ({ default: module.SettingsModal })));
-const CharacterNode = lazy(() => import('./CharacterNode').then(module => ({ default: module.MemoizedCharacterNode })));
-const VideoRenderModal = lazy(() => import('./VideoRenderModal').then(module => ({ default: module.VideoRenderModal })));
-
+const PlayTestModal = lazy(() =>
+  import('./PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
+);
+const ZenEditor = lazy(() =>
+  import('./ZenEditor').then((module) => ({ default: module.ZenEditor })),
+);
+const SettingsModal = lazy(() =>
+  import('./SettingsModal').then((module) => ({ default: module.SettingsModal })),
+);
+const CharacterNode = lazy(() =>
+  import('./CharacterNode').then((module) => ({ default: module.MemoizedCharacterNode })),
+);
+const VideoRenderModal = lazy(() =>
+  import('./VideoRenderModal').then((module) => ({ default: module.VideoRenderModal })),
+);
 
 const nodeTypes = {
   storyNode: MemoizedStoryNode,
@@ -370,7 +496,12 @@ const INITIAL_NODES: Node[] = [
     position: { x: 400, y: 250 },
     style: { width: 300, height: 200 },
     data: {
-      id: 'root', title: "开头", text: "从前有座山...", shape: 'rounded-rectangle', color: '#ffffff', isRoot: true
+      id: 'root',
+      title: '开头',
+      text: '从前有座山...',
+      shape: 'rounded-rectangle',
+      color: '#ffffff',
+      isRoot: true,
     },
   },
 ];
@@ -430,11 +561,21 @@ const getSettingRename = (node: Node, data: Record<string, unknown>) => {
   return null;
 };
 
-function SmartGuides({ hLines, vLines }: { hLines: number[], vLines: number[] }) {
+function SmartGuides({ hLines, vLines }: { hLines: number[]; vLines: number[] }) {
   const transform = useStore((state) => state.transform);
   if (vLines.length === 0 && hLines.length === 0) return null;
   return (
-    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1000 }}>
+    <svg
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 1000,
+      }}
+    >
       {vLines.map((vLine, i) => (
         <line
           key={`v-${i}`}
@@ -442,7 +583,9 @@ function SmartGuides({ hLines, vLines }: { hLines: number[], vLines: number[] })
           y1={0}
           x2={vLine * transform[2] + transform[0]}
           y2="100%"
-          stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="5,5"
+          stroke="#f43f5e"
+          strokeWidth="1.5"
+          strokeDasharray="5,5"
         />
       ))}
       {hLines.map((hLine, i) => (
@@ -452,7 +595,9 @@ function SmartGuides({ hLines, vLines }: { hLines: number[], vLines: number[] })
           y1={hLine * transform[2] + transform[1]}
           x2="100%"
           y2={hLine * transform[2] + transform[1]}
-          stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="5,5"
+          stroke="#f43f5e"
+          strokeWidth="1.5"
+          strokeDasharray="5,5"
         />
       ))}
     </svg>
@@ -460,7 +605,11 @@ function SmartGuides({ hLines, vLines }: { hLines: number[], vLines: number[] })
 }
 
 // NOTE: 几何辅助函数 - 计算凸包 (Convex Hull)
-function crossProduct(a: { x: number, y: number }, b: { x: number, y: number }, c: { x: number, y: number }) {
+function crossProduct(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+) {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
@@ -468,7 +617,10 @@ function crossProduct(a: { x: number, y: number }, b: { x: number, y: number }, 
  * 获取媒体文件的原始尺尺寸 * @param url 媒体 URL (data: blob:)
  * @param type MIME 类型
  */
-const getMediaDimensions = (url: string, type: string): Promise<{ width: number; height: number }> => {
+const getMediaDimensions = (
+  url: string,
+  type: string,
+): Promise<{ width: number; height: number }> => {
   return new Promise((resolve) => {
     if (type.startsWith('image/')) {
       const img = new Image();
@@ -477,7 +629,8 @@ const getMediaDimensions = (url: string, type: string): Promise<{ width: number;
       img.src = url;
     } else if (type.startsWith('video/')) {
       const video = document.createElement('video');
-      video.onloadedmetadata = () => resolve({ width: video.videoWidth, height: video.videoHeight });
+      video.onloadedmetadata = () =>
+        resolve({ width: video.videoWidth, height: video.videoHeight });
       video.onerror = () => resolve({ width: 400, height: 300 });
       video.src = url;
     } else {
@@ -486,18 +639,26 @@ const getMediaDimensions = (url: string, type: string): Promise<{ width: number;
   });
 };
 
-function getConvexHull(points: { x: number, y: number }[]) {
+function getConvexHull(points: { x: number; y: number }[]) {
   if (points.length <= 2) return points;
-  const sorted = [...points].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  const sorted = [...points].sort((a, b) => (a.x !== b.x ? a.x - b.x : a.y - b.y));
   const upper = [];
   for (const p of sorted) {
-    while (upper.length >= 2 && crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    while (
+      upper.length >= 2 &&
+      crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    )
+      upper.pop();
     upper.push(p);
   }
   const lower = [];
   for (let i = sorted.length - 1; i >= 0; i--) {
     const p = sorted[i];
-    while (lower.length >= 2 && crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    while (
+      lower.length >= 2 &&
+      crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    )
+      lower.pop();
     lower.push(p);
   }
   upper.pop();
@@ -579,22 +740,35 @@ type AITextResult = {
 const createAssistantWelcomeMessage = (): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
-  content: '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
+  content:
+    '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
 });
 
 export const defaultAIPrompts: AIPromptsConfig = {
-  basePrompt: "你是一位专业的互动剧本创作者，正在协助创作一部视觉小说。\n\n前文语境：\n{{contextText}}\n\n当前片段：\n{{currentText}}\n\n",
-  continue: "请根据前文，自然地续写当前片段，{{generateLength}}。只返回续写内容，不要包含多余说明。",
-  creative: "请根据前文，提供一种与原文风格不同的创意方向续写，{{generateLength}}。只返回续写内容，不要包含多余说明。",
-  rewrite: "请对当前片段进行改写，保留核心含义但优化文笔与节奏，{{generateLength}}。只返回改写内容，不要包含多余说明。",
-  interpolate: "你是一位专业的互动剧本创作者。正在协助补充剧情片段。\n\n前文：\n{{contextText}}\n\n后文：\n{{nextText}}\n\n当前正在补充的片段（可选参考）：\n{{currentText}}\n\n请在前后文之间补充一段承上启下的剧情，{{generateLength}}。只返回补充内容，不要包含多余说明。",
-  sceneOnly: "请根据前文，只增加场景和环境的描写，不要包含任何人物对话，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。",
-  dialogueOnly: "请根据前文，只增加人物之间的对话，不要包含场景和动作描写，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。",
-  analyzeStructure: "你是一位剧本结构分析师。请分析以下剧本片段的剧情结构，并用 \"卡片A -> 卡片B -> 卡片C\" 的箭头形式清晰地展示剧情推进过程。指出其中的节奏起伏和转折点。\n\n剧本内容：\n{{combinedText}}",
-  analyzeSuggestions: "你是一位创意策划。请根据以下剧本片段，提供至少3个后续剧情发展的构思建议，要求具有戏剧冲突和意想不到的转折。\n\n剧本内容：\n{{combinedText}}",
-  analyzeDirection: "你是一位文学导师。请分析以下剧本片段的风格和基调，并为下文的写作提供明确的方向指导（包括遣词造句、氛围营造和人物动机）。\n\n剧本内容：\n{{combinedText}}",
-  analyzeSolution: "你是一位专业的剧本顾问。以下是剧本片段：\n{{combinedText}}\n\n刚才的分析结果指出了如下问题或要点：\n{{previousResult}}\n\n请针对上述分析指出的问题或要点，提供具体的、可操作的剧本修改方案和对应的解法。直接返回解法建议，不要重复已有内容。",
-  analyzeSummary: "你是一位资深的剧本编辑和逻辑分析师。以下是剧本中的多个片段，请对它们进行汇总分析，指出其中的逻辑漏洞、文笔风格的连贯性，并给出后续剧情发展的建议。\n\n剧本片段：\n{{combinedText}}\n\n请直接返回分析报告，不要包含多余说明。"
+  basePrompt:
+    '你是一位专业的互动剧本创作者，正在协助创作一部视觉小说。\n\n前文语境：\n{{contextText}}\n\n当前片段：\n{{currentText}}\n\n',
+  continue:
+    '请根据前文，自然地续写当前片段，{{generateLength}}。只返回续写内容，不要包含多余说明。',
+  creative:
+    '请根据前文，提供一种与原文风格不同的创意方向续写，{{generateLength}}。只返回续写内容，不要包含多余说明。',
+  rewrite:
+    '请对当前片段进行改写，保留核心含义但优化文笔与节奏，{{generateLength}}。只返回改写内容，不要包含多余说明。',
+  interpolate:
+    '你是一位专业的互动剧本创作者。正在协助补充剧情片段。\n\n前文：\n{{contextText}}\n\n后文：\n{{nextText}}\n\n当前正在补充的片段（可选参考）：\n{{currentText}}\n\n请在前后文之间补充一段承上启下的剧情，{{generateLength}}。只返回补充内容，不要包含多余说明。',
+  sceneOnly:
+    '请根据前文，只增加场景和环境的描写，不要包含任何人物对话，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。',
+  dialogueOnly:
+    '请根据前文，只增加人物之间的对话，不要包含场景和动作描写，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。',
+  analyzeStructure:
+    '你是一位剧本结构分析师。请分析以下剧本片段的剧情结构，并用 "卡片A -> 卡片B -> 卡片C" 的箭头形式清晰地展示剧情推进过程。指出其中的节奏起伏和转折点。\n\n剧本内容：\n{{combinedText}}',
+  analyzeSuggestions:
+    '你是一位创意策划。请根据以下剧本片段，提供至少3个后续剧情发展的构思建议，要求具有戏剧冲突和意想不到的转折。\n\n剧本内容：\n{{combinedText}}',
+  analyzeDirection:
+    '你是一位文学导师。请分析以下剧本片段的风格和基调，并为下文的写作提供明确的方向指导（包括遣词造句、氛围营造和人物动机）。\n\n剧本内容：\n{{combinedText}}',
+  analyzeSolution:
+    '你是一位专业的剧本顾问。以下是剧本片段：\n{{combinedText}}\n\n刚才的分析结果指出了如下问题或要点：\n{{previousResult}}\n\n请针对上述分析指出的问题或要点，提供具体的、可操作的剧本修改方案和对应的解法。直接返回解法建议，不要重复已有内容。',
+  analyzeSummary:
+    '你是一位资深的剧本编辑和逻辑分析师。以下是剧本中的多个片段，请对它们进行汇总分析，指出其中的逻辑漏洞、文笔风格的连贯性，并给出后续剧情发展的建议。\n\n剧本片段：\n{{combinedText}}\n\n请直接返回分析报告，不要包含多余说明。',
 };
 
 export function StoryEditor() {
@@ -656,7 +830,10 @@ export function StoryEditor() {
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [miniMapPosition, setMiniMapPosition] = useState<'left' | 'right'>('left');
   const [showControls, setShowControls] = useState(true);
-  const [highlightedPath, setHighlightedPath] = useState<{ nodes: Set<string>, edges: Set<string> } | null>(null);
+  const [highlightedPath, setHighlightedPath] = useState<{
+    nodes: Set<string>;
+    edges: Set<string>;
+  } | null>(null);
 
   const [pasteAsPlainText, setPasteAsPlainText] = useState(false);
   const [showNodeActions, setShowNodeActions] = useState(true);
@@ -671,7 +848,9 @@ export function StoryEditor() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
-  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
+    'horizontal',
+  );
 
   const [playTestDarkMode, setPlayTestDarkMode] = useState(() => {
     const saved = localStorage.getItem('playtest-dark-mode');
@@ -687,7 +866,7 @@ export function StoryEditor() {
   });
   const [playTestLayoutMode, setPlayTestLayoutMode] = useState<'classic' | 'immersive'>(() => {
     const saved = localStorage.getItem('playtest-layout-mode');
-    return (saved === 'classic' || saved === 'immersive') ? saved : 'classic';
+    return saved === 'classic' || saved === 'immersive' ? saved : 'classic';
   });
 
   const [playTestInteractionMode, setPlayTestInteractionMode] = useState<string>(() => {
@@ -702,7 +881,9 @@ export function StoryEditor() {
     const saved = localStorage.getItem('playtest-choice-delay');
     return saved ? parseInt(saved) : 2;
   });
-  const [playTestChoicesPosition, setPlayTestChoicesPosition] = useState<'center' | 'aboveText' | 'belowText'>(() => {
+  const [playTestChoicesPosition, setPlayTestChoicesPosition] = useState<
+    'center' | 'aboveText' | 'belowText'
+  >(() => {
     const saved = localStorage.getItem('playtest-choices-position');
     return (saved as 'center' | 'aboveText' | 'belowText') || 'belowText';
   });
@@ -714,10 +895,12 @@ export function StoryEditor() {
     const saved = localStorage.getItem('playtest-blur-text');
     return saved === 'true';
   });
-  const [playTestSkipSingleChoicePopup, setPlayTestSkipSingleChoicePopup] = useState<boolean>(() => {
-    const saved = localStorage.getItem('playtest-skip-single-choice-popup');
-    return saved === null ? true : saved === 'true';
-  });
+  const [playTestSkipSingleChoicePopup, setPlayTestSkipSingleChoicePopup] = useState<boolean>(
+    () => {
+      const saved = localStorage.getItem('playtest-skip-single-choice-popup');
+      return saved === null ? true : saved === 'true';
+    },
+  );
   const [playTestDimBackground, setPlayTestDimBackground] = useState<boolean>(() => {
     const saved = localStorage.getItem('playtest-dim-background');
     return saved === null ? true : saved === 'true';
@@ -731,29 +914,40 @@ export function StoryEditor() {
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantWidth, setAssistantWidth] = useState(360);
-  const assistantResizeRef = useRef<{ startX: number; startWidth: number; dragged: boolean } | null>(null);
+  const assistantResizeRef = useRef<{
+    startX: number;
+    startWidth: number;
+    dragged: boolean;
+  } | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantListening, setAssistantListening] = useState(false);
   const initialAssistantTaskIdRef = useRef(uuidv4());
-  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskIdRef.current);
-  const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [{
-    id: initialAssistantTaskIdRef.current,
-    title: language === 'zh' ? '对话 1' : 'Conversation 1',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    messages: [createAssistantWelcomeMessage()],
-  }]);
+  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(
+    initialAssistantTaskIdRef.current,
+  );
+  const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [
+    {
+      id: initialAssistantTaskIdRef.current,
+      title: language === 'zh' ? '对话 1' : 'Conversation 1',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [createAssistantWelcomeMessage()],
+    },
+  ]);
   const assistantMessagesRef = useRef<HTMLDivElement>(null);
   const assistantThoughtTimerRef = useRef<number | null>(null);
 
   // Auto-save states
   const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
-  const autoSaveDataRef = useRef<{ snapshot: string, timestamp: number } | null>(null);
-  const autoSaveTimerRef = useRef<NodeJS.Timeout>();
+  const autoSaveDataRef = useRef<{ snapshot: string; timestamp: number } | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isMobile = flowWidth < 768;
-  const assistantPanelWidth = Math.min(Math.max(assistantWidth, 300), Math.min(560, Math.max(320, flowWidth - 180)));
+  const assistantPanelWidth = Math.min(
+    Math.max(assistantWidth, 300),
+    Math.min(560, Math.max(320, flowWidth - 180)),
+  );
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
@@ -762,37 +956,48 @@ export function StoryEditor() {
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
-  const startPosRef = useRef<{ x: number, y: number } | null>(null);
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+    message: '',
+    visible: false,
+  });
 
   // NOTE: 用 useCallback 包裹以保持稳定引用，避免依赖此函数的 useCallback 在每次渲染时重建
   const showToast = useCallback((message: string) => {
     setToast({ message, visible: true });
-    setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
+    setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   }, []);
 
   const activeAssistantTask = useMemo(
     () => assistantTasks.find((task) => task.id === activeAssistantTaskId) || assistantTasks[0],
-    [assistantTasks, activeAssistantTaskId]
+    [assistantTasks, activeAssistantTaskId],
   );
   const assistantMessages = activeAssistantTask?.messages || [];
 
-  const setAssistantMessages = useCallback((updater: React.SetStateAction<AssistantMessage[]>) => {
-    setAssistantTasks((tasks) => tasks.map((task) => {
-      if (task.id !== activeAssistantTaskId) return task;
-      const nextMessages = typeof updater === 'function'
-        ? (updater as (messages: AssistantMessage[]) => AssistantMessage[])(task.messages)
-        : updater;
-      const firstUserMessage = nextMessages.find((message) => message.role === 'user')?.content.trim();
-      const nextTitle = firstUserMessage ? firstUserMessage.slice(0, 18) : task.title;
-      return {
-        ...task,
-        title: nextTitle,
-        updatedAt: Date.now(),
-        messages: nextMessages,
-      };
-    }));
-  }, [activeAssistantTaskId]);
+  const setAssistantMessages = useCallback(
+    (updater: React.SetStateAction<AssistantMessage[]>) => {
+      setAssistantTasks((tasks) =>
+        tasks.map((task) => {
+          if (task.id !== activeAssistantTaskId) return task;
+          const nextMessages =
+            typeof updater === 'function'
+              ? (updater as (messages: AssistantMessage[]) => AssistantMessage[])(task.messages)
+              : updater;
+          const firstUserMessage = nextMessages
+            .find((message) => message.role === 'user')
+            ?.content.trim();
+          const nextTitle = firstUserMessage ? firstUserMessage.slice(0, 18) : task.title;
+          return {
+            ...task,
+            title: nextTitle,
+            updatedAt: Date.now(),
+            messages: nextMessages,
+          };
+        }),
+      );
+    },
+    [activeAssistantTaskId],
+  );
 
   const handleNewAssistantTask = useCallback(() => {
     if (assistantThoughtTimerRef.current !== null) {
@@ -815,44 +1020,47 @@ export function StoryEditor() {
     setAssistantInput('');
   }, [language]);
 
-  const handleCloseAssistantTask = useCallback((taskId: string) => {
-    const task = assistantTasks.find((item) => item.id === taskId);
-    const title = task?.title || (language === 'zh' ? '这个对话' : 'this conversation');
-    const confirmed = window.confirm(
-      language === 'zh'
-        ? `确定要关闭「${title}」吗？`
-        : `Close "${title}"?`
-    );
-    if (!confirmed) return;
+  const handleCloseAssistantTask = useCallback(
+    (taskId: string) => {
+      const task = assistantTasks.find((item) => item.id === taskId);
+      const title = task?.title || (language === 'zh' ? '这个对话' : 'this conversation');
+      const confirmed = window.confirm(
+        language === 'zh' ? `确定要关闭「${title}」吗？` : `Close "${title}"?`,
+      );
+      if (!confirmed) return;
 
-    if (assistantThoughtTimerRef.current !== null && taskId === activeAssistantTaskId) {
-      window.clearInterval(assistantThoughtTimerRef.current);
-      assistantThoughtTimerRef.current = null;
-    }
-
-    setAssistantTasks((tasks) => {
-      if (tasks.length <= 1) {
-        const id = uuidv4();
-        const now = Date.now();
-        setActiveAssistantTaskId(id);
-        return [{
-          id,
-          title: language === 'zh' ? '对话 1' : 'Conversation 1',
-          createdAt: now,
-          updatedAt: now,
-          messages: [createAssistantWelcomeMessage()],
-        }];
+      if (assistantThoughtTimerRef.current !== null && taskId === activeAssistantTaskId) {
+        window.clearInterval(assistantThoughtTimerRef.current);
+        assistantThoughtTimerRef.current = null;
       }
 
-      const taskIndex = tasks.findIndex((item) => item.id === taskId);
-      const nextTasks = tasks.filter((item) => item.id !== taskId);
-      if (taskId === activeAssistantTaskId) {
-        const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
-        setActiveAssistantTaskId(nextActiveTask.id);
-      }
-      return nextTasks;
-    });
-  }, [activeAssistantTaskId, assistantTasks, language]);
+      setAssistantTasks((tasks) => {
+        if (tasks.length <= 1) {
+          const id = uuidv4();
+          const now = Date.now();
+          setActiveAssistantTaskId(id);
+          return [
+            {
+              id,
+              title: language === 'zh' ? '对话 1' : 'Conversation 1',
+              createdAt: now,
+              updatedAt: now,
+              messages: [createAssistantWelcomeMessage()],
+            },
+          ];
+        }
+
+        const taskIndex = tasks.findIndex((item) => item.id === taskId);
+        const nextTasks = tasks.filter((item) => item.id !== taskId);
+        if (taskId === activeAssistantTaskId) {
+          const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
+          setActiveAssistantTaskId(nextActiveTask.id);
+        }
+        return nextTasks;
+      });
+    },
+    [activeAssistantTaskId, assistantTasks, language],
+  );
 
   const handleContactCopy = (text: string, type: 'qq' | 'email') => {
     const performCopy = async () => {
@@ -868,11 +1076,11 @@ export function StoryEditor() {
 
       // 2. 备选方案：传统 textarea 复制(兼容性更强
       try {
-        const textArea = document.createElement("textarea");
+        const textArea = document.createElement('textarea');
         textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '0';
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
@@ -900,18 +1108,24 @@ export function StoryEditor() {
   };
 
   // 卡片剪贴板
-  const [nodeClipboard, setNodeClipboard] = useState<{ nodes: Node[], edges: Edge[] } | null>(null);
+  const [nodeClipboard, setNodeClipboard] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
 
   // NOTE: 选中的节点及框选菜单
   // 菜单使用 fixed 层渲染，并根据 ReactFlow 视口 transform + 画布容器 rect 计算屏幕坐标。
   // 这样无论右键框选后拖动画布、滚轮平移/缩放、MiniMap/Controls 改变视野，菜单都会跟着所选节点走。
-  const selectedNodes = useMemo(() => nodes.filter(n => n.selected), [nodes]);
+  const selectedNodes = useMemo(() => nodes.filter((n) => n.selected), [nodes]);
   const showSelectionMenu = selectedNodes.length >= 2;
   const canRenderVideo = true;
-  const selectedStoryNodes = useMemo(() => selectedNodes.filter(n => n.type === 'storyNode'), [selectedNodes]);
+  const selectedStoryNodes = useMemo(
+    () => selectedNodes.filter((n) => n.type === 'storyNode'),
+    [selectedNodes],
+  );
   const selectedAssistantTargetNodes = useMemo(
-    () => selectedNodes.filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
-    [selectedNodes]
+    () =>
+      selectedNodes.filter(
+        (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
+      ),
+    [selectedNodes],
   );
   const footerHint = useMemo(() => {
     if (assistantOpen) {
@@ -920,38 +1134,66 @@ export function StoryEditor() {
         : 'AI-generated content is for reference only; review it against your own story. Save important settings and project work regularly to avoid losing changes.';
     }
 
-    const selectedType = selectedNodes.length === 1 ? selectedNodes[0].type : selectedNodes.length > 1 ? 'multi' : 'default';
-    const hints: Record<string, string> = language === 'zh'
-      ? {
-        storyNode: '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
-        characterNode: '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
-        sceneNode: '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
-        plotStructureNode: '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
-        summaryNode: '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
-        batchReplaceNode: '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
-        numberConditionNode: '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
-        textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
-        backgroundNode: '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
-        groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
-        aiNode: 'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
-        multi: '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
-        default: t.footerHint,
-      }
-      : {
-        storyNode: 'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
-        characterNode: 'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
-        sceneNode: 'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
-        plotStructureNode: 'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
-        summaryNode: 'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
-        batchReplaceNode: 'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
-        numberConditionNode: 'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
-        textNode: 'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
-        backgroundNode: 'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
-        groupNode: 'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
-        aiNode: 'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
-        multi: 'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
-        default: t.footerHint,
-      };
+    const selectedType =
+      selectedNodes.length === 1
+        ? selectedNodes[0].type
+        : selectedNodes.length > 1
+          ? 'multi'
+          : 'default';
+    const hints: Record<string, string> =
+      language === 'zh'
+        ? {
+            storyNode:
+              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
+            characterNode:
+              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
+            sceneNode:
+              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
+            plotStructureNode:
+              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+            summaryNode:
+              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
+            batchReplaceNode:
+              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
+            numberConditionNode:
+              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
+            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
+            backgroundNode:
+              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
+            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
+            aiNode:
+              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
+            multi:
+              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
+            default: t.footerHint,
+          }
+        : {
+            storyNode:
+              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
+            characterNode:
+              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
+            sceneNode:
+              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
+            plotStructureNode:
+              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+            summaryNode:
+              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
+            batchReplaceNode:
+              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
+            numberConditionNode:
+              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
+            textNode:
+              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
+            backgroundNode:
+              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
+            groupNode:
+              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
+            aiNode:
+              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
+            multi:
+              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
+            default: t.footerHint,
+          };
 
     return hints[selectedType || 'default'] || hints.default;
   }, [assistantOpen, language, selectedNodes, t.footerHint]);
@@ -963,11 +1205,16 @@ export function StoryEditor() {
 
   const computeSelectionBounds = useCallback((nodesToMeasure: Node[]) => {
     if (nodesToMeasure.length < 2) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity;
-    nodesToMeasure.forEach(n => {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity;
+    nodesToMeasure.forEach((n) => {
       minX = Math.min(minX, n.position.x);
       minY = Math.min(minY, n.position.y);
-      maxX = Math.max(maxX, n.position.x + (n.measured?.width || (n.style?.width as number) || 300));
+      maxX = Math.max(
+        maxX,
+        n.position.x + (n.measured?.width || (n.style?.width as number) || 300),
+      );
     });
     return { minX, minY, maxX };
   }, []);
@@ -991,15 +1238,18 @@ export function StoryEditor() {
     el.style.setProperty('--selection-menu-y', `${screenY}px`);
   }, []);
 
-  const scheduleSelectionMenuPosition = useCallback((transform?: [number, number, number]) => {
-    if (selectionMenuRafRef.current !== null) {
-      cancelAnimationFrame(selectionMenuRafRef.current);
-    }
-    selectionMenuRafRef.current = requestAnimationFrame(() => {
-      selectionMenuRafRef.current = null;
-      updateSelectionMenuPosition(transform);
-    });
-  }, [updateSelectionMenuPosition]);
+  const scheduleSelectionMenuPosition = useCallback(
+    (transform?: [number, number, number]) => {
+      if (selectionMenuRafRef.current !== null) {
+        cancelAnimationFrame(selectionMenuRafRef.current);
+      }
+      selectionMenuRafRef.current = requestAnimationFrame(() => {
+        selectionMenuRafRef.current = null;
+        updateSelectionMenuPosition(transform);
+      });
+    },
+    [updateSelectionMenuPosition],
+  );
 
   React.useLayoutEffect(() => {
     selectionBoundsRef.current = computeSelectionBounds(selectedNodes);
@@ -1042,29 +1292,32 @@ export function StoryEditor() {
     };
   }, []);
 
-  const handleViewportMove = useCallback((_event: unknown, viewport: { x: number; y: number; zoom: number }) => {
-    if (selectionBoundsRef.current) {
-      scheduleSelectionMenuPosition([viewport.x, viewport.y, viewport.zoom]);
-    }
-  }, [scheduleSelectionMenuPosition]);
+  const handleViewportMove = useCallback(
+    (_event: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      if (selectionBoundsRef.current) {
+        scheduleSelectionMenuPosition([viewport.x, viewport.y, viewport.zoom]);
+      }
+    },
+    [scheduleSelectionMenuPosition],
+  );
 
   const getProjectSnapshot = useCallback(() => {
-    const simpleNodes = nodes.map(n => ({
+    const simpleNodes = nodes.map((n) => ({
       id: n.id,
       position: n.position,
       type: n.type,
       style: n.style,
       data: { ...n.data },
       width: n.measured?.width || n.width,
-      height: n.measured?.height || n.height
+      height: n.measured?.height || n.height,
     }));
-    const simpleEdges = edges.map(e => ({
+    const simpleEdges = edges.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
       sourceHandle: e.sourceHandle,
       targetHandle: e.targetHandle,
-      data: { label: e.data?.label || '' }
+      data: { label: e.data?.label || '' },
     }));
     const settings = {
       canvasBg,
@@ -1117,50 +1370,104 @@ export function StoryEditor() {
       playTestDimBackground,
     };
     return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [nodes, edges, canvasBg, edgeStyle, customApiKey, pasteAsPlainText, showNodeActions, showStats, presetColors, showTitles, generateLength, aiProvider, deepseekApiKey, openaiApiKey, imageApiKey, imageApiUrl, imageModel, imageSize, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsProvider, thinkingMode, aiPrompts, aiButtonsConfig, scrollMode, showMiniMap, miniMapPosition, showControls, projectTitle, toolbarLayout, selectionMenuLayout, language, theme, bubbleStyle, playTestDarkMode, playTestChoicesColumns, playTestVideoAutoPlay, playTestLayoutMode, playTestInteractionMode, playTestTypewriterSpeed, playTestChoiceDelay, playTestChoicesPosition, playTestBlurBackground, playTestBlurText, playTestSkipSingleChoicePopup, playTestDimBackground]);
+  }, [
+    nodes,
+    edges,
+    canvasBg,
+    edgeStyle,
+    customApiKey,
+    pasteAsPlainText,
+    showNodeActions,
+    showStats,
+    presetColors,
+    showTitles,
+    generateLength,
+    aiProvider,
+    deepseekApiKey,
+    openaiApiKey,
+    imageApiKey,
+    imageApiUrl,
+    imageModel,
+    imageSize,
+    ttsApiKey,
+    ttsApiUrl,
+    ttsModel,
+    ttsVoice,
+    ttsProvider,
+    thinkingMode,
+    aiPrompts,
+    aiButtonsConfig,
+    scrollMode,
+    showMiniMap,
+    miniMapPosition,
+    showControls,
+    projectTitle,
+    toolbarLayout,
+    selectionMenuLayout,
+    language,
+    theme,
+    bubbleStyle,
+    playTestDarkMode,
+    playTestChoicesColumns,
+    playTestVideoAutoPlay,
+    playTestLayoutMode,
+    playTestInteractionMode,
+    playTestTypewriterSpeed,
+    playTestChoiceDelay,
+    playTestChoicesPosition,
+    playTestBlurBackground,
+    playTestBlurText,
+    playTestSkipSingleChoicePopup,
+    playTestDimBackground,
+  ]);
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
-    setNodes(nds => nds.map(node => {
-      if (node.type !== 'storyNode') return node;
-      const hasMedia = !!(node.data.imageUrl || node.data.videoUrl || node.data.audioUrl);
-      if (!hasMedia) return node;
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.type !== 'storyNode') return node;
+        const hasMedia = !!(node.data.imageUrl || node.data.videoUrl || node.data.audioUrl);
+        if (!hasMedia) return node;
 
-      const currentHeight = (node.style?.height as number) || 200;
-      const titleAlreadyAdded = node.data.titleHeightAdded === true;
+        const currentHeight = (node.style?.height as number) || 200;
+        const titleAlreadyAdded = node.data.titleHeightAdded === true;
 
-      if (showTitles && !titleAlreadyAdded) {
-        return {
-          ...node,
-          style: { ...node.style, height: currentHeight + TITLE_HEIGHT },
-          data: { ...node.data, titleHeightAdded: true }
-        };
-      } else if (!showTitles && titleAlreadyAdded) {
-        return {
-          ...node,
-          style: { ...node.style, height: Math.max(50, currentHeight - TITLE_HEIGHT) },
-          data: { ...node.data, titleHeightAdded: false }
-        };
-      }
-      return node;
-    }));
+        if (showTitles && !titleAlreadyAdded) {
+          return {
+            ...node,
+            style: { ...node.style, height: currentHeight + TITLE_HEIGHT },
+            data: { ...node.data, titleHeightAdded: true },
+          };
+        } else if (!showTitles && titleAlreadyAdded) {
+          return {
+            ...node,
+            style: { ...node.style, height: Math.max(50, currentHeight - TITLE_HEIGHT) },
+            data: { ...node.data, titleHeightAdded: false },
+          };
+        }
+        return node;
+      }),
+    );
   }, [showTitles, setNodes]);
 
-  const [history, setHistory] = useState<{ past: { nodes: Node[], edges: Edge[] }[], future: { nodes: Node[], edges: Edge[] }[] }>({ past: [], future: [] });
+  const [history, setHistory] = useState<{
+    past: { nodes: Node[]; edges: Edge[] }[];
+    future: { nodes: Node[]; edges: Edge[] }[];
+  }>({ past: [], future: [] });
   const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: [] as Edge[] });
   const isUndoRedoAction = useRef(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cookie helpers
   const setCookie = (name: string, value: string, days: number) => {
     const date = new Date();
-    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-    const expires = "; expires=" + date.toUTCString();
-    document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+    const expires = '; expires=' + date.toUTCString();
+    document.cookie = name + '=' + (value || '') + expires + '; path=/';
   };
 
   const getCookie = (name: string) => {
-    const nameEQ = name + "=";
+    const nameEQ = name + '=';
     const ca = document.cookie.split(';');
     for (let i = 0; i < ca.length; i++) {
       let c = ca[i];
@@ -1173,7 +1480,7 @@ export function StoryEditor() {
   // Initialize snapshot and guide preference
   React.useEffect(() => {
     // 启动时检查是否有自动保存的数据
-    getAutoSave().then(data => {
+    getAutoSave().then((data) => {
       if (data) {
         autoSaveDataRef.current = data;
         setShowAutoSaveModal(true);
@@ -1214,8 +1521,6 @@ export function StoryEditor() {
     localStorage.setItem('playtest-layout-mode', playTestLayoutMode);
   }, [playTestLayoutMode]);
 
-
-
   React.useEffect(() => {
     localStorage.setItem('playtest-interaction-mode', playTestInteractionMode);
   }, [playTestInteractionMode]);
@@ -1241,7 +1546,10 @@ export function StoryEditor() {
   }, [playTestBlurText]);
 
   React.useEffect(() => {
-    localStorage.setItem('playtest-skip-single-choice-popup', String(playTestSkipSingleChoicePopup));
+    localStorage.setItem(
+      'playtest-skip-single-choice-popup',
+      String(playTestSkipSingleChoicePopup),
+    );
   }, [playTestSkipSingleChoicePopup]);
 
   React.useEffect(() => {
@@ -1292,9 +1600,9 @@ export function StoryEditor() {
     debounceRef.current = setTimeout(() => {
       // Deep equal check for history
       if (JSON.stringify(lastHistoryState.current) !== JSON.stringify({ nodes, edges })) {
-        setHistory(h => ({
+        setHistory((h) => ({
           past: [...h.past, lastHistoryState.current].slice(-50),
-          future: []
+          future: [],
         }));
         lastHistoryState.current = { nodes, edges };
       }
@@ -1364,7 +1672,11 @@ export function StoryEditor() {
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.startsWith('audio/')) {
+        if (
+          !file.type.startsWith('image/') &&
+          !file.type.startsWith('video/') &&
+          !file.type.startsWith('audio/')
+        ) {
           continue;
         }
 
@@ -1401,8 +1713,8 @@ export function StoryEditor() {
           id: newId,
           type: 'storyNode',
           position: {
-            x: dropX + (i * 30) - (displayWidth / 2),
-            y: dropY + (i * 30) - (displayHeight / 2),
+            x: dropX + i * 30 - displayWidth / 2,
+            y: dropY + i * 30 - displayHeight / 2,
           },
           style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
           data: {
@@ -1445,28 +1757,29 @@ export function StoryEditor() {
 
   // NOTE: 动态分组实时更新逻辑
   React.useEffect(() => {
-    const groupNodes = nodes.filter(n => n.type === 'groupNode');
+    const groupNodes = nodes.filter((n) => n.type === 'groupNode');
     if (groupNodes.length === 0) return;
 
     const timer = setTimeout(() => {
       let hasChanges = false;
-      const newNodes = nodes.map(gn => {
+      const newNodes = nodes.map((gn) => {
         if (gn.type !== 'groupNode') return gn;
 
         const childIds = (gn.data.childIds as string[]) || [];
         if (childIds.length === 0) return gn;
 
-        const children = nodes.filter(n => childIds.includes(n.id));
+        const children = nodes.filter((n) => childIds.includes(n.id));
         if (children.length === 0) return gn;
 
-        // 1. 收集所有子节点的四个角点  
-        const points: { x: number, y: number }[] = [];
+        // 1. 收集所有子节点的四个角点
+        const points: { x: number; y: number }[] = [];
         const padding = 20;
 
-        children.forEach(c => {
+        children.forEach((c) => {
           const { x, y } = c.position;
           const w = c.measured?.width || (typeof c.style?.width === 'number' ? c.style.width : 300);
-          const h = c.measured?.height || (typeof c.style?.height === 'number' ? c.style.height : 200);
+          const h =
+            c.measured?.height || (typeof c.style?.height === 'number' ? c.style.height : 200);
 
           points.push({ x: x - padding, y: y - padding });
           points.push({ x: x + w + padding, y: y - padding });
@@ -1478,8 +1791,11 @@ export function StoryEditor() {
         const hull = getConvexHull(points);
 
         // 3. 计算凸包的包围盒作为 Node 的基本尺寸
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        hull.forEach(p => {
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+        hull.forEach((p) => {
           minX = Math.min(minX, p.x);
           minY = Math.min(minY, p.y);
           maxX = Math.max(maxX, p.x);
@@ -1492,24 +1808,27 @@ export function StoryEditor() {
         const targetW = Math.round((maxX - minX) * 10) / 10;
         const targetH = Math.round((maxY - minY) * 10) / 10;
 
-        const relativeHull = hull.map(p => ({
+        const relativeHull = hull.map((p) => ({
           x: Math.round((p.x - targetX) * 10) / 10,
-          y: Math.round((p.y - targetY) * 10) / 10
+          y: Math.round((p.y - targetY) * 10) / 10,
         }));
 
-        // 检查是否有实质性变化    
+        // 检查是否有实质性变化
         const diffX = Math.abs(gn.position.x - targetX);
         const diffY = Math.abs(gn.position.y - targetY);
-        const diffW = Math.abs((gn.style?.width as number || 0) - targetW);
-        const diffH = Math.abs((gn.style?.height as number || 0) - targetH);
+        const diffW = Math.abs(((gn.style?.width as number) || 0) - targetW);
+        const diffH = Math.abs(((gn.style?.height as number) || 0) - targetH);
 
         let isHullDifferent = false;
-        const oldHull = gn.data.hullPoints as { x: number, y: number }[] || [];
+        const oldHull = (gn.data.hullPoints as { x: number; y: number }[]) || [];
         if (oldHull.length !== relativeHull.length) {
           isHullDifferent = true;
         } else {
           for (let i = 0; i < oldHull.length; i++) {
-            if (Math.abs(oldHull[i].x - relativeHull[i].x) > 2 || Math.abs(oldHull[i].y - relativeHull[i].y) > 2) {
+            if (
+              Math.abs(oldHull[i].x - relativeHull[i].x) > 2 ||
+              Math.abs(oldHull[i].y - relativeHull[i].y) > 2
+            ) {
               isHullDifferent = true;
               break;
             }
@@ -1523,7 +1842,7 @@ export function StoryEditor() {
             ...gn,
             position: { x: targetX, y: targetY },
             style: { ...gn.style, width: targetW, height: targetH },
-            data: { ...gn.data, hullPoints: relativeHull }
+            data: { ...gn.data, hullPoints: relativeHull },
           };
         }
         return gn;
@@ -1537,9 +1856,8 @@ export function StoryEditor() {
     return () => clearTimeout(timer);
   }, [nodes, setNodes]);
 
-
   const undo = useCallback(() => {
-    setHistory(h => {
+    setHistory((h) => {
       if (h.past.length === 0) return h;
       const previous = h.past[h.past.length - 1];
       const newPast = h.past.slice(0, -1);
@@ -1552,7 +1870,7 @@ export function StoryEditor() {
   }, [nodes, edges, setNodes, setEdges]);
 
   const redo = useCallback(() => {
-    setHistory(h => {
+    setHistory((h) => {
       if (h.future.length === 0) return h;
       const next = h.future[0];
       const newFuture = h.future.slice(1);
@@ -1565,26 +1883,35 @@ export function StoryEditor() {
   }, [nodes, edges, setNodes, setEdges]);
 
   const handleCopy = useCallback(() => {
-    const selectedNodes = nodes.filter(n => n.selected);
+    const selectedNodes = nodes.filter((n) => n.selected);
     if (selectedNodes.length === 0) return;
 
-    // 找出选中节点之间的连线    
-    const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
-    const selectedEdges = edges.filter(e => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target));
+    // 找出选中节点之间的连线
+    const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
+    const selectedEdges = edges.filter(
+      (e) => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target),
+    );
 
     setNodeClipboard({ nodes: selectedNodes, edges: selectedEdges });
-    showToast(language === 'zh' ? `已复制${selectedNodes.length} 个节点` : `${selectedNodes.length} nodes copied`);
+    showToast(
+      language === 'zh'
+        ? `已复制${selectedNodes.length} 个节点`
+        : `${selectedNodes.length} nodes copied`,
+    );
   }, [nodes, edges, language]);
 
   const handlePaste = useCallback(async () => {
-    // 1. 优先尝试粘贴内部剪贴板中的卡片    
+    // 1. 优先尝试粘贴内部剪贴板中的卡片
     if (nodeClipboard && nodeClipboard.nodes.length > 0) {
       const idMap: Record<string, string> = {};
       const center = getCenterPosition();
 
-      // 计算选中节点组的中心点    
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      nodeClipboard.nodes.forEach(n => {
+      // 计算选中节点组的中心点
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      nodeClipboard.nodes.forEach((n) => {
         minX = Math.min(minX, n.position.x);
         minY = Math.min(minY, n.position.y);
         maxX = Math.max(maxX, n.position.x + (n.measured?.width || 300));
@@ -1593,11 +1920,11 @@ export function StoryEditor() {
       const groupCenterX = (minX + maxX) / 2;
       const groupCenterY = (minY + maxY) / 2;
 
-      // 计算偏移量，将组中心对齐到当前视口中间    
+      // 计算偏移量，将组中心对齐到当前视口中间
       const offsetX = center.x - groupCenterX;
       const offsetY = center.y - groupCenterY;
 
-      const newNodes = nodeClipboard.nodes.map(n => {
+      const newNodes = nodeClipboard.nodes.map((n) => {
         const newId = uuidv4();
         idMap[n.id] = newId;
         return {
@@ -1608,27 +1935,31 @@ export function StoryEditor() {
           data: {
             ...n.data,
             id: newId,
-            isRoot: false // 粘贴后的卡片自动消除起点标记
-          }
+            isRoot: false, // 粘贴后的卡片自动消除起点标记
+          },
         };
       });
 
-      const newEdges = nodeClipboard.edges.map(e => ({
+      const newEdges = nodeClipboard.edges.map((e) => ({
         ...e,
         id: uuidv4(),
         source: idMap[e.source],
-        target: idMap[e.target]
+        target: idMap[e.target],
       }));
 
-      setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
-      setEdges(eds => [...eds, ...newEdges]);
+      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
+      setEdges((eds) => [...eds, ...newEdges]);
       return;
     }
 
-    // 2. 内部剪贴板为空，尝试从系统剪贴板读取文本创建新卡片  
+    // 2. 内部剪贴板为空，尝试从系统剪贴板读取文本创建新卡片
     try {
       if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
-        showToast(language === 'zh' ? '当前环境不支持直接读取剪贴板，请使用快捷键 Ctrl+V' : 'Clipboard reading is not supported, please use Ctrl+V');
+        showToast(
+          language === 'zh'
+            ? '当前环境不支持直接读取剪贴板，请使用快捷键 Ctrl+V'
+            : 'Clipboard reading is not supported, please use Ctrl+V',
+        );
         return;
       }
       const text = await navigator.clipboard.readText();
@@ -1642,54 +1973,60 @@ export function StoryEditor() {
           style: { width: 300, height: 200 },
           data: {
             id: newId,
-            title: "粘贴卡片",
+            title: '粘贴卡片',
             shape: 'square',
             color: '#ffffff',
-            text: text.trim()
+            text: text.trim(),
           },
         };
-        setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), newNode]);
+        setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
       }
     } catch (err) {
-      console.warn("Failed to read system clipboard", err);
+      console.warn('Failed to read system clipboard', err);
     }
   }, [nodeClipboard, getCenterPosition, setNodes, setEdges]);
 
-  const handleDeleteNode = useCallback((id: string) => {
-    setNodes((nds) => nds.filter((n) => n.id !== id));
-    setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-  }, [setNodes, setEdges]);
+  const handleDeleteNode = useCallback(
+    (id: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== id));
+      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+    },
+    [setNodes, setEdges],
+  );
 
   /**
    * 删除当前所有选中的节点和连线   */
   const deleteSelected = useCallback(() => {
-    const selectedNodes = nodes.filter(n => n.selected);
-    const selectedEdges = edges.filter(e => e.selected);
+    const selectedNodes = nodes.filter((n) => n.selected);
+    const selectedEdges = edges.filter((e) => e.selected);
 
     if (selectedNodes.length === 0 && selectedEdges.length === 0) return;
 
     // 过滤掉受保护的节点（如起点）
-    const nodeIdsToDelete = new Set(
-      selectedNodes
-        .filter(n => !n.data?.isRoot)
-        .map(n => n.id)
-    );
+    const nodeIdsToDelete = new Set(selectedNodes.filter((n) => !n.data?.isRoot).map((n) => n.id));
 
-    const edgeIdsToDelete = new Set(selectedEdges.map(e => e.id));
+    const edgeIdsToDelete = new Set(selectedEdges.map((e) => e.id));
 
     if (nodeIdsToDelete.size === 0 && edgeIdsToDelete.size === 0) {
       if (selectedNodes.length > 0) {
-        showToast(language === 'zh' ? '起点节点受保护，无法删除' : 'Root node is protected and cannot be deleted');
+        showToast(
+          language === 'zh'
+            ? '起点节点受保护，无法删除'
+            : 'Root node is protected and cannot be deleted',
+        );
       }
       return;
     }
 
     setNodes((nds) => nds.filter((n) => !nodeIdsToDelete.has(n.id)));
-    setEdges((eds) => eds.filter((e) =>
-      !edgeIdsToDelete.has(e.id) &&
-      !nodeIdsToDelete.has(e.source) &&
-      !nodeIdsToDelete.has(e.target)
-    ));
+    setEdges((eds) =>
+      eds.filter(
+        (e) =>
+          !edgeIdsToDelete.has(e.id) &&
+          !nodeIdsToDelete.has(e.source) &&
+          !nodeIdsToDelete.has(e.target),
+      ),
+    );
 
     const totalDeleted = nodeIdsToDelete.size + edgeIdsToDelete.size;
     showToast(language === 'zh' ? `已删除${totalDeleted} 个项目` : `Deleted ${totalDeleted} items`);
@@ -1699,38 +2036,44 @@ export function StoryEditor() {
    * 隐藏当前所有选中的节点
    */
   const hideSelected = useCallback(() => {
-    const selectedNodeIds = nodes
-      .filter(n => n.selected)
-      .map(n => n.id);
+    const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
 
     if (selectedNodeIds.length === 0) return;
 
     const selectedIdSet = new Set(selectedNodeIds);
 
-    setNodes(nds => nds.map(n => {
-      if (!selectedIdSet.has(n.id)) return n;
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (!selectedIdSet.has(n.id)) return n;
 
-      return {
-        ...n,
-        selected: false,
-        data: {
-          ...n.data,
-          hidden: true,
-        },
-      };
-    }));
+        return {
+          ...n,
+          selected: false,
+          data: {
+            ...n.data,
+            hidden: true,
+          },
+        };
+      }),
+    );
 
-    showToast(language === 'zh' ? `已隐藏${selectedNodeIds.length} 个卡片` : `${selectedNodeIds.length} cards hidden`);
+    showToast(
+      language === 'zh'
+        ? `已隐藏${selectedNodeIds.length} 个卡片`
+        : `${selectedNodeIds.length} cards hidden`,
+    );
   }, [nodes, setNodes, language, showToast]);
 
   const handleGenerateSelectedSpeech = useCallback(async () => {
     if (ttsLoading) return;
     const storyNodes = nodes
-      .filter(n => n.selected && n.type === 'storyNode')
-      .sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x));
+      .filter((n) => n.selected && n.type === 'storyNode')
+      .sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
 
     if (storyNodes.length === 0) {
-      showToast(language === 'zh' ? '请先框选需要朗读的剧情卡片' : 'Select story cards to narrate first');
+      showToast(
+        language === 'zh' ? '请先框选需要朗读的剧情卡片' : 'Select story cards to narrate first',
+      );
       return;
     }
 
@@ -1743,9 +2086,11 @@ export function StoryEditor() {
         const speechText = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
         if (!speechText) continue;
 
-        showToast(language === 'zh'
-          ? `正在生成朗读音频 ${index + 1}/${storyNodes.length}`
-          : `Generating narration ${index + 1}/${storyNodes.length}`);
+        showToast(
+          language === 'zh'
+            ? `正在生成朗读音频 ${index + 1}/${storyNodes.length}`
+            : `Generating narration ${index + 1}/${storyNodes.length}`,
+        );
 
         const audio = await generateSpeechAudio(speechText, {
           provider: ttsProvider,
@@ -1757,29 +2102,54 @@ export function StoryEditor() {
           voice: ttsVoice,
         });
 
-        setNodes(nds => nds.map(n => n.id === node.id ? {
-          ...n,
-          data: {
-            ...n.data,
-            audioUrl: audio.url,
-            ttsGenerated: true,
-          },
-        } : n));
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === node.id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    audioUrl: audio.url,
+                    ttsGenerated: true,
+                  },
+                }
+              : n,
+          ),
+        );
       }
 
-      showToast(language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached');
+      showToast(
+        language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached',
+      );
     } catch (error: any) {
       console.error('TTS generation failed:', error);
-      alert(`${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${error.message || 'Unknown error'}`);
+      alert(
+        `${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${error.message || 'Unknown error'}`,
+      );
     } finally {
       setTtsLoading(false);
     }
-  }, [nodes, language, setNodes, showToast, ttsProvider, ttsApiKey, ttsApiUrl, ttsModel, ttsVoice, ttsLoading]);
+  }, [
+    nodes,
+    language,
+    setNodes,
+    showToast,
+    ttsProvider,
+    ttsApiKey,
+    ttsApiUrl,
+    ttsModel,
+    ttsVoice,
+    ttsLoading,
+  ]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === 'input' || activeTag === 'textarea' || (document.activeElement as HTMLElement)?.isContentEditable) {
+      if (
+        activeTag === 'input' ||
+        activeTag === 'textarea' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
         return;
       }
 
@@ -1810,428 +2180,309 @@ export function StoryEditor() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, handleCopy, handlePaste, deleteSelected]);
 
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const snapDistance = 15;
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    const snapDistance = 15;
+      const positionChanges = changes.filter((c: any) => c.type === 'position' && c.position);
+      const dimensionChanges = changes.filter((c: any) => c.type === 'dimensions' && c.dimensions);
 
-    const positionChanges = changes.filter((c: any) => c.type === 'position' && c.position);
-    const dimensionChanges = changes.filter((c: any) => c.type === 'dimensions' && c.dimensions);
+      // NOTE: 无位置/尺寸变化时直接应用，不触发辅助线计算，避免多余 setState
+      if (positionChanges.length === 0 && dimensionChanges.length === 0) {
+        setNodes((nds) => applyNodeChanges(changes, nds));
+        return;
+      }
 
-    // NOTE: 无位置/尺寸变化时直接应用，不触发辅助线计算，避免多余 setState
-    if (positionChanges.length === 0 && dimensionChanges.length === 0) {
-      setNodes((nds) => applyNodeChanges(changes, nds));
-      return;
-    }
+      // NOTE: 使用函数式 setNodes 读取最新节点，消除对外部 nodes 变量的直接依赖，
+      // 从而打断 nodes→onNodesChange→nodesWithCallbacks→ReactFlow store→onNodesChange 的循环链路
+      setNodes((nds) => {
+        const hLines: number[] = [];
+        const vLines: number[] = [];
+        const nodeMap = new Map(nds.map((n) => [n.id, n]));
 
-    // NOTE: 使用函数式 setNodes 读取最新节点，消除对外部 nodes 变量的直接依赖，
-    // 从而打断 nodes→onNodesChange→nodesWithCallbacks→ReactFlow store→onNodesChange 的循环链路
-    setNodes((nds) => {
-      const hLines: number[] = [];
-      const vLines: number[] = [];
-      const nodeMap = new Map(nds.map(n => [n.id, n]));
+        const updatedChanges = changes.map((change: any) => {
+          if (change.type === 'position' && change.position) {
+            const targetX = change.position.x;
+            const targetY = change.position.y;
+            let snapX = targetX;
+            let snapY = targetY;
+            let minDx = snapDistance;
+            let minDy = snapDistance;
 
-      const updatedChanges = changes.map((change: any) => {
-        if (change.type === 'position' && change.position) {
-          const targetX = change.position.x;
-          const targetY = change.position.y;
-          let snapX = targetX;
-          let snapY = targetY;
-          let minDx = snapDistance;
-          let minDy = snapDistance;
+            const movingNode = nodeMap.get(change.id);
+            if (!movingNode) return change;
 
-          const movingNode = nodeMap.get(change.id);
-          if (!movingNode) return change;
+            const movingW =
+              movingNode.measured?.width || (movingNode.style?.width as number) || 300;
+            const movingH =
+              movingNode.measured?.height || (movingNode.style?.height as number) || 200;
 
-          const movingW = movingNode.measured?.width || (movingNode.style?.width as number) || 300;
-          const movingH = movingNode.measured?.height || (movingNode.style?.height as number) || 200;
-
-          for (const n of nds) {
-            if (n.id === change.id) continue;
-            const nX = n.position.x;
-            const nY = n.position.y;
-            const nW = n.measured?.width || (n.style?.width as number) || 300;
-            const nH = n.measured?.height || (n.style?.height as number) || 200;
-
-            const xTargets = [nX, nX + nW];
-            const movingXTargets = [targetX, targetX + movingW];
-            for (const xt of xTargets) {
-              for (const mxt of movingXTargets) {
-                const diff = Math.abs(xt - mxt);
-                if (diff < minDx) {
-                  minDx = diff;
-                  snapX = (mxt === targetX) ? xt : xt - movingW;
-                  if (!vLines.includes(xt)) vLines.push(xt);
-                } else if (diff < snapDistance) {
-                  if (!vLines.includes(xt)) vLines.push(xt);
-                }
-              }
-            }
-
-            const yTargets = [nY, nY + nH];
-            const movingYTargets = [targetY, targetY + movingH];
-            for (const yt of yTargets) {
-              for (const myt of movingYTargets) {
-                const diff = Math.abs(yt - myt);
-                if (diff < minDy) {
-                  minDy = diff;
-                  snapY = (myt === targetY) ? yt : yt - movingH;
-                  if (!hLines.includes(yt)) hLines.push(yt);
-                } else if (diff < snapDistance) {
-                  if (!hLines.includes(yt)) hLines.push(yt);
-                }
-              }
-            }
-          }
-          return {
-            ...change,
-            position: { x: snapX, y: snapY },
-            positionAbsolute: change.positionAbsolute ? { x: snapX, y: snapY } : undefined
-          };
-        } else if (change.type === 'dimensions' && change.dimensions) {
-          const targetNode = nodeMap.get(change.id);
-          if (targetNode) {
-            const x = targetNode.position.x;
-            const y = targetNode.position.y;
-            const w = change.dimensions.width;
-            const h = change.dimensions.height;
             for (const n of nds) {
               if (n.id === change.id) continue;
               const nX = n.position.x;
               const nY = n.position.y;
               const nW = n.measured?.width || (n.style?.width as number) || 300;
               const nH = n.measured?.height || (n.style?.height as number) || 200;
-              if (Math.abs(nX - x) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
-              if (Math.abs(nX + nW - x) < snapDistance && !vLines.includes(nX + nW)) vLines.push(nX + nW);
-              if (Math.abs(nX - (x + w)) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
-              if (Math.abs(nX + nW - (x + w)) < snapDistance && !vLines.includes(nX + nW)) vLines.push(nX + nW);
-              if (Math.abs(nY - y) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
-              if (Math.abs(nY + nH - y) < snapDistance && !hLines.includes(nY + nH)) hLines.push(nY + nH);
-              if (Math.abs(nY - (y + h)) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
-              if (Math.abs(nY + nH - (y + h)) < snapDistance && !hLines.includes(nY + nH)) hLines.push(nY + nH);
+
+              const xTargets = [nX, nX + nW];
+              const movingXTargets = [targetX, targetX + movingW];
+              for (const xt of xTargets) {
+                for (const mxt of movingXTargets) {
+                  const diff = Math.abs(xt - mxt);
+                  if (diff < minDx) {
+                    minDx = diff;
+                    snapX = mxt === targetX ? xt : xt - movingW;
+                    if (!vLines.includes(xt)) vLines.push(xt);
+                  } else if (diff < snapDistance) {
+                    if (!vLines.includes(xt)) vLines.push(xt);
+                  }
+                }
+              }
+
+              const yTargets = [nY, nY + nH];
+              const movingYTargets = [targetY, targetY + movingH];
+              for (const yt of yTargets) {
+                for (const myt of movingYTargets) {
+                  const diff = Math.abs(yt - myt);
+                  if (diff < minDy) {
+                    minDy = diff;
+                    snapY = myt === targetY ? yt : yt - movingH;
+                    if (!hLines.includes(yt)) hLines.push(yt);
+                  } else if (diff < snapDistance) {
+                    if (!hLines.includes(yt)) hLines.push(yt);
+                  }
+                }
+              }
+            }
+            return {
+              ...change,
+              position: { x: snapX, y: snapY },
+              positionAbsolute: change.positionAbsolute ? { x: snapX, y: snapY } : undefined,
+            };
+          } else if (change.type === 'dimensions' && change.dimensions) {
+            const targetNode = nodeMap.get(change.id);
+            if (targetNode) {
+              const x = targetNode.position.x;
+              const y = targetNode.position.y;
+              const w = change.dimensions.width;
+              const h = change.dimensions.height;
+              for (const n of nds) {
+                if (n.id === change.id) continue;
+                const nX = n.position.x;
+                const nY = n.position.y;
+                const nW = n.measured?.width || (n.style?.width as number) || 300;
+                const nH = n.measured?.height || (n.style?.height as number) || 200;
+                if (Math.abs(nX - x) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
+                if (Math.abs(nX + nW - x) < snapDistance && !vLines.includes(nX + nW))
+                  vLines.push(nX + nW);
+                if (Math.abs(nX - (x + w)) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
+                if (Math.abs(nX + nW - (x + w)) < snapDistance && !vLines.includes(nX + nW))
+                  vLines.push(nX + nW);
+                if (Math.abs(nY - y) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
+                if (Math.abs(nY + nH - y) < snapDistance && !hLines.includes(nY + nH))
+                  hLines.push(nY + nH);
+                if (Math.abs(nY - (y + h)) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
+                if (Math.abs(nY + nH - (y + h)) < snapDistance && !hLines.includes(nY + nH))
+                  hLines.push(nY + nH);
+              }
             }
           }
+          return change;
+        });
+
+        const isInteracting = changes.some(
+          (c: any) =>
+            (c.type === 'position' && c.dragging) || (c.type === 'dimensions' && c.resizing),
+        );
+
+        // NOTE: 只在真正有辅助线变化时才更新，避免每次 dimensions 事件都 setState([])
+        if (isInteracting) {
+          setHorizontalGuides(hLines);
+          setVerticalGuides(vLines);
+        } else {
+          // 只在当前有辅助线时才清空，防止每帧都触发空数组的 setState
+          setHorizontalGuides((prev) => (prev.length > 0 ? [] : prev));
+          setVerticalGuides((prev) => (prev.length > 0 ? [] : prev));
         }
-        return change;
+
+        return applyNodeChanges(updatedChanges, nds);
       });
-
-      const isInteracting = changes.some((c: any) =>
-        (c.type === 'position' && c.dragging) ||
-        (c.type === 'dimensions' && c.resizing)
-      );
-
-      // NOTE: 只在真正有辅助线变化时才更新，避免每次 dimensions 事件都 setState([])
-      if (isInteracting) {
-        setHorizontalGuides(hLines);
-        setVerticalGuides(vLines);
-      } else {
-        // 只在当前有辅助线时才清空，防止每帧都触发空数组的 setState
-        setHorizontalGuides(prev => prev.length > 0 ? [] : prev);
-        setVerticalGuides(prev => prev.length > 0 ? [] : prev);
-      }
-
-      return applyNodeChanges(updatedChanges, nds);
-    });
-  }, [setNodes]);
-
+    },
+    [setNodes],
+  );
 
   const onEdgesChange = useCallback(
     (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges]
+    [setEdges],
   );
 
   const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge({ ...connection, id: uuidv4(), ...defaultEdgeOptions }, eds)),
-    [setEdges]
+    (connection: Connection) =>
+      setEdges((eds) => addEdge({ ...connection, id: uuidv4(), ...defaultEdgeOptions }, eds)),
+    [setEdges],
   );
 
-  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
-    event.preventDefault();
-    setEdges(eds => eds.filter(e => e.id !== edge.id));
-  }, [setEdges]);
+  const onEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      event.preventDefault();
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+    },
+    [setEdges],
+  );
 
-  const onEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
-    setEdges(eds => eds.map(e => {
-      if (e.id === edge.id) {
-        return { ...e, source: e.target, target: e.source, sourceHandle: e.targetHandle, targetHandle: e.sourceHandle };
-      }
-      return e;
-    }));
-  }, [setEdges]);
-
-  const handleUpdateNode = useCallback((id: string, data: any) => {
-    setNodes((nds) => {
-      const renamedNode = nds.find((n) => n.id === id);
-      const rename = renamedNode ? getSettingRename(renamedNode, data) : null;
-
-      return nds.map((n) => {
-        if (n.id === id) {
-          if (data.isRoot) {
-            return { ...n, data: { ...n.data, ...data, isRoot: true } };
+  const onEdgeDoubleClick = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      setEdges((eds) =>
+        eds.map((e) => {
+          if (e.id === edge.id) {
+            return {
+              ...e,
+              source: e.target,
+              target: e.source,
+              sourceHandle: e.targetHandle,
+              targetHandle: e.sourceHandle,
+            };
           }
-          return { ...n, data: { ...n.data, ...data } };
-        } else if (data.isRoot) {
-          return { ...n, data: { ...n.data, isRoot: false } };
-        } else if (rename && n.type === 'storyNode' && typeof n.data?.text === 'string') {
-          const nextText = replaceMentionNameInText(n.data.text, rename.oldName, rename.newName);
-          if (nextText !== n.data.text) {
-            return { ...n, data: { ...n.data, text: nextText } };
+          return e;
+        }),
+      );
+    },
+    [setEdges],
+  );
+
+  const handleUpdateNode = useCallback(
+    (id: string, data: any) => {
+      setNodes((nds) => {
+        const renamedNode = nds.find((n) => n.id === id);
+        const rename = renamedNode ? getSettingRename(renamedNode, data) : null;
+
+        return nds.map((n) => {
+          if (n.id === id) {
+            if (data.isRoot) {
+              return { ...n, data: { ...n.data, ...data, isRoot: true } };
+            }
+            return { ...n, data: { ...n.data, ...data } };
+          } else if (data.isRoot) {
+            return { ...n, data: { ...n.data, isRoot: false } };
+          } else if (rename && n.type === 'storyNode' && typeof n.data?.text === 'string') {
+            const nextText = replaceMentionNameInText(n.data.text, rename.oldName, rename.newName);
+            if (nextText !== n.data.text) {
+              return { ...n, data: { ...n.data, text: nextText } };
+            }
           }
-        }
-        return n;
+          return n;
+        });
       });
-    });
-  }, [setNodes]);
+    },
+    [setNodes],
+  );
 
-  const handleAddTextToImage = useCallback((id: string) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === id) {
-          // 如果还没有文本，设置一个初始文本，并强制显示文本区域          
-          const currentText = n.data.text as string || '';
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              text: currentText || (language === 'zh' ? '在此处输入描述文本...' : 'Enter description here...'),
-              showTextOverlay: true
-            },
-            // 增加一点高度给文本区域
-            style: { ...n.style, height: ((n.style?.height as number) || 200) + 100 }
-          };
-        }
-        return n;
-      })
-    );
-  }, [setNodes, language]);
+  const handleAddTextToImage = useCallback(
+    (id: string) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === id) {
+            // 如果还没有文本，设置一个初始文本，并强制显示文本区域
+            const currentText = (n.data.text as string) || '';
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                text:
+                  currentText ||
+                  (language === 'zh' ? '在此处输入描述文本...' : 'Enter description here...'),
+                showTextOverlay: true,
+              },
+              // 增加一点高度给文本区域
+              style: { ...n.style, height: ((n.style?.height as number) || 200) + 100 },
+            };
+          }
+          return n;
+        }),
+      );
+    },
+    [setNodes, language],
+  );
 
-  const handleRemoveTextFromImage = useCallback((id: string) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === id) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              showTextOverlay: false
-            },
-            // 减少高度
-            style: { ...n.style, height: Math.max(100, ((n.style?.height as number) || 200) - 100) }
-          };
-        }
-        return n;
-      })
-    );
-  }, [setNodes]);
+  const handleRemoveTextFromImage = useCallback(
+    (id: string) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === id) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                showTextOverlay: false,
+              },
+              // 减少高度
+              style: {
+                ...n.style,
+                height: Math.max(100, ((n.style?.height as number) || 200) - 100),
+              },
+            };
+          }
+          return n;
+        }),
+      );
+    },
+    [setNodes],
+  );
 
   const stripHtml = (html: string) => {
     const doc = new DOMParser().parseFromString(html || '', 'text/html');
     return (doc.body.textContent || '').trim();
   };
 
-  const requestGeneratedImage = useCallback(async (prompt: string) => {
-    if (!imageApiKey.trim()) {
-      alert(language === 'zh' ? '请先在设置中填写图片生成 API 密钥。' : 'Configure the image generation API key in Settings first.');
-      return null;
-    }
-
-    const imageRequest = buildImageGenerationRequest(imageApiUrl, imageModel, imageSize, prompt, imageApiKey);
-    const imageRequestBody = JSON.stringify(imageRequest.body);
-    const imageRequestHeaders = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${imageApiKey.trim()}`,
-    };
-    const sendImageRequest = (url: string) => fetch(url, {
-      method: 'POST',
-      headers: imageRequestHeaders,
-      body: imageRequestBody,
-    });
-
-    let response: Response;
-    let activeImageRequestUrl = imageRequest.url;
-    try {
-      response = await sendImageRequest(activeImageRequestUrl);
-    } catch (fetchError) {
-      const fallbackArkProxyUrl = typeof window !== 'undefined' && /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-        ? '/api/ark-image'
-        : 'http://127.0.0.1:3000/api/ark-image';
-      const canRetryArkProxy = imageRequest.usesSeedream && imageRequest.url !== fallbackArkProxyUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http');
-      if (!canRetryArkProxy) {
-        throw new Error(`${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-      }
-      activeImageRequestUrl = fallbackArkProxyUrl;
-      response = await sendImageRequest(activeImageRequestUrl);
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      const shouldRetrySeedreamSize =
-        imageRequest.usesSeedream &&
-        /InvalidParameter|size|pixels/i.test(errText) &&
-        imageRequest.body.size !== SEEDREAM_DIMENSION_SIZE;
-
-      if (shouldRetrySeedreamSize) {
-        response = await fetch(activeImageRequestUrl, {
-          method: 'POST',
-          headers: imageRequestHeaders,
-          body: JSON.stringify({
-            ...imageRequest.body,
-            size: SEEDREAM_DIMENSION_SIZE,
-          }),
-        });
-
-        if (response.ok) {
-          setImageSize(SEEDREAM_DIMENSION_SIZE);
-        } else {
-          const retryErrText = await response.text();
-          throw new Error(retryErrText || errText || `HTTP ${response.status}`);
-        }
-      } else {
-        throw new Error(errText || `HTTP ${response.status}`);
-      }
-    }
-
-    const result = await response.json();
-    const imageData = result?.data?.[0];
-    const imageSrc = imageData?.b64_json
-      ? `data:image/png;base64,${imageData.b64_json}`
-      : imageData?.url;
-
-    if (!imageSrc) {
-      throw new Error(language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.');
-    }
-
-    return imageSrc as string;
-  }, [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize]);
-
-  const handleGenerateSettingNodeImage = useCallback(async (id: string, type: 'character' | 'scene') => {
-    const node = nodes.find(n => n.id === id);
-    if (!node) return;
-
-    try {
-      const titleText = type === 'character'
-        ? ((node.data.characterName as string) || (language === 'zh' ? '未命名角色' : 'Unnamed Character'))
-        : ((node.data.sceneName as string) || (language === 'zh' ? '未命名场景' : 'Unnamed Scene'));
-      const bodyText = type === 'character'
-        ? formatCharacterNodeText(node.data as Record<string, unknown>)
-        : formatSceneNodeText(node.data as Record<string, unknown>);
-      const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
-
-      if (!basePrompt) {
-        alert(language === 'zh' ? '请先填写人物或场景设定。' : 'Fill in the character or scene setting first.');
-        return;
+  const requestGeneratedImage = useCallback(
+    async (prompt: string) => {
+      if (!imageApiKey.trim()) {
+        alert(
+          language === 'zh'
+            ? '请先在设置中填写图片生成 API 密钥。'
+            : 'Configure the image generation API key in Settings first.',
+        );
+        return null;
       }
 
-      const prompt = type === 'character'
-        ? `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
-        : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
-
-      const imageSrc = await requestGeneratedImage(prompt);
-      if (!imageSrc) return;
-
-      setNodes((nds) => nds.map((n) => {
-        if (n.id !== id) return n;
-
-        if (type === 'character') {
-          const generatedOutfitId = (n.data.generatedSettingImageId as string) || uuidv4();
-          const currentOutfits = ((n.data.outfits as any[]) || []);
-          const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
-          const hasGeneratedOutfit = currentOutfits.some(outfit => outfit.id === generatedOutfitId);
-          const nextOutfits = hasGeneratedOutfit
-            ? currentOutfits.map(outfit => outfit.id === generatedOutfitId ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc } : outfit)
-            : [{ id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc }, ...currentOutfits];
-
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              avatarUrl: imageSrc,
-              outfits: nextOutfits,
-              generatedSettingImageId: generatedOutfitId,
-            },
-          };
-        }
-
-        const generatedImageId = (n.data.generatedSettingImageId as string) || uuidv4();
-        const currentImages = ((n.data.images as any[]) || []);
-        const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
-        const hasGeneratedImage = currentImages.some(image => image.id === generatedImageId);
-        const nextImages = hasGeneratedImage
-          ? currentImages.map(image => image.id === generatedImageId ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc } : image)
-          : [{ id: generatedImageId, name: generatedImageName, imageUrl: imageSrc }, ...currentImages];
-
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            coverImageUrl: imageSrc,
-            images: nextImages,
-            generatedSettingImageId: generatedImageId,
-          },
-        };
-      }));
-
-      showToast(type === 'character'
-        ? (language === 'zh' ? '人物三视图已生成' : 'Character three-view generated')
-        : (language === 'zh' ? '场景图片已生成' : 'Scene image generated'));
-    } catch (error: any) {
-      console.error('Setting image generation failed:', error);
-      alert(`${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`);
-    }
-  }, [nodes, language, requestGeneratedImage, setNodes, showToast]);
-
-  const handleGenerateStoryNodeImage = useCallback(async (id: string) => {
-    const node = nodes.find(n => n.id === id);
-    if (!node) return;
-
-    const titleText = stripHtml((node.data.title as string) || '');
-    const bodyText = stripHtml((node.data.text as string) || '');
-    const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
-    if (!basePrompt) {
-      alert(language === 'zh' ? '请先在普通卡片里输入图片提示词。' : 'Enter an image prompt in the story card first.');
-      return;
-    }
-    if (!imageApiKey.trim()) {
-      alert(language === 'zh' ? '请先在设置中填写图片生成 API 密钥。' : 'Configure the image generation API key in Settings first.');
-      return;
-    }
-
-    try {
-      const imageReferences = getConnectedImageReferences(nodes, edges, id);
-      const convertedReferences = (
-        await Promise.allSettled(
-          imageReferences.map(async reference => ({
-            ...reference,
-            apiImage: await toApiImageReference(reference.url),
-          }))
-        )
-      )
-        .filter((result): result is PromiseFulfilledResult<ImageReference & { apiImage: string }> => result.status === 'fulfilled' && !!result.value.apiImage)
-        .map(result => result.value);
-      const apiReferenceImages = convertedReferences.map(reference => reference.apiImage);
-      const prompt = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
-      const imageRequest = buildImageGenerationRequest(imageApiUrl, imageModel, imageSize, prompt, imageApiKey, apiReferenceImages);
+      const imageRequest = buildImageGenerationRequest(
+        imageApiUrl,
+        imageModel,
+        imageSize,
+        prompt,
+        imageApiKey,
+      );
       const imageRequestBody = JSON.stringify(imageRequest.body);
       const imageRequestHeaders = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${imageApiKey.trim()}`,
+        Authorization: `Bearer ${imageApiKey.trim()}`,
       };
-      const sendImageRequest = (url: string) => fetch(url, {
-        method: 'POST',
-        headers: imageRequestHeaders,
-        body: imageRequestBody,
-      });
+      const sendImageRequest = (url: string) =>
+        fetch(url, {
+          method: 'POST',
+          headers: imageRequestHeaders,
+          body: imageRequestBody,
+        });
 
       let response: Response;
       let activeImageRequestUrl = imageRequest.url;
       try {
         response = await sendImageRequest(activeImageRequestUrl);
       } catch (fetchError) {
-        const fallbackArkProxyUrl = typeof window !== 'undefined' && /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-          ? '/api/ark-image'
-          : 'http://127.0.0.1:3000/api/ark-image';
-        const canRetryArkProxy = imageRequest.usesSeedream && imageRequest.url !== fallbackArkProxyUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http');
+        const fallbackArkProxyUrl =
+          typeof window !== 'undefined' &&
+          /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
+            ? '/api/ark-image'
+            : 'http://127.0.0.1:3000/api/ark-image';
+        const canRetryArkProxy =
+          imageRequest.usesSeedream &&
+          imageRequest.url !== fallbackArkProxyUrl &&
+          typeof window !== 'undefined' &&
+          window.location.protocol.startsWith('http');
         if (!canRetryArkProxy) {
-          throw new Error(`${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+          throw new Error(
+            `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+          );
         }
         activeImageRequestUrl = fallbackArkProxyUrl;
         response = await sendImageRequest(activeImageRequestUrl);
@@ -2247,10 +2498,7 @@ export function StoryEditor() {
         if (shouldRetrySeedreamSize) {
           response = await fetch(activeImageRequestUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${imageApiKey.trim()}`,
-            },
+            headers: imageRequestHeaders,
             body: JSON.stringify({
               ...imageRequest.body,
               size: SEEDREAM_DIMENSION_SIZE,
@@ -2275,215 +2523,501 @@ export function StoryEditor() {
         : imageData?.url;
 
       if (!imageSrc) {
-        throw new Error(language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.');
+        throw new Error(
+          language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.',
+        );
       }
 
-      const currentHeight = (node.style?.height as number) || 200;
-      const currentWidth = (node.style?.width as number) || 280;
-      const previousImageUrl = node.data.imageUrl as string | undefined;
-      const nextHeight = Math.max(currentHeight, 260);
+      return imageSrc as string;
+    },
+    [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize],
+  );
 
-      setNodes((nds) => {
-        const nextNodes = nds.map((n) => {
-          if (n.id !== id) return n;
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              imageUrl: imageSrc,
-              videoUrl: undefined,
-              objectFit: n.data.objectFit || 'cover',
-              showTextOverlay: true,
-              titleHeightAdded: showTitles,
-            },
-            style: {
-              ...n.style,
-              height: nextHeight,
-            },
-          };
-        });
+  const handleGenerateSettingNodeImage = useCallback(
+    async (id: string, type: 'character' | 'scene') => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
 
-        if (!previousImageUrl) return nextNodes;
+      try {
+        const titleText =
+          type === 'character'
+            ? (node.data.characterName as string) ||
+              (language === 'zh' ? '未命名角色' : 'Unnamed Character')
+            : (node.data.sceneName as string) ||
+              (language === 'zh' ? '未命名场景' : 'Unnamed Scene');
+        const bodyText =
+          type === 'character'
+            ? formatCharacterNodeText(node.data as Record<string, unknown>)
+            : formatSceneNodeText(node.data as Record<string, unknown>);
+        const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
 
-        const extractedId = uuidv4();
-        const extractedNode: Node = {
-          id: extractedId,
-          type: 'storyNode',
-          position: {
-            x: node.position.x + currentWidth + 40,
-            y: node.position.y,
-          },
-          style: { width: currentWidth, height: currentHeight },
-          data: {
-            id: extractedId,
-            title: language === 'zh' ? '旧图片' : 'Previous Image',
-            shape: 'square',
-            color: '#ffffff',
-            text: '',
-            imageUrl: previousImageUrl,
-            objectFit: node.data.objectFit || 'cover',
-            showTextOverlay: false,
-            titleHeightAdded: showTitles,
-          },
-        };
-
-        return [...nextNodes, extractedNode];
-      });
-      showToast(language === 'zh' ? '图片已生成到当前卡片' : 'Image generated into the current card');
-    } catch (error: any) {
-      console.error('Image generation failed:', error);
-      alert(`${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`);
-    }
-  }, [nodes, edges, imageApiKey, imageApiUrl, imageModel, imageSize, language, setNodes, showTitles, showToast]);
-
-  const handleExtractMedia = useCallback((id: string) => {
-    const node = nodes.find(n => n.id === id);
-    if (!node) return;
-
-    const extractedMedia: { url: string, type: string }[] = [];
-
-    // 1. 检查原生媒体属性    
-    if (node.data.imageUrl) extractedMedia.push({ url: node.data.imageUrl as string, type: 'image' });
-    if (node.data.videoUrl) extractedMedia.push({ url: node.data.videoUrl as string, type: 'video' });
-    if (node.data.audioUrl) extractedMedia.push({ url: node.data.audioUrl as string, type: 'audio' });
-
-    // 2. 检查文本中嵌入的媒体标签    
-    const text = node.data.text as string || '';
-    const imgRegex = /<img[^>]+src="([^">]+)"/g;
-    const videoRegex = /<video[^>]+src="([^">]+)"/g;
-    let match;
-
-    while ((match = imgRegex.exec(text)) !== null) {
-      if (!extractedMedia.find(m => m.url === match![1])) {
-        extractedMedia.push({ url: match[1], type: 'image' });
-      }
-    }
-    while ((match = videoRegex.exec(text)) !== null) {
-      if (!extractedMedia.find(m => m.url === match![1])) {
-        extractedMedia.push({ url: match[1], type: 'video' });
-      }
-    }
-
-    if (extractedMedia.length === 0) return;
-
-    // 清理原节点内标签   
-    const cleanText = text
-      .replace(/<img[^>]+>/g, '')
-      .replace(/<video[^>]+>.*?<\/video>/g, '')
-      .replace(/<video[^>]+>/g, '')
-      .trim();
-
-    handleUpdateNode(id, {
-      imageUrl: undefined,
-      videoUrl: undefined,
-      audioUrl: undefined,
-      showTextOverlay: false,
-      text: cleanText,
-      // 还原高度
-      style: { ...node.style, height: 200 }
-    });
-
-    // 创建新节点
-    const newNodes: Node[] = extractedMedia.map((media, index) => {
-      const newId = uuidv4();
-      const displayWidth = 300;
-      const displayHeight = 200;
-      return {
-        id: newId,
-        type: 'storyNode',
-        position: {
-          x: node.position.x + (index + 1) * 320,
-          y: node.position.y
-        },
-        style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-        data: {
-          id: newId,
-          title: media.type === 'image' ? '提取图片' : '提取视频',
-          imageUrl: media.type === 'image' ? media.url : undefined,
-          videoUrl: media.type === 'video' ? media.url : undefined,
-          audioUrl: media.type === 'audio' ? media.url : undefined,
-          titleHeightAdded: showTitles,
-          showTitles
+        if (!basePrompt) {
+          alert(
+            language === 'zh'
+              ? '请先填写人物或场景设定。'
+              : 'Fill in the character or scene setting first.',
+          );
+          return;
         }
-      };
-    });
 
-    setNodes(nds => [...nds, ...newNodes]);
-  }, [nodes, showTitles, handleUpdateNode, setNodes]);
+        const prompt =
+          type === 'character'
+            ? `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
+            : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
 
+        const imageSrc = await requestGeneratedImage(prompt);
+        if (!imageSrc) return;
 
-  const handleAddConnectedNode = useCallback((sourceId: string, side: string) => {
-    // NOTE: 全部在 setNodes 函数式更新内部读取最新节点，消除对外部 nodes 的依赖，
-    // 防止 nodes 变化导致此回调重建，进而引发 nodesWithCallbacks 重算的无限循环
-    const newId = uuidv4();
-    const offsetDist = 120;
+        setNodes((nds) =>
+          nds.map((n) => {
+            if (n.id !== id) return n;
 
-    let targetHandle = 'left';
+            if (type === 'character') {
+              const generatedOutfitId = (n.data.generatedSettingImageId as string) || uuidv4();
+              const currentOutfits = (n.data.outfits as any[]) || [];
+              const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
+              const hasGeneratedOutfit = currentOutfits.some(
+                (outfit) => outfit.id === generatedOutfitId,
+              );
+              const nextOutfits = hasGeneratedOutfit
+                ? currentOutfits.map((outfit) =>
+                    outfit.id === generatedOutfitId
+                      ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc }
+                      : outfit,
+                  )
+                : [
+                    { id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc },
+                    ...currentOutfits,
+                  ];
 
-    setNodes(nds => {
-      const sourceNode = nds.find(n => n.id === sourceId);
-      if (!sourceNode) return nds;
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  avatarUrl: imageSrc,
+                  outfits: nextOutfits,
+                  generatedSettingImageId: generatedOutfitId,
+                },
+              };
+            }
 
-      const srcW = sourceNode.measured?.width || 300;
-      const srcH = sourceNode.measured?.height || 200;
+            const generatedImageId = (n.data.generatedSettingImageId as string) || uuidv4();
+            const currentImages = (n.data.images as any[]) || [];
+            const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
+            const hasGeneratedImage = currentImages.some((image) => image.id === generatedImageId);
+            const nextImages = hasGeneratedImage
+              ? currentImages.map((image) =>
+                  image.id === generatedImageId
+                    ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc }
+                    : image,
+                )
+              : [
+                  { id: generatedImageId, name: generatedImageName, imageUrl: imageSrc },
+                  ...currentImages,
+                ];
 
-      let newX = sourceNode.position.x;
-      let newY = sourceNode.position.y;
-
-      if (side === 'top') {
-        newY -= (200 + offsetDist);
-        targetHandle = 'bottom';
-      } else if (side === 'bottom') {
-        newY += (srcH + offsetDist);
-        targetHandle = 'top';
-      } else if (side === 'left') {
-        newX -= (300 + offsetDist);
-        targetHandle = 'right';
-      } else if (side === 'right') {
-        newX += (srcW + offsetDist);
-        targetHandle = 'left';
-      }
-
-      const isOccupied = (x: number, y: number) =>
-        nds.some(n => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
-
-      let attempts = 0;
-      while (isOccupied(newX, newY) && attempts < 10) {
-        if (side === 'bottom' || side === 'top') {
-          newX += 320;
-        } else {
-          newY += 220;
-        }
-        attempts++;
-      }
-
-      const newNode: Node = {
-        id: newId,
-        type: 'storyNode',
-        position: { x: newX, y: newY },
-        style: { width: 300, height: 200 },
-        data: { title: "分支", shape: 'square', color: '#ffffff', text: "" },
-      };
-
-      // 检查 sourceId 是否属于任何动态分组，若是则将新节点也加入分组
-      const updatedNodes = nds.map(node => {
-        if (node.type === 'groupNode') {
-          const childIds = (node.data.childIds as string[]) || [];
-          if (childIds.includes(sourceId)) {
             return {
-              ...node,
-              data: { ...node.data, childIds: [...childIds, newId] }
+              ...n,
+              data: {
+                ...n.data,
+                coverImageUrl: imageSrc,
+                images: nextImages,
+                generatedSettingImageId: generatedImageId,
+              },
             };
+          }),
+        );
+
+        showToast(
+          type === 'character'
+            ? language === 'zh'
+              ? '人物三视图已生成'
+              : 'Character three-view generated'
+            : language === 'zh'
+              ? '场景图片已生成'
+              : 'Scene image generated',
+        );
+      } catch (error: any) {
+        console.error('Setting image generation failed:', error);
+        alert(
+          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+        );
+      }
+    },
+    [nodes, language, requestGeneratedImage, setNodes, showToast],
+  );
+
+  const handleGenerateStoryNodeImage = useCallback(
+    async (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
+
+      const titleText = stripHtml((node.data.title as string) || '');
+      const bodyText = stripHtml((node.data.text as string) || '');
+      const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+      if (!basePrompt) {
+        alert(
+          language === 'zh'
+            ? '请先在普通卡片里输入图片提示词。'
+            : 'Enter an image prompt in the story card first.',
+        );
+        return;
+      }
+      if (!imageApiKey.trim()) {
+        alert(
+          language === 'zh'
+            ? '请先在设置中填写图片生成 API 密钥。'
+            : 'Configure the image generation API key in Settings first.',
+        );
+        return;
+      }
+
+      try {
+        const imageReferences = getConnectedImageReferences(nodes, edges, id);
+        const convertedReferences = (
+          await Promise.allSettled(
+            imageReferences.map(async (reference) => ({
+              ...reference,
+              apiImage: await toApiImageReference(reference.url),
+            })),
+          )
+        )
+          .filter(
+            (result): result is PromiseFulfilledResult<ImageReference & { apiImage: string }> =>
+              result.status === 'fulfilled' && !!result.value.apiImage,
+          )
+          .map((result) => result.value);
+        const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
+        const prompt = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
+        const imageRequest = buildImageGenerationRequest(
+          imageApiUrl,
+          imageModel,
+          imageSize,
+          prompt,
+          imageApiKey,
+          apiReferenceImages,
+        );
+        const imageRequestBody = JSON.stringify(imageRequest.body);
+        const imageRequestHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${imageApiKey.trim()}`,
+        };
+        const sendImageRequest = (url: string) =>
+          fetch(url, {
+            method: 'POST',
+            headers: imageRequestHeaders,
+            body: imageRequestBody,
+          });
+
+        let response: Response;
+        let activeImageRequestUrl = imageRequest.url;
+        try {
+          response = await sendImageRequest(activeImageRequestUrl);
+        } catch (fetchError) {
+          const fallbackArkProxyUrl =
+            typeof window !== 'undefined' &&
+            /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
+              ? '/api/ark-image'
+              : 'http://127.0.0.1:3000/api/ark-image';
+          const canRetryArkProxy =
+            imageRequest.usesSeedream &&
+            imageRequest.url !== fallbackArkProxyUrl &&
+            typeof window !== 'undefined' &&
+            window.location.protocol.startsWith('http');
+          if (!canRetryArkProxy) {
+            throw new Error(
+              `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+            );
+          }
+          activeImageRequestUrl = fallbackArkProxyUrl;
+          response = await sendImageRequest(activeImageRequestUrl);
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          const shouldRetrySeedreamSize =
+            imageRequest.usesSeedream &&
+            /InvalidParameter|size|pixels/i.test(errText) &&
+            imageRequest.body.size !== SEEDREAM_DIMENSION_SIZE;
+
+          if (shouldRetrySeedreamSize) {
+            response = await fetch(activeImageRequestUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${imageApiKey.trim()}`,
+              },
+              body: JSON.stringify({
+                ...imageRequest.body,
+                size: SEEDREAM_DIMENSION_SIZE,
+              }),
+            });
+
+            if (response.ok) {
+              setImageSize(SEEDREAM_DIMENSION_SIZE);
+            } else {
+              const retryErrText = await response.text();
+              throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+            }
+          } else {
+            throw new Error(errText || `HTTP ${response.status}`);
           }
         }
-        return node;
+
+        const result = await response.json();
+        const imageData = result?.data?.[0];
+        const imageSrc = imageData?.b64_json
+          ? `data:image/png;base64,${imageData.b64_json}`
+          : imageData?.url;
+
+        if (!imageSrc) {
+          throw new Error(
+            language === 'zh'
+              ? '图片 API 没有返回可用图片。'
+              : 'Image API returned no usable image.',
+          );
+        }
+
+        const currentHeight = (node.style?.height as number) || 200;
+        const currentWidth = (node.style?.width as number) || 280;
+        const previousImageUrl = node.data.imageUrl as string | undefined;
+        const nextHeight = Math.max(currentHeight, 260);
+
+        setNodes((nds) => {
+          const nextNodes = nds.map((n) => {
+            if (n.id !== id) return n;
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                imageUrl: imageSrc,
+                videoUrl: undefined,
+                objectFit: n.data.objectFit || 'cover',
+                showTextOverlay: true,
+                titleHeightAdded: showTitles,
+              },
+              style: {
+                ...n.style,
+                height: nextHeight,
+              },
+            };
+          });
+
+          if (!previousImageUrl) return nextNodes;
+
+          const extractedId = uuidv4();
+          const extractedNode: Node = {
+            id: extractedId,
+            type: 'storyNode',
+            position: {
+              x: node.position.x + currentWidth + 40,
+              y: node.position.y,
+            },
+            style: { width: currentWidth, height: currentHeight },
+            data: {
+              id: extractedId,
+              title: language === 'zh' ? '旧图片' : 'Previous Image',
+              shape: 'square',
+              color: '#ffffff',
+              text: '',
+              imageUrl: previousImageUrl,
+              objectFit: node.data.objectFit || 'cover',
+              showTextOverlay: false,
+              titleHeightAdded: showTitles,
+            },
+          };
+
+          return [...nextNodes, extractedNode];
+        });
+        showToast(
+          language === 'zh' ? '图片已生成到当前卡片' : 'Image generated into the current card',
+        );
+      } catch (error: any) {
+        console.error('Image generation failed:', error);
+        alert(
+          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+        );
+      }
+    },
+    [
+      nodes,
+      edges,
+      imageApiKey,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      language,
+      setNodes,
+      showTitles,
+      showToast,
+    ],
+  );
+
+  const handleExtractMedia = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
+
+      const extractedMedia: { url: string; type: string }[] = [];
+
+      // 1. 检查原生媒体属性
+      if (node.data.imageUrl)
+        extractedMedia.push({ url: node.data.imageUrl as string, type: 'image' });
+      if (node.data.videoUrl)
+        extractedMedia.push({ url: node.data.videoUrl as string, type: 'video' });
+      if (node.data.audioUrl)
+        extractedMedia.push({ url: node.data.audioUrl as string, type: 'audio' });
+
+      // 2. 检查文本中嵌入的媒体标签
+      const text = (node.data.text as string) || '';
+      const imgRegex = /<img[^>]+src="([^">]+)"/g;
+      const videoRegex = /<video[^>]+src="([^">]+)"/g;
+      let match;
+
+      while ((match = imgRegex.exec(text)) !== null) {
+        if (!extractedMedia.find((m) => m.url === match![1])) {
+          extractedMedia.push({ url: match[1], type: 'image' });
+        }
+      }
+      while ((match = videoRegex.exec(text)) !== null) {
+        if (!extractedMedia.find((m) => m.url === match![1])) {
+          extractedMedia.push({ url: match[1], type: 'video' });
+        }
+      }
+
+      if (extractedMedia.length === 0) return;
+
+      // 清理原节点内标签
+      const cleanText = text
+        .replace(/<img[^>]+>/g, '')
+        .replace(/<video[^>]+>.*?<\/video>/g, '')
+        .replace(/<video[^>]+>/g, '')
+        .trim();
+
+      handleUpdateNode(id, {
+        imageUrl: undefined,
+        videoUrl: undefined,
+        audioUrl: undefined,
+        showTextOverlay: false,
+        text: cleanText,
+        // 还原高度
+        style: { ...node.style, height: 200 },
       });
 
-      return [...updatedNodes, newNode];
-    });
+      // 创建新节点
+      const newNodes: Node[] = extractedMedia.map((media, index) => {
+        const newId = uuidv4();
+        const displayWidth = 300;
+        const displayHeight = 200;
+        return {
+          id: newId,
+          type: 'storyNode',
+          position: {
+            x: node.position.x + (index + 1) * 320,
+            y: node.position.y,
+          },
+          style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
+          data: {
+            id: newId,
+            title: media.type === 'image' ? '提取图片' : '提取视频',
+            imageUrl: media.type === 'image' ? media.url : undefined,
+            videoUrl: media.type === 'video' ? media.url : undefined,
+            audioUrl: media.type === 'audio' ? media.url : undefined,
+            titleHeightAdded: showTitles,
+            showTitles,
+          },
+        };
+      });
 
-    setEdges(eds => [...eds, { id: `e-${sourceId}-${newId}`, source: sourceId, sourceHandle: side, target: newId, targetHandle }]);
-  }, [setNodes, setEdges]);
+      setNodes((nds) => [...nds, ...newNodes]);
+    },
+    [nodes, showTitles, handleUpdateNode, setNodes],
+  );
+
+  const handleAddConnectedNode = useCallback(
+    (sourceId: string, side: string) => {
+      // NOTE: 全部在 setNodes 函数式更新内部读取最新节点，消除对外部 nodes 的依赖，
+      // 防止 nodes 变化导致此回调重建，进而引发 nodesWithCallbacks 重算的无限循环
+      const newId = uuidv4();
+      const offsetDist = 120;
+
+      let targetHandle = 'left';
+
+      setNodes((nds) => {
+        const sourceNode = nds.find((n) => n.id === sourceId);
+        if (!sourceNode) return nds;
+
+        const srcW = sourceNode.measured?.width || 300;
+        const srcH = sourceNode.measured?.height || 200;
+
+        let newX = sourceNode.position.x;
+        let newY = sourceNode.position.y;
+
+        if (side === 'top') {
+          newY -= 200 + offsetDist;
+          targetHandle = 'bottom';
+        } else if (side === 'bottom') {
+          newY += srcH + offsetDist;
+          targetHandle = 'top';
+        } else if (side === 'left') {
+          newX -= 300 + offsetDist;
+          targetHandle = 'right';
+        } else if (side === 'right') {
+          newX += srcW + offsetDist;
+          targetHandle = 'left';
+        }
+
+        const isOccupied = (x: number, y: number) =>
+          nds.some((n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
+
+        let attempts = 0;
+        while (isOccupied(newX, newY) && attempts < 10) {
+          if (side === 'bottom' || side === 'top') {
+            newX += 320;
+          } else {
+            newY += 220;
+          }
+          attempts++;
+        }
+
+        const newNode: Node = {
+          id: newId,
+          type: 'storyNode',
+          position: { x: newX, y: newY },
+          style: { width: 300, height: 200 },
+          data: { title: '分支', shape: 'square', color: '#ffffff', text: '' },
+        };
+
+        // 检查 sourceId 是否属于任何动态分组，若是则将新节点也加入分组
+        const updatedNodes = nds.map((node) => {
+          if (node.type === 'groupNode') {
+            const childIds = (node.data.childIds as string[]) || [];
+            if (childIds.includes(sourceId)) {
+              return {
+                ...node,
+                data: { ...node.data, childIds: [...childIds, newId] },
+              };
+            }
+          }
+          return node;
+        });
+
+        return [...updatedNodes, newNode];
+      });
+
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `e-${sourceId}-${newId}`,
+          source: sourceId,
+          sourceHandle: side,
+          target: newId,
+          targetHandle,
+        },
+      ]);
+    },
+    [setNodes, setEdges],
+  );
 
   const addNewShape = (shape: 'square' | 'diamond' | 'rounded-rectangle') => {
     const center = getCenterPosition();
@@ -2491,7 +3025,9 @@ export function StoryEditor() {
     let newY = center.y - 100;
 
     const isOccupied = (x: number, y: number, currentNodes: Node[]) => {
-      return currentNodes.some(n => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
+      return currentNodes.some(
+        (n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50,
+      );
     };
 
     let attempts = 0;
@@ -2512,7 +3048,7 @@ export function StoryEditor() {
         title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',
         shape,
         color: '#ffffff',
-        text: ""
+        text: '',
       },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -2559,11 +3095,11 @@ export function StoryEditor() {
         color: '#334155',
         fontFamily: 'system-ui, sans-serif',
         isBold: false,
-        initialEditing: true
+        initialEditing: true,
       },
       style: { width: 200, height: 60 },
     };
-    setNodes((nds) => [...nds.map(n => ({ ...n, selected: false })), newNode]);
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
   };
 
   const addNewSummaryNode = () => {
@@ -2645,7 +3181,7 @@ export function StoryEditor() {
     const center = getCenterPosition();
     const fileArray = Array.from(files);
 
-    // 使用 Promise.all 处理所有文件，确保顺序和状态同步    
+    // 使用 Promise.all 处理所有文件，确保顺序和状态同步
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
       const url = URL.createObjectURL(file);
@@ -2682,8 +3218,8 @@ export function StoryEditor() {
         id: newId,
         type: 'storyNode',
         position: {
-          x: center.x - displayWidth / 2 + (i * 30),
-          y: center.y - displayHeight / 2 + (i * 30)
+          x: center.x - displayWidth / 2 + i * 30,
+          y: center.y - displayHeight / 2 + i * 30,
         },
         style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
         data: {
@@ -2691,9 +3227,9 @@ export function StoryEditor() {
           title: title,
           shape: 'square',
           color: '#ffffff',
-          text: "",
+          text: '',
           titleHeightAdded: showTitles,
-          ...mediaData
+          ...mediaData,
         },
       };
       setNodes((nds) => [...nds, newNode]);
@@ -2701,7 +3237,6 @@ export function StoryEditor() {
 
     e.target.value = ''; // Reset input
   };
-
 
   const handleExportAll = () => {
     const text = exportPaths(nodes as any, edges);
@@ -2740,7 +3275,7 @@ export function StoryEditor() {
         const resp = await fetch(url);
         return await resp.blob();
       } catch (e) {
-        console.error("Failed to fetch blob URL", e);
+        console.error('Failed to fetch blob URL', e);
         return null;
       }
     }
@@ -2748,7 +3283,12 @@ export function StoryEditor() {
   };
 
   // Helper: Process HTML text to extract inline media
-  const processHtmlMedia = async (html: string, zip: JSZip, assetsFolder: JSZip | null, nodeId: string) => {
+  const processHtmlMedia = async (
+    html: string,
+    zip: JSZip,
+    assetsFolder: JSZip | null,
+    nodeId: string,
+  ) => {
     if (!html) return html;
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -2783,7 +3323,7 @@ export function StoryEditor() {
       if (src && src.startsWith('assets/')) {
         const assetFile = zip.file(src);
         if (assetFile) {
-          const blob = await assetFile.async("blob");
+          const blob = await assetFile.async('blob');
           el.setAttribute('src', URL.createObjectURL(blob));
         }
       }
@@ -2795,41 +3335,53 @@ export function StoryEditor() {
     try {
       const zip = new JSZip();
       const projectData = JSON.parse(getProjectSnapshot());
-      const assetsFolder = zip.folder("assets");
+      const assetsFolder = zip.folder('assets');
 
       // Process nodes to extract media
-      const processedNodes = await Promise.all(projectData.nodes.map(async (node: any) => {
-        const newNode = { ...node, data: { ...node.data } };
-        const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
+      const processedNodes = await Promise.all(
+        projectData.nodes.map(async (node: any) => {
+          const newNode = { ...node, data: { ...node.data } };
+          const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
 
-        for (const field of mediaFields) {
-          const value = newNode.data[field];
-          if (value && (value.startsWith('data:') || value.startsWith('blob:'))) {
-            const blob = await urlToBlob(value);
-            if (blob) {
-              const extension = blob.type.split('/')[1] || 'bin';
-              const fileName = `media_${node.id}_${field}.${extension}`;
-              assetsFolder?.file(fileName, blob);
-              newNode.data[field] = `assets/${fileName}`;
+          for (const field of mediaFields) {
+            const value = newNode.data[field];
+            if (value && (value.startsWith('data:') || value.startsWith('blob:'))) {
+              const blob = await urlToBlob(value);
+              if (blob) {
+                const extension = blob.type.split('/')[1] || 'bin';
+                const fileName = `media_${node.id}_${field}.${extension}`;
+                assetsFolder?.file(fileName, blob);
+                newNode.data[field] = `assets/${fileName}`;
+              }
             }
           }
-        }
 
-        // 2. Process inline media in HTML text
-        if (newNode.data.text) {
-          newNode.data.text = await processHtmlMedia(newNode.data.text, zip, assetsFolder, node.id);
-        }
-        if (newNode.data.content) {
-          newNode.data.content = await processHtmlMedia(newNode.data.content, zip, assetsFolder, node.id);
-        }
+          // 2. Process inline media in HTML text
+          if (newNode.data.text) {
+            newNode.data.text = await processHtmlMedia(
+              newNode.data.text,
+              zip,
+              assetsFolder,
+              node.id,
+            );
+          }
+          if (newNode.data.content) {
+            newNode.data.content = await processHtmlMedia(
+              newNode.data.content,
+              zip,
+              assetsFolder,
+              node.id,
+            );
+          }
 
-        return newNode;
-      }));
+          return newNode;
+        }),
+      );
 
       projectData.nodes = processedNodes;
-      zip.file("project.json", JSON.stringify(projectData, null, 2));
+      zip.file('project.json', JSON.stringify(projectData, null, 2));
 
-      const content = await zip.generateAsync({ type: "blob" });
+      const content = await zip.generateAsync({ type: 'blob' });
       const fileName = saveFileName.endsWith('.zip') ? saveFileName : `${saveFileName}.zip`;
 
       const url = URL.createObjectURL(content);
@@ -2848,7 +3400,7 @@ export function StoryEditor() {
 
       showToast(language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP');
     } catch (error: any) {
-      console.error("Export failed:", error);
+      console.error('Export failed:', error);
       alert(language === 'zh' ? `导出失败: ${error.message}` : `Export failed: ${error.message}`);
     }
   };
@@ -2858,10 +3410,12 @@ export function StoryEditor() {
 
   // NOTE: 批量操作逻辑 - 动态包裹（新设计）
   const wrapWithDynamicGroup = useCallback(() => {
-    const selected = nodes.filter(n => n.selected && n.type !== 'backgroundNode' && n.type !== 'groupNode');
+    const selected = nodes.filter(
+      (n) => n.selected && n.type !== 'backgroundNode' && n.type !== 'groupNode',
+    );
     if (selected.length === 0) return;
 
-    const childIds = selected.map(n => n.id);
+    const childIds = selected.map((n) => n.id);
     const newId = uuidv4();
 
     // 初始位置和大小由后续useEffect 自动计算，这里给个大
@@ -2875,16 +3429,22 @@ export function StoryEditor() {
       style: { width: 100, height: 100, zIndex: -2 },
     };
 
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), { ...newNode, selected: true }]);
+    setNodes((nds) => [
+      ...nds.map((n) => ({ ...n, selected: false })),
+      { ...newNode, selected: true },
+    ]);
   }, [nodes, setNodes, t.dynamicWrap]);
 
   // NOTE: 批量操作逻辑 - 静态背景卡片（取代原逻辑）
   const wrapSelectedWithBackground = useCallback(() => {
-    const selected = nodes.filter(n => n.selected);
+    const selected = nodes.filter((n) => n.selected);
     if (selected.length === 0) return;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    selected.forEach(n => {
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    selected.forEach((n) => {
       const { x, y } = n.position;
       const w = n.measured?.width || 300;
       const h = n.measured?.height || 200;
@@ -2901,19 +3461,21 @@ export function StoryEditor() {
       type: 'backgroundNode',
       position: { x: minX - padding, y: minY - padding },
       dragHandle: '.custom-drag-handle',
-      style: { width: (maxX - minX) + padding * 2, height: (maxY - minY) + padding * 2, zIndex: -3 },
+      style: { width: maxX - minX + padding * 2, height: maxY - minY + padding * 2, zIndex: -3 },
       data: { id: newId, title: t.bgCard, color: '#f1f5f9' },
     };
 
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), newNode]);
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
   }, [nodes, setNodes, t.bgCard]);
 
   const connectSelectedToAIHub = useCallback(() => {
-    const selected = nodes.filter(n => n.selected && n.type !== 'backgroundNode');
+    const selected = nodes.filter((n) => n.selected && n.type !== 'backgroundNode');
     if (selected.length === 0) return;
 
-    let maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    selected.forEach(n => {
+    let maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    selected.forEach((n) => {
       const { x, y } = n.position;
       const w = n.measured?.width || 300;
       const h = n.measured?.height || 200;
@@ -2931,28 +3493,33 @@ export function StoryEditor() {
       type: 'aiNode',
       position: { x: hubX, y: hubY },
       data: {
-        id: newId, title: 'AI 汇总分析',
+        id: newId,
+        title: 'AI 汇总分析',
       },
       style: { width: 220, height: 100 },
     };
 
-    const newEdges = selected.map(n => ({
+    const newEdges = selected.map((n) => ({
       id: `e-${n.id}-${newId}`,
       source: n.id,
       target: newId,
-      type: 'customEdge'
+      type: 'customEdge',
     }));
 
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), newNode]);
-    setEdges(eds => [...eds, ...newEdges]);
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
+    setEdges((eds) => [...eds, ...newEdges]);
   }, [nodes, setNodes, setEdges]);
 
   const connectSelectedToSummaryNode = useCallback(() => {
-    const selected = nodes.filter(n => n.selected && n.type !== 'backgroundNode' && n.type !== 'summaryNode');
+    const selected = nodes.filter(
+      (n) => n.selected && n.type !== 'backgroundNode' && n.type !== 'summaryNode',
+    );
     if (selected.length === 0) return;
 
-    let maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    selected.forEach(n => {
+    let maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    selected.forEach((n) => {
       const { x, y } = n.position;
       const w = n.measured?.width || 300;
       const h = n.measured?.height || 200;
@@ -2972,15 +3539,15 @@ export function StoryEditor() {
       data: { id: newId },
     };
 
-    const newEdges = selected.map(n => ({
+    const newEdges = selected.map((n) => ({
       id: `e-${n.id}-${newId}`,
       source: n.id,
       target: newId,
-      type: 'customEdge'
+      type: 'customEdge',
     }));
 
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), newNode]);
-    setEdges(eds => [...eds, ...newEdges]);
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
+    setEdges((eds) => [...eds, ...newEdges]);
   }, [nodes, setNodes, setEdges]);
 
   const handleImportZIP = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2988,7 +3555,7 @@ export function StoryEditor() {
     if (!file) return;
 
     if (isDirty) {
-      if (!window.confirm("当前项目有未保存的更改，导入新文件将覆盖当前内容。确定要继续吗？")) {
+      if (!window.confirm('当前项目有未保存的更改，导入新文件将覆盖当前内容。确定要继续吗？')) {
         e.target.value = '';
         return;
       }
@@ -3005,50 +3572,52 @@ export function StoryEditor() {
       } else {
         // New ZIP support
         zip = await JSZip.loadAsync(file);
-        const projectJsonFile = zip.file("project.json");
-        if (!projectJsonFile) throw new Error("Invalid project: project.json not found");
-        const projectJsonStr = await projectJsonFile.async("string");
+        const projectJsonFile = zip.file('project.json');
+        if (!projectJsonFile) throw new Error('Invalid project: project.json not found');
+        const projectJsonStr = await projectJsonFile.async('string');
         data = JSON.parse(projectJsonStr);
       }
 
       if (data.nodes && data.edges) {
         // Restore media URLs
-        const restoredNodes = await Promise.all(data.nodes.map(async (node: any) => {
-          const newNode = {
-            ...node,
-            data: { ...node.data },
-            dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle
-          };
+        const restoredNodes = await Promise.all(
+          data.nodes.map(async (node: any) => {
+            const newNode = {
+              ...node,
+              data: { ...node.data },
+              dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
+            };
 
-          const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
-          for (const field of mediaFields) {
-            const value = newNode.data[field];
-            if (value && value.startsWith('assets/') && zip) {
-              const assetFile = zip.file(value);
-              if (assetFile) {
-                const blob = await assetFile.async("blob");
-                newNode.data[field] = URL.createObjectURL(blob);
+            const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
+            for (const field of mediaFields) {
+              const value = newNode.data[field];
+              if (value && value.startsWith('assets/') && zip) {
+                const assetFile = zip.file(value);
+                if (assetFile) {
+                  const blob = await assetFile.async('blob');
+                  newNode.data[field] = URL.createObjectURL(blob);
+                }
               }
             }
-          }
 
-          // 2. Restore inline media in HTML text
-          if (newNode.data.text) {
-            newNode.data.text = await restoreHtmlMedia(newNode.data.text, zip);
-          }
-          if (newNode.data.content) {
-            newNode.data.content = await restoreHtmlMedia(newNode.data.content, zip);
-          }
+            // 2. Restore inline media in HTML text
+            if (newNode.data.text) {
+              newNode.data.text = await restoreHtmlMedia(newNode.data.text, zip);
+            }
+            if (newNode.data.content) {
+              newNode.data.content = await restoreHtmlMedia(newNode.data.content, zip);
+            }
 
-          return newNode;
-        }));
+            return newNode;
+          }),
+        );
 
         setNodes(restoredNodes);
         const restoredEdges = data.edges.map((edge: any) => ({
           ...edge,
           type: 'customEdge',
           markerEnd: defaultEdgeOptions.markerEnd,
-          style: defaultEdgeOptions.style
+          style: defaultEdgeOptions.style,
         }));
         setEdges(restoredEdges);
 
@@ -3057,8 +3626,10 @@ export function StoryEditor() {
           if (data.settings.canvasBg) setCanvasBg(data.settings.canvasBg);
           if (data.settings.edgeStyle) setEdgeStyle(data.settings.edgeStyle);
           if (data.settings.customApiKey) setCustomApiKey(data.settings.customApiKey);
-          if (data.settings.pasteAsPlainText !== undefined) setPasteAsPlainText(data.settings.pasteAsPlainText);
-          if (data.settings.showNodeActions !== undefined) setShowNodeActions(data.settings.showNodeActions);
+          if (data.settings.pasteAsPlainText !== undefined)
+            setPasteAsPlainText(data.settings.pasteAsPlainText);
+          if (data.settings.showNodeActions !== undefined)
+            setShowNodeActions(data.settings.showNodeActions);
           if (data.settings.showStats !== undefined) setShowStats(data.settings.showStats);
           if (data.settings.presetColors) setPresetColors(data.settings.presetColors);
           if (data.settings.showTitles !== undefined) setShowTitles(data.settings.showTitles);
@@ -3074,198 +3645,271 @@ export function StoryEditor() {
           if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
           if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
           if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
-          if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao') setTtsProvider(data.settings.ttsProvider);
+          if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao')
+            setTtsProvider(data.settings.ttsProvider);
           if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
-          if (data.settings.aiPrompts) setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
-          if (data.settings.aiButtonsConfig) setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
+          if (data.settings.aiPrompts)
+            setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
+          if (data.settings.aiButtonsConfig)
+            setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
           if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
-          if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
+          if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right')
+            setMiniMapPosition(data.settings.miniMapPosition);
           if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
-          if (typeof data.settings.projectTitle === 'string') setProjectTitle(data.settings.projectTitle);
+          if (typeof data.settings.projectTitle === 'string')
+            setProjectTitle(data.settings.projectTitle);
           if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-          if (data.settings.toolbarLayout === 'horizontal' || data.settings.toolbarLayout === 'vertical') setToolbarLayout(data.settings.toolbarLayout);
-          if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
+          if (
+            data.settings.toolbarLayout === 'horizontal' ||
+            data.settings.toolbarLayout === 'vertical'
+          )
+            setToolbarLayout(data.settings.toolbarLayout);
+          if (data.settings.selectionMenuLayout)
+            setSelectionMenuLayout(data.settings.selectionMenuLayout);
           if (data.settings.language) setLanguage(data.settings.language);
           if (data.settings.theme) setTheme(data.settings.theme);
-          if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat') setBubbleStyle(data.settings.bubbleStyle);
-          if (data.settings.playTestDarkMode !== undefined) setPlayTestDarkMode(data.settings.playTestDarkMode);
-          if (data.settings.playTestChoicesColumns !== undefined) setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
-          if (data.settings.playTestVideoAutoPlay !== undefined) setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
-          if (data.settings.playTestLayoutMode) setPlayTestLayoutMode(data.settings.playTestLayoutMode);
+          if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat')
+            setBubbleStyle(data.settings.bubbleStyle);
+          if (data.settings.playTestDarkMode !== undefined)
+            setPlayTestDarkMode(data.settings.playTestDarkMode);
+          if (data.settings.playTestChoicesColumns !== undefined)
+            setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
+          if (data.settings.playTestVideoAutoPlay !== undefined)
+            setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
+          if (data.settings.playTestLayoutMode)
+            setPlayTestLayoutMode(data.settings.playTestLayoutMode);
 
-          if (data.settings.playTestInteractionMode) setPlayTestInteractionMode(data.settings.playTestInteractionMode);
-          if (data.settings.playTestTypewriterSpeed !== undefined) setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
-          if (data.settings.playTestChoiceDelay !== undefined) setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
-          if (data.settings.playTestChoicesPosition) setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
-          if (data.settings.playTestBlurBackground !== undefined) setPlayTestBlurBackground(data.settings.playTestBlurBackground);
-          if (data.settings.playTestBlurText !== undefined) setPlayTestBlurText(data.settings.playTestBlurText);
-          if (data.settings.playTestSkipSingleChoicePopup !== undefined) setPlayTestSkipSingleChoicePopup(data.settings.playTestSkipSingleChoicePopup);
-          if (data.settings.playTestDimBackground !== undefined) setPlayTestDimBackground(data.settings.playTestDimBackground);
+          if (data.settings.playTestInteractionMode)
+            setPlayTestInteractionMode(data.settings.playTestInteractionMode);
+          if (data.settings.playTestTypewriterSpeed !== undefined)
+            setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
+          if (data.settings.playTestChoiceDelay !== undefined)
+            setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
+          if (data.settings.playTestChoicesPosition)
+            setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
+          if (data.settings.playTestBlurBackground !== undefined)
+            setPlayTestBlurBackground(data.settings.playTestBlurBackground);
+          if (data.settings.playTestBlurText !== undefined)
+            setPlayTestBlurText(data.settings.playTestBlurText);
+          if (data.settings.playTestSkipSingleChoicePopup !== undefined)
+            setPlayTestSkipSingleChoicePopup(data.settings.playTestSkipSingleChoicePopup);
+          if (data.settings.playTestDimBackground !== undefined)
+            setPlayTestDimBackground(data.settings.playTestDimBackground);
         }
 
         lastSavedSnapshot.current = JSON.stringify(data);
         setIsDirty(false);
       }
     } catch (error) {
-      console.error("Import failed:", error);
-      alert("Failed to load project. The file is corrupted or invalid.");
+      console.error('Import failed:', error);
+      alert('Failed to load project. The file is corrupted or invalid.');
     }
     e.target.value = '';
   };
 
-  const handleEdgeDelete = useCallback((edgeId: string) => {
-    setEdges(eds => eds.filter(e => e.id !== edgeId));
-  }, [setEdges]);
+  const handleEdgeDelete = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+    },
+    [setEdges],
+  );
 
-  const toggleStorylineHighlight = useCallback((nodeId: string | null) => {
-    if (!nodeId || (highlightedPath && nodes.find(n => n.id === nodeId)?.selected && highlightedPath.nodes.has(nodeId))) {
-      setHighlightedPath(null);
-      return;
-    }
+  const toggleStorylineHighlight = useCallback(
+    (nodeId: string | null) => {
+      if (
+        !nodeId ||
+        (highlightedPath &&
+          nodes.find((n) => n.id === nodeId)?.selected &&
+          highlightedPath.nodes.has(nodeId))
+      ) {
+        setHighlightedPath(null);
+        return;
+      }
 
-    const pathNodes = new Set<string>();
-    const pathEdges = new Set<string>();
+      const pathNodes = new Set<string>();
+      const pathEdges = new Set<string>();
 
-    const traceUp = (id: string) => {
-      if (pathNodes.has(id)) return;
-      pathNodes.add(id);
-      edges.forEach(e => {
-        if (e.target === id) {
-          pathEdges.add(e.id);
-          traceUp(e.source);
-        }
-      });
-    };
-
-    const traceDown = (id: string) => {
-      const visited = new Set<string>();
-      const queue = [id];
-      pathNodes.add(id);
-
-      while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        if (visited.has(currentId)) continue;
-        visited.add(currentId);
-        pathNodes.add(currentId);
-
-        edges.forEach(e => {
-          if (e.source === currentId) {
+      const traceUp = (id: string) => {
+        if (pathNodes.has(id)) return;
+        pathNodes.add(id);
+        edges.forEach((e) => {
+          if (e.target === id) {
             pathEdges.add(e.id);
-            if (!visited.has(e.target)) {
-              queue.push(e.target);
-            }
+            traceUp(e.source);
           }
         });
-      }
-    };
+      };
 
-    traceUp(nodeId);
-    traceDown(nodeId);
+      const traceDown = (id: string) => {
+        const visited = new Set<string>();
+        const queue = [id];
+        pathNodes.add(id);
 
-    setHighlightedPath({ nodes: pathNodes, edges: pathEdges });
-    showToast(language === 'zh' ? '已追踪当前故事线' : 'Storyline traced');
-  }, [nodes, edges, highlightedPath, language, showToast]);
+        while (queue.length > 0) {
+          const currentId = queue.shift()!;
+          if (visited.has(currentId)) continue;
+          visited.add(currentId);
+          pathNodes.add(currentId);
+
+          edges.forEach((e) => {
+            if (e.source === currentId) {
+              pathEdges.add(e.id);
+              if (!visited.has(e.target)) {
+                queue.push(e.target);
+              }
+            }
+          });
+        }
+      };
+
+      traceUp(nodeId);
+      traceDown(nodeId);
+
+      setHighlightedPath({ nodes: pathNodes, edges: pathEdges });
+      showToast(language === 'zh' ? '已追踪当前故事线' : 'Storyline traced');
+    },
+    [nodes, edges, highlightedPath, language, showToast],
+  );
 
   const unhideAllNodes = useCallback(() => {
-    setNodes(nds => nds.map(n => ({
-      ...n,
-      data: { ...n.data, hidden: false }
-    })));
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, hidden: false },
+      })),
+    );
     showToast(language === 'zh' ? '已恢复所有隐藏卡片' : 'All cards restored');
   }, [setNodes, language, showToast]);
 
   // NOTE: 获取人物设定上下文
-  const buildCharacterContext = useCallback((nodeId: string): string => {
-    const globalCharacters = nodes.filter(n => n.type === 'characterNode' && n.data?.isGlobal !== false);
+  const buildCharacterContext = useCallback(
+    (nodeId: string): string => {
+      const globalCharacters = nodes.filter(
+        (n) => n.type === 'characterNode' && n.data?.isGlobal !== false,
+      );
 
-    const pathNodes = new Set<string>();
-    let currentId: string | null = nodeId;
-    while (currentId && !pathNodes.has(currentId)) {
-      pathNodes.add(currentId);
-      const incomingEdge = edges.find(e => e.target === currentId);
-      currentId = incomingEdge ? incomingEdge.source : null;
-    }
+      const pathNodes = new Set<string>();
+      let currentId: string | null = nodeId;
+      while (currentId && !pathNodes.has(currentId)) {
+        pathNodes.add(currentId);
+        const incomingEdge = edges.find((e) => e.target === currentId);
+        currentId = incomingEdge ? incomingEdge.source : null;
+      }
 
-    const linkedCharacters = nodes.filter(n =>
-      n.type === 'characterNode' &&
-      n.data?.isGlobal === false &&
-      edges.some(e => e.source === n.id && pathNodes.has(e.target))
-    );
+      const linkedCharacters = nodes.filter(
+        (n) =>
+          n.type === 'characterNode' &&
+          n.data?.isGlobal === false &&
+          edges.some((e) => e.source === n.id && pathNodes.has(e.target)),
+      );
 
-    const activeChars = Array.from(new Set([...globalCharacters, ...linkedCharacters]));
-    if (activeChars.length === 0) return '';
+      const activeChars = Array.from(new Set([...globalCharacters, ...linkedCharacters]));
+      if (activeChars.length === 0) return '';
 
-    return "\n【已知角色设定】\n" + activeChars.map(c =>
-      `角色：${c.data.characterName || '未命名'}\n设定：${formatCharacterNodeText(c.data as Record<string, unknown>)}`
-    ).join("\n---\n") + "\n";
-  }, [nodes, edges]);
+      return (
+        '\n【已知角色设定】\n' +
+        activeChars
+          .map(
+            (c) =>
+              `角色：${c.data.characterName || '未命名'}\n设定：${formatCharacterNodeText(c.data as Record<string, unknown>)}`,
+          )
+          .join('\n---\n') +
+        '\n'
+      );
+    },
+    [nodes, edges],
+  );
 
   // NOTE: 获取场景设定上下文
-  const buildSceneContext = useCallback((nodeId: string): string => {
-    const globalScenes = nodes.filter(n => n.type === 'sceneNode' && n.data?.isGlobal !== false);
+  const buildSceneContext = useCallback(
+    (nodeId: string): string => {
+      const globalScenes = nodes.filter(
+        (n) => n.type === 'sceneNode' && n.data?.isGlobal !== false,
+      );
 
-    const pathNodes = new Set<string>();
-    let currentId: string | null = nodeId;
-    while (currentId && !pathNodes.has(currentId)) {
-      pathNodes.add(currentId);
-      const incomingEdge = edges.find(e => e.target === currentId);
-      currentId = incomingEdge ? incomingEdge.source : null;
-    }
+      const pathNodes = new Set<string>();
+      let currentId: string | null = nodeId;
+      while (currentId && !pathNodes.has(currentId)) {
+        pathNodes.add(currentId);
+        const incomingEdge = edges.find((e) => e.target === currentId);
+        currentId = incomingEdge ? incomingEdge.source : null;
+      }
 
-    const linkedScenes = nodes.filter(n =>
-      n.type === 'sceneNode' &&
-      n.data?.isGlobal === false &&
-      edges.some(e => e.source === n.id && pathNodes.has(e.target))
-    );
+      const linkedScenes = nodes.filter(
+        (n) =>
+          n.type === 'sceneNode' &&
+          n.data?.isGlobal === false &&
+          edges.some((e) => e.source === n.id && pathNodes.has(e.target)),
+      );
 
-    const activeScenes = Array.from(new Set([...globalScenes, ...linkedScenes]));
-    if (activeScenes.length === 0) return '';
+      const activeScenes = Array.from(new Set([...globalScenes, ...linkedScenes]));
+      if (activeScenes.length === 0) return '';
 
-    return "\n【已知场景设定】\n" + activeScenes.map(s =>
-      `场景：${s.data.sceneName || '未命名'}\n设定：${formatSceneNodeText(s.data as Record<string, unknown>)}`
-    ).join("\n---\n") + "\n";
-  }, [nodes, edges]);
+      return (
+        '\n【已知场景设定】\n' +
+        activeScenes
+          .map(
+            (s) =>
+              `场景：${s.data.sceneName || '未命名'}\n设定：${formatSceneNodeText(s.data as Record<string, unknown>)}`,
+          )
+          .join('\n---\n') +
+        '\n'
+      );
+    },
+    [nodes, edges],
+  );
 
   // NOTE: 构建前文上下文，沿边向上追溯父节点文本
-  const buildContextText = useCallback((nodeId: string): string => {
-    let currentId: string | null = nodeId;
-    const pathHistory: string[] = [];
-    const visited = new Set<string>();
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      const incomingEdge = edges.find(e => e.target === currentId);
-      const parentNode = incomingEdge ? nodes.find(n => n.id === incomingEdge.source) : null;
-      if (parentNode && parentNode.type === 'storyNode') {
-        const label = incomingEdge?.data?.label ? `[选择: ${incomingEdge.data.label}]` : '';
-        pathHistory.unshift(`${parentNode.data.text} ${label}`);
+  const buildContextText = useCallback(
+    (nodeId: string): string => {
+      let currentId: string | null = nodeId;
+      const pathHistory: string[] = [];
+      const visited = new Set<string>();
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const incomingEdge = edges.find((e) => e.target === currentId);
+        const parentNode = incomingEdge ? nodes.find((n) => n.id === incomingEdge.source) : null;
+        if (parentNode && parentNode.type === 'storyNode') {
+          const label = incomingEdge?.data?.label ? `[选择: ${incomingEdge.data.label}]` : '';
+          pathHistory.unshift(`${parentNode.data.text} ${label}`);
+        }
+        currentId = parentNode ? parentNode.id : null;
       }
-      currentId = parentNode ? parentNode.id : null;
-    }
-    return pathHistory.join('\n\n');
-  }, [nodes, edges]);
+      return pathHistory.join('\n\n');
+    },
+    [nodes, edges],
+  );
 
   // NOTE: 根据 action 类型生成不同的中文提示词
-  const buildPrompt = useCallback((action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only', contextText: string, currentText: string, nextText?: string): string => {
-    let base = aiPrompts.basePrompt
-      .replace('{{contextText}}', contextText || '')
-      .replace('{{currentText}}', currentText || '');
-
-    let specificPrompt = '';
-    if (action === 'continue') specificPrompt = aiPrompts.continue;
-    else if (action === 'creative') specificPrompt = aiPrompts.creative;
-    else if (action === 'rewrite') specificPrompt = aiPrompts.rewrite;
-    else if (action === 'scene_only') specificPrompt = aiPrompts.sceneOnly;
-    else if (action === 'dialogue_only') specificPrompt = aiPrompts.dialogueOnly;
-    else if (action === 'interpolate') {
-      specificPrompt = aiPrompts.interpolate
+  const buildPrompt = useCallback(
+    (
+      action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only',
+      contextText: string,
+      currentText: string,
+      nextText?: string,
+    ): string => {
+      const base = aiPrompts.basePrompt
         .replace('{{contextText}}', contextText || '')
-        .replace('{{currentText}}', currentText || '')
-        .replace('{{nextText}}', nextText || '');
-      return specificPrompt.replace('{{generateLength}}', generateLength);
-    }
+        .replace('{{currentText}}', currentText || '');
 
-    return base + specificPrompt.replace('{{generateLength}}', generateLength);
-  }, [aiPrompts, generateLength]);
+      let specificPrompt = '';
+      if (action === 'continue') specificPrompt = aiPrompts.continue;
+      else if (action === 'creative') specificPrompt = aiPrompts.creative;
+      else if (action === 'rewrite') specificPrompt = aiPrompts.rewrite;
+      else if (action === 'scene_only') specificPrompt = aiPrompts.sceneOnly;
+      else if (action === 'dialogue_only') specificPrompt = aiPrompts.dialogueOnly;
+      else if (action === 'interpolate') {
+        specificPrompt = aiPrompts.interpolate
+          .replace('{{contextText}}', contextText || '')
+          .replace('{{currentText}}', currentText || '')
+          .replace('{{nextText}}', nextText || '');
+        return specificPrompt.replace('{{generateLength}}', generateLength);
+      }
+
+      return base + specificPrompt.replace('{{generateLength}}', generateLength);
+    },
+    [aiPrompts, generateLength],
+  );
 
   // NOTE: 用户点击AI按钮时先弹出选项弹窗
   const handleAIButtonClick = useCallback((nodeId: string) => {
@@ -3274,7 +3918,11 @@ export function StoryEditor() {
   }, []);
 
   // NOTE: 调用后端 PHP 代理接口
-  const callAIProxy = async (provider: 'gemini' | 'deepseek', prompt: string, options: any) => {
+  const callAIProxy = async (
+    provider: 'gemini' | 'deepseek' | 'openai',
+    prompt: string,
+    options: any,
+  ) => {
     let response;
     try {
       response = await fetch('./api/proxy.php', {
@@ -3290,7 +3938,9 @@ export function StoryEditor() {
     try {
       data = await response.json();
     } catch (e) {
-      throw new Error(`代理接口返回了无效格式(HTTP ${response.status})。请检查?./api/proxy.php 是否存在。`);
+      throw new Error(
+        `代理接口返回了无效格式(HTTP ${response.status})。请检查?./api/proxy.php 是否存在。`,
+      );
     }
 
     if (!response.ok || data.error) {
@@ -3300,38 +3950,150 @@ export function StoryEditor() {
   };
 
   // NOTE: 用户在弹窗中选择操作后执行AI生成
-  const handleAIGenerate = useCallback(async (nodeId: string, action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only') => {
-    const targetNode = nodes.find(n => n.id === nodeId);
-    if (!targetNode) return;
+  const handleAIGenerate = useCallback(
+    async (
+      nodeId: string,
+      action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only',
+    ) => {
+      const targetNode = nodes.find((n) => n.id === nodeId);
+      if (!targetNode) return;
 
-    setShowAIActionModal(false);
-    setPendingAINodeId(null);
-    setAiLoadingNodeId(nodeId);
+      setShowAIActionModal(false);
+      setPendingAINodeId(null);
+      setAiLoadingNodeId(nodeId);
 
-    try {
-      const contextText = buildContextText(nodeId);
-      const charContext = buildCharacterContext(nodeId);
-      const sceneContext = buildSceneContext(nodeId);
-      const currentText = (targetNode.data.text as string || '').trim();
+      try {
+        const contextText = buildContextText(nodeId);
+        const charContext = buildCharacterContext(nodeId);
+        const sceneContext = buildSceneContext(nodeId);
+        const currentText = ((targetNode.data.text as string) || '').trim();
 
-      let nextText = '';
-      if (action === 'interpolate') {
-        const outgoingEdges = edges.filter(e => e.source === nodeId);
-        const children = outgoingEdges.map(e => nodes.find(n => n.id === e.target)).filter(Boolean);
-        nextText = children.map(c => c?.data.text).join('\n\n---\n\n');
+        let nextText = '';
+        if (action === 'interpolate') {
+          const outgoingEdges = edges.filter((e) => e.source === nodeId);
+          const children = outgoingEdges
+            .map((e) => nodes.find((n) => n.id === e.target))
+            .filter(Boolean);
+          nextText = children.map((c) => c?.data.text).join('\n\n---\n\n');
+        }
+
+        // Inject character & scene context into contextText
+        const settingContext = [charContext, sceneContext].filter(Boolean).join('\n');
+        const finalContextText = settingContext
+          ? `${settingContext}\n\n${contextText}`
+          : contextText;
+        const prompt = buildPrompt(action, finalContextText, currentText, nextText);
+
+        let newText = '';
+
+        if (aiProvider === 'deepseek') {
+          const key = deepseekApiKey;
+          if (key && key.trim() !== '') {
+            // 用户提供了自己的 Key，直接调用
+            const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
+            const response = await fetch('https://api.deepseek.com/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+              }),
+            });
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`DeepSeek API 错误: ${errText}`);
+            }
+            const data = await response.json();
+            const choice = data.choices?.[0];
+            const reasoning: string | null = choice?.message?.reasoning_content || null;
+            newText = choice?.message?.content || '';
+
+            if (thinkingMode && reasoning) {
+              setThinkingContent(reasoning);
+              setTimeout(() => setThinkingContent(null), 8000);
+            }
+          } else {
+            // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
+            const data = await callAIProxy('deepseek', prompt, { thinkingMode });
+            newText = data.content;
+            if (thinkingMode && data.reasoning) {
+              setThinkingContent(data.reasoning);
+              setTimeout(() => setThinkingContent(null), 8000);
+            }
+          }
+        } else if (aiProvider === 'openai') {
+          const key = openaiApiKey;
+          if (key && key.trim() !== '') {
+            const model = 'gpt-4o';
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+              }),
+            });
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`OpenAI API 错误: ${errText}`);
+            }
+            const data = await response.json();
+            newText = data.choices?.[0]?.message?.content || '';
+          } else {
+            const data = await callAIProxy('openai', prompt, {});
+            newText = data.content;
+          }
+        } else {
+          // Gemini
+          const key = customApiKey;
+          if (key && key.trim() !== '') {
+            // 用户提供了自己的 Key，直接调用
+            const { GoogleGenAI } = await import('@google/genai');
+            const ai = new GoogleGenAI({ apiKey: key });
+            const response = await ai.models.generateContent({
+              model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
+              contents: prompt,
+            });
+            newText = response.text || '';
+          } else {
+            // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
+            const data = await callAIProxy('gemini', prompt, { thinkingMode });
+            newText = data.content;
+          }
+        }
+
+        const updatedText = currentText ? `${currentText}\n\n${newText}` : newText;
+        handleUpdateNode(nodeId, { text: updatedText });
+      } catch (error: any) {
+        console.error('AI Generation failed:', error);
+        alert(`AI 生成失败: ${error.message || '请检查API 密钥和网络连接'}`);
+      } finally {
+        setAiLoadingNodeId(null);
       }
+    },
+    [
+      nodes,
+      edges,
+      aiProvider,
+      deepseekApiKey,
+      customApiKey,
+      openaiApiKey,
+      thinkingMode,
+      buildContextText,
+      buildCharacterContext,
+      buildSceneContext,
+      handleUpdateNode,
+      buildPrompt,
+    ],
+  );
 
-      // Inject character & scene context into contextText
-      const settingContext = [charContext, sceneContext].filter(Boolean).join('\n');
-      const finalContextText = settingContext ? `${settingContext}\n\n${contextText}` : contextText;
-      const prompt = buildPrompt(action, finalContextText, currentText, nextText);
-
-      let newText = '';
-
+  const callAIForTextResult = useCallback(
+    async (prompt: string): Promise<AITextResult> => {
       if (aiProvider === 'deepseek') {
         const key = deepseekApiKey;
         if (key && key.trim() !== '') {
-          // 用户提供了自己的 Key，直接调用        
           const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
           const response = await fetch('https://api.deepseek.com/chat/completions', {
             method: 'POST',
@@ -3348,31 +4110,26 @@ export function StoryEditor() {
           }
           const data = await response.json();
           const choice = data.choices?.[0];
-          const reasoning: string | null = choice?.message?.reasoning_content || null;
-          newText = choice?.message?.content || '';
-
-          if (thinkingMode && reasoning) {
-            setThinkingContent(reasoning);
-            setTimeout(() => setThinkingContent(null), 8000);
-          }
-        } else {
-          // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
-          const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-          newText = data.content;
-          if (thinkingMode && data.reasoning) {
-            setThinkingContent(data.reasoning);
-            setTimeout(() => setThinkingContent(null), 8000);
-          }
+          return {
+            content: choice?.message?.content || '',
+            reasoning: thinkingMode ? choice?.message?.reasoning_content : undefined,
+          };
         }
-      } else if (aiProvider === 'openai') {
+        const data = await callAIProxy('deepseek', prompt, { thinkingMode });
+        return {
+          content: data.content || '',
+          reasoning: thinkingMode ? data.reasoning : undefined,
+        };
+      }
+
+      if (aiProvider === 'openai') {
         const key = openaiApiKey;
         if (key && key.trim() !== '') {
-          const model = 'gpt-4o';
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
             body: JSON.stringify({
-              model,
+              model: 'gpt-4o',
               messages: [{ role: 'user', content: prompt }],
               stream: false,
             }),
@@ -3382,430 +4139,423 @@ export function StoryEditor() {
             throw new Error(`OpenAI API 错误: ${errText}`);
           }
           const data = await response.json();
-          newText = data.choices?.[0]?.message?.content || '';
-        } else {
-          const data = await callAIProxy('openai', prompt, {});
-          newText = data.content;
+          return { content: data.choices?.[0]?.message?.content || '' };
         }
-      } else {
-        // Gemini
-        const key = customApiKey;
-        if (key && key.trim() !== '') {
-          // 用户提供了自己的 Key，直接调用          
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({ apiKey: key });
-          const response = await ai.models.generateContent({
-            model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-            contents: prompt,
-          });
-          newText = response.text || '';
-        } else {
-          // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
-          const data = await callAIProxy('gemini', prompt, { thinkingMode });
-          newText = data.content;
-        }
+        const data = await callAIProxy('openai', prompt, {});
+        return { content: data.content || '' };
       }
 
-      const updatedText = currentText ? `${currentText}\n\n${newText}` : newText;
-      handleUpdateNode(nodeId, { text: updatedText });
-    } catch (error: any) {
-      console.error('AI Generation failed:', error);
-      alert(`AI 生成失败: ${error.message || '请检查API 密钥和网络连接'}`);
-    } finally {
-      setAiLoadingNodeId(null);
-    }
-  }, [nodes, edges, aiProvider, deepseekApiKey, customApiKey, openaiApiKey, thinkingMode, buildContextText, buildCharacterContext, buildSceneContext, handleUpdateNode, buildPrompt]);
-
-  const callAIForTextResult = useCallback(async (prompt: string): Promise<AITextResult> => {
-    if (aiProvider === 'deepseek') {
-      const key = deepseekApiKey;
+      const key = customApiKey;
       if (key && key.trim() !== '') {
-        const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            stream: false,
-          }),
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: key });
+        const response = await ai.models.generateContent({
+          model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
+          contents: prompt,
         });
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`DeepSeek API 错误: ${errText}`);
-        }
-        const data = await response.json();
-        const choice = data.choices?.[0];
-        return {
-          content: choice?.message?.content || '',
-          reasoning: thinkingMode ? choice?.message?.reasoning_content : undefined,
-        };
+        return { content: response.text || '' };
       }
-      const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-      return {
-        content: data.content || '',
-        reasoning: thinkingMode ? data.reasoning : undefined,
+      const data = await callAIProxy('gemini', prompt, { thinkingMode });
+      return { content: data.content || '', reasoning: thinkingMode ? data.reasoning : undefined };
+    },
+    [aiProvider, deepseekApiKey, openaiApiKey, customApiKey, thinkingMode],
+  );
+
+  const callAIForText = useCallback(
+    async (prompt: string): Promise<string> => {
+      const result = await callAIForTextResult(prompt);
+      if (thinkingMode && result.reasoning) {
+        setThinkingContent(result.reasoning);
+        setTimeout(() => setThinkingContent(null), 8000);
+      }
+      return result.content;
+    },
+    [callAIForTextResult, thinkingMode],
+  );
+
+  const createAssistantCards = useCallback(
+    (cards: AssistantCardDraft[], mode: 'append' | 'fill-selected' = 'append') => {
+      const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+      const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+        if (card.type === 'character' || card.type === 'scene' || card.type === 'story')
+          return card.type;
+        if (
+          cleanText(card.characterName) ||
+          cleanText(card.personality) ||
+          cleanText(card.features) ||
+          cleanText(card.background)
+        )
+          return 'character';
+        if (
+          cleanText(card.sceneName) ||
+          cleanText(card.location) ||
+          cleanText(card.items) ||
+          cleanText(card.atmosphere)
+        )
+          return 'scene';
+        return 'story';
       };
-    }
 
-    if (aiProvider === 'openai') {
-      const key = openaiApiKey;
-      if (key && key.trim() !== '') {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [{ role: 'user', content: prompt }],
-            stream: false,
-          }),
-        });
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`OpenAI API 错误: ${errText}`);
-        }
-        const data = await response.json();
-        return { content: data.choices?.[0]?.message?.content || '' };
-      }
-      const data = await callAIProxy('openai', prompt, {});
-      return { content: data.content || '' };
-    }
-
-    const key = customApiKey;
-    if (key && key.trim() !== '') {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: key });
-      const response = await ai.models.generateContent({
-        model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-        contents: prompt,
-      });
-      return { content: response.text || '' };
-    }
-    const data = await callAIProxy('gemini', prompt, { thinkingMode });
-    return { content: data.content || '', reasoning: thinkingMode ? data.reasoning : undefined };
-  }, [aiProvider, deepseekApiKey, openaiApiKey, customApiKey, thinkingMode]);
-
-  const callAIForText = useCallback(async (prompt: string): Promise<string> => {
-    const result = await callAIForTextResult(prompt);
-    if (thinkingMode && result.reasoning) {
-      setThinkingContent(result.reasoning);
-      setTimeout(() => setThinkingContent(null), 8000);
-    }
-    return result.content;
-  }, [callAIForTextResult, thinkingMode]);
-
-  const createAssistantCards = useCallback((cards: AssistantCardDraft[], mode: 'append' | 'fill-selected' = 'append') => {
-    const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-    const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
-      if (card.type === 'character' || card.type === 'scene' || card.type === 'story') return card.type;
-      if (cleanText(card.characterName) || cleanText(card.personality) || cleanText(card.features) || cleanText(card.background)) return 'character';
-      if (cleanText(card.sceneName) || cleanText(card.location) || cleanText(card.items) || cleanText(card.atmosphere)) return 'scene';
-      return 'story';
-    };
-
-    const validCards = cards
-      .map((card) => ({
-        ...card,
-        type: getDraftType(card),
-        title: cleanText(card.title),
-        text: cleanText(card.text),
-        characterName: cleanText(card.characterName),
-        traits: cleanText(card.traits),
-        personality: cleanText(card.personality),
-        features: cleanText(card.features),
-        background: cleanText(card.background),
-        sceneName: cleanText(card.sceneName),
-        description: cleanText(card.description),
-        location: cleanText(card.location),
-        items: cleanText(card.items),
-        atmosphere: cleanText(card.atmosphere),
-        other: cleanText(card.other),
-      }))
-      .filter((card) => {
-        if (card.type === 'character') {
-          return card.characterName || card.traits || card.personality || card.features || card.background || card.other || card.title || card.text;
-        }
-        if (card.type === 'scene') {
-          return card.sceneName || card.description || card.location || card.items || card.atmosphere || card.other || card.title || card.text;
-        }
-        return card.text || card.title;
-      });
-
-    if (validCards.length === 0) return 0;
-
-    const selectedFillTargets = nodes.filter(n =>
-      n.selected &&
-      (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode')
-    );
-    const usedDraftIndexes = new Set<number>();
-    const usedTargetIds = new Set<string>();
-    let filledCount = 0;
-
-    if (mode === 'fill-selected' && selectedFillTargets.length > 0) {
-      setNodes((nds) => nds.map((node) => {
-        if (!selectedFillTargets.some(target => target.id === node.id) || usedTargetIds.has(node.id)) return node;
-        const compatibleType =
-          node.type === 'characterNode' ? 'character' :
-            node.type === 'sceneNode' ? 'scene' :
-              'story';
-        const draftIndex = validCards.findIndex((draft, index) => draft.type === compatibleType && !usedDraftIndexes.has(index));
-        if (draftIndex === -1) return node;
-
-        const draft = validCards[draftIndex];
-        usedDraftIndexes.add(draftIndex);
-        usedTargetIds.add(node.id);
-        filledCount += 1;
-
-        if (compatibleType === 'character') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              characterName: draft.characterName || draft.title || node.data.characterName,
-              traits: draft.traits || draft.text || node.data.traits || '',
-              personality: draft.personality || node.data.personality || '',
-              features: draft.features || node.data.features || '',
-              background: draft.background || node.data.background || '',
-              other: draft.other || node.data.other || '',
-              showPersonality: !!(draft.personality || node.data.showPersonality),
-              showFeatures: !!(draft.features || node.data.showFeatures),
-              showBackground: !!(draft.background || node.data.showBackground),
-              showOther: !!(draft.other || node.data.showOther),
-            },
-          };
-        }
-
-        if (compatibleType === 'scene') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              sceneName: draft.sceneName || draft.title || node.data.sceneName,
-              description: draft.description || draft.text || node.data.description || '',
-              location: draft.location || node.data.location || '',
-              items: draft.items || node.data.items || '',
-              atmosphere: draft.atmosphere || node.data.atmosphere || '',
-              other: draft.other || node.data.other || '',
-              showLocation: !!(draft.location || node.data.showLocation),
-              showItems: !!(draft.items || node.data.showItems),
-              showAtmosphere: !!(draft.atmosphere || node.data.showAtmosphere),
-              showOther: !!(draft.other || node.data.showOther),
-            },
-          };
-        }
-
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            title: draft.title || node.data.title,
-            text: draft.text || node.data.text || '',
-          },
-        };
-      }));
-    }
-
-    const remainingCards = validCards.filter((_, index) => !usedDraftIndexes.has(index));
-    if (remainingCards.length === 0) return filledCount;
-
-    const selectedStories = nodes.filter(n => n.selected && n.type === 'storyNode');
-    const selectedTargets = selectedFillTargets.length > 0 ? selectedFillTargets : selectedStories;
-    const anchorNodes = selectedTargets.length > 0 ? selectedTargets : nodes.filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode');
-    const center = getCenterPosition();
-    const sourceNode = selectedStories[0] || null;
-    const sourceWidth = sourceNode ? (sourceNode.measured?.width || (sourceNode.style?.width as number) || 300) : 300;
-    const baseX = sourceNode
-      ? sourceNode.position.x + sourceWidth / 2 - 150
-      : center.x - 150;
-    const baseY = anchorNodes.length
-      ? Math.max(...anchorNodes.map(n => n.position.y + (n.measured?.height || (n.style?.height as number) || 220))) + 120
-      : center.y - 100;
-
-    const newNodes: Node[] = remainingCards.map((card, index) => {
-      const id = uuidv4();
-      if (card.type === 'character') {
-        return {
-          id,
-          type: 'characterNode',
-          position: { x: baseX, y: baseY + index * 420 },
-          selected: index === 0,
-          style: { width: 280, height: 420, minHeight: 420 },
-          data: {
-            id,
-            characterName: card.characterName || card.title || (language === 'zh' ? 'AI 角色' : 'AI Character'),
-            traits: card.traits || card.text || '',
-            personality: card.personality || '',
-            features: card.features || '',
-            background: card.background || '',
-            other: card.other || '',
-            showPersonality: !!card.personality,
-            showFeatures: !!card.features,
-            showBackground: !!card.background,
-            showOther: !!card.other,
-          },
-        };
-      }
-
-      if (card.type === 'scene') {
-        return {
-          id,
-          type: 'sceneNode',
-          position: { x: baseX, y: baseY + index * 420 },
-          selected: index === 0,
-          style: { width: 280, height: 420, minHeight: 420 },
-          data: {
-            id,
-            sceneName: card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene'),
-            description: card.description || card.text || '',
-            location: card.location || '',
-            items: card.items || '',
-            atmosphere: card.atmosphere || '',
-            other: card.other || '',
-            showLocation: !!card.location,
-            showItems: !!card.items,
-            showAtmosphere: !!card.atmosphere,
-            showOther: !!card.other,
-          },
-        };
-      }
-
-      return {
-        id,
-        type: 'storyNode',
-        position: { x: baseX, y: baseY + index * 280 },
-        selected: index === 0,
-        style: { width: 300, height: 200 },
-        data: {
-          id,
-          title: card.title || (language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card'),
-          text: card.text,
-          shape: 'square',
-          color: '#ffffff',
-        },
-      };
-    });
-
-    const storyNodesToLink = newNodes.filter(node => node.type === 'storyNode');
-    const newEdges: Edge[] = [];
-    if (sourceNode && storyNodesToLink[0]) {
-      newEdges.push({
-        id: `e-${sourceNode.id}-${storyNodesToLink[0].id}`,
-        source: sourceNode.id,
-        sourceHandle: 'bottom',
-        target: storyNodesToLink[0].id,
-        targetHandle: 'top',
-        type: 'customEdge',
-      });
-    }
-    for (let i = 0; i < storyNodesToLink.length - 1; i += 1) {
-      newEdges.push({
-        id: `e-${storyNodesToLink[i].id}-${storyNodesToLink[i + 1].id}`,
-        source: storyNodesToLink[i].id,
-        sourceHandle: 'bottom',
-        target: storyNodesToLink[i + 1].id,
-        targetHandle: 'top',
-        type: 'customEdge',
-      });
-    }
-
-    setNodes((nds) => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
-    if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
-    return filledCount + remainingCards.length;
-  }, [nodes, setNodes, setEdges, getCenterPosition, language]);
-
-  const playAssistantThought = useCallback((reasoning?: string) => {
-    const text = (reasoning || '').trim();
-    if (!text) return Promise.resolve();
-
-    if (assistantThoughtTimerRef.current !== null) {
-      window.clearInterval(assistantThoughtTimerRef.current);
-      assistantThoughtTimerRef.current = null;
-    }
-
-    const thoughtId = uuidv4();
-    setAssistantMessages((messages) => [
-      ...messages,
-      { id: thoughtId, role: 'thought', content: '', collapsed: false },
-    ]);
-
-    return new Promise<void>((resolve) => {
-      let index = 0;
-      assistantThoughtTimerRef.current = window.setInterval(() => {
-        index += 1;
-        const nextContent = text.slice(0, index);
-        setAssistantMessages((messages) =>
-          messages.map((message) =>
-            message.id === thoughtId
-              ? { ...message, content: nextContent, collapsed: false }
-              : message
-          )
-        );
-
-        if (index >= text.length) {
-          if (assistantThoughtTimerRef.current !== null) {
-            window.clearInterval(assistantThoughtTimerRef.current);
-            assistantThoughtTimerRef.current = null;
-          }
-          window.setTimeout(() => {
-            setAssistantMessages((messages) =>
-              messages.map((message) =>
-                message.id === thoughtId ? { ...message, collapsed: true } : message
-              )
+      const validCards = cards
+        .map((card) => ({
+          ...card,
+          type: getDraftType(card),
+          title: cleanText(card.title),
+          text: cleanText(card.text),
+          characterName: cleanText(card.characterName),
+          traits: cleanText(card.traits),
+          personality: cleanText(card.personality),
+          features: cleanText(card.features),
+          background: cleanText(card.background),
+          sceneName: cleanText(card.sceneName),
+          description: cleanText(card.description),
+          location: cleanText(card.location),
+          items: cleanText(card.items),
+          atmosphere: cleanText(card.atmosphere),
+          other: cleanText(card.other),
+        }))
+        .filter((card) => {
+          if (card.type === 'character') {
+            return (
+              card.characterName ||
+              card.traits ||
+              card.personality ||
+              card.features ||
+              card.background ||
+              card.other ||
+              card.title ||
+              card.text
             );
-            resolve();
-          }, 500);
+          }
+          if (card.type === 'scene') {
+            return (
+              card.sceneName ||
+              card.description ||
+              card.location ||
+              card.items ||
+              card.atmosphere ||
+              card.other ||
+              card.title ||
+              card.text
+            );
+          }
+          return card.text || card.title;
+        });
+
+      if (validCards.length === 0) return 0;
+
+      const selectedFillTargets = nodes.filter(
+        (n) =>
+          n.selected &&
+          (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
+      );
+      const usedDraftIndexes = new Set<number>();
+      const usedTargetIds = new Set<string>();
+      let filledCount = 0;
+
+      if (mode === 'fill-selected' && selectedFillTargets.length > 0) {
+        setNodes((nds) =>
+          nds.map((node) => {
+            if (
+              !selectedFillTargets.some((target) => target.id === node.id) ||
+              usedTargetIds.has(node.id)
+            )
+              return node;
+            const compatibleType =
+              node.type === 'characterNode'
+                ? 'character'
+                : node.type === 'sceneNode'
+                  ? 'scene'
+                  : 'story';
+            const draftIndex = validCards.findIndex(
+              (draft, index) => draft.type === compatibleType && !usedDraftIndexes.has(index),
+            );
+            if (draftIndex === -1) return node;
+
+            const draft = validCards[draftIndex];
+            usedDraftIndexes.add(draftIndex);
+            usedTargetIds.add(node.id);
+            filledCount += 1;
+
+            if (compatibleType === 'character') {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  characterName: draft.characterName || draft.title || node.data.characterName,
+                  traits: draft.traits || draft.text || node.data.traits || '',
+                  personality: draft.personality || node.data.personality || '',
+                  features: draft.features || node.data.features || '',
+                  background: draft.background || node.data.background || '',
+                  other: draft.other || node.data.other || '',
+                  showPersonality: !!(draft.personality || node.data.showPersonality),
+                  showFeatures: !!(draft.features || node.data.showFeatures),
+                  showBackground: !!(draft.background || node.data.showBackground),
+                  showOther: !!(draft.other || node.data.showOther),
+                },
+              };
+            }
+
+            if (compatibleType === 'scene') {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  sceneName: draft.sceneName || draft.title || node.data.sceneName,
+                  description: draft.description || draft.text || node.data.description || '',
+                  location: draft.location || node.data.location || '',
+                  items: draft.items || node.data.items || '',
+                  atmosphere: draft.atmosphere || node.data.atmosphere || '',
+                  other: draft.other || node.data.other || '',
+                  showLocation: !!(draft.location || node.data.showLocation),
+                  showItems: !!(draft.items || node.data.showItems),
+                  showAtmosphere: !!(draft.atmosphere || node.data.showAtmosphere),
+                  showOther: !!(draft.other || node.data.showOther),
+                },
+              };
+            }
+
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                title: draft.title || node.data.title,
+                text: draft.text || node.data.text || '',
+              },
+            };
+          }),
+        );
+      }
+
+      const remainingCards = validCards.filter((_, index) => !usedDraftIndexes.has(index));
+      if (remainingCards.length === 0) return filledCount;
+
+      const selectedStories = nodes.filter((n) => n.selected && n.type === 'storyNode');
+      const selectedTargets =
+        selectedFillTargets.length > 0 ? selectedFillTargets : selectedStories;
+      const anchorNodes =
+        selectedTargets.length > 0
+          ? selectedTargets
+          : nodes.filter(
+              (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
+            );
+      const center = getCenterPosition();
+      const sourceNode = selectedStories[0] || null;
+      const sourceWidth = sourceNode
+        ? sourceNode.measured?.width || (sourceNode.style?.width as number) || 300
+        : 300;
+      const baseX = sourceNode ? sourceNode.position.x + sourceWidth / 2 - 150 : center.x - 150;
+      const baseY = anchorNodes.length
+        ? Math.max(
+            ...anchorNodes.map(
+              (n) => n.position.y + (n.measured?.height || (n.style?.height as number) || 220),
+            ),
+          ) + 120
+        : center.y - 100;
+
+      const newNodes: Node[] = remainingCards.map((card, index) => {
+        const id = uuidv4();
+        if (card.type === 'character') {
+          return {
+            id,
+            type: 'characterNode',
+            position: { x: baseX, y: baseY + index * 420 },
+            selected: index === 0,
+            style: { width: 280, height: 420, minHeight: 420 },
+            data: {
+              id,
+              characterName:
+                card.characterName ||
+                card.title ||
+                (language === 'zh' ? 'AI 角色' : 'AI Character'),
+              traits: card.traits || card.text || '',
+              personality: card.personality || '',
+              features: card.features || '',
+              background: card.background || '',
+              other: card.other || '',
+              showPersonality: !!card.personality,
+              showFeatures: !!card.features,
+              showBackground: !!card.background,
+              showOther: !!card.other,
+            },
+          };
         }
-      }, 18);
-    });
-  }, [setAssistantMessages]);
 
-  const toggleAssistantThought = useCallback((messageId: string) => {
-    setAssistantMessages((messages) =>
-      messages.map((message) =>
-        message.id === messageId ? { ...message, collapsed: !message.collapsed } : message
-      )
-    );
-  }, [setAssistantMessages]);
+        if (card.type === 'scene') {
+          return {
+            id,
+            type: 'sceneNode',
+            position: { x: baseX, y: baseY + index * 420 },
+            selected: index === 0,
+            style: { width: 280, height: 420, minHeight: 420 },
+            data: {
+              id,
+              sceneName:
+                card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene'),
+              description: card.description || card.text || '',
+              location: card.location || '',
+              items: card.items || '',
+              atmosphere: card.atmosphere || '',
+              other: card.other || '',
+              showLocation: !!card.location,
+              showItems: !!card.items,
+              showAtmosphere: !!card.atmosphere,
+              showOther: !!card.other,
+            },
+          };
+        }
 
-  const handleAssistantSend = useCallback(async (overrideText?: string) => {
-    const userText = (overrideText ?? assistantInput).trim();
-    if (!userText || assistantLoading) return;
+        return {
+          id,
+          type: 'storyNode',
+          position: { x: baseX, y: baseY + index * 280 },
+          selected: index === 0,
+          style: { width: 300, height: 200 },
+          data: {
+            id,
+            title: card.title || (language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card'),
+            text: card.text,
+            shape: 'square',
+            color: '#ffffff',
+          },
+        };
+      });
 
-    setAssistantInput('');
-    setAssistantLoading(true);
-    const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
-    setAssistantMessages((messages) => [...messages, userMessage]);
-
-    const describeAssistantNode = (node: Node, index: number) => {
-      if (node.type === 'characterNode') {
-        return `#${index + 1} [character] ${String(node.data?.characterName || 'Unnamed Character')}\n${formatCharacterNodeText(node.data as Record<string, unknown>)}`;
+      const storyNodesToLink = newNodes.filter((node) => node.type === 'storyNode');
+      const newEdges: Edge[] = [];
+      if (sourceNode && storyNodesToLink[0]) {
+        newEdges.push({
+          id: `e-${sourceNode.id}-${storyNodesToLink[0].id}`,
+          source: sourceNode.id,
+          sourceHandle: 'bottom',
+          target: storyNodesToLink[0].id,
+          targetHandle: 'top',
+          type: 'customEdge',
+        });
       }
-      if (node.type === 'sceneNode') {
-        return `#${index + 1} [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}\n${formatSceneNodeText(node.data as Record<string, unknown>)}`;
+      for (let i = 0; i < storyNodesToLink.length - 1; i += 1) {
+        newEdges.push({
+          id: `e-${storyNodesToLink[i].id}-${storyNodesToLink[i + 1].id}`,
+          source: storyNodesToLink[i].id,
+          sourceHandle: 'bottom',
+          target: storyNodesToLink[i + 1].id,
+          targetHandle: 'top',
+          type: 'customEdge',
+        });
       }
-      return `#${index + 1} [story] ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`;
-    };
 
-    const selectedContext = selectedAssistantTargetNodes
-      .map((node, index) => describeAssistantNode(node, index))
-      .join('\n\n---\n\n');
-    const canvasContext = nodes
-      .filter(n => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode')
-      .slice(0, 20)
-      .map((node, index) => {
+      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
+      if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
+      return filledCount + remainingCards.length;
+    },
+    [nodes, setNodes, setEdges, getCenterPosition, language],
+  );
+
+  const playAssistantThought = useCallback(
+    (reasoning?: string) => {
+      const text = (reasoning || '').trim();
+      if (!text) return Promise.resolve();
+
+      if (assistantThoughtTimerRef.current !== null) {
+        window.clearInterval(assistantThoughtTimerRef.current);
+        assistantThoughtTimerRef.current = null;
+      }
+
+      const thoughtId = uuidv4();
+      setAssistantMessages((messages) => [
+        ...messages,
+        { id: thoughtId, role: 'thought', content: '', collapsed: false },
+      ]);
+
+      return new Promise<void>((resolve) => {
+        let index = 0;
+        assistantThoughtTimerRef.current = window.setInterval(() => {
+          index += 1;
+          const nextContent = text.slice(0, index);
+          setAssistantMessages((messages) =>
+            messages.map((message) =>
+              message.id === thoughtId
+                ? { ...message, content: nextContent, collapsed: false }
+                : message,
+            ),
+          );
+
+          if (index >= text.length) {
+            if (assistantThoughtTimerRef.current !== null) {
+              window.clearInterval(assistantThoughtTimerRef.current);
+              assistantThoughtTimerRef.current = null;
+            }
+            window.setTimeout(() => {
+              setAssistantMessages((messages) =>
+                messages.map((message) =>
+                  message.id === thoughtId ? { ...message, collapsed: true } : message,
+                ),
+              );
+              resolve();
+            }, 500);
+          }
+        }, 18);
+      });
+    },
+    [setAssistantMessages],
+  );
+
+  const toggleAssistantThought = useCallback(
+    (messageId: string) => {
+      setAssistantMessages((messages) =>
+        messages.map((message) =>
+          message.id === messageId ? { ...message, collapsed: !message.collapsed } : message,
+        ),
+      );
+    },
+    [setAssistantMessages],
+  );
+
+  const handleAssistantSend = useCallback(
+    async (overrideText?: string) => {
+      const userText = (overrideText ?? assistantInput).trim();
+      if (!userText || assistantLoading) return;
+
+      setAssistantInput('');
+      setAssistantLoading(true);
+      const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
+      setAssistantMessages((messages) => [...messages, userMessage]);
+
+      const describeAssistantNode = (node: Node, index: number) => {
         if (node.type === 'characterNode') {
-          return `${index + 1}. [character] ${String(node.data?.characterName || 'Unnamed Character')}: ${formatCharacterNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+          return `#${index + 1} [character] ${String(node.data?.characterName || 'Unnamed Character')}\n${formatCharacterNodeText(node.data as Record<string, unknown>)}`;
         }
         if (node.type === 'sceneNode') {
-          return `${index + 1}. [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}: ${formatSceneNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+          return `#${index + 1} [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}\n${formatSceneNodeText(node.data as Record<string, unknown>)}`;
         }
-        return `${index + 1}. [story] ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`;
-      })
-      .join('\n');
-    const wantsCards = /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(userText);
-    const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
+        return `#${index + 1} [story] ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`;
+      };
 
-    const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
+      const selectedContext = selectedAssistantTargetNodes
+        .map((node, index) => describeAssistantNode(node, index))
+        .join('\n\n---\n\n');
+      const canvasContext = nodes
+        .filter(
+          (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
+        )
+        .slice(0, 20)
+        .map((node, index) => {
+          if (node.type === 'characterNode') {
+            return `${index + 1}. [character] ${String(node.data?.characterName || 'Unnamed Character')}: ${formatCharacterNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+          }
+          if (node.type === 'sceneNode') {
+            return `${index + 1}. [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}: ${formatSceneNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
+          }
+          return `${index + 1}. [story] ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`;
+        })
+        .join('\n');
+      const wantsCards =
+        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
+          userText,
+        );
+      const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
+
+      const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
 
 必须只返回 JSON，不要使用 Markdown 代码块：
@@ -3830,46 +4580,62 @@ ${selectedContext || '无'}
 画布摘要：
 ${canvasContext || '无'}`;
 
-    try {
-      const aiResult = await callAIForTextResult(prompt);
-      await playAssistantThought(aiResult.reasoning);
-      const raw = aiResult.content;
-      const jsonText = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-      let parsed: { reply?: string; cards?: AssistantCardDraft[]; mode?: 'append' | 'fill-selected' };
       try {
-        parsed = JSON.parse(jsonText);
-      } catch {
-        parsed = { reply: raw, cards: [] };
-      }
+        const aiResult = await callAIForTextResult(prompt);
+        await playAssistantThought(aiResult.reasoning);
+        const raw = aiResult.content;
+        const jsonText = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+        let parsed: {
+          reply?: string;
+          cards?: AssistantCardDraft[];
+          mode?: 'append' | 'fill-selected';
+        };
+        try {
+          parsed = JSON.parse(jsonText);
+        } catch {
+          parsed = { reply: raw, cards: [] };
+        }
 
-      const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
-      const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
-      const shouldPlaceCards = wantsCards || cards.length > 0;
-      const placedCount = shouldPlaceCards ? createAssistantCards(cards, mode) : 0;
-      const actionText = placedCount > 0 ? `\n\n已在画布上处理 ${placedCount} 张卡片。` : '';
-      const assistantMessage: AssistantMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: `${parsed.reply || raw}${actionText}`,
-      };
-      setAssistantMessages((messages) => [...messages, assistantMessage]);
-    } catch (error: any) {
-      console.error('AI Assistant failed:', error);
-      setAssistantMessages((messages) => [
-        ...messages,
-        {
+        const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+        const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
+        const shouldPlaceCards = wantsCards || cards.length > 0;
+        const placedCount = shouldPlaceCards ? createAssistantCards(cards, mode) : 0;
+        const actionText = placedCount > 0 ? `\n\n已在画布上处理 ${placedCount} 张卡片。` : '';
+        const assistantMessage: AssistantMessage = {
           id: uuidv4(),
           role: 'assistant',
-          content: `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`,
-        },
-      ]);
-    } finally {
-      setAssistantLoading(false);
-    }
-  }, [assistantInput, assistantLoading, selectedAssistantTargetNodes, nodes, callAIForTextResult, playAssistantThought, createAssistantCards, setAssistantMessages]);
+          content: `${parsed.reply || raw}${actionText}`,
+        };
+        setAssistantMessages((messages) => [...messages, assistantMessage]);
+      } catch (error: any) {
+        console.error('AI Assistant failed:', error);
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`,
+          },
+        ]);
+      } finally {
+        setAssistantLoading(false);
+      }
+    },
+    [
+      assistantInput,
+      assistantLoading,
+      selectedAssistantTargetNodes,
+      nodes,
+      callAIForTextResult,
+      playAssistantThought,
+      createAssistantCards,
+      setAssistantMessages,
+    ],
+  );
 
   const handleAssistantVoiceInput = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('当前浏览器不支持语音输入。');
       return;
@@ -3884,32 +4650,36 @@ ${canvasContext || '无'}`;
     recognition.onerror = () => setAssistantListening(false);
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript || '';
-      if (transcript) setAssistantInput((value) => value ? `${value} ${transcript}` : transcript);
+      if (transcript) setAssistantInput((value) => (value ? `${value} ${transcript}` : transcript));
     };
     recognition.start();
   }, [language]);
 
-  const handleGenerateSettingText = useCallback((prompt: string) => {
-    return callAIForText(prompt);
-  }, [callAIForText]);
+  const handleGenerateSettingText = useCallback(
+    (prompt: string) => {
+      return callAIForText(prompt);
+    },
+    [callAIForText],
+  );
 
-  const handlePlotStructureGenerate = useCallback(async (params: PlotStructureGenerateParams) => {
-    const { toolNodeId, cardCount, detailLevel, direction, regionStoryNodes, region } = params;
+  const handlePlotStructureGenerate = useCallback(
+    async (params: PlotStructureGenerateParams) => {
+      const { toolNodeId, cardCount, detailLevel, direction, regionStoryNodes, region } = params;
 
-    if (regionStoryNodes.length === 0) {
-      alert('区域内没有找到可续写的剧情卡片');
-      return;
-    }
+      if (regionStoryNodes.length === 0) {
+        alert('区域内没有找到可续写的剧情卡片');
+        return;
+      }
 
-    const existingContent = formatRegionStoryForPrompt(regionStoryNodes);
-    const detailText =
-      detailLevel === 'brief'
-        ? '每段 1-3 句话，简洁推进剧情'
-        : detailLevel === 'detailed'
-          ? '每段详细展开，包含场景描写、动作和人物对话'
-          : generateLength;
+      const existingContent = formatRegionStoryForPrompt(regionStoryNodes);
+      const detailText =
+        detailLevel === 'brief'
+          ? '每段 1-3 句话，简洁推进剧情'
+          : detailLevel === 'detailed'
+            ? '每段详细展开，包含场景描写、动作和人物对话'
+            : generateLength;
 
-    const prompt = `你是一位专业的互动剧本/视觉小说创作者。
+      const prompt = `你是一位专业的互动剧本/视觉小说创作者。
 
 以下是区域内已有剧情（按顺序排列）：
 ${existingContent}
@@ -3927,365 +4697,415 @@ ${direction}
 ### 卡片标题
 正文内容`;
 
-    try {
-      const result = await callAIForText(prompt);
-      const cards = parseGeneratedPlotCards(result).slice(0, cardCount);
+      try {
+        const result = await callAIForText(prompt);
+        const cards = parseGeneratedPlotCards(result).slice(0, cardCount);
 
-      if (cards.length === 0) {
-        alert('AI 返回内容无法解析，请重试');
+        if (cards.length === 0) {
+          alert('AI 返回内容无法解析，请重试');
+          return;
+        }
+
+        const lastNodeId = regionStoryNodes[regionStoryNodes.length - 1].id;
+        const newIds = cards.map(() => uuidv4());
+        const newEdges: Edge[] = [];
+        let sourceId = lastNodeId;
+
+        for (let i = 0; i < cards.length; i++) {
+          newEdges.push({
+            id: `e-${sourceId}-${newIds[i]}`,
+            source: sourceId,
+            sourceHandle: 'right',
+            target: newIds[i],
+            targetHandle: 'left',
+            type: 'customEdge',
+          });
+          sourceId = newIds[i];
+        }
+
+        setNodes((nds) => {
+          const lastNode = nds.find((n) => n.id === lastNodeId);
+          if (!lastNode) return nds;
+
+          const srcW = lastNode.measured?.width || (lastNode.style?.width as number) || 300;
+          const offsetDist = 120;
+          let currentX = lastNode.position.x + srcW + offsetDist;
+          let currentY = lastNode.position.y;
+
+          const newNodes: Node[] = cards.map((card, index) => {
+            const newId = newIds[index];
+            const isOccupied = (x: number, y: number) =>
+              nds.some((n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
+
+            let attempts = 0;
+            while (isOccupied(currentX, currentY) && attempts < 10) {
+              currentY += 220;
+              attempts++;
+            }
+
+            const node: Node = {
+              id: newId,
+              type: 'storyNode',
+              position: { x: currentX, y: currentY },
+              style: { width: 300, height: 200 },
+              data: {
+                id: newId,
+                title: card.title,
+                text: card.text,
+                shape: 'square',
+                color: '#ffffff',
+              },
+            };
+
+            currentX += 420;
+            return node;
+          });
+
+          let updatedNodes = [...nds, ...newNodes];
+
+          if (region?.type === 'dynamicGroup') {
+            updatedNodes = updatedNodes.map((node) => {
+              if (node.id !== region.id || node.type !== 'groupNode') return node;
+              const childIds = (node.data.childIds as string[]) || [];
+              const mergedChildIds = Array.from(new Set([...childIds, ...newIds]));
+              return {
+                ...node,
+                data: { ...node.data, childIds: mergedChildIds },
+              };
+            });
+          }
+
+          if (region?.type === 'background') {
+            const containedIds = [
+              ...regionStoryNodes.map((item) => item.id),
+              toolNodeId,
+              ...newIds,
+            ];
+            updatedNodes = expandBackgroundToFitNodes(updatedNodes, region.id, containedIds);
+          }
+
+          return updatedNodes;
+        });
+
+        setEdges((eds) => [...eds, ...newEdges]);
+      } catch (error: any) {
+        console.error('Plot structure generation failed:', error);
+        alert(`剧情生成失败: ${error.message || '请检查 API 密钥和网络连接'}`);
+      }
+    },
+    [callAIForText, generateLength, setNodes, setEdges],
+  );
+
+  // NOTE: 全局 AI 汇总分析
+  const handleAIAnalyze = useCallback(
+    async (nodeId: string, mode: string = 'summary') => {
+      const aiNode = nodes.find((n) => n.id === nodeId);
+      if (!aiNode) return;
+
+      // 找到所有指向该 AI 节点的边
+      const incomingEdges = edges.filter((e) => e.target === nodeId);
+      const inputNodes = incomingEdges
+        .map((e) => nodes.find((n) => n.id === e.source))
+        .filter(Boolean);
+
+      if (inputNodes.length === 0) {
+        alert('请先将剧本节点连接到 AI 分析节点的左侧输入点');
         return;
       }
 
-      const lastNodeId = regionStoryNodes[regionStoryNodes.length - 1].id;
-      const newIds = cards.map(() => uuidv4());
-      const newEdges: Edge[] = [];
-      let sourceId = lastNodeId;
+      const combinedText = inputNodes
+        .map((n) => `【${n?.data.title}】\n${n?.data.text}`)
+        .join('\n\n---\n\n');
 
-      for (let i = 0; i < cards.length; i++) {
-        newEdges.push({
-          id: `e-${sourceId}-${newIds[i]}`,
-          source: sourceId,
-          sourceHandle: 'right',
-          target: newIds[i],
-          targetHandle: 'left',
-          type: 'customEdge',
-        });
-        sourceId = newIds[i];
-      }
-
-      setNodes((nds) => {
-        const lastNode = nds.find((n) => n.id === lastNodeId);
-        if (!lastNode) return nds;
-
-        const srcW = lastNode.measured?.width || (lastNode.style?.width as number) || 300;
-        const offsetDist = 120;
-        let currentX = lastNode.position.x + srcW + offsetDist;
-        let currentY = lastNode.position.y;
-
-        const newNodes: Node[] = cards.map((card, index) => {
-          const newId = newIds[index];
-          const isOccupied = (x: number, y: number) =>
-            nds.some((n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
-
-          let attempts = 0;
-          while (isOccupied(currentX, currentY) && attempts < 10) {
-            currentY += 220;
-            attempts++;
-          }
-
-          const node: Node = {
-            id: newId,
-            type: 'storyNode',
-            position: { x: currentX, y: currentY },
-            style: { width: 300, height: 200 },
-            data: {
-              id: newId,
-              title: card.title,
-              text: card.text,
-              shape: 'square',
-              color: '#ffffff',
-            },
-          };
-
-          currentX += 420;
-          return node;
-        });
-
-        let updatedNodes = [...nds, ...newNodes];
-
-        if (region?.type === 'dynamicGroup') {
-          updatedNodes = updatedNodes.map((node) => {
-            if (node.id !== region.id || node.type !== 'groupNode') return node;
-            const childIds = (node.data.childIds as string[]) || [];
-            const mergedChildIds = Array.from(new Set([...childIds, ...newIds]));
-            return {
-              ...node,
-              data: { ...node.data, childIds: mergedChildIds },
-            };
-          });
-        }
-
-        if (region?.type === 'background') {
-          const containedIds = [
-            ...regionStoryNodes.map((item) => item.id),
-            toolNodeId,
-            ...newIds,
-          ];
-          updatedNodes = expandBackgroundToFitNodes(updatedNodes, region.id, containedIds);
-        }
-
-        return updatedNodes;
-      });
-
-      setEdges((eds) => [...eds, ...newEdges]);
-    } catch (error: any) {
-      console.error('Plot structure generation failed:', error);
-      alert(`剧情生成失败: ${error.message || '请检查 API 密钥和网络连接'}`);
-    }
-  }, [callAIForText, generateLength, setNodes, setEdges]);
-
-  // NOTE: 全局 AI 汇总分析
-  const handleAIAnalyze = useCallback(async (nodeId: string, mode: string = 'summary') => {
-    const aiNode = nodes.find(n => n.id === nodeId);
-    if (!aiNode) return;
-
-    // 找到所有指向该 AI 节点的边
-    const incomingEdges = edges.filter(e => e.target === nodeId);
-    const inputNodes = incomingEdges.map(e => nodes.find(n => n.id === e.source)).filter(Boolean);
-
-    if (inputNodes.length === 0) {
-      alert('请先将剧本节点连接到 AI 分析节点的左侧输入点');
-      return;
-    }
-
-    const combinedText = inputNodes.map(n => `【${n?.data.title}】\n${n?.data.text}`).join('\n\n---\n\n');
-
-    let prompt = '';
-    if (mode === 'structure') {
-      prompt = aiPrompts.analyzeStructure.replace('{{combinedText}}', combinedText);
-    } else if (mode === 'suggestions') {
-      prompt = aiPrompts.analyzeSuggestions.replace('{{combinedText}}', combinedText);
-    } else if (mode === 'direction') {
-      prompt = aiPrompts.analyzeDirection.replace('{{combinedText}}', combinedText);
-    } else if (mode === 'solution') {
-      const previousResult = aiNode.data.result as string || '';
-      prompt = aiPrompts.analyzeSolution.replace('{{combinedText}}', combinedText).replace('{{previousResult}}', previousResult);
-    } else {
-      prompt = aiPrompts.analyzeSummary.replace('{{combinedText}}', combinedText);
-    }
-
-    try {
-      let result = '';
-      if (aiProvider === 'deepseek') {
-        const key = deepseekApiKey;
-        if (key && key.trim() !== '') {
-          const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-          const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-          const data = await response.json();
-          result = data.choices?.[0]?.message?.content || '';
-        } else {
-          // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
-          const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-          result = data.content;
-        }
-      } else if (aiProvider === 'openai') {
-        const key = openaiApiKey;
-        if (key && key.trim() !== '') {
-          const model = 'gpt-4o';
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-          const data = await response.json();
-          result = data.choices?.[0]?.message?.content || '';
-        } else {
-          const data = await callAIProxy('openai', prompt, {});
-          result = data.content;
-        }
+      let prompt = '';
+      if (mode === 'structure') {
+        prompt = aiPrompts.analyzeStructure.replace('{{combinedText}}', combinedText);
+      } else if (mode === 'suggestions') {
+        prompt = aiPrompts.analyzeSuggestions.replace('{{combinedText}}', combinedText);
+      } else if (mode === 'direction') {
+        prompt = aiPrompts.analyzeDirection.replace('{{combinedText}}', combinedText);
+      } else if (mode === 'solution') {
+        const previousResult = (aiNode.data.result as string) || '';
+        prompt = aiPrompts.analyzeSolution
+          .replace('{{combinedText}}', combinedText)
+          .replace('{{previousResult}}', previousResult);
       } else {
-        const key = customApiKey;
-        if (key && key.trim() !== '') {
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({ apiKey: key });
-          const response = await ai.models.generateContent({
-            model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-            contents: prompt,
-          });
-          result = response.text || '';
-        } else {
-          // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
-          const data = await callAIProxy('gemini', prompt, { thinkingMode });
-          result = data.content;
-        }
+        prompt = aiPrompts.analyzeSummary.replace('{{combinedText}}', combinedText);
       }
-      // 更新当前 AI 节点的结点
-      let finalResult = result;
-      if (mode === 'solution') {
-        const previousResult = aiNode.data.result as string || '';
-        finalResult = previousResult + '\n\n---\n\n### 💡 修改解法\n\n' + result;
-      }
-      handleUpdateNode(nodeId, { result: finalResult });
 
-      // NOTE: 自动流转逻辑 - 如果 AI 节点后面连接点StoryNode，则同步结果
-      const outgoingEdges = edges.filter(e => e.source === nodeId);
-      if (outgoingEdges.length > 0) {
-        setNodes(nds => nds.map(node => {
-          const edge = outgoingEdges.find(e => e.target === node.id);
-          if (edge && node.type === 'storyNode') {
-            const oldText = (node.data.text as string || '').trim();
-            const divider = oldText ? '<br/><br/><hr/><br/>' : '';
-            const modeLabel = mode === 'structure' ? '结构分析' : mode === 'suggestions' ? '构思建议' : mode === 'direction' ? '写作方向' : mode === 'solution' ? '修改解法' : '汇总报告';
-
-            // 简单的 Markdown → HTML
-            const formattedResult = result
-              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-              .replace(/\n/g, '<br/>');
-
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                text: `${oldText}${divider}<strong style="color: #6366f1;">💡 AI ${modeLabel}</strong><br/>${formattedResult}`
-              }
-            };
+      try {
+        let result = '';
+        if (aiProvider === 'deepseek') {
+          const key = deepseekApiKey;
+          if (key && key.trim() !== '') {
+            const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
+            const response = await fetch('https://api.deepseek.com/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+              }),
+            });
+            const data = await response.json();
+            result = data.choices?.[0]?.message?.content || '';
+          } else {
+            // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
+            const data = await callAIProxy('deepseek', prompt, { thinkingMode });
+            result = data.content;
           }
-          return node;
-        }));
+        } else if (aiProvider === 'openai') {
+          const key = openaiApiKey;
+          if (key && key.trim() !== '') {
+            const model = 'gpt-4o';
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+              }),
+            });
+            const data = await response.json();
+            result = data.choices?.[0]?.message?.content || '';
+          } else {
+            const data = await callAIProxy('openai', prompt, {});
+            result = data.content;
+          }
+        } else {
+          const key = customApiKey;
+          if (key && key.trim() !== '') {
+            const { GoogleGenAI } = await import('@google/genai');
+            const ai = new GoogleGenAI({ apiKey: key });
+            const response = await ai.models.generateContent({
+              model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
+              contents: prompt,
+            });
+            result = response.text || '';
+          } else {
+            // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
+            const data = await callAIProxy('gemini', prompt, { thinkingMode });
+            result = data.content;
+          }
+        }
+        // 更新当前 AI 节点的结点
+        let finalResult = result;
+        if (mode === 'solution') {
+          const previousResult = (aiNode.data.result as string) || '';
+          finalResult = previousResult + '\n\n---\n\n### 💡 修改解法\n\n' + result;
+        }
+        handleUpdateNode(nodeId, { result: finalResult });
+
+        // NOTE: 自动流转逻辑 - 如果 AI 节点后面连接点StoryNode，则同步结果
+        const outgoingEdges = edges.filter((e) => e.source === nodeId);
+        if (outgoingEdges.length > 0) {
+          setNodes((nds) =>
+            nds.map((node) => {
+              const edge = outgoingEdges.find((e) => e.target === node.id);
+              if (edge && node.type === 'storyNode') {
+                const oldText = ((node.data.text as string) || '').trim();
+                const divider = oldText ? '<br/><br/><hr/><br/>' : '';
+                const modeLabel =
+                  mode === 'structure'
+                    ? '结构分析'
+                    : mode === 'suggestions'
+                      ? '构思建议'
+                      : mode === 'direction'
+                        ? '写作方向'
+                        : mode === 'solution'
+                          ? '修改解法'
+                          : '汇总报告';
+
+                // 简单的 Markdown → HTML
+                const formattedResult = result
+                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                  .replace(/\n/g, '<br/>');
+
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    text: `${oldText}${divider}<strong style="color: #6366f1;">💡 AI ${modeLabel}</strong><br/>${formattedResult}`,
+                  },
+                };
+              }
+              return node;
+            }),
+          );
+        }
+      } catch (error: any) {
+        console.error('AI Analysis failed:', error);
+        alert(`AI 分析失败: ${error.message || '请检查网络和 API 配置'}`);
       }
-    } catch (error: any) {
-      console.error('AI Analysis failed:', error);
-      alert(`AI 分析失败: ${error.message || '请检查网络和 API 配置'}`);
-    }
-  }, [nodes, edges, aiProvider, deepseekApiKey, customApiKey, openaiApiKey, thinkingMode, handleUpdateNode, setNodes, aiPrompts]);
+    },
+    [
+      nodes,
+      edges,
+      aiProvider,
+      deepseekApiKey,
+      customApiKey,
+      openaiApiKey,
+      thinkingMode,
+      handleUpdateNode,
+      setNodes,
+      aiPrompts,
+    ],
+  );
 
   // NOTE: 处理“图片卡片拖入文字卡片”的逻辑
-  const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    // 只有当拖拽的是媒体节点时才触   
-    const mediaUrl = node.data.imageUrl || node.data.videoUrl || node.data.audioUrl;
-    if (node.type === 'storyNode' && mediaUrl) {
-      const nx = node.position.x;
-      const ny = node.position.y;
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      // 只有当拖拽的是媒体节点时才触
+      const mediaUrl = node.data.imageUrl || node.data.videoUrl || node.data.audioUrl;
+      if (node.type === 'storyNode' && mediaUrl) {
+        const nx = node.position.x;
+        const ny = node.position.y;
 
-      // 寻找被覆盖的目标节点
-      const sourceHasVisual = !!(node.data.imageUrl || node.data.videoUrl);
-      const sourceHasAudio = !!node.data.audioUrl;
-      const targetNode = nodes.find(n => {
-        const targetHasVisual = !!(n.data.imageUrl || n.data.videoUrl);
-        const targetHasAudio = !!n.data.audioUrl;
-        const canAttachMedia = !targetHasVisual && !targetHasAudio
-          || (sourceHasAudio && !targetHasAudio)
-          || (sourceHasVisual && !targetHasVisual);
+        // 寻找被覆盖的目标节点
+        const sourceHasVisual = !!(node.data.imageUrl || node.data.videoUrl);
+        const sourceHasAudio = !!node.data.audioUrl;
+        const targetNode = nodes.find((n) => {
+          const targetHasVisual = !!(n.data.imageUrl || n.data.videoUrl);
+          const targetHasAudio = !!n.data.audioUrl;
+          const canAttachMedia =
+            (!targetHasVisual && !targetHasAudio) ||
+            (sourceHasAudio && !targetHasAudio) ||
+            (sourceHasVisual && !targetHasVisual);
 
-        return n.id !== node.id &&
-          (n.type === 'storyNode' || n.type === 'aiNode') &&
-          canAttachMedia &&
-          nx > n.position.x && nx < n.position.x + (n.measured?.width || 300) &&
-          ny > n.position.y && ny < n.position.y + (n.measured?.height || 200);
-      });
+          return (
+            n.id !== node.id &&
+            (n.type === 'storyNode' || n.type === 'aiNode') &&
+            canAttachMedia &&
+            nx > n.position.x &&
+            nx < n.position.x + (n.measured?.width || 300) &&
+            ny > n.position.y &&
+            ny < n.position.y + (n.measured?.height || 200)
+          );
+        });
 
-      if (targetNode) {
-        if (targetNode.type === 'aiNode') {
-          // AI 节点直接设置为背景媒体          
-          handleUpdateNode(targetNode.id, {
-            imageUrl: node.data.imageUrl,
-            videoUrl: node.data.videoUrl,
-            objectFit: 'cover'
-          });
-        } else {
-          // NOTE: 重构：当媒体拖入普通节点时，将其转换为原生媒体卡片格式
-          handleUpdateNode(targetNode.id, {
-            imageUrl: node.data.imageUrl || targetNode.data.imageUrl || undefined,
-            videoUrl: node.data.videoUrl || targetNode.data.videoUrl || undefined,
-            audioUrl: node.data.audioUrl || targetNode.data.audioUrl || undefined,
-            showTextOverlay: true, // 保持文字可见
-            // 自动增加高度以容纳媒体            
-            style: {
-              ...targetNode.style,
-              height: ((targetNode.measured?.height || targetNode.style?.height as number || 200)) + 200
-            }
-          });
+        if (targetNode) {
+          if (targetNode.type === 'aiNode') {
+            // AI 节点直接设置为背景媒体
+            handleUpdateNode(targetNode.id, {
+              imageUrl: node.data.imageUrl,
+              videoUrl: node.data.videoUrl,
+              objectFit: 'cover',
+            });
+          } else {
+            // NOTE: 重构：当媒体拖入普通节点时，将其转换为原生媒体卡片格式
+            handleUpdateNode(targetNode.id, {
+              imageUrl: node.data.imageUrl || targetNode.data.imageUrl || undefined,
+              videoUrl: node.data.videoUrl || targetNode.data.videoUrl || undefined,
+              audioUrl: node.data.audioUrl || targetNode.data.audioUrl || undefined,
+              showTextOverlay: true, // 保持文字可见
+              // 自动增加高度以容纳媒体
+              style: {
+                ...targetNode.style,
+                height:
+                  (targetNode.measured?.height || (targetNode.style?.height as number) || 200) +
+                  200,
+              },
+            });
+          }
+          handleDeleteNode(node.id);
         }
-        handleDeleteNode(node.id);
       }
-    }
-  }, [nodes, handleUpdateNode, handleDeleteNode]);
+    },
+    [nodes, handleUpdateNode, handleDeleteNode],
+  );
 
   // NOTE: 处理从桌面/文件夹拖拽媒体文件到画布
   // HACK: 使用 URL.createObjectURL 代替 FileReader.readAsDataURL，
   //       后者对大文件（尤其视频）会把整个文件转成 base64 导致极慢或内存溢出。
   //       createObjectURL 仅创建一个轻量级的 blob: 引用，与工具栏上传逻辑保持一致。
-  const onDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-    const files = event.dataTransfer.files;
-    if (!files || files.length === 0) return;
+      const files = event.dataTransfer.files;
+      if (!files || files.length === 0) return;
 
-    // 计算拖拽落点相对于 Flow 坐标系的位置
-    const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-    if (!reactFlowBounds) return;
+      // 计算拖拽落点相对于 Flow 坐标系的位置
+      const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
+      if (!reactFlowBounds) return;
 
-    const dropX = (event.clientX - reactFlowBounds.left - tx) / tzoom;
-    const dropY = (event.clientY - reactFlowBounds.top - ty) / tzoom;
+      const dropX = (event.clientX - reactFlowBounds.left - tx) / tzoom;
+      const dropY = (event.clientY - reactFlowBounds.top - ty) / tzoom;
 
-    // NOTE: 用 IIFE async 包裹，避免在循环中因闭包捕获陈旧 index 导致位置偏差
-    const processFiles = async () => {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.startsWith('audio/')) {
-          continue;
-        }
+      // NOTE: 用 IIFE async 包裹，避免在循环中因闭包捕获陈旧 index 导致位置偏差
+      const processFiles = async () => {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (
+            !file.type.startsWith('image/') &&
+            !file.type.startsWith('video/') &&
+            !file.type.startsWith('audio/')
+          ) {
+            continue;
+          }
 
-        // 使用 blob URL，高效且支持大文件/视频
-        const url = URL.createObjectURL(file);
-        const newId = uuidv4();
+          // 使用 blob URL，高效且支持大文件/视频
+          const url = URL.createObjectURL(file);
+          const newId = uuidv4();
 
-        let mediaData: Record<string, string> = {};
-        let title = language === 'zh' ? '导入文件' : 'Import File';
+          let mediaData: Record<string, string> = {};
+          let title = language === 'zh' ? '导入文件' : 'Import File';
 
-        // NOTE: 根据媒体原始比例调整卡片尺寸，保持视觉一致
-        const { width, height } = await getMediaDimensions(url, file.type);
-        let displayWidth = 400;
-        let displayHeight = (height / width) * displayWidth;
+          // NOTE: 根据媒体原始比例调整卡片尺寸，保持视觉一致
+          const { width, height } = await getMediaDimensions(url, file.type);
+          let displayWidth = 400;
+          let displayHeight = (height / width) * displayWidth;
 
-        if (displayHeight > 500) {
-          displayHeight = 500;
-          displayWidth = (width / height) * displayHeight;
-        }
+          if (displayHeight > 500) {
+            displayHeight = 500;
+            displayWidth = (width / height) * displayHeight;
+          }
 
-        if (file.type.startsWith('image/')) {
-          mediaData = { imageUrl: url };
-          title = language === 'zh' ? '导入图片' : 'Import Image';
-        } else if (file.type.startsWith('video/')) {
-          mediaData = { videoUrl: url };
-          title = language === 'zh' ? '导入视频' : 'Import Video';
-        } else if (file.type.startsWith('audio/')) {
-          mediaData = { audioUrl: url };
-          title = language === 'zh' ? '导入音频' : 'Import Audio';
-          displayWidth = 300;
-          displayHeight = 150;
-        }
+          if (file.type.startsWith('image/')) {
+            mediaData = { imageUrl: url };
+            title = language === 'zh' ? '导入图片' : 'Import Image';
+          } else if (file.type.startsWith('video/')) {
+            mediaData = { videoUrl: url };
+            title = language === 'zh' ? '导入视频' : 'Import Video';
+          } else if (file.type.startsWith('audio/')) {
+            mediaData = { audioUrl: url };
+            title = language === 'zh' ? '导入音频' : 'Import Audio';
+            displayWidth = 300;
+            displayHeight = 150;
+          }
 
-        const newNode: Node = {
-          id: newId,
-          type: 'storyNode',
-          // 多文件时按 30px 阶梯错开，避免完全叠加
-          position: {
-            x: dropX + (i * 30) - (displayWidth / 2),
-            y: dropY + (i * 30) - (displayHeight / 2),
-          },
-          style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-          data: {
+          const newNode: Node = {
             id: newId,
-            title,
-            shape: 'square',
-            color: '#ffffff',
-            text: '',
-            titleHeightAdded: showTitles,
-            ...mediaData,
-          },
-        };
+            type: 'storyNode',
+            // 多文件时按 30px 阶梯错开，避免完全叠加
+            position: {
+              x: dropX + i * 30 - displayWidth / 2,
+              y: dropY + i * 30 - displayHeight / 2,
+            },
+            style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
+            data: {
+              id: newId,
+              title,
+              shape: 'square',
+              color: '#ffffff',
+              text: '',
+              titleHeightAdded: showTitles,
+              ...mediaData,
+            },
+          };
 
-        // NOTE: 每个文件独立 setNodes，避免批量更新时 async 竞态覆盖
-        setNodes((nds) => [...nds, newNode]);
-      }
-    };
+          // NOTE: 每个文件独立 setNodes，避免批量更新时 async 竞态覆盖
+          setNodes((nds) => [...nds, newNode]);
+        }
+      };
 
-    processFiles();
-  }, [tx, ty, tzoom, setNodes, showTitles, language]);
+      processFiles();
+    },
+    [tx, ty, tzoom, setNodes, showTitles, language],
+  );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -4302,101 +5122,134 @@ ${direction}
     }
   }, []);
 
-  const updateSelection = useCallback((x: number, y: number) => {
-    if (isRightDragging && startPosRef.current && selectionBoxRef.current) {
-      const left = Math.min(x, startPosRef.current.x);
-      const top = Math.min(y, startPosRef.current.y);
-      const w = Math.abs(x - startPosRef.current.x);
-      const h = Math.abs(y - startPosRef.current.y);
+  const updateSelection = useCallback(
+    (x: number, y: number) => {
+      if (isRightDragging && startPosRef.current && selectionBoxRef.current) {
+        const left = Math.min(x, startPosRef.current.x);
+        const top = Math.min(y, startPosRef.current.y);
+        const w = Math.abs(x - startPosRef.current.x);
+        const h = Math.abs(y - startPosRef.current.y);
 
-      selectionBoxRef.current.style.left = `${left}px`;
-      selectionBoxRef.current.style.top = `${top}px`;
-      selectionBoxRef.current.style.width = `${w}px`;
-      selectionBoxRef.current.style.height = `${h}px`;
+        selectionBoxRef.current.style.left = `${left}px`;
+        selectionBoxRef.current.style.top = `${top}px`;
+        selectionBoxRef.current.style.width = `${w}px`;
+        selectionBoxRef.current.style.height = `${h}px`;
 
-      if (w > 5 || h > 5) {
-        selectionBoxRef.current.style.display = 'block';
+        if (w > 5 || h > 5) {
+          selectionBoxRef.current.style.display = 'block';
+        }
       }
-    }
-  }, [isRightDragging]);
+    },
+    [isRightDragging],
+  );
 
-  const endSelection = useCallback((x: number, y: number) => {
-    if (isRightDragging && startPosRef.current) {
-      const dx = Math.abs(x - startPosRef.current.x);
-      const dy = Math.abs(y - startPosRef.current.y);
+  const endSelection = useCallback(
+    (x: number, y: number) => {
+      if (isRightDragging && startPosRef.current) {
+        const dx = Math.abs(x - startPosRef.current.x);
+        const dy = Math.abs(y - startPosRef.current.y);
 
-      if (dx > 5 || dy > 5) {
-        const start = screenToFlowPosition({ x: startPosRef.current.x, y: startPosRef.current.y });
-        const end = screenToFlowPosition({ x, y });
+        if (dx > 5 || dy > 5) {
+          const start = screenToFlowPosition({
+            x: startPosRef.current.x,
+            y: startPosRef.current.y,
+          });
+          const end = screenToFlowPosition({ x, y });
 
-        const rect = {
-          x: Math.min(start.x, end.x),
-          y: Math.min(start.y, end.y),
-          width: Math.abs(start.x - end.x),
-          height: Math.abs(start.y - end.y),
-        };
+          const rect = {
+            x: Math.min(start.x, end.x),
+            y: Math.min(start.y, end.y),
+            width: Math.abs(start.x - end.x),
+            height: Math.abs(start.y - end.y),
+          };
 
-        const nodesInRect = getIntersectingNodes(rect, true);
-        const nodeIds = new Set(nodesInRect.map(n => n.id));
+          const nodesInRect = getIntersectingNodes(rect, true);
+          const nodeIds = new Set(nodesInRect.map((n) => n.id));
 
-        setNodes(nds => nds.map(n => ({
-          ...n,
-          selected: nodeIds.has(n.id) && !n.data?.locked
-        })));
+          setNodes((nds) =>
+            nds.map((n) => ({
+              ...n,
+              selected: nodeIds.has(n.id) && !n.data?.locked,
+            })),
+          );
+        }
       }
-    }
 
-    if (selectionBoxRef.current) {
-      selectionBoxRef.current.style.display = 'none';
-    }
-    setIsRightDragging(false);
-    startPosRef.current = null;
-  }, [isRightDragging, screenToFlowPosition, getIntersectingNodes, setNodes]);
+      if (selectionBoxRef.current) {
+        selectionBoxRef.current.style.display = 'none';
+      }
+      setIsRightDragging(false);
+      startPosRef.current = null;
+    },
+    [isRightDragging, screenToFlowPosition, getIntersectingNodes, setNodes],
+  );
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // NOTE: 右键点击 OR 在框选模式下左键点击 OR 按住 Shift 左键点击
-    if (e.button === 2 || (interactionMode === 'box' && e.button === 0) || (e.shiftKey && e.button === 0)) {
-      const target = e.target as HTMLElement;
-      if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
-      startSelection(e.clientX, e.clientY);
-    }
-  }, [interactionMode, startSelection]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // NOTE: 右键点击 OR 在框选模式下左键点击 OR 按住 Shift 左键点击
+      if (
+        e.button === 2 ||
+        (interactionMode === 'box' && e.button === 0) ||
+        (e.shiftKey && e.button === 0)
+      ) {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
+        startSelection(e.clientX, e.clientY);
+      }
+    },
+    [interactionMode, startSelection],
+  );
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    updateSelection(e.clientX, e.clientY);
-  }, [updateSelection]);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      updateSelection(e.clientX, e.clientY);
+    },
+    [updateSelection],
+  );
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    endSelection(e.clientX, e.clientY);
-  }, [endSelection]);
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      endSelection(e.clientX, e.clientY);
+    },
+    [endSelection],
+  );
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // 手机端仅在框选模式下触发自定义框
-    if (interactionMode === 'box' && e.touches.length === 1) {
-      const target = e.target as HTMLElement;
-      if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
-      const touch = e.touches[0];
-      startSelection(touch.clientX, touch.clientY);
-    }
-  }, [interactionMode, startSelection]);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      // 手机端仅在框选模式下触发自定义框
+      if (interactionMode === 'box' && e.touches.length === 1) {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
+        const touch = e.touches[0];
+        startSelection(touch.clientX, touch.clientY);
+      }
+    },
+    [interactionMode, startSelection],
+  );
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (isRightDragging && e.touches.length === 1) {
-      const touch = e.touches[0];
-      updateSelection(touch.clientX, touch.clientY);
-    }
-  }, [isRightDragging, updateSelection]);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (isRightDragging && e.touches.length === 1) {
+        const touch = e.touches[0];
+        updateSelection(touch.clientX, touch.clientY);
+      }
+    },
+    [isRightDragging, updateSelection],
+  );
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (isRightDragging && e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0];
-      endSelection(touch.clientX, touch.clientY);
-    }
-  }, [isRightDragging, endSelection]);
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (isRightDragging && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        endSelection(touch.clientX, touch.clientY);
+      }
+    },
+    [isRightDragging, endSelection],
+  );
 
   // Bind callbacks to nodes and edges on render
   const nodesWithCallbacks = useMemo(() => {
-    return nodes.map(n => {
+    return nodes.map((n) => {
       return {
         ...n,
         hidden: !!n.data?.hidden,
@@ -4429,24 +5282,46 @@ ${direction}
         style: {
           ...n.style,
           opacity: highlightedPath ? (highlightedPath.nodes.has(n.id) ? 1 : 0.15) : 1,
-          filter: highlightedPath && !highlightedPath.nodes.has(n.id) ? 'grayscale(0.8) blur(1px)' : 'none',
+          filter:
+            highlightedPath && !highlightedPath.nodes.has(n.id)
+              ? 'grayscale(0.8) blur(1px)'
+              : 'none',
           // NOTE: 极其重要：不要在这里使用 transition: all，否则拖拽时 transform 会有延迟，导致不跟手
           transition: 'opacity 0.5s ease-in-out, filter 0.5s ease-in-out',
-        }
+        },
       };
     });
     // NOTE: 补充 highlightedPath、handleAIAnalyze、toggleStorylineHighlight 为正确依赖，
     // 防止闭包过期导致这些引用读到旧值
-  }, [nodes, showTitles, aiLoadingNodeId, handleUpdateNode, handleAddConnectedNode, handleDeleteNode, handleAIButtonClick, handleAIAnalyze, handleGenerateStoryNodeImage, handleGenerateSettingNodeImage, handleAddTextToImage, handleRemoveTextFromImage, handleExtractMedia, handleGenerateSettingText, handlePlotStructureGenerate, toggleStorylineHighlight, highlightedPath, pasteAsPlainText, showNodeActions, language, theme, bubbleStyle]);
+  }, [
+    nodes,
+    showTitles,
+    aiLoadingNodeId,
+    handleUpdateNode,
+    handleAddConnectedNode,
+    handleDeleteNode,
+    handleAIButtonClick,
+    handleAIAnalyze,
+    handleGenerateStoryNodeImage,
+    handleGenerateSettingNodeImage,
+    handleAddTextToImage,
+    handleRemoveTextFromImage,
+    handleExtractMedia,
+    handleGenerateSettingText,
+    handlePlotStructureGenerate,
+    toggleStorylineHighlight,
+    highlightedPath,
+    pasteAsPlainText,
+    showNodeActions,
+    language,
+    theme,
+    bubbleStyle,
+  ]);
 
   const edgesWithData = useMemo(() => {
-    const hiddenNodeIds = new Set(
-      nodes
-        .filter(n => n.data?.hidden)
-        .map(n => n.id)
-    );
+    const hiddenNodeIds = new Set(nodes.filter((n) => n.data?.hidden).map((n) => n.id));
 
-    return edges.map(e => {
+    return edges.map((e) => {
       const isHighlighted = highlightedPath?.edges.has(e.id);
       const isHiddenByNode = hiddenNodeIds.has(e.source) || hiddenNodeIds.has(e.target);
 
@@ -4462,40 +5337,47 @@ ${direction}
         },
         style: {
           ...e.style,
-          stroke: isHighlighted ? '#f43f5e' : (e.style?.stroke || '#6366f1'),
-          strokeWidth: isHighlighted ? 6 : (e.style?.strokeWidth || 3),
+          stroke: isHighlighted ? '#f43f5e' : e.style?.stroke || '#6366f1',
+          strokeWidth: isHighlighted ? 6 : e.style?.strokeWidth || 3,
           opacity: highlightedPath ? (isHighlighted ? 1 : 0.1) : 1,
-          // NOTE: 同理，连线也只针对样式属性过渡，防止 transform 延迟          
-          transition: 'stroke 0.5s ease-in-out, stroke-width 0.5s ease-in-out, opacity 0.5s ease-in-out',
+          // NOTE: 同理，连线也只针对样式属性过渡，防止 transform 延迟
+          transition:
+            'stroke 0.5s ease-in-out, stroke-width 0.5s ease-in-out, opacity 0.5s ease-in-out',
         },
         animated: isHighlighted || e.animated,
       };
     });
   }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath]);
 
-  const handleAssistantResizePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (isMobile) return;
+  const handleAssistantResizePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isMobile) return;
 
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    assistantResizeRef.current = {
-      startX: event.clientX,
-      startWidth: assistantPanelWidth,
-      dragged: false,
-    };
-  }, [assistantPanelWidth, isMobile]);
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      assistantResizeRef.current = {
+        startX: event.clientX,
+        startWidth: assistantPanelWidth,
+        dragged: false,
+      };
+    },
+    [assistantPanelWidth, isMobile],
+  );
 
-  const handleAssistantResizePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const resize = assistantResizeRef.current;
-    if (!resize || isMobile) return;
+  const handleAssistantResizePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const resize = assistantResizeRef.current;
+      if (!resize || isMobile) return;
 
-    const delta = resize.startX - event.clientX;
-    if (Math.abs(delta) > 4) resize.dragged = true;
+      const delta = resize.startX - event.clientX;
+      if (Math.abs(delta) > 4) resize.dragged = true;
 
-    const maxWidth = Math.min(560, Math.max(320, flowWidth - 180));
-    const nextWidth = Math.min(Math.max(resize.startWidth + delta, 300), maxWidth);
-    setAssistantWidth(nextWidth);
-  }, [flowWidth, isMobile]);
+      const maxWidth = Math.min(560, Math.max(320, flowWidth - 180));
+      const nextWidth = Math.min(Math.max(resize.startWidth + delta, 300), maxWidth);
+      setAssistantWidth(nextWidth);
+    },
+    [flowWidth, isMobile],
+  );
 
   const handleAssistantResizePointerUp = useCallback(() => {
     assistantResizeRef.current = null;
@@ -4504,13 +5386,19 @@ ${direction}
   const projectTitleInputUnits = useMemo(() => {
     const fallbackTitle = language === 'zh' ? '项目标题' : 'Project title';
     const title = projectTitle.trim() || fallbackTitle;
-    return (Array.from(title) as string[]).reduce((units: number, char: string) => units + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
+    return (Array.from(title) as string[]).reduce(
+      (units: number, char: string) => units + (char.charCodeAt(0) > 255 ? 2 : 1),
+      0,
+    );
   }, [language, projectTitle]);
 
   const projectTitleInputWidth = `clamp(${isMobile ? '8rem' : '9rem'}, ${Math.min(Math.max(projectTitleInputUnits + 2, 10), 28)}ch, ${isMobile ? '13rem' : '18rem'})`;
 
   return (
-    <div className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`} style={{ backgroundColor: canvasBg }}>
+    <div
+      className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
+      style={{ backgroundColor: canvasBg }}
+    >
       <style>{`
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
@@ -4526,9 +5414,7 @@ ${direction}
         background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
-      <div
-        className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3"
-      >
+      <div className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3">
         <div className="toolbar-bubble-surface pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl">
           <img src="./icon.png" className="w-8 h-8 theme-invert" alt="Logo" />
           <input
@@ -4539,7 +5425,11 @@ ${direction}
             style={{ width: projectTitleInputWidth }}
             aria-label={language === 'zh' ? '项目标题' : 'Project title'}
           />
-          {!isMobile && <span className="text-slate-400 dark:text-slate-500 text-xs pr-1 whitespace-nowrap">{t.author}</span>}
+          {!isMobile && (
+            <span className="text-slate-400 dark:text-slate-500 text-xs pr-1 whitespace-nowrap">
+              {t.author}
+            </span>
+          )}
           <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
           <button
             onClick={() => setShowPlayTest(true)}
@@ -4562,10 +5452,18 @@ ${direction}
           <button
             onClick={handleExportJSON}
             className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDirty ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-            title={isDirty ? (language === 'zh' ? "有未保存的更改 - 点击保存" : "Unsaved changes - Click to save") : t.save}
+            title={
+              isDirty
+                ? language === 'zh'
+                  ? '有未保存的更改 - 点击保存'
+                  : 'Unsaved changes - Click to save'
+                : t.save
+            }
           >
             <Save className="w-4 h-4" />
-            {isDirty && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+            {isDirty && (
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            )}
           </button>
 
           <button
@@ -4575,7 +5473,13 @@ ${direction}
           >
             <Upload className="w-4 h-4" />
           </button>
-          <input type="file" accept=".zip,.json" className="hidden" ref={jsonInputRef} onChange={handleImportZIP} />
+          <input
+            type="file"
+            accept=".zip,.json"
+            className="hidden"
+            ref={jsonInputRef}
+            onChange={handleImportZIP}
+          />
         </div>
 
         <div className="hidden">
@@ -4717,9 +5621,19 @@ ${direction}
             <button
               onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
               className="p-2.5 flex items-center justify-center text-slate-400 dark:text-slate-200 hover:text-slate-600 dark:hover:text-white transition-colors duration-300 shrink-0 mx-auto"
-              title={toolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
+              title={
+                toolbarCollapsed
+                  ? language === 'zh'
+                    ? '展开工具栏'
+                    : 'Expand Toolbar'
+                  : language === 'zh'
+                    ? '折叠工具栏'
+                    : 'Collapse Toolbar'
+              }
             >
-              <div className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}>
+              <div
+                className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}
+              >
                 <ChevronDown className="w-6 h-6" />
               </div>
             </button>
@@ -4814,7 +5728,6 @@ ${direction}
                   <ImageIcon strokeWidth={2.5} className="w-5 h-5" />
                 </button>
 
-
                 {isMobile && (
                   <>
                     <div className="h-px bg-slate-100 w-full my-1"></div>
@@ -4838,9 +5751,16 @@ ${direction}
                 )}
               </div>
             )}
-            <input type="file" accept="image/*,video/*,audio/*" className="hidden" ref={fileInputRef} onChange={handleMediaUpload} multiple />
+            <input
+              type="file"
+              accept="image/*,video/*,audio/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleMediaUpload}
+              multiple
+            />
 
-            {nodes.some(n => n.data?.hidden) && (
+            {nodes.some((n) => n.data?.hidden) && (
               <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center">
                 <button
                   className="p-2.5 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors animate-pulse"
@@ -4858,7 +5778,6 @@ ${direction}
             <div
               className={`toolbar-bubble-surface glass-toolbar absolute top-4 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out overflow-hidden ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px]' : 'h-[104px]') : ''}`}
             >
-
               <button
                 onClick={() => setAssistantOpen((open) => !open)}
                 className={`exclude-glass w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto' : 'my-1.5 mx-auto'} ${assistantOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'}`}
@@ -4867,20 +5786,34 @@ ${direction}
                 <Sparkles className="w-5 h-5" />
               </button>
 
-              <div className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}></div>
+              <div
+                className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}
+              ></div>
 
               <button
                 onClick={() => setRightToolbarCollapsed(!rightToolbarCollapsed)}
                 className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} flex items-center justify-center text-slate-400 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-white transition-all duration-300 shrink-0 mx-auto`}
-                title={rightToolbarCollapsed ? (language === 'zh' ? '展开工具栏' : 'Expand Toolbar') : (language === 'zh' ? '折叠工具栏' : 'Collapse Toolbar')}
+                title={
+                  rightToolbarCollapsed
+                    ? language === 'zh'
+                      ? '展开工具栏'
+                      : 'Expand Toolbar'
+                    : language === 'zh'
+                      ? '折叠工具栏'
+                      : 'Collapse Toolbar'
+                }
               >
-                <div className={`transition-transform duration-500 ${rightToolbarCollapsed ? 'rotate-0' : (toolbarLayout === 'horizontal' ? '-rotate-90' : 'rotate-180')}`}>
+                <div
+                  className={`transition-transform duration-500 ${rightToolbarCollapsed ? 'rotate-0' : toolbarLayout === 'horizontal' ? '-rotate-90' : 'rotate-180'}`}
+                >
                   <ChevronDown className="w-6 h-6" />
                 </div>
               </button>
 
               {!rightToolbarCollapsed && (
-                <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col'} animate-in fade-in slide-in-from-top-2 duration-300`}>
+                <div
+                  className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col'} animate-in fade-in slide-in-from-top-2 duration-300`}
+                >
                   <button
                     onClick={() => setShowSettings(true)}
                     className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-colors"
@@ -4919,7 +5852,9 @@ ${direction}
 
                   <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
 
-                  <div className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row mx-1.5' : 'flex-col my-1.5'} items-center gap-2 py-1`}>
+                  <div
+                    className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row mx-1.5' : 'flex-col my-1.5'} items-center gap-2 py-1`}
+                  >
                     {presetColors.map((color, idx) => (
                       <button
                         key={idx}
@@ -4944,7 +5879,7 @@ ${direction}
             onTouchStartCapture={handleTouchStart}
             onTouchMoveCapture={handleTouchMove}
             onTouchEndCapture={handleTouchEnd}
-            style={{ touchAction: (interactionMode === 'box' || isRightDragging) ? 'none' : 'auto' }}
+            style={{ touchAction: interactionMode === 'box' || isRightDragging ? 'none' : 'auto' }}
           >
             {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}
             <div
@@ -4963,12 +5898,15 @@ ${direction}
               onNodeContextMenu={(event, node) => {
                 // 默认阻止所有节点的右键菜单，除非是特定解锁逻辑
                 event.preventDefault();
-                if (node.data?.locked && (node.type === 'backgroundNode' || node.type === 'groupNode')) {
+                if (
+                  node.data?.locked &&
+                  (node.type === 'backgroundNode' || node.type === 'groupNode')
+                ) {
                   handleUpdateNode(node.id, { locked: false });
                 }
               }}
               onPaneContextMenu={(e) => {
-                // NOTE: 阻止右键菜单，确保右键拖拽时能正常触发框选 
+                // NOTE: 阻止右键菜单，确保右键拖拽时能正常触发框选
                 e.preventDefault();
               }}
               onSelectionEnd={() => {
@@ -4981,12 +5919,12 @@ ${direction}
               edgeTypes={edgeTypesMemo}
               connectionMode={ConnectionMode.Loose}
               defaultEdgeOptions={defaultEdgeOptions}
-              panOnDrag={isRightDragging ? false : (interactionMode === 'select' ? [0] : false)}
+              panOnDrag={isRightDragging ? false : interactionMode === 'select' ? [0] : false}
               selectionOnDrag={false}
-              selectionMode="partial"
+              selectionMode={SelectionMode.Partial}
               panOnScroll={scrollMode === 'pan'}
               zoomOnScroll={scrollMode === 'zoom'}
-              panOnScrollMode={scrollMode === 'pan' ? 'vertical' : undefined}
+              panOnScrollMode={scrollMode === 'pan' ? PanOnScrollMode.Vertical : undefined}
               selectionKeyCode="Shift"
               deleteKeyCode={null}
               proOptions={{ hideAttribution: true }}
@@ -4994,17 +5932,34 @@ ${direction}
               minZoom={0.1}
               maxZoom={1.5}
             >
-              <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#334155' : '#cbd5e1'} gap={24} size={1} />
+              <Background
+                variant={BackgroundVariant.Dots}
+                color={theme === 'dark' ? '#334155' : '#cbd5e1'}
+                gap={24}
+                size={1}
+              />
               {showMiniMap && (
-                <div className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}>
+                <div
+                  className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
+                >
                   <MiniMap
                     pannable={true}
                     zoomable={true}
                     className="!static !bg-transparent !border-none !m-0"
-                    nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : 'var(--card-bg)'}
-                    nodeStrokeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : 'var(--card-border)'}
+                    nodeColor={
+                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : 'var(--card-bg)'
+                    }
+                    nodeStrokeColor={
+                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : 'var(--card-border)'
+                    }
                     nodeBorderRadius={6}
-                    maskColor={bubbleStyle === 'glass' ? (theme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.08)') : undefined}
+                    maskColor={
+                      bubbleStyle === 'glass'
+                        ? theme === 'dark'
+                          ? 'rgba(0, 0, 0, 0.3)'
+                          : 'rgba(0, 0, 0, 0.08)'
+                        : undefined
+                    }
                     style={{ height: 120, width: 160 }}
                   />
                   {showControls && (
@@ -5012,8 +5967,7 @@ ${direction}
                       <Controls
                         showInteractive={false}
                         showZoom={true}
-                        showFit={true}
-                        showLock={false}
+                        showFitView={true}
                         orientation="horizontal"
                         className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
                       />
@@ -5022,12 +5976,13 @@ ${direction}
                 </div>
               )}
               {!showMiniMap && showControls && (
-                <div className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}>
+                <div
+                  className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}
+                >
                   <Controls
                     showInteractive={false}
                     showZoom={true}
-                    showFit={true}
-                    showLock={false}
+                    showFitView={true}
                     orientation="horizontal"
                     className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0"
                   />
@@ -5042,16 +5997,21 @@ ${direction}
             <div
               ref={selectionMenuRef}
               className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] flex ${selectionMenuLayout === 'horizontal' ? 'flex-row items-center flex-nowrap shrink-0 h-[52px]' : 'flex-col w-40'} bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
-              style={{ transform: 'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)', willChange: 'transform' }}
+              style={{
+                transform:
+                  'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)',
+                willChange: 'transform',
+              }}
             >
-
               <button
                 onClick={wrapWithDynamicGroup}
                 className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
                 title={t.dynamicWrap}
               >
                 <Layers className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.dynamicWrap}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {t.dynamicWrap}
+                </span>
               </button>
 
               {selectionMenuLayout === 'horizontal' ? (
@@ -5066,7 +6026,9 @@ ${direction}
                 title={t.bgCard}
               >
                 <Square className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{t.bgCard}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {t.bgCard}
+                </span>
               </button>
 
               {selectionMenuLayout === 'horizontal' ? (
@@ -5081,9 +6043,10 @@ ${direction}
                 title={language === 'zh' ? '批量文本导出' : 'Batch Export'}
               >
                 <FileText className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '批量文本导出' : 'Batch Export'}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {language === 'zh' ? '批量文本导出' : 'Batch Export'}
+                </span>
               </button>
-
 
               {selectionMenuLayout === 'horizontal' ? (
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
@@ -5098,7 +6061,9 @@ ${direction}
                 title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
               >
                 <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '生成朗读音频' : 'Narration'}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {language === 'zh' ? '生成朗读音频' : 'Narration'}
+                </span>
               </button>
 
               {selectionMenuLayout === 'horizontal' ? (
@@ -5113,7 +6078,9 @@ ${direction}
                 title={language === 'zh' ? '删除' : 'Delete'}
               >
                 <Trash2 className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '删除' : 'Delete'}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {language === 'zh' ? '删除' : 'Delete'}
+                </span>
               </button>
 
               <button
@@ -5122,7 +6089,9 @@ ${direction}
                 title={language === 'zh' ? '复制' : 'Copy'}
               >
                 <Copy className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '复制' : 'Copy'}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {language === 'zh' ? '复制' : 'Copy'}
+                </span>
               </button>
 
               <button
@@ -5131,7 +6100,9 @@ ${direction}
                 title={language === 'zh' ? '隐藏' : 'Hide'}
               >
                 <EyeOff className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>{language === 'zh' ? '隐藏' : 'Hide'}</span>
+                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
+                  {language === 'zh' ? '隐藏' : 'Hide'}
+                </span>
               </button>
             </div>
           )}
@@ -5190,10 +6161,11 @@ ${direction}
                 {assistantTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${task.id === activeAssistantTaskId
-                      ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
-                      : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
-                      }`}
+                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${
+                      task.id === activeAssistantTaskId
+                        ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    }`}
                     title={task.title}
                   >
                     <div className="flex items-start gap-1.5">
@@ -5203,7 +6175,12 @@ ${direction}
                         className="min-w-0 flex-1 text-left"
                       >
                         <div className="text-[11px] font-black truncate">{task.title}</div>
-                        <div className="text-[9px] opacity-60 truncate">{new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="text-[9px] opacity-60 truncate">
+                          {new Date(task.updatedAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
                       </button>
                       <button
                         type="button"
@@ -5219,8 +6196,11 @@ ${direction}
               </div>
             </div>
 
-            <div ref={assistantMessagesRef} className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
-              {assistantMessages.map((message) => (
+            <div
+              ref={assistantMessagesRef}
+              className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3"
+            >
+              {assistantMessages.map((message) =>
                 message.role === 'thought' ? (
                   <div key={message.id} className="flex justify-start">
                     <button
@@ -5231,7 +6211,9 @@ ${direction}
                       <div className="flex items-center gap-2 font-black mb-1">
                         <BrainCircuit className="w-3.5 h-3.5" />
                         <span>{message.collapsed ? 'AI 已完成思考' : 'AI 正在思考'}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${message.collapsed ? '-rotate-90' : ''}`} />
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform ${message.collapsed ? '-rotate-90' : ''}`}
+                        />
                       </div>
                       {!message.collapsed && (
                         <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
@@ -5241,16 +6223,22 @@ ${direction}
                     </button>
                   </div>
                 ) : (
-                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${message.role === 'user'
-                      ? 'bg-indigo-600 text-white rounded-br-md'
-                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
-                      }`}>
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                        message.role === 'user'
+                          ? 'bg-indigo-600 text-white rounded-br-md'
+                          : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
                       {message.content}
                     </div>
                   </div>
-                )
-              ))}
+                ),
+              )}
               {assistantLoading && (
                 <div className="flex justify-start">
                   <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-slate-500 dark:text-slate-300 flex items-center gap-2">
@@ -5264,21 +6252,29 @@ ${direction}
             <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
               <div className="flex gap-2 mb-2">
                 <button
-                  onClick={() => handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')}
+                  onClick={() =>
+                    handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')
+                  }
                   disabled={assistantLoading}
                   className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
                 >
                   建议
                 </button>
                 <button
-                  onClick={() => handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')}
+                  onClick={() =>
+                    handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')
+                  }
                   disabled={assistantLoading}
                   className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 disabled:opacity-50 transition-colors"
                 >
                   生成卡片
                 </button>
                 <button
-                  onClick={() => handleAssistantSend('填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。')}
+                  onClick={() =>
+                    handleAssistantSend(
+                      '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。',
+                    )
+                  }
                   disabled={assistantLoading || selectedAssistantTargetNodes.length === 0}
                   className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 disabled:opacity-50 transition-colors"
                 >
@@ -5313,7 +6309,11 @@ ${direction}
                   className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shrink-0"
                   title={language === 'zh' ? '发送' : 'Send'}
                 >
-                  {assistantLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {assistantLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -5324,12 +6324,14 @@ ${direction}
       {!isMobile && showStats && (
         <footer className="h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
           <div className="flex gap-4">
-            <span className="flex items-center gap-1.5"><div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}</span>
-            <span className="flex items-center gap-1.5"><div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}</span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}
+            </span>
           </div>
-          <div className="opacity-60 font-medium">
-            {footerHint}
-          </div>
+          <div className="opacity-60 font-medium">{footerHint}</div>
         </footer>
       )}
 
@@ -5341,9 +6343,13 @@ ${direction}
         >
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">{language === 'zh' ? 'AI 思考中...' : 'AI Thinking...'}</span>
+            <span className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">
+              {language === 'zh' ? 'AI 思考中...' : 'AI Thinking...'}
+            </span>
           </div>
-          <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">{thinkingContent}</p>
+          <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">
+            {thinkingContent}
+          </p>
         </div>
       )}
 
@@ -5351,13 +6357,18 @@ ${direction}
       {showAIActionModal && pendingAINodeId && (
         <div
           className="fixed inset-0 bg-slate-900/60 z-[300] flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => { setShowAIActionModal(false); setPendingAINodeId(null); }}
+          onClick={() => {
+            setShowAIActionModal(false);
+            setPendingAINodeId(null);
+          }}
         >
           <div
             className="bg-white dark:bg-slate-900 rounded-2xl shadow-md p-5 md:p-6 w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300 border border-transparent dark:border-slate-800"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">{t.aiAssistant}</h3>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
+              {t.aiAssistant}
+            </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">{t.aiChooseMethod}</p>
             <div className="flex flex-col gap-3">
               {/* NOTE: 根据用户在设置中配置的 aiButtonsConfig 动态显示/隐藏各按钮 */}
@@ -5369,8 +6380,12 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">✍️</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-indigo-700 dark:group-hover:text-indigo-400">{t.aiContinue}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiContinueDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-indigo-700 dark:group-hover:text-indigo-400">
+                      {t.aiContinue}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiContinueDesc}
+                    </div>
                   </div>
                 </button>
               )}
@@ -5382,8 +6397,12 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">💡</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-purple-700 dark:group-hover:text-purple-400">{t.aiCreative}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiCreativeDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-purple-700 dark:group-hover:text-purple-400">
+                      {t.aiCreative}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiCreativeDesc}
+                    </div>
                   </div>
                 </button>
               )}
@@ -5395,8 +6414,12 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">🔄</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-amber-700 dark:group-hover:text-amber-400">{t.aiRewrite}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiRewriteDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-amber-700 dark:group-hover:text-amber-400">
+                      {t.aiRewrite}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiRewriteDesc}
+                    </div>
                   </div>
                 </button>
               )}
@@ -5408,8 +6431,12 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">🧩</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-green-700 dark:group-hover:text-green-400">{t.aiInterpolate}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiInterpolateDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-green-700 dark:group-hover:text-green-400">
+                      {t.aiInterpolate}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiInterpolateDesc}
+                    </div>
                   </div>
                 </button>
               )}
@@ -5421,8 +6448,12 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">🏞</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-sky-700 dark:group-hover:text-sky-400">{t.aiSceneOnly}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiSceneOnlyDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-sky-700 dark:group-hover:text-sky-400">
+                      {t.aiSceneOnly}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiSceneOnlyDesc}
+                    </div>
                   </div>
                 </button>
               )}
@@ -5434,14 +6465,21 @@ ${direction}
                 >
                   <span className="text-xl mt-0.5">💬</span>
                   <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-rose-700 dark:group-hover:text-rose-400">{t.aiDialogueOnly}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.aiDialogueOnlyDesc}</div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-rose-700 dark:group-hover:text-rose-400">
+                      {t.aiDialogueOnly}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {t.aiDialogueOnlyDesc}
+                    </div>
                   </div>
                 </button>
               )}
             </div>
             <button
-              onClick={() => { setShowAIActionModal(false); setPendingAINodeId(null); }}
+              onClick={() => {
+                setShowAIActionModal(false);
+                setPendingAINodeId(null);
+              }}
               className="mt-4 w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
             >
               {t.cancel}
@@ -5535,7 +6573,6 @@ ${direction}
           setMiniMapPosition={setMiniMapPosition}
           showControls={showControls}
           setShowControls={setShowControls}
-
           aiProvider={aiProvider}
           setAiProvider={setAiProvider}
           customApiKey={customApiKey}
@@ -5581,7 +6618,6 @@ ${direction}
           setPlayTestVideoAutoPlay={setPlayTestVideoAutoPlay}
           playTestLayoutMode={playTestLayoutMode}
           setPlayTestLayoutMode={setPlayTestLayoutMode}
-
           playTestInteractionMode={playTestInteractionMode}
           setPlayTestInteractionMode={setPlayTestInteractionMode}
           playTestTypewriterSpeed={playTestTypewriterSpeed}
@@ -5609,7 +6645,9 @@ ${direction}
               <FileArchive className="w-8 h-8" />
             </div>
 
-            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">{language === 'zh' ? '发现未保存的进度' : 'Unsaved Progress Found'}</h3>
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">
+              {language === 'zh' ? '发现未保存的进度' : 'Unsaved Progress Found'}
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center leading-relaxed">
               {language === 'zh'
                 ? `系统检测到异常退出前有未保存的进度（${new Date(autoSaveDataRef.current.timestamp).toLocaleTimeString()}）。是否恢复？`
@@ -5631,24 +6669,32 @@ ${direction}
                   try {
                     const data = JSON.parse(autoSaveDataRef.current!.snapshot);
                     setNodes(data.nodes);
-                    setEdges(data.edges.map((edge: any) => ({
-                      ...edge,
-                      type: 'customEdge',
-                      markerEnd: defaultEdgeOptions.markerEnd,
-                      style: defaultEdgeOptions.style
-                    })));
+                    setEdges(
+                      data.edges.map((edge: any) => ({
+                        ...edge,
+                        type: 'customEdge',
+                        markerEnd: defaultEdgeOptions.markerEnd,
+                        style: defaultEdgeOptions.style,
+                      })),
+                    );
                     if (data.settings) {
                       if (data.settings.canvasBg) setCanvasBg(data.settings.canvasBg);
                       if (data.settings.edgeStyle) setEdgeStyle(data.settings.edgeStyle);
                       if (data.settings.customApiKey) setCustomApiKey(data.settings.customApiKey);
-                      if (data.settings.pasteAsPlainText !== undefined) setPasteAsPlainText(data.settings.pasteAsPlainText);
-                      if (data.settings.showNodeActions !== undefined) setShowNodeActions(data.settings.showNodeActions);
-                      if (data.settings.showStats !== undefined) setShowStats(data.settings.showStats);
+                      if (data.settings.pasteAsPlainText !== undefined)
+                        setPasteAsPlainText(data.settings.pasteAsPlainText);
+                      if (data.settings.showNodeActions !== undefined)
+                        setShowNodeActions(data.settings.showNodeActions);
+                      if (data.settings.showStats !== undefined)
+                        setShowStats(data.settings.showStats);
                       if (data.settings.presetColors) setPresetColors(data.settings.presetColors);
-                      if (data.settings.showTitles !== undefined) setShowTitles(data.settings.showTitles);
-                      if (data.settings.generateLength) setGenerateLength(data.settings.generateLength);
+                      if (data.settings.showTitles !== undefined)
+                        setShowTitles(data.settings.showTitles);
+                      if (data.settings.generateLength)
+                        setGenerateLength(data.settings.generateLength);
                       if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
-                      if (data.settings.deepseekApiKey) setDeepseekApiKey(data.settings.deepseekApiKey);
+                      if (data.settings.deepseekApiKey)
+                        setDeepseekApiKey(data.settings.deepseekApiKey);
                       if (data.settings.openaiApiKey) setOpenaiApiKey(data.settings.openaiApiKey);
                       if (data.settings.imageApiKey) setImageApiKey(data.settings.imageApiKey);
                       if (data.settings.imageApiUrl) setImageApiUrl(data.settings.imageApiUrl);
@@ -5658,35 +6704,74 @@ ${direction}
                       if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
                       if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
                       if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
-                      if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao') setTtsProvider(data.settings.ttsProvider);
-                      if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
-                      if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
-                      if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right') setMiniMapPosition(data.settings.miniMapPosition);
-                      if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
-                      if (typeof data.settings.projectTitle === 'string') setProjectTitle(data.settings.projectTitle);
+                      if (
+                        data.settings.ttsProvider === 'system' ||
+                        data.settings.ttsProvider === 'youdao'
+                      )
+                        setTtsProvider(data.settings.ttsProvider);
+                      if (data.settings.thinkingMode !== undefined)
+                        setThinkingMode(data.settings.thinkingMode);
+                      if (data.settings.showMiniMap !== undefined)
+                        setShowMiniMap(data.settings.showMiniMap);
+                      if (
+                        data.settings.miniMapPosition === 'left' ||
+                        data.settings.miniMapPosition === 'right'
+                      )
+                        setMiniMapPosition(data.settings.miniMapPosition);
+                      if (data.settings.showControls !== undefined)
+                        setShowControls(data.settings.showControls);
+                      if (typeof data.settings.projectTitle === 'string')
+                        setProjectTitle(data.settings.projectTitle);
                       if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-                      if (data.settings.toolbarLayout === 'horizontal' || data.settings.toolbarLayout === 'vertical') setToolbarLayout(data.settings.toolbarLayout);
-                      if (data.settings.selectionMenuLayout) setSelectionMenuLayout(data.settings.selectionMenuLayout);
+                      if (
+                        data.settings.toolbarLayout === 'horizontal' ||
+                        data.settings.toolbarLayout === 'vertical'
+                      )
+                        setToolbarLayout(data.settings.toolbarLayout);
+                      if (data.settings.selectionMenuLayout)
+                        setSelectionMenuLayout(data.settings.selectionMenuLayout);
                       if (data.settings.language) setLanguage(data.settings.language);
                       if (data.settings.theme) setTheme(data.settings.theme);
-                      if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat') setBubbleStyle(data.settings.bubbleStyle);
-                      if (data.settings.playTestDarkMode !== undefined) setPlayTestDarkMode(data.settings.playTestDarkMode);
-                      if (data.settings.playTestChoicesColumns !== undefined) setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
-                      if (data.settings.playTestVideoAutoPlay !== undefined) setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
-                      if (data.settings.playTestLayoutMode) setPlayTestLayoutMode(data.settings.playTestLayoutMode);
+                      if (
+                        data.settings.bubbleStyle === 'glass' ||
+                        data.settings.bubbleStyle === 'flat'
+                      )
+                        setBubbleStyle(data.settings.bubbleStyle);
+                      if (data.settings.playTestDarkMode !== undefined)
+                        setPlayTestDarkMode(data.settings.playTestDarkMode);
+                      if (data.settings.playTestChoicesColumns !== undefined)
+                        setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
+                      if (data.settings.playTestVideoAutoPlay !== undefined)
+                        setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
+                      if (data.settings.playTestLayoutMode)
+                        setPlayTestLayoutMode(data.settings.playTestLayoutMode);
 
-                      if (data.settings.playTestInteractionMode) setPlayTestInteractionMode(data.settings.playTestInteractionMode);
-                      if (data.settings.playTestTypewriterSpeed !== undefined) setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
-                      if (data.settings.playTestChoiceDelay !== undefined) setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
-                      if (data.settings.playTestChoicesPosition) setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
-                      if (data.settings.playTestBlurBackground !== undefined) setPlayTestBlurBackground(data.settings.playTestBlurBackground);
-                      if (data.settings.playTestBlurText !== undefined) setPlayTestBlurText(data.settings.playTestBlurText);
-                      if (data.settings.playTestSkipSingleChoicePopup !== undefined) setPlayTestSkipSingleChoicePopup(data.settings.playTestSkipSingleChoicePopup);
-                      if (data.settings.playTestDimBackground !== undefined) setPlayTestDimBackground(data.settings.playTestDimBackground);
+                      if (data.settings.playTestInteractionMode)
+                        setPlayTestInteractionMode(data.settings.playTestInteractionMode);
+                      if (data.settings.playTestTypewriterSpeed !== undefined)
+                        setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
+                      if (data.settings.playTestChoiceDelay !== undefined)
+                        setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
+                      if (data.settings.playTestChoicesPosition)
+                        setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
+                      if (data.settings.playTestBlurBackground !== undefined)
+                        setPlayTestBlurBackground(data.settings.playTestBlurBackground);
+                      if (data.settings.playTestBlurText !== undefined)
+                        setPlayTestBlurText(data.settings.playTestBlurText);
+                      if (data.settings.playTestSkipSingleChoicePopup !== undefined)
+                        setPlayTestSkipSingleChoicePopup(
+                          data.settings.playTestSkipSingleChoicePopup,
+                        );
+                      if (data.settings.playTestDimBackground !== undefined)
+                        setPlayTestDimBackground(data.settings.playTestDimBackground);
                     }
-                    showToast(language === 'zh' ? '已恢复进度，请记得手动保存' : 'Progress recovered, please remember to save');
+                    showToast(
+                      language === 'zh'
+                        ? '已恢复进度，请记得手动保存'
+                        : 'Progress recovered, please remember to save',
+                    );
                   } catch (e) {
-                    console.error("Failed to restore autosave", e);
+                    console.error('Failed to restore autosave', e);
                   }
                   setShowAutoSaveModal(false);
                 }}
@@ -5699,7 +6784,6 @@ ${direction}
         </div>
       )}
 
-
       {/* 保存文件名弹窗 */}
       {showSaveNameModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-[1200] flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-300">
@@ -5708,7 +6792,9 @@ ${direction}
               <Save className="w-8 h-8" />
             </div>
 
-            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">{t.exportProject}</h3>
+            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">
+              {t.exportProject}
+            </h3>
             <p className="text-slate-400 dark:text-slate-500 text-xs mb-8 text-center leading-relaxed">
               {t.saveProjectDesc}
             </p>
@@ -5725,7 +6811,9 @@ ${direction}
                     placeholder={t.projectName}
                     autoFocus
                   />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-base group-focus-within:text-indigo-400">.json</span>
+                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-base group-focus-within:text-indigo-400">
+                    .json
+                  </span>
                 </div>
               </div>
 
@@ -5750,51 +6838,54 @@ ${direction}
 
       {/* Zen Mode Overlay */}
       <Suspense fallback={null}>
-        {zenModeNodeId && (() => {
-          const node = nodes.find(n => n.id === zenModeNodeId);
-          const characterTags = node
-            ? nodes
-              .filter(n => n.type === 'characterNode' && (n.data?.characterName as string)?.trim())
-              .filter(n => {
-                const isGlobal = n.data?.isGlobal !== false;
-                const isConnected = edges.some(
-                  e =>
-                    (e.source === n.id && e.target === node.id) ||
-                    (e.target === n.id && e.source === node.id)
-                );
-                return isGlobal || isConnected;
-              })
-              .map(n => ({ id: n.id, name: (n.data.characterName as string).trim() }))
-            : [];
-          const sceneTags = node
-            ? nodes
-              .filter(n => n.type === 'sceneNode' && (n.data?.sceneName as string)?.trim())
-              .filter(n => {
-                const isGlobal = n.data?.isGlobal !== false;
-                const isConnected = edges.some(
-                  e =>
-                    (e.source === n.id && e.target === node.id) ||
-                    (e.target === n.id && e.source === node.id)
-                );
-                return isGlobal || isConnected;
-              })
-              .map(n => ({ id: n.id, name: (n.data.sceneName as string).trim() }))
-            : [];
-          return (
-            <ZenEditor
-              value={node?.data.text as string}
-              imageUrl={node?.data.imageUrl as string}
-              videoUrl={node?.data.videoUrl as string}
-              characterTags={characterTags}
-              sceneTags={sceneTags}
-              isAILoading={aiLoadingNodeId === zenModeNodeId}
-              onAIGenerate={() => handleAIButtonClick(zenModeNodeId)}
-              onGenerateImage={() => handleGenerateStoryNodeImage(zenModeNodeId)}
-              onChange={val => handleUpdateNode(zenModeNodeId, { text: val })}
-              onClose={() => setZenModeNodeId(null)}
-            />
-          );
-        })()}
+        {zenModeNodeId &&
+          (() => {
+            const node = nodes.find((n) => n.id === zenModeNodeId);
+            const characterTags = node
+              ? nodes
+                  .filter(
+                    (n) => n.type === 'characterNode' && (n.data?.characterName as string)?.trim(),
+                  )
+                  .filter((n) => {
+                    const isGlobal = n.data?.isGlobal !== false;
+                    const isConnected = edges.some(
+                      (e) =>
+                        (e.source === n.id && e.target === node.id) ||
+                        (e.target === n.id && e.source === node.id),
+                    );
+                    return isGlobal || isConnected;
+                  })
+                  .map((n) => ({ id: n.id, name: (n.data.characterName as string).trim() }))
+              : [];
+            const sceneTags = node
+              ? nodes
+                  .filter((n) => n.type === 'sceneNode' && (n.data?.sceneName as string)?.trim())
+                  .filter((n) => {
+                    const isGlobal = n.data?.isGlobal !== false;
+                    const isConnected = edges.some(
+                      (e) =>
+                        (e.source === n.id && e.target === node.id) ||
+                        (e.target === n.id && e.source === node.id),
+                    );
+                    return isGlobal || isConnected;
+                  })
+                  .map((n) => ({ id: n.id, name: (n.data.sceneName as string).trim() }))
+              : [];
+            return (
+              <ZenEditor
+                value={node?.data.text as string}
+                imageUrl={node?.data.imageUrl as string}
+                videoUrl={node?.data.videoUrl as string}
+                characterTags={characterTags}
+                sceneTags={sceneTags}
+                isAILoading={aiLoadingNodeId === zenModeNodeId}
+                onAIGenerate={() => handleAIButtonClick(zenModeNodeId)}
+                onGenerateImage={() => handleGenerateStoryNodeImage(zenModeNodeId)}
+                onChange={(val) => handleUpdateNode(zenModeNodeId, { text: val })}
+                onClose={() => setZenModeNodeId(null)}
+              />
+            );
+          })()}
       </Suspense>
 
       {/* Global Toast Notification */}

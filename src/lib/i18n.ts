@@ -80,6 +80,7 @@ export const translations = {
     finish: '完成',
     contactTitle: '联系作者 (崔铭文)',
     contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
+    author: '作者',
 
     // MiniMap
     showMiniMap: '显示小地图 (预览窗)',
@@ -87,7 +88,6 @@ export const translations = {
     miniMapPosition: '小地图位置',
     miniMapLeft: '靠左',
     miniMapRight: '靠右',
-
 
     // Theme
     theme: '界面主题',
@@ -107,7 +107,8 @@ export const translations = {
 
     // Save Modal
     exportProject: '导出剧本工程',
-    saveProjectDesc: '请为您的项目命名。导出的 ZIP 压缩包包含剧本逻辑及所有多媒体素材，可随时重新导入。',
+    saveProjectDesc:
+      '请为您的项目命名。导出的 ZIP 压缩包包含剧本逻辑及所有多媒体素材，可随时重新导入。',
     projectName: '项目名称',
     confirmSave: '确认保存',
 
@@ -121,8 +122,10 @@ export const translations = {
     guideStart: '开始创作',
     dontShowAgain: '不再显示',
     disclaimer: '免责声明',
-    disclaimer1: '本网站不会主动存储您的个人内容及生成结果，请及时自行保存重要信息，因未保存导致的数据丢失，本站概不负责。',
-    disclaimer2: '为优化使用体验，网站可能会使用您设备中的 Cookie 等必要技术信息，用于基础功能支持与服务改进。',
+    disclaimer1:
+      '本网站不会主动存储您的个人内容及生成结果，请及时自行保存重要信息，因未保存导致的数据丢失，本站概不负责。',
+    disclaimer2:
+      '为优化使用体验，网站可能会使用您设备中的 Cookie 等必要技术信息，用于基础功能支持与服务改进。',
     disclaimer3: '平台生成的内容仅供参考，相关结果及使用所产生的任何后果，本站不承担责任。',
 
     // Play Test
@@ -158,7 +161,6 @@ export const translations = {
     selectionMenuLayout: '框选菜单排列方式',
     menuVertical: '垂直排列',
     menuHorizontal: '水平排列',
-
   },
   en: {
     // Header
@@ -172,7 +174,8 @@ export const translations = {
     save: 'Save Project',
     import: 'Import Project',
     unsaved: 'Unsaved',
-    dirtyWarning: 'You have unsaved changes. Are you sure you want to leave? It is recommended to save your project first.',
+    dirtyWarning:
+      'You have unsaved changes. Are you sure you want to leave? It is recommended to save your project first.',
 
     // Toolbar
     tools: 'Tools',
@@ -185,8 +188,10 @@ export const translations = {
     toolAIHub: 'Add AI Summary Node (connect inputs via arrows)',
     toolMedia: 'Import Media (Image/Video/Audio)',
     toolText: 'Add Custom Text Label (Size/Color/Bold)',
-    toolBatchReplace: 'Right-click on the arrow line segment to delete it. Double-click on the arrow line segment to reverse it.',
-    toolPlotStructure: 'Add Plot Structure Design card (auto-generate story continuation inside background/group)',
+    toolBatchReplace:
+      'Right-click on the arrow line segment to delete it. Double-click on the arrow line segment to reverse it.',
+    toolPlotStructure:
+      'Add Plot Structure Design card (auto-generate story continuation inside background/group)',
     toolScene: 'Add Scene Setting card',
     fit: 'Fit',
     crop: 'Crop',
@@ -196,7 +201,8 @@ export const translations = {
     // Footer
     nodes: 'Nodes',
     paths: 'Paths',
-    footerHint: 'Right-click arrows to delete. Click the lock icon on background cards to unlock/lock.',
+    footerHint:
+      'Right-click arrows to delete. Click the lock icon on background cards to unlock/lock.',
 
     // AI Actions
     aiAssistant: 'AI Writing Assistant',
@@ -239,6 +245,7 @@ export const translations = {
     finish: 'Finish',
     contactTitle: 'Contact Author (Mingwen Cui)',
     contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
+    author: 'Author',
 
     // MiniMap
     showMiniMap: 'Show MiniMap',
@@ -246,7 +253,6 @@ export const translations = {
     miniMapPosition: 'MiniMap Position',
     miniMapLeft: 'Left',
     miniMapRight: 'Right',
-
 
     // Theme
     theme: 'Theme',
@@ -266,7 +272,8 @@ export const translations = {
 
     // Save Modal
     exportProject: 'Export Project',
-    saveProjectDesc: 'Please name your project. The exported ZIP bundle contains script logic and all media assets.',
+    saveProjectDesc:
+      'Please name your project. The exported ZIP bundle contains script logic and all media assets.',
     projectName: 'Project Name',
     confirmSave: 'Confirm Save',
 
@@ -280,7 +287,8 @@ export const translations = {
     guideStart: 'Start Writing',
     dontShowAgain: "Don't show again",
     disclaimer: 'Disclaimer',
-    disclaimer1: 'This site does not automatically store your personal content. Please save your work manually. We are not responsible for data loss.',
+    disclaimer1:
+      'This site does not automatically store your personal content. Please save your work manually. We are not responsible for data loss.',
     disclaimer2: 'Cookies may be used for basic functionality and service improvement.',
     disclaimer3: 'AI-generated content is for reference only. Use it at your own risk.',
 
@@ -317,6 +325,5 @@ export const translations = {
     selectionMenuLayout: 'Selection Menu Layout',
     menuVertical: 'Vertical',
     menuHorizontal: 'Horizontal',
-
-  }
+  },
 };

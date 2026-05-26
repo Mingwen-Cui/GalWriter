@@ -5,6 +5,8 @@ coverage/
 landingpage/
 php-backend/
 public/downloads/
+examples/
+scripts/
 
 # Tauri/Rust generated output
 src-tauri/gen/
@@ -21,6 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.eslintcache
 
 .DS_Store
 .env*

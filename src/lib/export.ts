@@ -1,4 +1,4 @@
-import { Node, Edge } from '@xyflow/react';
+import { Edge, Node } from '@xyflow/react';
 
 export interface StoryNodeData extends Record<string, unknown> {
   text: string;
@@ -7,13 +7,13 @@ export interface StoryNodeData extends Record<string, unknown> {
 export function exportPaths(nodes: Node<StoryNodeData>[], edges: Edge[]) {
   // Find roots (in-degree 0, but must have at least one outgoing edge to be considered a connected root)
   // 如果没有任何连接（没有入边也没有出边），则忽略该孤立节点
-  const roots = nodes.filter(n => {
-    const hasIn = edges.some(e => e.target === n.id);
-    const hasOut = edges.some(e => e.source === n.id);
+  const roots = nodes.filter((n) => {
+    const hasIn = edges.some((e) => e.target === n.id);
+    const hasOut = edges.some((e) => e.source === n.id);
     // 允许有出边无入边的作为根节点；如果是孤立节点(没有入边也没有出边)则忽略
     return !hasIn && hasOut;
   });
-  
+
   if (roots.length === 0) return 'No story found.';
 
   let out = '';
@@ -27,16 +27,16 @@ export function exportPaths(nodes: Node<StoryNodeData>[], edges: Edge[]) {
       endingIndex++;
       return;
     }
-    
-    const node = nodes.find(n => n.id === currId);
+
+    const node = nodes.find((n) => n.id === currId);
     if (!node) return;
-    
+
     path.push(String(node.data.text || ''));
 
     const newVisited = new Set(visited);
     newVisited.add(currId);
 
-    const outEdges = edges.filter(e => e.source === currId);
+    const outEdges = edges.filter((e) => e.source === currId);
     if (outEdges.length === 0) {
       // Leaf node, write to output
       out += `# Ending ${endingIndex}\n\n`;
@@ -46,7 +46,7 @@ export function exportPaths(nodes: Node<StoryNodeData>[], edges: Edge[]) {
     } else {
       // For each edge, follow the choice it represents
       for (const e of outEdges) {
-        const tNode = nodes.find(n => n.id === e.target);
+        const tNode = nodes.find((n) => n.id === e.target);
         const pathName = tNode?.data.title || 'Next Segment';
         dfs(e.target, [...path, `> [Player Chose: ${pathName}]`], newVisited);
       }
@@ -83,10 +83,7 @@ export function formatCharacterNodeText(data: Record<string, unknown>): string {
   };
 
   const useSplitTraits =
-    !!data.showPersonality ||
-    !!data.showFeatures ||
-    !!data.showBackground ||
-    !!data.showOther;
+    !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
 
   if (useSplitTraits) {
     if (data.showPersonality) addSection('性格', data.personality);
@@ -99,9 +96,7 @@ export function formatCharacterNodeText(data: Record<string, unknown>): string {
 
   const outfits = (data.outfits as CharacterOutfit[] | undefined) || [];
   if (outfits.length > 0) {
-    const outfitLines = outfits
-      .map((o) => `- ${(o.name || '未命名穿着').trim()}`)
-      .join('\n');
+    const outfitLines = outfits.map((o) => `- ${(o.name || '未命名穿着').trim()}`).join('\n');
     parts.push(`**三视图 / 穿着**\n${outfitLines}`);
   }
 
@@ -119,10 +114,7 @@ export function formatSceneNodeText(data: Record<string, unknown>): string {
   };
 
   const useSplitDetails =
-    !!data.showLocation ||
-    !!data.showItems ||
-    !!data.showAtmosphere ||
-    !!data.showOther;
+    !!data.showLocation || !!data.showItems || !!data.showAtmosphere || !!data.showOther;
 
   if (useSplitDetails) {
     if (data.showLocation) addSection('位置描写', data.location);

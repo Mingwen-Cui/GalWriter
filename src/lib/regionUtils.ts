@@ -57,7 +57,7 @@ function getNodeSize(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_NODE_WIDTH,
-  fallbackHeight = DEFAULT_NODE_HEIGHT
+  fallbackHeight = DEFAULT_NODE_HEIGHT,
 ) {
   const internalNode = getInternalNode(state, node.id);
   const measured = internalNode?.measured ?? node?.measured;
@@ -71,7 +71,7 @@ function getNodeCenter(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_NODE_WIDTH,
-  fallbackHeight = DEFAULT_NODE_HEIGHT
+  fallbackHeight = DEFAULT_NODE_HEIGHT,
 ): Point {
   const position = getAbsolutePosition(state, node);
   const size = getNodeSize(state, node, fallbackWidth, fallbackHeight);
@@ -85,7 +85,7 @@ function getRectForNode(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_BACKGROUND_WIDTH,
-  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT
+  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT,
 ): Rect {
   const position = getAbsolutePosition(state, node);
   const size = getNodeSize(state, node, fallbackWidth, fallbackHeight);
@@ -126,8 +126,7 @@ function pointInPolygon(point: Point, polygon: Point[]) {
     const intersects =
       current.y > point.y !== previous.y > point.y &&
       point.x <
-        ((previous.x - current.x) * (point.y - current.y)) /
-          ((previous.y - current.y) || 0.00001) +
+        ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || 0.00001) +
           current.x;
     if (intersects) inside = !inside;
   }
@@ -146,7 +145,10 @@ function getConvexHull(points: Point[]): Point[] {
   });
   const lower: Point[] = [];
   for (const point of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0
+    ) {
       lower.pop();
     }
     lower.push(point);
@@ -154,7 +156,10 @@ function getConvexHull(points: Point[]): Point[] {
   const upper: Point[] = [];
   for (let i = sorted.length - 1; i >= 0; i--) {
     const point = sorted[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) {
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0
+    ) {
       upper.pop();
     }
     upper.push(point);
@@ -199,7 +204,7 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
       previousLine.point,
       previousLine.direction,
       currentLine.point,
-      currentLine.direction
+      currentLine.direction,
     );
     if (intersection) {
       inflated.push(intersection);
@@ -219,7 +224,12 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
 
 type ChildSnapshot = { id: string; x: number; y: number; width: number; height: number };
 
-function buildLiveHullPoints(childNodes: ChildSnapshot[], groupX: number, groupY: number, gap: number): Point[] {
+function buildLiveHullPoints(
+  childNodes: ChildSnapshot[],
+  groupX: number,
+  groupY: number,
+  gap: number,
+): Point[] {
   if (childNodes.length === 0) return [];
   const cardCornerPoints: Point[] = [];
   childNodes.forEach((node) => {
@@ -262,7 +272,12 @@ function buildDynamicGroupRegion(state: any, groupNode: any): RegionInfo | null 
 }
 
 function buildBackgroundRegion(state: any, backgroundNode: any): RegionInfo {
-  const rect = getRectForNode(state, backgroundNode, DEFAULT_BACKGROUND_WIDTH, DEFAULT_BACKGROUND_HEIGHT);
+  const rect = getRectForNode(
+    state,
+    backgroundNode,
+    DEFAULT_BACKGROUND_WIDTH,
+    DEFAULT_BACKGROUND_HEIGHT,
+  );
   return {
     id: backgroundNode.id,
     type: 'background',
@@ -279,7 +294,7 @@ function isPointInsideRegion(point: Point, region: RegionInfo) {
   if (region.type === 'dynamicGroup' && region.origin && region.points) {
     return pointInPolygon(
       { x: point.x - region.origin.x, y: point.y - region.origin.y },
-      region.points
+      region.points,
     );
   }
   return false;
@@ -341,10 +356,20 @@ export function isRegionToolNode(node: any) {
   return isBatchReplaceNode(node) || isPlotStructureNode(node);
 }
 
-export function getNodeRect(state: any, node: any, fallbackWidth: number, fallbackHeight: number): Rect {
+export function getNodeRect(
+  state: any,
+  node: any,
+  fallbackWidth: number,
+  fallbackHeight: number,
+): Rect {
   return getRectForNode(state, node, fallbackWidth, fallbackHeight);
 }
 
-export function getNodeCenterPoint(state: any, node: any, fallbackWidth?: number, fallbackHeight?: number): Point {
+export function getNodeCenterPoint(
+  state: any,
+  node: any,
+  fallbackWidth?: number,
+  fallbackHeight?: number,
+): Point {
   return getNodeCenter(state, node, fallbackWidth, fallbackHeight);
 }

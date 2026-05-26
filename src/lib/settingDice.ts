@@ -18,7 +18,7 @@ export type GeneratedSceneSetting = {
   description?: string;
 };
 
-const asText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+const asText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
 const joinContext = (entries: Array<[string, unknown]>) => {
   const lines = entries
@@ -42,14 +42,9 @@ export const hasUsefulCharacterInfo = (data: Record<string, unknown>) =>
   ].some((value) => asText(value).length > 0);
 
 export const hasUsefulSceneInfo = (data: Record<string, unknown>) =>
-  [
-    data.sceneName,
-    data.description,
-    data.location,
-    data.items,
-    data.atmosphere,
-    data.other,
-  ].some((value) => asText(value).length > 0);
+  [data.sceneName, data.description, data.location, data.items, data.atmosphere, data.other].some(
+    (value) => asText(value).length > 0,
+  );
 
 export const buildCharacterSettingPrompt = (data: Record<string, unknown>, lang: LanguageCode) => {
   const useExisting = hasUsefulCharacterInfo(data);
@@ -116,7 +111,10 @@ JSON keys:
 };
 
 export function parseSettingJson<T extends Record<string, unknown>>(text: string): T {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const cleaned = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '');
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
 
@@ -129,7 +127,7 @@ export function parseSettingJson<T extends Record<string, unknown>>(text: string
 
 export const buildCharacterUpdates = (
   data: Record<string, unknown>,
-  generated: GeneratedCharacterSetting
+  generated: GeneratedCharacterSetting,
 ) => {
   const updates: Record<string, unknown> = {};
 
@@ -166,7 +164,7 @@ export const buildCharacterUpdates = (
 
 export const buildSceneUpdates = (
   data: Record<string, unknown>,
-  generated: GeneratedSceneSetting
+  generated: GeneratedSceneSetting,
 ) => {
   const updates: Record<string, unknown> = {};
 

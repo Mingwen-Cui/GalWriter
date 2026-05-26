@@ -1,8 +1,36 @@
+import {
+  Handle,
+  NodeProps,
+  NodeResizer,
+  NodeToolbar,
+  Position,
+  useReactFlow,
+  useStore,
+  useStoreApi,
+  useUpdateNodeInternals,
+} from '@xyflow/react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Dices,
+  Download,
+  Globe,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Settings2,
+  Trash2,
+  Upload,
+  UserCircle2,
+  WandSparkles,
+} from 'lucide-react';
 import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
-import { Handle, Position, NodeProps, NodeToolbar, useStore, NodeResizer, useStoreApi, useUpdateNodeInternals, useReactFlow } from '@xyflow/react';
-import { Trash2, UserCircle2, Settings2, Image as ImageIcon, Check, Copy, ChevronDown, ChevronRight, Plus, Globe, Upload, Dices, Loader2, WandSparkles, Download } from 'lucide-react';
-import { translations, Language } from '../lib/i18n';
+import { v4 as uuidv4 } from 'uuid';
+
 import { formatCharacterNodeText } from '../lib/export';
+import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import {
   buildCharacterSettingPrompt,
@@ -10,9 +38,6 @@ import {
   GeneratedCharacterSetting,
   parseSettingJson,
 } from '../lib/settingDice';
-import { v4 as uuidv4 } from 'uuid';
-
-
 
 const TRAIT_TEXTAREA_CLASS =
   'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -35,11 +60,15 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedCharacterNodeMinHeight = (activeTraitsCount: number, outfitsCount: number) =>
-  70 + 73 + 24 + 26 +
-  (activeTraitsCount * 79) +
-  (Math.max(0, activeTraitsCount - 1) * 8) +
-  24 + 20 +
-  (outfitsCount === 0 ? 33 : (outfitsCount * 46) + ((outfitsCount - 1) * 8));
+  70 +
+  73 +
+  24 +
+  26 +
+  activeTraitsCount * 79 +
+  Math.max(0, activeTraitsCount - 1) * 8 +
+  24 +
+  20 +
+  (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 export function CharacterNode({ id, data, selected }: NodeProps) {
   const lang = (data.language as Language) || 'zh';
@@ -51,7 +80,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   const isGlobal = data.isGlobal !== false; // Default to true
 
   const isMinimized = !!data.isMinimized;
-  const outfits = (data.outfits as { id: string, name: string, imageUrl?: string }[]) || [];
+  const outfits = (data.outfits as { id: string; name: string; imageUrl?: string }[]) || [];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
@@ -83,40 +112,47 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     return null;
   }, []);
 
-  const isHandleConnected = useCallback((handleId: string) => {
-    // 不只判断 source，也判断 target。
-    // 这样即使这个 Handle 是被别人连过来的，圆环也会正确消失。
-    return edges.some(edge =>
-      (edge.source === id && edge.sourceHandle === handleId) ||
-      (edge.target === id && edge.targetHandle === handleId)
-    );
-  }, [edges, id]);
+  const isHandleConnected = useCallback(
+    (handleId: string) => {
+      // 不只判断 source，也判断 target。
+      // 这样即使这个 Handle 是被别人连过来的，圆环也会正确消失。
+      return edges.some(
+        (edge) =>
+          (edge.source === id && edge.sourceHandle === handleId) ||
+          (edge.target === id && edge.targetHandle === handleId),
+      );
+    },
+    [edges, id],
+  );
 
-  const getHandleClasses = useCallback((handleId: string, _type: 'target' | 'source') => {
-    const oppositeHandleId = getOppositeHandleId(handleId);
+  const getHandleClasses = useCallback(
+    (handleId: string, _type: 'target' | 'source') => {
+      const oppositeHandleId = getOppositeHandleId(handleId);
 
-    const hasConnection = isHandleConnected(handleId);
-    const oppositeHasConnection = oppositeHandleId ? isHandleConnected(oppositeHandleId) : false;
+      const hasConnection = isHandleConnected(handleId);
+      const oppositeHasConnection = oppositeHandleId ? isHandleConnected(oppositeHandleId) : false;
 
-    // 同一组左右连接点，只要任意一边已经连线，两边都不再显示外层圆环。
-    // 例如左边 outfit-in 已连接，则右边 outfit-out 也取消圆环；反之同理。
-    const shouldShowRing = !hasConnection && !oppositeHasConnection;
+      // 同一组左右连接点，只要任意一边已经连线，两边都不再显示外层圆环。
+      // 例如左边 outfit-in 已连接，则右边 outfit-out 也取消圆环；反之同理。
+      const shouldShowRing = !hasConnection && !oppositeHasConnection;
 
-    const ringClasses = shouldShowRing
-      ? '!ring-2 !ring-offset-2 !ring-offset-[var(--card-bg)] !ring-purple-500/30'
-      : '';
+      const ringClasses = shouldShowRing
+        ? '!ring-2 !ring-offset-2 !ring-offset-[var(--card-bg)] !ring-purple-500/30'
+        : '';
 
-    return `w-3 h-3 bg-indigo-400 bg-indigo-400 border-2 border-[var(--card-bg)] rounded-full transition-[transform,background-color] hover:bg-indigo-600 !shadow-sm ${ringClasses} z-50`;
-  }, [getOppositeHandleId, isHandleConnected]);
+      return `w-3 h-3 bg-indigo-400 bg-indigo-400 border-2 border-[var(--card-bg)] rounded-full transition-[transform,background-color] hover:bg-indigo-600 !shadow-sm ${ringClasses} z-50`;
+    },
+    [getOppositeHandleId, isHandleConnected],
+  );
 
-  const activeTraitsCount = [
-    data.showPersonality,
-    data.showFeatures,
-    data.showBackground,
-    data.showOther
-  ].filter(Boolean).length || 1;
+  const activeTraitsCount =
+    [data.showPersonality, data.showFeatures, data.showBackground, data.showOther].filter(Boolean)
+      .length || 1;
 
-  const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(activeTraitsCount, outfits.length);
+  const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(
+    activeTraitsCount,
+    outfits.length,
+  );
   const hasCharacterText = [
     name,
     traits,
@@ -126,43 +162,46 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     data.other,
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
-  const syncNodeHeightToMinimum = useCallback((nextMinHeight = calculatedMinHeight) => {
-    if (isMinimized) return;
+  const syncNodeHeightToMinimum = useCallback(
+    (nextMinHeight = calculatedMinHeight) => {
+      if (isMinimized) return;
 
-    const heightToApply = Math.ceil(nextMinHeight);
+      const heightToApply = Math.ceil(nextMinHeight);
 
-    setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id !== id) return node;
+      setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id !== id) return node;
 
-        const currentHeight =
-          getNumericSize(node.style?.height) ??
-          getNumericSize((node as any).height) ??
-          getNumericSize((node as any).measured?.height);
+          const currentHeight =
+            getNumericSize(node.style?.height) ??
+            getNumericSize((node as any).height) ??
+            getNumericSize((node as any).measured?.height);
 
-        const currentMinHeight = getNumericSize(node.style?.minHeight);
-        const shouldGrowHeight = currentHeight === undefined || currentHeight < heightToApply - 1;
-        const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
+          const currentMinHeight = getNumericSize(node.style?.minHeight);
+          const shouldGrowHeight = currentHeight === undefined || currentHeight < heightToApply - 1;
+          const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
 
-        if (!shouldGrowHeight && !shouldUpdateMinHeight) {
-          return node;
-        }
+          if (!shouldGrowHeight && !shouldUpdateMinHeight) {
+            return node;
+          }
 
-        return {
-          ...node,
-          style: {
-            ...node.style,
-            ...(shouldGrowHeight ? { height: heightToApply } : {}),
-            minHeight: heightToApply,
-          },
-        };
-      })
-    );
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              ...(shouldGrowHeight ? { height: heightToApply } : {}),
+              minHeight: heightToApply,
+            },
+          };
+        }),
+      );
 
-    requestAnimationFrame(() => {
-      updateNodeInternals(id);
-    });
-  }, [calculatedMinHeight, id, isMinimized, setNodes, updateNodeInternals]);
+      requestAnimationFrame(() => {
+        updateNodeInternals(id);
+      });
+    },
+    [calculatedMinHeight, id, isMinimized, setNodes, updateNodeInternals],
+  );
 
   const updateNodeData = (updates: any) => {
     if (data.onUpdate) {
@@ -172,7 +211,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
 
   const handleTraitVisibilityChange = (
     key: 'showPersonality' | 'showFeatures' | 'showBackground' | 'showOther',
-    checked: boolean
+    checked: boolean,
   ) => {
     const nextVisibility = {
       showPersonality: !!data.showPersonality,
@@ -183,7 +222,10 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     };
 
     const nextActiveTraitsCount = Object.values(nextVisibility).filter(Boolean).length || 1;
-    const nextMinHeight = getCalculatedCharacterNodeMinHeight(nextActiveTraitsCount, outfits.length);
+    const nextMinHeight = getCalculatedCharacterNodeMinHeight(
+      nextActiveTraitsCount,
+      outfits.length,
+    );
 
     // 只按公式同步一次最小高度，不再使用 scrollHeight 反复测量。
     // 这样既能让 NodeResizer 立即跟上，也不会出现高度无限变高。
@@ -213,7 +255,10 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   const minimizedOutfitHandleStyle = { top: '50%' };
 
   const minimizedConnectedOutfitHandleKey = minimizedConnectedOutfits
-    .map((item) => `${item.inHandleId}:${item.hasInConnection ? 1 : 0}:${item.outHandleId}:${item.hasOutConnection ? 1 : 0}`)
+    .map(
+      (item) =>
+        `${item.inHandleId}:${item.hasInConnection ? 1 : 0}:${item.outHandleId}:${item.hasOutConnection ? 1 : 0}`,
+    )
     .join('|');
 
   /**
@@ -247,7 +292,18 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, [outfits.length, isMinimized, isGlobal, data.showPersonality, data.showFeatures, data.showBackground, data.showOther, minimizedConnectedOutfitHandleKey, id, updateNodeInternals]);
+  }, [
+    outfits.length,
+    isMinimized,
+    isGlobal,
+    data.showPersonality,
+    data.showFeatures,
+    data.showBackground,
+    data.showOther,
+    minimizedConnectedOutfitHandleKey,
+    id,
+    updateNodeInternals,
+  ]);
 
   const toggleGlobal = () => {
     const newGlobal = !isGlobal;
@@ -255,11 +311,21 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
 
     if (newGlobal) {
       // Remove edges connected to main handles if switching to global
-      setEdges((edges) => edges.filter(edge => {
-        if (edge.source === id && (edge.sourceHandle === 'source-main' || edge.sourceHandle === 'target-main')) return false;
-        if (edge.target === id && (edge.targetHandle === 'source-main' || edge.targetHandle === 'target-main')) return false;
-        return true;
-      }));
+      setEdges((edges) =>
+        edges.filter((edge) => {
+          if (
+            edge.source === id &&
+            (edge.sourceHandle === 'source-main' || edge.sourceHandle === 'target-main')
+          )
+            return false;
+          if (
+            edge.target === id &&
+            (edge.targetHandle === 'source-main' || edge.targetHandle === 'target-main')
+          )
+            return false;
+          return true;
+        }),
+      );
     }
   };
 
@@ -269,7 +335,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     const url = URL.createObjectURL(file);
     if (outfitId) {
       updateNodeData({
-        outfits: outfits.map(o => o.id === outfitId ? { ...o, imageUrl: url } : o)
+        outfits: outfits.map((o) => (o.id === outfitId ? { ...o, imageUrl: url } : o)),
       });
     } else {
       updateNodeData({ avatarUrl: url });
@@ -278,19 +344,19 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
 
   const addOutfit = () => {
     updateNodeData({
-      outfits: [...outfits, { id: uuidv4(), name: '新服装' }]
+      outfits: [...outfits, { id: uuidv4(), name: '新服装' }],
     });
   };
 
   const updateOutfitName = (outfitId: string, name: string) => {
     updateNodeData({
-      outfits: outfits.map(o => o.id === outfitId ? { ...o, name } : o)
+      outfits: outfits.map((o) => (o.id === outfitId ? { ...o, name } : o)),
     });
   };
 
   const removeOutfit = (outfitId: string) => {
     updateNodeData({
-      outfits: outfits.filter(o => o.id !== outfitId)
+      outfits: outfits.filter((o) => o.id !== outfitId),
     });
   };
 
@@ -326,12 +392,17 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   };
 
   const handleRollSetting = async () => {
-    const generateSettingText = data.onGenerateSettingText as ((prompt: string) => Promise<string>) | undefined;
+    const generateSettingText = data.onGenerateSettingText as
+      | ((prompt: string) => Promise<string>)
+      | undefined;
     if (!generateSettingText || isRollingSetting) return;
 
     setIsRollingSetting(true);
     try {
-      const prompt = buildCharacterSettingPrompt(data as Record<string, unknown>, lang === 'zh' ? 'zh' : 'en');
+      const prompt = buildCharacterSettingPrompt(
+        data as Record<string, unknown>,
+        lang === 'zh' ? 'zh' : 'en',
+      );
       const result = await generateSettingText(prompt);
       const generated = parseSettingJson<GeneratedCharacterSetting>(result);
       const updates = buildCharacterUpdates(data as Record<string, unknown>, generated);
@@ -341,16 +412,20 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
       }
     } catch (error: any) {
       console.error('Character setting roll failed:', error);
-      alert(lang === 'zh'
-        ? `人物设定生成失败：${error.message || '请检查 AI 配置和网络连接'}`
-        : `Character setting generation failed: ${error.message || 'check AI settings and network'}`);
+      alert(
+        lang === 'zh'
+          ? `人物设定生成失败：${error.message || '请检查 AI 配置和网络连接'}`
+          : `Character setting generation failed: ${error.message || 'check AI settings and network'}`,
+      );
     } finally {
       setIsRollingSetting(false);
     }
   };
 
   const handleGenerateSettingImage = async () => {
-    const generateSettingImage = data.onGenerateSettingImage as ((id: string, type: 'character' | 'scene') => Promise<void>) | undefined;
+    const generateSettingImage = data.onGenerateSettingImage as
+      | ((id: string, type: 'character' | 'scene') => Promise<void>)
+      | undefined;
     if (!generateSettingImage || isGeneratingSettingImage || !hasCharacterText) return;
 
     setIsGeneratingSettingImage(true);
@@ -361,12 +436,17 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     }
   };
 
-  const handleDownloadOutfitImage = async (event: React.MouseEvent<HTMLButtonElement>, outfit: { id: string, name: string, imageUrl?: string }) => {
+  const handleDownloadOutfitImage = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    outfit: { id: string; name: string; imageUrl?: string },
+  ) => {
     event.stopPropagation();
     if (!outfit.imageUrl) return;
 
     const fallbackLabel = lang === 'zh' ? '三视图' : 'three-view';
-    const safeName = getSafeDownloadName(`${name || (lang === 'zh' ? '角色' : 'character')}-${outfit.name || fallbackLabel}`);
+    const safeName = getSafeDownloadName(
+      `${name || (lang === 'zh' ? '角色' : 'character')}-${outfit.name || fallbackLabel}`,
+    );
     await downloadImageUrl(outfit.imageUrl, `${safeName}.${getImageExtension(outfit.imageUrl)}`);
   };
 
@@ -377,7 +457,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
         height: isMinimized ? 'auto' : '100%',
         minHeight: isMinimized ? 'auto' : calculatedMinHeight,
         minWidth: '280px',
-        overflow: 'visible'
+        overflow: 'visible',
       }}
     >
       <NodeResizer
@@ -393,7 +473,9 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
         <div className="bg-[var(--header-bg)] rounded-t-xl border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing shrink-0">
           <div className="flex items-center gap-2">
             <UserCircle2 className="w-4 h-4 text-purple-500" />
-            <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">人物设定</span>
+            <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
+              人物设定
+            </span>
           </div>
           <div className="flex gap-1 items-center">
             <button
@@ -410,10 +492,20 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
             >
               <Globe className="w-3 h-3" />
             </button>
-            <button onClick={() => updateNodeData({ isMinimized: !isMinimized })} className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center">
-              {isMinimized ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <button
+              onClick={() => updateNodeData({ isMinimized: !isMinimized })}
+              className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
+            >
+              {isMinimized ? (
+                <ChevronRight className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
             </button>
-            <button onClick={() => (data.onDelete as Function)(id)} className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center">
+            <button
+              onClick={() => (data.onDelete as Function)(id)}
+              className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
+            >
               <Trash2 className="w-3 h-3" />
             </button>
           </div>
@@ -434,7 +526,12 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                 <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                   <Upload className="w-4 h-4 text-white" />
                 </div>
-                <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e)} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e)}
+                />
               </label>
 
               <div className="flex-1 min-w-0">
@@ -456,16 +553,26 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                 className={`shrink-0 w-8 h-8 rounded-lg transition-colors flex items-center justify-center border border-purple-500/20 ${isRollingSetting ? 'text-purple-500 bg-purple-500/10 cursor-wait' : 'text-purple-500 hover:text-purple-600 hover:bg-purple-500/10'}`}
                 title={lang === 'zh' ? '摇色子生成/扩写人物设定' : 'Roll character setting'}
               >
-                {isRollingSetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Dices className="w-4 h-4" />}
+                {isRollingSetting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Dices className="w-4 h-4" />
+                )}
               </button>
               {hasCharacterText && (
                 <button
                   onClick={handleGenerateSettingImage}
                   disabled={isGeneratingSettingImage}
                   className={`shrink-0 w-8 h-8 rounded-lg transition-colors flex items-center justify-center border border-fuchsia-500/20 ${isGeneratingSettingImage ? 'text-fuchsia-500 bg-fuchsia-500/10 cursor-wait' : 'text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-500/10'}`}
-                  title={lang === 'zh' ? '根据人物设定一键生图' : 'Generate image from character setting'}
+                  title={
+                    lang === 'zh' ? '根据人物设定一键生图' : 'Generate image from character setting'
+                  }
                 >
-                  {isGeneratingSettingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <WandSparkles className="w-4 h-4" />}
+                  {isGeneratingSettingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <WandSparkles className="w-4 h-4" />
+                  )}
                 </button>
               )}
             </div>
@@ -475,19 +582,43 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
               <div className="flex flex-wrap items-center gap-3 ml-1 mb-2 shrink-0">
                 {/* <label className="text-[11px] font-bold text-[var(--text-secondary)]">开启设定项:</label> */}
                 <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                  <input type="checkbox" checked={!!data.showPersonality} onChange={e => handleTraitVisibilityChange('showPersonality', e.target.checked)} className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]" />
+                  <input
+                    type="checkbox"
+                    checked={!!data.showPersonality}
+                    onChange={(e) =>
+                      handleTraitVisibilityChange('showPersonality', e.target.checked)
+                    }
+                    className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]"
+                  />
                   性格
                 </label>
                 <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                  <input type="checkbox" checked={!!data.showFeatures} onChange={e => handleTraitVisibilityChange('showFeatures', e.target.checked)} className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]" />
+                  <input
+                    type="checkbox"
+                    checked={!!data.showFeatures}
+                    onChange={(e) => handleTraitVisibilityChange('showFeatures', e.target.checked)}
+                    className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]"
+                  />
                   人物特点
                 </label>
                 <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                  <input type="checkbox" checked={!!data.showBackground} onChange={e => handleTraitVisibilityChange('showBackground', e.target.checked)} className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]" />
+                  <input
+                    type="checkbox"
+                    checked={!!data.showBackground}
+                    onChange={(e) =>
+                      handleTraitVisibilityChange('showBackground', e.target.checked)
+                    }
+                    className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]"
+                  />
                   人物背景
                 </label>
                 <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                  <input type="checkbox" checked={!!data.showOther} onChange={e => handleTraitVisibilityChange('showOther', e.target.checked)} className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]" />
+                  <input
+                    type="checkbox"
+                    checked={!!data.showOther}
+                    onChange={(e) => handleTraitVisibilityChange('showOther', e.target.checked)}
+                    className="rounded border-[var(--card-border)] text-purple-500 focus:ring-purple-500 bg-[var(--card-bg)]"
+                  />
                   其他
                 </label>
               </div>
@@ -495,7 +626,9 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
               <div className="flex flex-col flex-1 min-h-min gap-2">
                 {data.showPersonality && (
                   <div className={TRAIT_FIELD_CLASS}>
-                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">性格</label>
+                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">
+                      性格
+                    </label>
                     <textarea
                       value={(data.personality as string) || ''}
                       onChange={(e) => updateNodeData({ personality: e.target.value })}
@@ -506,7 +639,9 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                 )}
                 {data.showFeatures && (
                   <div className={TRAIT_FIELD_CLASS}>
-                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">人物特点</label>
+                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">
+                      人物特点
+                    </label>
                     <textarea
                       value={(data.features as string) || ''}
                       onChange={(e) => updateNodeData({ features: e.target.value })}
@@ -517,7 +652,9 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                 )}
                 {data.showBackground && (
                   <div className={TRAIT_FIELD_CLASS}>
-                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">人物背景</label>
+                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">
+                      人物背景
+                    </label>
                     <textarea
                       value={(data.background as string) || ''}
                       onChange={(e) => updateNodeData({ background: e.target.value })}
@@ -528,7 +665,9 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                 )}
                 {data.showOther && (
                   <div className={TRAIT_FIELD_CLASS}>
-                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">其他</label>
+                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">
+                      其他
+                    </label>
                     <textarea
                       value={(data.other as string) || ''}
                       onChange={(e) => updateNodeData({ other: e.target.value })}
@@ -538,24 +677,31 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                   </div>
                 )}
 
-                {!data.showPersonality && !data.showFeatures && !data.showBackground && !data.showOther && (
-                  <div className={TRAIT_FIELD_CLASS}>
-                    <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">综合设定</label>
-                    <textarea
-                      value={traits}
-                      onChange={(e) => updateNodeData({ traits: e.target.value })}
-                      placeholder="例如：性格傲娇，总是口是心非。喜欢喝红茶..."
-                      className={TRAIT_TEXTAREA_CLASS}
-                    />
-                  </div>
-                )}
+                {!data.showPersonality &&
+                  !data.showFeatures &&
+                  !data.showBackground &&
+                  !data.showOther && (
+                    <div className={TRAIT_FIELD_CLASS}>
+                      <label className="block text-[10px] font-bold text-purple-500 ml-1 shrink-0">
+                        综合设定
+                      </label>
+                      <textarea
+                        value={traits}
+                        onChange={(e) => updateNodeData({ traits: e.target.value })}
+                        placeholder="例如：性格傲娇，总是口是心非。喜欢喝红茶..."
+                        className={TRAIT_TEXTAREA_CLASS}
+                      />
+                    </div>
+                  )}
               </div>
             </div>
 
             {/* Outfits / Three-views */}
             <div className="p-3 flex flex-col gap-2 relative shrink-0 min-h-[100px] rounded-b-xl border-t border-[var(--card-border)] bg-[var(--card-bg)]">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-[var(--text-secondary)] ml-1">三视图 / 不同穿着</label>
+                <label className="text-[11px] font-bold text-[var(--text-secondary)] ml-1">
+                  三视图 / 不同穿着
+                </label>
                 <button
                   onClick={addOutfit}
                   className="text-purple-500 hover:text-purple-600 hover:bg-purple-500/10 p-1 rounded transition-colors"
@@ -572,19 +718,31 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {outfits.map((outfit, index) => (
-                    <div key={outfit.id} className="relative flex items-center gap-2 bg-[var(--app-bg)] p-1.5 rounded-lg border border-[var(--card-border)] group/outfit">
+                    <div
+                      key={outfit.id}
+                      className="relative flex items-center gap-2 bg-[var(--app-bg)] p-1.5 rounded-lg border border-[var(--card-border)] group/outfit"
+                    >
                       <label className="relative cursor-pointer shrink-0 w-8 h-8 rounded-md overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center border border-purple-200 dark:border-purple-800">
                         {outfit.imageUrl ? (
-                          <img src={outfit.imageUrl} className="w-full h-full object-cover" alt="Outfit" />
+                          <img
+                            src={outfit.imageUrl}
+                            className="w-full h-full object-cover"
+                            alt="Outfit"
+                          />
                         ) : (
                           <ImageIcon className="w-3.5 h-3.5 text-purple-400" />
                         )}
-                        <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, outfit.id)} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleImageUpload(e, outfit.id)}
+                        />
                       </label>
                       <input
                         type="text"
                         value={outfit.name}
-                        onChange={e => updateOutfitName(outfit.id, e.target.value)}
+                        onChange={(e) => updateOutfitName(outfit.id, e.target.value)}
                         placeholder="服装名称"
                         className="flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none focus:border-b focus:border-purple-400 min-w-0"
                       />
@@ -626,13 +784,16 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
         )}
-
       </div>
 
       {isMinimized && (
         <div className="px-3 py-2 flex items-center gap-2 bg-purple-50/10 dark:bg-purple-900/10 shrink-0">
           <div className="w-5 h-5 rounded-full overflow-hidden bg-purple-200 shrink-0 flex items-center justify-center">
-            {avatarUrl ? <img src={avatarUrl} className="w-full h-full object-cover" /> : <UserCircle2 className="w-3 h-3 text-purple-500" />}
+            {avatarUrl ? (
+              <img src={avatarUrl} className="w-full h-full object-cover" />
+            ) : (
+              <UserCircle2 className="w-3 h-3 text-purple-500" />
+            )}
           </div>
           <span className="text-[10px] text-[var(--text-primary)] font-bold truncate">
             {name || '未命名角色'}
@@ -640,28 +801,29 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {isMinimized && minimizedConnectedOutfits.map((item) => (
-        <React.Fragment key={item.outfit.id}>
-          {item.hasInConnection && (
-            <Handle
-              type="source"
-              position={Position.Left}
-              id={item.inHandleId}
-              className={getHandleClasses(item.inHandleId, 'source')}
-              style={minimizedOutfitHandleStyle}
-            />
-          )}
-          {item.hasOutConnection && (
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={item.outHandleId}
-              className={getHandleClasses(item.outHandleId, 'source')}
-              style={minimizedOutfitHandleStyle}
-            />
-          )}
-        </React.Fragment>
-      ))}
+      {isMinimized &&
+        minimizedConnectedOutfits.map((item) => (
+          <React.Fragment key={item.outfit.id}>
+            {item.hasInConnection && (
+              <Handle
+                type="source"
+                position={Position.Left}
+                id={item.inHandleId}
+                className={getHandleClasses(item.inHandleId, 'source')}
+                style={minimizedOutfitHandleStyle}
+              />
+            )}
+            {item.hasOutConnection && (
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={item.outHandleId}
+                className={getHandleClasses(item.outHandleId, 'source')}
+                style={minimizedOutfitHandleStyle}
+              />
+            )}
+          </React.Fragment>
+        ))}
 
       {/* Main Handles (only when not global) */}
       {!isGlobal && (

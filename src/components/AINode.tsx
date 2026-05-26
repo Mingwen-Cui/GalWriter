@@ -1,6 +1,24 @@
-import React, { memo, useState, useEffect } from 'react';
-import { Handle, Position, NodeProps, NodeResizer, useStoreApi, useUpdateNodeInternals } from '@xyflow/react';
-import { BrainCircuit, Sparkles, Loader2, Trash2, ChevronDown, ChevronRight, Lightbulb, MoveRight, Copy, Check } from 'lucide-react';
+import {
+  Handle,
+  NodeProps,
+  NodeResizer,
+  Position,
+  useStoreApi,
+  useUpdateNodeInternals,
+} from '@xyflow/react';
+import {
+  BrainCircuit,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Lightbulb,
+  Loader2,
+  MoveRight,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import React, { memo, useEffect, useState } from 'react';
 
 /**
  * AI 情节分析卡片组件
@@ -29,8 +47,8 @@ export function AINode({ id, data, selected }: NodeProps) {
 
   // NOTE: 不订阅整个 edges/nodes 数组，在渲染时通过 getState() 读取快照以避免循环更新
   const { edges: currentEdges, nodes: currentNodes } = storeApi.getState();
-  const selectionCount = currentNodes.filter(n => n.selected).length;
-  const hasInput = currentEdges.some(e => e.target === id);
+  const selectionCount = currentNodes.filter((n) => n.selected).length;
+  const hasInput = currentEdges.some((e) => e.target === id);
 
   // 当最小化状态改变时，更新节点内部布局以重新计算连线位置
   useEffect(() => {
@@ -70,27 +88,62 @@ export function AINode({ id, data, selected }: NodeProps) {
     if (!text) return '';
     let html = text;
     // 处理标题
-    html = html.replace(/^# (.*$)/gm, '<h1 class="text-sm font-black text-[var(--text-primary)] mt-3 mb-1.5 flex items-center gap-2"><span class="w-1 h-3.5 bg-emerald-500 rounded-full"></span>$1</h1>');
-    html = html.replace(/^## (.*$)/gm, '<h2 class="text-xs font-bold text-emerald-500 mt-3 mb-1 border-b border-[var(--card-border)] pb-0.5">$1</h2>');
-    html = html.replace(/^### (.*$)/gm, '<h3 class="text-[10px] font-bold text-[var(--text-secondary)] mt-2 mb-0.5">$1</h3>');
+    html = html.replace(
+      /^# (.*$)/gm,
+      '<h1 class="text-sm font-black text-[var(--text-primary)] mt-3 mb-1.5 flex items-center gap-2"><span class="w-1 h-3.5 bg-emerald-500 rounded-full"></span>$1</h1>',
+    );
+    html = html.replace(
+      /^## (.*$)/gm,
+      '<h2 class="text-xs font-bold text-emerald-500 mt-3 mb-1 border-b border-[var(--card-border)] pb-0.5">$1</h2>',
+    );
+    html = html.replace(
+      /^### (.*$)/gm,
+      '<h3 class="text-[10px] font-bold text-[var(--text-secondary)] mt-2 mb-0.5">$1</h3>',
+    );
     // 处理加粗
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-500 font-bold">$1</strong>');
     // 处理列表
-    html = html.replace(/^\s*-\s+(.*$)/gm, '<div class="flex items-start gap-1.5 ml-1 mb-1"><span class="mt-1 w-1 h-1 rounded-full bg-emerald-400 shrink-0"></span><span class="text-[10px] text-[var(--text-secondary)]">$1</span></div>');
+    html = html.replace(
+      /^\s*-\s+(.*$)/gm,
+      '<div class="flex items-start gap-1.5 ml-1 mb-1"><span class="mt-1 w-1 h-1 rounded-full bg-emerald-400 shrink-0"></span><span class="text-[10px] text-[var(--text-secondary)]">$1</span></div>',
+    );
 
     return html;
   };
 
   const ANALYSIS_MODES = [
-    { id: 'summary', label: '汇总分析', icon: <Sparkles className="w-3 h-3" />, color: 'bg-indigo-500' },
-    { id: 'structure', label: '剧情结构', icon: <ChevronRight className="w-3 h-3" />, color: 'bg-emerald-500' },
-    { id: 'suggestions', label: '构思建议', icon: <Lightbulb className="w-3 h-3" />, color: 'bg-amber-500' },
-    { id: 'direction', label: '写作方向', icon: <MoveRight className="w-3 h-3" />, color: 'bg-rose-500' },
+    {
+      id: 'summary',
+      label: '汇总分析',
+      icon: <Sparkles className="w-3 h-3" />,
+      color: 'bg-indigo-500',
+    },
+    {
+      id: 'structure',
+      label: '剧情结构',
+      icon: <ChevronRight className="w-3 h-3" />,
+      color: 'bg-emerald-500',
+    },
+    {
+      id: 'suggestions',
+      label: '构思建议',
+      icon: <Lightbulb className="w-3 h-3" />,
+      color: 'bg-amber-500',
+    },
+    {
+      id: 'direction',
+      label: '写作方向',
+      icon: <MoveRight className="w-3 h-3" />,
+      color: 'bg-rose-500',
+    },
   ];
 
   // NOTE: 不再订阅 edges/nodes， hasInput 已在上方通过 getState() 计算
-  const inputRingClasses = hasInput ? "" : "ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-emerald-500/50";
-  const handleClasses = "w-3 h-3 bg-emerald-300 border-2 border-[var(--card-bg)] rounded-full transition-[transform,background-color] hover:scale-150 hover:bg-emerald-500 shadow-sm";
+  const inputRingClasses = hasInput
+    ? ''
+    : 'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-emerald-500/50';
+  const handleClasses =
+    'w-3 h-3 bg-emerald-300 border-2 border-[var(--card-bg)] rounded-full transition-[transform,background-color] hover:scale-150 hover:bg-emerald-500 shadow-sm';
   const inputHandleClasses = `${handleClasses} ${inputRingClasses}`;
 
   return (
@@ -98,7 +151,7 @@ export function AINode({ id, data, selected }: NodeProps) {
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all ${selected ? 'border-emerald-500 shadow-emerald-500/20' : 'border-[var(--card-border)]'} flex flex-col relative group`}
       style={{
         height: isMinimized ? 'auto' : '100%',
-        minHeight: isMinimized ? 'auto' : '150px'
+        minHeight: isMinimized ? 'auto' : '150px',
       }}
     >
       <NodeResizer
@@ -126,9 +179,13 @@ export function AINode({ id, data, selected }: NodeProps) {
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
-              title={isMinimized ? "展开" : "最小化"}
+              title={isMinimized ? '展开' : '最小化'}
             >
-              {isMinimized ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {isMinimized ? (
+                <ChevronRight className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
             </button>
             <button
               onClick={() => (data.onDelete as Function)(id)}
@@ -147,7 +204,7 @@ export function AINode({ id, data, selected }: NodeProps) {
             </p>
 
             <div className="flex flex-wrap gap-2 shrink-0">
-              {ANALYSIS_MODES.map(mode => (
+              {ANALYSIS_MODES.map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => onAnalyze(mode.id)}
@@ -164,14 +221,20 @@ export function AINode({ id, data, selected }: NodeProps) {
             {data.result && (
               <div className="mt-2 bg-[var(--app-bg)] rounded-lg border border-[var(--card-border)] flex flex-col overflow-hidden flex-1">
                 <div className="flex justify-between items-center px-3 py-2 border-b border-[var(--card-border)] bg-[var(--header-bg)]/50 shrink-0">
-                  <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">分析结果</span>
+                  <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                    分析结果
+                  </span>
                   <div className="flex gap-1">
                     <button
                       onClick={onCopy}
                       className="p-1 hover:bg-emerald-500/10 rounded transition-colors text-[var(--text-secondary)]"
                       title="复制分析结果"
                     >
-                      {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                      {copied ? (
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -187,7 +250,11 @@ export function AINode({ id, data, selected }: NodeProps) {
                       className="mt-4 w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-50"
                       title="根据以上分析获取修改解法"
                     >
-                      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lightbulb className="w-3 h-3" />}
+                      {loading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Lightbulb className="w-3 h-3" />
+                      )}
                       获取对应解法
                     </button>
                   )}
@@ -199,8 +266,19 @@ export function AINode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* 两组输入源 (左侧、顶部) */}
-      <Handle type="target" position={Position.Top} id="in-top" className={`${inputHandleClasses} -top-1.5 left-1/2 -translate-x-1/2 !z-50`} />
-      <Handle type="target" position={Position.Left} id="in-left" className={`${inputHandleClasses} -left-1.5 !z-50`} style={{ top: isMinimized ? '20px' : '50%' }} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="in-top"
+        className={`${inputHandleClasses} -top-1.5 left-1/2 -translate-x-1/2 !z-50`}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="in-left"
+        className={`${inputHandleClasses} -left-1.5 !z-50`}
+        style={{ top: isMinimized ? '20px' : '50%' }}
+      />
 
       {/* 输出源 (右侧) */}
       <Handle

@@ -1,4 +1,5 @@
 import { Edge, Node } from '@xyflow/react';
+
 import { formatCharacterNodeText, formatSceneNodeText } from './export';
 
 export type RegionStoryItem = {
@@ -24,7 +25,11 @@ function stripHtml(html: string) {
   return (tempDiv.textContent || '').trim();
 }
 
-export function sortContentNodesInRegion(nodeIds: string[], nodes: Node[], edges: Edge[]): string[] {
+export function sortContentNodesInRegion(
+  nodeIds: string[],
+  nodes: Node[],
+  edges: Edge[],
+): string[] {
   const idSet = new Set(nodeIds);
   const inDegree = new Map<string, number>();
   const graph = new Map<string, string[]>();
@@ -64,7 +69,11 @@ export function sortContentNodesInRegion(nodeIds: string[], nodes: Node[], edges
   return sorted;
 }
 
-export function buildRegionStoryItems(nodes: Node[], edges: Edge[], orderedIds: string[]): RegionStoryItem[] {
+export function buildRegionStoryItems(
+  nodes: Node[],
+  edges: Edge[],
+  orderedIds: string[],
+): RegionStoryItem[] {
   return orderedIds
     .map((nodeId) => nodes.find((n) => n.id === nodeId))
     .filter((node): node is Node => !!node)
@@ -142,7 +151,7 @@ export function expandBackgroundToFitNodes(
   nodes: Node[],
   backgroundId: string,
   containedNodeIds: string[],
-  padding = 60
+  padding = 60,
 ): Node[] {
   const background = nodes.find((n) => n.id === backgroundId);
   if (!background) return nodes;

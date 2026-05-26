@@ -1,10 +1,41 @@
-import React, { memo, useRef, useCallback, useState } from 'react';
-import { Handle, Position, NodeProps, NodeResizer, NodeToolbar, useStore, useStoreApi, useViewport } from '@xyflow/react';
-import { Plus, Trash2, Maximize, Play, Sparkles, Loader2, Image as ImageIcon, GitFork, EyeOff, Italic, StepForward, Bold, Underline, Type, Layers, Palette, Eraser, ScanSearch, User, MapPin, Download } from 'lucide-react';
-import { RichText, RichTextHandle } from './RichText';
-import { NumberInput } from './NumberInput';
+import {
+  Handle,
+  NodeProps,
+  NodeResizer,
+  NodeToolbar,
+  Position,
+  useStore,
+  useStoreApi,
+  useViewport,
+} from '@xyflow/react';
+import {
+  Bold,
+  Download,
+  Eraser,
+  EyeOff,
+  GitFork,
+  Image as ImageIcon,
+  Italic,
+  Layers,
+  Loader2,
+  MapPin,
+  Maximize,
+  Palette,
+  Play,
+  Plus,
+  ScanSearch,
+  Sparkles,
+  StepForward,
+  Trash2,
+  Type,
+  Underline,
+  User,
+} from 'lucide-react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 
-import { translations, Language } from '../lib/i18n';
+import { Language, translations } from '../lib/i18n';
+import { NumberInput } from './NumberInput';
+import { RichText, RichTextHandle } from './RichText';
 
 const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C', '#1EC8CF'];
 const SHAPES = ['square', 'rounded-rectangle', 'diamond', 'trapezoid', 'hexagon'];
@@ -16,27 +47,30 @@ const isLightColor = (color: string) => {
   const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.substring(0, 2), 16);
   const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.substring(2, 4), 16);
   const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.substring(4, 6), 16);
-  return (r * 0.299 + g * 0.587 + b * 0.114) > 150; // 稍微放宽阈值以适应更多充满活力的颜色
+  return r * 0.299 + g * 0.587 + b * 0.114 > 150; // 稍微放宽阈值以适应更多充满活力的颜色
 };
 
 // --- Helper Components & Styles for NodeToolbar ---
-const ToolbarRow = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <div className={`flex items-center gap-1.5 px-1 ${className}`}>
-    {children}
-  </div>
-);
+const ToolbarRow = ({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => <div className={`flex items-center gap-1.5 px-1 ${className}`}>{children}</div>;
 
-const ToolGroup = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <div className={`flex items-center gap-1 ${className}`}>
-    {children}
-  </div>
-);
+const ToolGroup = ({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => <div className={`flex items-center gap-1 ${className}`}>{children}</div>;
 
-const Separator = () => (
-  <div className="w-px h-4 bg-[var(--toolbar-border)]/50 mx-0.5 shrink-0" />
-);
+const Separator = () => <div className="w-px h-4 bg-[var(--toolbar-border)]/50 mx-0.5 shrink-0" />;
 
-const btnBase = "h-7 flex items-center justify-center rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] disabled:opacity-50";
+const btnBase =
+  'h-7 flex items-center justify-center rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] disabled:opacity-50';
 const iconBtnBase = `${btnBase} w-7 p-1.5`;
 const textBtnBase = `${btnBase} px-2 text-xs font-medium`;
 
@@ -62,10 +96,14 @@ export function StoryNode({ id, data, selected }: NodeProps) {
   const isDefaultColor = color === '#ffffff';
   // 使用 CSS 变量实现主题感知，这样切换主题时无需 React 重绘即可瞬间响应
   const nodeBg = isDefaultColor ? 'var(--card-bg)' : color;
-  const nodeText = isDefaultColor ? 'var(--text-primary)' : (isLightColor(color) ? '#1e293b' : '#f8fafc');
+  const nodeText = isDefaultColor
+    ? 'var(--text-primary)'
+    : isLightColor(color)
+      ? '#1e293b'
+      : '#f8fafc';
 
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
-  const showRichTextTools = !imageUrl && !videoUrl && !audioUrl || data.showTextOverlay;
+  const showRichTextTools = (!imageUrl && !videoUrl && !audioUrl) || data.showTextOverlay;
 
   const updateNodeData = (updates: any) => {
     if (data.onUpdate) {
@@ -118,9 +156,9 @@ export function StoryNode({ id, data, selected }: NodeProps) {
   const highlightCharacters = () => {
     if (!text) return;
     const allNodes = storeApi.getState().nodes;
-    const charNodes = allNodes.filter(n => n.type === 'characterNode' && n.data?.characterName);
+    const charNodes = allNodes.filter((n) => n.type === 'characterNode' && n.data?.characterName);
     if (charNodes.length === 0) return;
-    
+
     let newText = text;
     charNodes.forEach((node, index) => {
       const name = node.data.characterName as string;
@@ -128,12 +166,15 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       // Define a palette of colors for different characters
       const highlightColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
       const color = highlightColors[index % highlightColors.length];
-      
+
       // Prevent double highlighting if already wrapped in a span with this color
       const regex = new RegExp(`(?<!<span[^>]*>)${name}(?!</span>)`, 'g');
-      newText = newText.replace(regex, `<span style="color: ${color}; font-weight: bold; background-color: ${color}20; padding: 0 2px; border-radius: 2px;">${name}</span>`);
+      newText = newText.replace(
+        regex,
+        `<span style="color: ${color}; font-weight: bold; background-color: ${color}20; padding: 0 2px; border-radius: 2px;">${name}</span>`,
+      );
     });
-    
+
     if (newText !== text) {
       updateNodeData({ text: newText });
     }
@@ -145,30 +186,44 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
   const getClipPath = (s: string) => {
     switch (s) {
-      case 'circle': return 'circle(50% at 50% 50%)';
-      case 'diamond': return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
-      case 'triangle': return 'polygon(50% 0%, 0% 100%, 100% 100%)';
-      case 'triangleDown': return 'polygon(0% 0%, 100% 0%, 50% 100%)';
-      case 'trapezoid': return 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)';
-      case 'hexagon': return 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-      case 'rounded-rectangle': return undefined;
-      default: return undefined;
+      case 'circle':
+        return 'circle(50% at 50% 50%)';
+      case 'diamond':
+        return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+      case 'triangle':
+        return 'polygon(50% 0%, 0% 100%, 100% 100%)';
+      case 'triangleDown':
+        return 'polygon(0% 0%, 100% 0%, 50% 100%)';
+      case 'trapezoid':
+        return 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)';
+      case 'hexagon':
+        return 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+      case 'rounded-rectangle':
+        return undefined;
+      default:
+        return undefined;
     }
   };
 
   const dynamicPaddingClasses = () => {
     switch (shape) {
-      case 'diamond': return 'p-12'; // 增加边距以确保文字在菱形中心
-      case 'circle': return 'p-8';
-      case 'hexagon': return 'px-8 py-4';
-      case 'triangle': return 'px-8 pt-10 pb-4';
-      case 'triangleDown': return 'px-8 pt-4 pb-10';
-      default: return 'p-3 pt-0';
+      case 'diamond':
+        return 'p-12'; // 增加边距以确保文字在菱形中心
+      case 'circle':
+        return 'p-8';
+      case 'hexagon':
+        return 'px-8 py-4';
+      case 'triangle':
+        return 'px-8 pt-10 pb-4';
+      case 'triangleDown':
+        return 'px-8 pt-4 pb-10';
+      default:
+        return 'p-3 pt-0';
     }
   };
 
-  const selectionCount = useStore(state => {
-    return state.nodes.filter(n => n.selected).length;
+  const selectionCount = useStore((state) => {
+    return state.nodes.filter((n) => n.selected).length;
   });
 
   const mentionableCharacters = useStore(
@@ -181,16 +236,14 @@ export function StoryNode({ id, data, selected }: NodeProps) {
           if (!name) continue;
           const isGlobal = n.data?.isGlobal !== false;
           const isConnected = state.edges.some(
-            (e) =>
-              (e.source === n.id && e.target === id) ||
-              (e.target === n.id && e.source === id)
+            (e) => (e.source === n.id && e.target === id) || (e.target === n.id && e.source === id),
           );
           if (isGlobal || isConnected) chars.push({ id: n.id, name });
         }
         return chars;
       },
-      [id]
-    )
+      [id],
+    ),
   ) as { id: string; name: string }[];
 
   const mentionableScenes = useStore(
@@ -203,16 +256,14 @@ export function StoryNode({ id, data, selected }: NodeProps) {
           if (!name) continue;
           const isGlobal = n.data?.isGlobal !== false;
           const isConnected = state.edges.some(
-            (e) =>
-              (e.source === n.id && e.target === id) ||
-              (e.target === n.id && e.source === id)
+            (e) => (e.source === n.id && e.target === id) || (e.target === n.id && e.source === id),
           );
           if (isGlobal || isConnected) scenes.push({ id: n.id, name });
         }
         return scenes;
       },
-      [id]
-    )
+      [id],
+    ),
   ) as { id: string; name: string }[];
 
   const insertCharacterMention = (name: string) => {
@@ -231,7 +282,9 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         </div>
       )}
       {data.skip && (
-        <div className={`absolute -top-3 ${isRoot ? 'left-10' : '-left-3'} z-50 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1`}>
+        <div
+          className={`absolute -top-3 ${isRoot ? 'left-10' : '-left-3'} z-50 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1`}
+        >
           <StepForward className="w-3 h-4" /> 暂时跳过
         </div>
       )}
@@ -246,13 +299,11 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       {/* Floating Toolbar for styles & actions */}
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
         <div style={{ transform: `scale(${zoom * 0.6})`, transformOrigin: 'bottom center' }}>
-          <div
-            className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
-          >
+          <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate">
             {/* 第一行：颜色、形状、文字工具、视图 - 完全扁平化以实现平均散开分布 */}
             <ToolbarRow className="w-full justify-between gap-0">
               {/* 预设颜色按钮 */}
-              {COLORS.map(c => (
+              {COLORS.map((c) => (
                 <button
                   key={c}
                   onClick={() => updateNodeData({ color: c })}
@@ -266,10 +317,16 @@ export function StoryNode({ id, data, selected }: NodeProps) {
               <button
                 onClick={() => colorInputRef.current?.click()}
                 className={`w-5 h-5 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 shrink-0 flex items-center justify-center overflow-hidden relative ${!COLORS.includes(color) ? 'ring-2 ring-white ring-offset-1 ring-offset-[var(--toolbar-bg)]' : ''}`}
-                style={{ background: !COLORS.includes(color) ? color : 'linear-gradient(45deg, #f093fb 0%, #f5576c 100%)' }}
+                style={{
+                  background: !COLORS.includes(color)
+                    ? color
+                    : 'linear-gradient(45deg, #f093fb 0%, #f5576c 100%)',
+                }}
                 title="自定义颜色"
               >
-                <Palette className={`w-3 h-3 ${!COLORS.includes(color) ? 'text-white mix-blend-difference' : 'text-white'}`} />
+                <Palette
+                  className={`w-3 h-3 ${!COLORS.includes(color) ? 'text-white mix-blend-difference' : 'text-white'}`}
+                />
                 <input
                   ref={colorInputRef}
                   type="color"
@@ -282,7 +339,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
               <Separator />
 
               {/* 形状按钮 */}
-              {SHAPES.map(s => (
+              {SHAPES.map((s) => (
                 <button
                   key={s}
                   onClick={() => updateNodeData({ shape: s })}
@@ -397,7 +454,9 @@ export function StoryNode({ id, data, selected }: NodeProps) {
               <>
                 <ToolbarRow>
                   <ToolGroup>
-                    <span className="text-[9px] text-[var(--text-muted)] px-1 uppercase font-black tracking-tighter shrink-0">{t.objectFit}</span>
+                    <span className="text-[9px] text-[var(--text-muted)] px-1 uppercase font-black tracking-tighter shrink-0">
+                      {t.objectFit}
+                    </span>
                   </ToolGroup>
 
                   <Separator />
@@ -482,12 +541,13 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
               <Separator />
 
-
               {/* 数值组 */}
               <ToolGroup className="gap-1.5">
-                <span className="text-[10px] text-[var(--text-muted)] font-black uppercase shrink-0">数值</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-black uppercase shrink-0">
+                  数值
+                </span>
                 <NumberInput
-                  value={data.nodeValue as number || 0}
+                  value={(data.nodeValue as number) || 0}
                   onChange={(val) => updateNodeData({ nodeValue: val })}
                   accentColor="indigo"
                   className="gap-1"
@@ -557,25 +617,32 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       </NodeToolbar>
 
       <div
-        className={`w-full h-full flex flex-col items-center ${(imageUrl || videoUrl || audioUrl) ? 'justify-start' : 'justify-center'} shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${selected ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'border-[var(--card-border)]'}`}
+        className={`w-full h-full flex flex-col items-center ${imageUrl || videoUrl || audioUrl ? 'justify-start' : 'justify-center'} shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${selected ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'border-[var(--card-border)]'}`}
         style={{
           backgroundColor: nodeBg,
           color: nodeText,
           clipPath: getClipPath(shape),
-          borderRadius: shape === 'square' || shape === 'rounded-rectangle' ? CARD_RADIUS : '0'
+          borderRadius: shape === 'square' || shape === 'rounded-rectangle' ? CARD_RADIUS : '0',
         }}
       >
         {showTitles && (
-          <div 
-            className={`w-full flex justify-center py-2 z-20 relative shrink-0 ${(imageUrl || videoUrl || audioUrl) ? 'backdrop-blur-sm border-b border-[var(--card-border)]/30' : 'mb-2'}`}
-            style={{ backgroundColor: (imageUrl || videoUrl || audioUrl) ? (isDefaultColor ? 'rgba(var(--card-bg-rgb), 0.6)' : `${color}99`) : 'transparent' }}
+          <div
+            className={`w-full flex justify-center py-2 z-20 relative shrink-0 ${imageUrl || videoUrl || audioUrl ? 'backdrop-blur-sm border-b border-[var(--card-border)]/30' : 'mb-2'}`}
+            style={{
+              backgroundColor:
+                imageUrl || videoUrl || audioUrl
+                  ? isDefaultColor
+                    ? 'rgba(var(--card-bg-rgb), 0.6)'
+                    : `${color}99`
+                  : 'transparent',
+            }}
           >
             <input
               type="text"
               value={title}
               onChange={(e) => updateNodeData({ title: e.target.value })}
               onFocus={(e) => e.target.select()}
-              className={`nodrag w-[50%] text-[11px] font-bold uppercase tracking-widest bg-transparent px-2 rounded outline-none border border-transparent hover:border-[var(--card-border)] focus:border-blue-500 transition-colors text-center pb-0.5 cursor-text ${(imageUrl || videoUrl || audioUrl) ? 'py-1' : ''}`}
+              className={`nodrag w-[50%] text-[11px] font-bold uppercase tracking-widest bg-transparent px-2 rounded outline-none border border-transparent hover:border-[var(--card-border)] focus:border-blue-500 transition-colors text-center pb-0.5 cursor-text ${imageUrl || videoUrl || audioUrl ? 'py-1' : ''}`}
               style={{ color: nodeText }}
               placeholder="标题..."
             />
@@ -584,7 +651,13 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
         <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
           {imageUrl ? (
-            <img src={imageUrl} className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} object-cover pointer-events-none`} style={{ objectFit }} alt="node" loading="lazy" />
+            <img
+              src={imageUrl}
+              className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} object-cover pointer-events-none`}
+              style={{ objectFit }}
+              alt="node"
+              loading="lazy"
+            />
           ) : videoUrl ? (
             <div className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} relative`}>
               {zoom < 0.3 ? (
@@ -593,29 +666,34 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                   <span className="text-[10px] mt-2 font-bold opacity-40">放大以查看视频</span>
                 </div>
               ) : (
-                <video 
-                  src={videoUrl} 
-                  controls 
+                <video
+                  src={videoUrl}
+                  controls
                   preload="metadata"
                   playsInline
-                  draggable={false} 
-                  onDragStart={(e) => e.preventDefault()} 
-                  className="w-full h-full object-cover nodrag" 
-                  style={{ objectFit }} 
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  className="w-full h-full object-cover nodrag"
+                  style={{ objectFit }}
                 />
               )}
             </div>
           ) : audioUrl ? (
-            <div 
+            <div
               className="w-full flex-1 flex flex-col items-center justify-center nodrag"
               style={{ backgroundColor: nodeBg }}
             >
               {zoom < 0.3 ? (
-                 <div className="text-2xl opacity-40">🎵</div>
+                <div className="text-2xl opacity-40">🎵</div>
               ) : (
                 <>
                   <div className="text-4xl mb-2">🎵</div>
-                  <audio src={data.audioUrl as string} controls preload="none" className="w-[80%]" />
+                  <audio
+                    src={data.audioUrl as string}
+                    controls
+                    preload="none"
+                    className="w-[80%]"
+                  />
                 </>
               )}
             </div>
@@ -631,13 +709,14 @@ export function StoryNode({ id, data, selected }: NodeProps) {
             </div>
           )}
 
-
           {showRichTextTools && (
-            <div 
+            <div
               className={`w-full flex-1 flex flex-col items-center justify-center ${dynamicPaddingClasses()} ${imageUrl || videoUrl ? 'border-t border-[var(--card-border)]/30' : ''}`}
               style={{ backgroundColor: nodeBg }}
             >
-              <div className={`w-full h-full flex flex-col items-center justify-center ${shape === 'diamond' ? 'scale-[0.8]' : ''}`}>
+              <div
+                className={`w-full h-full flex flex-col items-center justify-center ${shape === 'diamond' ? 'scale-[0.8]' : ''}`}
+              >
                 <RichText
                   ref={richTextRef}
                   value={text}
@@ -656,7 +735,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       <button
         onClick={() => (data.onAIGenerate as Function)(id)}
         disabled={data.isAILoading as boolean}
-        className={`absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg ${(imageUrl || videoUrl) ? 'bottom-2 right-2' : 'bottom-2 right-2'}`}
+        className={`absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg ${imageUrl || videoUrl ? 'bottom-2 right-2' : 'bottom-2 right-2'}`}
         title="AI 操作"
       >
         {data.isAILoading ? (
@@ -680,26 +759,58 @@ export function StoryNode({ id, data, selected }: NodeProps) {
       </button>
 
       {/* TOP */}
-      <Handle type="source" position={Position.Top} id="top" className={`${handleClasses} -top-1.5`} />
-      <button onClick={() => (data.onAddNode as Function)(id, 'top')} className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2`}>
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top"
+        className={`${handleClasses} -top-1.5`}
+      />
+      <button
+        onClick={() => (data.onAddNode as Function)(id, 'top')}
+        className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2`}
+      >
         <Plus className="w-4 h-4" />
       </button>
 
       {/* RIGHT */}
-      <Handle type="source" position={Position.Right} id="right" className={`${handleClasses} -right-1.5`} />
-      <button onClick={() => (data.onAddNode as Function)(id, 'right')} className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2`}>
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        className={`${handleClasses} -right-1.5`}
+      />
+      <button
+        onClick={() => (data.onAddNode as Function)(id, 'right')}
+        className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2`}
+      >
         <Plus className="w-4 h-4" />
       </button>
 
       {/* BOTTOM */}
-      <Handle type="source" position={Position.Bottom} id="bottom" className={`${handleClasses} -bottom-1.5`} />
-      <button onClick={() => (data.onAddNode as Function)(id, 'bottom')} className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2`}>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        className={`${handleClasses} -bottom-1.5`}
+      />
+      <button
+        onClick={() => (data.onAddNode as Function)(id, 'bottom')}
+        className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2`}
+      >
         <Plus className="w-4 h-4" />
       </button>
 
       {/* LEFT */}
-      <Handle type="source" position={Position.Left} id="left" className={`${handleClasses} -left-1.5`} />
-      <button onClick={() => (data.onAddNode as Function)(id, 'left')} className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2`}>
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        className={`${handleClasses} -left-1.5`}
+      />
+      <button
+        onClick={() => (data.onAddNode as Function)(id, 'left')}
+        className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2`}
+      >
         <Plus className="w-4 h-4" />
       </button>
     </div>

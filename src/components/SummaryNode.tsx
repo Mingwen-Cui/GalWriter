@@ -1,6 +1,7 @@
-import React, { memo, useState, useEffect } from 'react';
-import { Handle, Position, NodeProps, useStoreApi, useUpdateNodeInternals } from '@xyflow/react';
-import { Copy, RefreshCw, FileText, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Handle, NodeProps, Position, useStoreApi, useUpdateNodeInternals } from '@xyflow/react';
+import { ChevronDown, ChevronRight, Copy, FileText, RefreshCw, Trash2 } from 'lucide-react';
+import React, { memo, useEffect, useState } from 'react';
+
 import { formatCharacterNodeText, formatSceneNodeText } from '../lib/export';
 
 export function SummaryNode({ id, data, selected }: NodeProps) {
@@ -48,7 +49,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     // BFS 找到所有祖先
     while (queue.length > 0) {
       const currentId = queue.shift()!;
-      const incomingEdges = edges.filter(e => e.target === currentId);
+      const incomingEdges = edges.filter((e) => e.target === currentId);
       for (const edge of incomingEdges) {
         if (!ancestors.has(edge.source)) {
           ancestors.add(edge.source);
@@ -63,9 +64,8 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     // NOTE: 过滤掉没有其他真实连接的孤立节点（例如通过批量导出被强制连接到当前汇总节点的原本孤立的卡片）
     const validAncestors = new Set<string>();
     for (const nodeId of ancestors) {
-      const hasOtherConnections = edges.some(e => 
-        (e.source === nodeId && e.target !== id) || 
-        (e.target === nodeId && e.source !== id)
+      const hasOtherConnections = edges.some(
+        (e) => (e.source === nodeId && e.target !== id) || (e.target === nodeId && e.source !== id),
       );
       // 如果它有其他连接，或者是其他祖先节点，保留它
       if (hasOtherConnections) {
@@ -112,17 +112,20 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     }
 
     // 处理图中存在环的情况：将未能排序的节点追加在后面
-    const remaining = Array.from(validAncestors).filter(n => !sortedNodeIds.includes(n));
+    const remaining = Array.from(validAncestors).filter((n) => !sortedNodeIds.includes(n));
     sortedNodeIds.push(...remaining);
 
     // 映射到实际的 Node 对象（剧情卡片 + 人物设定卡片）
     const connectedNodes = sortedNodeIds
-      .map(nodeId => nodes.find(n => n.id === nodeId))
-      .filter(n => n && (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'));
+      .map((nodeId) => nodes.find((n) => n.id === nodeId))
+      .filter(
+        (n) =>
+          n && (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
+      );
 
     // 提取纯文本
     const textArray = connectedNodes.map((n, idx) => {
-      let headerParts = [];
+      const headerParts = [];
       if (useNumbers) headerParts.push(`${idx + 1}.`);
 
       if (n!.type === 'characterNode') {
@@ -194,24 +197,44 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
   };
 
   const renderContent = () => {
-    if (!content) return <div className="text-[var(--text-muted)] text-sm text-center py-8 select-none">点击上方转化按钮，获取连接卡片的文字内容。</div>;
+    if (!content)
+      return (
+        <div className="text-[var(--text-muted)] text-sm text-center py-8 select-none">
+          点击上方转化按钮，获取连接卡片的文字内容。
+        </div>
+      );
 
     const lines = content.split('\n');
     return lines.map((line, index) => {
       if (line.startsWith('### ')) {
-        return <h3 key={index} className="text-sm font-bold text-[var(--text-primary)] mt-4 mb-2">{line.replace('### ', '')}</h3>;
+        return (
+          <h3 key={index} className="text-sm font-bold text-[var(--text-primary)] mt-4 mb-2">
+            {line.replace('### ', '')}
+          </h3>
+        );
       }
-      return <p key={index} className="text-sm text-[var(--text-secondary)] mb-1 leading-relaxed break-words">{line}</p>;
+      return (
+        <p
+          key={index}
+          className="text-sm text-[var(--text-secondary)] mb-1 leading-relaxed break-words"
+        >
+          {line}
+        </p>
+      );
     });
   };
 
   // NOTE: 使用 getState() 读取当前边连接状态，避免订阅整个 edges 数组引发重渲染
-  const hasInput = storeApi.getState().edges.some(e => e.target === id);
-  const ringClasses = hasInput ? "" : "ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-indigo-500/30";
+  const hasInput = storeApi.getState().edges.some((e) => e.target === id);
+  const ringClasses = hasInput
+    ? ''
+    : 'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-indigo-500/30';
   const handleClasses = `w-3 h-3 bg-indigo-400 border-2 border-[var(--card-bg)] rounded-full transition-all hover:bg-indigo-600 shadow-sm ${ringClasses}`;
 
   return (
-    <div className={`w-[350px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all ${selected ? 'border-indigo-500 shadow-indigo-500/20' : 'border-[var(--card-border)]'} flex flex-col relative group`}>
+    <div
+      className={`w-[350px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all ${selected ? 'border-indigo-500 shadow-indigo-500/20' : 'border-[var(--card-border)]'} flex flex-col relative group`}
+    >
       <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none border border-transparent" />
 
       {/* 内部包装器用于实现 overflow-hidden 效果 */}
@@ -241,9 +264,13 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
-              title={isMinimized ? "展开" : "最小化"}
+              title={isMinimized ? '展开' : '最小化'}
             >
-              {isMinimized ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {isMinimized ? (
+                <ChevronRight className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
             </button>
             <button
               onClick={handleDelete}
@@ -260,31 +287,54 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
             {/* 设置选项 */}
             <div className="bg-[var(--app-bg)] border-b border-[var(--card-border)] px-3 py-2 flex flex-wrap items-center justify-start gap-4 text-[10px] text-[var(--text-secondary)] nodrag">
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
-                <input type="checkbox" checked={useNumbers} onChange={e => {
-                  setUseNumbers(e.target.checked);
-                  if (e.target.checked) setUseArrows(false);
-                }} className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]" />
+                <input
+                  type="checkbox"
+                  checked={useNumbers}
+                  onChange={(e) => {
+                    setUseNumbers(e.target.checked);
+                    if (e.target.checked) setUseArrows(false);
+                  }}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
                 <span className="font-medium">数字编号</span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
-                <input type="checkbox" checked={useArrows} onChange={e => {
-                  setUseArrows(e.target.checked);
-                  if (e.target.checked) setUseNumbers(false);
-                }} className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]" />
+                <input
+                  type="checkbox"
+                  checked={useArrows}
+                  onChange={(e) => {
+                    setUseArrows(e.target.checked);
+                    if (e.target.checked) setUseNumbers(false);
+                  }}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
                 <span className="font-medium">使用箭头(→)连接</span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
-                <input type="checkbox" checked={includeTitles} onChange={e => setIncludeTitles(e.target.checked)} className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]" />
+                <input
+                  type="checkbox"
+                  checked={includeTitles}
+                  onChange={(e) => setIncludeTitles(e.target.checked)}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
                 <span className="font-medium">包含标题</span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
-                <input type="checkbox" checked={traceToRoot} onChange={e => setTraceToRoot(e.target.checked)} className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]" />
+                <input
+                  type="checkbox"
+                  checked={traceToRoot}
+                  onChange={(e) => setTraceToRoot(e.target.checked)}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
                 <span className="font-medium">追溯至开头</span>
               </label>
             </div>
 
             {/* 内容展示区 - 可选中文本 */}
-            <div className="flex-1 p-4 overflow-y-auto max-h-[400px] min-h-[150px] nodrag cursor-text select-text" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
+            <div
+              className="flex-1 p-4 overflow-y-auto max-h-[400px] min-h-[150px] nodrag cursor-text select-text"
+              style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+            >
               {renderContent()}
             </div>
           </>

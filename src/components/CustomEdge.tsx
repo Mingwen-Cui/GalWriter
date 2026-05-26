@@ -1,6 +1,12 @@
-import React from 'react';
-import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath, getBezierPath } from '@xyflow/react';
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  EdgeProps,
+  getBezierPath,
+  getSmoothStepPath,
+} from '@xyflow/react';
 import { X } from 'lucide-react';
+import React from 'react';
 
 export function CustomEdge({
   id,
@@ -39,7 +45,13 @@ export function CustomEdge({
   const labelY = isBezier ? bLabelY : sLabelY;
 
   return (
-    <g className="group" onContextMenu={(e) => { e.preventDefault(); (data?.onDelete as Function)?.(id); }}>
+    <g
+      className="group"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        (data?.onDelete as Function)?.(id);
+      }}
+    >
       {/* Invisible wider path for easier hover/click */}
       <path
         d={edgePath}

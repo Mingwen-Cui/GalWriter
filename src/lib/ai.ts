@@ -27,7 +27,7 @@ Next segment limit to roughly 100-200 words.`;
     contents: prompt,
     config: {
       temperature: 0.7,
-    }
+    },
   });
 
   return response.text || '';

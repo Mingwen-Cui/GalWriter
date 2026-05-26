@@ -1,4 +1,4 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { DBSchema, IDBPDatabase, openDB } from 'idb';
 
 interface GalWriterDB extends DBSchema {
   autosave: {
@@ -45,16 +45,20 @@ export const saveAutoSave = async (snapshot: string): Promise<void> => {
         } catch (err) {
           console.warn(`Failed to fetch blob for autosave: ${url}`, err);
         }
-      })
+      }),
     );
 
     const db = await getDB();
-    await db.put('autosave', {
-      timestamp: Date.now(),
-      snapshot,
-      media,
-    }, 'current');
-    
+    await db.put(
+      'autosave',
+      {
+        timestamp: Date.now(),
+        snapshot,
+        media,
+      },
+      'current',
+    );
+
     // console.log('[AutoSave] Saved successfully.', new Date().toLocaleTimeString());
   } catch (error) {
     console.error('[AutoSave] Failed to save to IndexedDB', error);

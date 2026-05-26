@@ -1,16 +1,8 @@
+import { NodeProps, NodeResizer, NodeToolbar, Position, useStore } from '@xyflow/react';
+import { BookOpen, Lock, Replace, Unlock } from 'lucide-react';
 import React, { memo } from 'react';
-import {
-  NodeProps,
-  NodeResizer,
-  NodeToolbar,
-  Position,
-  useStore,
-} from '@xyflow/react';
-import { Lock, Unlock, Replace, BookOpen } from 'lucide-react';
-import {
-  isBatchReplaceNode,
-  isPlotStructureNode,
-} from '../lib/regionUtils';
+
+import { isBatchReplaceNode, isPlotStructureNode } from '../lib/regionUtils';
 
 type Point = {
   x: number;
@@ -54,24 +46,13 @@ function getAbsolutePosition(state: any, node: any): Point {
   };
 }
 
-function getNodeSize(
-  state: any,
-  node: any,
-  fallbackWidth: number,
-  fallbackHeight: number
-) {
+function getNodeSize(state: any, node: any, fallbackWidth: number, fallbackHeight: number) {
   const internalNode = getInternalNode(state, node.id);
   const measured = internalNode?.measured ?? node?.measured;
 
   return {
-    width:
-      measured?.width ??
-      node?.width ??
-      asNumber(node?.style?.width, fallbackWidth),
-    height:
-      measured?.height ??
-      node?.height ??
-      asNumber(node?.style?.height, fallbackHeight),
+    width: measured?.width ?? node?.width ?? asNumber(node?.style?.width, fallbackWidth),
+    height: measured?.height ?? node?.height ?? asNumber(node?.style?.height, fallbackHeight),
   };
 }
 
@@ -79,7 +60,7 @@ function getNodeRect(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_BACKGROUND_WIDTH,
-  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT
+  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT,
 ): Rect {
   const position = getAbsolutePosition(state, node);
   const size = getNodeSize(state, node, fallbackWidth, fallbackHeight);
@@ -96,7 +77,7 @@ function getNodeCenter(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_BATCH_WIDTH,
-  fallbackHeight = DEFAULT_BATCH_HEIGHT
+  fallbackHeight = DEFAULT_BATCH_HEIGHT,
 ): Point {
   const rect = getNodeRect(state, node, fallbackWidth, fallbackHeight);
 
@@ -146,18 +127,13 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       state,
       selfNode,
       DEFAULT_BACKGROUND_WIDTH,
-      DEFAULT_BACKGROUND_HEIGHT
+      DEFAULT_BACKGROUND_HEIGHT,
     );
 
     return state.nodes.filter((node) => {
       if (node.id === id || !isBatchReplaceNodeLocal(node)) return false;
 
-      const center = getNodeCenter(
-        state,
-        node,
-        DEFAULT_BATCH_WIDTH,
-        DEFAULT_BATCH_HEIGHT
-      );
+      const center = getNodeCenter(state, node, DEFAULT_BATCH_WIDTH, DEFAULT_BATCH_HEIGHT);
 
       return pointInRect(center, backgroundRect);
     }).length;
@@ -171,18 +147,13 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       state,
       selfNode,
       DEFAULT_BACKGROUND_WIDTH,
-      DEFAULT_BACKGROUND_HEIGHT
+      DEFAULT_BACKGROUND_HEIGHT,
     );
 
     return state.nodes.filter((node) => {
       if (node.id === id || !isPlotStructureNodeLocal(node)) return false;
 
-      const center = getNodeCenter(
-        state,
-        node,
-        DEFAULT_BATCH_WIDTH,
-        DEFAULT_BATCH_HEIGHT
-      );
+      const center = getNodeCenter(state, node, DEFAULT_BATCH_WIDTH, DEFAULT_BATCH_HEIGHT);
 
       return pointInRect(center, backgroundRect);
     }).length;
@@ -217,23 +188,16 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
         />
       )}
 
-      <NodeToolbar
-        isVisible={selected && selectionCount === 1}
-        position={Position.Top}
-        offset={10}
-      >
+      <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>
         <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center">
           <button
             onClick={toggleLock}
-            className={`p-1 rounded hover:bg-[var(--app-bg)] transition-colors ${locked ? 'text-indigo-500' : 'text-[var(--text-secondary)]'
-              }`}
+            className={`p-1 rounded hover:bg-[var(--app-bg)] transition-colors ${
+              locked ? 'text-indigo-500' : 'text-[var(--text-secondary)]'
+            }`}
             title={locked ? '解锁位置与大小' : '锁定位置与大小'}
           >
-            {locked ? (
-              <Lock className="w-4 h-4" />
-            ) : (
-              <Unlock className="w-4 h-4" />
-            )}
+            {locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
           </button>
 
           <div className="w-px h-4 bg-[var(--toolbar-border)] mx-1" />
@@ -277,10 +241,9 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       </NodeToolbar>
 
       <div
-        className={`w-full h-full rounded-3xl border-2 border-dashed custom-drag-handle transition-[border-color,ring,shadow] duration-300 ${selected
-            ? 'border-indigo-500 ring-4 ring-indigo-500/20 shadow-2xl'
-            : 'border-slate-300'
-          }`}
+        className={`w-full h-full rounded-3xl border-2 border-dashed custom-drag-handle transition-[border-color,ring,shadow] duration-300 ${
+          selected ? 'border-indigo-500 ring-4 ring-indigo-500/20 shadow-2xl' : 'border-slate-300'
+        }`}
         style={{ backgroundColor: color + '40' }}
       >
         <div className="absolute top-4 left-6 nodrag flex flex-col gap-1 w-1/2 pointer-events-auto">
@@ -290,17 +253,14 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
                 event.stopPropagation();
                 toggleLock();
               }}
-              className={`p-1.5 rounded-lg transition-all shadow-sm flex items-center justify-center ${locked
+              className={`p-1.5 rounded-lg transition-all shadow-sm flex items-center justify-center ${
+                locked
                   ? 'bg-indigo-500 text-white hover:bg-indigo-600 scale-110'
                   : 'bg-[var(--card-bg)] text-[var(--text-secondary)] hover:bg-[var(--app-bg)]'
-                }`}
+              }`}
               title={locked ? '点击解锁' : '点击锁定'}
             >
-              {locked ? (
-                <Lock className="w-4 h-4" />
-              ) : (
-                <Unlock className="w-4 h-4" />
-              )}
+              {locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
             <input
@@ -309,8 +269,9 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
               disabled={locked}
               onChange={(event) => updateNodeData({ title: event.target.value })}
               onFocus={(event) => event.target.select()}
-              className={`bg-transparent border-none outline-none text-[var(--text-secondary)] font-bold uppercase tracking-widest text-[12px] w-full placeholder:text-[var(--text-muted)] cursor-text ${locked ? 'cursor-not-allowed opacity-50' : ''
-                }`}
+              className={`bg-transparent border-none outline-none text-[var(--text-secondary)] font-bold uppercase tracking-widest text-[12px] w-full placeholder:text-[var(--text-muted)] cursor-text ${
+                locked ? 'cursor-not-allowed opacity-50' : ''
+              }`}
               placeholder="设置名称..."
             />
           </div>

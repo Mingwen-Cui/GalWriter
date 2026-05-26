@@ -1,6 +1,7 @@
-import React, { memo, useEffect } from 'react';
 import { NodeProps, NodeResizer, NodeToolbar, Position, useStore } from '@xyflow/react';
-import { Trash2, Type, Bold, ChevronDown, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, Bold, ChevronDown, Trash2, Type } from 'lucide-react';
+import React, { memo, useEffect } from 'react';
+
 import { RichText } from './RichText';
 
 const FONT_FAMILIES = [
@@ -27,7 +28,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
     }
   };
 
-  const selectionCount = useStore(state => state.nodes.filter(n => n.selected).length);
+  const selectionCount = useStore((state) => state.nodes.filter((n) => n.selected).length);
 
   useEffect(() => {
     if (data.initialEditing) {
@@ -39,7 +40,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
   }, []);
 
   return (
-    <div className={`w-full h-full relative group border-2 rounded-xl transition-[border-color,background-color,shadow,ring] duration-300 ${selected ? 'border-indigo-500/50 bg-indigo-50/10 shadow-md ring-2 ring-indigo-500/20' : 'border-transparent'}`}>
+    <div
+      className={`w-full h-full relative group border-2 rounded-xl transition-[border-color,background-color,shadow,ring] duration-300 ${selected ? 'border-indigo-500/50 bg-indigo-50/10 shadow-md ring-2 ring-indigo-500/20' : 'border-transparent'}`}
+    >
       <NodeResizer
         minWidth={50}
         minHeight={30}
@@ -58,8 +61,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
                 onChange={(e) => updateNodeData({ fontFamily: e.target.value })}
                 className="w-full bg-[var(--app-bg)] border-none rounded-lg px-2 py-1 text-[10px] font-bold text-[var(--text-primary)] outline-none appearance-none cursor-pointer pr-6"
               >
-                {FONT_FAMILIES.map(f => (
-                  <option key={f.value} value={f.value} className="bg-[var(--card-bg)] text-[var(--text-primary)]">{f.label}</option>
+                {FONT_FAMILIES.map((f) => (
+                  <option
+                    key={f.value}
+                    value={f.value}
+                    className="bg-[var(--card-bg)] text-[var(--text-primary)]"
+                  >
+                    {f.label}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
@@ -132,12 +141,14 @@ export function TextNode({ id, data, selected }: NodeProps) {
               <input
                 type="number"
                 value={fontSize}
-                onChange={(e) => updateNodeData({ fontSize: Math.max(8, parseInt(e.target.value) || 12) })}
+                onChange={(e) =>
+                  updateNodeData({ fontSize: Math.max(8, parseInt(e.target.value) || 12) })
+                }
                 className="w-10 bg-transparent border-none text-[10px] font-bold outline-none"
               />
             </div>
             <div className="flex gap-1 overflow-x-auto no-scrollbar">
-              {PRESET_SIZES.map(size => (
+              {PRESET_SIZES.map((size) => (
                 <button
                   key={size}
                   onClick={() => updateNodeData({ fontSize: size })}
@@ -151,8 +162,15 @@ export function TextNode({ id, data, selected }: NodeProps) {
         </div>
       </NodeToolbar>
 
-      <div className={`w-full h-full flex items-center p-2 overflow-hidden ${textAlign === 'left' ? 'justify-start' : textAlign === 'right' ? 'justify-end' : 'justify-center'
-        }`}>
+      <div
+        className={`w-full h-full flex items-center p-2 overflow-hidden ${
+          textAlign === 'left'
+            ? 'justify-start'
+            : textAlign === 'right'
+              ? 'justify-end'
+              : 'justify-center'
+        }`}
+      >
         <RichText
           value={content}
           onChange={(val) => updateNodeData({ content: val })}

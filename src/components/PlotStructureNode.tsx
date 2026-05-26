@@ -1,4 +1,3 @@
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { NodeProps, useStore, useStoreApi } from '@xyflow/react';
 import {
   BookOpen,
@@ -10,17 +9,15 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import {
-  findContainingRegion,
-  isNodeInsideRegion,
-  isStoryContentNode,
-} from '../lib/regionUtils';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+
 import {
   buildRegionStoryItems,
   formatRegionStoryForPrompt,
-  sortContentNodesInRegion,
   type RegionStoryItem,
+  sortContentNodesInRegion,
 } from '../lib/plotStructure';
+import { findContainingRegion, isNodeInsideRegion, isStoryContentNode } from '../lib/regionUtils';
 
 type DetailLevel = 'brief' | 'standard' | 'detailed';
 
@@ -36,7 +33,7 @@ export type PlotStructureGenerateParams = {
 export function PlotStructureNode({ id, data, selected }: NodeProps) {
   const [cardCount, setCardCount] = useState(Number(data.cardCount) || 3);
   const [detailLevel, setDetailLevel] = useState<DetailLevel>(
-    (data.detailLevel as DetailLevel) || 'standard'
+    (data.detailLevel as DetailLevel) || 'standard',
   );
   const [direction, setDirection] = useState(String(data.direction || ''));
   const [isGenerating, setIsGenerating] = useState(false);
@@ -84,7 +81,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
         (data.onUpdate as Function)(id, updates);
       }
     },
-    [data.onUpdate, id]
+    [data.onUpdate, id],
   );
 
   const regionStoryNodes = useMemo(() => {
@@ -124,11 +121,9 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
    * 1. 当前区域有卡片，用当前识别内容。
    * 2. 当前区域没卡片，用上一次缓存内容。
    */
-  const availableStoryNodes =
-    regionStoryNodes.length > 0 ? regionStoryNodes : cachedStoryNodes;
+  const availableStoryNodes = regionStoryNodes.length > 0 ? regionStoryNodes : cachedStoryNodes;
 
-  const isUsingCachedStory =
-    regionStoryNodes.length === 0 && availableStoryNodes.length > 0;
+  const isUsingCachedStory = regionStoryNodes.length === 0 && availableStoryNodes.length > 0;
 
   const detectedCount = regionStoryNodes.length;
 
@@ -220,10 +215,9 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`w-[260px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all duration-300 ${selected
-          ? 'border-yellow-500 shadow-yellow-500/20'
-          : 'border-[var(--card-border)]'
-        } flex flex-col relative group overflow-hidden`}
+      className={`w-[260px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all duration-300 ${
+        selected ? 'border-yellow-500 shadow-yellow-500/20' : 'border-[var(--card-border)]'
+      } flex flex-col relative group overflow-hidden`}
     >
       <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-2">
@@ -302,10 +296,11 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
                 <button
                   key={option.value}
                   onClick={() => setDetailLevel(option.value)}
-                  className={`py-1.5 rounded-md text-[9px] font-bold transition-all ${detailLevel === option.value
+                  className={`py-1.5 rounded-md text-[9px] font-bold transition-all ${
+                    detailLevel === option.value
                       ? 'bg-white shadow-sm text-yellow-600 ring-1 ring-yellow-500/10'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                  }`}
                 >
                   {option.label}
                 </button>
@@ -352,7 +347,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
                     <p key={index} className="mb-1 break-words">
                       {line || '\u00A0'}
                     </p>
-                  )
+                  ),
                 )
               ) : (
                 <span className="text-[var(--text-muted)]">暂无内容</span>

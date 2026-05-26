@@ -1,6 +1,6 @@
-import React, { memo, useCallback, useMemo } from 'react';
 import { NodeProps, NodeToolbar, Position, useStore } from '@xyflow/react';
-import { Lock, Replace, Unlock, BookOpen } from 'lucide-react';
+import { BookOpen, Lock, Replace, Unlock } from 'lucide-react';
+import React, { memo, useCallback, useMemo } from 'react';
 
 /**
  * 动态包裹组件
@@ -102,12 +102,7 @@ function getConvexHull(points: Point[]): Point[] {
   return lower.concat(upper);
 }
 
-function lineIntersection(
-  p1: Point,
-  d1: Point,
-  p2: Point,
-  d2: Point
-): Point | null {
+function lineIntersection(p1: Point, d1: Point, p2: Point, d2: Point): Point | null {
   const denominator = d1.x * d2.y - d1.y * d2.x;
 
   if (Math.abs(denominator) < 0.00001) {
@@ -148,13 +143,13 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
      */
     const normal = isClockwise
       ? {
-        x: -dy / length,
-        y: dx / length,
-      }
+          x: -dy / length,
+          y: dx / length,
+        }
       : {
-        x: dy / length,
-        y: -dx / length,
-      };
+          x: dy / length,
+          y: -dx / length,
+        };
 
     return {
       point: {
@@ -179,7 +174,7 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
       previousLine.point,
       previousLine.direction,
       currentLine.point,
-      currentLine.direction
+      currentLine.direction,
     );
 
     if (intersection) {
@@ -211,7 +206,7 @@ function buildLiveHullPoints(
   childNodes: ChildSnapshot[],
   groupX: number,
   groupY: number,
-  gap: number
+  gap: number,
 ): Point[] {
   if (childNodes.length === 0) return [];
 
@@ -223,12 +218,7 @@ function buildLiveHullPoints(
     const x2 = node.x - groupX + node.width;
     const y2 = node.y - groupY + node.height;
 
-    cardCornerPoints.push(
-      { x: x1, y: y1 },
-      { x: x2, y: y1 },
-      { x: x2, y: y2 },
-      { x: x1, y: y2 }
-    );
+    cardCornerPoints.push({ x: x1, y: y1 }, { x: x2, y: y1 }, { x: x2, y: y2 }, { x: x1, y: y2 });
   });
 
   const baseHull = getConvexHull(cardCornerPoints);
@@ -252,9 +242,8 @@ function pointInPolygon(point: Point, polygon: Point[]) {
     const intersects =
       current.y > point.y !== previous.y > point.y &&
       point.x <
-      ((previous.x - current.x) * (point.y - current.y)) /
-      ((previous.y - current.y) || 0.00001) +
-      current.x;
+        ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || 0.00001) +
+          current.x;
 
     if (intersects) {
       inside = !inside;
@@ -307,10 +296,7 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
    * 允许你以后从 data 里单独控制距离。
    * 例如创建节点时传 data.gap = 50。
    */
-  const groupGap =
-    typeof data.gap === 'number'
-      ? data.gap
-      : DEFAULT_GROUP_GAP;
+  const groupGap = typeof data.gap === 'number' ? data.gap : DEFAULT_GROUP_GAP;
 
   const fallbackHullPoints = (data.hullPoints as Point[]) || [];
 
@@ -320,7 +306,7 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
         (data.onUpdate as Function)(id, updates);
       }
     },
-    [data, id]
+    [data, id],
   );
 
   const toggleLock = useCallback(() => {
@@ -341,14 +327,8 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
     const publicGroupNode = state.nodes.find((node) => node.id === id);
 
     return {
-      x:
-        internalGroupNode?.internals?.positionAbsolute?.x ??
-        publicGroupNode?.position?.x ??
-        0,
-      y:
-        internalGroupNode?.internals?.positionAbsolute?.y ??
-        publicGroupNode?.position?.y ??
-        0,
+      x: internalGroupNode?.internals?.positionAbsolute?.x ?? publicGroupNode?.position?.x ?? 0,
+      y: internalGroupNode?.internals?.positionAbsolute?.y ?? publicGroupNode?.position?.y ?? 0,
     };
   });
 
@@ -367,46 +347,23 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
 
         return {
           id: node.id,
-          x:
-            absolutePosition?.x ??
-            node.position?.x ??
-            0,
-          y:
-            absolutePosition?.y ??
-            node.position?.y ??
-            0,
-          width:
-            measured?.width ??
-            node.width ??
-            DEFAULT_NODE_WIDTH,
-          height:
-            measured?.height ??
-            node.height ??
-            DEFAULT_NODE_HEIGHT,
+          x: absolutePosition?.x ?? node.position?.x ?? 0,
+          y: absolutePosition?.y ?? node.position?.y ?? 0,
+          width: measured?.width ?? node.width ?? DEFAULT_NODE_WIDTH,
+          height: measured?.height ?? node.height ?? DEFAULT_NODE_HEIGHT,
         };
       });
   });
 
   const hullPoints = useMemo(() => {
-    const livePoints = buildLiveHullPoints(
-      childNodes,
-      groupPosition.x,
-      groupPosition.y,
-      groupGap
-    );
+    const livePoints = buildLiveHullPoints(childNodes, groupPosition.x, groupPosition.y, groupGap);
 
     if (livePoints.length >= 3) {
       return livePoints;
     }
 
     return fallbackHullPoints;
-  }, [
-    childNodes,
-    groupPosition.x,
-    groupPosition.y,
-    groupGap,
-    fallbackHullPoints,
-  ]);
+  }, [childNodes, groupPosition.x, groupPosition.y, groupGap, fallbackHullPoints]);
 
   const batchToolSnapshots = useStore((state) => {
     const nodeLookup = (state as any).nodeLookup;
@@ -421,9 +378,7 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
         const x = absolutePosition?.x ?? node.position?.x ?? 0;
         const y = absolutePosition?.y ?? node.position?.y ?? 0;
         const nodeWidth =
-          measured?.width ??
-          node.width ??
-          readNumber(node.style?.width, DEFAULT_BATCH_TOOL_WIDTH);
+          measured?.width ?? node.width ?? readNumber(node.style?.width, DEFAULT_BATCH_TOOL_WIDTH);
         const nodeHeight =
           measured?.height ??
           node.height ??
@@ -541,17 +496,12 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
           <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] flex gap-2 items-center pointer-events-auto animate-in zoom-in-95 duration-200">
             <button
               onClick={toggleLock}
-              className={`p-1.5 rounded-lg hover:bg-[var(--app-bg)] transition-colors ${locked
-                ? 'text-indigo-500 bg-indigo-500/10'
-                : 'text-[var(--text-secondary)]'
-                }`}
+              className={`p-1.5 rounded-lg hover:bg-[var(--app-bg)] transition-colors ${
+                locked ? 'text-indigo-500 bg-indigo-500/10' : 'text-[var(--text-secondary)]'
+              }`}
               title={locked ? '点击解锁' : '点击锁定'}
             >
-              {locked ? (
-                <Lock className="w-4 h-4" />
-              ) : (
-                <Unlock className="w-4 h-4" />
-              )}
+              {locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
             <div className="w-px h-4 bg-[var(--card-border)] mx-1" />
@@ -589,8 +539,9 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
       )}
 
       <div
-        className={`w-full h-full absolute inset-0 overflow-visible ${locked ? 'opacity-60' : 'opacity-100'
-          }`}
+        className={`w-full h-full absolute inset-0 overflow-visible ${
+          locked ? 'opacity-60' : 'opacity-100'
+        }`}
       >
         <svg
           width="100%"
@@ -602,11 +553,7 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
             overflow: 'visible',
           }}
         >
-          <path
-            d={pathData}
-            fill={color}
-            fillOpacity={0.15}
-          />
+          <path d={pathData} fill={color} fillOpacity={0.15} />
 
           <path
             d={pathData}

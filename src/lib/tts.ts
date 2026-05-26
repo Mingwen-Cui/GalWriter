@@ -22,31 +22,42 @@ export const normalizeTtsApiUrl = (apiUrl: string) => {
 };
 
 export const htmlToSpeechText = (html: string) => {
-  const normalize = (text: string) => text
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t\f\v]+/g, ' ')
-    .replace(/\s*\n\s*/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  const normalize = (text: string) =>
+    text
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t\f\v]+/g, ' ')
+      .replace(/\s*\n\s*/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
 
   if (typeof document === 'undefined') {
     return normalize(
       html
-        .replace(/<(script|style|svg|img|video|audio|source|canvas|button|select|option|input|textarea)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-        .replace(/<(img|video|audio|source|canvas|button|select|option|input|textarea)\b[^>]*\/?>/gi, ' ')
+        .replace(
+          /<(script|style|svg|img|video|audio|source|canvas|button|select|option|input|textarea)\b[^>]*>[\s\S]*?<\/\1>/gi,
+          ' ',
+        )
+        .replace(
+          /<(img|video|audio|source|canvas|button|select|option|input|textarea)\b[^>]*\/?>/gi,
+          ' ',
+        )
         .replace(/<\s*br\s*\/?>/gi, '\n')
         .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, '\n')
-        .replace(/<[^>]*>/g, ' ')
+        .replace(/<[^>]*>/g, ' '),
     );
   }
 
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
-  doc.querySelectorAll('script, style, svg, img, video, audio, source, canvas, button, select, option, input, textarea')
-    .forEach(element => element.remove());
-  doc.querySelectorAll<HTMLElement>('.mention-chip').forEach(mention => {
-    mention.textContent = mention.dataset.mentionName || mention.textContent?.replace(/^@/, '') || '';
+  doc
+    .querySelectorAll(
+      'script, style, svg, img, video, audio, source, canvas, button, select, option, input, textarea',
+    )
+    .forEach((element) => element.remove());
+  doc.querySelectorAll<HTMLElement>('.mention-chip').forEach((mention) => {
+    mention.textContent =
+      mention.dataset.mentionName || mention.textContent?.replace(/^@/, '') || '';
   });
-  doc.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  doc.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
 
   return normalize(doc.body.textContent || '');
 };
@@ -55,7 +66,7 @@ const sha256Hex = async (text: string) => {
   const bytes = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(hash))
-    .map(byte => byte.toString(16).padStart(2, '0'))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 };
 
@@ -117,7 +128,10 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
 
   const contentType = response.headers.get('content-type') || '';
   if (!response.ok || contentType.includes('application/json')) {
-    throw new Error(await normalizeYoudaoError(response) || `Youdao TTS request failed with HTTP ${response.status}`);
+    throw new Error(
+      (await normalizeYoudaoError(response)) ||
+        `Youdao TTS request failed with HTTP ${response.status}`,
+    );
   }
 
   const blob = await response.blob();
@@ -129,11 +143,14 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
 
 const generateSystemSpeechAudio = async (input: string) => {
   const tauriCore = await import('@tauri-apps/api/core');
-  const invoke = tauriCore.invoke || (tauriCore as any).default?.invoke || (window as any).__TAURI__?.core?.invoke;
+  const invoke =
+    tauriCore.invoke ||
+    (tauriCore as any).default?.invoke ||
+    (window as any).__TAURI__?.core?.invoke;
   if (!invoke) {
     throw new Error('System voice is only available in the GalWriter desktop app.');
   }
-  const bytes = await invoke('synthesize_system_speech', { text: input }) as number[];
+  const bytes = (await invoke('synthesize_system_speech', { text: input })) as number[];
   const blob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });
   return {
     blob,

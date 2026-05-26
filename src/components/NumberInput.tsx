@@ -1,5 +1,5 @@
-import React from 'react';
 import { Minus, Plus } from 'lucide-react';
+import React from 'react';
 
 interface NumberInputProps {
   value: number;
@@ -24,8 +24,8 @@ export function NumberInput({
   min = -9999,
   max = 9999,
   step = 1,
-  className = "",
-  accentColor = "amber"
+  className = '',
+  accentColor = 'amber',
 }: NumberInputProps) {
   // 滑轨的视觉范围定义为 0-10
   const sliderMin = 0;
@@ -50,24 +50,24 @@ export function NumberInput({
 
   // 映射 accentColor 到 tailwind 类
   const accentClasses: Record<string, string> = {
-    amber: "accent-amber-500 hover:accent-amber-400",
-    blue: "accent-blue-500 hover:accent-blue-400",
-    indigo: "accent-indigo-500 hover:accent-indigo-400",
-    emerald: "accent-emerald-500 hover:accent-emerald-400",
+    amber: 'accent-amber-500 hover:accent-amber-400',
+    blue: 'accent-blue-500 hover:accent-blue-400',
+    indigo: 'accent-indigo-500 hover:accent-indigo-400',
+    emerald: 'accent-emerald-500 hover:accent-emerald-400',
   };
 
   const borderClasses: Record<string, string> = {
-    amber: "focus:border-amber-500/50",
-    blue: "focus:border-blue-500/50",
-    indigo: "focus:border-indigo-500/50",
-    emerald: "focus:border-emerald-500/50",
+    amber: 'focus:border-amber-500/50',
+    blue: 'focus:border-blue-500/50',
+    indigo: 'focus:border-indigo-500/50',
+    emerald: 'focus:border-emerald-500/50',
   };
 
   const selectedAccent = accentClasses[accentColor] || accentClasses.amber;
   const selectedBorder = borderClasses[accentColor] || borderClasses.amber;
 
   return (
-    <div 
+    <div
       className={`flex items-center gap-2 group/numinput nopan nodrag ${className}`}
       // 阻止所有交互事件冒泡，防止触发 React Flow 的画布操作
       onPointerDown={(e) => e.stopPropagation()}
@@ -77,17 +77,17 @@ export function NumberInput({
       onClick={(e) => e.stopPropagation()}
     >
       {/* 减号按钮 */}
-      <button 
+      <button
         onClick={decrement}
         className="p-1.5 rounded-lg bg-[var(--app-bg)] hover:bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all active:scale-95 border border-[var(--card-border)]"
         title="减少"
       >
         <Minus className="w-3.5 h-3.5" />
       </button>
-      
+
       {/* 滑轨 */}
       <div className="relative flex items-center flex-1 min-w-[60px]">
-        <input 
+        <input
           type="range"
           min={sliderMin}
           max={sliderMax}
@@ -99,7 +99,7 @@ export function NumberInput({
       </div>
 
       {/* 加号按钮 */}
-      <button 
+      <button
         onClick={increment}
         className="p-1.5 rounded-lg bg-[var(--app-bg)] hover:bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all active:scale-95 border border-[var(--card-border)]"
         title="增加"
@@ -109,7 +109,7 @@ export function NumberInput({
 
       {/* 数字输入框 */}
       <div className="relative">
-        <input 
+        <input
           type="number"
           value={value}
           onChange={handleInputChange}

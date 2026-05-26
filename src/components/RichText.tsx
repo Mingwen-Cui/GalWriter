@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 export type RichTextHandle = {
   insertText: (text: string) => void;
@@ -30,10 +30,13 @@ const getMentionNearSelection = (direction: 'backward' | 'forward') => {
   if (container.nodeType === Node.TEXT_NODE) {
     const text = container.nodeValue || '';
     if (direction === 'backward' && offset > 0 && text.slice(0, offset).trim() !== '') return null;
-    if (direction === 'forward' && offset < text.length && text.slice(offset).trim() !== '') return null;
+    if (direction === 'forward' && offset < text.length && text.slice(offset).trim() !== '')
+      return null;
 
     const sibling = direction === 'backward' ? container.previousSibling : container.nextSibling;
-    return sibling instanceof HTMLElement && sibling.classList.contains('mention-chip') ? sibling : null;
+    return sibling instanceof HTMLElement && sibling.classList.contains('mention-chip')
+      ? sibling
+      : null;
   }
 
   if (!(container instanceof HTMLElement)) return null;
@@ -42,50 +45,49 @@ const getMentionNearSelection = (direction: 'backward' | 'forward') => {
   return child instanceof HTMLElement && child.classList.contains('mention-chip') ? child : null;
 };
 
-export const RichText = forwardRef<RichTextHandle, {
-  value: string;
-  onChange: (val: string) => void;
-  className?: string;
-  style?: React.CSSProperties;
-  pasteAsPlainText?: boolean;
-  autoFocus?: boolean;
-}>(function RichText({
-  value,
-  onChange,
-  className,
-  style,
-  pasteAsPlainText = false,
-  autoFocus = false,
-}, ref) {
+export const RichText = forwardRef<
+  RichTextHandle,
+  {
+    value: string;
+    onChange: (val: string) => void;
+    className?: string;
+    style?: React.CSSProperties;
+    pasteAsPlainText?: boolean;
+    autoFocus?: boolean;
+  }
+>(function RichText(
+  { value, onChange, className, style, pasteAsPlainText = false, autoFocus = false },
+  ref,
+) {
   const editorRef = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     if (autoFocus && editorRef.current) {
-        // 使用 setTimeout 确保在 DOM 完全就绪以及 React Flow 处理完新增节点逻辑后触发
-        const timer = setTimeout(() => {
-          if (!editorRef.current) return;
-          editorRef.current.focus();
-          
-          // 选中所有文本
-          const range = document.createRange();
-          range.selectNodeContents(editorRef.current);
-          const selection = window.getSelection();
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-        }, 50);
-        return () => clearTimeout(timer);
+      // 使用 setTimeout 确保在 DOM 完全就绪以及 React Flow 处理完新增节点逻辑后触发
+      const timer = setTimeout(() => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+
+        // 选中所有文本
+        const range = document.createRange();
+        range.selectNodeContents(editorRef.current);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [autoFocus]);
-  
+
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-        editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = value;
     }
   }, [value]);
 
   const handleInput = () => {
     if (editorRef.current) {
-        onChange(editorRef.current.innerHTML);
+      onChange(editorRef.current.innerHTML);
     }
   };
 
@@ -133,22 +135,21 @@ export const RichText = forwardRef<RichTextHandle, {
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-            const blob = items[i].getAsFile();
-            if (blob) {
-                const url = URL.createObjectURL(blob);
-                insertImage(url);
-                e.preventDefault();
-                return;
-            }
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          insertImage(url);
+          e.preventDefault();
+          return;
         }
+      }
     }
 
-    
     if (pasteAsPlainText) {
-        e.preventDefault();
-        const text = e.clipboardData.getData('text/plain');
-        document.execCommand('insertText', false, text);
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
     }
   };
 
@@ -156,15 +157,14 @@ export const RichText = forwardRef<RichTextHandle, {
     // 支持从外部拖拽图片文件
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-        e.preventDefault();
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].type.startsWith('image/')) {
-                const url = URL.createObjectURL(files[i]);
-                insertImage(url);
-            }
+      e.preventDefault();
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].type.startsWith('image/')) {
+          const url = URL.createObjectURL(files[i]);
+          insertImage(url);
         }
+      }
     }
-
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

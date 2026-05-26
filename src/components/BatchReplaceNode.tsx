@@ -1,19 +1,20 @@
-import React, { memo, useEffect, useRef, useState } from 'react';
 import { NodeProps, useStore, useStoreApi } from '@xyflow/react';
 import {
-  Type,
-  Replace,
-  Play,
-  Trash2,
-  Search,
   ChevronDown,
   ChevronRight,
-  X,
-  Undo2,
   Highlighter,
-  RefreshCw,
   Layers,
+  Play,
+  RefreshCw,
+  Replace,
+  Search,
+  Trash2,
+  Type,
+  Undo2,
+  X,
 } from 'lucide-react';
+import React, { memo, useEffect, useRef, useState } from 'react';
+
 import { Language, translations } from '../lib/i18n';
 
 type Point = {
@@ -99,20 +100,14 @@ function getNodeSize(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_NODE_WIDTH,
-  fallbackHeight = DEFAULT_NODE_HEIGHT
+  fallbackHeight = DEFAULT_NODE_HEIGHT,
 ) {
   const internalNode = getInternalNode(state, node.id);
   const measured = internalNode?.measured ?? node?.measured;
 
   return {
-    width:
-      measured?.width ??
-      node?.width ??
-      asNumber(node?.style?.width, fallbackWidth),
-    height:
-      measured?.height ??
-      node?.height ??
-      asNumber(node?.style?.height, fallbackHeight),
+    width: measured?.width ?? node?.width ?? asNumber(node?.style?.width, fallbackWidth),
+    height: measured?.height ?? node?.height ?? asNumber(node?.style?.height, fallbackHeight),
   };
 }
 
@@ -120,7 +115,7 @@ function getNodeCenter(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_NODE_WIDTH,
-  fallbackHeight = DEFAULT_NODE_HEIGHT
+  fallbackHeight = DEFAULT_NODE_HEIGHT,
 ): Point {
   const position = getAbsolutePosition(state, node);
   const size = getNodeSize(state, node, fallbackWidth, fallbackHeight);
@@ -135,7 +130,7 @@ function getRectForNode(
   state: any,
   node: any,
   fallbackWidth = DEFAULT_BACKGROUND_WIDTH,
-  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT
+  fallbackHeight = DEFAULT_BACKGROUND_HEIGHT,
 ): Rect {
   const position = getAbsolutePosition(state, node);
   const size = getNodeSize(state, node, fallbackWidth, fallbackHeight);
@@ -184,9 +179,8 @@ function pointInPolygon(point: Point, polygon: Point[]) {
     const intersects =
       current.y > point.y !== previous.y > point.y &&
       point.x <
-      ((previous.x - current.x) * (point.y - current.y)) /
-      ((previous.y - current.y) || 0.00001) +
-      current.x;
+        ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || 0.00001) +
+          current.x;
 
     if (intersects) inside = !inside;
   }
@@ -240,12 +234,7 @@ function getConvexHull(points: Point[]): Point[] {
   return lower.concat(upper);
 }
 
-function lineIntersection(
-  p1: Point,
-  d1: Point,
-  p2: Point,
-  d2: Point
-): Point | null {
+function lineIntersection(p1: Point, d1: Point, p2: Point, d2: Point): Point | null {
   const denominator = d1.x * d2.y - d1.y * d2.x;
 
   if (Math.abs(denominator) < 0.00001) {
@@ -277,13 +266,13 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
 
     const normal = isClockwise
       ? {
-        x: -dy / length,
-        y: dx / length,
-      }
+          x: -dy / length,
+          y: dx / length,
+        }
       : {
-        x: dy / length,
-        y: -dx / length,
-      };
+          x: dy / length,
+          y: -dx / length,
+        };
 
     return {
       point: {
@@ -308,7 +297,7 @@ function inflateConvexPolygon(points: Point[], gap: number): Point[] {
       previousLine.point,
       previousLine.direction,
       currentLine.point,
-      currentLine.direction
+      currentLine.direction,
     );
 
     if (intersection) {
@@ -333,7 +322,7 @@ function buildLiveHullPoints(
   childNodes: ChildSnapshot[],
   groupX: number,
   groupY: number,
-  gap: number
+  gap: number,
 ): Point[] {
   if (childNodes.length === 0) return [];
 
@@ -345,12 +334,7 @@ function buildLiveHullPoints(
     const x2 = node.x - groupX + node.width;
     const y2 = node.y - groupY + node.height;
 
-    cardCornerPoints.push(
-      { x: x1, y: y1 },
-      { x: x2, y: y1 },
-      { x: x2, y: y2 },
-      { x: x1, y: y2 }
-    );
+    cardCornerPoints.push({ x: x1, y: y1 }, { x: x2, y: y1 }, { x: x2, y: y2 }, { x: x1, y: y2 });
   });
 
   const baseHull = getConvexHull(cardCornerPoints);
@@ -365,10 +349,7 @@ function buildLiveHullPoints(
 function buildDynamicGroupRegion(state: any, groupNode: any): RegionInfo | null {
   const childIds = ((groupNode.data?.childIds as string[]) || []).filter(Boolean);
   const groupPosition = getAbsolutePosition(state, groupNode);
-  const groupGap =
-    typeof groupNode.data?.gap === 'number'
-      ? groupNode.data.gap
-      : DEFAULT_GROUP_GAP;
+  const groupGap = typeof groupNode.data?.gap === 'number' ? groupNode.data.gap : DEFAULT_GROUP_GAP;
 
   const childIdSet = new Set(childIds);
 
@@ -387,12 +368,7 @@ function buildDynamicGroupRegion(state: any, groupNode: any): RegionInfo | null 
       };
     });
 
-  let points = buildLiveHullPoints(
-    childNodes,
-    groupPosition.x,
-    groupPosition.y,
-    groupGap
-  );
+  let points = buildLiveHullPoints(childNodes, groupPosition.x, groupPosition.y, groupGap);
 
   if (points.length < 3) {
     points = (groupNode.data?.hullPoints as Point[]) || [];
@@ -415,7 +391,7 @@ function buildBackgroundRegion(state: any, backgroundNode: any): RegionInfo {
     state,
     backgroundNode,
     DEFAULT_BACKGROUND_WIDTH,
-    DEFAULT_BACKGROUND_HEIGHT
+    DEFAULT_BACKGROUND_HEIGHT,
   );
 
   return {
@@ -438,7 +414,7 @@ function isPointInsideRegion(point: Point, region: RegionInfo) {
         x: point.x - region.origin.x,
         y: point.y - region.origin.y,
       },
-      region.points
+      region.points,
     );
   }
 
@@ -450,12 +426,7 @@ function findContainingRegion(state: any, nodeId: string): RegionInfo | null {
 
   if (!thisNode) return null;
 
-  const center = getNodeCenter(
-    state,
-    thisNode,
-    DEFAULT_BATCH_WIDTH,
-    DEFAULT_BATCH_HEIGHT
-  );
+  const center = getNodeCenter(state, thisNode, DEFAULT_BATCH_WIDTH, DEFAULT_BATCH_HEIGHT);
 
   const regions: RegionInfo[] = [];
 
@@ -495,10 +466,16 @@ function isNodeInsideRegion(state: any, node: any, region: RegionInfo) {
 }
 
 export function BatchReplaceNode({ id, data, selected }: NodeProps) {
-  const [findText, setFindText] = useState(data.findText || '');
-  const [replaceText, setReplaceText] = useState(data.replaceText || '');
+  const [findText, setFindText] = useState<string>(
+    typeof data.findText === 'string' ? data.findText : '',
+  );
+  const [replaceText, setReplaceText] = useState<string>(
+    typeof data.replaceText === 'string' ? data.replaceText : '',
+  );
   const [scope, setScope] = useState<'selected' | 'all' | 'group'>(
-    data.scope || 'group'
+    data.scope === 'selected' || data.scope === 'all' || data.scope === 'group'
+      ? data.scope
+      : 'group',
   );
   const [lastResult, setLastResult] = useState<{
     count: number;
@@ -578,7 +555,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
       targetNodes = nodes.filter((node: any) => isStoryNode(node));
     } else if (scope === 'selected') {
       targetNodes = nodes.filter(
-        (node: any) => node.selected && isStoryNode(node) && node.id !== id
+        (node: any) => node.selected && isStoryNode(node) && node.id !== id,
       );
     } else {
       const activeRegion = findContainingRegion(state, id);
@@ -595,24 +572,20 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
         if (thisNode) {
           const parentGroup = nodes.find(
             (node: any) =>
-              isDynamicGroupNode(node) &&
-              (node.data.childIds as string[])?.includes(id)
+              isDynamicGroupNode(node) && (node.data.childIds as string[])?.includes(id),
           );
 
           if (parentGroup) {
             const childIds = (parentGroup.data.childIds as string[]) || [];
             targetNodes = nodes.filter(
-              (node: any) =>
-                childIds.includes(node.id) &&
-                isStoryNode(node) &&
-                node.id !== id
+              (node: any) => childIds.includes(node.id) && isStoryNode(node) && node.id !== id,
             );
           } else {
             const myCenter = getNodeCenter(
               state,
               thisNode,
               DEFAULT_BATCH_WIDTH,
-              DEFAULT_BATCH_HEIGHT
+              DEFAULT_BATCH_HEIGHT,
             );
 
             const containingBg = nodes.find((node: any) => {
@@ -622,7 +595,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 state,
                 node,
                 DEFAULT_BACKGROUND_WIDTH,
-                DEFAULT_BACKGROUND_HEIGHT
+                DEFAULT_BACKGROUND_HEIGHT,
               );
 
               return pointInRect(myCenter, rect);
@@ -654,11 +627,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
     const targetNodes = getTargetNodes();
 
     if (targetNodes.length === 0) {
-      alert(
-        lang === 'zh'
-          ? '范围内未找到可替换的剧情卡片'
-          : 'No story cards found in scope'
-      );
+      alert(lang === 'zh' ? '范围内未找到可替换的剧情卡片' : 'No story cards found in scope');
       return;
     }
 
@@ -714,14 +683,14 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
       'style="color: red; font-weight: bold; background: rgba(239, 68, 68, 0.1); padding: 0 2px; border-radius: 2px;"';
 
     targetNodes.forEach((node) => {
-      let text = node.data.text || '';
+      const text = node.data.text || '';
 
       if (typeof text !== 'string') return;
 
       if (!isHighlighting) {
         const highlighted = text.replaceAll(
           findText,
-          `<span ${highlightTag} ${highlightStyle}>${findText}</span>`
+          `<span ${highlightTag} ${highlightStyle}>${findText}</span>`,
         );
 
         if (data.onUpdate) {
@@ -758,10 +727,9 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`w-[260px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all duration-300 ${selected
-          ? 'border-teal-500 shadow-teal-500/20'
-          : 'border-[var(--card-border)]'
-        } flex flex-col relative group overflow-hidden`}
+      className={`w-[260px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all duration-300 ${
+        selected ? 'border-teal-500 shadow-teal-500/20' : 'border-[var(--card-border)]'
+      } flex flex-col relative group overflow-hidden`}
     >
       {/* Header */}
       <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing">
@@ -817,8 +785,9 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 最新操作结果
               </span>
               <span
-                className={`text-xs font-black ${lastResult ? 'text-teal-600' : 'text-[var(--text-muted)]'
-                  }`}
+                className={`text-xs font-black ${
+                  lastResult ? 'text-teal-600' : 'text-[var(--text-muted)]'
+                }`}
               >
                 {lastResult ? `已替换 ${lastResult.count} 处` : '等待任务...'}
               </span>
@@ -871,8 +840,9 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                   title="交换内容"
                 >
                   <RefreshCw
-                    className={`w-3.5 h-3.5 transition-transform duration-500 ${isSwapping ? 'rotate-180' : ''
-                      }`}
+                    className={`w-3.5 h-3.5 transition-transform duration-500 ${
+                      isSwapping ? 'rotate-180' : ''
+                    }`}
                   />
                 </button>
               </div>
@@ -911,10 +881,11 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
             <button
               onClick={toggleHighlight}
               disabled={!findText}
-              className={`flex-1 py-2 rounded-lg border-2 font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all ${isHighlighting
+              className={`flex-1 py-2 rounded-lg border-2 font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all ${
+                isHighlighting
                   ? 'bg-red-500 border-red-500 text-white shadow-md'
                   : 'border-teal-500/30 text-teal-600 hover:bg-teal-500/5 hover:border-teal-500'
-                }`}
+              }`}
             >
               <Highlighter className="w-3.5 h-3.5" />
               {isHighlighting ? '取消标红' : '标出文本'}
@@ -940,16 +911,13 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 <button
                   key={nextScope}
                   onClick={() => handleScopeChange(nextScope)}
-                  className={`py-1.5 rounded-md text-[9px] font-bold transition-all ${scope === nextScope
+                  className={`py-1.5 rounded-md text-[9px] font-bold transition-all ${
+                    scope === nextScope
                       ? 'bg-white shadow-sm text-teal-600 ring-1 ring-teal-500/10'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                  }`}
                 >
-                  {nextScope === 'group'
-                    ? '区域内'
-                    : nextScope === 'selected'
-                      ? '选中'
-                      : '全局'}
+                  {nextScope === 'group' ? '区域内' : nextScope === 'selected' ? '选中' : '全局'}
                 </button>
               ))}
             </div>

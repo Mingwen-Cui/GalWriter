@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv, type Plugin} from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 
 const arkImageProxy = (): Plugin => ({
   name: 'ark-image-proxy',
@@ -30,14 +30,17 @@ const arkImageProxy = (): Plugin => ({
           chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         }
         const body = Buffer.concat(chunks).toString('utf8');
-        const upstream = await fetch('https://ark.cn-beijing.volces.com/api/v3/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': req.headers['content-type'] || 'application/json',
-            ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+        const upstream = await fetch(
+          'https://ark.cn-beijing.volces.com/api/v3/images/generations',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': req.headers['content-type'] || 'application/json',
+              ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+            },
+            body,
           },
-          body,
-        });
+        );
         const responseText = await upstream.text();
 
         res.statusCode = upstream.status;
@@ -46,15 +49,17 @@ const arkImageProxy = (): Plugin => ({
       } catch (error) {
         res.statusCode = 502;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          error: error instanceof Error ? error.message : String(error),
-        }));
+        res.end(
+          JSON.stringify({
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
       }
     });
   },
 });
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
@@ -85,10 +90,10 @@ export default defineConfig(({mode}) => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-ui': ['@xyflow/react', 'motion', 'lucide-react'],
-            'vendor-utils': ['@google/genai', 'jszip', 'idb']
-          }
-        }
-      }
+            'vendor-utils': ['@google/genai', 'jszip', 'idb'],
+          },
+        },
+      },
     },
     envPrefix: ['VITE_', 'TAURI_'],
   };

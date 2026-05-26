@@ -1,5 +1,5 @@
+import { RotateCw, X } from 'lucide-react';
 import React, { memo, useCallback, useRef, useState } from 'react';
-import { X, RotateCw } from 'lucide-react';
 
 type PanoramaViewerProps = {
   imageUrl: string;
@@ -8,7 +8,12 @@ type PanoramaViewerProps = {
   onExpand?: () => void;
 };
 
-export function PanoramaViewer({ imageUrl, className = '', compact = false, onExpand }: PanoramaViewerProps) {
+export function PanoramaViewer({
+  imageUrl,
+  className = '',
+  compact = false,
+  onExpand,
+}: PanoramaViewerProps) {
   const [yaw, setYaw] = useState(50);
   const [pitch, setPitch] = useState(50);
   const dragging = useRef(false);
