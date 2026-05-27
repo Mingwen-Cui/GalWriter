@@ -1,0 +1,636 @@
+import type { Edge, Node } from '@xyflow/react';
+import type { Dispatch, SetStateAction } from 'react';
+import { useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+
+import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
+import {
+  buildImageGenerationRequest,
+  buildReferencePrompt,
+  getConnectedImageReferences,
+  type ImageReference,
+  toApiImageReference,
+} from './imageGeneration';
+
+interface UseMediaActionsParams {
+  nodes: Node[];
+  edges: Edge[];
+  language: 'zh' | 'en';
+  imageApiKey: string;
+  imageApiUrl: string;
+  imageModel: string;
+  imageSize: string;
+  showTitles: boolean;
+  setImageSize: Dispatch<SetStateAction<string>>;
+  setNodes: Dispatch<SetStateAction<Node[]>>;
+  showToast: (message: string) => void;
+}
+
+const TITLE_HEIGHT = 36;
+
+const stripHtml = (html: string) => {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  return (doc.body.textContent || '').trim();
+};
+
+const applyNodeDataAndStyleUpdate = (
+  nds: Node[],
+  id: string,
+  updates: Record<string, unknown>,
+  styleUpdates?: Record<string, unknown>,
+) =>
+  nds.map((node) => {
+    if (node.id !== id) return node;
+
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        ...updates,
+      },
+      ...(styleUpdates
+        ? {
+            style: {
+              ...node.style,
+              ...styleUpdates,
+            },
+          }
+        : {}),
+    };
+  });
+
+export const useMediaActions = ({
+  nodes,
+  edges,
+  language,
+  imageApiKey,
+  imageApiUrl,
+  imageModel,
+  imageSize,
+  showTitles,
+  setImageSize,
+  setNodes,
+  showToast,
+}: UseMediaActionsParams) => {
+  const handleAddTextToImage = useCallback(
+    (id: string) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id !== id) return node;
+
+          const currentText = (node.data.text as string) || '';
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              text:
+                currentText ||
+                (language === 'zh' ? '在此处输入描述文本...' : 'Enter description here...'),
+              showTextOverlay: true,
+            },
+            style: {
+              ...node.style,
+              height: ((node.style?.height as number) || 200) + 100,
+            },
+          };
+        }),
+      );
+    },
+    [language, setNodes],
+  );
+
+  const handleRemoveTextFromImage = useCallback(
+    (id: string) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id !== id) return node;
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              showTextOverlay: false,
+            },
+            style: {
+              ...node.style,
+              height: Math.max(100, ((node.style?.height as number) || 200) - 100),
+            },
+          };
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  const requestGeneratedImage = useCallback(
+    async (prompt: string) => {
+      if (!imageApiKey.trim()) {
+        alert(
+          language === 'zh'
+            ? '请先在设置中填写图片生成 API 密钥。'
+            : 'Configure the image generation API key in Settings first.',
+        );
+        return null;
+      }
+
+      const imageRequest = buildImageGenerationRequest(
+        imageApiUrl,
+        imageModel,
+        imageSize,
+        prompt,
+        imageApiKey,
+      );
+      const imageRequestBody = JSON.stringify(imageRequest.body);
+      const imageRequestHeaders = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${imageApiKey.trim()}`,
+      };
+      const sendImageRequest = (url: string) =>
+        fetch(url, {
+          method: 'POST',
+          headers: imageRequestHeaders,
+          body: imageRequestBody,
+        });
+
+      let response: Response;
+      let activeImageRequestUrl = imageRequest.url;
+      try {
+        response = await sendImageRequest(activeImageRequestUrl);
+      } catch (fetchError) {
+        const fallbackArkProxyUrl =
+          typeof window !== 'undefined' &&
+          /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
+            ? '/api/ark-image'
+            : 'http://127.0.0.1:3000/api/ark-image';
+        const canRetryArkProxy =
+          imageRequest.usesSeedream &&
+          imageRequest.url !== fallbackArkProxyUrl &&
+          typeof window !== 'undefined' &&
+          window.location.protocol.startsWith('http');
+        if (!canRetryArkProxy) {
+          throw new Error(
+            `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+          );
+        }
+        activeImageRequestUrl = fallbackArkProxyUrl;
+        response = await sendImageRequest(activeImageRequestUrl);
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        const shouldRetrySeedreamSize =
+          imageRequest.usesSeedream &&
+          /InvalidParameter|size|pixels/i.test(errText) &&
+          imageRequest.body.size !== '2048x2048';
+
+        if (shouldRetrySeedreamSize) {
+          response = await fetch(activeImageRequestUrl, {
+            method: 'POST',
+            headers: imageRequestHeaders,
+            body: JSON.stringify({
+              ...imageRequest.body,
+              size: '2048x2048',
+            }),
+          });
+
+          if (response.ok) {
+            setImageSize('2048x2048');
+          } else {
+            const retryErrText = await response.text();
+            throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+          }
+        } else {
+          throw new Error(errText || `HTTP ${response.status}`);
+        }
+      }
+
+      const result = await response.json();
+      const imageData = result?.data?.[0];
+      const imageSrc = imageData?.b64_json
+        ? `data:image/png;base64,${imageData.b64_json}`
+        : imageData?.url;
+
+      if (!imageSrc) {
+        throw new Error(
+          language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.',
+        );
+      }
+
+      return imageSrc as string;
+    },
+    [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize],
+  );
+
+  const handleGenerateSettingNodeImage = useCallback(
+    async (id: string, type: 'character' | 'scene') => {
+      const node = nodes.find((item) => item.id === id);
+      if (!node) return;
+
+      try {
+        const titleText =
+          type === 'character'
+            ? (node.data.characterName as string) ||
+              (language === 'zh' ? '未命名角色' : 'Unnamed Character')
+            : (node.data.sceneName as string) ||
+              (language === 'zh' ? '未命名场景' : 'Unnamed Scene');
+        const bodyText =
+          type === 'character'
+            ? formatCharacterNodeText(node.data as Record<string, unknown>)
+            : formatSceneNodeText(node.data as Record<string, unknown>);
+        const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+
+        if (!basePrompt) {
+          alert(
+            language === 'zh'
+              ? '请先填写人物或场景设定。'
+              : 'Fill in the character or scene setting first.',
+          );
+          return;
+        }
+
+        const prompt =
+          type === 'character'
+            ? `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
+            : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
+
+        const imageSrc = await requestGeneratedImage(prompt);
+        if (!imageSrc) return;
+
+        setNodes((nds) =>
+          nds.map((current) => {
+            if (current.id !== id) return current;
+
+            if (type === 'character') {
+              const generatedOutfitId =
+                (current.data.generatedSettingImageId as string) || uuidv4();
+              const currentOutfits = (current.data.outfits as any[]) || [];
+              const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
+              const hasGeneratedOutfit = currentOutfits.some(
+                (outfit) => outfit.id === generatedOutfitId,
+              );
+              const nextOutfits = hasGeneratedOutfit
+                ? currentOutfits.map((outfit) =>
+                    outfit.id === generatedOutfitId
+                      ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc }
+                      : outfit,
+                  )
+                : [
+                    { id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc },
+                    ...currentOutfits,
+                  ];
+
+              return {
+                ...current,
+                data: {
+                  ...current.data,
+                  avatarUrl: imageSrc,
+                  outfits: nextOutfits,
+                  generatedSettingImageId: generatedOutfitId,
+                },
+              };
+            }
+
+            const generatedImageId = (current.data.generatedSettingImageId as string) || uuidv4();
+            const currentImages = (current.data.images as any[]) || [];
+            const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
+            const hasGeneratedImage = currentImages.some((image) => image.id === generatedImageId);
+            const nextImages = hasGeneratedImage
+              ? currentImages.map((image) =>
+                  image.id === generatedImageId
+                    ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc }
+                    : image,
+                )
+              : [
+                  { id: generatedImageId, name: generatedImageName, imageUrl: imageSrc },
+                  ...currentImages,
+                ];
+
+            return {
+              ...current,
+              data: {
+                ...current.data,
+                coverImageUrl: imageSrc,
+                images: nextImages,
+                generatedSettingImageId: generatedImageId,
+              },
+            };
+          }),
+        );
+
+        showToast(
+          type === 'character'
+            ? language === 'zh'
+              ? '人物三视图已生成'
+              : 'Character three-view generated'
+            : language === 'zh'
+              ? '场景图片已生成'
+              : 'Scene image generated',
+        );
+      } catch (error: any) {
+        console.error('Setting image generation failed:', error);
+        alert(
+          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+        );
+      }
+    },
+    [language, nodes, requestGeneratedImage, setNodes, showToast],
+  );
+
+  const handleGenerateStoryNodeImage = useCallback(
+    async (id: string) => {
+      const node = nodes.find((item) => item.id === id);
+      if (!node) return;
+
+      const titleText = stripHtml((node.data.title as string) || '');
+      const bodyText = stripHtml((node.data.text as string) || '');
+      const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+      if (!basePrompt) {
+        alert(
+          language === 'zh'
+            ? '请先在普通卡片里输入图片提示词。'
+            : 'Enter an image prompt in the story card first.',
+        );
+        return;
+      }
+      if (!imageApiKey.trim()) {
+        alert(
+          language === 'zh'
+            ? '请先在设置中填写图片生成 API 密钥。'
+            : 'Configure the image generation API key in Settings first.',
+        );
+        return;
+      }
+
+      try {
+        const imageReferences = getConnectedImageReferences(nodes, edges, id);
+        const convertedReferences = (
+          await Promise.allSettled(
+            imageReferences.map(async (reference) => ({
+              ...reference,
+              apiImage: await toApiImageReference(reference.url),
+            })),
+          )
+        )
+          .filter(
+            (result): result is PromiseFulfilledResult<ImageReference & { apiImage: string }> =>
+              result.status === 'fulfilled' && !!result.value.apiImage,
+          )
+          .map((result) => result.value);
+        const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
+        const prompt = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
+        const imageRequest = buildImageGenerationRequest(
+          imageApiUrl,
+          imageModel,
+          imageSize,
+          prompt,
+          imageApiKey,
+          apiReferenceImages,
+        );
+        const imageRequestBody = JSON.stringify(imageRequest.body);
+        const imageRequestHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${imageApiKey.trim()}`,
+        };
+        const sendImageRequest = (url: string) =>
+          fetch(url, {
+            method: 'POST',
+            headers: imageRequestHeaders,
+            body: imageRequestBody,
+          });
+
+        let response: Response;
+        let activeImageRequestUrl = imageRequest.url;
+        try {
+          response = await sendImageRequest(activeImageRequestUrl);
+        } catch (fetchError) {
+          const fallbackArkProxyUrl =
+            typeof window !== 'undefined' &&
+            /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
+              ? '/api/ark-image'
+              : 'http://127.0.0.1:3000/api/ark-image';
+          const canRetryArkProxy =
+            imageRequest.usesSeedream &&
+            imageRequest.url !== fallbackArkProxyUrl &&
+            typeof window !== 'undefined' &&
+            window.location.protocol.startsWith('http');
+          if (!canRetryArkProxy) {
+            throw new Error(
+              `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+            );
+          }
+          activeImageRequestUrl = fallbackArkProxyUrl;
+          response = await sendImageRequest(activeImageRequestUrl);
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          const shouldRetrySeedreamSize =
+            imageRequest.usesSeedream &&
+            /InvalidParameter|size|pixels/i.test(errText) &&
+            imageRequest.body.size !== '2048x2048';
+
+          if (shouldRetrySeedreamSize) {
+            response = await fetch(activeImageRequestUrl, {
+              method: 'POST',
+              headers: imageRequestHeaders,
+              body: JSON.stringify({
+                ...imageRequest.body,
+                size: '2048x2048',
+              }),
+            });
+
+            if (response.ok) {
+              setImageSize('2048x2048');
+            } else {
+              const retryErrText = await response.text();
+              throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+            }
+          } else {
+            throw new Error(errText || `HTTP ${response.status}`);
+          }
+        }
+
+        const result = await response.json();
+        const imageData = result?.data?.[0];
+        const imageSrc = imageData?.b64_json
+          ? `data:image/png;base64,${imageData.b64_json}`
+          : imageData?.url;
+
+        if (!imageSrc) {
+          throw new Error(
+            language === 'zh'
+              ? '图片 API 没有返回可用图片。'
+              : 'Image API returned no usable image.',
+          );
+        }
+
+        const currentHeight = (node.style?.height as number) || 200;
+        const currentWidth = (node.style?.width as number) || 280;
+        const previousImageUrl = node.data.imageUrl as string | undefined;
+        const nextHeight = Math.max(currentHeight, 260);
+
+        setNodes((nds) => {
+          const nextNodes = nds.map((current) => {
+            if (current.id !== id) return current;
+            return {
+              ...current,
+              data: {
+                ...current.data,
+                imageUrl: imageSrc,
+                videoUrl: undefined,
+                objectFit: current.data.objectFit || 'cover',
+                showTextOverlay: true,
+                titleHeightAdded: showTitles,
+              },
+              style: {
+                ...current.style,
+                height: nextHeight,
+              },
+            };
+          });
+
+          if (!previousImageUrl) return nextNodes;
+
+          const extractedId = uuidv4();
+          const extractedNode: Node = {
+            id: extractedId,
+            type: 'storyNode',
+            position: {
+              x: node.position.x + currentWidth + 40,
+              y: node.position.y,
+            },
+            style: { width: currentWidth, height: currentHeight },
+            data: {
+              id: extractedId,
+              title: language === 'zh' ? '旧图片' : 'Previous Image',
+              shape: 'square',
+              color: '#ffffff',
+              text: '',
+              imageUrl: previousImageUrl,
+              objectFit: node.data.objectFit || 'cover',
+              showTextOverlay: false,
+              titleHeightAdded: showTitles,
+            },
+          };
+
+          return [...nextNodes, extractedNode];
+        });
+        showToast(
+          language === 'zh' ? '图片已生成到当前卡片' : 'Image generated into the current card',
+        );
+      } catch (error: any) {
+        console.error('Image generation failed:', error);
+        alert(
+          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+        );
+      }
+    },
+    [
+      edges,
+      imageApiKey,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      language,
+      nodes,
+      setImageSize,
+      setNodes,
+      showTitles,
+      showToast,
+    ],
+  );
+
+  const handleExtractMedia = useCallback(
+    (id: string) => {
+      const node = nodes.find((item) => item.id === id);
+      if (!node) return;
+
+      const extractedMedia: { url: string; type: string }[] = [];
+
+      if (node.data.imageUrl)
+        extractedMedia.push({ url: node.data.imageUrl as string, type: 'image' });
+      if (node.data.videoUrl)
+        extractedMedia.push({ url: node.data.videoUrl as string, type: 'video' });
+      if (node.data.audioUrl)
+        extractedMedia.push({ url: node.data.audioUrl as string, type: 'audio' });
+
+      const text = (node.data.text as string) || '';
+      const imgRegex = /<img[^>]+src="([^">]+)"/g;
+      const videoRegex = /<video[^>]+src="([^">]+)"/g;
+      let match: RegExpExecArray | null;
+
+      while ((match = imgRegex.exec(text)) !== null) {
+        if (!extractedMedia.find((media) => media.url === match?.[1])) {
+          extractedMedia.push({ url: match[1], type: 'image' });
+        }
+      }
+      while ((match = videoRegex.exec(text)) !== null) {
+        if (!extractedMedia.find((media) => media.url === match?.[1])) {
+          extractedMedia.push({ url: match[1], type: 'video' });
+        }
+      }
+
+      if (extractedMedia.length === 0) return;
+
+      const cleanText = text
+        .replace(/<img[^>]+>/g, '')
+        .replace(/<video[^>]+>.*?<\/video>/g, '')
+        .replace(/<video[^>]+>/g, '')
+        .trim();
+
+      setNodes((nds) => {
+        const clearedNodes = applyNodeDataAndStyleUpdate(
+          nds,
+          id,
+          {
+            imageUrl: undefined,
+            videoUrl: undefined,
+            audioUrl: undefined,
+            showTextOverlay: false,
+            text: cleanText,
+          },
+          { height: 200 },
+        );
+
+        const newNodes: Node[] = extractedMedia.map((media, index) => {
+          const newId = uuidv4();
+          const displayWidth = 300;
+          const displayHeight = 200;
+          return {
+            id: newId,
+            type: 'storyNode',
+            position: {
+              x: node.position.x + (index + 1) * 320,
+              y: node.position.y,
+            },
+            style: {
+              width: displayWidth,
+              height: displayHeight + (showTitles ? TITLE_HEIGHT : 0),
+            },
+            data: {
+              id: newId,
+              title: media.type === 'image' ? '提取图片' : '提取视频',
+              imageUrl: media.type === 'image' ? media.url : undefined,
+              videoUrl: media.type === 'video' ? media.url : undefined,
+              audioUrl: media.type === 'audio' ? media.url : undefined,
+              titleHeightAdded: showTitles,
+              showTitles,
+            },
+          };
+        });
+
+        return [...clearedNodes, ...newNodes];
+      });
+    },
+    [nodes, setNodes, showTitles],
+  );
+
+  return {
+    handleAddTextToImage,
+    handleRemoveTextFromImage,
+    requestGeneratedImage,
+    handleGenerateSettingNodeImage,
+    handleGenerateStoryNodeImage,
+    handleExtractMedia,
+  };
+};

@@ -18,13 +18,13 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 
-import { Language, translations } from '../lib/i18n';
 import {
-  AIButtonsConfig,
-  AIPromptsConfig,
+  type AIButtonsConfig,
+  type AIPromptsConfig,
   defaultAIButtonsConfig,
   defaultAIPrompts,
-} from './StoryEditor';
+} from '../editor-state/editorConfig';
+import { Language, translations } from '../lib/i18n';
 
 const IMAGE_SIZE_PRESETS = [
   { value: '2K', zh: '官方 2K', en: 'Official 2K' },

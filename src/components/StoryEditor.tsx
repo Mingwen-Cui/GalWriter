@@ -1,17 +1,12 @@
 import {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
   Background,
   BackgroundVariant,
-  Connection,
   ConnectionMode,
   Controls,
   Edge,
   MarkerType,
   MiniMap,
   Node,
-  NodeChange,
   PanOnScrollMode,
   ReactFlow,
   SelectionMode,
@@ -20,65 +15,52 @@ import {
   useReactFlow,
   useStore,
 } from '@xyflow/react';
-import JSZip from 'jszip';
-import {
-  BookOpen,
-  BrainCircuit,
-  Calculator,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Diamond,
-  Eye,
-  EyeOff,
-  FileArchive,
-  FileText,
-  Film,
-  Image as ImageIcon,
-  Languages,
-  Layers,
-  Loader2,
-  Mail,
-  MapPin,
-  Menu,
-  MessageCircle,
-  Mic,
-  PlayCircle,
-  PlusCircle,
-  Redo2,
-  Replace,
-  Save,
-  Send,
-  Settings,
-  Sparkles,
-  Square,
-  Trash2,
-  Type,
-  Undo2,
-  Upload,
-  UserCircle2,
-  Volume2,
-  X,
-} from 'lucide-react';
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { clearAutoSave, getAutoSave, saveAutoSave } from '../lib/db';
+import { useAIActions } from '../editor-features/ai/useAIActions';
 import {
-  downloadText,
-  exportPaths,
-  formatCharacterNodeText,
-  formatSceneNodeText,
-} from '../lib/export';
+  type AssistantCardDraft,
+  useAssistantPanel,
+} from '../editor-features/assistant/useAssistantPanel';
+import { useCanvasDnD } from '../editor-features/canvas/useCanvasDnD';
+import { useCanvasInteractions } from '../editor-features/canvas/useCanvasInteractions';
+import {
+  DEFAULT_IMAGE_API_URL,
+  DEFAULT_IMAGE_MODEL,
+  DEFAULT_IMAGE_SIZE,
+} from '../editor-features/media/imageGeneration';
+import { useMediaActions } from '../editor-features/media/useMediaActions';
+import { useNodeActions } from '../editor-features/node-actions/useNodeActions';
+import {
+  type ProjectSnapshotData,
+  useProjectSerialization,
+} from '../editor-features/project-io/useProjectSerialization';
+import { SelectionMenu } from '../editor-features/selection-tools/SelectionMenu';
+import { useSelectionActions } from '../editor-features/selection-tools/useSelectionActions';
+import { useSelectionMenu } from '../editor-features/selection-tools/useSelectionMenu';
+import { useAutoSave } from '../editor-services/useAutoSave';
+import { AIActionModal } from '../editor-shell/AIActionModal';
+import { AssistantPanel } from '../editor-shell/AssistantPanel';
+import { AutoSaveRecoveryModal } from '../editor-shell/AutoSaveRecoveryModal';
+import { EditorHeader } from '../editor-shell/EditorHeader';
+import { EditorLeftToolbar } from '../editor-shell/EditorLeftToolbar';
+import { EditorRightToolbar } from '../editor-shell/EditorRightToolbar';
+import { EditorToast } from '../editor-shell/EditorToast';
+import { SaveProjectModal } from '../editor-shell/SaveProjectModal';
+import {
+  type AIButtonsConfig,
+  type AIPromptsConfig,
+  defaultAIButtonsConfig,
+  defaultAIPrompts,
+} from '../editor-state/editorConfig';
+import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { Language, translations } from '../lib/i18n';
 import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
   parseGeneratedPlotCards,
 } from '../lib/plotStructure';
-import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
 import { MemoizedAINode } from './AINode';
 import { MemoizedBackgroundNode } from './BackgroundNode';
 import { MemoizedBatchReplaceNode } from './BatchReplaceNode';
@@ -93,347 +75,9 @@ import { MemoizedStoryNode } from './StoryNode';
 import { MemoizedSummaryNode } from './SummaryNode';
 import { MemoizedTextNode } from './TextNode';
 
-const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
-const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
-const DEFAULT_IMAGE_SIZE = '2K';
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
-const SEEDREAM_DIMENSION_SIZE = '2048x2048';
-const SEEDREAM_MIN_PIXELS = 3686400;
-
-const normalizeImageModel = (url: string, model: string, apiKey = '') => {
-  const rawModel = model.trim();
-  const usesArk = /ark\.cn-beijing\.volces\.com/i.test(url.trim());
-  const usesArkKey = /^ark-/i.test(apiKey.trim());
-
-  if (!rawModel) return DEFAULT_IMAGE_MODEL;
-  if ((usesArk || usesArkKey) && rawModel === 'gpt-image-1') return DEFAULT_IMAGE_MODEL;
-  return rawModel;
-};
-
-const normalizeImageApiUrl = (url: string, model: string, apiKey = '') => {
-  const rawUrl = url.trim();
-  const usesSeedream = /doubao|seedream/i.test(model.trim());
-  const usesArkKey = /^ark-/i.test(apiKey.trim());
-
-  if (!rawUrl) return DEFAULT_IMAGE_API_URL;
-  if ((usesSeedream || usesArkKey) && rawUrl === 'https://api.openai.com/v1/images/generations')
-    return DEFAULT_IMAGE_API_URL;
-  if (/ark\.cn-beijing\.volces\.com\/?$/.test(rawUrl))
-    return `${rawUrl.replace(/\/$/, '')}/api/v3/images/generations`;
-  if (/\/api\/v3\/?$/.test(rawUrl)) return `${rawUrl.replace(/\/$/, '')}/images/generations`;
-  return rawUrl;
-};
-
-const normalizeSeedreamSize = (size: string) => {
-  const rawSize = size.trim();
-  const sizeAliases: Record<string, string> = {
-    '2k': '2K',
-    '1:1': SEEDREAM_DIMENSION_SIZE,
-    square: SEEDREAM_DIMENSION_SIZE,
-  };
-
-  const alias = sizeAliases[rawSize.toLowerCase()];
-  if (alias) return alias;
-
-  const match = rawSize.match(/^(\d{3,5})\s*[xX*]\s*(\d{3,5})$/);
-  if (!match) return DEFAULT_IMAGE_SIZE;
-
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return DEFAULT_IMAGE_SIZE;
-  }
-
-  if (width * height >= SEEDREAM_MIN_PIXELS) return `${width}x${height}`;
-
-  const scale = Math.sqrt(SEEDREAM_MIN_PIXELS / (width * height));
-  const nextWidth = Math.ceil((width * scale) / 64) * 64;
-  const nextHeight = Math.ceil((height * scale) / 64) * 64;
-  return `${nextWidth}x${nextHeight}`;
-};
-
-type ImageReference = {
-  url: string;
-  label: string;
-};
-
-const getEdgeHandleForNode = (edge: Edge, nodeId: string) => {
-  if (edge.source === nodeId) return edge.sourceHandle || '';
-  if (edge.target === nodeId) return edge.targetHandle || '';
-  return '';
-};
-
-const pushUniqueReference = (
-  references: ImageReference[],
-  seen: Set<string>,
-  url: unknown,
-  label: string,
-) => {
-  if (typeof url !== 'string') return;
-  const trimmed = url.trim();
-  if (!trimmed || seen.has(trimmed)) return;
-  seen.add(trimmed);
-  references.push({ url: trimmed, label });
-};
-
-const collectCharacterImageReferences = (
-  node: Node,
-  references: ImageReference[],
-  seen: Set<string>,
-  handleId = '',
-  labelPrefix = '',
-) => {
-  const characterName = ((node.data.characterName as string) || '角色').trim();
-  const labelName = labelPrefix ? `${labelPrefix}${characterName}` : characterName;
-  const outfits = (node.data.outfits as { id: string; name?: string; imageUrl?: string }[]) || [];
-  const outfitId = handleId.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
-  const connectedOutfit = outfitId ? outfits.find((outfit) => outfit.id === outfitId) : null;
-
-  if (connectedOutfit) {
-    pushUniqueReference(
-      references,
-      seen,
-      connectedOutfit.imageUrl,
-      `${labelName} - ${connectedOutfit.name || '服装'}`,
-    );
-    return;
-  }
-
-  pushUniqueReference(references, seen, node.data.avatarUrl, `${labelName} - 头像`);
-  outfits.forEach((outfit) => {
-    pushUniqueReference(
-      references,
-      seen,
-      outfit.imageUrl,
-      `${labelName} - ${outfit.name || '服装'}`,
-    );
-  });
-};
-
-const collectSceneImageReferences = (
-  node: Node,
-  references: ImageReference[],
-  seen: Set<string>,
-  handleId = '',
-  labelPrefix = '',
-) => {
-  const sceneName = ((node.data.sceneName as string) || '场景').trim();
-  const labelName = labelPrefix ? `${labelPrefix}${sceneName}` : sceneName;
-  const images = (node.data.images as { id: string; name?: string; imageUrl?: string }[]) || [];
-  const imageId = handleId.match(/^image-(?:in|out)-(.+)$/)?.[1];
-  const connectedImage = imageId ? images.find((image) => image.id === imageId) : null;
-
-  if (connectedImage) {
-    pushUniqueReference(
-      references,
-      seen,
-      connectedImage.imageUrl,
-      `${labelName} - ${connectedImage.name || '场景图'}`,
-    );
-    return;
-  }
-
-  pushUniqueReference(references, seen, node.data.coverImageUrl, `${labelName} - 封面`);
-  images.forEach((image) => {
-    pushUniqueReference(
-      references,
-      seen,
-      image.imageUrl,
-      `${labelName} - ${image.name || '场景图'}`,
-    );
-  });
-};
-
-const getConnectedImageReferences = (allNodes: Node[], allEdges: Edge[], storyNodeId: string) => {
-  const references: ImageReference[] = [];
-  const seen = new Set<string>();
-  const storyNode = allNodes.find((node) => node.id === storyNodeId);
-  const currentImageUrl =
-    typeof storyNode?.data?.imageUrl === 'string' ? storyNode.data.imageUrl.trim() : '';
-  if (currentImageUrl) {
-    seen.add(currentImageUrl);
-  }
-  const connectedEdges = allEdges.filter(
-    (edge) => edge.source === storyNodeId || edge.target === storyNodeId,
-  );
-  const connectedNodeIds = new Set<string>();
-
-  connectedEdges.forEach((edge) => {
-    const connectedNodeId = edge.source === storyNodeId ? edge.target : edge.source;
-    const connectedNode = allNodes.find((n) => n.id === connectedNodeId);
-    if (!connectedNode) return;
-    connectedNodeIds.add(connectedNode.id);
-
-    if (connectedNode.type === 'characterNode') {
-      const characterName = ((connectedNode.data.characterName as string) || '角色').trim();
-      const outfits =
-        (connectedNode.data.outfits as { id: string; name?: string; imageUrl?: string }[]) || [];
-      const handleId = getEdgeHandleForNode(edge, connectedNode.id);
-      const outfitId = handleId.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
-      const connectedOutfit = outfitId ? outfits.find((outfit) => outfit.id === outfitId) : null;
-
-      if (connectedOutfit) {
-        pushUniqueReference(
-          references,
-          seen,
-          connectedOutfit.imageUrl,
-          `${characterName} - ${connectedOutfit.name || '服装'}`,
-        );
-      } else {
-        pushUniqueReference(
-          references,
-          seen,
-          connectedNode.data.avatarUrl,
-          `${characterName} - 头像`,
-        );
-        outfits.forEach((outfit) => {
-          pushUniqueReference(
-            references,
-            seen,
-            outfit.imageUrl,
-            `${characterName} - ${outfit.name || '服装'}`,
-          );
-        });
-      }
-    }
-
-    if (connectedNode.type === 'sceneNode') {
-      const sceneName = ((connectedNode.data.sceneName as string) || '场景').trim();
-      const images =
-        (connectedNode.data.images as { id: string; name?: string; imageUrl?: string }[]) || [];
-      const handleId = getEdgeHandleForNode(edge, connectedNode.id);
-      const imageId = handleId.match(/^image-(?:in|out)-(.+)$/)?.[1];
-      const connectedImage = imageId ? images.find((image) => image.id === imageId) : null;
-
-      if (connectedImage) {
-        pushUniqueReference(
-          references,
-          seen,
-          connectedImage.imageUrl,
-          `${sceneName} - ${connectedImage.name || '场景图'}`,
-        );
-      } else {
-        pushUniqueReference(
-          references,
-          seen,
-          connectedNode.data.coverImageUrl,
-          `${sceneName} - 封面`,
-        );
-        images.forEach((image) => {
-          pushUniqueReference(
-            references,
-            seen,
-            image.imageUrl,
-            `${sceneName} - ${image.name || '场景图'}`,
-          );
-        });
-      }
-    }
-  });
-
-  if (references.length > 0) {
-    return references.slice(0, 10);
-  }
-
-  allNodes.forEach((node) => {
-    if (connectedNodeIds.has(node.id) || node.data?.isGlobal === false) return;
-
-    if (node.type === 'characterNode') {
-      collectCharacterImageReferences(node, references, seen, '', '全局人物: ');
-    }
-
-    if (node.type === 'sceneNode') {
-      collectSceneImageReferences(node, references, seen, '', '全局场景: ');
-    }
-  });
-
-  return references.slice(0, 10);
-};
-
-const blobToDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('Failed to read reference image.'));
-    reader.readAsDataURL(blob);
-  });
-
-const toApiImageReference = async (url: string) => {
-  if (/^data:image\//i.test(url)) return url;
-  if (/^https?:\/\//i.test(url)) return url;
-  if (/^blob:/i.test(url)) {
-    const response = await fetch(url);
-    if (!response.ok)
-      throw new Error(`Failed to read local reference image: HTTP ${response.status}`);
-    return blobToDataUrl(await response.blob());
-  }
-  return url;
-};
-
-const buildReferencePrompt = (references: ImageReference[]) => {
-  if (references.length === 0) return '';
-
-  const labels = references
-    .map((reference, index) => `${index + 1}. ${reference.label}`)
-    .join('\n');
-  return `\n\n参考图要求：已附加以下人物/场景参考图，请尽量保持人物脸型、发型、服装、色彩特征，以及场景空间布局和氛围一致。不要照搬水印或界面元素。\n${labels}`;
-};
-
-const buildImageGenerationRequest = (
-  url: string,
-  model: string,
-  size: string,
-  prompt: string,
-  apiKey = '',
-  referenceImages: string[] = [],
-) => {
-  const normalizedModel = normalizeImageModel(url, model, apiKey);
-  const normalizedUrl = normalizeImageApiUrl(url, normalizedModel, apiKey);
-  const usesSeedream =
-    /doubao|seedream/i.test(normalizedModel) || /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl);
-  const localArkProxyUrl = (() => {
-    if (typeof window === 'undefined') return '/api/ark-image';
-    const origin = window.location.origin;
-    const isViteDevOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(origin);
-    return isViteDevOrigin ? '/api/ark-image' : 'http://127.0.0.1:3000/api/ark-image';
-  })();
-  const requestUrl =
-    usesSeedream && /ark\.cn-beijing\.volces\.com/i.test(normalizedUrl) && import.meta.env.DEV
-      ? localArkProxyUrl
-      : normalizedUrl;
-  const normalizedSize = usesSeedream ? normalizeSeedreamSize(size) : size.trim() || '1024x1024';
-
-  if (usesSeedream) {
-    return {
-      url: requestUrl,
-      usesSeedream: true,
-      body: {
-        model: normalizedModel,
-        prompt,
-        ...(referenceImages.length > 0 ? { image: referenceImages } : {}),
-        sequential_image_generation: 'disabled',
-        response_format: 'url',
-        size: normalizedSize,
-        stream: false,
-        watermark: true,
-      },
-    };
-  }
-
-  return {
-    url: requestUrl,
-    usesSeedream: false,
-    body: {
-      model: normalizedModel,
-      prompt,
-      size: normalizedSize,
-      n: 1,
-    },
-  };
-};
-
 // 使用懒加载减少首屏体验
 const PlayTestModal = lazy(() =>
   import('./PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
@@ -443,9 +87,6 @@ const ZenEditor = lazy(() =>
 );
 const SettingsModal = lazy(() =>
   import('./SettingsModal').then((module) => ({ default: module.SettingsModal })),
-);
-const CharacterNode = lazy(() =>
-  import('./CharacterNode').then((module) => ({ default: module.MemoizedCharacterNode })),
 );
 const VideoRenderModal = lazy(() =>
   import('./VideoRenderModal').then((module) => ({ default: module.VideoRenderModal })),
@@ -467,15 +108,6 @@ const nodeTypes = {
 
 const edgeTypes = {
   customEdge: CustomEdge,
-};
-
-const isTauriRuntime = () => {
-  if (typeof window === 'undefined') return false;
-  const runtimeWindow = window as Window & {
-    __TAURI__?: unknown;
-    __TAURI_INTERNALS__?: unknown;
-  };
-  return !!runtimeWindow.__TAURI__ || !!runtimeWindow.__TAURI_INTERNALS__;
 };
 
 const defaultEdgeOptions = {
@@ -604,15 +236,6 @@ function SmartGuides({ hLines, vLines }: { hLines: number[]; vLines: number[] })
   );
 }
 
-// NOTE: 几何辅助函数 - 计算凸包 (Convex Hull)
-function crossProduct(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  c: { x: number; y: number },
-) {
-  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-
 /**
  * 获取媒体文件的原始尺尺寸 * @param url 媒体 URL (data: blob:)
  * @param type MIME 类型
@@ -639,149 +262,16 @@ const getMediaDimensions = (
   });
 };
 
-function getConvexHull(points: { x: number; y: number }[]) {
-  if (points.length <= 2) return points;
-  const sorted = [...points].sort((a, b) => (a.x !== b.x ? a.x - b.x : a.y - b.y));
-  const upper = [];
-  for (const p of sorted) {
-    while (
-      upper.length >= 2 &&
-      crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
-    )
-      upper.pop();
-    upper.push(p);
-  }
-  const lower = [];
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i];
-    while (
-      lower.length >= 2 &&
-      crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
-    )
-      lower.pop();
-    lower.push(p);
-  }
-  upper.pop();
-  lower.pop();
-  return upper.concat(lower);
-}
-
-export interface AIPromptsConfig {
-  basePrompt: string;
-  continue: string;
-  creative: string;
-  rewrite: string;
-  interpolate: string;
-  sceneOnly: string;
-  dialogueOnly: string;
-  analyzeStructure: string;
-  analyzeSuggestions: string;
-  analyzeDirection: string;
-  analyzeSolution: string;
-  analyzeSummary: string;
-}
-
-// NOTE: 用户可在设置中控制 AI 续写弹窗中各按钮的显隐
-export interface AIButtonsConfig {
-  continue: boolean;
-  creative: boolean;
-  rewrite: boolean;
-  interpolate: boolean;
-  scene_only: boolean;
-  dialogue_only: boolean;
-}
-
-export const defaultAIButtonsConfig: AIButtonsConfig = {
-  continue: true,
-  creative: true,
-  rewrite: true,
-  interpolate: true,
-  scene_only: true,
-  dialogue_only: true,
-};
-
-type AssistantMessage = {
-  id: string;
-  role: 'user' | 'assistant' | 'thought';
-  content: string;
-  collapsed?: boolean;
-};
-
-type AssistantCardDraft = {
-  type?: 'story' | 'character' | 'scene';
-  title?: string;
-  text?: string;
-  characterName?: string;
-  traits?: string;
-  personality?: string;
-  features?: string;
-  background?: string;
-  sceneName?: string;
-  description?: string;
-  location?: string;
-  items?: string;
-  atmosphere?: string;
-  other?: string;
-};
-
-type AssistantTask = {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: AssistantMessage[];
-};
-
-type AITextResult = {
-  content: string;
-  reasoning?: string;
-};
-
-const createAssistantWelcomeMessage = (): AssistantMessage => ({
-  id: uuidv4(),
-  role: 'assistant',
-  content:
-    '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
-});
-
-export const defaultAIPrompts: AIPromptsConfig = {
-  basePrompt:
-    '你是一位专业的互动剧本创作者，正在协助创作一部视觉小说。\n\n前文语境：\n{{contextText}}\n\n当前片段：\n{{currentText}}\n\n',
-  continue:
-    '请根据前文，自然地续写当前片段，{{generateLength}}。只返回续写内容，不要包含多余说明。',
-  creative:
-    '请根据前文，提供一种与原文风格不同的创意方向续写，{{generateLength}}。只返回续写内容，不要包含多余说明。',
-  rewrite:
-    '请对当前片段进行改写，保留核心含义但优化文笔与节奏，{{generateLength}}。只返回改写内容，不要包含多余说明。',
-  interpolate:
-    '你是一位专业的互动剧本创作者。正在协助补充剧情片段。\n\n前文：\n{{contextText}}\n\n后文：\n{{nextText}}\n\n当前正在补充的片段（可选参考）：\n{{currentText}}\n\n请在前后文之间补充一段承上启下的剧情，{{generateLength}}。只返回补充内容，不要包含多余说明。',
-  sceneOnly:
-    '请根据前文，只增加场景和环境的描写，不要包含任何人物对话，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。',
-  dialogueOnly:
-    '请根据前文，只增加人物之间的对话，不要包含场景和动作描写，{{generateLength}}。只返回扩写后的内容，不要包含多余说明。',
-  analyzeStructure:
-    '你是一位剧本结构分析师。请分析以下剧本片段的剧情结构，并用 "卡片A -> 卡片B -> 卡片C" 的箭头形式清晰地展示剧情推进过程。指出其中的节奏起伏和转折点。\n\n剧本内容：\n{{combinedText}}',
-  analyzeSuggestions:
-    '你是一位创意策划。请根据以下剧本片段，提供至少3个后续剧情发展的构思建议，要求具有戏剧冲突和意想不到的转折。\n\n剧本内容：\n{{combinedText}}',
-  analyzeDirection:
-    '你是一位文学导师。请分析以下剧本片段的风格和基调，并为下文的写作提供明确的方向指导（包括遣词造句、氛围营造和人物动机）。\n\n剧本内容：\n{{combinedText}}',
-  analyzeSolution:
-    '你是一位专业的剧本顾问。以下是剧本片段：\n{{combinedText}}\n\n刚才的分析结果指出了如下问题或要点：\n{{previousResult}}\n\n请针对上述分析指出的问题或要点，提供具体的、可操作的剧本修改方案和对应的解法。直接返回解法建议，不要重复已有内容。',
-  analyzeSummary:
-    '你是一位资深的剧本编辑和逻辑分析师。以下是剧本中的多个片段，请对它们进行汇总分析，指出其中的逻辑漏洞、文笔风格的连贯性，并给出后续剧情发展的建议。\n\n剧本片段：\n{{combinedText}}\n\n请直接返回分析报告，不要包含多余说明。',
-};
-
 export function StoryEditor() {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
 
-  const [nodes, setNodes] = useNodesState(INITIAL_NODES);
-  const [edges, setEdges] = useEdgesState([]);
+  const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
+  const [edges, setEdges] = useEdgesState<Edge>([]);
   const [showPlayTest, setShowPlayTest] = useState(false);
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
-  // false = default loose connection mode, true = we can enforce something else if we want, but ReactFlow naturally uses Select on drag.
-  const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
+  const [interactionMode] = useState<'select' | 'box'>('select');
   const [showTitles, setShowTitles] = useState(true);
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [showSettings, setShowSettings] = useState(false);
@@ -839,8 +329,6 @@ export function StoryEditor() {
   const [showNodeActions, setShowNodeActions] = useState(true);
   const [showStats, setShowStats] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
-  const [showGuide, setShowGuide] = useState(false);
-  const [dontShowGuideAgain, setDontShowGuideAgain] = useState(false);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [saveFileName, setSaveFileName] = useState('story-project');
   const [language, setLanguage] = useState<Language>('zh');
@@ -851,60 +339,32 @@ export function StoryEditor() {
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
     'horizontal',
   );
-
-  const [playTestDarkMode, setPlayTestDarkMode] = useState(() => {
-    const saved = localStorage.getItem('playtest-dark-mode');
-    return saved === 'true';
-  });
-  const [playTestChoicesColumns, setPlayTestChoicesColumns] = useState<number>(() => {
-    const saved = localStorage.getItem('playtest-columns');
-    return saved ? parseInt(saved) : 1;
-  });
-  const [playTestVideoAutoPlay, setPlayTestVideoAutoPlay] = useState(() => {
-    const saved = localStorage.getItem('playtest-video-autoplay');
-    return saved === null ? true : saved === 'true';
-  });
-  const [playTestLayoutMode, setPlayTestLayoutMode] = useState<'classic' | 'immersive'>(() => {
-    const saved = localStorage.getItem('playtest-layout-mode');
-    return saved === 'classic' || saved === 'immersive' ? saved : 'classic';
-  });
-
-  const [playTestInteractionMode, setPlayTestInteractionMode] = useState<string>(() => {
-    const saved = localStorage.getItem('playtest-interaction-mode');
-    return saved || 'immediate';
-  });
-  const [playTestTypewriterSpeed, setPlayTestTypewriterSpeed] = useState<number>(() => {
-    const saved = localStorage.getItem('playtest-typewriter-speed');
-    return saved ? parseInt(saved) : 30;
-  });
-  const [playTestChoiceDelay, setPlayTestChoiceDelay] = useState<number>(() => {
-    const saved = localStorage.getItem('playtest-choice-delay');
-    return saved ? parseInt(saved) : 2;
-  });
-  const [playTestChoicesPosition, setPlayTestChoicesPosition] = useState<
-    'center' | 'aboveText' | 'belowText'
-  >(() => {
-    const saved = localStorage.getItem('playtest-choices-position');
-    return (saved as 'center' | 'aboveText' | 'belowText') || 'belowText';
-  });
-  const [playTestBlurBackground, setPlayTestBlurBackground] = useState<boolean>(() => {
-    const saved = localStorage.getItem('playtest-blur-background');
-    return saved === null ? true : saved === 'true';
-  });
-  const [playTestBlurText, setPlayTestBlurText] = useState<boolean>(() => {
-    const saved = localStorage.getItem('playtest-blur-text');
-    return saved === 'true';
-  });
-  const [playTestSkipSingleChoicePopup, setPlayTestSkipSingleChoicePopup] = useState<boolean>(
-    () => {
-      const saved = localStorage.getItem('playtest-skip-single-choice-popup');
-      return saved === null ? true : saved === 'true';
-    },
-  );
-  const [playTestDimBackground, setPlayTestDimBackground] = useState<boolean>(() => {
-    const saved = localStorage.getItem('playtest-dim-background');
-    return saved === null ? true : saved === 'true';
-  });
+  const {
+    playTestDarkMode,
+    setPlayTestDarkMode,
+    playTestChoicesColumns,
+    setPlayTestChoicesColumns,
+    playTestVideoAutoPlay,
+    setPlayTestVideoAutoPlay,
+    playTestLayoutMode,
+    setPlayTestLayoutMode,
+    playTestInteractionMode,
+    setPlayTestInteractionMode,
+    playTestTypewriterSpeed,
+    setPlayTestTypewriterSpeed,
+    playTestChoiceDelay,
+    setPlayTestChoiceDelay,
+    playTestChoicesPosition,
+    setPlayTestChoicesPosition,
+    playTestBlurBackground,
+    setPlayTestBlurBackground,
+    playTestBlurText,
+    setPlayTestBlurText,
+    playTestSkipSingleChoicePopup,
+    setPlayTestSkipSingleChoicePopup,
+    playTestDimBackground,
+    setPlayTestDimBackground,
+  } = usePlaytestSettings();
 
   const t = translations[language];
   const [isDirty, setIsDirty] = useState(false);
@@ -912,51 +372,15 @@ export function StoryEditor() {
 
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(true);
-  const [assistantWidth, setAssistantWidth] = useState(360);
-  const assistantResizeRef = useRef<{
-    startX: number;
-    startWidth: number;
-    dragged: boolean;
-  } | null>(null);
-  const [assistantInput, setAssistantInput] = useState('');
-  const [assistantLoading, setAssistantLoading] = useState(false);
-  const [assistantListening, setAssistantListening] = useState(false);
-  const initialAssistantTaskIdRef = useRef(uuidv4());
-  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(
-    initialAssistantTaskIdRef.current,
-  );
-  const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [
-    {
-      id: initialAssistantTaskIdRef.current,
-      title: language === 'zh' ? '对话 1' : 'Conversation 1',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [createAssistantWelcomeMessage()],
-    },
-  ]);
-  const assistantMessagesRef = useRef<HTMLDivElement>(null);
-  const assistantThoughtTimerRef = useRef<number | null>(null);
-
-  // Auto-save states
-  const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
-  const autoSaveDataRef = useRef<{ snapshot: string; timestamp: number } | null>(null);
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isMobile = flowWidth < 768;
-  const assistantPanelWidth = Math.min(
-    Math.max(assistantWidth, 300),
-    Math.min(560, Math.max(320, flowWidth - 180)),
-  );
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const [isRightDragging, setIsRightDragging] = useState(false);
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
-  const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({
     message: '',
     visible: false,
@@ -967,100 +391,6 @@ export function StoryEditor() {
     setToast({ message, visible: true });
     setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   }, []);
-
-  const activeAssistantTask = useMemo(
-    () => assistantTasks.find((task) => task.id === activeAssistantTaskId) || assistantTasks[0],
-    [assistantTasks, activeAssistantTaskId],
-  );
-  const assistantMessages = activeAssistantTask?.messages || [];
-
-  const setAssistantMessages = useCallback(
-    (updater: React.SetStateAction<AssistantMessage[]>) => {
-      setAssistantTasks((tasks) =>
-        tasks.map((task) => {
-          if (task.id !== activeAssistantTaskId) return task;
-          const nextMessages =
-            typeof updater === 'function'
-              ? (updater as (messages: AssistantMessage[]) => AssistantMessage[])(task.messages)
-              : updater;
-          const firstUserMessage = nextMessages
-            .find((message) => message.role === 'user')
-            ?.content.trim();
-          const nextTitle = firstUserMessage ? firstUserMessage.slice(0, 18) : task.title;
-          return {
-            ...task,
-            title: nextTitle,
-            updatedAt: Date.now(),
-            messages: nextMessages,
-          };
-        }),
-      );
-    },
-    [activeAssistantTaskId],
-  );
-
-  const handleNewAssistantTask = useCallback(() => {
-    if (assistantThoughtTimerRef.current !== null) {
-      window.clearInterval(assistantThoughtTimerRef.current);
-      assistantThoughtTimerRef.current = null;
-    }
-    const id = uuidv4();
-    const now = Date.now();
-    setAssistantTasks((tasks) => [
-      {
-        id,
-        title: language === 'zh' ? `对话 ${tasks.length + 1}` : `Conversation ${tasks.length + 1}`,
-        createdAt: now,
-        updatedAt: now,
-        messages: [createAssistantWelcomeMessage()],
-      },
-      ...tasks,
-    ]);
-    setActiveAssistantTaskId(id);
-    setAssistantInput('');
-  }, [language]);
-
-  const handleCloseAssistantTask = useCallback(
-    (taskId: string) => {
-      const task = assistantTasks.find((item) => item.id === taskId);
-      const title = task?.title || (language === 'zh' ? '这个对话' : 'this conversation');
-      const confirmed = window.confirm(
-        language === 'zh' ? `确定要关闭「${title}」吗？` : `Close "${title}"?`,
-      );
-      if (!confirmed) return;
-
-      if (assistantThoughtTimerRef.current !== null && taskId === activeAssistantTaskId) {
-        window.clearInterval(assistantThoughtTimerRef.current);
-        assistantThoughtTimerRef.current = null;
-      }
-
-      setAssistantTasks((tasks) => {
-        if (tasks.length <= 1) {
-          const id = uuidv4();
-          const now = Date.now();
-          setActiveAssistantTaskId(id);
-          return [
-            {
-              id,
-              title: language === 'zh' ? '对话 1' : 'Conversation 1',
-              createdAt: now,
-              updatedAt: now,
-              messages: [createAssistantWelcomeMessage()],
-            },
-          ];
-        }
-
-        const taskIndex = tasks.findIndex((item) => item.id === taskId);
-        const nextTasks = tasks.filter((item) => item.id !== taskId);
-        if (taskId === activeAssistantTaskId) {
-          const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
-          setActiveAssistantTaskId(nextActiveTask.id);
-        }
-        return nextTasks;
-      });
-    },
-    [activeAssistantTaskId, assistantTasks, language],
-  );
 
   const handleContactCopy = (text: string, type: 'qq' | 'email') => {
     const performCopy = async () => {
@@ -1113,313 +443,20 @@ export function StoryEditor() {
   // NOTE: 选中的节点及框选菜单
   // 菜单使用 fixed 层渲染，并根据 ReactFlow 视口 transform + 画布容器 rect 计算屏幕坐标。
   // 这样无论右键框选后拖动画布、滚轮平移/缩放、MiniMap/Controls 改变视野，菜单都会跟着所选节点走。
-  const selectedNodes = useMemo(() => nodes.filter((n) => n.selected), [nodes]);
-  const showSelectionMenu = selectedNodes.length >= 2;
   const canRenderVideo = true;
-  const selectedStoryNodes = useMemo(
-    () => selectedNodes.filter((n) => n.type === 'storyNode'),
-    [selectedNodes],
-  );
-  const selectedAssistantTargetNodes = useMemo(
-    () =>
-      selectedNodes.filter(
-        (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
-      ),
-    [selectedNodes],
-  );
-  const footerHint = useMemo(() => {
-    if (assistantOpen) {
-      return language === 'zh'
-        ? 'AI 生成内容仅供参考，请结合自己的剧情判断使用。'
-        : 'AI-generated content is for reference only; review it against your own story. Save important settings and project work regularly to avoid losing changes.';
-    }
-
-    const selectedType =
-      selectedNodes.length === 1
-        ? selectedNodes[0].type
-        : selectedNodes.length > 1
-          ? 'multi'
-          : 'default';
-    const hints: Record<string, string> =
-      language === 'zh'
-        ? {
-            storyNode:
-              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
-            characterNode:
-              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
-            sceneNode:
-              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
-            plotStructureNode:
-              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
-            summaryNode:
-              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
-            batchReplaceNode:
-              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
-            numberConditionNode:
-              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
-            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
-            backgroundNode:
-              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
-            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
-            aiNode:
-              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
-            multi:
-              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
-            default: t.footerHint,
-          }
-        : {
-            storyNode:
-              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
-            characterNode:
-              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
-            sceneNode:
-              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
-            plotStructureNode:
-              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
-            summaryNode:
-              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
-            batchReplaceNode:
-              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
-            numberConditionNode:
-              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
-            textNode:
-              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
-            backgroundNode:
-              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
-            groupNode:
-              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
-            aiNode:
-              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
-            multi:
-              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
-            default: t.footerHint,
-          };
-
-    return hints[selectedType || 'default'] || hints.default;
-  }, [assistantOpen, language, selectedNodes, t.footerHint]);
-  const selectionMenuRef = useRef<HTMLDivElement>(null);
-  const selectionBoundsRef = useRef<{ minX: number; minY: number; maxX: number } | null>(null);
-  const selectionMenuRafRef = useRef<number | null>(null);
-  const transformRef = useRef<[number, number, number]>([tx, ty, tzoom]);
-  transformRef.current = [tx, ty, tzoom];
-
-  const computeSelectionBounds = useCallback((nodesToMeasure: Node[]) => {
-    if (nodesToMeasure.length < 2) return null;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity;
-    nodesToMeasure.forEach((n) => {
-      minX = Math.min(minX, n.position.x);
-      minY = Math.min(minY, n.position.y);
-      maxX = Math.max(
-        maxX,
-        n.position.x + (n.measured?.width || (n.style?.width as number) || 300),
-      );
-    });
-    return { minX, minY, maxX };
-  }, []);
-
-  const updateSelectionMenuPosition = useCallback((transform?: [number, number, number]) => {
-    const el = selectionMenuRef.current;
-    const bounds = selectionBoundsRef.current;
-    const wrapper = canvasWrapperRef.current;
-    if (!el || !bounds || !wrapper) return;
-
-    const [tX, tY, zoom] = transform ?? transformRef.current;
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
-
-    // ReactFlow 的 transform 是相对画布容器的，所以这里必须加上 wrapperRect。
-    // 菜单自身使用 translate(-50%, -100%)，保证水平居中并停在选区上方。
-    const screenX = wrapperRect.left + centerX * zoom + tX;
-    const screenY = wrapperRect.top + bounds.minY * zoom + tY - 12;
-
-    el.style.setProperty('--selection-menu-x', `${screenX}px`);
-    el.style.setProperty('--selection-menu-y', `${screenY}px`);
-  }, []);
-
-  const scheduleSelectionMenuPosition = useCallback(
-    (transform?: [number, number, number]) => {
-      if (selectionMenuRafRef.current !== null) {
-        cancelAnimationFrame(selectionMenuRafRef.current);
-      }
-      selectionMenuRafRef.current = requestAnimationFrame(() => {
-        selectionMenuRafRef.current = null;
-        updateSelectionMenuPosition(transform);
-      });
-    },
-    [updateSelectionMenuPosition],
-  );
-
-  React.useLayoutEffect(() => {
-    selectionBoundsRef.current = computeSelectionBounds(selectedNodes);
-    if (showSelectionMenu) {
-      scheduleSelectionMenuPosition();
-    }
-  }, [selectedNodes, showSelectionMenu, computeSelectionBounds, scheduleSelectionMenuPosition]);
-
-  React.useEffect(() => {
-    if (showSelectionMenu) {
-      scheduleSelectionMenuPosition([tx, ty, tzoom]);
-    }
-  }, [tx, ty, tzoom, showSelectionMenu, scheduleSelectionMenuPosition]);
-
-  React.useEffect(() => {
-    if (!showSelectionMenu) return;
-    const handleResize = () => scheduleSelectionMenuPosition();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [showSelectionMenu, scheduleSelectionMenuPosition]);
-
-  React.useEffect(() => {
-    const el = assistantMessagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [assistantMessages, assistantLoading]);
-
-  React.useEffect(() => {
-    return () => {
-      if (assistantThoughtTimerRef.current !== null) {
-        window.clearInterval(assistantThoughtTimerRef.current);
-      }
-    };
-  }, []);
-
-  React.useEffect(() => {
-    return () => {
-      if (selectionMenuRafRef.current !== null) {
-        cancelAnimationFrame(selectionMenuRafRef.current);
-      }
-    };
-  }, []);
-
-  const handleViewportMove = useCallback(
-    (_event: unknown, viewport: { x: number; y: number; zoom: number }) => {
-      if (selectionBoundsRef.current) {
-        scheduleSelectionMenuPosition([viewport.x, viewport.y, viewport.zoom]);
-      }
-    },
-    [scheduleSelectionMenuPosition],
-  );
-
-  const getProjectSnapshot = useCallback(() => {
-    const simpleNodes = nodes.map((n) => ({
-      id: n.id,
-      position: n.position,
-      type: n.type,
-      style: n.style,
-      data: { ...n.data },
-      width: n.measured?.width || n.width,
-      height: n.measured?.height || n.height,
-    }));
-    const simpleEdges = edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle,
-      targetHandle: e.targetHandle,
-      data: { label: e.data?.label || '' },
-    }));
-    const settings = {
-      canvasBg,
-      edgeStyle,
-      customApiKey,
-      pasteAsPlainText,
-      showNodeActions,
-      showStats,
-      presetColors,
-      showTitles,
-      generateLength,
-      // NOTE: AI 接口配置一并导出，方便跨设备迁移
-      aiProvider,
-      deepseekApiKey,
-      openaiApiKey,
-      imageApiKey,
-      imageApiUrl,
-      imageModel,
-      imageSize,
-      ttsApiKey,
-      ttsApiUrl,
-      ttsModel,
-      ttsVoice,
-      ttsProvider,
-      thinkingMode,
-      aiPrompts,
-      aiButtonsConfig,
-      scrollMode,
-      showMiniMap,
-      miniMapPosition,
-      showControls,
-
-      projectTitle,
-      toolbarLayout,
-      selectionMenuLayout,
-      language,
-      theme,
-      bubbleStyle,
-      playTestDarkMode,
-      playTestChoicesColumns,
-      playTestVideoAutoPlay,
-      playTestLayoutMode,
-      playTestInteractionMode,
-      playTestTypewriterSpeed,
-      playTestChoiceDelay,
-      playTestChoicesPosition,
-      playTestBlurBackground,
-      playTestBlurText,
-      playTestSkipSingleChoicePopup,
-      playTestDimBackground,
-    };
-    return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [
+  const {
+    selectedNodes,
+    selectedAssistantTargetNodes,
+    showSelectionMenu,
+    selectionMenuRef,
+    handleViewportMove,
+  } = useSelectionMenu({
     nodes,
-    edges,
-    canvasBg,
-    edgeStyle,
-    customApiKey,
-    pasteAsPlainText,
-    showNodeActions,
-    showStats,
-    presetColors,
-    showTitles,
-    generateLength,
-    aiProvider,
-    deepseekApiKey,
-    openaiApiKey,
-    imageApiKey,
-    imageApiUrl,
-    imageModel,
-    imageSize,
-    ttsApiKey,
-    ttsApiUrl,
-    ttsModel,
-    ttsVoice,
-    ttsProvider,
-    thinkingMode,
-    aiPrompts,
-    aiButtonsConfig,
-    scrollMode,
-    showMiniMap,
-    miniMapPosition,
-    showControls,
-    projectTitle,
-    toolbarLayout,
-    selectionMenuLayout,
-    language,
-    theme,
-    bubbleStyle,
-    playTestDarkMode,
-    playTestChoicesColumns,
-    playTestVideoAutoPlay,
-    playTestLayoutMode,
-    playTestInteractionMode,
-    playTestTypewriterSpeed,
-    playTestChoiceDelay,
-    playTestChoicesPosition,
-    playTestBlurBackground,
-    playTestBlurText,
-    playTestSkipSingleChoicePopup,
-    playTestDimBackground,
-  ]);
+    tx,
+    ty,
+    tzoom,
+    canvasWrapperRef,
+  });
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -1457,43 +494,198 @@ export function StoryEditor() {
   const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: [] as Edge[] });
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [autosaveReady, setAutosaveReady] = useState(false);
 
-  // Cookie helpers
-  const setCookie = (name: string, value: string, days: number) => {
-    const date = new Date();
-    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-    const expires = '; expires=' + date.toUTCString();
-    document.cookie = name + '=' + (value || '') + expires + '; path=/';
-  };
+  const editorProjectSettings = useMemo(
+    () => ({
+      canvasBg,
+      edgeStyle,
+      customApiKey,
+      pasteAsPlainText,
+      showNodeActions,
+      showStats,
+      presetColors,
+      showTitles,
+      generateLength,
+      aiProvider,
+      deepseekApiKey,
+      openaiApiKey,
+      imageApiKey,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      ttsApiKey,
+      ttsApiUrl,
+      ttsModel,
+      ttsVoice,
+      ttsProvider,
+      thinkingMode,
+      aiPrompts,
+      aiButtonsConfig,
+      scrollMode,
+      showMiniMap,
+      miniMapPosition,
+      showControls,
+      projectTitle,
+      toolbarLayout,
+      selectionMenuLayout,
+      language,
+      theme,
+      bubbleStyle,
+      playTestDarkMode,
+      playTestChoicesColumns,
+      playTestVideoAutoPlay,
+      playTestLayoutMode,
+      playTestInteractionMode,
+      playTestTypewriterSpeed,
+      playTestChoiceDelay,
+      playTestChoicesPosition,
+      playTestBlurBackground,
+      playTestBlurText,
+      playTestSkipSingleChoicePopup,
+      playTestDimBackground,
+    }),
+    [
+      aiButtonsConfig,
+      aiPrompts,
+      aiProvider,
+      bubbleStyle,
+      canvasBg,
+      customApiKey,
+      deepseekApiKey,
+      edgeStyle,
+      generateLength,
+      imageApiKey,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      language,
+      miniMapPosition,
+      openaiApiKey,
+      pasteAsPlainText,
+      playTestBlurBackground,
+      playTestBlurText,
+      playTestChoiceDelay,
+      playTestChoicesColumns,
+      playTestChoicesPosition,
+      playTestDarkMode,
+      playTestDimBackground,
+      playTestInteractionMode,
+      playTestLayoutMode,
+      playTestSkipSingleChoicePopup,
+      playTestTypewriterSpeed,
+      playTestVideoAutoPlay,
+      presetColors,
+      projectTitle,
+      scrollMode,
+      selectionMenuLayout,
+      showControls,
+      showMiniMap,
+      showNodeActions,
+      showStats,
+      showTitles,
+      thinkingMode,
+      theme,
+      toolbarLayout,
+      ttsApiKey,
+      ttsApiUrl,
+      ttsModel,
+      ttsProvider,
+      ttsVoice,
+    ],
+  );
 
-  const getCookie = (name: string) => {
-    const nameEQ = name + '=';
-    const ca = document.cookie.split(';');
-    for (let i = 0; i < ca.length; i++) {
-      let c = ca[i];
-      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-  };
+  const editorProjectSettingsSetters = useMemo(
+    () => ({
+      setCanvasBg,
+      setEdgeStyle,
+      setCustomApiKey,
+      setPasteAsPlainText,
+      setShowNodeActions,
+      setShowStats,
+      setPresetColors,
+      setShowTitles,
+      setGenerateLength,
+      setAiProvider,
+      setDeepseekApiKey,
+      setOpenaiApiKey,
+      setImageApiKey,
+      setImageApiUrl,
+      setImageModel,
+      setImageSize,
+      setTtsApiKey,
+      setTtsApiUrl,
+      setTtsModel,
+      setTtsVoice,
+      setTtsProvider,
+      setThinkingMode,
+      setAiPrompts,
+      setAiButtonsConfig,
+      setScrollMode,
+      setShowMiniMap,
+      setMiniMapPosition,
+      setShowControls,
+      setProjectTitle,
+      setToolbarLayout,
+      setSelectionMenuLayout,
+      setLanguage,
+      setTheme,
+      setBubbleStyle,
+      setPlayTestDarkMode,
+      setPlayTestChoicesColumns,
+      setPlayTestVideoAutoPlay,
+      setPlayTestLayoutMode,
+      setPlayTestInteractionMode,
+      setPlayTestTypewriterSpeed,
+      setPlayTestChoiceDelay,
+      setPlayTestChoicesPosition,
+      setPlayTestBlurBackground,
+      setPlayTestBlurText,
+      setPlayTestSkipSingleChoicePopup,
+      setPlayTestDimBackground,
+    }),
+    [],
+  );
 
-  // Initialize snapshot and guide preference
-  React.useEffect(() => {
-    // 启动时检查是否有自动保存的数据
-    getAutoSave().then((data) => {
-      if (data) {
-        autoSaveDataRef.current = data;
-        setShowAutoSaveModal(true);
-      }
+  const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
+    useProjectSerialization({
+      nodes,
+      edges,
+      settings: editorProjectSettings,
+      settingsSetters: editorProjectSettingsSetters,
+      saveFileName,
+      setNodes,
+      setEdges,
+      setIsDirty,
+      setShowSaveNameModal,
+      lastSavedSnapshotRef: lastSavedSnapshot,
+      showToast,
+      defaultEdgeOptions,
+      defaultAIPrompts,
+      defaultAIButtonsConfig,
+      clearAutoSave: async () => {
+        const { clearAutoSave } = await import('../lib/db');
+        await clearAutoSave();
+      },
     });
 
-    lastSavedSnapshot.current = getProjectSnapshot();
+  const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave } =
+    useAutoSave<ProjectSnapshotData>({
+      getProjectSnapshot,
+      lastSavedSnapshotRef: lastSavedSnapshot,
+      setIsDirty,
+      applyRecoveredProject: async (projectData) => {
+        await applyProjectData(projectData, { markSaved: true });
+      },
+      showToast,
+      language,
+      enabled: autosaveReady,
+    });
 
-    // Check guide preference from Cookie
-    const skipGuide = getCookie('skip_novice_guide') === 'true';
-    if (!skipGuide) {
-      setShowGuide(true);
-    }
+  // Initialize snapshot and theme preference
+  React.useEffect(() => {
+    lastSavedSnapshot.current = getProjectSnapshot();
+    setAutosaveReady(true);
 
     // Load theme from localStorage or system preference
     const savedTheme = localStorage.getItem('app-theme') as 'light' | 'dark';
@@ -1502,59 +694,7 @@ export function StoryEditor() {
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
     }
-  }, []);
-
-  // Synchronize playtest settings to localStorage
-  React.useEffect(() => {
-    localStorage.setItem('playtest-dark-mode', String(playTestDarkMode));
-  }, [playTestDarkMode]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-columns', String(playTestChoicesColumns));
-  }, [playTestChoicesColumns]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-video-autoplay', String(playTestVideoAutoPlay));
-  }, [playTestVideoAutoPlay]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-layout-mode', playTestLayoutMode);
-  }, [playTestLayoutMode]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-interaction-mode', playTestInteractionMode);
-  }, [playTestInteractionMode]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-typewriter-speed', String(playTestTypewriterSpeed));
-  }, [playTestTypewriterSpeed]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-choice-delay', String(playTestChoiceDelay));
-  }, [playTestChoiceDelay]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-choices-position', playTestChoicesPosition);
-  }, [playTestChoicesPosition]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-blur-background', String(playTestBlurBackground));
-  }, [playTestBlurBackground]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-blur-text', String(playTestBlurText));
-  }, [playTestBlurText]);
-
-  React.useEffect(() => {
-    localStorage.setItem(
-      'playtest-skip-single-choice-popup',
-      String(playTestSkipSingleChoicePopup),
-    );
-  }, [playTestSkipSingleChoicePopup]);
-
-  React.useEffect(() => {
-    localStorage.setItem('playtest-dim-background', String(playTestDimBackground));
-  }, [playTestDimBackground]);
+  }, [getProjectSnapshot]);
 
   // Update document theme attribute
   React.useEffect(() => {
@@ -1563,33 +703,16 @@ export function StoryEditor() {
     localStorage.setItem('app-theme', theme);
   }, [theme]);
 
-  const closeGuide = () => {
-    if (dontShowGuideAgain) {
-      setCookie('skip_novice_guide', 'true', 365);
-    }
-    setShowGuide(false);
-  };
-
-  // Track isDirty and trigger Auto-save
-  React.useEffect(() => {
-    const currentSnapshot = getProjectSnapshot();
-    const isNowDirty = currentSnapshot !== lastSavedSnapshot.current;
-    setIsDirty(isNowDirty);
-
-    if (isNowDirty) {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(async () => {
-        await saveAutoSave(currentSnapshot);
-      }, 5000);
-    }
-
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-  }, [getProjectSnapshot]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDeleteNode = useCallback(
+    (id: string) => {
+      setNodes((nds) => nds.filter((node) => node.id !== id));
+      setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+    },
+    [setEdges, setNodes],
+  );
 
   React.useEffect(() => {
     if (isUndoRedoAction.current) {
@@ -1622,239 +745,17 @@ export function StoryEditor() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
-  // NOTE: 全局阻止拖拽文件时的浏览器默认行为（防止意外打开文件）
-  // HACK: canvas 区域内的 drop 由原生捕获阶段监听器处理，此处需放行以避免干扰
-  React.useEffect(() => {
-    const handleGlobalDragOver = (e: DragEvent) => {
-      // 如果目标在 react-flow 容器内，放行给 canvas 的捕获阶段处理器
-      if ((e.target as HTMLElement)?.closest('.react-flow')) return;
-      e.preventDefault();
-    };
-    const handleGlobalDrop = (e: DragEvent) => {
-      if ((e.target as HTMLElement)?.closest('.react-flow')) return;
-      e.preventDefault();
-    };
-    window.addEventListener('dragover', handleGlobalDragOver);
-    window.addEventListener('drop', handleGlobalDrop);
-    return () => {
-      window.removeEventListener('dragover', handleGlobalDragOver);
-      window.removeEventListener('drop', handleGlobalDrop);
-    };
-  }, []);
-
-  // NOTE: 使用原生 DOM 捕获阶段监听器处理文件从桌面/文件夹拖入画布
-  // 必须在捕获阶段注册，才能在 React Flow 内部的 dragover 拦截之前先行处理，
-  // 确保浏览器的 dropEffect 被正确设置为 'copy'，从而允许 drop 事件触发。
-  React.useEffect(() => {
-    const el = canvasWrapperRef.current;
-    if (!el) return;
-
-    const handleNativeDragOver = (e: DragEvent) => {
-      // 只有从 OS 拖入文件时才拦截（包含 Files 类型）
-      if (!e.dataTransfer?.types?.includes('Files')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    };
-
-    const handleNativeDrop = async (e: DragEvent) => {
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      // 计算落点在 Flow 坐标系中的位置
-      const rfEl = el.querySelector('.react-flow__renderer') ?? el;
-      const bounds = rfEl.getBoundingClientRect();
-      const dropX = (e.clientX - bounds.left - tx) / tzoom;
-      const dropY = (e.clientY - bounds.top - ty) / tzoom;
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (
-          !file.type.startsWith('image/') &&
-          !file.type.startsWith('video/') &&
-          !file.type.startsWith('audio/')
-        ) {
-          continue;
-        }
-
-        // 使用 blob URL，高效且支持大文件/视频
-        const url = URL.createObjectURL(file);
-        const newId = uuidv4();
-
-        let mediaData: Record<string, string> = {};
-        let title = language === 'zh' ? '导入文件' : 'Import File';
-
-        const { width, height } = await getMediaDimensions(url, file.type);
-        let displayWidth = 400;
-        let displayHeight = (height / width) * displayWidth;
-
-        if (displayHeight > 500) {
-          displayHeight = 500;
-          displayWidth = (width / height) * displayHeight;
-        }
-
-        if (file.type.startsWith('image/')) {
-          mediaData = { imageUrl: url };
-          title = language === 'zh' ? '导入图片' : 'Import Image';
-        } else if (file.type.startsWith('video/')) {
-          mediaData = { videoUrl: url };
-          title = language === 'zh' ? '导入视频' : 'Import Video';
-        } else if (file.type.startsWith('audio/')) {
-          mediaData = { audioUrl: url };
-          title = language === 'zh' ? '导入音频' : 'Import Audio';
-          displayWidth = 300;
-          displayHeight = 150;
-        }
-
-        const newNode: Node = {
-          id: newId,
-          type: 'storyNode',
-          position: {
-            x: dropX + i * 30 - displayWidth / 2,
-            y: dropY + i * 30 - displayHeight / 2,
-          },
-          style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-          data: {
-            id: newId,
-            title,
-            shape: 'square',
-            color: '#ffffff',
-            text: '',
-            titleHeightAdded: showTitles,
-            ...mediaData,
-          },
-        };
-
-        setNodes((nds) => [...nds, newNode]);
-      }
-    };
-
-    // 注册为捕获阶段，优先于 React Flow 内部事件处理
-    el.addEventListener('dragover', handleNativeDragOver, { capture: true });
-    el.addEventListener('drop', handleNativeDrop, { capture: true });
-
-    return () => {
-      el.removeEventListener('dragover', handleNativeDragOver, { capture: true });
-      el.removeEventListener('drop', handleNativeDrop, { capture: true });
-    };
-  }, [tx, ty, tzoom, setNodes, showTitles, language]);
-
-  // NOTE: 全局阻止编辑器区域的右键菜单，确保框选体验不被系统菜单干扰
-  React.useEffect(() => {
-    const handleGlobalContextMenu = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // 如果点击React Flow 容器或其子元素内，则阻止默认菜单
-      if (target.closest('.react-flow')) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('contextmenu', handleGlobalContextMenu);
-    return () => document.removeEventListener('contextmenu', handleGlobalContextMenu);
-  }, []);
-
-  // NOTE: 动态分组实时更新逻辑
-  React.useEffect(() => {
-    const groupNodes = nodes.filter((n) => n.type === 'groupNode');
-    if (groupNodes.length === 0) return;
-
-    const timer = setTimeout(() => {
-      let hasChanges = false;
-      const newNodes = nodes.map((gn) => {
-        if (gn.type !== 'groupNode') return gn;
-
-        const childIds = (gn.data.childIds as string[]) || [];
-        if (childIds.length === 0) return gn;
-
-        const children = nodes.filter((n) => childIds.includes(n.id));
-        if (children.length === 0) return gn;
-
-        // 1. 收集所有子节点的四个角点
-        const points: { x: number; y: number }[] = [];
-        const padding = 20;
-
-        children.forEach((c) => {
-          const { x, y } = c.position;
-          const w = c.measured?.width || (typeof c.style?.width === 'number' ? c.style.width : 300);
-          const h =
-            c.measured?.height || (typeof c.style?.height === 'number' ? c.style.height : 200);
-
-          points.push({ x: x - padding, y: y - padding });
-          points.push({ x: x + w + padding, y: y - padding });
-          points.push({ x: x + w + padding, y: y + h + padding });
-          points.push({ x: x - padding, y: y + h + padding });
-        });
-
-        // 2. 计算凸包
-        const hull = getConvexHull(points);
-
-        // 3. 计算凸包的包围盒作为 Node 的基本尺寸
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        hull.forEach((p) => {
-          minX = Math.min(minX, p.x);
-          minY = Math.min(minY, p.y);
-          maxX = Math.max(maxX, p.x);
-          maxY = Math.max(maxY, p.y);
-        });
-
-        // 增加取整处理，防止亚像素导致的无限循环
-        const targetX = Math.round(minX * 10) / 10;
-        const targetY = Math.round(minY * 10) / 10;
-        const targetW = Math.round((maxX - minX) * 10) / 10;
-        const targetH = Math.round((maxY - minY) * 10) / 10;
-
-        const relativeHull = hull.map((p) => ({
-          x: Math.round((p.x - targetX) * 10) / 10,
-          y: Math.round((p.y - targetY) * 10) / 10,
-        }));
-
-        // 检查是否有实质性变化
-        const diffX = Math.abs(gn.position.x - targetX);
-        const diffY = Math.abs(gn.position.y - targetY);
-        const diffW = Math.abs(((gn.style?.width as number) || 0) - targetW);
-        const diffH = Math.abs(((gn.style?.height as number) || 0) - targetH);
-
-        let isHullDifferent = false;
-        const oldHull = (gn.data.hullPoints as { x: number; y: number }[]) || [];
-        if (oldHull.length !== relativeHull.length) {
-          isHullDifferent = true;
-        } else {
-          for (let i = 0; i < oldHull.length; i++) {
-            if (
-              Math.abs(oldHull[i].x - relativeHull[i].x) > 2 ||
-              Math.abs(oldHull[i].y - relativeHull[i].y) > 2
-            ) {
-              isHullDifferent = true;
-              break;
-            }
-          }
-        }
-
-        // 将阈值提高到 2px，并使用宽容度的凸包比对，彻底切断可能导致的无限重绘循环
-        if (diffX >= 2 || diffY >= 2 || diffW >= 2 || diffH >= 2 || isHullDifferent) {
-          hasChanges = true;
-          return {
-            ...gn,
-            position: { x: targetX, y: targetY },
-            style: { ...gn.style, width: targetW, height: targetH },
-            data: { ...gn.data, hullPoints: relativeHull },
-          };
-        }
-        return gn;
-      });
-
-      if (hasChanges) {
-        setNodes(newNodes);
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [nodes, setNodes]);
+  useCanvasDnD({
+    canvasWrapperRef,
+    tx,
+    ty,
+    tzoom,
+    showTitles,
+    language,
+    titleHeight: TITLE_HEIGHT,
+    getMediaDimensions,
+    setNodes,
+  });
 
   const undo = useCallback(() => {
     setHistory((h) => {
@@ -1882,265 +783,31 @@ export function StoryEditor() {
     });
   }, [nodes, edges, setNodes, setEdges]);
 
-  const handleCopy = useCallback(() => {
-    const selectedNodes = nodes.filter((n) => n.selected);
-    if (selectedNodes.length === 0) return;
-
-    // 找出选中节点之间的连线
-    const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
-    const selectedEdges = edges.filter(
-      (e) => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target),
-    );
-
-    setNodeClipboard({ nodes: selectedNodes, edges: selectedEdges });
-    showToast(
-      language === 'zh'
-        ? `已复制${selectedNodes.length} 个节点`
-        : `${selectedNodes.length} nodes copied`,
-    );
-  }, [nodes, edges, language]);
-
-  const handlePaste = useCallback(async () => {
-    // 1. 优先尝试粘贴内部剪贴板中的卡片
-    if (nodeClipboard && nodeClipboard.nodes.length > 0) {
-      const idMap: Record<string, string> = {};
-      const center = getCenterPosition();
-
-      // 计算选中节点组的中心点
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
-      nodeClipboard.nodes.forEach((n) => {
-        minX = Math.min(minX, n.position.x);
-        minY = Math.min(minY, n.position.y);
-        maxX = Math.max(maxX, n.position.x + (n.measured?.width || 300));
-        maxY = Math.max(maxY, n.position.y + (n.measured?.height || 200));
-      });
-      const groupCenterX = (minX + maxX) / 2;
-      const groupCenterY = (minY + maxY) / 2;
-
-      // 计算偏移量，将组中心对齐到当前视口中间
-      const offsetX = center.x - groupCenterX;
-      const offsetY = center.y - groupCenterY;
-
-      const newNodes = nodeClipboard.nodes.map((n) => {
-        const newId = uuidv4();
-        idMap[n.id] = newId;
-        return {
-          ...n,
-          id: newId,
-          position: { x: n.position.x + offsetX, y: n.position.y + offsetY },
-          selected: true,
-          data: {
-            ...n.data,
-            id: newId,
-            isRoot: false, // 粘贴后的卡片自动消除起点标记
-          },
-        };
-      });
-
-      const newEdges = nodeClipboard.edges.map((e) => ({
-        ...e,
-        id: uuidv4(),
-        source: idMap[e.source],
-        target: idMap[e.target],
-      }));
-
-      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
-      setEdges((eds) => [...eds, ...newEdges]);
-      return;
-    }
-
-    // 2. 内部剪贴板为空，尝试从系统剪贴板读取文本创建新卡片
-    try {
-      if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
-        showToast(
-          language === 'zh'
-            ? '当前环境不支持直接读取剪贴板，请使用快捷键 Ctrl+V'
-            : 'Clipboard reading is not supported, please use Ctrl+V',
-        );
-        return;
-      }
-      const text = await navigator.clipboard.readText();
-      if (text && text.trim()) {
-        const center = getCenterPosition();
-        const newId = uuidv4();
-        const newNode: Node = {
-          id: newId,
-          type: 'storyNode',
-          position: { x: center.x - 150, y: center.y - 100 },
-          style: { width: 300, height: 200 },
-          data: {
-            id: newId,
-            title: '粘贴卡片',
-            shape: 'square',
-            color: '#ffffff',
-            text: text.trim(),
-          },
-        };
-        setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
-      }
-    } catch (err) {
-      console.warn('Failed to read system clipboard', err);
-    }
-  }, [nodeClipboard, getCenterPosition, setNodes, setEdges]);
-
-  const handleDeleteNode = useCallback(
-    (id: string) => {
-      setNodes((nds) => nds.filter((n) => n.id !== id));
-      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-    },
-    [setNodes, setEdges],
-  );
-
-  /**
-   * 删除当前所有选中的节点和连线   */
-  const deleteSelected = useCallback(() => {
-    const selectedNodes = nodes.filter((n) => n.selected);
-    const selectedEdges = edges.filter((e) => e.selected);
-
-    if (selectedNodes.length === 0 && selectedEdges.length === 0) return;
-
-    // 过滤掉受保护的节点（如起点）
-    const nodeIdsToDelete = new Set(selectedNodes.filter((n) => !n.data?.isRoot).map((n) => n.id));
-
-    const edgeIdsToDelete = new Set(selectedEdges.map((e) => e.id));
-
-    if (nodeIdsToDelete.size === 0 && edgeIdsToDelete.size === 0) {
-      if (selectedNodes.length > 0) {
-        showToast(
-          language === 'zh'
-            ? '起点节点受保护，无法删除'
-            : 'Root node is protected and cannot be deleted',
-        );
-      }
-      return;
-    }
-
-    setNodes((nds) => nds.filter((n) => !nodeIdsToDelete.has(n.id)));
-    setEdges((eds) =>
-      eds.filter(
-        (e) =>
-          !edgeIdsToDelete.has(e.id) &&
-          !nodeIdsToDelete.has(e.source) &&
-          !nodeIdsToDelete.has(e.target),
-      ),
-    );
-
-    const totalDeleted = nodeIdsToDelete.size + edgeIdsToDelete.size;
-    showToast(language === 'zh' ? `已删除${totalDeleted} 个项目` : `Deleted ${totalDeleted} items`);
-  }, [nodes, edges, language, setNodes, setEdges]);
-
-  /**
-   * 隐藏当前所有选中的节点
-   */
-  const hideSelected = useCallback(() => {
-    const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
-
-    if (selectedNodeIds.length === 0) return;
-
-    const selectedIdSet = new Set(selectedNodeIds);
-
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (!selectedIdSet.has(n.id)) return n;
-
-        return {
-          ...n,
-          selected: false,
-          data: {
-            ...n.data,
-            hidden: true,
-          },
-        };
-      }),
-    );
-
-    showToast(
-      language === 'zh'
-        ? `已隐藏${selectedNodeIds.length} 个卡片`
-        : `${selectedNodeIds.length} cards hidden`,
-    );
-  }, [nodes, setNodes, language, showToast]);
-
-  const handleGenerateSelectedSpeech = useCallback(async () => {
-    if (ttsLoading) return;
-    const storyNodes = nodes
-      .filter((n) => n.selected && n.type === 'storyNode')
-      .sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
-
-    if (storyNodes.length === 0) {
-      showToast(
-        language === 'zh' ? '请先框选需要朗读的剧情卡片' : 'Select story cards to narrate first',
-      );
-      return;
-    }
-
-    setTtsLoading(true);
-    try {
-      for (let index = 0; index < storyNodes.length; index += 1) {
-        const node = storyNodes[index];
-        const titleText = htmlToSpeechText(String(node.data.title || ''));
-        const bodyText = htmlToSpeechText(String(node.data.text || ''));
-        const speechText = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
-        if (!speechText) continue;
-
-        showToast(
-          language === 'zh'
-            ? `正在生成朗读音频 ${index + 1}/${storyNodes.length}`
-            : `Generating narration ${index + 1}/${storyNodes.length}`,
-        );
-
-        const audio = await generateSpeechAudio(speechText, {
-          provider: ttsProvider,
-          apiUrl: ttsApiUrl,
-          apiKey: ttsApiKey,
-          appKey: ttsModel,
-          appSecret: ttsApiKey,
-          model: ttsModel,
-          voice: ttsVoice,
-        });
-
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === node.id
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    audioUrl: audio.url,
-                    ttsGenerated: true,
-                  },
-                }
-              : n,
-          ),
-        );
-      }
-
-      showToast(
-        language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached',
-      );
-    } catch (error: any) {
-      console.error('TTS generation failed:', error);
-      alert(
-        `${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${error.message || 'Unknown error'}`,
-      );
-    } finally {
-      setTtsLoading(false);
-    }
-  }, [
+  const {
+    handleCopy,
+    handlePaste,
+    deleteSelected,
+    hideSelected,
+    handleGenerateSelectedSpeech,
+    unhideAllNodes,
+  } = useSelectionActions({
     nodes,
+    edges,
     language,
-    setNodes,
-    showToast,
+    ttsLoading,
     ttsProvider,
     ttsApiKey,
     ttsApiUrl,
     ttsModel,
     ttsVoice,
-    ttsLoading,
-  ]);
+    nodeClipboard,
+    setNodeClipboard,
+    setNodes,
+    setEdges,
+    setTtsLoading,
+    getCenterPosition,
+    showToast,
+  });
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2180,176 +847,6 @@ export function StoryEditor() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, handleCopy, handlePaste, deleteSelected]);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      const snapDistance = 15;
-
-      const positionChanges = changes.filter((c: any) => c.type === 'position' && c.position);
-      const dimensionChanges = changes.filter((c: any) => c.type === 'dimensions' && c.dimensions);
-
-      // NOTE: 无位置/尺寸变化时直接应用，不触发辅助线计算，避免多余 setState
-      if (positionChanges.length === 0 && dimensionChanges.length === 0) {
-        setNodes((nds) => applyNodeChanges(changes, nds));
-        return;
-      }
-
-      // NOTE: 使用函数式 setNodes 读取最新节点，消除对外部 nodes 变量的直接依赖，
-      // 从而打断 nodes→onNodesChange→nodesWithCallbacks→ReactFlow store→onNodesChange 的循环链路
-      setNodes((nds) => {
-        const hLines: number[] = [];
-        const vLines: number[] = [];
-        const nodeMap = new Map(nds.map((n) => [n.id, n]));
-
-        const updatedChanges = changes.map((change: any) => {
-          if (change.type === 'position' && change.position) {
-            const targetX = change.position.x;
-            const targetY = change.position.y;
-            let snapX = targetX;
-            let snapY = targetY;
-            let minDx = snapDistance;
-            let minDy = snapDistance;
-
-            const movingNode = nodeMap.get(change.id);
-            if (!movingNode) return change;
-
-            const movingW =
-              movingNode.measured?.width || (movingNode.style?.width as number) || 300;
-            const movingH =
-              movingNode.measured?.height || (movingNode.style?.height as number) || 200;
-
-            for (const n of nds) {
-              if (n.id === change.id) continue;
-              const nX = n.position.x;
-              const nY = n.position.y;
-              const nW = n.measured?.width || (n.style?.width as number) || 300;
-              const nH = n.measured?.height || (n.style?.height as number) || 200;
-
-              const xTargets = [nX, nX + nW];
-              const movingXTargets = [targetX, targetX + movingW];
-              for (const xt of xTargets) {
-                for (const mxt of movingXTargets) {
-                  const diff = Math.abs(xt - mxt);
-                  if (diff < minDx) {
-                    minDx = diff;
-                    snapX = mxt === targetX ? xt : xt - movingW;
-                    if (!vLines.includes(xt)) vLines.push(xt);
-                  } else if (diff < snapDistance) {
-                    if (!vLines.includes(xt)) vLines.push(xt);
-                  }
-                }
-              }
-
-              const yTargets = [nY, nY + nH];
-              const movingYTargets = [targetY, targetY + movingH];
-              for (const yt of yTargets) {
-                for (const myt of movingYTargets) {
-                  const diff = Math.abs(yt - myt);
-                  if (diff < minDy) {
-                    minDy = diff;
-                    snapY = myt === targetY ? yt : yt - movingH;
-                    if (!hLines.includes(yt)) hLines.push(yt);
-                  } else if (diff < snapDistance) {
-                    if (!hLines.includes(yt)) hLines.push(yt);
-                  }
-                }
-              }
-            }
-            return {
-              ...change,
-              position: { x: snapX, y: snapY },
-              positionAbsolute: change.positionAbsolute ? { x: snapX, y: snapY } : undefined,
-            };
-          } else if (change.type === 'dimensions' && change.dimensions) {
-            const targetNode = nodeMap.get(change.id);
-            if (targetNode) {
-              const x = targetNode.position.x;
-              const y = targetNode.position.y;
-              const w = change.dimensions.width;
-              const h = change.dimensions.height;
-              for (const n of nds) {
-                if (n.id === change.id) continue;
-                const nX = n.position.x;
-                const nY = n.position.y;
-                const nW = n.measured?.width || (n.style?.width as number) || 300;
-                const nH = n.measured?.height || (n.style?.height as number) || 200;
-                if (Math.abs(nX - x) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
-                if (Math.abs(nX + nW - x) < snapDistance && !vLines.includes(nX + nW))
-                  vLines.push(nX + nW);
-                if (Math.abs(nX - (x + w)) < snapDistance && !vLines.includes(nX)) vLines.push(nX);
-                if (Math.abs(nX + nW - (x + w)) < snapDistance && !vLines.includes(nX + nW))
-                  vLines.push(nX + nW);
-                if (Math.abs(nY - y) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
-                if (Math.abs(nY + nH - y) < snapDistance && !hLines.includes(nY + nH))
-                  hLines.push(nY + nH);
-                if (Math.abs(nY - (y + h)) < snapDistance && !hLines.includes(nY)) hLines.push(nY);
-                if (Math.abs(nY + nH - (y + h)) < snapDistance && !hLines.includes(nY + nH))
-                  hLines.push(nY + nH);
-              }
-            }
-          }
-          return change;
-        });
-
-        const isInteracting = changes.some(
-          (c: any) =>
-            (c.type === 'position' && c.dragging) || (c.type === 'dimensions' && c.resizing),
-        );
-
-        // NOTE: 只在真正有辅助线变化时才更新，避免每次 dimensions 事件都 setState([])
-        if (isInteracting) {
-          setHorizontalGuides(hLines);
-          setVerticalGuides(vLines);
-        } else {
-          // 只在当前有辅助线时才清空，防止每帧都触发空数组的 setState
-          setHorizontalGuides((prev) => (prev.length > 0 ? [] : prev));
-          setVerticalGuides((prev) => (prev.length > 0 ? [] : prev));
-        }
-
-        return applyNodeChanges(updatedChanges, nds);
-      });
-    },
-    [setNodes],
-  );
-
-  const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges],
-  );
-
-  const onConnect = useCallback(
-    (connection: Connection) =>
-      setEdges((eds) => addEdge({ ...connection, id: uuidv4(), ...defaultEdgeOptions }, eds)),
-    [setEdges],
-  );
-
-  const onEdgeContextMenu = useCallback(
-    (event: React.MouseEvent, edge: Edge) => {
-      event.preventDefault();
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-    },
-    [setEdges],
-  );
-
-  const onEdgeDoubleClick = useCallback(
-    (event: React.MouseEvent, edge: Edge) => {
-      setEdges((eds) =>
-        eds.map((e) => {
-          if (e.id === edge.id) {
-            return {
-              ...e,
-              source: e.target,
-              target: e.source,
-              sourceHandle: e.targetHandle,
-              targetHandle: e.sourceHandle,
-            };
-          }
-          return e;
-        }),
-      );
-    },
-    [setEdges],
-  );
-
   const handleUpdateNode = useCallback(
     (id: string, data: any) => {
       setNodes((nds) => {
@@ -2377,562 +874,45 @@ export function StoryEditor() {
     [setNodes],
   );
 
-  const handleAddTextToImage = useCallback(
-    (id: string) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            // 如果还没有文本，设置一个初始文本，并强制显示文本区域
-            const currentText = (n.data.text as string) || '';
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                text:
-                  currentText ||
-                  (language === 'zh' ? '在此处输入描述文本...' : 'Enter description here...'),
-                showTextOverlay: true,
-              },
-              // 增加一点高度给文本区域
-              style: { ...n.style, height: ((n.style?.height as number) || 200) + 100 },
-            };
-          }
-          return n;
-        }),
-      );
-    },
-    [setNodes, language],
-  );
+  const {
+    callAIForText,
+    callAIForTextResult,
+    handleAIGenerate: runAIGenerate,
+    handleAIAnalyze: runAIAnalyze,
+  } = useAIActions({
+    nodes,
+    edges,
+    aiPrompts,
+    aiProvider,
+    deepseekApiKey,
+    openaiApiKey,
+    customApiKey,
+    thinkingMode,
+    generateLength,
+    handleUpdateNode,
+    setNodes,
+    setThinkingContent,
+  });
 
-  const handleRemoveTextFromImage = useCallback(
-    (id: string) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                showTextOverlay: false,
-              },
-              // 减少高度
-              style: {
-                ...n.style,
-                height: Math.max(100, ((n.style?.height as number) || 200) - 100),
-              },
-            };
-          }
-          return n;
-        }),
-      );
-    },
-    [setNodes],
-  );
-
-  const stripHtml = (html: string) => {
-    const doc = new DOMParser().parseFromString(html || '', 'text/html');
-    return (doc.body.textContent || '').trim();
-  };
-
-  const requestGeneratedImage = useCallback(
-    async (prompt: string) => {
-      if (!imageApiKey.trim()) {
-        alert(
-          language === 'zh'
-            ? '请先在设置中填写图片生成 API 密钥。'
-            : 'Configure the image generation API key in Settings first.',
-        );
-        return null;
-      }
-
-      const imageRequest = buildImageGenerationRequest(
-        imageApiUrl,
-        imageModel,
-        imageSize,
-        prompt,
-        imageApiKey,
-      );
-      const imageRequestBody = JSON.stringify(imageRequest.body);
-      const imageRequestHeaders = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${imageApiKey.trim()}`,
-      };
-      const sendImageRequest = (url: string) =>
-        fetch(url, {
-          method: 'POST',
-          headers: imageRequestHeaders,
-          body: imageRequestBody,
-        });
-
-      let response: Response;
-      let activeImageRequestUrl = imageRequest.url;
-      try {
-        response = await sendImageRequest(activeImageRequestUrl);
-      } catch (fetchError) {
-        const fallbackArkProxyUrl =
-          typeof window !== 'undefined' &&
-          /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-            ? '/api/ark-image'
-            : 'http://127.0.0.1:3000/api/ark-image';
-        const canRetryArkProxy =
-          imageRequest.usesSeedream &&
-          imageRequest.url !== fallbackArkProxyUrl &&
-          typeof window !== 'undefined' &&
-          window.location.protocol.startsWith('http');
-        if (!canRetryArkProxy) {
-          throw new Error(
-            `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-          );
-        }
-        activeImageRequestUrl = fallbackArkProxyUrl;
-        response = await sendImageRequest(activeImageRequestUrl);
-      }
-
-      if (!response.ok) {
-        const errText = await response.text();
-        const shouldRetrySeedreamSize =
-          imageRequest.usesSeedream &&
-          /InvalidParameter|size|pixels/i.test(errText) &&
-          imageRequest.body.size !== SEEDREAM_DIMENSION_SIZE;
-
-        if (shouldRetrySeedreamSize) {
-          response = await fetch(activeImageRequestUrl, {
-            method: 'POST',
-            headers: imageRequestHeaders,
-            body: JSON.stringify({
-              ...imageRequest.body,
-              size: SEEDREAM_DIMENSION_SIZE,
-            }),
-          });
-
-          if (response.ok) {
-            setImageSize(SEEDREAM_DIMENSION_SIZE);
-          } else {
-            const retryErrText = await response.text();
-            throw new Error(retryErrText || errText || `HTTP ${response.status}`);
-          }
-        } else {
-          throw new Error(errText || `HTTP ${response.status}`);
-        }
-      }
-
-      const result = await response.json();
-      const imageData = result?.data?.[0];
-      const imageSrc = imageData?.b64_json
-        ? `data:image/png;base64,${imageData.b64_json}`
-        : imageData?.url;
-
-      if (!imageSrc) {
-        throw new Error(
-          language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.',
-        );
-      }
-
-      return imageSrc as string;
-    },
-    [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize],
-  );
-
-  const handleGenerateSettingNodeImage = useCallback(
-    async (id: string, type: 'character' | 'scene') => {
-      const node = nodes.find((n) => n.id === id);
-      if (!node) return;
-
-      try {
-        const titleText =
-          type === 'character'
-            ? (node.data.characterName as string) ||
-              (language === 'zh' ? '未命名角色' : 'Unnamed Character')
-            : (node.data.sceneName as string) ||
-              (language === 'zh' ? '未命名场景' : 'Unnamed Scene');
-        const bodyText =
-          type === 'character'
-            ? formatCharacterNodeText(node.data as Record<string, unknown>)
-            : formatSceneNodeText(node.data as Record<string, unknown>);
-        const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
-
-        if (!basePrompt) {
-          alert(
-            language === 'zh'
-              ? '请先填写人物或场景设定。'
-              : 'Fill in the character or scene setting first.',
-          );
-          return;
-        }
-
-        const prompt =
-          type === 'character'
-            ? `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
-            : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
-
-        const imageSrc = await requestGeneratedImage(prompt);
-        if (!imageSrc) return;
-
-        setNodes((nds) =>
-          nds.map((n) => {
-            if (n.id !== id) return n;
-
-            if (type === 'character') {
-              const generatedOutfitId = (n.data.generatedSettingImageId as string) || uuidv4();
-              const currentOutfits = (n.data.outfits as any[]) || [];
-              const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
-              const hasGeneratedOutfit = currentOutfits.some(
-                (outfit) => outfit.id === generatedOutfitId,
-              );
-              const nextOutfits = hasGeneratedOutfit
-                ? currentOutfits.map((outfit) =>
-                    outfit.id === generatedOutfitId
-                      ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc }
-                      : outfit,
-                  )
-                : [
-                    { id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc },
-                    ...currentOutfits,
-                  ];
-
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  avatarUrl: imageSrc,
-                  outfits: nextOutfits,
-                  generatedSettingImageId: generatedOutfitId,
-                },
-              };
-            }
-
-            const generatedImageId = (n.data.generatedSettingImageId as string) || uuidv4();
-            const currentImages = (n.data.images as any[]) || [];
-            const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
-            const hasGeneratedImage = currentImages.some((image) => image.id === generatedImageId);
-            const nextImages = hasGeneratedImage
-              ? currentImages.map((image) =>
-                  image.id === generatedImageId
-                    ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc }
-                    : image,
-                )
-              : [
-                  { id: generatedImageId, name: generatedImageName, imageUrl: imageSrc },
-                  ...currentImages,
-                ];
-
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                coverImageUrl: imageSrc,
-                images: nextImages,
-                generatedSettingImageId: generatedImageId,
-              },
-            };
-          }),
-        );
-
-        showToast(
-          type === 'character'
-            ? language === 'zh'
-              ? '人物三视图已生成'
-              : 'Character three-view generated'
-            : language === 'zh'
-              ? '场景图片已生成'
-              : 'Scene image generated',
-        );
-      } catch (error: any) {
-        console.error('Setting image generation failed:', error);
-        alert(
-          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
-        );
-      }
-    },
-    [nodes, language, requestGeneratedImage, setNodes, showToast],
-  );
-
-  const handleGenerateStoryNodeImage = useCallback(
-    async (id: string) => {
-      const node = nodes.find((n) => n.id === id);
-      if (!node) return;
-
-      const titleText = stripHtml((node.data.title as string) || '');
-      const bodyText = stripHtml((node.data.text as string) || '');
-      const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
-      if (!basePrompt) {
-        alert(
-          language === 'zh'
-            ? '请先在普通卡片里输入图片提示词。'
-            : 'Enter an image prompt in the story card first.',
-        );
-        return;
-      }
-      if (!imageApiKey.trim()) {
-        alert(
-          language === 'zh'
-            ? '请先在设置中填写图片生成 API 密钥。'
-            : 'Configure the image generation API key in Settings first.',
-        );
-        return;
-      }
-
-      try {
-        const imageReferences = getConnectedImageReferences(nodes, edges, id);
-        const convertedReferences = (
-          await Promise.allSettled(
-            imageReferences.map(async (reference) => ({
-              ...reference,
-              apiImage: await toApiImageReference(reference.url),
-            })),
-          )
-        )
-          .filter(
-            (result): result is PromiseFulfilledResult<ImageReference & { apiImage: string }> =>
-              result.status === 'fulfilled' && !!result.value.apiImage,
-          )
-          .map((result) => result.value);
-        const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
-        const prompt = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
-        const imageRequest = buildImageGenerationRequest(
-          imageApiUrl,
-          imageModel,
-          imageSize,
-          prompt,
-          imageApiKey,
-          apiReferenceImages,
-        );
-        const imageRequestBody = JSON.stringify(imageRequest.body);
-        const imageRequestHeaders = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${imageApiKey.trim()}`,
-        };
-        const sendImageRequest = (url: string) =>
-          fetch(url, {
-            method: 'POST',
-            headers: imageRequestHeaders,
-            body: imageRequestBody,
-          });
-
-        let response: Response;
-        let activeImageRequestUrl = imageRequest.url;
-        try {
-          response = await sendImageRequest(activeImageRequestUrl);
-        } catch (fetchError) {
-          const fallbackArkProxyUrl =
-            typeof window !== 'undefined' &&
-            /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-              ? '/api/ark-image'
-              : 'http://127.0.0.1:3000/api/ark-image';
-          const canRetryArkProxy =
-            imageRequest.usesSeedream &&
-            imageRequest.url !== fallbackArkProxyUrl &&
-            typeof window !== 'undefined' &&
-            window.location.protocol.startsWith('http');
-          if (!canRetryArkProxy) {
-            throw new Error(
-              `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-            );
-          }
-          activeImageRequestUrl = fallbackArkProxyUrl;
-          response = await sendImageRequest(activeImageRequestUrl);
-        }
-
-        if (!response.ok) {
-          const errText = await response.text();
-          const shouldRetrySeedreamSize =
-            imageRequest.usesSeedream &&
-            /InvalidParameter|size|pixels/i.test(errText) &&
-            imageRequest.body.size !== SEEDREAM_DIMENSION_SIZE;
-
-          if (shouldRetrySeedreamSize) {
-            response = await fetch(activeImageRequestUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${imageApiKey.trim()}`,
-              },
-              body: JSON.stringify({
-                ...imageRequest.body,
-                size: SEEDREAM_DIMENSION_SIZE,
-              }),
-            });
-
-            if (response.ok) {
-              setImageSize(SEEDREAM_DIMENSION_SIZE);
-            } else {
-              const retryErrText = await response.text();
-              throw new Error(retryErrText || errText || `HTTP ${response.status}`);
-            }
-          } else {
-            throw new Error(errText || `HTTP ${response.status}`);
-          }
-        }
-
-        const result = await response.json();
-        const imageData = result?.data?.[0];
-        const imageSrc = imageData?.b64_json
-          ? `data:image/png;base64,${imageData.b64_json}`
-          : imageData?.url;
-
-        if (!imageSrc) {
-          throw new Error(
-            language === 'zh'
-              ? '图片 API 没有返回可用图片。'
-              : 'Image API returned no usable image.',
-          );
-        }
-
-        const currentHeight = (node.style?.height as number) || 200;
-        const currentWidth = (node.style?.width as number) || 280;
-        const previousImageUrl = node.data.imageUrl as string | undefined;
-        const nextHeight = Math.max(currentHeight, 260);
-
-        setNodes((nds) => {
-          const nextNodes = nds.map((n) => {
-            if (n.id !== id) return n;
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                imageUrl: imageSrc,
-                videoUrl: undefined,
-                objectFit: n.data.objectFit || 'cover',
-                showTextOverlay: true,
-                titleHeightAdded: showTitles,
-              },
-              style: {
-                ...n.style,
-                height: nextHeight,
-              },
-            };
-          });
-
-          if (!previousImageUrl) return nextNodes;
-
-          const extractedId = uuidv4();
-          const extractedNode: Node = {
-            id: extractedId,
-            type: 'storyNode',
-            position: {
-              x: node.position.x + currentWidth + 40,
-              y: node.position.y,
-            },
-            style: { width: currentWidth, height: currentHeight },
-            data: {
-              id: extractedId,
-              title: language === 'zh' ? '旧图片' : 'Previous Image',
-              shape: 'square',
-              color: '#ffffff',
-              text: '',
-              imageUrl: previousImageUrl,
-              objectFit: node.data.objectFit || 'cover',
-              showTextOverlay: false,
-              titleHeightAdded: showTitles,
-            },
-          };
-
-          return [...nextNodes, extractedNode];
-        });
-        showToast(
-          language === 'zh' ? '图片已生成到当前卡片' : 'Image generated into the current card',
-        );
-      } catch (error: any) {
-        console.error('Image generation failed:', error);
-        alert(
-          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
-        );
-      }
-    },
-    [
-      nodes,
-      edges,
-      imageApiKey,
-      imageApiUrl,
-      imageModel,
-      imageSize,
-      language,
-      setNodes,
-      showTitles,
-      showToast,
-    ],
-  );
-
-  const handleExtractMedia = useCallback(
-    (id: string) => {
-      const node = nodes.find((n) => n.id === id);
-      if (!node) return;
-
-      const extractedMedia: { url: string; type: string }[] = [];
-
-      // 1. 检查原生媒体属性
-      if (node.data.imageUrl)
-        extractedMedia.push({ url: node.data.imageUrl as string, type: 'image' });
-      if (node.data.videoUrl)
-        extractedMedia.push({ url: node.data.videoUrl as string, type: 'video' });
-      if (node.data.audioUrl)
-        extractedMedia.push({ url: node.data.audioUrl as string, type: 'audio' });
-
-      // 2. 检查文本中嵌入的媒体标签
-      const text = (node.data.text as string) || '';
-      const imgRegex = /<img[^>]+src="([^">]+)"/g;
-      const videoRegex = /<video[^>]+src="([^">]+)"/g;
-      let match;
-
-      while ((match = imgRegex.exec(text)) !== null) {
-        if (!extractedMedia.find((m) => m.url === match![1])) {
-          extractedMedia.push({ url: match[1], type: 'image' });
-        }
-      }
-      while ((match = videoRegex.exec(text)) !== null) {
-        if (!extractedMedia.find((m) => m.url === match![1])) {
-          extractedMedia.push({ url: match[1], type: 'video' });
-        }
-      }
-
-      if (extractedMedia.length === 0) return;
-
-      // 清理原节点内标签
-      const cleanText = text
-        .replace(/<img[^>]+>/g, '')
-        .replace(/<video[^>]+>.*?<\/video>/g, '')
-        .replace(/<video[^>]+>/g, '')
-        .trim();
-
-      handleUpdateNode(id, {
-        imageUrl: undefined,
-        videoUrl: undefined,
-        audioUrl: undefined,
-        showTextOverlay: false,
-        text: cleanText,
-        // 还原高度
-        style: { ...node.style, height: 200 },
-      });
-
-      // 创建新节点
-      const newNodes: Node[] = extractedMedia.map((media, index) => {
-        const newId = uuidv4();
-        const displayWidth = 300;
-        const displayHeight = 200;
-        return {
-          id: newId,
-          type: 'storyNode',
-          position: {
-            x: node.position.x + (index + 1) * 320,
-            y: node.position.y,
-          },
-          style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-          data: {
-            id: newId,
-            title: media.type === 'image' ? '提取图片' : '提取视频',
-            imageUrl: media.type === 'image' ? media.url : undefined,
-            videoUrl: media.type === 'video' ? media.url : undefined,
-            audioUrl: media.type === 'audio' ? media.url : undefined,
-            titleHeightAdded: showTitles,
-            showTitles,
-          },
-        };
-      });
-
-      setNodes((nds) => [...nds, ...newNodes]);
-    },
-    [nodes, showTitles, handleUpdateNode, setNodes],
-  );
+  const {
+    handleAddTextToImage,
+    handleRemoveTextFromImage,
+    handleGenerateSettingNodeImage,
+    handleGenerateStoryNodeImage,
+    handleExtractMedia,
+  } = useMediaActions({
+    nodes,
+    edges,
+    language,
+    imageApiKey,
+    imageApiUrl,
+    imageModel,
+    imageSize,
+    showTitles,
+    setImageSize,
+    setNodes,
+    showToast,
+  });
 
   const handleAddConnectedNode = useCallback(
     (sourceId: string, side: string) => {
@@ -3019,693 +999,33 @@ export function StoryEditor() {
     [setNodes, setEdges],
   );
 
-  const addNewShape = (shape: 'square' | 'diamond' | 'rounded-rectangle') => {
-    const center = getCenterPosition();
-    let newX = center.x - 150;
-    let newY = center.y - 100;
-
-    const isOccupied = (x: number, y: number, currentNodes: Node[]) => {
-      return currentNodes.some(
-        (n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50,
-      );
-    };
-
-    let attempts = 0;
-    while (isOccupied(newX, newY, nodes) && attempts < 10) {
-      newX += 320;
-      if (attempts > 3) newY += 220;
-      attempts++;
-    }
-
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'storyNode',
-      position: { x: newX, y: newY },
-      style: { width: 300, height: 200 },
-      data: {
-        id: newId,
-        title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',
-        shape,
-        color: '#ffffff',
-        text: '',
-      },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewBackground = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'backgroundNode',
-      position: { x: center.x - 300, y: center.y - 200 },
-      dragHandle: '.custom-drag-handle',
-      style: { width: 600, height: 400, zIndex: -1 },
-      data: { id: newId, title: '背景区域', color: '#f1f5f9' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewAIHub = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'aiNode',
-      position: { x: center.x - 128, y: center.y - 100 },
-      data: { id: newId, title: 'AI 剧情分析' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewTextNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'textNode',
-      position: { x: center.x - 100, y: center.y - 30 },
-      selected: true,
-      data: {
-        id: newId,
-        content: language === 'zh' ? '在此处输入文本?..' : 'Enter text here...',
-        fontSize: 24,
-        color: '#334155',
-        fontFamily: 'system-ui, sans-serif',
-        isBold: false,
-        initialEditing: true,
-      },
-      style: { width: 200, height: 60 },
-    };
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
-  };
-
-  const addNewSummaryNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'summaryNode',
-      position: { x: center.x - 175, y: center.y - 100 },
-      data: { id: newId },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewNumberConditionNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'numberConditionNode',
-      position: { x: center.x - 125, y: center.y - 100 },
-      data: { id: newId, threshold: 0 },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewBatchReplaceNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'batchReplaceNode',
-      position: { x: center.x - 160, y: center.y - 100 },
-      data: { id: newId },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewPlotStructureNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'plotStructureNode',
-      position: { x: center.x - 130, y: center.y - 100 },
-      data: { id: newId, cardCount: 3, detailLevel: 'standard', direction: '' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewCharacterNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'characterNode',
-      position: { x: center.x - 140, y: center.y - 150 },
-      data: { id: newId, characterName: '新角色', traits: '' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const addNewSceneNode = () => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'sceneNode',
-      position: { x: center.x - 140, y: center.y - 150 },
-      data: { id: newId, sceneName: language === 'zh' ? '新场景' : 'New Scene', description: '' },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
-
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const center = getCenterPosition();
-    const fileArray = Array.from(files);
-
-    // 使用 Promise.all 处理所有文件，确保顺序和状态同步
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      const url = URL.createObjectURL(file);
-      const newId = uuidv4();
-
-      let mediaData = {};
-      let title = language === 'zh' ? '媒体' : 'Media';
-
-      // NOTE: 根据媒体原始比例调整卡片尺寸
-      const { width, height } = await getMediaDimensions(url, file.type);
-      let displayWidth = 400;
-      let displayHeight = (height / width) * displayWidth;
-
-      // 限制高度不要太大
-      if (displayHeight > 500) {
-        displayHeight = 500;
-        displayWidth = (width / height) * displayHeight;
-      }
-
-      if (file.type.startsWith('image/')) {
-        mediaData = { imageUrl: url };
-        title = language === 'zh' ? '图片' : 'Image';
-      } else if (file.type.startsWith('video/')) {
-        mediaData = { videoUrl: url };
-        title = language === 'zh' ? '视频' : 'Video';
-      } else if (file.type.startsWith('audio/')) {
-        mediaData = { audioUrl: url };
-        title = language === 'zh' ? '音频' : 'Audio';
-        displayWidth = 300;
-        displayHeight = 150;
-      }
-
-      const newNode: Node = {
-        id: newId,
-        type: 'storyNode',
-        position: {
-          x: center.x - displayWidth / 2 + i * 30,
-          y: center.y - displayHeight / 2 + i * 30,
-        },
-        style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-        data: {
-          id: newId,
-          title: title,
-          shape: 'square',
-          color: '#ffffff',
-          text: '',
-          titleHeightAdded: showTitles,
-          ...mediaData,
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-    }
-
-    e.target.value = ''; // Reset input
-  };
-
-  const handleExportAll = () => {
-    const text = exportPaths(nodes as any, edges);
-    downloadText(text, 'all_endings.md');
-  };
-
-  const handleExportJSON = () => {
-    setShowSaveNameModal(true);
-  };
-
-  // Helper: Convert base64 to Blob
-  const base64ToBlob = (base64: string) => {
-    const parts = base64.split(';base64,');
-    if (parts.length !== 2) return null;
-    const contentType = parts[0].split(':')[1];
-    const byteCharacters = atob(parts[1]);
-    const byteArrays = [];
-    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-      const slice = byteCharacters.slice(offset, offset + 512);
-      const byteNumbers = new Array(slice.length);
-      for (let i = 0; i < slice.length; i++) {
-        byteNumbers[i] = slice.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
-    }
-    return new Blob(byteArrays, { type: contentType });
-  };
-
-  // Helper: Convert any URL (data: or blob:) to Blob
-  const urlToBlob = async (url: string) => {
-    if (!url) return null;
-    if (url.startsWith('data:')) return base64ToBlob(url);
-    if (url.startsWith('blob:')) {
-      try {
-        const resp = await fetch(url);
-        return await resp.blob();
-      } catch (e) {
-        console.error('Failed to fetch blob URL', e);
-        return null;
-      }
-    }
-    return null;
-  };
-
-  // Helper: Process HTML text to extract inline media
-  const processHtmlMedia = async (
-    html: string,
-    zip: JSZip,
-    assetsFolder: JSZip | null,
-    nodeId: string,
-  ) => {
-    if (!html) return html;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const elements = doc.querySelectorAll('img, video, source, audio');
-    let index = 0;
-
-    for (const el of Array.from(elements)) {
-      const src = el.getAttribute('src');
-      if (src && (src.startsWith('data:') || src.startsWith('blob:'))) {
-        const blob = await urlToBlob(src);
-        if (blob) {
-          const type = blob.type.split('/')[0];
-          const ext = blob.type.split('/')[1] || 'bin';
-          const fileName = `inline_${nodeId}_${type}_${index++}.${ext}`;
-          assetsFolder?.file(fileName, blob);
-          el.setAttribute('src', `assets/${fileName}`);
-        }
-      }
-    }
-    return doc.body.innerHTML;
-  };
-
-  // Helper: Restore HTML text inline media from ZIP
-  const restoreHtmlMedia = async (html: string, zip: JSZip | null) => {
-    if (!html || !zip) return html;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const elements = doc.querySelectorAll('img, video, source, audio');
-
-    for (const el of Array.from(elements)) {
-      const src = el.getAttribute('src');
-      if (src && src.startsWith('assets/')) {
-        const assetFile = zip.file(src);
-        if (assetFile) {
-          const blob = await assetFile.async('blob');
-          el.setAttribute('src', URL.createObjectURL(blob));
-        }
-      }
-    }
-    return doc.body.innerHTML;
-  };
-
-  const confirmExportZIP = async () => {
-    try {
-      const zip = new JSZip();
-      const projectData = JSON.parse(getProjectSnapshot());
-      const assetsFolder = zip.folder('assets');
-
-      // Process nodes to extract media
-      const processedNodes = await Promise.all(
-        projectData.nodes.map(async (node: any) => {
-          const newNode = { ...node, data: { ...node.data } };
-          const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
-
-          for (const field of mediaFields) {
-            const value = newNode.data[field];
-            if (value && (value.startsWith('data:') || value.startsWith('blob:'))) {
-              const blob = await urlToBlob(value);
-              if (blob) {
-                const extension = blob.type.split('/')[1] || 'bin';
-                const fileName = `media_${node.id}_${field}.${extension}`;
-                assetsFolder?.file(fileName, blob);
-                newNode.data[field] = `assets/${fileName}`;
-              }
-            }
-          }
-
-          // 2. Process inline media in HTML text
-          if (newNode.data.text) {
-            newNode.data.text = await processHtmlMedia(
-              newNode.data.text,
-              zip,
-              assetsFolder,
-              node.id,
-            );
-          }
-          if (newNode.data.content) {
-            newNode.data.content = await processHtmlMedia(
-              newNode.data.content,
-              zip,
-              assetsFolder,
-              node.id,
-            );
-          }
-
-          return newNode;
-        }),
-      );
-
-      projectData.nodes = processedNodes;
-      zip.file('project.json', JSON.stringify(projectData, null, 2));
-
-      const content = await zip.generateAsync({ type: 'blob' });
-      const fileName = saveFileName.endsWith('.zip') ? saveFileName : `${saveFileName}.zip`;
-
-      const url = URL.createObjectURL(content);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      lastSavedSnapshot.current = JSON.stringify(projectData);
-      setIsDirty(false);
-      setShowSaveNameModal(false);
-
-      // 手动保存成功后清除自动保存缓存
-      await clearAutoSave();
-
-      showToast(language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP');
-    } catch (error: any) {
-      console.error('Export failed:', error);
-      alert(language === 'zh' ? `导出失败: ${error.message}` : `Export failed: ${error.message}`);
-    }
-  };
-
-  // Keep confirmExportJSON for backward compatibility or rename it
-  const confirmExportJSON = confirmExportZIP;
-
-  // NOTE: 批量操作逻辑 - 动态包裹（新设计）
-  const wrapWithDynamicGroup = useCallback(() => {
-    const selected = nodes.filter(
-      (n) => n.selected && n.type !== 'backgroundNode' && n.type !== 'groupNode',
-    );
-    if (selected.length === 0) return;
-
-    const childIds = selected.map((n) => n.id);
-    const newId = uuidv4();
-
-    // 初始位置和大小由后续useEffect 自动计算，这里给个大
-    const newNode: Node = {
-      id: newId,
-      type: 'groupNode',
-      position: { x: 0, y: 0 },
-      selectable: true,
-      draggable: true,
-      data: { id: newId, title: t.dynamicWrap, color: '#6366f1', childIds },
-      style: { width: 100, height: 100, zIndex: -2 },
-    };
-
-    setNodes((nds) => [
-      ...nds.map((n) => ({ ...n, selected: false })),
-      { ...newNode, selected: true },
-    ]);
-  }, [nodes, setNodes, t.dynamicWrap]);
-
-  // NOTE: 批量操作逻辑 - 静态背景卡片（取代原逻辑）
-  const wrapSelectedWithBackground = useCallback(() => {
-    const selected = nodes.filter((n) => n.selected);
-    if (selected.length === 0) return;
-
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    selected.forEach((n) => {
-      const { x, y } = n.position;
-      const w = n.measured?.width || 300;
-      const h = n.measured?.height || 200;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + w);
-      maxY = Math.max(maxY, y + h);
-    });
-
-    const padding = 60;
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'backgroundNode',
-      position: { x: minX - padding, y: minY - padding },
-      dragHandle: '.custom-drag-handle',
-      style: { width: maxX - minX + padding * 2, height: maxY - minY + padding * 2, zIndex: -3 },
-      data: { id: newId, title: t.bgCard, color: '#f1f5f9' },
-    };
-
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
-  }, [nodes, setNodes, t.bgCard]);
-
-  const connectSelectedToAIHub = useCallback(() => {
-    const selected = nodes.filter((n) => n.selected && n.type !== 'backgroundNode');
-    if (selected.length === 0) return;
-
-    let maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    selected.forEach((n) => {
-      const { x, y } = n.position;
-      const w = n.measured?.width || 300;
-      const h = n.measured?.height || 200;
-      maxX = Math.max(maxX, x + w);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y + h);
-    });
-
-    const newId = uuidv4();
-    const hubX = maxX + 150;
-    const hubY = minY + (maxY - minY) / 2 - 50;
-
-    const newNode: Node = {
-      id: newId,
-      type: 'aiNode',
-      position: { x: hubX, y: hubY },
-      data: {
-        id: newId,
-        title: 'AI 汇总分析',
-      },
-      style: { width: 220, height: 100 },
-    };
-
-    const newEdges = selected.map((n) => ({
-      id: `e-${n.id}-${newId}`,
-      source: n.id,
-      target: newId,
-      type: 'customEdge',
-    }));
-
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
-    setEdges((eds) => [...eds, ...newEdges]);
-  }, [nodes, setNodes, setEdges]);
-
-  const connectSelectedToSummaryNode = useCallback(() => {
-    const selected = nodes.filter(
-      (n) => n.selected && n.type !== 'backgroundNode' && n.type !== 'summaryNode',
-    );
-    if (selected.length === 0) return;
-
-    let maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    selected.forEach((n) => {
-      const { x, y } = n.position;
-      const w = n.measured?.width || 300;
-      const h = n.measured?.height || 200;
-      maxX = Math.max(maxX, x + w);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y + h);
-    });
-
-    const newId = uuidv4();
-    const hubX = maxX + 150;
-    const hubY = minY + (maxY - minY) / 2 - 125;
-
-    const newNode: Node = {
-      id: newId,
-      type: 'summaryNode',
-      position: { x: hubX, y: hubY },
-      data: { id: newId },
-    };
-
-    const newEdges = selected.map((n) => ({
-      id: `e-${n.id}-${newId}`,
-      source: n.id,
-      target: newId,
-      type: 'customEdge',
-    }));
-
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
-    setEdges((eds) => [...eds, ...newEdges]);
-  }, [nodes, setNodes, setEdges]);
-
-  const handleImportZIP = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (isDirty) {
-      if (!window.confirm('当前项目有未保存的更改，导入新文件将覆盖当前内容。确定要继续吗？')) {
-        e.target.value = '';
-        return;
-      }
-    }
-
-    try {
-      let data: any;
-      let zip: JSZip | null = null;
-
-      if (file.name.endsWith('.json')) {
-        // Legacy JSON support
-        const text = await file.text();
-        data = JSON.parse(text);
-      } else {
-        // New ZIP support
-        zip = await JSZip.loadAsync(file);
-        const projectJsonFile = zip.file('project.json');
-        if (!projectJsonFile) throw new Error('Invalid project: project.json not found');
-        const projectJsonStr = await projectJsonFile.async('string');
-        data = JSON.parse(projectJsonStr);
-      }
-
-      if (data.nodes && data.edges) {
-        // Restore media URLs
-        const restoredNodes = await Promise.all(
-          data.nodes.map(async (node: any) => {
-            const newNode = {
-              ...node,
-              data: { ...node.data },
-              dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
-            };
-
-            const mediaFields = ['imageUrl', 'videoUrl', 'audioUrl'];
-            for (const field of mediaFields) {
-              const value = newNode.data[field];
-              if (value && value.startsWith('assets/') && zip) {
-                const assetFile = zip.file(value);
-                if (assetFile) {
-                  const blob = await assetFile.async('blob');
-                  newNode.data[field] = URL.createObjectURL(blob);
-                }
-              }
-            }
-
-            // 2. Restore inline media in HTML text
-            if (newNode.data.text) {
-              newNode.data.text = await restoreHtmlMedia(newNode.data.text, zip);
-            }
-            if (newNode.data.content) {
-              newNode.data.content = await restoreHtmlMedia(newNode.data.content, zip);
-            }
-
-            return newNode;
-          }),
-        );
-
-        setNodes(restoredNodes);
-        const restoredEdges = data.edges.map((edge: any) => ({
-          ...edge,
-          type: 'customEdge',
-          markerEnd: defaultEdgeOptions.markerEnd,
-          style: defaultEdgeOptions.style,
-        }));
-        setEdges(restoredEdges);
-
-        // Apply settings
-        if (data.settings) {
-          if (data.settings.canvasBg) setCanvasBg(data.settings.canvasBg);
-          if (data.settings.edgeStyle) setEdgeStyle(data.settings.edgeStyle);
-          if (data.settings.customApiKey) setCustomApiKey(data.settings.customApiKey);
-          if (data.settings.pasteAsPlainText !== undefined)
-            setPasteAsPlainText(data.settings.pasteAsPlainText);
-          if (data.settings.showNodeActions !== undefined)
-            setShowNodeActions(data.settings.showNodeActions);
-          if (data.settings.showStats !== undefined) setShowStats(data.settings.showStats);
-          if (data.settings.presetColors) setPresetColors(data.settings.presetColors);
-          if (data.settings.showTitles !== undefined) setShowTitles(data.settings.showTitles);
-          if (data.settings.generateLength) setGenerateLength(data.settings.generateLength);
-          if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
-          if (data.settings.deepseekApiKey) setDeepseekApiKey(data.settings.deepseekApiKey);
-          if (data.settings.openaiApiKey) setOpenaiApiKey(data.settings.openaiApiKey);
-          if (data.settings.imageApiKey) setImageApiKey(data.settings.imageApiKey);
-          if (data.settings.imageApiUrl) setImageApiUrl(data.settings.imageApiUrl);
-          if (data.settings.imageModel) setImageModel(data.settings.imageModel);
-          if (data.settings.imageSize) setImageSize(data.settings.imageSize);
-          if (data.settings.ttsApiKey) setTtsApiKey(data.settings.ttsApiKey);
-          if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
-          if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
-          if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
-          if (data.settings.ttsProvider === 'system' || data.settings.ttsProvider === 'youdao')
-            setTtsProvider(data.settings.ttsProvider);
-          if (data.settings.thinkingMode !== undefined) setThinkingMode(data.settings.thinkingMode);
-          if (data.settings.aiPrompts)
-            setAiPrompts({ ...defaultAIPrompts, ...data.settings.aiPrompts });
-          if (data.settings.aiButtonsConfig)
-            setAiButtonsConfig({ ...defaultAIButtonsConfig, ...data.settings.aiButtonsConfig });
-          if (data.settings.showMiniMap !== undefined) setShowMiniMap(data.settings.showMiniMap);
-          if (data.settings.miniMapPosition === 'left' || data.settings.miniMapPosition === 'right')
-            setMiniMapPosition(data.settings.miniMapPosition);
-          if (data.settings.showControls !== undefined) setShowControls(data.settings.showControls);
-          if (typeof data.settings.projectTitle === 'string')
-            setProjectTitle(data.settings.projectTitle);
-          if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-          if (
-            data.settings.toolbarLayout === 'horizontal' ||
-            data.settings.toolbarLayout === 'vertical'
-          )
-            setToolbarLayout(data.settings.toolbarLayout);
-          if (data.settings.selectionMenuLayout)
-            setSelectionMenuLayout(data.settings.selectionMenuLayout);
-          if (data.settings.language) setLanguage(data.settings.language);
-          if (data.settings.theme) setTheme(data.settings.theme);
-          if (data.settings.bubbleStyle === 'glass' || data.settings.bubbleStyle === 'flat')
-            setBubbleStyle(data.settings.bubbleStyle);
-          if (data.settings.playTestDarkMode !== undefined)
-            setPlayTestDarkMode(data.settings.playTestDarkMode);
-          if (data.settings.playTestChoicesColumns !== undefined)
-            setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
-          if (data.settings.playTestVideoAutoPlay !== undefined)
-            setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
-          if (data.settings.playTestLayoutMode)
-            setPlayTestLayoutMode(data.settings.playTestLayoutMode);
-
-          if (data.settings.playTestInteractionMode)
-            setPlayTestInteractionMode(data.settings.playTestInteractionMode);
-          if (data.settings.playTestTypewriterSpeed !== undefined)
-            setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
-          if (data.settings.playTestChoiceDelay !== undefined)
-            setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
-          if (data.settings.playTestChoicesPosition)
-            setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
-          if (data.settings.playTestBlurBackground !== undefined)
-            setPlayTestBlurBackground(data.settings.playTestBlurBackground);
-          if (data.settings.playTestBlurText !== undefined)
-            setPlayTestBlurText(data.settings.playTestBlurText);
-          if (data.settings.playTestSkipSingleChoicePopup !== undefined)
-            setPlayTestSkipSingleChoicePopup(data.settings.playTestSkipSingleChoicePopup);
-          if (data.settings.playTestDimBackground !== undefined)
-            setPlayTestDimBackground(data.settings.playTestDimBackground);
-        }
-
-        lastSavedSnapshot.current = JSON.stringify(data);
-        setIsDirty(false);
-      }
-    } catch (error) {
-      console.error('Import failed:', error);
-      alert('Failed to load project. The file is corrupted or invalid.');
-    }
-    e.target.value = '';
-  };
+  const {
+    addNewShape,
+    addNewTextNode,
+    addNewSummaryNode,
+    addNewNumberConditionNode,
+    addNewBatchReplaceNode,
+    addNewPlotStructureNode,
+    addNewCharacterNode,
+    addNewSceneNode,
+    handleMediaUpload,
+    handleExportJSON,
+    wrapWithDynamicGroup,
+    wrapSelectedWithBackground,
+    connectSelectedToSummaryNode,
+  } = useNodeActions({
+    nodes,
+    language,
+    showTitles,
+    titleHeight: TITLE_HEIGHT,
+    getCenterPosition,
+    getMediaDimensions,
+    setNodes,
+    setEdges,
+    setShowSaveNameModal,
+    dynamicWrapTitle: t.dynamicWrap,
+    backgroundCardTitle: t.bgCard,
+  });
 
   const handleEdgeDelete = useCallback(
     (edgeId: string) => {
@@ -3771,301 +1091,23 @@ export function StoryEditor() {
     [nodes, edges, highlightedPath, language, showToast],
   );
 
-  const unhideAllNodes = useCallback(() => {
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, hidden: false },
-      })),
-    );
-    showToast(language === 'zh' ? '已恢复所有隐藏卡片' : 'All cards restored');
-  }, [setNodes, language, showToast]);
-
-  // NOTE: 获取人物设定上下文
-  const buildCharacterContext = useCallback(
-    (nodeId: string): string => {
-      const globalCharacters = nodes.filter(
-        (n) => n.type === 'characterNode' && n.data?.isGlobal !== false,
-      );
-
-      const pathNodes = new Set<string>();
-      let currentId: string | null = nodeId;
-      while (currentId && !pathNodes.has(currentId)) {
-        pathNodes.add(currentId);
-        const incomingEdge = edges.find((e) => e.target === currentId);
-        currentId = incomingEdge ? incomingEdge.source : null;
-      }
-
-      const linkedCharacters = nodes.filter(
-        (n) =>
-          n.type === 'characterNode' &&
-          n.data?.isGlobal === false &&
-          edges.some((e) => e.source === n.id && pathNodes.has(e.target)),
-      );
-
-      const activeChars = Array.from(new Set([...globalCharacters, ...linkedCharacters]));
-      if (activeChars.length === 0) return '';
-
-      return (
-        '\n【已知角色设定】\n' +
-        activeChars
-          .map(
-            (c) =>
-              `角色：${c.data.characterName || '未命名'}\n设定：${formatCharacterNodeText(c.data as Record<string, unknown>)}`,
-          )
-          .join('\n---\n') +
-        '\n'
-      );
-    },
-    [nodes, edges],
-  );
-
-  // NOTE: 获取场景设定上下文
-  const buildSceneContext = useCallback(
-    (nodeId: string): string => {
-      const globalScenes = nodes.filter(
-        (n) => n.type === 'sceneNode' && n.data?.isGlobal !== false,
-      );
-
-      const pathNodes = new Set<string>();
-      let currentId: string | null = nodeId;
-      while (currentId && !pathNodes.has(currentId)) {
-        pathNodes.add(currentId);
-        const incomingEdge = edges.find((e) => e.target === currentId);
-        currentId = incomingEdge ? incomingEdge.source : null;
-      }
-
-      const linkedScenes = nodes.filter(
-        (n) =>
-          n.type === 'sceneNode' &&
-          n.data?.isGlobal === false &&
-          edges.some((e) => e.source === n.id && pathNodes.has(e.target)),
-      );
-
-      const activeScenes = Array.from(new Set([...globalScenes, ...linkedScenes]));
-      if (activeScenes.length === 0) return '';
-
-      return (
-        '\n【已知场景设定】\n' +
-        activeScenes
-          .map(
-            (s) =>
-              `场景：${s.data.sceneName || '未命名'}\n设定：${formatSceneNodeText(s.data as Record<string, unknown>)}`,
-          )
-          .join('\n---\n') +
-        '\n'
-      );
-    },
-    [nodes, edges],
-  );
-
-  // NOTE: 构建前文上下文，沿边向上追溯父节点文本
-  const buildContextText = useCallback(
-    (nodeId: string): string => {
-      let currentId: string | null = nodeId;
-      const pathHistory: string[] = [];
-      const visited = new Set<string>();
-      while (currentId && !visited.has(currentId)) {
-        visited.add(currentId);
-        const incomingEdge = edges.find((e) => e.target === currentId);
-        const parentNode = incomingEdge ? nodes.find((n) => n.id === incomingEdge.source) : null;
-        if (parentNode && parentNode.type === 'storyNode') {
-          const label = incomingEdge?.data?.label ? `[选择: ${incomingEdge.data.label}]` : '';
-          pathHistory.unshift(`${parentNode.data.text} ${label}`);
-        }
-        currentId = parentNode ? parentNode.id : null;
-      }
-      return pathHistory.join('\n\n');
-    },
-    [nodes, edges],
-  );
-
-  // NOTE: 根据 action 类型生成不同的中文提示词
-  const buildPrompt = useCallback(
-    (
-      action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only',
-      contextText: string,
-      currentText: string,
-      nextText?: string,
-    ): string => {
-      const base = aiPrompts.basePrompt
-        .replace('{{contextText}}', contextText || '')
-        .replace('{{currentText}}', currentText || '');
-
-      let specificPrompt = '';
-      if (action === 'continue') specificPrompt = aiPrompts.continue;
-      else if (action === 'creative') specificPrompt = aiPrompts.creative;
-      else if (action === 'rewrite') specificPrompt = aiPrompts.rewrite;
-      else if (action === 'scene_only') specificPrompt = aiPrompts.sceneOnly;
-      else if (action === 'dialogue_only') specificPrompt = aiPrompts.dialogueOnly;
-      else if (action === 'interpolate') {
-        specificPrompt = aiPrompts.interpolate
-          .replace('{{contextText}}', contextText || '')
-          .replace('{{currentText}}', currentText || '')
-          .replace('{{nextText}}', nextText || '');
-        return specificPrompt.replace('{{generateLength}}', generateLength);
-      }
-
-      return base + specificPrompt.replace('{{generateLength}}', generateLength);
-    },
-    [aiPrompts, generateLength],
-  );
-
   // NOTE: 用户点击AI按钮时先弹出选项弹窗
   const handleAIButtonClick = useCallback((nodeId: string) => {
     setPendingAINodeId(nodeId);
     setShowAIActionModal(true);
   }, []);
 
-  // NOTE: 调用后端 PHP 代理接口
-  const callAIProxy = async (
-    provider: 'gemini' | 'deepseek' | 'openai',
-    prompt: string,
-    options: any,
-  ) => {
-    let response;
-    try {
-      response = await fetch('./api/proxy.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, prompt, options }),
-      });
-    } catch (e) {
-      throw new Error('无法连接到代理接口，请检查PHP 后端是否已正确部署并运行');
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (e) {
-      throw new Error(
-        `代理接口返回了无效格式(HTTP ${response.status})。请检查?./api/proxy.php 是否存在。`,
-      );
-    }
-
-    if (!response.ok || data.error) {
-      throw new Error(data.error || `代理接口请求失败(HTTP ${response.status})`);
-    }
-    return data;
-  };
-
-  // NOTE: 用户在弹窗中选择操作后执行AI生成
   const handleAIGenerate = useCallback(
     async (
       nodeId: string,
       action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only',
     ) => {
-      const targetNode = nodes.find((n) => n.id === nodeId);
-      if (!targetNode) return;
-
       setShowAIActionModal(false);
       setPendingAINodeId(null);
       setAiLoadingNodeId(nodeId);
 
       try {
-        const contextText = buildContextText(nodeId);
-        const charContext = buildCharacterContext(nodeId);
-        const sceneContext = buildSceneContext(nodeId);
-        const currentText = ((targetNode.data.text as string) || '').trim();
-
-        let nextText = '';
-        if (action === 'interpolate') {
-          const outgoingEdges = edges.filter((e) => e.source === nodeId);
-          const children = outgoingEdges
-            .map((e) => nodes.find((n) => n.id === e.target))
-            .filter(Boolean);
-          nextText = children.map((c) => c?.data.text).join('\n\n---\n\n');
-        }
-
-        // Inject character & scene context into contextText
-        const settingContext = [charContext, sceneContext].filter(Boolean).join('\n');
-        const finalContextText = settingContext
-          ? `${settingContext}\n\n${contextText}`
-          : contextText;
-        const prompt = buildPrompt(action, finalContextText, currentText, nextText);
-
-        let newText = '';
-
-        if (aiProvider === 'deepseek') {
-          const key = deepseekApiKey;
-          if (key && key.trim() !== '') {
-            // 用户提供了自己的 Key，直接调用
-            const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-            const response = await fetch('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                stream: false,
-              }),
-            });
-            if (!response.ok) {
-              const errText = await response.text();
-              throw new Error(`DeepSeek API 错误: ${errText}`);
-            }
-            const data = await response.json();
-            const choice = data.choices?.[0];
-            const reasoning: string | null = choice?.message?.reasoning_content || null;
-            newText = choice?.message?.content || '';
-
-            if (thinkingMode && reasoning) {
-              setThinkingContent(reasoning);
-              setTimeout(() => setThinkingContent(null), 8000);
-            }
-          } else {
-            // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
-            const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-            newText = data.content;
-            if (thinkingMode && data.reasoning) {
-              setThinkingContent(data.reasoning);
-              setTimeout(() => setThinkingContent(null), 8000);
-            }
-          }
-        } else if (aiProvider === 'openai') {
-          const key = openaiApiKey;
-          if (key && key.trim() !== '') {
-            const model = 'gpt-4o';
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                stream: false,
-              }),
-            });
-            if (!response.ok) {
-              const errText = await response.text();
-              throw new Error(`OpenAI API 错误: ${errText}`);
-            }
-            const data = await response.json();
-            newText = data.choices?.[0]?.message?.content || '';
-          } else {
-            const data = await callAIProxy('openai', prompt, {});
-            newText = data.content;
-          }
-        } else {
-          // Gemini
-          const key = customApiKey;
-          if (key && key.trim() !== '') {
-            // 用户提供了自己的 Key，直接调用
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey: key });
-            const response = await ai.models.generateContent({
-              model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-              contents: prompt,
-            });
-            newText = response.text || '';
-          } else {
-            // 使用管理员代理(密钥存储在服务器的php-backend/api/config.php)
-            const data = await callAIProxy('gemini', prompt, { thinkingMode });
-            newText = data.content;
-          }
-        }
-
-        const updatedText = currentText ? `${currentText}\n\n${newText}` : newText;
-        handleUpdateNode(nodeId, { text: updatedText });
+        await runAIGenerate(nodeId, action);
       } catch (error: any) {
         console.error('AI Generation failed:', error);
         alert(`AI 生成失败: ${error.message || '请检查API 密钥和网络连接'}`);
@@ -4073,104 +1115,7 @@ export function StoryEditor() {
         setAiLoadingNodeId(null);
       }
     },
-    [
-      nodes,
-      edges,
-      aiProvider,
-      deepseekApiKey,
-      customApiKey,
-      openaiApiKey,
-      thinkingMode,
-      buildContextText,
-      buildCharacterContext,
-      buildSceneContext,
-      handleUpdateNode,
-      buildPrompt,
-    ],
-  );
-
-  const callAIForTextResult = useCallback(
-    async (prompt: string): Promise<AITextResult> => {
-      if (aiProvider === 'deepseek') {
-        const key = deepseekApiKey;
-        if (key && key.trim() !== '') {
-          const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-          const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-          if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`DeepSeek API 错误: ${errText}`);
-          }
-          const data = await response.json();
-          const choice = data.choices?.[0];
-          return {
-            content: choice?.message?.content || '',
-            reasoning: thinkingMode ? choice?.message?.reasoning_content : undefined,
-          };
-        }
-        const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-        return {
-          content: data.content || '',
-          reasoning: thinkingMode ? data.reasoning : undefined,
-        };
-      }
-
-      if (aiProvider === 'openai') {
-        const key = openaiApiKey;
-        if (key && key.trim() !== '') {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-          if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`OpenAI API 错误: ${errText}`);
-          }
-          const data = await response.json();
-          return { content: data.choices?.[0]?.message?.content || '' };
-        }
-        const data = await callAIProxy('openai', prompt, {});
-        return { content: data.content || '' };
-      }
-
-      const key = customApiKey;
-      if (key && key.trim() !== '') {
-        const { GoogleGenAI } = await import('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: key });
-        const response = await ai.models.generateContent({
-          model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-          contents: prompt,
-        });
-        return { content: response.text || '' };
-      }
-      const data = await callAIProxy('gemini', prompt, { thinkingMode });
-      return { content: data.content || '', reasoning: thinkingMode ? data.reasoning : undefined };
-    },
-    [aiProvider, deepseekApiKey, openaiApiKey, customApiKey, thinkingMode],
-  );
-
-  const callAIForText = useCallback(
-    async (prompt: string): Promise<string> => {
-      const result = await callAIForTextResult(prompt);
-      if (thinkingMode && result.reasoning) {
-        setThinkingContent(result.reasoning);
-        setTimeout(() => setThinkingContent(null), 8000);
-      }
-      return result.content;
-    },
-    [callAIForTextResult, thinkingMode],
+    [runAIGenerate],
   );
 
   const createAssistantCards = useCallback(
@@ -4451,209 +1396,107 @@ export function StoryEditor() {
     [nodes, setNodes, setEdges, getCenterPosition, language],
   );
 
-  const playAssistantThought = useCallback(
-    (reasoning?: string) => {
-      const text = (reasoning || '').trim();
-      if (!text) return Promise.resolve();
+  const {
+    assistantOpen,
+    setAssistantOpen,
+    assistantPanelWidth,
+    assistantInput,
+    setAssistantInput,
+    assistantLoading,
+    assistantListening,
+    assistantTasks,
+    activeAssistantTaskId,
+    setActiveAssistantTaskId,
+    assistantMessages,
+    assistantMessagesRef,
+    handleNewAssistantTask,
+    handleCloseAssistantTask,
+    handleAssistantSend,
+    handleAssistantVoiceInput,
+    toggleAssistantThought,
+    handleAssistantResizePointerDown,
+    handleAssistantResizePointerMove,
+    handleAssistantResizePointerUp,
+  } = useAssistantPanel({
+    language,
+    isMobile,
+    flowWidth,
+    selectedAssistantTargetNodes,
+    nodes,
+    callAIForTextResult,
+    createAssistantCards,
+  });
 
-      if (assistantThoughtTimerRef.current !== null) {
-        window.clearInterval(assistantThoughtTimerRef.current);
-        assistantThoughtTimerRef.current = null;
-      }
-
-      const thoughtId = uuidv4();
-      setAssistantMessages((messages) => [
-        ...messages,
-        { id: thoughtId, role: 'thought', content: '', collapsed: false },
-      ]);
-
-      return new Promise<void>((resolve) => {
-        let index = 0;
-        assistantThoughtTimerRef.current = window.setInterval(() => {
-          index += 1;
-          const nextContent = text.slice(0, index);
-          setAssistantMessages((messages) =>
-            messages.map((message) =>
-              message.id === thoughtId
-                ? { ...message, content: nextContent, collapsed: false }
-                : message,
-            ),
-          );
-
-          if (index >= text.length) {
-            if (assistantThoughtTimerRef.current !== null) {
-              window.clearInterval(assistantThoughtTimerRef.current);
-              assistantThoughtTimerRef.current = null;
-            }
-            window.setTimeout(() => {
-              setAssistantMessages((messages) =>
-                messages.map((message) =>
-                  message.id === thoughtId ? { ...message, collapsed: true } : message,
-                ),
-              );
-              resolve();
-            }, 500);
-          }
-        }, 18);
-      });
-    },
-    [setAssistantMessages],
-  );
-
-  const toggleAssistantThought = useCallback(
-    (messageId: string) => {
-      setAssistantMessages((messages) =>
-        messages.map((message) =>
-          message.id === messageId ? { ...message, collapsed: !message.collapsed } : message,
-        ),
-      );
-    },
-    [setAssistantMessages],
-  );
-
-  const handleAssistantSend = useCallback(
-    async (overrideText?: string) => {
-      const userText = (overrideText ?? assistantInput).trim();
-      if (!userText || assistantLoading) return;
-
-      setAssistantInput('');
-      setAssistantLoading(true);
-      const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
-      setAssistantMessages((messages) => [...messages, userMessage]);
-
-      const describeAssistantNode = (node: Node, index: number) => {
-        if (node.type === 'characterNode') {
-          return `#${index + 1} [character] ${String(node.data?.characterName || 'Unnamed Character')}\n${formatCharacterNodeText(node.data as Record<string, unknown>)}`;
-        }
-        if (node.type === 'sceneNode') {
-          return `#${index + 1} [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}\n${formatSceneNodeText(node.data as Record<string, unknown>)}`;
-        }
-        return `#${index + 1} [story] ${String(node.data?.title || 'Untitled')}\n${htmlToSpeechText(String(node.data?.text || ''))}`;
-      };
-
-      const selectedContext = selectedAssistantTargetNodes
-        .map((node, index) => describeAssistantNode(node, index))
-        .join('\n\n---\n\n');
-      const canvasContext = nodes
-        .filter(
-          (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
-        )
-        .slice(0, 20)
-        .map((node, index) => {
-          if (node.type === 'characterNode') {
-            return `${index + 1}. [character] ${String(node.data?.characterName || 'Unnamed Character')}: ${formatCharacterNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
-          }
-          if (node.type === 'sceneNode') {
-            return `${index + 1}. [scene] ${String(node.data?.sceneName || 'Unnamed Scene')}: ${formatSceneNodeText(node.data as Record<string, unknown>).slice(0, 240)}`;
-          }
-          return `${index + 1}. [story] ${String(node.data?.title || 'Untitled')}: ${htmlToSpeechText(String(node.data?.text || '')).slice(0, 240)}`;
-        })
-        .join('\n');
-      const wantsCards =
-        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
-          userText,
-        );
-      const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
-
-      const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
-请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
-
-必须只返回 JSON，不要使用 Markdown 代码块：
-{
-  "reply": "给用户看的中文回复，说明思路和你做了什么",
-  "cards": [
-    {"type": "story", "title": "剧情卡片标题", "text": "剧情卡片正文"},
-    {"type": "character", "characterName": "人物名", "traits": "综合设定", "personality": "性格", "features": "人物特点", "background": "人物背景", "other": "其他设定"},
-    {"type": "scene", "sceneName": "场景名", "description": "综合描述", "location": "位置描写", "items": "场景物品", "atmosphere": "氛围环境", "other": "其他设定"}
-  ],
-  "mode": "append" 或 "fill-selected"
-}
-
-当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
-
-用户请求：
-${userText}
-
-选中卡片：
-${selectedContext || '无'}
-
-画布摘要：
-${canvasContext || '无'}`;
-
-      try {
-        const aiResult = await callAIForTextResult(prompt);
-        await playAssistantThought(aiResult.reasoning);
-        const raw = aiResult.content;
-        const jsonText = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
-        let parsed: {
-          reply?: string;
-          cards?: AssistantCardDraft[];
-          mode?: 'append' | 'fill-selected';
-        };
-        try {
-          parsed = JSON.parse(jsonText);
-        } catch {
-          parsed = { reply: raw, cards: [] };
-        }
-
-        const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
-        const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
-        const shouldPlaceCards = wantsCards || cards.length > 0;
-        const placedCount = shouldPlaceCards ? createAssistantCards(cards, mode) : 0;
-        const actionText = placedCount > 0 ? `\n\n已在画布上处理 ${placedCount} 张卡片。` : '';
-        const assistantMessage: AssistantMessage = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: `${parsed.reply || raw}${actionText}`,
-        };
-        setAssistantMessages((messages) => [...messages, assistantMessage]);
-      } catch (error: any) {
-        console.error('AI Assistant failed:', error);
-        setAssistantMessages((messages) => [
-          ...messages,
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`,
-          },
-        ]);
-      } finally {
-        setAssistantLoading(false);
-      }
-    },
-    [
-      assistantInput,
-      assistantLoading,
-      selectedAssistantTargetNodes,
-      nodes,
-      callAIForTextResult,
-      playAssistantThought,
-      createAssistantCards,
-      setAssistantMessages,
-    ],
-  );
-
-  const handleAssistantVoiceInput = useCallback(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('当前浏览器不支持语音输入。');
-      return;
+  const footerHint = useMemo(() => {
+    if (assistantOpen) {
+      return language === 'zh'
+        ? 'AI 生成内容仅供参考，请结合自己的剧情判断使用。'
+        : 'AI-generated content is for reference only; review it against your own story. Save important settings and project work regularly to avoid losing changes.';
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === 'zh' ? 'zh-CN' : 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onstart = () => setAssistantListening(true);
-    recognition.onend = () => setAssistantListening(false);
-    recognition.onerror = () => setAssistantListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript || '';
-      if (transcript) setAssistantInput((value) => (value ? `${value} ${transcript}` : transcript));
-    };
-    recognition.start();
-  }, [language]);
+    const selectedType =
+      selectedNodes.length === 1
+        ? selectedNodes[0].type
+        : selectedNodes.length > 1
+          ? 'multi'
+          : 'default';
+    const hints: Record<string, string> =
+      language === 'zh'
+        ? {
+            storyNode:
+              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
+            characterNode:
+              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
+            sceneNode:
+              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
+            plotStructureNode:
+              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+            summaryNode:
+              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
+            batchReplaceNode:
+              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
+            numberConditionNode:
+              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
+            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
+            backgroundNode:
+              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
+            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
+            aiNode:
+              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
+            multi:
+              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
+            default: t.footerHint,
+          }
+        : {
+            storyNode:
+              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
+            characterNode:
+              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
+            sceneNode:
+              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
+            plotStructureNode:
+              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+            summaryNode:
+              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
+            batchReplaceNode:
+              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
+            numberConditionNode:
+              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
+            textNode:
+              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
+            backgroundNode:
+              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
+            groupNode:
+              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
+            aiNode:
+              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
+            multi:
+              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
+            default: t.footerHint,
+          };
+
+    return hints[selectedType || 'default'] || hints.default;
+  }, [assistantOpen, language, selectedNodes, t.footerHint]);
 
   const handleGenerateSettingText = useCallback(
     (prompt: string) => {
@@ -4796,459 +1639,51 @@ ${direction}
     [callAIForText, generateLength, setNodes, setEdges],
   );
 
-  // NOTE: 全局 AI 汇总分析
   const handleAIAnalyze = useCallback(
     async (nodeId: string, mode: string = 'summary') => {
-      const aiNode = nodes.find((n) => n.id === nodeId);
-      if (!aiNode) return;
-
-      // 找到所有指向该 AI 节点的边
-      const incomingEdges = edges.filter((e) => e.target === nodeId);
-      const inputNodes = incomingEdges
-        .map((e) => nodes.find((n) => n.id === e.source))
-        .filter(Boolean);
-
-      if (inputNodes.length === 0) {
-        alert('请先将剧本节点连接到 AI 分析节点的左侧输入点');
-        return;
-      }
-
-      const combinedText = inputNodes
-        .map((n) => `【${n?.data.title}】\n${n?.data.text}`)
-        .join('\n\n---\n\n');
-
-      let prompt = '';
-      if (mode === 'structure') {
-        prompt = aiPrompts.analyzeStructure.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'suggestions') {
-        prompt = aiPrompts.analyzeSuggestions.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'direction') {
-        prompt = aiPrompts.analyzeDirection.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'solution') {
-        const previousResult = (aiNode.data.result as string) || '';
-        prompt = aiPrompts.analyzeSolution
-          .replace('{{combinedText}}', combinedText)
-          .replace('{{previousResult}}', previousResult);
-      } else {
-        prompt = aiPrompts.analyzeSummary.replace('{{combinedText}}', combinedText);
-      }
-
       try {
-        let result = '';
-        if (aiProvider === 'deepseek') {
-          const key = deepseekApiKey;
-          if (key && key.trim() !== '') {
-            const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-            const response = await fetch('https://api.deepseek.com/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                stream: false,
-              }),
-            });
-            const data = await response.json();
-            result = data.choices?.[0]?.message?.content || '';
-          } else {
-            // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
-            const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-            result = data.content;
-          }
-        } else if (aiProvider === 'openai') {
-          const key = openaiApiKey;
-          if (key && key.trim() !== '') {
-            const model = 'gpt-4o';
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                stream: false,
-              }),
-            });
-            const data = await response.json();
-            result = data.choices?.[0]?.message?.content || '';
-          } else {
-            const data = await callAIProxy('openai', prompt, {});
-            result = data.content;
-          }
-        } else {
-          const key = customApiKey;
-          if (key && key.trim() !== '') {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey: key });
-            const response = await ai.models.generateContent({
-              model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-              contents: prompt,
-            });
-            result = response.text || '';
-          } else {
-            // 使用管理员代理(密钥存储在服务器:php-backend/api/config.php)
-            const data = await callAIProxy('gemini', prompt, { thinkingMode });
-            result = data.content;
-          }
-        }
-        // 更新当前 AI 节点的结点
-        let finalResult = result;
-        if (mode === 'solution') {
-          const previousResult = (aiNode.data.result as string) || '';
-          finalResult = previousResult + '\n\n---\n\n### 💡 修改解法\n\n' + result;
-        }
-        handleUpdateNode(nodeId, { result: finalResult });
-
-        // NOTE: 自动流转逻辑 - 如果 AI 节点后面连接点StoryNode，则同步结果
-        const outgoingEdges = edges.filter((e) => e.source === nodeId);
-        if (outgoingEdges.length > 0) {
-          setNodes((nds) =>
-            nds.map((node) => {
-              const edge = outgoingEdges.find((e) => e.target === node.id);
-              if (edge && node.type === 'storyNode') {
-                const oldText = ((node.data.text as string) || '').trim();
-                const divider = oldText ? '<br/><br/><hr/><br/>' : '';
-                const modeLabel =
-                  mode === 'structure'
-                    ? '结构分析'
-                    : mode === 'suggestions'
-                      ? '构思建议'
-                      : mode === 'direction'
-                        ? '写作方向'
-                        : mode === 'solution'
-                          ? '修改解法'
-                          : '汇总报告';
-
-                // 简单的 Markdown → HTML
-                const formattedResult = result
-                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                  .replace(/\n/g, '<br/>');
-
-                return {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    text: `${oldText}${divider}<strong style="color: #6366f1;">💡 AI ${modeLabel}</strong><br/>${formattedResult}`,
-                  },
-                };
-              }
-              return node;
-            }),
-          );
-        }
+        await runAIAnalyze(nodeId, mode);
       } catch (error: any) {
         console.error('AI Analysis failed:', error);
         alert(`AI 分析失败: ${error.message || '请检查网络和 API 配置'}`);
       }
     },
-    [
-      nodes,
-      edges,
-      aiProvider,
-      deepseekApiKey,
-      customApiKey,
-      openaiApiKey,
-      thinkingMode,
-      handleUpdateNode,
-      setNodes,
-      aiPrompts,
-    ],
+    [runAIAnalyze],
   );
 
-  // NOTE: 处理“图片卡片拖入文字卡片”的逻辑
-  const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      // 只有当拖拽的是媒体节点时才触
-      const mediaUrl = node.data.imageUrl || node.data.videoUrl || node.data.audioUrl;
-      if (node.type === 'storyNode' && mediaUrl) {
-        const nx = node.position.x;
-        const ny = node.position.y;
-
-        // 寻找被覆盖的目标节点
-        const sourceHasVisual = !!(node.data.imageUrl || node.data.videoUrl);
-        const sourceHasAudio = !!node.data.audioUrl;
-        const targetNode = nodes.find((n) => {
-          const targetHasVisual = !!(n.data.imageUrl || n.data.videoUrl);
-          const targetHasAudio = !!n.data.audioUrl;
-          const canAttachMedia =
-            (!targetHasVisual && !targetHasAudio) ||
-            (sourceHasAudio && !targetHasAudio) ||
-            (sourceHasVisual && !targetHasVisual);
-
-          return (
-            n.id !== node.id &&
-            (n.type === 'storyNode' || n.type === 'aiNode') &&
-            canAttachMedia &&
-            nx > n.position.x &&
-            nx < n.position.x + (n.measured?.width || 300) &&
-            ny > n.position.y &&
-            ny < n.position.y + (n.measured?.height || 200)
-          );
-        });
-
-        if (targetNode) {
-          if (targetNode.type === 'aiNode') {
-            // AI 节点直接设置为背景媒体
-            handleUpdateNode(targetNode.id, {
-              imageUrl: node.data.imageUrl,
-              videoUrl: node.data.videoUrl,
-              objectFit: 'cover',
-            });
-          } else {
-            // NOTE: 重构：当媒体拖入普通节点时，将其转换为原生媒体卡片格式
-            handleUpdateNode(targetNode.id, {
-              imageUrl: node.data.imageUrl || targetNode.data.imageUrl || undefined,
-              videoUrl: node.data.videoUrl || targetNode.data.videoUrl || undefined,
-              audioUrl: node.data.audioUrl || targetNode.data.audioUrl || undefined,
-              showTextOverlay: true, // 保持文字可见
-              // 自动增加高度以容纳媒体
-              style: {
-                ...targetNode.style,
-                height:
-                  (targetNode.measured?.height || (targetNode.style?.height as number) || 200) +
-                  200,
-              },
-            });
-          }
-          handleDeleteNode(node.id);
-        }
-      }
-    },
-    [nodes, handleUpdateNode, handleDeleteNode],
-  );
-
-  // NOTE: 处理从桌面/文件夹拖拽媒体文件到画布
-  // HACK: 使用 URL.createObjectURL 代替 FileReader.readAsDataURL，
-  //       后者对大文件（尤其视频）会把整个文件转成 base64 导致极慢或内存溢出。
-  //       createObjectURL 仅创建一个轻量级的 blob: 引用，与工具栏上传逻辑保持一致。
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const files = event.dataTransfer.files;
-      if (!files || files.length === 0) return;
-
-      // 计算拖拽落点相对于 Flow 坐标系的位置
-      const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-      if (!reactFlowBounds) return;
-
-      const dropX = (event.clientX - reactFlowBounds.left - tx) / tzoom;
-      const dropY = (event.clientY - reactFlowBounds.top - ty) / tzoom;
-
-      // NOTE: 用 IIFE async 包裹，避免在循环中因闭包捕获陈旧 index 导致位置偏差
-      const processFiles = async () => {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (
-            !file.type.startsWith('image/') &&
-            !file.type.startsWith('video/') &&
-            !file.type.startsWith('audio/')
-          ) {
-            continue;
-          }
-
-          // 使用 blob URL，高效且支持大文件/视频
-          const url = URL.createObjectURL(file);
-          const newId = uuidv4();
-
-          let mediaData: Record<string, string> = {};
-          let title = language === 'zh' ? '导入文件' : 'Import File';
-
-          // NOTE: 根据媒体原始比例调整卡片尺寸，保持视觉一致
-          const { width, height } = await getMediaDimensions(url, file.type);
-          let displayWidth = 400;
-          let displayHeight = (height / width) * displayWidth;
-
-          if (displayHeight > 500) {
-            displayHeight = 500;
-            displayWidth = (width / height) * displayHeight;
-          }
-
-          if (file.type.startsWith('image/')) {
-            mediaData = { imageUrl: url };
-            title = language === 'zh' ? '导入图片' : 'Import Image';
-          } else if (file.type.startsWith('video/')) {
-            mediaData = { videoUrl: url };
-            title = language === 'zh' ? '导入视频' : 'Import Video';
-          } else if (file.type.startsWith('audio/')) {
-            mediaData = { audioUrl: url };
-            title = language === 'zh' ? '导入音频' : 'Import Audio';
-            displayWidth = 300;
-            displayHeight = 150;
-          }
-
-          const newNode: Node = {
-            id: newId,
-            type: 'storyNode',
-            // 多文件时按 30px 阶梯错开，避免完全叠加
-            position: {
-              x: dropX + i * 30 - displayWidth / 2,
-              y: dropY + i * 30 - displayHeight / 2,
-            },
-            style: { width: displayWidth, height: displayHeight + (showTitles ? TITLE_HEIGHT : 0) },
-            data: {
-              id: newId,
-              title,
-              shape: 'square',
-              color: '#ffffff',
-              text: '',
-              titleHeightAdded: showTitles,
-              ...mediaData,
-            },
-          };
-
-          // NOTE: 每个文件独立 setNodes，避免批量更新时 async 竞态覆盖
-          setNodes((nds) => [...nds, newNode]);
-        }
-      };
-
-      processFiles();
-    },
-    [tx, ty, tzoom, setNodes, showTitles, language],
-  );
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-  }, []);
-
-  const startSelection = useCallback((x: number, y: number) => {
-    setIsRightDragging(true);
-    startPosRef.current = { x, y };
-    if (selectionBoxRef.current) {
-      selectionBoxRef.current.style.display = 'none';
-      selectionBoxRef.current.style.width = '0px';
-      selectionBoxRef.current.style.height = '0px';
-    }
-  }, []);
-
-  const updateSelection = useCallback(
-    (x: number, y: number) => {
-      if (isRightDragging && startPosRef.current && selectionBoxRef.current) {
-        const left = Math.min(x, startPosRef.current.x);
-        const top = Math.min(y, startPosRef.current.y);
-        const w = Math.abs(x - startPosRef.current.x);
-        const h = Math.abs(y - startPosRef.current.y);
-
-        selectionBoxRef.current.style.left = `${left}px`;
-        selectionBoxRef.current.style.top = `${top}px`;
-        selectionBoxRef.current.style.width = `${w}px`;
-        selectionBoxRef.current.style.height = `${h}px`;
-
-        if (w > 5 || h > 5) {
-          selectionBoxRef.current.style.display = 'block';
-        }
-      }
-    },
-    [isRightDragging],
-  );
-
-  const endSelection = useCallback(
-    (x: number, y: number) => {
-      if (isRightDragging && startPosRef.current) {
-        const dx = Math.abs(x - startPosRef.current.x);
-        const dy = Math.abs(y - startPosRef.current.y);
-
-        if (dx > 5 || dy > 5) {
-          const start = screenToFlowPosition({
-            x: startPosRef.current.x,
-            y: startPosRef.current.y,
-          });
-          const end = screenToFlowPosition({ x, y });
-
-          const rect = {
-            x: Math.min(start.x, end.x),
-            y: Math.min(start.y, end.y),
-            width: Math.abs(start.x - end.x),
-            height: Math.abs(start.y - end.y),
-          };
-
-          const nodesInRect = getIntersectingNodes(rect, true);
-          const nodeIds = new Set(nodesInRect.map((n) => n.id));
-
-          setNodes((nds) =>
-            nds.map((n) => ({
-              ...n,
-              selected: nodeIds.has(n.id) && !n.data?.locked,
-            })),
-          );
-        }
-      }
-
-      if (selectionBoxRef.current) {
-        selectionBoxRef.current.style.display = 'none';
-      }
-      setIsRightDragging(false);
-      startPosRef.current = null;
-    },
-    [isRightDragging, screenToFlowPosition, getIntersectingNodes, setNodes],
-  );
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // NOTE: 右键点击 OR 在框选模式下左键点击 OR 按住 Shift 左键点击
-      if (
-        e.button === 2 ||
-        (interactionMode === 'box' && e.button === 0) ||
-        (e.shiftKey && e.button === 0)
-      ) {
-        const target = e.target as HTMLElement;
-        if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
-        startSelection(e.clientX, e.clientY);
-      }
-    },
-    [interactionMode, startSelection],
-  );
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      updateSelection(e.clientX, e.clientY);
-    },
-    [updateSelection],
-  );
-
-  const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
-      endSelection(e.clientX, e.clientY);
-    },
-    [endSelection],
-  );
-
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      // 手机端仅在框选模式下触发自定义框
-      if (interactionMode === 'box' && e.touches.length === 1) {
-        const target = e.target as HTMLElement;
-        if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
-        const touch = e.touches[0];
-        startSelection(touch.clientX, touch.clientY);
-      }
-    },
-    [interactionMode, startSelection],
-  );
-
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (isRightDragging && e.touches.length === 1) {
-        const touch = e.touches[0];
-        updateSelection(touch.clientX, touch.clientY);
-      }
-    },
-    [isRightDragging, updateSelection],
-  );
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (isRightDragging && e.changedTouches.length > 0) {
-        const touch = e.changedTouches[0];
-        endSelection(touch.clientX, touch.clientY);
-      }
-    },
-    [isRightDragging, endSelection],
-  );
+  const {
+    isRightDragging,
+    setIsRightDragging,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    onEdgeContextMenu,
+    onEdgeDoubleClick,
+    onNodeDragStop,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    canvasTouchAction,
+  } = useCanvasInteractions({
+    nodes,
+    interactionMode,
+    selectionBoxRef,
+    screenToFlowPosition,
+    getIntersectingNodes,
+    setNodes,
+    setEdges,
+    setHorizontalGuides,
+    setVerticalGuides,
+    defaultEdgeOptions,
+    handleDeleteNode,
+    handleUpdateNode,
+  });
 
   // Bind callbacks to nodes and edges on render
-  const nodesWithCallbacks = useMemo(() => {
+  const nodesWithCallbacks = useMemo<Node[]>(() => {
     return nodes.map((n) => {
       return {
         ...n,
@@ -5349,40 +1784,6 @@ ${direction}
     });
   }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath]);
 
-  const handleAssistantResizePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (isMobile) return;
-
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      assistantResizeRef.current = {
-        startX: event.clientX,
-        startWidth: assistantPanelWidth,
-        dragged: false,
-      };
-    },
-    [assistantPanelWidth, isMobile],
-  );
-
-  const handleAssistantResizePointerMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const resize = assistantResizeRef.current;
-      if (!resize || isMobile) return;
-
-      const delta = resize.startX - event.clientX;
-      if (Math.abs(delta) > 4) resize.dragged = true;
-
-      const maxWidth = Math.min(560, Math.max(320, flowWidth - 180));
-      const nextWidth = Math.min(Math.max(resize.startWidth + delta, 300), maxWidth);
-      setAssistantWidth(nextWidth);
-    },
-    [flowWidth, isMobile],
-  );
-
-  const handleAssistantResizePointerUp = useCallback(() => {
-    assistantResizeRef.current = null;
-  }, []);
-
   const projectTitleInputUnits = useMemo(() => {
     const fallbackTitle = language === 'zh' ? '项目标题' : 'Project title';
     const title = projectTitle.trim() || fallbackTitle;
@@ -5414,461 +1815,71 @@ ${direction}
         background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
-      <div className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3">
-        <div className="toolbar-bubble-surface pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl">
-          <img src="./icon.png" className="w-8 h-8 theme-invert" alt="Logo" />
-          <input
-            value={projectTitle}
-            onChange={(event) => setProjectTitle(event.target.value)}
-            placeholder={language === 'zh' ? '项目标题' : 'Project title'}
-            className="min-w-[8rem] max-w-[18rem] bg-transparent text-sm md:text-base font-bold tracking-tight text-slate-900 dark:text-white outline-none placeholder:text-slate-400 transition-[width]"
-            style={{ width: projectTitleInputWidth }}
-            aria-label={language === 'zh' ? '项目标题' : 'Project title'}
-          />
-          {!isMobile && (
-            <span className="text-slate-400 dark:text-slate-500 text-xs pr-1 whitespace-nowrap">
-              {t.author}
-            </span>
-          )}
-          <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" />
-          <button
-            onClick={() => setShowPlayTest(true)}
-            className="w-9 h-9 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center transition-colors hover:bg-slate-900 dark:hover:bg-slate-50"
-            title={t.playTest}
-          >
-            <PlayCircle className="w-4 h-4" />
-          </button>
-
-          {canRenderVideo && (
-            <button
-              onClick={() => setShowVideoRender(true)}
-              className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center transition-colors hover:bg-sky-700"
-              title={language === 'zh' ? '一键导出视频' : 'Export Video'}
-            >
-              <Film className="w-4 h-4" />
-            </button>
-          )}
-
-          <button
-            onClick={handleExportJSON}
-            className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isDirty ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-            title={
-              isDirty
-                ? language === 'zh'
-                  ? '有未保存的更改 - 点击保存'
-                  : 'Unsaved changes - Click to save'
-                : t.save
-            }
-          >
-            <Save className="w-4 h-4" />
-            {isDirty && (
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            )}
-          </button>
-
-          <button
-            onClick={() => jsonInputRef.current?.click()}
-            className="w-9 h-9 rounded-xl text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
-            title={t.import}
-          >
-            <Upload className="w-4 h-4" />
-          </button>
-          <input
-            type="file"
-            accept=".zip,.json"
-            className="hidden"
-            ref={jsonInputRef}
-            onChange={handleImportZIP}
-          />
-        </div>
-
-        <div className="hidden">
-          {false && (
-            <div className="pointer-events-auto flex items-center gap-1.5 mr-2 rounded-2xl border border-[var(--header-border)] bg-white/75 dark:bg-slate-900/75 px-2 py-1 shadow-sm backdrop-blur-xl">
-              <button
-                onClick={() => setShowSettings(true)}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all flex items-center justify-center"
-                title={t.settings}
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setShowTitles(!showTitles)}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all flex items-center justify-center"
-                title={showTitles ? t.hideTitles : t.showTitles}
-              >
-                {showTitles ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-
-              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
-
-              <button
-                onClick={undo}
-                disabled={history.past.length === 0}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all disabled:opacity-30 flex items-center justify-center"
-                title="鎾ら攢 (Ctrl+Z)"
-              >
-                <Undo2 className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={redo}
-                disabled={history.future.length === 0}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-all disabled:opacity-30 flex items-center justify-center"
-                title="閲嶅仛 (Ctrl+Y)"
-              >
-                <Redo2 className="w-4 h-4" />
-              </button>
-
-              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
-
-              <div className="flex items-center gap-1.5 px-1">
-                {presetColors.map((color, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCanvasBg(color)}
-                    className={`w-5 h-5 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
-                    style={{ backgroundColor: color }}
-                    title={`${language === 'zh' ? '鑳屾櫙棰滆壊' : 'BG Color'} ${idx + 1}`}
-                  ></button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {false && (
-            <div className="pointer-events-auto flex items-center gap-1 mr-4 bg-[var(--app-bg)]/50 p-1 rounded-2xl border border-[var(--header-border)] shadow-sm backdrop-blur-xl">
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 rounded-md hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-[var(--icon-color)] transition-all"
-                title={t.settings}
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setShowTitles(!showTitles)}
-                className="p-2 rounded-md hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-[var(--icon-color)] transition-all"
-                title={showTitles ? t.hideTitles : t.showTitles}
-              >
-                {showTitles ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
-
-              <button
-                onClick={undo}
-                disabled={history.past.length === 0}
-                className="p-2 rounded-md hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-[var(--icon-color)] transition-all disabled:opacity-30"
-                title="撤销 (Ctrl+Z)"
-              >
-                <Undo2 className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={redo}
-                disabled={history.future.length === 0}
-                className="p-2 rounded-md hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-[var(--icon-color)] transition-all disabled:opacity-30"
-                title="重做 (Ctrl+Y)"
-              >
-                <Redo2 className="w-4 h-4" />
-              </button>
-
-              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
-
-              <div className="flex items-center gap-1.5 px-1">
-                {presetColors.map((color, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCanvasBg(color)}
-                    className={`w-4 h-4 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-1' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
-                    style={{ backgroundColor: color }}
-                    title={`${language === 'zh' ? '背景颜色' : 'BG Color'} ${idx + 1}`}
-                  ></button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isMobile && (
-            <button
-              onClick={() => setShowSettings(true)}
-              className="pointer-events-auto p-2 bg-slate-50 dark:bg-slate-800/50 text-[var(--icon-color)] rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center shadow-sm transition-colors border border-slate-200 dark:border-slate-700"
-              title={t.settings}
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          )}
-          <div className="toolbar-bubble-surface pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 dark:bg-slate-900/80 px-2 py-1 shadow-sm backdrop-blur-xl">
-            <button
-              onClick={() => setAssistantOpen((open) => !open)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${assistantOpen ? 'bg-indigo-600 text-white' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
-            >
-              <Sparkles className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <EditorHeader
+        projectTitle={projectTitle}
+        projectTitleInputWidth={projectTitleInputWidth}
+        language={language}
+        authorLabel={t.author}
+        isMobile={isMobile}
+        isDirty={isDirty}
+        canRenderVideo={canRenderVideo}
+        assistantOpen={assistantOpen}
+        jsonInputRef={jsonInputRef}
+        setProjectTitle={setProjectTitle}
+        setShowPlayTest={setShowPlayTest}
+        setShowVideoRender={setShowVideoRender}
+        setAssistantOpen={setAssistantOpen}
+        handleExportJSON={handleExportJSON}
+        handleImportZIP={handleImportZIP}
+        t={t}
+      />
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
-          {/* Floating Toolbar */}
-          <div
-            className={`toolbar-bubble-surface glass-toolbar absolute ${isMobile ? 'top-20 left-4' : 'top-20 left-6'} z-20 flex flex-col bg-[var(--toolbar-bg)] backdrop-blur p-1 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out overflow-hidden w-[52px] ${toolbarCollapsed ? 'h-[52px]' : ''}`}
-          >
-            <button
-              onClick={() => setToolbarCollapsed(!toolbarCollapsed)}
-              className="p-2.5 flex items-center justify-center text-slate-400 dark:text-slate-200 hover:text-slate-600 dark:hover:text-white transition-colors duration-300 shrink-0 mx-auto"
-              title={
-                toolbarCollapsed
-                  ? language === 'zh'
-                    ? '展开工具栏'
-                    : 'Expand Toolbar'
-                  : language === 'zh'
-                    ? '折叠工具栏'
-                    : 'Collapse Toolbar'
-              }
-            >
-              <div
-                className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}
-              >
-                <ChevronDown className="w-6 h-6" />
-              </div>
-            </button>
+          <EditorLeftToolbar
+            isMobile={isMobile}
+            language={language}
+            toolbarCollapsed={toolbarCollapsed}
+            historyPastLength={history.past.length}
+            historyFutureLength={history.future.length}
+            hasHiddenNodes={nodes.some((node) => node.data?.hidden)}
+            fileInputRef={fileInputRef}
+            setToolbarCollapsed={setToolbarCollapsed}
+            addNewShape={addNewShape}
+            addNewTextNode={addNewTextNode}
+            addNewCharacterNode={addNewCharacterNode}
+            addNewSceneNode={addNewSceneNode}
+            addNewPlotStructureNode={addNewPlotStructureNode}
+            addNewSummaryNode={addNewSummaryNode}
+            addNewBatchReplaceNode={addNewBatchReplaceNode}
+            addNewNumberConditionNode={addNewNumberConditionNode}
+            handleMediaUpload={handleMediaUpload}
+            undo={undo}
+            redo={redo}
+            unhideAllNodes={unhideAllNodes}
+            t={t}
+          />
 
-            {!toolbarCollapsed && (
-              <div className="flex flex-col animate-in fade-in slide-in-from-top-2 duration-300">
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors group relative"
-                  onClick={() => addNewShape('square')}
-                  title={t.toolSquare}
-                >
-                  <Square strokeWidth={3} className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewTextNode()}
-                  title={t.toolText}
-                >
-                  <Type strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                {/* <button
-                className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                onClick={() => addNewBackground()}
-                title={t.toolBg}
-              >
-                <Layers strokeWidth={2.5} className="w-5 h-5" />
-              </button>
-
-              <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div> */}
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewCharacterNode()}
-                  title={language === 'zh' ? '添加人物卡片' : 'Add Character Card'}
-                >
-                  <UserCircle2 strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewSceneNode()}
-                  title={t.toolScene}
-                >
-                  <MapPin strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewPlotStructureNode()}
-                  title={t.toolPlotStructure}
-                >
-                  <BookOpen strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewSummaryNode()}
-                  title={language === 'zh' ? '文本转换/汇总' : 'Text Summary'}
-                >
-                  <FileText strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewBatchReplaceNode()}
-                  title={t.toolBatchReplace}
-                >
-                  <Replace strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => addNewNumberConditionNode()}
-                  title={language === 'zh' ? '数字判断卡片' : 'Number Condition'}
-                >
-                  <Calculator strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  title={t.toolMedia}
-                >
-                  <ImageIcon strokeWidth={2.5} className="w-5 h-5" />
-                </button>
-
-                {isMobile && (
-                  <>
-                    <div className="h-px bg-slate-100 w-full my-1"></div>
-                    <button
-                      onClick={undo}
-                      disabled={history.past.length === 0}
-                      className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                      title="Undo"
-                    >
-                      <Undo2 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={redo}
-                      disabled={history.future.length === 0}
-                      className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                      title="Redo"
-                    >
-                      <Redo2 className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*,video/*,audio/*"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleMediaUpload}
-              multiple
-            />
-
-            {nodes.some((n) => n.data?.hidden) && (
-              <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                <button
-                  className="p-2.5 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors animate-pulse"
-                  onClick={unhideAllNodes}
-                  title={t.unhideAll}
-                >
-                  <Eye className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Right Floating Toolbar */}
-          {!isMobile && (
-            <div
-              className={`toolbar-bubble-surface glass-toolbar absolute top-4 right-6 z-20 flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse' : 'flex-col'} bg-[var(--toolbar-bg)] backdrop-blur p-1.5 rounded-2xl shadow-xl border border-[var(--toolbar-border)] transition-all duration-500 ease-in-out overflow-hidden ${toolbarLayout === 'horizontal' ? 'h-[52px]' : 'w-[52px]'} ${rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px]' : 'h-[104px]') : ''}`}
-            >
-              <button
-                onClick={() => setAssistantOpen((open) => !open)}
-                className={`exclude-glass w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto' : 'my-1.5 mx-auto'} ${assistantOpen ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
-              >
-                <Sparkles className="w-5 h-5" />
-              </button>
-
-              <div
-                className={`${toolbarLayout === 'horizontal' ? 'w-px h-8' : 'h-px w-full'} bg-[var(--toolbar-border)]/50`}
-              ></div>
-
-              <button
-                onClick={() => setRightToolbarCollapsed(!rightToolbarCollapsed)}
-                className={`${toolbarLayout === 'horizontal' ? 'w-10 h-10' : 'w-10 h-10'} flex items-center justify-center text-slate-400 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-white transition-all duration-300 shrink-0 mx-auto`}
-                title={
-                  rightToolbarCollapsed
-                    ? language === 'zh'
-                      ? '展开工具栏'
-                      : 'Expand Toolbar'
-                    : language === 'zh'
-                      ? '折叠工具栏'
-                      : 'Collapse Toolbar'
-                }
-              >
-                <div
-                  className={`transition-transform duration-500 ${rightToolbarCollapsed ? 'rotate-0' : toolbarLayout === 'horizontal' ? '-rotate-90' : 'rotate-180'}`}
-                >
-                  <ChevronDown className="w-6 h-6" />
-                </div>
-              </button>
-
-              {!rightToolbarCollapsed && (
-                <div
-                  className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col'} animate-in fade-in slide-in-from-top-2 duration-300`}
-                >
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--icon-color)] transition-colors"
-                    title={t.settings}
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={() => setShowTitles(!showTitles)}
-                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors"
-                    title={showTitles ? t.hideTitles : t.showTitles}
-                  >
-                    {showTitles ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-
-                  <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                  <button
-                    onClick={undo}
-                    disabled={history.past.length === 0}
-                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                    title="撤销 (Ctrl+Z)"
-                  >
-                    <Undo2 className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={redo}
-                    disabled={history.future.length === 0}
-                    className="p-2.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-[var(--icon-color)] transition-colors disabled:opacity-30"
-                    title="重做 (Ctrl+Y)"
-                  >
-                    <Redo2 className="w-5 h-5" />
-                  </button>
-
-                  <div className="h-px bg-[var(--toolbar-border)]/50 w-full my-1"></div>
-
-                  <div
-                    className={`flex ${toolbarLayout === 'horizontal' ? 'flex-row mx-1.5' : 'flex-col my-1.5'} items-center gap-2 py-1`}
-                  >
-                    {presetColors.map((color, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setCanvasBg(color)}
-                        className={`exclude-glass w-6 h-6 rounded-full ${canvasBg === color ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110`}
-                        style={{ backgroundColor: color }}
-                        title={`${language === 'zh' ? '背景颜色' : 'BG Color'} ${idx + 1}`}
-                      ></button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <EditorRightToolbar
+            isMobile={isMobile}
+            language={language}
+            assistantOpen={assistantOpen}
+            rightToolbarCollapsed={rightToolbarCollapsed}
+            toolbarLayout={toolbarLayout}
+            showTitles={showTitles}
+            canvasBg={canvasBg}
+            presetColors={presetColors}
+            historyPastLength={history.past.length}
+            historyFutureLength={history.future.length}
+            setAssistantOpen={setAssistantOpen}
+            setRightToolbarCollapsed={setRightToolbarCollapsed}
+            setShowSettings={setShowSettings}
+            setShowTitles={setShowTitles}
+            setCanvasBg={setCanvasBg}
+            undo={undo}
+            redo={redo}
+            t={t}
+          />
 
           <div
             ref={canvasWrapperRef}
@@ -5879,7 +1890,7 @@ ${direction}
             onTouchStartCapture={handleTouchStart}
             onTouchMoveCapture={handleTouchMove}
             onTouchEndCapture={handleTouchEnd}
-            style={{ touchAction: interactionMode === 'box' || isRightDragging ? 'none' : 'auto' }}
+            style={{ touchAction: canvasTouchAction }}
           >
             {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}
             <div
@@ -5992,333 +2003,52 @@ ${direction}
             </ReactFlow>
           </div>
 
-          {/* Selection Context Menu */}
           {showSelectionMenu && (
-            <div
-              ref={selectionMenuRef}
-              className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] flex ${selectionMenuLayout === 'horizontal' ? 'flex-row items-center flex-nowrap shrink-0 h-[52px]' : 'flex-col w-40'} bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
-              style={{
-                transform:
-                  'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)',
-                willChange: 'transform',
-              }}
-            >
-              <button
-                onClick={wrapWithDynamicGroup}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={t.dynamicWrap}
-              >
-                <Layers className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {t.dynamicWrap}
-                </span>
-              </button>
-
-              {selectionMenuLayout === 'horizontal' ? (
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-              ) : (
-                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-              )}
-
-              <button
-                onClick={wrapSelectedWithBackground}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={t.bgCard}
-              >
-                <Square className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {t.bgCard}
-                </span>
-              </button>
-
-              {selectionMenuLayout === 'horizontal' ? (
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-              ) : (
-                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-              )}
-
-              <button
-                onClick={connectSelectedToSummaryNode}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[var(--icon-color)] hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={language === 'zh' ? '批量文本导出' : 'Batch Export'}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {language === 'zh' ? '批量文本导出' : 'Batch Export'}
-                </span>
-              </button>
-
-              {selectionMenuLayout === 'horizontal' ? (
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-              ) : (
-                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-              )}
-
-              <button
-                onClick={handleGenerateSelectedSpeech}
-                disabled={ttsLoading}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all shrink-0 disabled:opacity-50 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
-              >
-                <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {language === 'zh' ? '生成朗读音频' : 'Narration'}
-                </span>
-              </button>
-
-              {selectionMenuLayout === 'horizontal' ? (
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-              ) : (
-                <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
-              )}
-
-              <button
-                onClick={deleteSelected}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={language === 'zh' ? '删除' : 'Delete'}
-              >
-                <Trash2 className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {language === 'zh' ? '删除' : 'Delete'}
-                </span>
-              </button>
-
-              <button
-                onClick={handleCopy}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={language === 'zh' ? '复制' : 'Copy'}
-              >
-                <Copy className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {language === 'zh' ? '复制' : 'Copy'}
-                </span>
-              </button>
-
-              <button
-                onClick={hideSelected}
-                className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${selectionMenuLayout === 'vertical' ? 'w-full' : ''}`}
-                title={language === 'zh' ? '隐藏' : 'Hide'}
-              >
-                <EyeOff className="w-4 h-4 shrink-0" />
-                <span className={selectionMenuLayout === 'horizontal' ? 'whitespace-nowrap' : ''}>
-                  {language === 'zh' ? '隐藏' : 'Hide'}
-                </span>
-              </button>
-            </div>
+            <SelectionMenu
+              selectionMenuRef={selectionMenuRef}
+              selectionMenuLayout={selectionMenuLayout}
+              language={language}
+              ttsLoading={ttsLoading}
+              onWrapDynamicGroup={wrapWithDynamicGroup}
+              onWrapBackground={wrapSelectedWithBackground}
+              onBatchExport={connectSelectedToSummaryNode}
+              onNarrate={handleGenerateSelectedSpeech}
+              onDelete={deleteSelected}
+              onCopy={handleCopy}
+              onHide={hideSelected}
+            />
           )}
         </div>
 
-        {assistantOpen && (
-          <aside
-            className={`${isMobile ? 'fixed inset-y-0 right-0 left-6 z-[220] shadow-md' : 'relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-md'} bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl flex flex-col overflow-hidden`}
-            style={isMobile ? undefined : { width: assistantPanelWidth }}
-          >
-            {!isMobile && (
-              <div
-                onPointerDown={handleAssistantResizePointerDown}
-                onPointerMove={handleAssistantResizePointerMove}
-                onPointerUp={handleAssistantResizePointerUp}
-                className="absolute left-0 top-0 bottom-0 z-20 w-2 -translate-x-1 cursor-ew-resize bg-transparent hover:bg-indigo-400/20"
-                title={language === 'zh' ? '拖拽调整 AI 助手宽度' : 'Drag to resize AI assistant'}
-              />
-            )}
-            <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 shrink-0">
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  onClick={handleNewAssistantTask}
-                  disabled={assistantLoading}
-                  className="flex-1 h-8 px-3 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center gap-1.5 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                  title={language === 'zh' ? '新对话' : 'New conversation'}
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  新对话
-                </button>
-                <button
-                  onClick={undo}
-                  disabled={history.past.length === 0}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 disabled:opacity-40 transition-colors shrink-0"
-                  title={language === 'zh' ? '撤回最近一次画布修改' : 'Undo canvas change'}
-                >
-                  <Undo2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={redo}
-                  disabled={history.future.length === 0}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 disabled:opacity-40 transition-colors shrink-0"
-                  title={language === 'zh' ? '恢复撤回的画布修改' : 'Redo canvas change'}
-                >
-                  <Redo2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setAssistantOpen(false)}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-40 transition-colors shrink-0"
-                  title={language === 'zh' ? '关闭 AI 助手' : 'Close AI Assistant'}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                {assistantTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`min-w-[128px] max-w-[176px] px-2.5 py-1.5 rounded-lg border transition-colors ${
-                      task.id === activeAssistantTaskId
-                        ? 'bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-sm'
-                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
-                    }`}
-                    title={task.title}
-                  >
-                    <div className="flex items-start gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setActiveAssistantTaskId(task.id)}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <div className="text-[11px] font-black truncate">{task.title}</div>
-                        <div className="text-[9px] opacity-60 truncate">
-                          {new Date(task.updatedAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCloseAssistantTask(task.id)}
-                        className="w-4 h-4 mt-0.5 flex items-center justify-center text-slate-400 hover:text-rose-500 dark:hover:text-rose-300 transition-colors shrink-0"
-                        title={language === 'zh' ? '关闭对话' : 'Close conversation'}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div
-              ref={assistantMessagesRef}
-              className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3"
-            >
-              {assistantMessages.map((message) =>
-                message.role === 'thought' ? (
-                  <div key={message.id} className="flex justify-start">
-                    <button
-                      type="button"
-                      onClick={() => toggleAssistantThought(message.id)}
-                      className="max-w-[88%] text-left rounded-2xl rounded-bl-md px-3.5 py-2.5 text-xs leading-relaxed bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 font-black mb-1">
-                        <BrainCircuit className="w-3.5 h-3.5" />
-                        <span>{message.collapsed ? 'AI 已完成思考' : 'AI 正在思考'}</span>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform ${message.collapsed ? '-rotate-90' : ''}`}
-                        />
-                      </div>
-                      {!message.collapsed && (
-                        <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
-                          {message.content}
-                        </div>
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                        message.role === 'user'
-                          ? 'bg-indigo-600 text-white rounded-br-md'
-                          : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-100 rounded-bl-md border border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                  </div>
-                ),
-              )}
-              {assistantLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-slate-500 dark:text-slate-300 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    正在思考和整理卡片...
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
-              <div className="flex gap-2 mb-2">
-                <button
-                  onClick={() =>
-                    handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')
-                  }
-                  disabled={assistantLoading}
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
-                >
-                  建议
-                </button>
-                <button
-                  onClick={() =>
-                    handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')
-                  }
-                  disabled={assistantLoading}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 disabled:opacity-50 transition-colors"
-                >
-                  生成卡片
-                </button>
-                <button
-                  onClick={() =>
-                    handleAssistantSend(
-                      '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。',
-                    )
-                  }
-                  disabled={assistantLoading || selectedAssistantTargetNodes.length === 0}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 disabled:opacity-50 transition-colors"
-                >
-                  填充选中
-                </button>
-              </div>
-              <div className="flex items-end gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-2">
-                <textarea
-                  value={assistantInput}
-                  onChange={(event) => setAssistantInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      handleAssistantSend();
-                    }
-                  }}
-                  placeholder="和 AI 讨论剧情，或让它生成/修改人物、场景、剧情卡片..."
-                  rows={2}
-                  className="flex-1 resize-none bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 outline-none max-h-28 custom-scrollbar"
-                />
-                <button
-                  onClick={handleAssistantVoiceInput}
-                  disabled={assistantLoading || assistantListening}
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${assistantListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-white border border-slate-200 dark:border-slate-700'} disabled:opacity-50`}
-                  title={language === 'zh' ? '语音输入' : 'Voice input'}
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleAssistantSend()}
-                  disabled={assistantLoading || !assistantInput.trim()}
-                  className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shrink-0"
-                  title={language === 'zh' ? '发送' : 'Send'}
-                >
-                  {assistantLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </aside>
-        )}
+        <AssistantPanel
+          assistantOpen={assistantOpen}
+          isMobile={isMobile}
+          assistantPanelWidth={assistantPanelWidth}
+          assistantLoading={assistantLoading}
+          assistantListening={assistantListening}
+          assistantInput={assistantInput}
+          selectedAssistantTargetNodesCount={selectedAssistantTargetNodes.length}
+          assistantTasks={assistantTasks}
+          activeAssistantTaskId={activeAssistantTaskId}
+          assistantMessages={assistantMessages}
+          assistantMessagesRef={assistantMessagesRef}
+          setAssistantOpen={setAssistantOpen}
+          setAssistantInput={setAssistantInput}
+          setActiveAssistantTaskId={setActiveAssistantTaskId}
+          handleNewAssistantTask={handleNewAssistantTask}
+          handleCloseAssistantTask={handleCloseAssistantTask}
+          handleAssistantSend={handleAssistantSend}
+          handleAssistantVoiceInput={handleAssistantVoiceInput}
+          toggleAssistantThought={toggleAssistantThought}
+          handleAssistantResizePointerDown={handleAssistantResizePointerDown}
+          handleAssistantResizePointerMove={handleAssistantResizePointerMove}
+          handleAssistantResizePointerUp={handleAssistantResizePointerUp}
+          undo={undo}
+          redo={redo}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          language={language}
+        />
       </div>
 
       {!isMobile && showStats && (
@@ -6354,139 +2084,20 @@ ${direction}
       )}
 
       {/* AI 操作选择弹窗 */}
-      {showAIActionModal && pendingAINodeId && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 z-[300] flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => {
-            setShowAIActionModal(false);
-            setPendingAINodeId(null);
-          }}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-md p-5 md:p-6 w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300 border border-transparent dark:border-slate-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
-              {t.aiAssistant}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">{t.aiChooseMethod}</p>
-            <div className="flex flex-col gap-3">
-              {/* NOTE: 根据用户在设置中配置的 aiButtonsConfig 动态显示/隐藏各按钮 */}
-              {aiButtonsConfig.continue && (
-                <button
-                  id="ai-action-continue"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'continue')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">✍️</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-indigo-700 dark:group-hover:text-indigo-400">
-                      {t.aiContinue}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiContinueDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-              {aiButtonsConfig.creative && (
-                <button
-                  id="ai-action-creative"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'creative')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-purple-100 dark:border-purple-900/50 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">💡</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-purple-700 dark:group-hover:text-purple-400">
-                      {t.aiCreative}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiCreativeDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-              {aiButtonsConfig.rewrite && (
-                <button
-                  id="ai-action-rewrite"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'rewrite')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-amber-100 dark:border-amber-900/50 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">🔄</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-amber-700 dark:group-hover:text-amber-400">
-                      {t.aiRewrite}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiRewriteDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-              {aiButtonsConfig.interpolate && (
-                <button
-                  id="ai-action-interpolate"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'interpolate')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-green-100 dark:border-green-900/50 hover:border-green-400 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">🧩</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-green-700 dark:group-hover:text-green-400">
-                      {t.aiInterpolate}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiInterpolateDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-              {aiButtonsConfig.scene_only && (
-                <button
-                  id="ai-action-scene"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'scene_only')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-sky-100 dark:border-sky-900/50 hover:border-sky-400 dark:hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">🏞</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-sky-700 dark:group-hover:text-sky-400">
-                      {t.aiSceneOnly}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiSceneOnlyDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-              {aiButtonsConfig.dialogue_only && (
-                <button
-                  id="ai-action-dialogue"
-                  onClick={() => handleAIGenerate(pendingAINodeId, 'dialogue_only')}
-                  className="w-full flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-rose-100 dark:border-rose-900/50 hover:border-rose-400 dark:hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-left group"
-                >
-                  <span className="text-xl mt-0.5">💬</span>
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm group-hover:text-rose-700 dark:group-hover:text-rose-400">
-                      {t.aiDialogueOnly}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {t.aiDialogueOnlyDesc}
-                    </div>
-                  </div>
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                setShowAIActionModal(false);
-                setPendingAINodeId(null);
-              }}
-              className="mt-4 w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              {t.cancel}
-            </button>
-          </div>
-        </div>
-      )}
+      <AIActionModal
+        visible={showAIActionModal}
+        pendingAINodeId={pendingAINodeId}
+        aiButtonsConfig={aiButtonsConfig}
+        language={language}
+        onClose={() => {
+          setShowAIActionModal(false);
+          setPendingAINodeId(null);
+        }}
+        onGenerate={(nodeId, action) => {
+          void handleAIGenerate(nodeId, action);
+        }}
+        t={t}
+      />
 
       {/* 剧本测试模态弹窗*/}
       <Suspense fallback={null}>
@@ -6638,203 +2249,27 @@ ${direction}
       </Suspense>
 
       {/* 崩溃恢复弹窗 */}
-      {showAutoSaveModal && autoSaveDataRef.current && (
-        <div className="fixed inset-0 bg-slate-900/60 z-[1200] flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] p-10 w-full max-w-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-            <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500 mb-6">
-              <FileArchive className="w-8 h-8" />
-            </div>
-
-            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">
-              {language === 'zh' ? '发现未保存的进度' : 'Unsaved Progress Found'}
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 text-center leading-relaxed">
-              {language === 'zh'
-                ? `系统检测到异常退出前有未保存的进度（${new Date(autoSaveDataRef.current.timestamp).toLocaleTimeString()}）。是否恢复？`
-                : `Detected unsaved progress from ${new Date(autoSaveDataRef.current.timestamp).toLocaleTimeString()}. Do you want to recover it?`}
-            </p>
-
-            <div className="flex gap-4 w-full">
-              <button
-                onClick={async () => {
-                  await clearAutoSave();
-                  setShowAutoSaveModal(false);
-                }}
-                className="flex-1 py-3 rounded-xl border-2 border-slate-100 text-slate-400 font-bold hover:bg-slate-50 transition-all"
-              >
-                {language === 'zh' ? '放弃进度' : 'Discard'}
-              </button>
-              <button
-                onClick={() => {
-                  try {
-                    const data = JSON.parse(autoSaveDataRef.current!.snapshot);
-                    setNodes(data.nodes);
-                    setEdges(
-                      data.edges.map((edge: any) => ({
-                        ...edge,
-                        type: 'customEdge',
-                        markerEnd: defaultEdgeOptions.markerEnd,
-                        style: defaultEdgeOptions.style,
-                      })),
-                    );
-                    if (data.settings) {
-                      if (data.settings.canvasBg) setCanvasBg(data.settings.canvasBg);
-                      if (data.settings.edgeStyle) setEdgeStyle(data.settings.edgeStyle);
-                      if (data.settings.customApiKey) setCustomApiKey(data.settings.customApiKey);
-                      if (data.settings.pasteAsPlainText !== undefined)
-                        setPasteAsPlainText(data.settings.pasteAsPlainText);
-                      if (data.settings.showNodeActions !== undefined)
-                        setShowNodeActions(data.settings.showNodeActions);
-                      if (data.settings.showStats !== undefined)
-                        setShowStats(data.settings.showStats);
-                      if (data.settings.presetColors) setPresetColors(data.settings.presetColors);
-                      if (data.settings.showTitles !== undefined)
-                        setShowTitles(data.settings.showTitles);
-                      if (data.settings.generateLength)
-                        setGenerateLength(data.settings.generateLength);
-                      if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
-                      if (data.settings.deepseekApiKey)
-                        setDeepseekApiKey(data.settings.deepseekApiKey);
-                      if (data.settings.openaiApiKey) setOpenaiApiKey(data.settings.openaiApiKey);
-                      if (data.settings.imageApiKey) setImageApiKey(data.settings.imageApiKey);
-                      if (data.settings.imageApiUrl) setImageApiUrl(data.settings.imageApiUrl);
-                      if (data.settings.imageModel) setImageModel(data.settings.imageModel);
-                      if (data.settings.imageSize) setImageSize(data.settings.imageSize);
-                      if (data.settings.ttsApiKey) setTtsApiKey(data.settings.ttsApiKey);
-                      if (data.settings.ttsApiUrl) setTtsApiUrl(data.settings.ttsApiUrl);
-                      if (data.settings.ttsModel) setTtsModel(data.settings.ttsModel);
-                      if (data.settings.ttsVoice) setTtsVoice(data.settings.ttsVoice);
-                      if (
-                        data.settings.ttsProvider === 'system' ||
-                        data.settings.ttsProvider === 'youdao'
-                      )
-                        setTtsProvider(data.settings.ttsProvider);
-                      if (data.settings.thinkingMode !== undefined)
-                        setThinkingMode(data.settings.thinkingMode);
-                      if (data.settings.showMiniMap !== undefined)
-                        setShowMiniMap(data.settings.showMiniMap);
-                      if (
-                        data.settings.miniMapPosition === 'left' ||
-                        data.settings.miniMapPosition === 'right'
-                      )
-                        setMiniMapPosition(data.settings.miniMapPosition);
-                      if (data.settings.showControls !== undefined)
-                        setShowControls(data.settings.showControls);
-                      if (typeof data.settings.projectTitle === 'string')
-                        setProjectTitle(data.settings.projectTitle);
-                      if (data.settings.scrollMode) setScrollMode(data.settings.scrollMode);
-                      if (
-                        data.settings.toolbarLayout === 'horizontal' ||
-                        data.settings.toolbarLayout === 'vertical'
-                      )
-                        setToolbarLayout(data.settings.toolbarLayout);
-                      if (data.settings.selectionMenuLayout)
-                        setSelectionMenuLayout(data.settings.selectionMenuLayout);
-                      if (data.settings.language) setLanguage(data.settings.language);
-                      if (data.settings.theme) setTheme(data.settings.theme);
-                      if (
-                        data.settings.bubbleStyle === 'glass' ||
-                        data.settings.bubbleStyle === 'flat'
-                      )
-                        setBubbleStyle(data.settings.bubbleStyle);
-                      if (data.settings.playTestDarkMode !== undefined)
-                        setPlayTestDarkMode(data.settings.playTestDarkMode);
-                      if (data.settings.playTestChoicesColumns !== undefined)
-                        setPlayTestChoicesColumns(data.settings.playTestChoicesColumns);
-                      if (data.settings.playTestVideoAutoPlay !== undefined)
-                        setPlayTestVideoAutoPlay(data.settings.playTestVideoAutoPlay);
-                      if (data.settings.playTestLayoutMode)
-                        setPlayTestLayoutMode(data.settings.playTestLayoutMode);
-
-                      if (data.settings.playTestInteractionMode)
-                        setPlayTestInteractionMode(data.settings.playTestInteractionMode);
-                      if (data.settings.playTestTypewriterSpeed !== undefined)
-                        setPlayTestTypewriterSpeed(data.settings.playTestTypewriterSpeed);
-                      if (data.settings.playTestChoiceDelay !== undefined)
-                        setPlayTestChoiceDelay(data.settings.playTestChoiceDelay);
-                      if (data.settings.playTestChoicesPosition)
-                        setPlayTestChoicesPosition(data.settings.playTestChoicesPosition);
-                      if (data.settings.playTestBlurBackground !== undefined)
-                        setPlayTestBlurBackground(data.settings.playTestBlurBackground);
-                      if (data.settings.playTestBlurText !== undefined)
-                        setPlayTestBlurText(data.settings.playTestBlurText);
-                      if (data.settings.playTestSkipSingleChoicePopup !== undefined)
-                        setPlayTestSkipSingleChoicePopup(
-                          data.settings.playTestSkipSingleChoicePopup,
-                        );
-                      if (data.settings.playTestDimBackground !== undefined)
-                        setPlayTestDimBackground(data.settings.playTestDimBackground);
-                    }
-                    showToast(
-                      language === 'zh'
-                        ? '已恢复进度，请记得手动保存'
-                        : 'Progress recovered, please remember to save',
-                    );
-                  } catch (e) {
-                    console.error('Failed to restore autosave', e);
-                  }
-                  setShowAutoSaveModal(false);
-                }}
-                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-              >
-                {language === 'zh' ? '恢复进度' : 'Recover'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AutoSaveRecoveryModal
+        visible={showAutoSaveModal}
+        timestamp={autoSaveData?.timestamp}
+        language={language}
+        onDiscard={() => {
+          void discardAutoSave();
+        }}
+        onRecover={() => {
+          void recoverAutoSave();
+        }}
+      />
 
       {/* 保存文件名弹窗 */}
-      {showSaveNameModal && (
-        <div className="fixed inset-0 bg-slate-900/60 z-[1200] flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] p-10 w-full max-w-sm animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-            <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6">
-              <Save className="w-8 h-8" />
-            </div>
-
-            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">
-              {t.exportProject}
-            </h3>
-            <p className="text-slate-400 dark:text-slate-500 text-xs mb-8 text-center leading-relaxed">
-              {t.saveProjectDesc}
-            </p>
-
-            <div className="w-full space-y-6">
-              <div>
-                <div className="relative group">
-                  <input
-                    type="text"
-                    value={saveFileName}
-                    onChange={(e) => setSaveFileName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && confirmExportJSON()}
-                    className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all pr-20 text-slate-700 dark:text-slate-200 font-bold text-lg"
-                    placeholder={t.projectName}
-                    autoFocus
-                  />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-base group-focus-within:text-indigo-400">
-                    .json
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-4 w-full">
-                <button
-                  onClick={() => setShowSaveNameModal(false)}
-                  className="flex-1 py-4 rounded-2xl border-2 border-slate-100 text-slate-400 font-bold hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-95"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  onClick={confirmExportJSON}
-                  className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
-                >
-                  {t.confirmSave}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <SaveProjectModal
+        visible={showSaveNameModal}
+        saveFileName={saveFileName}
+        onChangeFileName={setSaveFileName}
+        onClose={() => setShowSaveNameModal(false)}
+        onConfirm={confirmExportJSON}
+        t={t}
+      />
 
       {/* Zen Mode Overlay */}
       <Suspense fallback={null}>
@@ -6889,14 +2324,7 @@ ${direction}
       </Suspense>
 
       {/* Global Toast Notification */}
-      <div
-        className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[3000] px-6 py-3 bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 transition-all duration-500 ${toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'}`}
-      >
-        <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-          <Check className="w-4 h-4 text-white" />
-        </div>
-        {toast.message}
-      </div>
+      <EditorToast message={toast.message} visible={toast.visible} />
     </div>
   );
 }
