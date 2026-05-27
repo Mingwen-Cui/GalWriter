@@ -6,13 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import { htmlToSpeechText } from '../../lib/tts';
 import type { AITextResult } from '../ai/useAIActions';
-
-export type AssistantMessage = {
-  id: string;
-  role: 'user' | 'assistant' | 'thought';
-  content: string;
-  collapsed?: boolean;
-};
+import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 
 export type AssistantCardDraft = {
   type?: 'story' | 'character' | 'scene';
@@ -29,14 +23,6 @@ export type AssistantCardDraft = {
   items?: string;
   atmosphere?: string;
   other?: string;
-};
-
-type AssistantTask = {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: AssistantMessage[];
 };
 
 type AssistantSpeechRecognitionResult = {
@@ -81,16 +67,19 @@ interface UseAssistantPanelResult {
   assistantOpen: boolean;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   assistantPanelWidth: number;
+  assistantResizing: boolean;
   assistantInput: string;
   setAssistantInput: Dispatch<SetStateAction<string>>;
   assistantLoading: boolean;
   assistantListening: boolean;
   assistantTasks: AssistantTask[];
+  setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
   activeAssistantTaskId: string;
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   assistantMessages: AssistantMessage[];
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
   handleNewAssistantTask: () => void;
+  handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantVoiceInput: () => void;
@@ -111,6 +100,7 @@ export const useAssistantPanel = ({
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantWidth, setAssistantWidth] = useState(360);
+  const [assistantResizing, setAssistantResizing] = useState(false);
   const assistantResizeRef = useRef<{
     startX: number;
     startWidth: number;
@@ -192,6 +182,17 @@ export const useAssistantPanel = ({
     setActiveAssistantTaskId(id);
     setAssistantInput('');
   }, [language]);
+
+  const handleRenameAssistantTask = useCallback((taskId: string, title: string) => {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+
+    setAssistantTasks((tasks) =>
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, title: nextTitle.slice(0, 36), updatedAt: Date.now() } : task,
+      ),
+    );
+  }, []);
 
   const handleCloseAssistantTask = useCallback(
     (taskId: string) => {
@@ -463,6 +464,7 @@ ${canvasContext || '无'}`;
         startWidth: assistantPanelWidth,
         dragged: false,
       };
+      setAssistantResizing(true);
     },
     [assistantPanelWidth, isMobile],
   );
@@ -484,6 +486,7 @@ ${canvasContext || '无'}`;
 
   const handleAssistantResizePointerUp = useCallback(() => {
     assistantResizeRef.current = null;
+    setAssistantResizing(false);
   }, []);
 
   useEffect(() => {
@@ -504,16 +507,19 @@ ${canvasContext || '无'}`;
     assistantOpen,
     setAssistantOpen,
     assistantPanelWidth,
+    assistantResizing,
     assistantInput,
     setAssistantInput,
     assistantLoading,
     assistantListening,
     assistantTasks,
+    setAssistantTasks,
     activeAssistantTaskId,
     setActiveAssistantTaskId,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleRenameAssistantTask,
     handleCloseAssistantTask,
     handleAssistantSend,
     handleAssistantVoiceInput,

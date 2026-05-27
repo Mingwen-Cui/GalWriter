@@ -101,7 +101,7 @@ export function EditorLeftToolbar({
       </button>
 
       {!toolbarCollapsed && (
-        <div className="animate-in fade-in slide-in-from-top-2 flex flex-col duration-300">
+        <div className="toolbar-flat-content animate-in fade-in slide-in-from-top-2 flex flex-col duration-300">
           <button
             className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={() => addNewShape('square')}

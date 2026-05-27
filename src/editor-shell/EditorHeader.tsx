@@ -7,7 +7,6 @@ interface EditorHeaderProps {
   projectTitle: string;
   projectTitleInputWidth: string;
   language: Language;
-  authorLabel: string;
   isMobile: boolean;
   isDirty: boolean;
   canRenderVideo: boolean;
@@ -30,7 +29,6 @@ export function EditorHeader({
   projectTitle,
   projectTitleInputWidth,
   language,
-  authorLabel,
   isMobile,
   isDirty,
   canRenderVideo,
@@ -46,25 +44,20 @@ export function EditorHeader({
 }: EditorHeaderProps) {
   return (
     <div className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3">
-      <div className="toolbar-bubble-surface pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
-        <img src="./icon.png" className="h-8 w-8 theme-invert" alt="Logo" />
+      <div className="toolbar-bubble-surface editor-header-bubble pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
+        <img src="./icon.png" className="editor-header-logo h-8 w-8 theme-invert" alt="Logo" />
         <input
           value={projectTitle}
           onChange={(event) => setProjectTitle(event.target.value)}
           placeholder={language === 'zh' ? '项目标题' : 'Project title'}
-          className="min-w-[8rem] max-w-[18rem] bg-transparent text-sm font-bold tracking-tight text-slate-900 outline-none placeholder:text-slate-400 transition-[width] dark:text-white md:text-base"
+          className="editor-header-title min-w-[8rem] max-w-[18rem] bg-transparent text-sm font-bold tracking-tight text-slate-900 outline-none placeholder:text-slate-400 transition-[width] dark:text-white md:text-base"
           style={{ width: projectTitleInputWidth }}
           aria-label={language === 'zh' ? '项目标题' : 'Project title'}
         />
-        {!isMobile && (
-          <span className="whitespace-nowrap pr-1 text-xs text-slate-400 dark:text-slate-500">
-            {authorLabel}
-          </span>
-        )}
-        <div className="mx-0.5 h-5 w-px bg-slate-200 dark:bg-slate-700" />
+        <div className="editor-header-divider mx-0.5 h-5 w-px bg-slate-200 dark:bg-slate-700" />
         <button
           onClick={() => setShowPlayTest(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
+          className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
           title={t.playTest}
         >
           <PlayCircle className="h-4 w-4" />
@@ -73,7 +66,7 @@ export function EditorHeader({
         {canRenderVideo && (
           <button
             onClick={() => setShowVideoRender(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
+            className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
             title={language === 'zh' ? '一键导出视频' : 'Export Video'}
           >
             <Film className="h-4 w-4" />
@@ -82,9 +75,9 @@ export function EditorHeader({
 
         <button
           onClick={handleExportJSON}
-          className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+          className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
             isDirty
-              ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
+              ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
               : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           title={
@@ -103,7 +96,7 @@ export function EditorHeader({
 
         <button
           onClick={() => jsonInputRef.current?.click()}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="header-glass-action header-glass-action-import flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
           title={t.import}
         >
           <Upload className="h-4 w-4" />

@@ -8,6 +8,9 @@ interface EditorRightToolbarProps {
   isMobile: boolean;
   language: Language;
   assistantOpen: boolean;
+  assistantPanelWidth: number;
+  assistantResizing: boolean;
+  bubbleStyle: 'glass' | 'flat';
   rightToolbarCollapsed: boolean;
   toolbarLayout: ToolbarLayout;
   showTitles: boolean;
@@ -33,6 +36,9 @@ export function EditorRightToolbar({
   isMobile,
   language,
   assistantOpen,
+  assistantPanelWidth,
+  assistantResizing,
+  bubbleStyle,
   rightToolbarCollapsed,
   toolbarLayout,
   showTitles,
@@ -58,14 +64,22 @@ export function EditorRightToolbar({
       } overflow-hidden rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1.5 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
         rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px]' : 'h-[104px]') : ''
       }`}
+      style={
+        assistantOpen && bubbleStyle === 'glass'
+          ? {
+              right: assistantPanelWidth + 24,
+              transition: assistantResizing ? 'none' : undefined,
+            }
+          : undefined
+      }
     >
       <button
         onClick={() => setAssistantOpen((open) => !open)}
-        className={`exclude-glass shrink-0 rounded-xl transition-colors ${
+        className={`glass-toolbar-ai shrink-0 rounded-xl transition-colors ${
           toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto h-10 w-10' : 'mx-auto my-1.5 h-10 w-10'
         } ${
           assistantOpen
-            ? 'bg-indigo-600 text-white shadow-sm'
+            ? 'glass-toolbar-active bg-indigo-600 text-white shadow-sm'
             : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
         } flex items-center justify-center`}
         title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
@@ -107,7 +121,7 @@ export function EditorRightToolbar({
 
       {!rightToolbarCollapsed && (
         <div
-          className={`animate-in fade-in slide-in-from-top-2 flex duration-300 ${
+          className={`toolbar-flat-content animate-in fade-in slide-in-from-top-2 flex duration-300 ${
             toolbarLayout === 'horizontal' ? 'flex-row-reverse items-center pr-2' : 'flex-col'
           }`}
         >

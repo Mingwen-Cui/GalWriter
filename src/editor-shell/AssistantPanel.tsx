@@ -15,17 +15,10 @@ import type {
   PointerEvent as ReactPointerEvent,
   SetStateAction,
 } from 'react';
+import { useEffect, useState } from 'react';
 
-import type { AssistantMessage } from '../editor-features/assistant/useAssistantPanel';
+import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
 import type { Language } from '../lib/i18n';
-
-type AssistantTask = {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: AssistantMessage[];
-};
 
 interface AssistantPanelProps {
   assistantOpen: boolean;
@@ -43,6 +36,7 @@ interface AssistantPanelProps {
   setAssistantInput: Dispatch<SetStateAction<string>>;
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   handleNewAssistantTask: () => void;
+  handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantVoiceInput: () => void;
@@ -73,6 +67,7 @@ export function AssistantPanel({
   setAssistantInput,
   setActiveAssistantTaskId,
   handleNewAssistantTask,
+  handleRenameAssistantTask,
   handleCloseAssistantTask,
   handleAssistantSend,
   handleAssistantVoiceInput,
@@ -86,14 +81,44 @@ export function AssistantPanel({
   canRedo,
   language,
 }: AssistantPanelProps) {
-  if (!assistantOpen) return null;
+  const [shouldRender, setShouldRender] = useState(assistantOpen);
+  const [panelVisible, setPanelVisible] = useState(assistantOpen);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
+
+  useEffect(() => {
+    if (assistantOpen) {
+      setShouldRender(true);
+      const frame = window.requestAnimationFrame(() => setPanelVisible(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    setPanelVisible(false);
+    setShouldRender(false);
+  }, [assistantOpen]);
+
+  if (!shouldRender) return null;
+
+  const startRenamingTask = (task: AssistantTask) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+  };
+
+  const commitRenamingTask = () => {
+    if (!editingTaskId) return;
+    handleRenameAssistantTask(editingTaskId, editingTaskTitle);
+    setEditingTaskId(null);
+    setEditingTaskTitle('');
+  };
 
   return (
     <aside
       className={`${
         isMobile
-          ? 'fixed inset-y-0 left-6 right-0 z-[220] shadow-md'
-          : 'relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-md'
+          ? 'assistant-panel-mobile fixed inset-y-0 left-6 right-0 z-[220] shadow-sm'
+          : 'assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm'
+      } assistant-panel-shell ${
+        panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
       style={isMobile ? undefined : { width: assistantPanelWidth }}
     >
@@ -106,12 +131,12 @@ export function AssistantPanel({
           title={language === 'zh' ? '拖拽调整 AI 助手宽度' : 'Drag to resize AI assistant'}
         />
       )}
-      <div className="shrink-0 border-b border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
-        <div className="mb-2 flex items-center gap-2">
+      <div className="assistant-panel-header shrink-0 border-b border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
+        <div className="assistant-top-actions mb-2 flex items-center gap-2 overflow-hidden rounded-lg">
           <button
             onClick={handleNewAssistantTask}
             disabled={assistantLoading}
-            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="assistant-glass-action assistant-glass-action-new flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
             title={language === 'zh' ? '新对话' : 'New conversation'}
           >
             <PlusCircle className="h-3.5 w-3.5" />
@@ -120,7 +145,7 @@ export function AssistantPanel({
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
+            className="assistant-glass-action assistant-glass-action-undo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
             title={language === 'zh' ? '撤回最近一次画布修改' : 'Undo canvas change'}
           >
             <Undo2 className="h-4 w-4" />
@@ -128,24 +153,24 @@ export function AssistantPanel({
           <button
             onClick={redo}
             disabled={!canRedo}
-            className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
+            className="assistant-glass-action assistant-glass-action-redo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
             title={language === 'zh' ? '恢复撤回的画布修改' : 'Redo canvas change'}
           >
             <Redo2 className="h-4 w-4" />
           </button>
           <button
             onClick={() => setAssistantOpen(false)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-white"
+            className="assistant-glass-action assistant-glass-action-close flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-white"
             title={language === 'zh' ? '关闭 AI 助手' : 'Close AI Assistant'}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-1">
+        <div className="assistant-task-tabs custom-scrollbar flex gap-2 overflow-x-auto pb-1">
           {assistantTasks.map((task) => (
             <div
               key={task.id}
-              className={`min-w-[128px] max-w-[176px] rounded-lg border px-2.5 py-1.5 transition-colors ${
+              className={`assistant-task-tab min-w-[128px] max-w-[176px] rounded-lg border px-2.5 py-1.5 transition-colors ${
                 task.id === activeAssistantTaskId
                   ? 'border-indigo-300 bg-white text-indigo-700 shadow-sm dark:border-indigo-600 dark:bg-slate-800 dark:text-indigo-200'
                   : 'border-slate-200 bg-transparent text-slate-500 hover:bg-white dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -153,19 +178,49 @@ export function AssistantPanel({
               title={task.title}
             >
               <div className="flex items-start gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setActiveAssistantTaskId(task.id)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <div className="truncate text-[11px] font-black">{task.title}</div>
-                  <div className="truncate text-[9px] opacity-60">
-                    {new Date(task.updatedAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                {editingTaskId === task.id ? (
+                  <div className="min-w-0 flex-1 text-left">
+                    <input
+                      value={editingTaskTitle}
+                      onChange={(event) => setEditingTaskTitle(event.target.value)}
+                      onBlur={commitRenamingTask}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          commitRenamingTask();
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          setEditingTaskId(null);
+                          setEditingTaskTitle('');
+                        }
+                      }}
+                      autoFocus
+                      className="w-full bg-transparent text-[11px] font-black outline-none"
+                    />
+                    <div className="truncate text-[9px] opacity-60">
+                      {new Date(task.updatedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
                   </div>
-                </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveAssistantTaskId(task.id)}
+                    onDoubleClick={() => startRenamingTask(task)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="truncate text-[11px] font-black">{task.title}</div>
+                    <div className="truncate text-[9px] opacity-60">
+                      {new Date(task.updatedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleCloseAssistantTask(task.id)}
@@ -182,7 +237,7 @@ export function AssistantPanel({
 
       <div
         ref={assistantMessagesRef}
-        className="custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className="assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         {assistantMessages.map((message) =>
           message.role === 'thought' ? (
@@ -190,7 +245,7 @@ export function AssistantPanel({
               <button
                 type="button"
                 onClick={() => toggleAssistantThought(message.id)}
-                className="max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
+                className="assistant-message-bubble assistant-message-thought max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
               >
                 <div className="mb-1 flex items-center gap-2 font-black">
                   <BrainCircuit className="h-3.5 w-3.5" />
@@ -214,10 +269,10 @@ export function AssistantPanel({
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                className={`assistant-message-bubble max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   message.role === 'user'
-                    ? 'rounded-br-md bg-indigo-600 text-white'
-                    : 'rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                    ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                    : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
                 }`}
               >
                 {message.content}
@@ -227,7 +282,7 @@ export function AssistantPanel({
         )}
         {assistantLoading && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
               <Loader2 className="h-4 w-4 animate-spin" />
               {language === 'zh' ? '正在思考和整理卡片...' : 'Thinking and organizing cards...'}
             </div>
@@ -235,21 +290,21 @@ export function AssistantPanel({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-2 flex gap-2">
+      <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="assistant-quick-actions mb-2 flex gap-2">
           <button
             onClick={() =>
               handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')
             }
             disabled={assistantLoading}
-            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="assistant-bottom-glass-action assistant-bottom-action-suggest rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {language === 'zh' ? '建议' : 'Suggest'}
           </button>
           <button
             onClick={() => handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')}
             disabled={assistantLoading}
-            className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
+            className="assistant-bottom-glass-action assistant-bottom-action-generate rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
           >
             {language === 'zh' ? '生成卡片' : 'Generate cards'}
           </button>
@@ -260,12 +315,12 @@ export function AssistantPanel({
               )
             }
             disabled={assistantLoading || selectedAssistantTargetNodesCount === 0}
-            className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900"
+            className="assistant-bottom-glass-action assistant-bottom-action-fill rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900"
           >
             {language === 'zh' ? '填充选中' : 'Fill selected'}
           </button>
         </div>
-        <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
+        <div className="assistant-input-box flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
           <textarea
             value={assistantInput}
             onChange={(event) => setAssistantInput(event.target.value)}
@@ -289,7 +344,7 @@ export function AssistantPanel({
             className={`h-9 w-9 shrink-0 rounded-xl transition-colors ${
               assistantListening
                 ? 'animate-pulse bg-rose-500 text-white'
-                : 'border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
+                : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
             } flex items-center justify-center disabled:opacity-50`}
             title={language === 'zh' ? '语音输入' : 'Voice input'}
           >
@@ -298,7 +353,7 @@ export function AssistantPanel({
           <button
             onClick={() => void handleAssistantSend()}
             disabled={assistantLoading || !assistantInput.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
+            className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
             title={language === 'zh' ? '发送' : 'Send'}
           >
             {assistantLoading ? (

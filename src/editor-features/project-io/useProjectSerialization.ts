@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 import type {
   AIButtonsConfig,
   AIPromptsConfig,
+  AssistantTask,
   EditorProjectSettings,
   EditorProjectSettingsSetters,
   ImportedProjectSettings,
@@ -35,6 +36,8 @@ export interface ProjectSnapshotData {
   nodes: ProjectNode[];
   edges: ProjectEdge[];
   settings: EditorProjectSettings;
+  assistantTasks?: AssistantTask[];
+  activeAssistantTaskId?: string;
 }
 
 type EdgeDefaults = {
@@ -52,6 +55,10 @@ interface UseProjectSerializationParams {
   edges: Edge[];
   settings: EditorProjectSettings;
   settingsSetters: EditorProjectSettingsSetters;
+  assistantTasks: AssistantTask[];
+  activeAssistantTaskId: string;
+  setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
+  setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   saveFileName: string;
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
@@ -159,6 +166,8 @@ const applyProjectSettings = (
   if (incomingSettings.showNodeActions !== undefined)
     setters.setShowNodeActions(incomingSettings.showNodeActions);
   if (incomingSettings.showStats !== undefined) setters.setShowStats(incomingSettings.showStats);
+  if (incomingSettings.saveAssistantConversations !== undefined)
+    setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
@@ -271,6 +280,10 @@ export const useProjectSerialization = ({
   edges,
   settings,
   settingsSetters,
+  assistantTasks,
+  activeAssistantTaskId,
+  setAssistantTasks,
+  setActiveAssistantTaskId,
   saveFileName,
   setNodes,
   setEdges,
@@ -304,8 +317,14 @@ export const useProjectSerialization = ({
       data: { label: typeof edge.data?.label === 'string' ? edge.data.label : '' },
     }));
 
-    return JSON.stringify({ nodes: simpleNodes, edges: simpleEdges, settings });
-  }, [edges, nodes, settings]);
+    return JSON.stringify({
+      nodes: simpleNodes,
+      edges: simpleEdges,
+      settings,
+      assistantTasks: settings.saveAssistantConversations ? assistantTasks : undefined,
+      activeAssistantTaskId: settings.saveAssistantConversations ? activeAssistantTaskId : undefined,
+    });
+  }, [activeAssistantTaskId, assistantTasks, edges, nodes, settings]);
 
   const applyProjectData = useCallback(
     async (
@@ -329,6 +348,21 @@ export const useProjectSerialization = ({
         defaultAIButtonsConfig,
       );
 
+      if (
+        projectData.settings?.saveAssistantConversations !== false &&
+        Array.isArray(projectData.assistantTasks) &&
+        projectData.assistantTasks.length > 0
+      ) {
+        setAssistantTasks(projectData.assistantTasks);
+        const incomingActiveTaskId = projectData.activeAssistantTaskId;
+        setActiveAssistantTaskId(
+          incomingActiveTaskId &&
+            projectData.assistantTasks.some((task) => task.id === incomingActiveTaskId)
+            ? incomingActiveTaskId
+            : projectData.assistantTasks[0].id,
+        );
+      }
+
       if (options?.markSaved ?? true) {
         lastSavedSnapshotRef.current = JSON.stringify(projectData);
         setIsDirty(false);
@@ -343,6 +377,8 @@ export const useProjectSerialization = ({
       setEdges,
       setIsDirty,
       setNodes,
+      setActiveAssistantTaskId,
+      setAssistantTasks,
       settingsSetters,
     ],
   );

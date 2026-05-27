@@ -117,6 +117,8 @@ interface SettingsModalProps {
   setShowNodeActions: (val: boolean) => void;
   showStats: boolean;
   setShowStats: (val: boolean) => void;
+  saveAssistantConversations: boolean;
+  setSaveAssistantConversations: (val: boolean) => void;
   showMiniMap: boolean;
   setShowMiniMap: (val: boolean) => void;
   miniMapPosition: 'left' | 'right';
@@ -213,6 +215,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setShowNodeActions,
   showStats,
   setShowStats,
+  saveAssistantConversations,
+  setSaveAssistantConversations,
   showMiniMap,
   setShowMiniMap,
   miniMapPosition,
@@ -659,6 +663,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       setter: setShowNodeActions,
                     },
                     { id: 'showStats', label: t.showStats, value: showStats, setter: setShowStats },
+                    {
+                      id: 'saveAssistantConversations',
+                      label:
+                        language === 'zh' ? '保存 AI 助手对话' : 'Save AI assistant chats',
+                      value: saveAssistantConversations,
+                      setter: setSaveAssistantConversations,
+                    },
                     {
                       id: 'showMiniMap',
                       label: t.showMiniMap,

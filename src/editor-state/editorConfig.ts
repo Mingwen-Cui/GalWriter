@@ -38,6 +38,21 @@ export interface AIButtonsConfig {
   dialogue_only: boolean;
 }
 
+export type AssistantMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'thought';
+  content: string;
+  collapsed?: boolean;
+};
+
+export type AssistantTask = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: AssistantMessage[];
+};
+
 export const defaultAIButtonsConfig: AIButtonsConfig = {
   continue: true,
   creative: true,
@@ -113,6 +128,7 @@ export interface EditorProjectSettings extends PlaytestSettings {
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
   showStats: boolean;
+  saveAssistantConversations: boolean;
   presetColors: string[];
   showTitles: boolean;
   generateLength: string;
@@ -150,6 +166,7 @@ export interface EditorProjectSettingsSetters extends PlaytestSettingsSetters {
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;
+  setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;

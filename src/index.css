@@ -206,10 +206,452 @@ body,
   position: relative;
 }
 
+.bubble-glass-mode .editor-header-bubble {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.bubble-glass-mode .editor-header-logo {
+  width: 36px;
+  height: 36px;
+  margin-left: 12px;
+  margin-right: 10px;
+}
+
+.bubble-glass-mode .editor-header-title {
+  margin-right: 12px;
+  font-size: 1rem;
+}
+
+.bubble-glass-mode .editor-header-divider {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.bubble-flat-mode .editor-header-bubble,
+.bubble-flat-mode .glass-toolbar,
+.bubble-flat-mode .toolbar-flat-content {
+  gap: 0.5rem !important;
+}
+
+.bubble-glass-mode .assistant-top-actions {
+  top: 0 !important;
+  gap: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-radius: 0 !important;
+}
+
+.bubble-glass-mode .assistant-panel-header {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  padding: 0 !important;
+}
+
+.bubble-glass-mode .assistant-panel-shell {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  box-shadow: -4px 0 16px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+}
+
+.assistant-panel-shell {
+  transition:
+    transform 0.5s ease-in-out,
+    opacity 0.5s ease-in-out !important;
+  will-change: transform, opacity;
+}
+
+.assistant-panel-entered {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.assistant-panel-exiting {
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+.bubble-glass-mode .assistant-panel-desktop {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  /* NOTE: 留出底部 footer 的高度（h-8 = 2rem），避免面板与悬浮 footer 重叠 */
+  bottom: 2rem !important;
+  transition:
+    transform 0.5s ease-in-out,
+    opacity 0.5s ease-in-out,
+    box-shadow 0.5s ease-in-out !important;
+  will-change: transform, opacity;
+}
+
+.bubble-glass-mode .assistant-panel-desktop.assistant-panel-entered {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.bubble-glass-mode .assistant-panel-desktop.assistant-panel-exiting {
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-panel-header {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-panel-shell {
+  background: rgba(15, 15, 18, 0.58) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: -4px 0 18px rgba(0, 0, 0, 0.18) !important;
+}
+
+.bubble-glass-mode aside {
+  backdrop-filter: blur(18px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+}
+
+.bubble-glass-mode .assistant-message-area {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(99, 102, 241, 0.035)),
+    rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(18px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-message-area {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(15, 23, 42, 0.22) !important;
+}
+
+.bubble-glass-mode .assistant-task-tabs {
+  gap: 0 !important;
+  margin: 0 !important;
+  padding-bottom: 0 !important;
+  scrollbar-color: rgba(100, 116, 139, 0.42) rgba(148, 163, 184, 0.14);
+}
+
+.bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar {
+  height: 8px;
+}
+
+.bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.14);
+  border-radius: 0;
+}
+
+.bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.42);
+  border-radius: 0;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-task-tabs {
+  scrollbar-color: rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-task-tabs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.bubble-glass-mode .assistant-task-tab {
+  border-width: 1px 1px 1px 0 !important;
+  border-radius: 0 !important;
+  border-right-color: rgba(148, 163, 184, 0.24) !important;
+  border-top-color: rgba(148, 163, 184, 0.24) !important;
+  border-bottom-color: rgba(148, 163, 184, 0.24) !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-task-tab {
+  border-right-color: rgba(255, 255, 255, 0.12) !important;
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.bubble-glass-mode .assistant-glass-action {
+  height: 40px !important;
+  min-width: 40px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease !important;
+}
+
+.bubble-glass-mode .assistant-glass-action-new {
+  justify-content: flex-start !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+.bubble-glass-mode .assistant-task-tabs {
+  gap: 0 !important;
+  margin: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.bubble-glass-mode .assistant-task-tab {
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  border-left: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-task-tab {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-left: none !important;
+}
+
+.bubble-glass-mode .assistant-glass-action-undo {
+  color: #0f766e !important;
+}
+
+.bubble-glass-mode .assistant-glass-action-redo {
+  color: #0284c7 !important;
+}
+
+.bubble-glass-mode .assistant-glass-action-close {
+  color: #e11d48 !important;
+}
+
+.bubble-glass-mode .assistant-glass-action:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-glass-action:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-glass-action-new {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-glass-action-undo {
+  color: #5eead4 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-glass-action-redo {
+  color: #7dd3fc !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-glass-action-close {
+  color: #fb7185 !important;
+}
+
+.bubble-glass-mode .assistant-input-panel {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  backdrop-filter: blur(20px) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-input-panel {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.bubble-glass-mode .assistant-quick-actions {
+  gap: 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-quick-actions {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bubble-glass-mode .assistant-bottom-glass-action {
+  flex: 1;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease !important;
+}
+
+.bubble-glass-mode .assistant-bottom-glass-action:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-glass-action:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.bubble-glass-mode .assistant-bottom-action-suggest {
+  color: #475569 !important;
+}
+
+.bubble-glass-mode .assistant-bottom-action-generate {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+.bubble-glass-mode .assistant-bottom-action-fill {
+  color: #059669 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-action-suggest {
+  color: #cbd5e1 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-action-generate {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-action-fill {
+  color: #6ee7b7 !important;
+}
+
+.bubble-glass-mode .assistant-input-box {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 22px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.3) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-input-box {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 22px rgba(0, 0, 0, 0.22) !important;
+}
+
+.bubble-glass-mode .assistant-input-icon-button,
+.bubble-glass-mode .assistant-send-button {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.bubble-glass-mode .assistant-input-icon-button {
+  color: #0f766e !important;
+}
+
+.bubble-glass-mode .assistant-send-button {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+.bubble-glass-mode .assistant-input-icon-button:hover,
+.bubble-glass-mode .assistant-send-button:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-input-icon-button:hover,
+[data-theme='dark'] .bubble-glass-mode .assistant-send-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.bubble-glass-mode .assistant-message-bubble {
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 8px 22px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.3) !important;
+}
+
+.bubble-glass-mode .assistant-message-user {
+  background: oklch(0.511 0.262 276.966 / 0.22) !important;
+  color: #312e81 !important;
+}
+
+.bubble-glass-mode .assistant-message-ai,
+.bubble-glass-mode .assistant-message-loading {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+    rgba(99, 102, 241, 0.045) !important;
+  color: #334155 !important;
+}
+
+.bubble-glass-mode .assistant-message-thought {
+  background: oklch(0.511 0.262 276.966 / 0.12) !important;
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-message-bubble {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 22px rgba(0, 0, 0, 0.24) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-message-user {
+  background: oklch(0.511 0.262 276.966 / 0.28) !important;
+  color: #ede9fe !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-message-ai,
+[data-theme='dark'] .bubble-glass-mode .assistant-message-loading {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-message-thought {
+  background: oklch(0.511 0.262 276.966 / 0.18) !important;
+  color: #ddd6fe !important;
+}
+
 [data-theme='dark'] .bubble-glass-mode .toolbar-bubble-surface:hover {
   border-color: rgba(255, 255, 255, 0.18) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24) !important;
 }
+
+/* NOTE: 玻璃模式下底部状态栏半透明处理，与整体 glassmorphism 风格保持一致 */
+/* NOTE: position: absolute 让 footer 脱离 flex 文档流，canvas 延伸至底部边界，
+         backdrop-filter 才能透出真实的画布内容，而非纯色背景 */
+.bubble-glass-mode .editor-footer {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  backdrop-filter: blur(20px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;
+  color: rgba(51, 65, 85, 0.85) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .editor-footer {
+  background: rgba(15, 15, 18, 0.42) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* NOTE: minimap/controls 容器在玻璃模式下需额外向上偏移 footer 高度（h-8 = 2rem），
+         使其悬浮在 footer 上方而不被遮挡。原始 bottom-4 = 1rem，加上 2rem 共 3rem */
+.bubble-glass-mode .canvas-bottom-overlay {
+  bottom: 3rem !important;
+}
+
 
 .bubble-glass-mode .react-flow__minimap-node {
   fill: rgba(255, 255, 255, 0.38) !important;
@@ -587,6 +1029,91 @@ input[type='range']::-moz-range-track {
 [data-theme='dark'] .bubble-glass-mode .glass-toolbar button:not(.exclude-glass):hover {
   background: rgba(255, 255, 255, 0.1) !important;
   transform: none !important;
+}
+
+.bubble-glass-mode .header-glass-action {
+  margin: 0 !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.bubble-glass-mode .header-glass-action:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+}
+
+.bubble-glass-mode .header-glass-action-play {
+  color: #0f766e !important;
+}
+
+.bubble-glass-mode .header-glass-action-video {
+  color: #0284c7 !important;
+}
+
+.bubble-glass-mode .header-glass-action-save {
+  color: #4f46e5 !important;
+}
+
+.bubble-glass-mode .header-glass-action-import {
+  color: #9333ea !important;
+}
+
+.bubble-glass-mode .glass-toolbar button.glass-toolbar-ai:not(.exclude-glass) {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-play {
+  color: #5eead4 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-video {
+  color: #7dd3fc !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-save {
+  color: #c4b5fd !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-import {
+  color: #d8b4fe !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .glass-toolbar button.glass-toolbar-ai:not(.exclude-glass) {
+  color: oklch(0.511 0.262 276.966) !important;
+}
+
+.bubble-glass-mode .header-glass-action.header-glass-action-active {
+  background: rgba(99, 102, 241, 0.14) !important;
+}
+
+.bubble-glass-mode .glass-toolbar button.glass-toolbar-active:not(.exclude-glass) {
+  background: oklch(0.511 0.262 276.966 / 0.14) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action.header-glass-action-active {
+  background: rgba(129, 140, 248, 0.18) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .glass-toolbar button.glass-toolbar-active:not(.exclude-glass) {
+  background: oklch(0.511 0.262 276.966 / 0.18) !important;
 }
 
 [data-theme='dark'] .theme-invert {

@@ -328,6 +328,7 @@ export function StoryEditor() {
   const [pasteAsPlainText, setPasteAsPlainText] = useState(false);
   const [showNodeActions, setShowNodeActions] = useState(true);
   const [showStats, setShowStats] = useState(true);
+  const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [saveFileName, setSaveFileName] = useState('story-project');
@@ -504,6 +505,7 @@ export function StoryEditor() {
       pasteAsPlainText,
       showNodeActions,
       showStats,
+      saveAssistantConversations,
       presetColors,
       showTitles,
       generateLength,
@@ -577,6 +579,7 @@ export function StoryEditor() {
       playTestVideoAutoPlay,
       presetColors,
       projectTitle,
+      saveAssistantConversations,
       scrollMode,
       selectionMenuLayout,
       showControls,
@@ -603,6 +606,7 @@ export function StoryEditor() {
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
+      setSaveAssistantConversations,
       setPresetColors,
       setShowTitles,
       setGenerateLength,
@@ -646,55 +650,6 @@ export function StoryEditor() {
     }),
     [],
   );
-
-  const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
-    useProjectSerialization({
-      nodes,
-      edges,
-      settings: editorProjectSettings,
-      settingsSetters: editorProjectSettingsSetters,
-      saveFileName,
-      setNodes,
-      setEdges,
-      setIsDirty,
-      setShowSaveNameModal,
-      lastSavedSnapshotRef: lastSavedSnapshot,
-      showToast,
-      defaultEdgeOptions,
-      defaultAIPrompts,
-      defaultAIButtonsConfig,
-      clearAutoSave: async () => {
-        const { clearAutoSave } = await import('../lib/db');
-        await clearAutoSave();
-      },
-    });
-
-  const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave } =
-    useAutoSave<ProjectSnapshotData>({
-      getProjectSnapshot,
-      lastSavedSnapshotRef: lastSavedSnapshot,
-      setIsDirty,
-      applyRecoveredProject: async (projectData) => {
-        await applyProjectData(projectData, { markSaved: true });
-      },
-      showToast,
-      language,
-      enabled: autosaveReady,
-    });
-
-  // Initialize snapshot and theme preference
-  React.useEffect(() => {
-    lastSavedSnapshot.current = getProjectSnapshot();
-    setAutosaveReady(true);
-
-    // Load theme from localStorage or system preference
-    const savedTheme = localStorage.getItem('app-theme') as 'light' | 'dark';
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-    }
-  }, [getProjectSnapshot]);
 
   // Update document theme attribute
   React.useEffect(() => {
@@ -1400,16 +1355,19 @@ export function StoryEditor() {
     assistantOpen,
     setAssistantOpen,
     assistantPanelWidth,
+    assistantResizing,
     assistantInput,
     setAssistantInput,
     assistantLoading,
     assistantListening,
     assistantTasks,
+    setAssistantTasks,
     activeAssistantTaskId,
     setActiveAssistantTaskId,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleRenameAssistantTask,
     handleCloseAssistantTask,
     handleAssistantSend,
     handleAssistantVoiceInput,
@@ -1426,6 +1384,58 @@ export function StoryEditor() {
     callAIForTextResult,
     createAssistantCards,
   });
+
+  const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
+    useProjectSerialization({
+      nodes,
+      edges,
+      settings: editorProjectSettings,
+      settingsSetters: editorProjectSettingsSetters,
+      assistantTasks,
+      activeAssistantTaskId,
+      setAssistantTasks,
+      setActiveAssistantTaskId,
+      saveFileName,
+      setNodes,
+      setEdges,
+      setIsDirty,
+      setShowSaveNameModal,
+      lastSavedSnapshotRef: lastSavedSnapshot,
+      showToast,
+      defaultEdgeOptions,
+      defaultAIPrompts,
+      defaultAIButtonsConfig,
+      clearAutoSave: async () => {
+        const { clearAutoSave } = await import('../lib/db');
+        await clearAutoSave();
+      },
+    });
+
+  const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave } =
+    useAutoSave<ProjectSnapshotData>({
+      getProjectSnapshot,
+      lastSavedSnapshotRef: lastSavedSnapshot,
+      setIsDirty,
+      applyRecoveredProject: async (projectData) => {
+        await applyProjectData(projectData, { markSaved: true });
+      },
+      showToast,
+      language,
+      enabled: autosaveReady,
+    });
+
+  // Initialize snapshot and theme preference
+  React.useEffect(() => {
+    lastSavedSnapshot.current = getProjectSnapshot();
+    setAutosaveReady(true);
+
+    const savedTheme = localStorage.getItem('app-theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+    }
+  }, [getProjectSnapshot]);
 
   const footerHint = useMemo(() => {
     if (assistantOpen) {
@@ -1819,7 +1829,6 @@ ${direction}
         projectTitle={projectTitle}
         projectTitleInputWidth={projectTitleInputWidth}
         language={language}
-        authorLabel={t.author}
         isMobile={isMobile}
         isDirty={isDirty}
         canRenderVideo={canRenderVideo}
@@ -1834,7 +1843,7 @@ ${direction}
         t={t}
       />
 
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="relative flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
           <EditorLeftToolbar
             isMobile={isMobile}
@@ -1864,6 +1873,9 @@ ${direction}
             isMobile={isMobile}
             language={language}
             assistantOpen={assistantOpen}
+            assistantPanelWidth={assistantPanelWidth}
+            assistantResizing={assistantResizing}
+            bubbleStyle={bubbleStyle}
             rightToolbarCollapsed={rightToolbarCollapsed}
             toolbarLayout={toolbarLayout}
             showTitles={showTitles}
@@ -1951,7 +1963,7 @@ ${direction}
               />
               {showMiniMap && (
                 <div
-                  className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
+                  className={`canvas-bottom-overlay toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
                 >
                   <MiniMap
                     pannable={true}
@@ -1988,7 +2000,7 @@ ${direction}
               )}
               {!showMiniMap && showControls && (
                 <div
-                  className={`toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}
+                  className={`canvas-bottom-overlay toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}
                 >
                   <Controls
                     showInteractive={false}
@@ -2036,6 +2048,7 @@ ${direction}
           setAssistantInput={setAssistantInput}
           setActiveAssistantTaskId={setActiveAssistantTaskId}
           handleNewAssistantTask={handleNewAssistantTask}
+          handleRenameAssistantTask={handleRenameAssistantTask}
           handleCloseAssistantTask={handleCloseAssistantTask}
           handleAssistantSend={handleAssistantSend}
           handleAssistantVoiceInput={handleAssistantVoiceInput}
@@ -2052,7 +2065,7 @@ ${direction}
       </div>
 
       {!isMobile && showStats && (
-        <footer className="h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
+        <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
           <div className="flex gap-4">
             <span className="flex items-center gap-1.5">
               <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}
@@ -2178,6 +2191,8 @@ ${direction}
           setShowNodeActions={setShowNodeActions}
           showStats={showStats}
           setShowStats={setShowStats}
+          saveAssistantConversations={saveAssistantConversations}
+          setSaveAssistantConversations={setSaveAssistantConversations}
           showMiniMap={showMiniMap}
           setShowMiniMap={setShowMiniMap}
           miniMapPosition={miniMapPosition}
