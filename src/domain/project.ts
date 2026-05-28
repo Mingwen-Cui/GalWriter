@@ -171,6 +171,7 @@ export interface ProjectSettings extends PlaytestSettings {
   saveAssistantConversations: boolean;
   presetColors: string[];
   showTitles: boolean;
+  showLastSavedTime: boolean;
   generateLength: string;
   aiProvider: AiProvider;
   imageApiUrl: string;
@@ -204,6 +205,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
+  setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setImageSize: Dispatch<SetStateAction<string>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;

@@ -1,4 +1,4 @@
-import { Clock3, FilePlus2, FolderOpen, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { Clock3, FilePlus2, FolderOpen, Pencil, Sparkles, Trash2, X, Download, Search } from 'lucide-react';
 import { type WheelEvent, useEffect, useState } from 'react';
 
 import type { LocalProjectSummary } from '../lib/db';
@@ -16,6 +16,7 @@ interface ProjectPickerModalProps {
   onImportProject: () => void;
   onRenameProject: (projectId: string, projectName: string) => Promise<void> | void;
   onDeleteProject: (projectId: string) => Promise<void> | void;
+  onExportProject?: (projectId: string) => void;
 }
 
 const formatUpdatedAt = (timestamp: number, language: Language) =>
@@ -38,10 +39,12 @@ export function ProjectPickerModal({
   onImportProject,
   onRenameProject,
   onDeleteProject,
+  onExportProject,
 }: ProjectPickerModalProps) {
   const isZh = language === 'zh';
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingProjectName, setEditingProjectName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!visible) {
@@ -69,69 +72,60 @@ export function ProjectPickerModal({
     event.stopPropagation();
   };
 
+  const filteredProjects = projects.filter(p =>
+    p.projectName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="fixed inset-0 z-[350] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[min(85vh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] border border-white/60 bg-[linear-gradient(135deg,_rgba(255,255,255,0.95),_rgba(241,245,249,0.92))] shadow-[0_32px_120px_rgba(15,23,42,0.26)] dark:border-white/10 dark:bg-[linear-gradient(135deg,_rgba(15,23,42,0.96),_rgba(2,6,23,0.92))]">
-        <div className="flex items-center justify-between border-b border-slate-200/80 px-6 py-5 dark:border-white/10">
+    <div className="fixed inset-0 z-[350] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="flex h-[min(90vh,960px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-800 dark:bg-slate-950/95">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-5 dark:border-slate-800 dark:bg-slate-900/50">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg dark:bg-white dark:text-slate-900">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-500">
-                GalWriter AI
-              </div>
-              <div className="text-xl font-black text-slate-900 dark:text-white">
-                {isZh ? '选择项目' : 'Choose a project'}
+            <div className="flex items-center gap-3">
+              <img src="/glass.png" alt="GalWriter AI" className="h-8 w-8 object-contain drop-shadow-sm" />
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-500">
+                  GalWriter AI
+                </div>
+                <div className="text-xl font-black text-slate-900 dark:text-white">
+                  {isZh ? '选择项目' : 'Choose a project'}
+                </div>
               </div>
             </div>
           </div>
-          {showCloseButton ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 text-slate-500 transition-colors hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white"
-              title={isZh ? '关闭项目窗口' : 'Close project picker'}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/80 text-slate-500 transition-colors hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white"
+            title={isZh ? '关闭项目窗口' : 'Close project picker'}
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-6">
           <div className="grid h-full min-h-0 gap-6 lg:grid-cols-[0.95fr_1.35fr]">
-            <section className="rounded-[26px] border border-white/60 bg-white/80 p-5 shadow-xl shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none">
-            <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {isZh
-                ? showCloseButton
-                  ? '你可以继续当前项目，也可以创建新项目、导入现有工程，或直接切换到最近的项目。'
-                  : '请选择创建一个新项目、导入现有工程，或直接继续最近的项目。'
-                : showCloseButton
-                  ? 'Continue the current project, create a new one, import an existing bundle, or switch to a recent project.'
-                  : 'Create a new project, import an existing bundle, or continue a recent project to get started.'}
-            </p>
-
-            <div className="mt-6 grid gap-3">
+            <div className="grid gap-4 content-start">
               <button
                 type="button"
                 onClick={onCreateProject}
-                className="flex items-center justify-between rounded-2xl bg-slate-900 px-5 py-4 text-left text-white transition-transform hover:-translate-y-0.5 dark:bg-white dark:text-slate-900"
+                className="flex items-center justify-between rounded-xl bg-indigo-600 px-5 py-4 text-left text-white shadow-sm transition-colors hover:bg-indigo-700"
               >
                 <div>
                   <div className="text-base font-black">
                     {isZh ? '创建新项目' : 'Create new project'}
                   </div>
-                  <div className="mt-1 text-xs font-medium text-white/70 dark:text-slate-500">
+                  <div className="mt-1 text-xs font-medium text-indigo-100">
                     {isZh ? '从空白画布开始新的故事。' : 'Start from a blank canvas.'}
                   </div>
                 </div>
-                <FilePlus2 className="h-5 w-5 shrink-0" />
+                <FilePlus2 className="h-5 w-5 shrink-0 text-indigo-100" />
               </button>
 
               <button
                 type="button"
                 onClick={onImportProject}
-                className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-left transition-transform hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
               >
                 <div>
                   <div className="text-base font-black text-slate-900 dark:text-white">
@@ -141,48 +135,65 @@ export function ProjectPickerModal({
                     {isZh ? '导入后会直接进入编辑。' : 'Import and jump straight into editing.'}
                   </div>
                 </div>
-                <FolderOpen className="h-5 w-5 shrink-0 text-indigo-500" />
+                <FolderOpen className="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" />
               </button>
             </div>
-            </section>
 
-            <section className="flex min-h-0 flex-col rounded-[26px] border border-white/60 bg-white/80 p-5 shadow-xl shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none">
-              <div className="mb-4 flex items-center justify-between shrink-0">
-                <div>
-                  <div className="text-lg font-black text-slate-900 dark:text-white">
-                    {isZh ? '最近项目' : 'Recent projects'}
+            <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/50">
+              <div className="mb-4 space-y-3 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white">
+                      {isZh ? '最近项目' : 'Recent projects'}
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {isZh
+                        ? '点击项目打开，或直接在这里重命名、删除。'
+                        : 'Open a project, or rename and delete it right here.'}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    {isZh
-                      ? '点击项目打开，或直接在这里重命名、删除。'
-                      : 'Open a project, or rename and delete it right here.'}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <Clock3 className="h-4 w-4" />
                   </div>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300">
-                  <Clock3 className="h-4 w-4" />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={isZh ? '搜索项目名称...' : 'Search projects...'}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+                  />
                 </div>
               </div>
 
               <div
-                className="min-h-0 max-h-[min(48vh,520px)] flex-1 overflow-y-auto overscroll-contain pr-1 custom-scrollbar lg:max-h-[min(54vh,560px)]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 custom-scrollbar"
                 onWheel={handleRecentProjectsWheel}
               >
                 {loading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     {isZh ? '正在读取本地项目...' : 'Loading local projects...'}
                   </div>
                 ) : projects.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     {isZh
                       ? '还没有本地项目。请先创建一个新项目或导入已有工程。'
                       : 'No local projects yet. Create a new project or import an existing one first.'}
                   </div>
+                ) : filteredProjects.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                    {isZh
+                      ? '没有找到相关的项目。'
+                      : 'No related projects found.'}
+                  </div>
                 ) : (
-                  <div className="space-y-3">
-                    {projects.map((project) => (
+                  <div className="space-y-2">
+                    {filteredProjects.map((project) => (
                       <div
                         key={project.id}
-                        className="rounded-2xl border border-slate-200 bg-white/85 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/70"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-slate-700"
                       >
                         <div className="flex items-start gap-3">
                           <div className="min-w-0 flex-1">
@@ -219,25 +230,35 @@ export function ProjectPickerModal({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            {onExportProject && (
+                              <button
+                                type="button"
+                                onClick={() => onExportProject(project.id)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-white hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
+                                title={isZh ? '导出并下载' : 'Export and download'}
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingProjectId(project.id);
                                 setEditingProjectName(project.projectName);
                               }}
-                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-indigo-200"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-white hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
                               title={isZh ? '重命名项目' : 'Rename project'}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => void onDeleteProject(project.id)}
-                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
                               title={isZh ? '删除项目' : 'Delete project'}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>

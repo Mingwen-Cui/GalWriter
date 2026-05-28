@@ -55,6 +55,8 @@ interface SettingsModalProps {
   setShowNodeActions: (val: boolean) => void;
   showStats: boolean;
   setShowStats: (val: boolean) => void;
+  showLastSavedTime: boolean;
+  setShowLastSavedTime: (val: boolean) => void;
   saveAssistantConversations: boolean;
   setSaveAssistantConversations: (val: boolean) => void;
   showMiniMap: boolean;
@@ -142,6 +144,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setShowNodeActions,
   showStats,
   setShowStats,
+  showLastSavedTime,
+  setShowLastSavedTime,
   saveAssistantConversations,
   setSaveAssistantConversations,
   showMiniMap,
@@ -222,7 +226,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     <div
       className={`fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
     >
-      <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-3xl h-[600px] max-h-[85vh] flex overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+      <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
         {/* Sidebar Navigation */}
         <div className="w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
           <div className="flex items-center gap-3 px-2 py-4 mb-8">
@@ -529,6 +533,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       setter: setShowNodeActions,
                     },
                     { id: 'showStats', label: t.showStats, value: showStats, setter: setShowStats },
+                    {
+                      id: 'showLastSavedTime',
+                      label: language === 'zh' ? '显示上次保存时间' : 'Show last saved time',
+                      value: showLastSavedTime,
+                      setter: setShowLastSavedTime,
+                    },
                     {
                       id: 'saveAssistantConversations',
                       label:

@@ -92,8 +92,8 @@ const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const DEFAULT_TEXT_MODEL = 'deepseek-chat';
 const APP_TITLE = '交互式剧本编辑器';
-const PROJECT_TITLE_PLACEHOLDER = '点击编辑标题';
-const DEFAULT_PROJECT_FILE_NAME = 'story-project';
+const PROJECT_TITLE_PLACEHOLDER = '新建项目';
+const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 type PendingProjectAction =
   | { type: 'create' }
   | { type: 'open'; projectId: string }
@@ -165,7 +165,7 @@ const formatProjectTimestamp = (timestamp: number) => {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 };
 
-const buildAutoProjectName = (timestamp = Date.now()) => `Story_${formatProjectTimestamp(timestamp)}`;
+const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
@@ -403,6 +403,8 @@ export function StoryEditor() {
   const [pasteAsPlainText, setPasteAsPlainText] = useState(false);
   const [showNodeActions, setShowNodeActions] = useState(true);
   const [showStats, setShowStats] = useState(true);
+  const [showLastSavedTime, setShowLastSavedTime] = useState(true);
+  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
@@ -723,6 +725,7 @@ export function StoryEditor() {
       saveAssistantConversations,
       presetColors,
       showTitles,
+      showLastSavedTime,
       generateLength,
       aiProvider,
       imageApiUrl,
@@ -794,6 +797,7 @@ export function StoryEditor() {
       showNodeActions,
       showStats,
       showTitles,
+      showLastSavedTime,
       thinkingMode,
       theme,
       toolbarLayout,
@@ -814,6 +818,7 @@ export function StoryEditor() {
       setSaveAssistantConversations,
       setPresetColors,
       setShowTitles,
+      setShowLastSavedTime,
       setGenerateLength,
       setImageSize,
       setAiPrompts,
@@ -1702,7 +1707,7 @@ export function StoryEditor() {
       projectId: string,
       projectData: ProjectSnapshotData,
       projectName: string,
-      options?: { fromHome?: boolean },
+      options?: { fromHome?: boolean; updatedAt?: number },
     ) => {
       await applyProjectData(projectData, { markSaved: true });
 
@@ -1712,6 +1717,7 @@ export function StoryEditor() {
         projectData.settings?.projectTitle?.trim() ||
         (projectName.trim() && projectName.trim() !== DEFAULT_PROJECT_FILE_NAME ? projectName : '');
       setProjectTitle(nextProjectTitle);
+      setLastSavedTime(options?.updatedAt || null);
       setCurrentProjectPersisted(true);
       resetAssistantTasks(projectData.assistantTasks, projectData.activeAssistantTaskId || null);
       lastHistoryState.current = {
@@ -1778,6 +1784,7 @@ export function StoryEditor() {
     setCurrentProjectPersisted(true);
     setSaveFileName(persistedProjectName);
     setProjectTitle(persistedProjectTitle);
+    setLastSavedTime(Date.now());
     lastSavedSnapshot.current = JSON.stringify(snapshot);
     setIsDirty(false);
     await refreshProjectSummaries();
@@ -1913,6 +1920,7 @@ export function StoryEditor() {
           savedProject.id,
           savedProject.projectData,
           savedProject.projectName,
+          { updatedAt: savedProject.updatedAt },
         );
       } else {
         resetEditorToBlankState();
@@ -1935,6 +1943,30 @@ export function StoryEditor() {
     setShowProjectSavePrompt(false);
     setPendingProjectAction(null);
   }, []);
+
+  const handleExportProjectFromList = useCallback(async (projectId: string) => {
+    try {
+      const project = await localPersistenceService.loadProject(projectId);
+      if (!project) {
+        showToast(language === 'zh' ? '找不到要导出的项目' : 'Project not found for export');
+        return;
+      }
+      const { createProjectSerializer } = await import('../editor-services/projectSerializer');
+      const serializer = createProjectSerializer({
+        defaultEdgeOptions,
+        defaultAIPrompts,
+        defaultAIButtonsConfig,
+      });
+      await serializer.exportZip({
+        projectData: project.projectData,
+        fileName: project.projectName,
+      });
+      showToast(language === 'zh' ? '项目导出成功' : 'Project exported successfully');
+    } catch (e) {
+      console.error(e);
+      showToast(language === 'zh' ? '导出失败' : 'Export failed');
+    }
+  }, [language, showToast]);
 
   const handleOpenProject = useCallback(
     async (projectId: string) => {
@@ -2004,6 +2036,7 @@ export function StoryEditor() {
 
       await restoreProjectSession(project.id, project.projectData, project.projectName, {
         fromHome: pendingHomeProjectId === project.id,
+        updatedAt: project.updatedAt,
       });
       if (!cancelled) {
         setPendingHomeProjectId(null);
@@ -2446,6 +2479,8 @@ ${direction}
           appTitle={APP_TITLE}
           projectName={currentProjectId ? projectTitle.trim() : ''}
           projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
+          showLastSavedTime={showLastSavedTime}
+          lastSavedTime={lastSavedTime}
           onProjectNameChange={setProjectTitle}
           onProjectNameCommit={async (nextName) => {
             if (!currentProjectId) return;
@@ -2818,6 +2853,8 @@ ${direction}
           setShowNodeActions={setShowNodeActions}
           showStats={showStats}
           setShowStats={setShowStats}
+          showLastSavedTime={showLastSavedTime}
+          setShowLastSavedTime={setShowLastSavedTime}
           saveAssistantConversations={saveAssistantConversations}
           setSaveAssistantConversations={setSaveAssistantConversations}
           showMiniMap={showMiniMap}
@@ -2914,6 +2951,7 @@ ${direction}
         onDeleteProject={async (projectId) => {
           setProjectIdPendingDeletion(projectId);
         }}
+        onExportProject={handleExportProjectFromList}
       />
 
       <ConfirmActionModal
