@@ -147,19 +147,7 @@ const applyProjectSettings = (
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
-  if (incomingSettings.aiProvider) setters.setAiProvider(incomingSettings.aiProvider);
-  if (incomingSettings.imageApiUrl) setters.setImageApiUrl(incomingSettings.imageApiUrl);
-  if (incomingSettings.imageModel) setters.setImageModel(incomingSettings.imageModel);
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
-  if (incomingSettings.ttsApiUrl) setters.setTtsApiUrl(incomingSettings.ttsApiUrl);
-  if (incomingSettings.ttsModel) setters.setTtsModel(incomingSettings.ttsModel);
-  if (incomingSettings.ttsVoice) setters.setTtsVoice(incomingSettings.ttsVoice);
-  if (incomingSettings.ttsProvider === 'system' || incomingSettings.ttsProvider === 'youdao') {
-    setters.setTtsProvider(incomingSettings.ttsProvider);
-  }
-  if (incomingSettings.thinkingMode !== undefined) {
-    setters.setThinkingMode(incomingSettings.thinkingMode);
-  }
   if (incomingSettings.aiPrompts) {
     setters.setAiPrompts({ ...defaultPrompts, ...incomingSettings.aiPrompts });
   }

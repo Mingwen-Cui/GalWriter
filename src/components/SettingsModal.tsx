@@ -3,7 +3,6 @@ import {
   ArrowRight,
   BrainCircuit,
   Check,
-  ChevronDown,
   Copy,
   ExternalLink,
   HelpCircle,
@@ -18,79 +17,18 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 
+import { AISettingsPanel } from './AISettingsPanel';
 import {
   type AIButtonsConfig,
   type AIPromptsConfig,
-  defaultAIButtonsConfig,
-  defaultAIPrompts,
 } from '../editor-state/editorConfig';
+import type {
+  ImageAIProfile,
+  SavedAIProfile,
+  TextAIProfile,
+  VoiceAIProfile,
+} from '../domain/project';
 import { Language, translations } from '../lib/i18n';
-
-const IMAGE_SIZE_PRESETS = [
-  { value: '2K', zh: '官方 2K', en: 'Official 2K' },
-  { value: '2048x2048', zh: '1:1 即梦 2K', en: '1:1 Seedream 2K' },
-  { value: '2560x1440', zh: '16:9 即梦横屏', en: '16:9 Seedream landscape' },
-  { value: '1440x2560', zh: '9:16 即梦竖屏', en: '9:16 Seedream portrait' },
-  { value: '2304x1728', zh: '4:3 即梦横图', en: '4:3 Seedream landscape' },
-  { value: '1728x2304', zh: '3:4 即梦竖图', en: '3:4 Seedream portrait' },
-  { value: '512x512', zh: '1:1 小方图', en: '1:1 Small square' },
-  { value: '768x768', zh: '1:1 中方图', en: '1:1 Medium square' },
-  { value: '1024x1024', zh: '1:1 标准方图', en: '1:1 Standard square' },
-  { value: '1024x1536', zh: '2:3 竖图', en: '2:3 Portrait' },
-  { value: '1536x1024', zh: '3:2 横图', en: '3:2 Landscape' },
-  { value: '720x1280', zh: '9:16 手机', en: '9:16 Mobile' },
-  { value: '1080x1920', zh: '9:16 高清竖屏', en: '9:16 HD portrait' },
-  { value: '1280x720', zh: '16:9 横屏', en: '16:9 Landscape' },
-  { value: '1920x1080', zh: '16:9 高清横屏', en: '16:9 HD landscape' },
-  { value: '1080x1350', zh: '4:5 社媒竖图', en: '4:5 Social portrait' },
-  { value: '1350x1080', zh: '5:4 社媒横图', en: '5:4 Social landscape' },
-  { value: '1024x1792', zh: '9:16 DALL-E', en: '9:16 DALL-E' },
-  { value: '1792x1024', zh: '16:9 DALL-E', en: '16:9 DALL-E' },
-];
-
-const SEEDREAM_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
-const SEEDREAM_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
-const SEEDREAM_IMAGE_SIZE = '2K';
-
-const parseImageApiTemplate = (text: string) => {
-  const source = text.trim();
-  if (!source) {
-    return null;
-  }
-
-  const baseUrl = source.match(
-    /(?:base_url|baseURL|baseUrl|api_url|apiUrl|endpoint)\s*[:=]\s*["']([^"']+)["']/i,
-  )?.[1];
-  const curlUrl = source.match(
-    /curl(?:\s+-X\s+POST|\s+--location)?\s+["']?([^\s"'\\]+)["']?/i,
-  )?.[1];
-  const endpointUrl = source.match(/https?:\/\/[^\s"'\\]+\/images\/generations/i)?.[0];
-  const plainUrl = source.match(/^https?:\/\/\S+$/i)?.[0];
-  const apiKey =
-    source.match(/Authorization:\s*Bearer\s+([^"'\s\\]+)/i)?.[1] ||
-    source.match(
-      /(?:api[_-]?key|apiKey|ARK_API_KEY|OPENAI_API_KEY)\s*[:=]\s*["']([^"']+)["']/i,
-    )?.[1] ||
-    source.match(/["']Bearer\s+([^"']+)["']/i)?.[1] ||
-    source.match(/^(?:sk|ark)-[A-Za-z0-9_\-.]+$/)?.[0];
-  const model =
-    source.match(/["']model["']\s*:\s*["']([^"']+)["']/i)?.[1] ||
-    source.match(/model\s*=\s*["']([^"']+)["']/i)?.[1] ||
-    source.match(/^(?:doubao|seedream|gpt-image)[A-Za-z0-9_\-.]*$/i)?.[0];
-  const size =
-    source.match(/["']size["']\s*:\s*["']([^"']+)["']/i)?.[1] ||
-    source.match(/size\s*=\s*["']([^"']+)["']/i)?.[1] ||
-    source.match(/^(?:\d{3,5}\s*[xX*]\s*\d{3,5}|2K)$/)?.[0];
-
-  const parsed = {
-    apiUrl: baseUrl || endpointUrl || curlUrl || plainUrl,
-    apiKey,
-    model,
-    size,
-  };
-
-  return Object.values(parsed).some(Boolean) ? parsed : null;
-};
 
 interface SettingsModalProps {
   showSettings: boolean;
@@ -125,36 +63,25 @@ interface SettingsModalProps {
   setMiniMapPosition: (position: 'left' | 'right') => void;
   showControls: boolean;
   setShowControls: (val: boolean) => void;
-  aiProvider: 'gemini' | 'deepseek' | 'openai';
-  setAiProvider: (provider: 'gemini' | 'deepseek' | 'openai') => void;
-  customApiKey: string;
-  setCustomApiKey: (key: string) => void;
-  deepseekApiKey: string;
-  setDeepseekApiKey: (key: string) => void;
-  openaiApiKey: string;
-  setOpenaiApiKey: (key: string) => void;
-  imageApiKey: string;
-  setImageApiKey: (key: string) => void;
-  imageApiUrl: string;
-  setImageApiUrl: (url: string) => void;
-  imageModel: string;
-  setImageModel: (model: string) => void;
-  imageSize: string;
-  setImageSize: (size: string) => void;
-  ttsApiKey: string;
-  setTtsApiKey: (key: string) => void;
-  ttsProvider: 'system' | 'youdao';
-  setTtsProvider: (provider: 'system' | 'youdao') => void;
-  ttsApiUrl: string;
-  setTtsApiUrl: (url: string) => void;
-  ttsModel: string;
-  setTtsModel: (model: string) => void;
-  ttsVoice: string;
-  setTtsVoice: (voice: string) => void;
+  savedAIProfiles: SavedAIProfile[];
+  activeTextProfileId: string | null;
+  activeImageProfileId: string | null;
+  activeVoiceProfileId: string | null;
+  onCreateAIProfile: (
+    kind: 'text' | 'image' | 'voice',
+    initialProfile?: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>,
+  ) => void | string | Promise<void | string>;
+  onUpdateAIProfile: (
+    profileId: string,
+    updates: Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>,
+  ) => void | Promise<void>;
+  onSelectAIProfile: (
+    kind: 'text' | 'image' | 'voice',
+    profileId: string,
+  ) => void | Promise<void>;
+  onDeleteAIProfile: (profileId: string) => void | Promise<void>;
   generateLength: string;
   setGenerateLength: (len: string) => void;
-  thinkingMode: boolean;
-  setThinkingMode: (val: boolean) => void;
   aiPrompts: AIPromptsConfig;
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
@@ -223,36 +150,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setMiniMapPosition,
   showControls,
   setShowControls,
-  aiProvider,
-  setAiProvider,
-  customApiKey,
-  setCustomApiKey,
-  deepseekApiKey,
-  setDeepseekApiKey,
-  openaiApiKey,
-  setOpenaiApiKey,
-  imageApiKey,
-  setImageApiKey,
-  imageApiUrl,
-  setImageApiUrl,
-  imageModel,
-  setImageModel,
-  imageSize,
-  setImageSize,
-  ttsApiKey,
-  setTtsApiKey,
-  ttsProvider,
-  setTtsProvider,
-  ttsApiUrl,
-  setTtsApiUrl,
-  ttsModel,
-  setTtsModel,
-  ttsVoice,
-  setTtsVoice,
+  savedAIProfiles,
+  activeTextProfileId,
+  activeImageProfileId,
+  activeVoiceProfileId,
+  onCreateAIProfile,
+  onUpdateAIProfile,
+  onSelectAIProfile,
+  onDeleteAIProfile,
   generateLength,
   setGenerateLength,
-  thinkingMode,
-  setThinkingMode,
   aiPrompts,
   setAiPrompts,
   aiButtonsConfig,
@@ -290,16 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeSettingsTab, setActiveSettingsTab] = useState<
     'appearance' | 'editor' | 'playtest' | 'ai' | 'about'
   >('appearance');
-  const [showCustomAiPrompts, setShowCustomAiPrompts] = useState(false);
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
-  const [imageTemplateImportStatus, setImageTemplateImportStatus] = useState<
-    'idle' | 'success' | 'empty' | 'blocked'
-  >('idle');
-  const [manualImageTemplate, setManualImageTemplate] = useState('');
-  const [openAiPanels, setOpenAiPanels] = useState({ text: true, image: true, voice: true });
-  const toggleAiPanel = (panel: 'text' | 'image' | 'voice') => {
-    setOpenAiPanels((current) => ({ ...current, [panel]: !current[panel] }));
-  };
   const forceQuitApp = async () => {
     try {
       const tauriCore = await import('@tauri-apps/api/core');
@@ -317,38 +215,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     window.close();
   };
   const t = translations[language];
-
-  const applyImageTemplate = (template: string) => {
-    const parsed = parseImageApiTemplate(template);
-    if (!parsed) return false;
-
-    if (parsed.apiUrl) setImageApiUrl(parsed.apiUrl);
-    if (parsed.apiKey) setImageApiKey(parsed.apiKey);
-    if (parsed.model) setImageModel(parsed.model);
-    if (parsed.size) setImageSize(parsed.size);
-    return true;
-  };
-
-  const importImageTemplateFromClipboard = async () => {
-    if (!navigator.clipboard?.readText) {
-      setImageTemplateImportStatus('blocked');
-      return;
-    }
-
-    try {
-      const template = await navigator.clipboard.readText();
-      const imported = applyImageTemplate(template);
-      setImageTemplateImportStatus(imported ? 'success' : 'empty');
-    } catch {
-      setImageTemplateImportStatus('blocked');
-    }
-  };
-
-  const importManualImageTemplate = (template: string) => {
-    const imported = applyImageTemplate(template);
-    setImageTemplateImportStatus(imported ? 'success' : 'empty');
-    return imported;
-  };
 
   if (!showSettings) return null;
 
@@ -1129,720 +995,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {activeSettingsTab === 'ai' && (
-            <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
-              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
-                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '文本 AI' : 'Text AI'}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleAiPanel('text')}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
-                    title={
-                      openAiPanels.text
-                        ? language === 'zh'
-                          ? '折叠'
-                          : 'Collapse'
-                        : language === 'zh'
-                          ? '展开'
-                          : 'Expand'
-                    }
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${openAiPanels.text ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                </header>
-
-                {openAiPanels.text && (
-                  <div className="p-6 space-y-6">
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)] shadow-inner">
-                      <button
-                        onClick={() => setAiProvider('deepseek')}
-                        className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'deepseek' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}
-                      >
-                        DeepSeek
-                      </button>
-                      <button
-                        onClick={() => setAiProvider('gemini')}
-                        className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'gemini' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}
-                      >
-                        Gemini
-                      </button>
-                      <button
-                        onClick={() => setAiProvider('openai')}
-                        className={`flex-1 px-4 py-2 text-xs font-black rounded-lg transition-all duration-500 ${aiProvider === 'openai' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-105' : 'text-[var(--text-muted)] opacity-60'}`}
-                      >
-                        OpenAI
-                      </button>
-                    </div>
-
-                    <div className="bg-[var(--app-bg)]/30 p-8 rounded-xl border border-[var(--header-border)] shadow-inner space-y-6">
-                      {aiProvider === 'gemini' ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between ml-1">
-                            <label className="text-sm font-black text-[var(--text-primary)]">
-                              {t.geminiKey}
-                            </label>
-                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">
-                              Google AI Studio
-                            </span>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              placeholder="AI Studio API Key"
-                              value={customApiKey}
-                              onChange={(e) => setCustomApiKey(e.target.value)}
-                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                            />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <Check
-                                className={`w-5 h-5 transition-all ${customApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2"></p>
-                          <a
-                            href="https://ai.google.dev/gemini-api/docs"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                          >
-                            {language === 'zh' ? 'Gemini API 官方文档' : 'Gemini API Docs'}
-                          </a>
-                        </div>
-                      ) : aiProvider === 'openai' ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between ml-1">
-                            <label className="text-sm font-black text-[var(--text-primary)]">
-                              {t.openaiKey}
-                            </label>
-                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">
-                              OpenAI Platform
-                            </span>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              placeholder="OpenAI API Key (sk-...)"
-                              value={openaiApiKey}
-                              onChange={(e) => setOpenaiApiKey(e.target.value)}
-                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                            />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <Check
-                                className={`w-5 h-5 transition-all ${openaiApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-2">
-                            {language === 'zh'
-                              ? '支持 gpt-4o 等系列模型。'
-                              : 'Supports gpt-4o models.'}
-                          </p>
-                          <a
-                            href="https://platform.openai.com/docs"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                          >
-                            {language === 'zh' ? 'OpenAI API 官方文档' : 'OpenAI API Docs'}
-                          </a>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between ml-1">
-                            <label className="text-sm font-black text-[var(--text-primary)]">
-                              {t.deepseekKey}
-                            </label>
-                            <span className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest">
-                              DeepSeek Platform
-                            </span>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              placeholder="DeepSeek Platform API Key"
-                              value={deepseekApiKey}
-                              onChange={(e) => setDeepseekApiKey(e.target.value)}
-                              className="w-full px-6 py-4 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                            />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <Check
-                                className={`w-5 h-5 transition-all ${deepseekApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}
-                              />
-                            </div>
-                          </div>
-                          <a
-                            href="https://api-docs.deepseek.com/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-fit px-2 text-[10px] font-bold leading-relaxed text-[var(--accent)] hover:underline"
-                          >
-                            {language === 'zh' ? 'DeepSeek API 官方文档' : 'DeepSeek API Docs'}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-4 pt-2">
-                      <div className="flex items-center justify-between px-2">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-black text-[var(--text-primary)]">
-                            {t.genLength}
-                          </h4>
-                          <p className="text-xs text-[var(--text-muted)] font-medium">
-                            {language === 'zh'
-                              ? '控制 AI 续写内容的字数深度'
-                              : 'Control AI output depth'}
-                          </p>
-                        </div>
-                        <select
-                          value={generateLength}
-                          onChange={(e) => setGenerateLength(e.target.value)}
-                          className="px-6 py-3 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all cursor-pointer"
-                        >
-                          {['1句话', '2-3句话', '100字', '200字', '500字', '1000字'].map((len) => (
-                            <option
-                              key={len}
-                              value={len}
-                              className={
-                                theme === 'dark'
-                                  ? 'bg-slate-900 text-white'
-                                  : 'bg-white text-slate-800'
-                              }
-                            >
-                              {language === 'zh'
-                                ? len
-                                : len.replace('句话', ' sentences').replace('字', ' words')}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div
-                        className={`p-6 rounded-xl border-2 transition-all duration-700 ${aiProvider === 'deepseek' || aiProvider === 'gemini' || aiProvider === 'openai' ? 'bg-[var(--card-bg)] border-[var(--accent)]/30 shadow-xl' : 'bg-[var(--app-bg)] border-[var(--card-border)] opacity-40 grayscale pointer-events-none'}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-black text-[var(--text-primary)]">
-                                {t.thinkingMode}
-                              </h4>
-                              <span className="px-2 py-0.5 bg-[var(--accent)] text-[10px] font-black text-white rounded-full uppercase tracking-tighter shadow-sm">
-                                Exclusive
-                              </span>
-                            </div>
-                            <p className="text-xs text-[var(--text-muted)] font-medium max-w-[280px] leading-relaxed">
-                              {t.thinkingModeDesc}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => setThinkingMode(!thinkingMode)}
-                            className={`w-14 h-7 rounded-full transition-all duration-500 relative ${thinkingMode ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)] shadow-inner'}`}
-                          >
-                            <div
-                              className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-500 shadow-md ${thinkingMode ? 'left-8' : 'left-1'}`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
-                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '图片 AI' : 'Image AI'}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleAiPanel('image')}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
-                    title={
-                      openAiPanels.image
-                        ? language === 'zh'
-                          ? '折叠'
-                          : 'Collapse'
-                        : language === 'zh'
-                          ? '展开'
-                          : 'Expand'
-                    }
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${openAiPanels.image ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                </header>
-                {openAiPanels.image && (
-                  <div className="p-6">
-                    <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
-                      <button
-                        type="button"
-                        onClick={importImageTemplateFromClipboard}
-                        className="relative z-10 w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--accent)] text-white rounded-xl text-xs font-black shadow-md transition-all hover:shadow-lg active:scale-95"
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                        <span>
-                          {language === 'zh' ? '剪贴板导入填入' : 'Clipboard import and filling in'}
-                        </span>
-                      </button>
-                      {imageTemplateImportStatus !== 'idle' && (
-                        <p
-                          className={`text-[10px] leading-relaxed font-bold px-1 ${imageTemplateImportStatus === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}
-                        >
-                          {imageTemplateImportStatus === 'success'
-                            ? language === 'zh'
-                              ? '已从剪贴板填入可识别的接口信息。'
-                              : 'Imported recognized API fields from clipboard.'
-                            : imageTemplateImportStatus === 'blocked'
-                              ? language === 'zh'
-                                ? '无法直接读取剪贴板，请粘贴到下方文本框导入。'
-                                : 'Clipboard access was blocked. Paste into the box below to import.'
-                              : language === 'zh'
-                                ? '剪贴板里没有识别到 API 地址、密钥、模型或尺寸。'
-                                : 'No API URL, key, model, or size was recognized in clipboard.'}
-                        </p>
-                      )}
-                      {(imageTemplateImportStatus === 'blocked' ||
-                        imageTemplateImportStatus === 'empty') && (
-                        <div className="space-y-2">
-                          <textarea
-                            value={manualImageTemplate}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setManualImageTemplate(value);
-                              if (value.trim()) importManualImageTemplate(value);
-                            }}
-                            onPaste={(e) => {
-                              const pasted = e.clipboardData.getData('text');
-                              if (pasted.trim()) {
-                                setManualImageTemplate(pasted);
-                                importManualImageTemplate(pasted);
-                              }
-                            }}
-                            placeholder={
-                              language === 'zh'
-                                ? '在这里 Ctrl+V 粘贴官方模板、curl、JSON 或 API Key'
-                                : 'Ctrl+V official template, curl, JSON, or API key here'
-                            }
-                            className="w-full min-h-24 px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)] resize-y"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => importManualImageTemplate(manualImageTemplate)}
-                            className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg text-xs font-black text-[var(--text-primary)] hover:text-[var(--accent)] transition-all active:scale-95"
-                          >
-                            {language === 'zh' ? '导入粘贴内容' : 'Import Pasted Text'}
-                          </button>
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-[var(--text-primary)]">
-                          {language === 'zh' ? 'API 地址 / Base URL' : 'API Endpoint / Base URL'}
-                        </label>
-                        <input
-                          type="text"
-                          value={imageApiUrl}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (!applyImageTemplate(value)) setImageApiUrl(value);
-                          }}
-                          placeholder={SEEDREAM_IMAGE_API_URL}
-                          className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-xs font-mono shadow-sm text-[var(--text-primary)]"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-[var(--text-primary)]">
-                          {language === 'zh' ? 'API 密钥' : 'API Key'}
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="password"
-                            value={imageApiKey}
-                            onChange={(e) => setImageApiKey(e.target.value)}
-                            placeholder="Image API Key"
-                            className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                          />
-                          <Check
-                            className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${imageApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-[var(--text-primary)]">
-                            {language === 'zh' ? '模型' : 'Model'}
-                          </label>
-                          <input
-                            type="text"
-                            value={imageModel}
-                            onChange={(e) => setImageModel(e.target.value)}
-                            placeholder={SEEDREAM_IMAGE_MODEL}
-                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-[var(--text-primary)]">
-                            {language === 'zh' ? '自定义尺寸' : 'Custom Size'}
-                          </label>
-                          <input
-                            type="text"
-                            value={imageSize}
-                            onChange={(e) => setImageSize(e.target.value)}
-                            placeholder={SEEDREAM_IMAGE_SIZE}
-                            className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono font-bold shadow-sm text-[var(--text-primary)]"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-xs font-black text-[var(--text-primary)]">
-                            {language === 'zh' ? '主流尺寸预设' : 'Popular Size Presets'}
-                          </label>
-                          <span className="text-[10px] font-bold text-[var(--text-muted)]">
-                            {language === 'zh' ? '点击快速填入' : 'Click to fill'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {IMAGE_SIZE_PRESETS.map((size) => (
-                            <button
-                              key={size.value}
-                              type="button"
-                              onClick={() => setImageSize(size.value)}
-                              className={`px-3 py-2 rounded-lg border text-left transition-all active:scale-95 ${
-                                imageSize === size.value
-                                  ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-md'
-                                  : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--card-border)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                              }`}
-                              title={size.value}
-                            >
-                              <div className="text-xs font-black">{size.value}</div>
-                              <div
-                                className={`text-[9px] font-bold mt-0.5 ${imageSize === size.value ? 'text-white/70' : 'text-[var(--text-muted)]'}`}
-                              >
-                                {language === 'zh' ? size.zh : size.en}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
-                        {language === 'zh'
-                          ? '普通文字卡片会使用这里的配置生成图片。即梦/火山方舟会自动把 OpenAI 默认地址、gpt-image-1 和过小尺寸转换成可测试的 Seedream 请求。'
-                          : 'Text cards use this configuration to generate images. Seedream / Volcengine requests automatically convert the OpenAI default endpoint, gpt-image-1, and undersized images into a testable Seedream request.'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              <section className="rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/20 overflow-hidden">
-                <header className="flex items-center justify-between gap-4 p-5 border-b border-[var(--header-border)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-sky-500 rounded-full" />
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '语音 AI' : 'Voice AI'}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleAiPanel('voice')}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
-                    title={
-                      openAiPanels.voice
-                        ? language === 'zh'
-                          ? '折叠'
-                          : 'Collapse'
-                        : language === 'zh'
-                          ? '展开'
-                          : 'Expand'
-                    }
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${openAiPanels.voice ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                </header>
-                {openAiPanels.voice && (
-                  <div className="p-6">
-                    <div className="bg-[var(--app-bg)]/30 p-6 rounded-xl border border-[var(--header-border)] shadow-inner space-y-4">
-                      <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
-                        <button
-                          type="button"
-                          onClick={() => setTtsProvider('system')}
-                          className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'system' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {language === 'zh' ? '系统自带语音' : 'System Voice'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTtsProvider('youdao')}
-                          className={`px-4 py-3 rounded-lg text-xs font-black transition-all ${ttsProvider === 'youdao' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {language === 'zh' ? '有道云 API' : 'Youdao API'}
-                        </button>
-                      </div>
-                      {ttsProvider === 'youdao' && (
-                        <>
-                          <input
-                            type="hidden"
-                            value={ttsApiUrl}
-                            onChange={(e) => setTtsApiUrl(e.target.value)}
-                          />
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-xs font-black text-[var(--text-primary)]">
-                                {language === 'zh' ? '应用 ID' : 'Application ID'}
-                              </label>
-                              <input
-                                type="text"
-                                value={ttsModel}
-                                onChange={(e) => setTtsModel(e.target.value)}
-                                placeholder="65a6f7935fd78c5b"
-                                className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-black text-[var(--text-primary)]">
-                                {language === 'zh' ? '应用密钥' : 'Application Secret'}
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="password"
-                                  value={ttsApiKey}
-                                  onChange={(e) => setTtsApiKey(e.target.value)}
-                                  placeholder={
-                                    language === 'zh' ? '控制台里的应用密钥' : 'Application secret'
-                                  }
-                                  className="w-full px-4 py-3 pr-11 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                                />
-                                <Check
-                                  className={`w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 transition-all ${ttsApiKey ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-black text-[var(--text-primary)]">
-                              {language === 'zh' ? '发音人' : 'Voice Name'}
-                            </label>
-                            <input
-                              type="text"
-                              value={ttsVoice}
-                              onChange={(e) => setTtsVoice(e.target.value)}
-                              placeholder="youxiaoqin"
-                              className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all text-sm font-mono shadow-sm text-[var(--text-primary)]"
-                            />
-                          </div>
-                        </>
-                      )}
-                      {ttsProvider === 'system' && (
-                        <div className="px-4 py-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl">
-                          <p className="text-xs leading-relaxed text-[var(--text-muted)] font-bold">
-                            {language === 'zh'
-                              ? '使用 Windows 系统内置语音生成 WAV 音频，不需要联网，也不会增加模型体积。'
-                              : 'Uses the built-in Windows voice to generate WAV audio without network access or bundled models.'}
-                          </p>
-                        </div>
-                      )}
-                      <p className="text-[10px] leading-relaxed text-[var(--text-muted)] font-bold px-1">
-                        {language === 'zh'
-                          ? '框选剧情卡片后，使用框选菜单里的“生成朗读音频”会把每张卡片的标题和正文合成为音频，并自动关联到 audioUrl。'
-                          : 'After selecting story cards, use Generate narration audio in the selection menu to synthesize each card title and body into audio and attach it to audioUrl.'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* AI 续写弹窗按钮可见性配置 */}
-              <section className="space-y-4 pt-4 border-t border-[var(--header-border)]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? 'AI 续写弹窗按钮' : 'AI Action Buttons'}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
-                    className="text-[10px] font-bold text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors px-2 py-1 rounded-lg hover:bg-[var(--app-bg)]/50"
-                  >
-                    {language === 'zh' ? '全部恢复' : 'Reset All'}
-                  </button>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] font-medium">
-                  {language === 'zh'
-                    ? '控制 AI 续写选择弹窗中显示哪些功能按钮。'
-                    : 'Control which action buttons appear in the AI writing modal.'}
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  {(
-                    [
-                      {
-                        key: 'continue' as const,
-                        emoji: '✍️',
-                        label: language === 'zh' ? '根据前文续写' : 'Continue from context',
-                      },
-                      {
-                        key: 'creative' as const,
-                        emoji: '💡',
-                        label: language === 'zh' ? '提供不同创意' : 'Creative alternatives',
-                      },
-                      {
-                        key: 'rewrite' as const,
-                        emoji: '🔄',
-                        label: language === 'zh' ? '改写当前内容' : 'Rewrite current content',
-                      },
-                      {
-                        key: 'interpolate' as const,
-                        emoji: '🧩',
-                        label: language === 'zh' ? '补充中间内容' : 'Fill in the gap',
-                      },
-                      {
-                        key: 'scene_only' as const,
-                        emoji: '🏞',
-                        label: language === 'zh' ? '仅增加场景描写' : 'Scene description only',
-                      },
-                      {
-                        key: 'dialogue_only' as const,
-                        emoji: '💬',
-                        label: language === 'zh' ? '仅增加对话' : 'Dialogue only',
-                      },
-                    ] as const
-                  ).map((item) => (
-                    <div
-                      key={item.key}
-                      onClick={() =>
-                        setAiButtonsConfig({
-                          ...aiButtonsConfig,
-                          [item.key]: !aiButtonsConfig[item.key],
-                        })
-                      }
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
-                        aiButtonsConfig[item.key]
-                          ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 hover:bg-[var(--accent)]/10'
-                          : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-50 hover:opacity-70'
-                      }`}
-                    >
-                      <span className="text-lg">{item.emoji}</span>
-                      <span
-                        className={`flex-1 text-sm font-semibold ${
-                          aiButtonsConfig[item.key]
-                            ? 'text-[var(--text-primary)]'
-                            : 'text-[var(--text-muted)]'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                      {/* NOTE: 自定义 toggle 开关 */}
-                      <div
-                        className={`w-10 h-5 rounded-full transition-all duration-300 relative flex-shrink-0 ${
-                          aiButtonsConfig[item.key]
-                            ? 'bg-[var(--accent)]'
-                            : 'bg-[var(--app-bg)] border border-[var(--header-border)]'
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${
-                            aiButtonsConfig[item.key] ? 'left-5' : 'left-0.5'
-                          }`}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="space-y-6 pt-4 border-t border-[var(--header-border)]">
-                <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '自定义 AI 提示词' : 'Custom AI Prompts'}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => setShowCustomAiPrompts(!showCustomAiPrompts)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-xl border-0 border-[var(--header-border)] bg-[var(--app-bg)]/30 transition-all active:scale-95"
-                  >
-                    <div
-                      className={`w-11 h-6 rounded-full transition-all duration-300 relative ${showCustomAiPrompts ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                    >
-                      <div
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${showCustomAiPrompts ? 'left-6' : 'left-1'}`}
-                      />
-                    </div>
-                  </button>
-                </div>
-                {showCustomAiPrompts && (
-                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                    <p className="text-xs text-[var(--text-muted)] font-medium mb-4">
-                      {language === 'zh'
-                        ? '可在此处修改 AI 对话时使用的模板变量，修改会自动保存在工程中。'
-                        : 'Modify the prompt templates used for AI interactions. Changes are saved with the project.'}
-                    </p>
-                    {Object.entries(aiPrompts || {}).map(([key, value]) => {
-                      const labelMap: Record<string, string> = {
-                        basePrompt:
-                          language === 'zh'
-                            ? '基础前置提示 (所有续写功能共享)'
-                            : 'Base System Prompt',
-                        continue: language === 'zh' ? '自然续写' : 'Continue Naturally',
-                        creative: language === 'zh' ? '不同创意方向' : 'Creative Directions',
-                        rewrite: language === 'zh' ? '文笔改写润色' : 'Rewrite & Polish',
-                        interpolate: language === 'zh' ? '承上启下补充' : 'Interpolate Segment',
-                        sceneOnly: language === 'zh' ? '仅环境描写' : 'Scene Description Only',
-                        dialogueOnly: language === 'zh' ? '仅人物对话' : 'Dialogue Only',
-                        analyzeStructure: language === 'zh' ? '分析结构' : 'Analyze Structure',
-                        analyzeSuggestions: language === 'zh' ? '后续剧情建议' : 'Plot Suggestions',
-                        analyzeDirection: language === 'zh' ? '写作方向指导' : 'Direction Guidance',
-                        analyzeSolution: language === 'zh' ? '解法与修改方案' : 'Fix Solutions',
-                        analyzeSummary: language === 'zh' ? '整体汇总报告' : 'General Summary',
-                      };
-                      // NOTE: 判断当前提示词是否已被用户修改（与默认值不同）
-                      const defaultValue =
-                        defaultAIPrompts[key as keyof typeof defaultAIPrompts] ?? '';
-                      const isModified = value !== defaultValue;
-                      return (
-                        <div key={key} className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-[var(--text-primary)]">
-                              {labelMap[key] || key}
-                            </label>
-                            {isModified && (
-                              <button
-                                onClick={() => setAiPrompts({ ...aiPrompts, [key]: defaultValue })}
-                                title={language === 'zh' ? '恢复默认' : 'Restore Default'}
-                                className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-full hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
-                              >
-                                ↺ {language === 'zh' ? '恢复初始' : 'Restore'}
-                              </button>
-                            )}
-                          </div>
-                          <textarea
-                            value={value}
-                            onChange={(e) => setAiPrompts({ ...aiPrompts, [key]: e.target.value })}
-                            className="w-full h-24 px-4 py-3 bg-[var(--app-bg)] border border-[var(--card-border)] rounded-xl text-xs text-[var(--text-secondary)] font-medium outline-none focus:ring-2 focus:ring-[var(--accent)]/50 focus:border-[var(--accent)] transition-all resize-y custom-scrollbar"
-                            spellCheck="false"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            </div>
+            <AISettingsPanel
+              language={language}
+              savedAIProfiles={savedAIProfiles}
+              activeTextProfileId={activeTextProfileId}
+              activeImageProfileId={activeImageProfileId}
+              activeVoiceProfileId={activeVoiceProfileId}
+              onCreateAIProfile={onCreateAIProfile}
+              onUpdateAIProfile={onUpdateAIProfile}
+              onSelectAIProfile={onSelectAIProfile}
+              onDeleteAIProfile={onDeleteAIProfile}
+              aiPrompts={aiPrompts}
+              setAiPrompts={setAiPrompts}
+              aiButtonsConfig={aiButtonsConfig}
+              setAiButtonsConfig={setAiButtonsConfig}
+            />
           )}
 
           {activeSettingsTab === 'about' && aboutPage === 'contact' && (

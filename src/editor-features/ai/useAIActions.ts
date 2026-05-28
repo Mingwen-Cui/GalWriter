@@ -12,9 +12,9 @@ interface UseAIActionsParams {
   edges: Edge[];
   aiPrompts: AIPromptsConfig;
   aiProvider: AiProvider;
-  deepseekApiKey: string;
-  openaiApiKey: string;
-  customApiKey: string;
+  textApiKey: string;
+  textApiUrl: string;
+  textModel: string;
   thinkingMode: boolean;
   generateLength: string;
   handleUpdateNode: (nodeId: string, updates: Record<string, unknown>) => void;
@@ -38,9 +38,9 @@ export const useAIActions = ({
   edges,
   aiPrompts,
   aiProvider,
-  deepseekApiKey,
-  openaiApiKey,
-  customApiKey,
+  textApiKey,
+  textApiUrl,
+  textModel,
   thinkingMode,
   generateLength,
   handleUpdateNode,
@@ -181,9 +181,9 @@ export const useAIActions = ({
 
   const aiClient = createAIClient({
     provider: aiProvider,
-    geminiApiKey: customApiKey,
-    deepseekApiKey,
-    openaiApiKey,
+    apiKey: textApiKey,
+    apiUrl: textApiUrl,
+    model: textModel,
     thinkingMode,
   });
 

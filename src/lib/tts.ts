@@ -1,5 +1,5 @@
 export type TTSConfig = {
-  provider: 'system' | 'youdao';
+  provider: string;
   apiUrl: string;
   apiKey: string;
   appKey?: string;

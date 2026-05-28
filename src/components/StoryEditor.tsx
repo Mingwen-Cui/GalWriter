@@ -57,9 +57,13 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import type {
+  ImageAIProfile,
+  SavedAIProfile,
   CharacterNodeData,
   SceneNodeData,
   StoryNodeData,
+  TextAIProfile,
+  VoiceAIProfile,
 } from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { Language, translations } from '../lib/i18n';
@@ -86,6 +90,7 @@ import { MemoizedTextNode } from './TextNode';
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
+const DEFAULT_TEXT_MODEL = 'deepseek-chat';
 const APP_TITLE = '交互式剧本编辑器';
 const PROJECT_TITLE_PLACEHOLDER = '点击编辑标题';
 const DEFAULT_PROJECT_FILE_NAME = 'story-project';
@@ -162,6 +167,43 @@ const formatProjectTimestamp = (timestamp: number) => {
 
 const buildAutoProjectName = (timestamp = Date.now()) => `Story_${formatProjectTimestamp(timestamp)}`;
 
+const buildProfileId = () => uuidv4();
+type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+
+const buildDefaultTextProfile = (): TextAIProfile => ({
+  id: buildProfileId(),
+  name: 'DeepSeek 文本',
+  kind: 'text',
+  provider: 'deepseek',
+  apiKey: '',
+  apiUrl: 'https://api.deepseek.com',
+  model: DEFAULT_TEXT_MODEL,
+  thinkingMode: false,
+});
+
+const buildDefaultImageProfile = (): ImageAIProfile => ({
+  id: buildProfileId(),
+  name: '豆包图片',
+  kind: 'image',
+  provider: 'doubao',
+  apiKey: '',
+  apiUrl: DEFAULT_IMAGE_API_URL,
+  model: DEFAULT_IMAGE_MODEL,
+  size: DEFAULT_IMAGE_SIZE,
+});
+
+const buildDefaultVoiceProfile = (): VoiceAIProfile => ({
+  id: buildProfileId(),
+  name: '系统语音',
+  kind: 'voice',
+  provider: 'system',
+  apiKey: '',
+  apiUrl: DEFAULT_TTS_API_URL,
+  model: DEFAULT_TTS_MODEL,
+  voice: DEFAULT_TTS_VOICE,
+  appKey: '',
+});
+
 const getProjectDisplayName = (projectTitle: string, saveFileName: string) => {
   const normalizedTitle = projectTitle.trim();
   if (normalizedTitle) return normalizedTitle;
@@ -176,6 +218,12 @@ const getPersistedProjectName = (projectTitle: string, saveFileName: string, tim
   const displayName = getProjectDisplayName(projectTitle, saveFileName);
   return displayName || buildAutoProjectName(timestamp);
 };
+
+const updateProfileList = (
+  profiles: SavedAIProfile[],
+  profileId: string,
+  updater: (profile: SavedAIProfile) => SavedAIProfile,
+) => profiles.map((profile) => (profile.id === profileId ? updater(profile) : profile));
 
 const TITLE_HEIGHT = 36;
 
@@ -314,23 +362,11 @@ export function StoryEditor() {
   const [showTitles, setShowTitles] = useState(true);
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [showSettings, setShowSettings] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState('');
-  const [deepseekApiKey, setDeepseekApiKey] = useState('');
-  const [openaiApiKey, setOpenaiApiKey] = useState('');
-  const [imageApiKey, setImageApiKey] = useState('');
-  const [imageApiUrl, setImageApiUrl] = useState(DEFAULT_IMAGE_API_URL);
-  const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL);
-  const [imageSize, setImageSize] = useState(DEFAULT_IMAGE_SIZE);
-  const [ttsApiKey, setTtsApiKey] = useState('');
-  const [ttsApiUrl, setTtsApiUrl] = useState(DEFAULT_TTS_API_URL);
-  const [ttsModel, setTtsModel] = useState(DEFAULT_TTS_MODEL);
-  const [ttsVoice, setTtsVoice] = useState(DEFAULT_TTS_VOICE);
-  const [ttsProvider, setTtsProvider] = useState<'system' | 'youdao'>('system');
+  const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
+  const [activeTextProfileId, setActiveTextProfileId] = useState<string | null>(null);
+  const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
+  const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
-  // NOTE: 'gemini' 使用 Google GenAI和deepseek' 使用 DeepSeek OpenAI 兼容接口
-  const [aiProvider, setAiProvider] = useState<'gemini' | 'deepseek' | 'openai'>('deepseek');
-  // NOTE: 思考模式仅在DeepSeek 时有效，使用 deepseek-reasoner 模型
-  const [thinkingMode, setThinkingMode] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
 
@@ -422,6 +458,47 @@ export function StoryEditor() {
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedSnapshot = useRef<string>('');
 
+  const activeTextProfile = useMemo(
+    () =>
+      savedAIProfiles.find(
+        (profile): profile is TextAIProfile =>
+          profile.kind === 'text' && profile.id === activeTextProfileId,
+      ) ?? null,
+    [activeTextProfileId, savedAIProfiles],
+  );
+  const activeImageProfile = useMemo(
+    () =>
+      savedAIProfiles.find(
+        (profile): profile is ImageAIProfile =>
+          profile.kind === 'image' && profile.id === activeImageProfileId,
+      ) ?? null,
+    [activeImageProfileId, savedAIProfiles],
+  );
+  const activeVoiceProfile = useMemo(
+    () =>
+      savedAIProfiles.find(
+        (profile): profile is VoiceAIProfile =>
+          profile.kind === 'voice' && profile.id === activeVoiceProfileId,
+      ) ?? null,
+    [activeVoiceProfileId, savedAIProfiles],
+  );
+
+  const aiProvider = activeTextProfile?.provider ?? 'deepseek';
+  const thinkingMode = activeTextProfile?.thinkingMode ?? false;
+  const textApiKey = activeTextProfile?.apiKey ?? '';
+  const imageApiKey = activeImageProfile?.apiKey ?? '';
+  const imageApiUrl = activeImageProfile?.apiUrl ?? DEFAULT_IMAGE_API_URL;
+  const imageModel = activeImageProfile?.model ?? DEFAULT_IMAGE_MODEL;
+  const imageSize = activeImageProfile?.size ?? DEFAULT_IMAGE_SIZE;
+  const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
+  const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
+  const ttsModel = activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
+  const ttsVoice = activeVoiceProfile?.voice ?? DEFAULT_TTS_VOICE;
+  const ttsProvider = activeVoiceProfile?.provider ?? 'system';
+  const activeTextProfileName = activeTextProfile?.name ?? '';
+  const activeImageProfileName = activeImageProfile?.name ?? '';
+  const activeVoiceProfileName = activeVoiceProfile?.name ?? '';
+
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
 
@@ -437,6 +514,93 @@ export function StoryEditor() {
     message: '',
     visible: false,
   });
+
+  const handleCreateAIProfile = useCallback(
+    async (
+      kind: 'text' | 'image' | 'voice',
+      initialProfile: AIProfileSeed = {},
+    ) => {
+      const baseProfile =
+        kind === 'text'
+          ? buildDefaultTextProfile()
+          : kind === 'image'
+            ? buildDefaultImageProfile()
+            : buildDefaultVoiceProfile();
+      const profile = Object.assign({}, baseProfile, initialProfile, {
+        id: baseProfile.id,
+        kind,
+      }) as SavedAIProfile;
+      setSavedAIProfiles((current) => [...current, profile]);
+      if (kind === 'text') setActiveTextProfileId(profile.id);
+      if (kind === 'image') setActiveImageProfileId(profile.id);
+      if (kind === 'voice') setActiveVoiceProfileId(profile.id);
+      return profile.id;
+    },
+    [],
+  );
+
+  const handleUpdateAIProfile = useCallback(
+    async (profileId: string, updates: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>) => {
+      setSavedAIProfiles((current) =>
+        updateProfileList(current, profileId, (profile) => Object.assign({}, profile, updates)),
+      );
+    },
+    [],
+  );
+
+  const handleSelectAIProfile = useCallback(
+    async (kind: 'text' | 'image' | 'voice', profileId: string) => {
+      if (kind === 'text') setActiveTextProfileId(profileId);
+      if (kind === 'image') setActiveImageProfileId(profileId);
+      if (kind === 'voice') setActiveVoiceProfileId(profileId);
+    },
+    [],
+  );
+
+  const handleDeleteAIProfile = useCallback(
+    async (profileId: string) => {
+      setSavedAIProfiles((current) => {
+        const nextProfiles = current.filter((profile) => profile.id !== profileId);
+        if (activeTextProfileId === profileId) {
+          setActiveTextProfileId(nextProfiles.find((profile) => profile.kind === 'text')?.id ?? null);
+        }
+        if (activeImageProfileId === profileId) {
+          setActiveImageProfileId(
+            nextProfiles.find((profile) => profile.kind === 'image')?.id ?? null,
+          );
+        }
+        if (activeVoiceProfileId === profileId) {
+          setActiveVoiceProfileId(
+            nextProfiles.find((profile) => profile.kind === 'voice')?.id ?? null,
+          );
+        }
+        return nextProfiles;
+      });
+    },
+    [activeImageProfileId, activeTextProfileId, activeVoiceProfileId],
+  );
+
+  const setImageSize = useCallback(
+    (value: React.SetStateAction<string>) => {
+      if (!activeImageProfileId) return;
+
+      setSavedAIProfiles((currentProfiles) => {
+        const targetProfile = currentProfiles.find(
+          (profile): profile is ImageAIProfile =>
+            profile.kind === 'image' && profile.id === activeImageProfileId,
+        );
+        if (!targetProfile) return currentProfiles;
+
+        const nextValue =
+          typeof value === 'function' ? value(targetProfile.size) : value;
+        return updateProfileList(currentProfiles, targetProfile.id, (profile) => ({
+          ...profile,
+          size: nextValue,
+        })) as SavedAIProfile[];
+      });
+    },
+    [activeImageProfileId],
+  );
 
   // NOTE: 用 useCallback 包裹以保持稳定引用，避免依赖此函数的 useCallback 在每次渲染时重建
   const showToast = useCallback((message: string) => {
@@ -651,15 +815,7 @@ export function StoryEditor() {
       setPresetColors,
       setShowTitles,
       setGenerateLength,
-      setAiProvider,
-      setImageApiUrl,
-      setImageModel,
       setImageSize,
-      setTtsApiUrl,
-      setTtsModel,
-      setTtsVoice,
-      setTtsProvider,
-      setThinkingMode,
       setAiPrompts,
       setAiButtonsConfig,
       setScrollMode,
@@ -685,7 +841,42 @@ export function StoryEditor() {
       setPlayTestSkipSingleChoicePopup,
       setPlayTestDimBackground,
     }),
-    [],
+    [
+      setCanvasBg,
+      setEdgeStyle,
+      setPasteAsPlainText,
+      setShowNodeActions,
+      setShowStats,
+      setSaveAssistantConversations,
+      setPresetColors,
+      setShowTitles,
+      setGenerateLength,
+      setImageSize,
+      setAiPrompts,
+      setAiButtonsConfig,
+      setScrollMode,
+      setShowMiniMap,
+      setMiniMapPosition,
+      setShowControls,
+      setProjectTitle,
+      setToolbarLayout,
+      setSelectionMenuLayout,
+      setLanguage,
+      setTheme,
+      setBubbleStyle,
+      setPlayTestDarkMode,
+      setPlayTestChoicesColumns,
+      setPlayTestVideoAutoPlay,
+      setPlayTestLayoutMode,
+      setPlayTestInteractionMode,
+      setPlayTestTypewriterSpeed,
+      setPlayTestChoiceDelay,
+      setPlayTestChoicesPosition,
+      setPlayTestBlurBackground,
+      setPlayTestBlurText,
+      setPlayTestSkipSingleChoicePopup,
+      setPlayTestDimBackground,
+    ],
   );
 
   // Update document theme attribute
@@ -703,38 +894,18 @@ export function StoryEditor() {
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
 
-    void localPersistenceService.saveEditorSecrets({
-      customApiKey,
-      deepseekApiKey,
-      openaiApiKey,
-      imageApiKey,
-      ttsApiKey,
-      aiProvider,
-      imageApiUrl,
-      imageModel,
-      imageSize,
-      ttsApiUrl,
-      ttsModel,
-      ttsVoice,
-      ttsProvider,
-      thinkingMode,
+    void localPersistenceService.saveAIProfiles({
+      profiles: savedAIProfiles,
+      activeTextProfileId,
+      activeImageProfileId,
+      activeVoiceProfileId,
     });
   }, [
-    aiProvider,
-    customApiKey,
-    deepseekApiKey,
     didHydrateLocalState,
-    imageApiKey,
-    imageApiUrl,
-    imageModel,
-    imageSize,
-    openaiApiKey,
-    thinkingMode,
-    ttsApiKey,
-    ttsApiUrl,
-    ttsModel,
-    ttsProvider,
-    ttsVoice,
+    savedAIProfiles,
+    activeTextProfileId,
+    activeImageProfileId,
+    activeVoiceProfileId,
   ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -919,9 +1090,9 @@ export function StoryEditor() {
     edges,
     aiPrompts,
     aiProvider,
-    deepseekApiKey,
-    openaiApiKey,
-    customApiKey,
+    textApiKey,
+    textApiUrl: activeTextProfile?.apiUrl ?? '',
+    textModel: activeTextProfile?.model ?? DEFAULT_TEXT_MODEL,
     thinkingMode,
     generateLength,
     handleUpdateNode,
@@ -1786,9 +1957,9 @@ export function StoryEditor() {
 
     const hydrateLocalState = async () => {
       try {
-        const [appSettings, savedSecrets, projects] = await Promise.all([
+        const [appSettings, savedProfilesState, projects] = await Promise.all([
           localPersistenceService.loadAppSettings(),
-          localPersistenceService.loadEditorSecrets(),
+          localPersistenceService.loadAIProfiles(),
           localPersistenceService.listProjects(),
         ]);
 
@@ -1796,22 +1967,10 @@ export function StoryEditor() {
         setProjectSummaries(projects);
         setProjectListLoading(false);
 
-        if (savedSecrets) {
-          setCustomApiKey(savedSecrets.customApiKey);
-          setDeepseekApiKey(savedSecrets.deepseekApiKey);
-          setOpenaiApiKey(savedSecrets.openaiApiKey);
-          setImageApiKey(savedSecrets.imageApiKey);
-          setAiProvider(savedSecrets.aiProvider);
-          setImageApiUrl(savedSecrets.imageApiUrl);
-          setImageModel(savedSecrets.imageModel);
-          setImageSize(savedSecrets.imageSize);
-          setTtsApiKey(savedSecrets.ttsApiKey);
-          setTtsApiUrl(savedSecrets.ttsApiUrl);
-          setTtsModel(savedSecrets.ttsModel);
-          setTtsVoice(savedSecrets.ttsVoice);
-          setTtsProvider(savedSecrets.ttsProvider);
-          setThinkingMode(savedSecrets.thinkingMode);
-        }
+        setSavedAIProfiles(savedProfilesState.profiles);
+        setActiveTextProfileId(savedProfilesState.activeTextProfileId);
+        setActiveImageProfileId(savedProfilesState.activeImageProfileId);
+        setActiveVoiceProfileId(savedProfilesState.activeVoiceProfileId);
 
         if (appSettings.theme) {
           setTheme(appSettings.theme);
@@ -2667,36 +2826,16 @@ ${direction}
           setMiniMapPosition={setMiniMapPosition}
           showControls={showControls}
           setShowControls={setShowControls}
-          aiProvider={aiProvider}
-          setAiProvider={setAiProvider}
-          customApiKey={customApiKey}
-          setCustomApiKey={setCustomApiKey}
-          deepseekApiKey={deepseekApiKey}
-          setDeepseekApiKey={setDeepseekApiKey}
-          openaiApiKey={openaiApiKey}
-          setOpenaiApiKey={setOpenaiApiKey}
-          imageApiKey={imageApiKey}
-          setImageApiKey={setImageApiKey}
-          imageApiUrl={imageApiUrl}
-          setImageApiUrl={setImageApiUrl}
-          imageModel={imageModel}
-          setImageModel={setImageModel}
-          imageSize={imageSize}
-          setImageSize={setImageSize}
-          ttsApiKey={ttsApiKey}
-          setTtsApiKey={setTtsApiKey}
-          ttsProvider={ttsProvider}
-          setTtsProvider={setTtsProvider}
-          ttsApiUrl={ttsApiUrl}
-          setTtsApiUrl={setTtsApiUrl}
-          ttsModel={ttsModel}
-          setTtsModel={setTtsModel}
-          ttsVoice={ttsVoice}
-          setTtsVoice={setTtsVoice}
+          savedAIProfiles={savedAIProfiles}
+          activeTextProfileId={activeTextProfileId}
+          activeImageProfileId={activeImageProfileId}
+          activeVoiceProfileId={activeVoiceProfileId}
+          onCreateAIProfile={handleCreateAIProfile}
+          onUpdateAIProfile={handleUpdateAIProfile}
+          onSelectAIProfile={handleSelectAIProfile}
+          onDeleteAIProfile={handleDeleteAIProfile}
           generateLength={generateLength}
           setGenerateLength={setGenerateLength}
-          thinkingMode={thinkingMode}
-          setThinkingMode={setThinkingMode}
           aiPrompts={aiPrompts}
           setAiPrompts={setAiPrompts}
           aiButtonsConfig={aiButtonsConfig}

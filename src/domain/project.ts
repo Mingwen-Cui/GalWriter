@@ -5,14 +5,31 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { Language } from '../lib/i18n';
 
 export type EdgeStyle = 'step' | 'bezier';
-export type AiProvider = 'gemini' | 'deepseek' | 'openai';
+export type AiProvider =
+  | 'gemini'
+  | 'deepseek'
+  | 'openai'
+  | 'claude'
+  | 'kimi'
+  | 'qwen'
+  | 'copilot'
+  | 'glm'
+  | 'custom'
+  | (string & {});
 export type ScrollMode = 'zoom' | 'pan';
 export type ToolbarLayout = 'vertical' | 'horizontal';
 export type SelectionMenuLayout = 'horizontal' | 'vertical';
 export type EditorTheme = 'light' | 'dark';
 export type BubbleStyle = 'glass' | 'flat';
 export type MiniMapPosition = 'left' | 'right';
-export type TtsProvider = 'system' | 'youdao';
+export type TtsProvider =
+  | 'system'
+  | 'youdao'
+  | 'openai'
+  | 'doubao'
+  | 'gemini'
+  | 'custom'
+  | (string & {});
 export type PlaytestLayoutMode = 'classic' | 'immersive';
 export type PlaytestChoicesPosition = 'center' | 'aboveText' | 'belowText';
 export type StoryCardShape = 'square' | 'rounded-rectangle' | 'diamond';
@@ -107,6 +124,44 @@ export interface ApiKeySettings {
   ttsApiKey: string;
 }
 
+export type AIProfileKind = 'text' | 'image' | 'voice';
+
+export interface TextAIProfile {
+  id: string;
+  name: string;
+  kind: 'text';
+  provider: AiProvider;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+  thinkingMode: boolean;
+}
+
+export interface ImageAIProfile {
+  id: string;
+  name: string;
+  kind: 'image';
+  provider: string;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+  size: string;
+}
+
+export interface VoiceAIProfile {
+  id: string;
+  name: string;
+  kind: 'voice';
+  provider: string;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+  voice: string;
+  appKey: string;
+}
+
+export type SavedAIProfile = TextAIProfile | ImageAIProfile | VoiceAIProfile;
+
 export interface ProjectSettings extends PlaytestSettings {
   canvasBg: string;
   edgeStyle: EdgeStyle;
@@ -150,15 +205,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
-  setAiProvider: Dispatch<SetStateAction<AiProvider>>;
-  setImageApiUrl: Dispatch<SetStateAction<string>>;
-  setImageModel: Dispatch<SetStateAction<string>>;
   setImageSize: Dispatch<SetStateAction<string>>;
-  setTtsApiUrl: Dispatch<SetStateAction<string>>;
-  setTtsModel: Dispatch<SetStateAction<string>>;
-  setTtsVoice: Dispatch<SetStateAction<string>>;
-  setTtsProvider: Dispatch<SetStateAction<TtsProvider>>;
-  setThinkingMode: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;
   setScrollMode: Dispatch<SetStateAction<ScrollMode>>;

@@ -23,9 +23,9 @@ export type AITextResult = {
 
 export interface AIClientConfig {
   provider: AiProvider;
-  geminiApiKey: string;
-  deepseekApiKey: string;
-  openaiApiKey: string;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
   thinkingMode: boolean;
 }
 
@@ -109,11 +109,19 @@ const createAnalyzePrompt = ({
 
 export const createAIClient = (config: AIClientConfig) => {
   const generateText = async (prompt: string): Promise<AITextResult> => {
+    const key = config.apiKey.trim();
+    const configuredModel = config.model.trim();
+    const configuredUrl = config.apiUrl.trim();
+
     if (config.provider === 'deepseek') {
-      const key = config.deepseekApiKey.trim();
       if (key) {
-        const model = config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
+        const model = configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
+        const endpoint = configuredUrl
+          ? /\/chat\/completions\/?$/i.test(configuredUrl)
+            ? configuredUrl
+            : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
+          : 'https://api.deepseek.com/chat/completions';
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -147,17 +155,22 @@ export const createAIClient = (config: AIClientConfig) => {
       };
     }
 
-    if (config.provider === 'openai') {
-      const key = config.openaiApiKey.trim();
+    if (config.provider === 'openai' || config.provider === 'custom' || config.provider === 'kimi' || config.provider === 'qwen' || config.provider === 'glm' || config.provider === 'copilot' || config.provider === 'claude') {
       if (key) {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const model = configuredModel || 'gpt-4o';
+        const endpoint = configuredUrl
+          ? /\/chat\/completions\/?$/i.test(configuredUrl)
+            ? configuredUrl
+            : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
+          : 'https://api.openai.com/v1/chat/completions';
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${key}`,
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model,
             messages: [{ role: 'user', content: prompt }],
             stream: false,
           }),
@@ -175,11 +188,12 @@ export const createAIClient = (config: AIClientConfig) => {
       return { content: data.content || '' };
     }
 
-    const key = config.geminiApiKey.trim();
     if (key) {
       const ai = new GoogleGenAI({ apiKey: key });
       const response = await ai.models.generateContent({
-        model: config.thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
+        model:
+          configuredModel ||
+          (config.thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash'),
         contents: prompt,
       });
       return { content: response.text || '' };

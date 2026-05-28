@@ -1,6 +1,12 @@
-import type { ApiKeySettings, ProjectSettings, StoryProject } from '../domain/project';
+import type {
+  ApiKeySettings,
+  ProjectSettings,
+  SavedAIProfile,
+  StoryProject,
+} from '../domain/project';
 import {
   deleteLocalProject,
+  getAIProfiles,
   getApiSettings,
   getAppSettings,
   getLocalProject,
@@ -8,8 +14,10 @@ import {
   renameLocalProject,
   getMostRecentLocalProject,
   saveApiSettings,
+  saveAIProfiles,
   saveAppSettings,
   saveLocalProject,
+  type LocalAIProfilesState,
   type LocalProjectSummary,
   type LocalApiKeySettings,
 } from '../lib/db';
@@ -32,6 +40,8 @@ export interface LocalEditorSecrets extends ApiKeySettings {
   ttsProvider: ProjectSettings['ttsProvider'];
   thinkingMode: boolean;
 }
+
+export interface LocalAIProfilesSnapshot extends LocalAIProfilesState {}
 
 export interface ResumeState {
   project: LocalProjectSnapshot | null;
@@ -68,6 +78,14 @@ export const localPersistenceService = {
 
   loadAppSettings() {
     return getAppSettings();
+  },
+
+  saveAIProfiles(state: LocalAIProfilesSnapshot) {
+    return saveAIProfiles(state);
+  },
+
+  loadAIProfiles() {
+    return getAIProfiles();
   },
 
   listProjects(): Promise<LocalProjectSummary[]> {
