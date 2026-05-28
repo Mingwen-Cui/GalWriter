@@ -1,10 +1,8 @@
-import { Edge, Node } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 
-export interface StoryNodeData extends Record<string, unknown> {
-  text: string;
-}
+import type { CharacterNodeData, SceneImage, SceneNodeData } from '../domain/project';
 
-export function exportPaths(nodes: Node<StoryNodeData>[], edges: Edge[]) {
+export function exportPaths(nodes: Node[], edges: Edge[]) {
   // Find roots (in-degree 0, but must have at least one outgoing edge to be considered a connected root)
   // 如果没有任何连接（没有入边也没有出边），则忽略该孤立节点
   const roots = nodes.filter((n) => {
@@ -60,21 +58,8 @@ export function exportPaths(nodes: Node<StoryNodeData>[], edges: Edge[]) {
   return out;
 }
 
-export interface CharacterOutfit {
-  id: string;
-  name: string;
-  imageUrl?: string;
-}
-
-export interface SceneImage {
-  id: string;
-  name: string;
-  imageUrl?: string;
-  isPanorama?: boolean;
-}
-
 /** 将人物设定节点 data 格式化为可导出的 Markdown 纯文本 */
-export function formatCharacterNodeText(data: Record<string, unknown>): string {
+export function formatCharacterNodeText(data: CharacterNodeData | Record<string, unknown>): string {
   const parts: string[] = [];
 
   const addSection = (label: string, value: unknown) => {
@@ -94,7 +79,7 @@ export function formatCharacterNodeText(data: Record<string, unknown>): string {
     addSection('综合设定', data.traits);
   }
 
-  const outfits = (data.outfits as CharacterOutfit[] | undefined) || [];
+  const outfits = Array.isArray(data.outfits) ? (data.outfits as CharacterNodeData['outfits']) : [];
   if (outfits.length > 0) {
     const outfitLines = outfits.map((o) => `- ${(o.name || '未命名穿着').trim()}`).join('\n');
     parts.push(`**三视图 / 穿着**\n${outfitLines}`);
@@ -105,7 +90,7 @@ export function formatCharacterNodeText(data: Record<string, unknown>): string {
 }
 
 /** 将场景设定节点 data 格式化为可导出的 Markdown 纯文本 */
-export function formatSceneNodeText(data: Record<string, unknown>): string {
+export function formatSceneNodeText(data: SceneNodeData | Record<string, unknown>): string {
   const parts: string[] = [];
 
   const addSection = (label: string, value: unknown) => {
@@ -125,7 +110,7 @@ export function formatSceneNodeText(data: Record<string, unknown>): string {
     addSection('综合描述', data.description);
   }
 
-  const images = (data.images as SceneImage[] | undefined) || [];
+  const images = Array.isArray(data.images) ? (data.images as SceneImage[]) : [];
   if (images.length > 0) {
     const imageLines = images
       .map((img) => {

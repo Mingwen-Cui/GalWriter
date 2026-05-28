@@ -32,12 +32,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
-import {
-  buildCharacterSettingPrompt,
-  buildCharacterUpdates,
-  GeneratedCharacterSetting,
-  parseSettingJson,
-} from '../lib/settingDice';
+import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
 
 const TRAIT_TEXTAREA_CLASS =
   'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -70,17 +65,17 @@ const getCalculatedCharacterNodeMinHeight = (activeTraitsCount: number, outfitsC
   20 +
   (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
-export function CharacterNode({ id, data, selected }: NodeProps) {
+export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
 
-  const name = (data.characterName as string) || '';
-  const traits = (data.traits as string) || '';
-  const avatarUrl = data.avatarUrl as string | undefined;
+  const name = data.characterName || '';
+  const traits = data.traits || '';
+  const avatarUrl = data.avatarUrl;
   const isGlobal = data.isGlobal !== false; // Default to true
 
   const isMinimized = !!data.isMinimized;
-  const outfits = (data.outfits as { id: string; name: string; imageUrl?: string }[]) || [];
+  const outfits = data.outfits || [];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
@@ -89,7 +84,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   const updateNodeInternals = useUpdateNodeInternals();
   const { setEdges, setNodes } = useReactFlow();
   const { nodes: currentNodes } = storeApi.getState();
-  const selectionCount = currentNodes.filter((n: any) => n.selected).length;
+  const selectionCount = currentNodes.filter((n) => n.selected).length;
 
   // 读取当前连线，用于判断每个连接点是否已经连上。
   // 未连接时显示外圈圆环，连接后圆环自动消失。
@@ -203,11 +198,12 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
     [calculatedMinHeight, id, isMinimized, setNodes, updateNodeInternals],
   );
 
-  const updateNodeData = (updates: any) => {
-    if (data.onUpdate) {
-      (data.onUpdate as Function)(id, updates);
-    }
-  };
+  const updateNodeData = useCallback(
+    (updates: Partial<CharacterNodeData>) => {
+      data.onUpdate?.(id, updates);
+    },
+    [data, id],
+  );
 
   const handleTraitVisibilityChange = (
     key: 'showPersonality' | 'showFeatures' | 'showBackground' | 'showOther',
@@ -362,7 +358,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
 
   const handleCopyExport = async () => {
     const charName = name || '未命名角色';
-    const body = formatCharacterNodeText(data as Record<string, unknown>);
+    const body = formatCharacterNodeText(data);
     const text = `### 角色：${charName}\n\n${body}`;
 
     if (navigator.clipboard?.writeText) {
@@ -392,30 +388,18 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   };
 
   const handleRollSetting = async () => {
-    const generateSettingText = data.onGenerateSettingText as
-      | ((prompt: string) => Promise<string>)
-      | undefined;
-    if (!generateSettingText || isRollingSetting) return;
+    if (!data.onGenerateSettingText || isRollingSetting) return;
 
     setIsRollingSetting(true);
     try {
-      const prompt = buildCharacterSettingPrompt(
-        data as Record<string, unknown>,
-        lang === 'zh' ? 'zh' : 'en',
-      );
-      const result = await generateSettingText(prompt);
-      const generated = parseSettingJson<GeneratedCharacterSetting>(result);
-      const updates = buildCharacterUpdates(data as Record<string, unknown>, generated);
-
-      if (Object.keys(updates).length > 0) {
-        updateNodeData(updates);
-      }
-    } catch (error: any) {
+      await data.onGenerateSettingText(id, 'character');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
       console.error('Character setting roll failed:', error);
       alert(
         lang === 'zh'
-          ? `人物设定生成失败：${error.message || '请检查 AI 配置和网络连接'}`
-          : `Character setting generation failed: ${error.message || 'check AI settings and network'}`,
+          ? `人物设定生成失败：${message || '请检查 AI 配置和网络连接'}`
+          : `Character setting generation failed: ${message || 'check AI settings and network'}`,
       );
     } finally {
       setIsRollingSetting(false);
@@ -423,14 +407,11 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
   };
 
   const handleGenerateSettingImage = async () => {
-    const generateSettingImage = data.onGenerateSettingImage as
-      | ((id: string, type: 'character' | 'scene') => Promise<void>)
-      | undefined;
-    if (!generateSettingImage || isGeneratingSettingImage || !hasCharacterText) return;
+    if (!data.onGenerateSettingImage || isGeneratingSettingImage || !hasCharacterText) return;
 
     setIsGeneratingSettingImage(true);
     try {
-      await generateSettingImage(id, 'character');
+      await data.onGenerateSettingImage(id, 'character');
     } finally {
       setIsGeneratingSettingImage(false);
     }
@@ -503,7 +484,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
               )}
             </button>
             <button
-              onClick={() => (data.onDelete as Function)(id)}
+              onClick={() => data.onDelete?.(id)}
               className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
             >
               <Trash2 className="w-3 h-3" />
@@ -630,7 +611,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                       性格
                     </label>
                     <textarea
-                      value={(data.personality as string) || ''}
+                      value={data.personality || ''}
                       onChange={(e) => updateNodeData({ personality: e.target.value })}
                       placeholder="例如：傲娇，口是心非..."
                       className={TRAIT_TEXTAREA_CLASS}
@@ -643,7 +624,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                       人物特点
                     </label>
                     <textarea
-                      value={(data.features as string) || ''}
+                      value={data.features || ''}
                       onChange={(e) => updateNodeData({ features: e.target.value })}
                       placeholder="例如：喜欢喝红茶，左眼带有眼罩..."
                       className={TRAIT_TEXTAREA_CLASS}
@@ -656,7 +637,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                       人物背景
                     </label>
                     <textarea
-                      value={(data.background as string) || ''}
+                      value={data.background || ''}
                       onChange={(e) => updateNodeData({ background: e.target.value })}
                       placeholder="例如：出生于没落贵族家庭..."
                       className={TRAIT_TEXTAREA_CLASS}
@@ -669,7 +650,7 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
                       其他
                     </label>
                     <textarea
-                      value={(data.other as string) || ''}
+                      value={data.other || ''}
                       onChange={(e) => updateNodeData({ other: e.target.value })}
                       placeholder="其他设定内容..."
                       className={TRAIT_TEXTAREA_CLASS}

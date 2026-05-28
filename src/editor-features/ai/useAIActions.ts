@@ -1,21 +1,11 @@
 import type { Edge, Node } from '@xyflow/react';
 import { useCallback } from 'react';
 
-import type { AIPromptsConfig, AiProvider } from '../../editor-state/editorConfig';
+import type { AIPromptsConfig } from '../../editor-state/editorConfig';
+import type { AiProvider, CharacterNodeData, SceneNodeData } from '../../domain/project';
+import { createAIClient, type AITextResult } from '../../editor-services/aiClient';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
-
-export type AITextResult = {
-  content: string;
-  reasoning?: string;
-};
-
-export type AIActionType =
-  | 'continue'
-  | 'creative'
-  | 'rewrite'
-  | 'interpolate'
-  | 'scene_only'
-  | 'dialogue_only';
+import type { AIActionType } from '../../domain/project';
 
 interface UseAIActionsParams {
   nodes: Node[];
@@ -189,122 +179,17 @@ export const useAIActions = ({
     [aiPrompts, generateLength],
   );
 
-  const callAIProxy = useCallback(
-    async (provider: AiProvider, prompt: string, options: Record<string, unknown>) => {
-      let response: Response;
-
-      try {
-        response = await fetch('./api/proxy.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider, prompt, options }),
-        });
-      } catch {
-        throw new Error('无法连接到代理接口，请检查PHP 后端是否已正确部署并运行');
-      }
-
-      let data: { error?: string; content?: string; reasoning?: string };
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error(
-          `代理接口返回了无效格式(HTTP ${response.status})。请检查 ./api/proxy.php 是否存在。`,
-        );
-      }
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || `代理接口请求失败(HTTP ${response.status})`);
-      }
-
-      return data;
-    },
-    [],
-  );
+  const aiClient = createAIClient({
+    provider: aiProvider,
+    geminiApiKey: customApiKey,
+    deepseekApiKey,
+    openaiApiKey,
+    thinkingMode,
+  });
 
   const callAIForTextResult = useCallback(
-    async (prompt: string): Promise<AITextResult> => {
-      if (aiProvider === 'deepseek') {
-        const key = deepseekApiKey.trim();
-        if (key) {
-          const model = thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat';
-          const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${key}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`DeepSeek API 错误: ${await response.text()}`);
-          }
-
-          const data = await response.json();
-          const choice = data.choices?.[0];
-          return {
-            content: choice?.message?.content || '',
-            reasoning: thinkingMode ? choice?.message?.reasoning_content : undefined,
-          };
-        }
-
-        const data = await callAIProxy('deepseek', prompt, { thinkingMode });
-        return {
-          content: data.content || '',
-          reasoning: thinkingMode ? data.reasoning : undefined,
-        };
-      }
-
-      if (aiProvider === 'openai') {
-        const key = openaiApiKey.trim();
-        if (key) {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${key}`,
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              messages: [{ role: 'user', content: prompt }],
-              stream: false,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`OpenAI API 错误: ${await response.text()}`);
-          }
-
-          const data = await response.json();
-          return { content: data.choices?.[0]?.message?.content || '' };
-        }
-
-        const data = await callAIProxy('openai', prompt, {});
-        return { content: data.content || '' };
-      }
-
-      const key = customApiKey.trim();
-      if (key) {
-        const { GoogleGenAI } = await import('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: key });
-        const response = await ai.models.generateContent({
-          model: thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash',
-          contents: prompt,
-        });
-        return { content: response.text || '' };
-      }
-
-      const data = await callAIProxy('gemini', prompt, { thinkingMode });
-      return {
-        content: data.content || '',
-        reasoning: thinkingMode ? data.reasoning : undefined,
-      };
-    },
-    [aiProvider, callAIProxy, customApiKey, deepseekApiKey, openaiApiKey, thinkingMode],
+    async (prompt: string): Promise<AITextResult> => aiClient.generateText(prompt),
+    [aiClient],
   );
 
   const callAIForText = useCallback(
@@ -382,28 +267,24 @@ export const useAIActions = ({
         .map((node) => `【${node?.data.title}】\n${node?.data.text}`)
         .join('\n\n---\n\n');
 
-      let prompt = '';
-      if (mode === 'structure') {
-        prompt = aiPrompts.analyzeStructure.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'suggestions') {
-        prompt = aiPrompts.analyzeSuggestions.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'direction') {
-        prompt = aiPrompts.analyzeDirection.replace('{{combinedText}}', combinedText);
-      } else if (mode === 'solution') {
-        const previousResult = (aiNode.data.result as string) || '';
-        prompt = aiPrompts.analyzeSolution
-          .replace('{{combinedText}}', combinedText)
-          .replace('{{previousResult}}', previousResult);
-      } else {
-        prompt = aiPrompts.analyzeSummary.replace('{{combinedText}}', combinedText);
-      }
-
-      const aiResult = await callAIForTextResult(prompt);
+      const previousResult = (aiNode.data.result as string) || '';
+      const normalizedMode =
+        mode === 'structure' ||
+        mode === 'suggestions' ||
+        mode === 'direction' ||
+        mode === 'solution'
+          ? mode
+          : 'summary';
+      const aiResult = await aiClient.analyze({
+        mode: normalizedMode,
+        combinedText,
+        prompts: aiPrompts,
+        previousResult,
+      });
       showReasoningBriefly(aiResult.reasoning, setThinkingContent);
 
       let finalResult = aiResult.content;
       if (mode === 'solution') {
-        const previousResult = (aiNode.data.result as string) || '';
         finalResult = `${previousResult}\n\n---\n\n### 💡 修改解法\n\n${aiResult.content}`;
       }
 
@@ -444,7 +325,35 @@ export const useAIActions = ({
         );
       }
     },
-    [aiPrompts, callAIForTextResult, edges, handleUpdateNode, nodes, setNodes, setThinkingContent],
+    [aiClient, aiPrompts, edges, handleUpdateNode, nodes, setNodes, setThinkingContent],
+  );
+
+  const generateSetting = useCallback(
+    async (nodeId: string, type: 'character' | 'scene') => {
+      const targetNode = nodes.find((node) => node.id === nodeId);
+      if (!targetNode) return;
+
+      const request =
+        type === 'character'
+          ? ({
+              type,
+              data: targetNode.data as CharacterNodeData,
+              language: 'zh',
+            } as const)
+          : ({
+              type,
+              data: targetNode.data as SceneNodeData,
+              language: 'zh',
+            } as const);
+
+      const result = await aiClient.generateSetting(request);
+      showReasoningBriefly(result.result.reasoning, setThinkingContent);
+      if (Object.keys(result.updates).length > 0) {
+        handleUpdateNode(nodeId, result.updates);
+      }
+      return result;
+    },
+    [aiClient, handleUpdateNode, nodes, setThinkingContent],
   );
 
   return {
@@ -454,6 +363,7 @@ export const useAIActions = ({
     buildPrompt,
     callAIForText,
     callAIForTextResult,
+    generateSetting,
     handleAIGenerate,
     handleAIAnalyze,
   };

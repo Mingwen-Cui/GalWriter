@@ -1,12 +1,14 @@
 import { Film, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 
+import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
 
 interface EditorHeaderProps {
   projectTitle: string;
   projectTitleInputWidth: string;
   language: Language;
+  bubbleStyle: BubbleStyle;
   isMobile: boolean;
   isDirty: boolean;
   canRenderVideo: boolean;
@@ -29,6 +31,7 @@ export function EditorHeader({
   projectTitle,
   projectTitleInputWidth,
   language,
+  bubbleStyle,
   isMobile,
   isDirty,
   canRenderVideo,
@@ -45,7 +48,11 @@ export function EditorHeader({
   return (
     <div className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3">
       <div className="toolbar-bubble-surface editor-header-bubble pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
-        <img src="./icon.png" className="editor-header-logo h-8 w-8 theme-invert" alt="Logo" />
+        <img
+          src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
+          className="editor-header-logo h-8 w-8 theme-invert"
+          alt="Logo"
+        />
         <input
           value={projectTitle}
           onChange={(event) => setProjectTitle(event.target.value)}

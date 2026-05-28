@@ -54,6 +54,11 @@ import {
   defaultAIButtonsConfig,
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
+import type {
+  CharacterNodeData,
+  SceneNodeData,
+  StoryNodeData,
+} from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { Language, translations } from '../lib/i18n';
 import {
@@ -832,6 +837,7 @@ export function StoryEditor() {
   const {
     callAIForText,
     callAIForTextResult,
+    generateSetting,
     handleAIGenerate: runAIGenerate,
     handleAIAnalyze: runAIAnalyze,
   } = useAIActions({
@@ -920,13 +926,19 @@ export function StoryEditor() {
           type: 'storyNode',
           position: { x: newX, y: newY },
           style: { width: 300, height: 200 },
-          data: { title: '分支', shape: 'square', color: '#ffffff', text: '' },
+          data: {
+            id: newId,
+            title: '分支',
+            shape: 'square',
+            color: '#ffffff',
+            text: '',
+          } satisfies StoryNodeData,
         };
 
         // 检查 sourceId 是否属于任何动态分组，若是则将新节点也加入分组
         const updatedNodes = nds.map((node) => {
           if (node.type === 'groupNode') {
-            const childIds = (node.data.childIds as string[]) || [];
+            const childIds = Array.isArray(node.data.childIds) ? node.data.childIds : [];
             if (childIds.includes(sourceId)) {
               return {
                 ...node,
@@ -1277,7 +1289,7 @@ export function StoryEditor() {
               showFeatures: !!card.features,
               showBackground: !!card.background,
               showOther: !!card.other,
-            },
+            } satisfies CharacterNodeData,
           };
         }
 
@@ -1301,7 +1313,7 @@ export function StoryEditor() {
               showItems: !!card.items,
               showAtmosphere: !!card.atmosphere,
               showOther: !!card.other,
-            },
+            } satisfies SceneNodeData,
           };
         }
 
@@ -1317,7 +1329,7 @@ export function StoryEditor() {
             text: card.text,
             shape: 'square',
             color: '#ffffff',
-          },
+          } satisfies StoryNodeData,
         };
       });
 
@@ -1405,10 +1417,6 @@ export function StoryEditor() {
       defaultEdgeOptions,
       defaultAIPrompts,
       defaultAIButtonsConfig,
-      clearAutoSave: async () => {
-        const { clearAutoSave } = await import('../lib/db');
-        await clearAutoSave();
-      },
     });
 
   const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave } =
@@ -1509,10 +1517,10 @@ export function StoryEditor() {
   }, [assistantOpen, language, selectedNodes, t.footerHint]);
 
   const handleGenerateSettingText = useCallback(
-    (prompt: string) => {
-      return callAIForText(prompt);
+    async (nodeId: string, type: 'character' | 'scene') => {
+      await generateSetting(nodeId, type);
     },
-    [callAIForText],
+    [generateSetting],
   );
 
   const handlePlotStructureGenerate = useCallback(
@@ -1607,7 +1615,7 @@ ${direction}
                 text: card.text,
                 shape: 'square',
                 color: '#ffffff',
-              },
+              } satisfies StoryNodeData,
             };
 
             currentX += 420;
@@ -1619,7 +1627,7 @@ ${direction}
           if (region?.type === 'dynamicGroup') {
             updatedNodes = updatedNodes.map((node) => {
               if (node.id !== region.id || node.type !== 'groupNode') return node;
-              const childIds = (node.data.childIds as string[]) || [];
+              const childIds = Array.isArray(node.data.childIds) ? node.data.childIds : [];
               const mergedChildIds = Array.from(new Set([...childIds, ...newIds]));
               return {
                 ...node,
@@ -1829,6 +1837,7 @@ ${direction}
         projectTitle={projectTitle}
         projectTitleInputWidth={projectTitleInputWidth}
         language={language}
+        bubbleStyle={bubbleStyle}
         isMobile={isMobile}
         isDirty={isDirty}
         canRenderVideo={canRenderVideo}
@@ -2294,7 +2303,10 @@ ${direction}
             const characterTags = node
               ? nodes
                   .filter(
-                    (n) => n.type === 'characterNode' && (n.data?.characterName as string)?.trim(),
+                    (n) =>
+                      n.type === 'characterNode' &&
+                      typeof n.data.characterName === 'string' &&
+                      n.data.characterName.trim().length > 0,
                   )
                   .filter((n) => {
                     const isGlobal = n.data?.isGlobal !== false;
@@ -2305,11 +2317,16 @@ ${direction}
                     );
                     return isGlobal || isConnected;
                   })
-                  .map((n) => ({ id: n.id, name: (n.data.characterName as string).trim() }))
+                  .map((n) => ({ id: n.id, name: String(n.data.characterName).trim() }))
               : [];
             const sceneTags = node
               ? nodes
-                  .filter((n) => n.type === 'sceneNode' && (n.data?.sceneName as string)?.trim())
+                  .filter(
+                    (n) =>
+                      n.type === 'sceneNode' &&
+                      typeof n.data.sceneName === 'string' &&
+                      n.data.sceneName.trim().length > 0,
+                  )
                   .filter((n) => {
                     const isGlobal = n.data?.isGlobal !== false;
                     const isConnected = edges.some(
@@ -2319,13 +2336,13 @@ ${direction}
                     );
                     return isGlobal || isConnected;
                   })
-                  .map((n) => ({ id: n.id, name: (n.data.sceneName as string).trim() }))
+                  .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
               : [];
             return (
               <ZenEditor
-                value={node?.data.text as string}
-                imageUrl={node?.data.imageUrl as string}
-                videoUrl={node?.data.videoUrl as string}
+                value={typeof node?.data.text === 'string' ? node.data.text : ''}
+                imageUrl={typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : ''}
+                videoUrl={typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : ''}
                 characterTags={characterTags}
                 sceneTags={sceneTags}
                 isAILoading={aiLoadingNodeId === zenModeNodeId}

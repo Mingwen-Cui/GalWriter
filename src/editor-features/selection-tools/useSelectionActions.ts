@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { TtsProvider } from '../../editor-state/editorConfig';
-import { generateSpeechAudio, htmlToSpeechText } from '../../lib/tts';
+import { ttsService } from '../../editor-services/ttsService';
 
 interface UseSelectionActionsParams {
   nodes: Node[];
@@ -222,8 +222,8 @@ export const useSelectionActions = ({
     try {
       for (let index = 0; index < storyNodes.length; index += 1) {
         const node = storyNodes[index];
-        const titleText = htmlToSpeechText(String(node.data.title || ''));
-        const bodyText = htmlToSpeechText(String(node.data.text || ''));
+        const titleText = ttsService.htmlToSpeechText(String(node.data.title || ''));
+        const bodyText = ttsService.htmlToSpeechText(String(node.data.text || ''));
         const speechText = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
         if (!speechText) continue;
 
@@ -233,7 +233,8 @@ export const useSelectionActions = ({
             : `Generating narration ${index + 1}/${storyNodes.length}`,
         );
 
-        const audio = await generateSpeechAudio(speechText, {
+        const audio = await ttsService.generate({
+          text: speechText,
           provider: ttsProvider,
           apiUrl: ttsApiUrl,
           apiKey: ttsApiKey,
@@ -262,10 +263,11 @@ export const useSelectionActions = ({
       showToast(
         language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached',
       );
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('TTS generation failed:', error);
       alert(
-        `${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${error.message || 'Unknown error'}`,
+        `${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${message}`,
       );
     } finally {
       setTtsLoading(false);

@@ -3,9 +3,9 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { AITextResult } from '../../editor-services/aiClient';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import { htmlToSpeechText } from '../../lib/tts';
-import type { AITextResult } from '../ai/useAIActions';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 
 export type AssistantCardDraft = {

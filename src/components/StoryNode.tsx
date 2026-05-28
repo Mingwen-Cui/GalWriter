@@ -33,12 +33,24 @@ import {
 } from 'lucide-react';
 import React, { memo, useCallback, useRef, useState } from 'react';
 
+import type {
+  SceneFlowNode,
+  StoryCardVisualShape,
+  StoryFlowNode,
+  StoryNodeData,
+} from '../domain/project';
 import { Language, translations } from '../lib/i18n';
 import { NumberInput } from './NumberInput';
 import { RichText, RichTextHandle } from './RichText';
 
 const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C', '#1EC8CF'];
-const SHAPES = ['square', 'rounded-rectangle', 'diamond', 'trapezoid', 'hexagon'];
+const SHAPES: StoryCardVisualShape[] = [
+  'square',
+  'rounded-rectangle',
+  'diamond',
+  'trapezoid',
+  'hexagon',
+];
 const CARD_RADIUS = '12px';
 
 const isLightColor = (color: string) => {
@@ -74,18 +86,18 @@ const btnBase =
 const iconBtnBase = `${btnBase} w-7 p-1.5`;
 const textBtnBase = `${btnBase} px-2 text-xs font-medium`;
 
-export function StoryNode({ id, data, selected }: NodeProps) {
+export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const text = (data.text as string) || '';
-  const title = (data.title as string) ?? '新节点';
-  const shape = (data.shape as string) || 'square';
-  const color = (data.color as string) || COLORS[0];
-  const imageUrl = data.imageUrl as string | undefined;
-  const videoUrl = data.videoUrl as string | undefined;
-  const audioUrl = data.audioUrl as string | undefined;
-  const objectFit = (data.objectFit as 'cover' | 'contain' | 'fill') || 'cover';
+  const text = data.text || '';
+  const title = data.title || '新节点';
+  const shape: StoryCardVisualShape = data.shape || 'square';
+  const color = data.color || COLORS[0];
+  const imageUrl = data.imageUrl;
+  const videoUrl = data.videoUrl;
+  const audioUrl = data.audioUrl;
+  const objectFit = data.objectFit || 'cover';
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
   const showTitles = data.showTitles !== false;
@@ -105,11 +117,12 @@ export function StoryNode({ id, data, selected }: NodeProps) {
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
   const showRichTextTools = (!imageUrl && !videoUrl && !audioUrl) || data.showTextOverlay;
 
-  const updateNodeData = (updates: any) => {
-    if (data.onUpdate) {
-      (data.onUpdate as Function)(id, updates);
-    }
-  };
+  const updateNodeData = useCallback(
+    (updates: Partial<StoryNodeData>) => {
+      data.onUpdate?.(id, updates);
+    },
+    [data, id],
+  );
 
   const handleTextChange = (newHtml: string) => {
     updateNodeData({ text: newHtml });
@@ -119,7 +132,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
     if (!data.onGenerateImage || isGeneratingImage) return;
     setIsGeneratingImage(true);
     try {
-      await (data.onGenerateImage as Function)(id);
+      await data.onGenerateImage(id);
     } finally {
       setIsGeneratingImage(false);
     }
@@ -161,7 +174,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
     let newText = text;
     charNodes.forEach((node, index) => {
-      const name = node.data.characterName as string;
+      const name = String(node.data.characterName || '');
       if (!name) return;
       // Define a palette of colors for different characters
       const highlightColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -184,16 +197,12 @@ export function StoryNode({ id, data, selected }: NodeProps) {
   const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${showNodeActions ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`;
   const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all z-50 flex items-center justify-center ${showNodeActions ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`;
 
-  const getClipPath = (s: string) => {
+  const getClipPath = (s: StoryCardVisualShape) => {
     switch (s) {
       case 'circle':
         return 'circle(50% at 50% 50%)';
       case 'diamond':
         return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
-      case 'triangle':
-        return 'polygon(50% 0%, 0% 100%, 100% 100%)';
-      case 'triangleDown':
-        return 'polygon(0% 0%, 100% 0%, 50% 100%)';
       case 'trapezoid':
         return 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)';
       case 'hexagon':
@@ -213,10 +222,6 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         return 'p-8';
       case 'hexagon':
         return 'px-8 py-4';
-      case 'triangle':
-        return 'px-8 pt-10 pb-4';
-      case 'triangleDown':
-        return 'px-8 pt-4 pb-10';
       default:
         return 'p-3 pt-0';
     }
@@ -228,11 +233,12 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
   const mentionableCharacters = useStore(
     useCallback(
-      (state: any) => {
+      (state) => {
         const chars: { id: string; name: string }[] = [];
         for (const n of state.nodes) {
           if (n.type !== 'characterNode') continue;
-          const name = (n.data?.characterName as string)?.trim();
+          const name =
+            typeof n.data?.characterName === 'string' ? n.data.characterName.trim() : '';
           if (!name) continue;
           const isGlobal = n.data?.isGlobal !== false;
           const isConnected = state.edges.some(
@@ -248,11 +254,11 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
   const mentionableScenes = useStore(
     useCallback(
-      (state: any) => {
+      (state) => {
         const scenes: { id: string; name: string }[] = [];
-        for (const n of state.nodes) {
+        for (const n of state.nodes as SceneFlowNode[]) {
           if (n.type !== 'sceneNode') continue;
-          const name = (n.data?.sceneName as string)?.trim();
+          const name = n.data?.sceneName?.trim();
           if (!name) continue;
           const isGlobal = n.data?.isGlobal !== false;
           const isConnected = state.edges.some(
@@ -391,7 +397,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                     <ScanSearch className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => (data.onZenMode as Function)(id)}
+                    onClick={() => data.onZenMode?.(id)}
                     className={iconBtnBase}
                     title="专注模式"
                   >
@@ -496,7 +502,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                     )}
                     {(!data.showTextOverlay || text.replace(/<[^>]*>/g, '').trim() === '') && (
                       <button
-                        onClick={() => (data.onAddTextToImage as Function)(id)}
+                        onClick={() => data.onAddTextToImage?.(id)}
                         className={`${iconBtnBase} bg-indigo-50 text-indigo-600 hover:bg-indigo-100`}
                         title={lang === 'zh' ? '在卡片中添加/显示文字' : 'Add/Show text in card'}
                       >
@@ -505,7 +511,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                     )}
                     {data.showTextOverlay && text.replace(/<[^>]*>/g, '').trim() !== '' && (
                       <button
-                        onClick={() => (data.onExtractMedia as Function)(id)}
+                        onClick={() => data.onExtractMedia?.(id)}
                         className={`${iconBtnBase} bg-amber-50 text-amber-600 hover:bg-amber-100 ml-0.5`}
                         title={lang === 'zh' ? '从卡片中提取照片/视频' : 'Extract media from card'}
                       >
@@ -514,7 +520,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                     )}
                     {data.showTextOverlay && (
                       <button
-                        onClick={() => (data.onRemoveTextFromImage as Function)(id)}
+                        onClick={() => data.onRemoveTextFromImage?.(id)}
                         className={`${iconBtnBase} bg-rose-50 text-rose-600 hover:bg-rose-100 ml-0.5`}
                         title={lang === 'zh' ? '移除/隐藏卡片文字' : 'Remove/Hide text from card'}
                       >
@@ -559,7 +565,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
               {/* 线路/流程组 */}
               <ToolGroup>
                 <button
-                  onClick={() => (data.onHighlightStoryline as Function)(id)}
+                  onClick={() => data.onHighlightStoryline?.(id)}
                   className={`${iconBtnBase} ${data.isHighlighted ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)] hover:bg-rose-600 hover:text-white' : ''}`}
                   title={data.isHighlighted ? t.hideStoryline : t.showStoryline}
                 >
@@ -588,7 +594,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                     </button>
                     {showRichTextTools && (
                       <button
-                        onClick={() => (data.onZenMode as Function)(id)}
+                        onClick={() => data.onZenMode?.(id)}
                         className={`${iconBtnBase} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
                         title={lang === 'zh' ? '专注模式' : 'Zen Mode'}
                       >
@@ -602,7 +608,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                   {/* 危险操作组 */}
                   <ToolGroup>
                     <button
-                      onClick={() => (data.onDelete as Function)(id)}
+                      onClick={() => data.onDelete?.(id)}
                       className={`${iconBtnBase} text-red-400 hover:text-red-300 hover:bg-red-500/10`}
                       title="删除"
                     >
@@ -689,7 +695,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                 <>
                   <div className="text-4xl mb-2">🎵</div>
                   <audio
-                    src={data.audioUrl as string}
+                    src={audioUrl}
                     controls
                     preload="none"
                     className="w-[80%]"
@@ -721,7 +727,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
                   ref={richTextRef}
                   value={text}
                   onChange={handleTextChange}
-                  pasteAsPlainText={data.pasteAsPlainText as boolean}
+                  pasteAsPlainText={!!data.pasteAsPlainText}
                   className={`w-full h-full resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{ color: nodeText }}
                 />
@@ -733,8 +739,8 @@ export function StoryNode({ id, data, selected }: NodeProps) {
 
       {/* AI Generate Button - Always visible at top for image nodes, or bottom for text nodes */}
       <button
-        onClick={() => (data.onAIGenerate as Function)(id)}
-        disabled={data.isAILoading as boolean}
+        onClick={() => data.onAIGenerate?.(id)}
+        disabled={!!data.isAILoading}
         className={`absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg ${imageUrl || videoUrl ? 'bottom-2 right-2' : 'bottom-2 right-2'}`}
         title="AI 操作"
       >
@@ -766,7 +772,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         className={`${handleClasses} -top-1.5`}
       />
       <button
-        onClick={() => (data.onAddNode as Function)(id, 'top')}
+        onClick={() => data.onAddNode?.(id, 'top')}
         className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2`}
       >
         <Plus className="w-4 h-4" />
@@ -780,7 +786,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         className={`${handleClasses} -right-1.5`}
       />
       <button
-        onClick={() => (data.onAddNode as Function)(id, 'right')}
+        onClick={() => data.onAddNode?.(id, 'right')}
         className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2`}
       >
         <Plus className="w-4 h-4" />
@@ -794,7 +800,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         className={`${handleClasses} -bottom-1.5`}
       />
       <button
-        onClick={() => (data.onAddNode as Function)(id, 'bottom')}
+        onClick={() => data.onAddNode?.(id, 'bottom')}
         className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2`}
       >
         <Plus className="w-4 h-4" />
@@ -808,7 +814,7 @@ export function StoryNode({ id, data, selected }: NodeProps) {
         className={`${handleClasses} -left-1.5`}
       />
       <button
-        onClick={() => (data.onAddNode as Function)(id, 'left')}
+        onClick={() => data.onAddNode?.(id, 'left')}
         className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2`}
       >
         <Plus className="w-4 h-4" />

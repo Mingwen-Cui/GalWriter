@@ -30,27 +30,15 @@ import {
 import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { SceneFlowNode, SceneImage, SceneNodeData } from '../domain/project';
 import { formatSceneNodeText } from '../lib/export';
 import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
-import {
-  buildSceneSettingPrompt,
-  buildSceneUpdates,
-  GeneratedSceneSetting,
-  parseSettingJson,
-} from '../lib/settingDice';
 import { PanoramaModal, PanoramaViewer } from './PanoramaViewer';
 
 const DETAIL_TEXTAREA_CLASS =
   'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-blue-600 placeholder:text-[var(--text-muted)] custom-scrollbar';
 const DETAIL_FIELD_CLASS = 'flex flex-col flex-1 min-h-min gap-1';
-
-export type SceneImage = {
-  id: string;
-  name: string;
-  imageUrl?: string;
-  isPanorama?: boolean;
-};
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -77,15 +65,15 @@ const getCalculatedSceneNodeMinHeight = (activeDetailsCount: number, imagesCount
   20 +
   (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
 
-export function SceneNode({ id, data, selected }: NodeProps) {
+export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   const lang = (data.language as Language) || 'zh';
 
-  const name = (data.sceneName as string) || '';
-  const description = (data.description as string) || '';
-  const coverImageUrl = data.coverImageUrl as string | undefined;
+  const name = data.sceneName || '';
+  const description = data.description || '';
+  const coverImageUrl = data.coverImageUrl;
   const isGlobal = data.isGlobal !== false;
   const isMinimized = !!data.isMinimized;
-  const images = (data.images as SceneImage[]) || [];
+  const images = data.images || [];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
@@ -97,7 +85,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
   const updateNodeInternals = useUpdateNodeInternals();
   const { setEdges, setNodes } = useReactFlow();
   const { nodes: currentNodes } = storeApi.getState();
-  const selectionCount = currentNodes.filter((n: any) => n.selected).length;
+  const selectionCount = currentNodes.filter((n) => n.selected).length;
 
   const edges = useStore((state) => state.edges);
 
@@ -197,11 +185,12 @@ export function SceneNode({ id, data, selected }: NodeProps) {
     [calculatedMinHeight, id, isMinimized, setNodes, updateNodeInternals],
   );
 
-  const updateNodeData = (updates: any) => {
-    if (data.onUpdate) {
-      (data.onUpdate as Function)(id, updates);
-    }
-  };
+  const updateNodeData = useCallback(
+    (updates: Partial<SceneNodeData>) => {
+      data.onUpdate?.(id, updates);
+    },
+    [data, id],
+  );
 
   const handleDetailVisibilityChange = (
     key: 'showLocation' | 'showItems' | 'showAtmosphere' | 'showOther',
@@ -352,7 +341,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
 
   const handleCopyExport = async () => {
     const sceneName = name || (lang === 'zh' ? '未命名场景' : 'Unnamed Scene');
-    const body = formatSceneNodeText(data as Record<string, unknown>);
+    const body = formatSceneNodeText(data);
     const text =
       lang === 'zh' ? `### 场景：${sceneName}\n\n${body}` : `### Scene: ${sceneName}\n\n${body}`;
 
@@ -383,30 +372,18 @@ export function SceneNode({ id, data, selected }: NodeProps) {
   };
 
   const handleRollSetting = async () => {
-    const generateSettingText = data.onGenerateSettingText as
-      | ((prompt: string) => Promise<string>)
-      | undefined;
-    if (!generateSettingText || isRollingSetting) return;
+    if (!data.onGenerateSettingText || isRollingSetting) return;
 
     setIsRollingSetting(true);
     try {
-      const prompt = buildSceneSettingPrompt(
-        data as Record<string, unknown>,
-        lang === 'zh' ? 'zh' : 'en',
-      );
-      const result = await generateSettingText(prompt);
-      const generated = parseSettingJson<GeneratedSceneSetting>(result);
-      const updates = buildSceneUpdates(data as Record<string, unknown>, generated);
-
-      if (Object.keys(updates).length > 0) {
-        updateNodeData(updates);
-      }
-    } catch (error: any) {
+      await data.onGenerateSettingText(id, 'scene');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
       console.error('Scene setting roll failed:', error);
       alert(
         lang === 'zh'
-          ? `场景设定生成失败：${error.message || '请检查 AI 配置和网络连接'}`
-          : `Scene setting generation failed: ${error.message || 'check AI settings and network'}`,
+          ? `场景设定生成失败：${message || '请检查 AI 配置和网络连接'}`
+          : `Scene setting generation failed: ${message || 'check AI settings and network'}`,
       );
     } finally {
       setIsRollingSetting(false);
@@ -414,14 +391,11 @@ export function SceneNode({ id, data, selected }: NodeProps) {
   };
 
   const handleGenerateSettingImage = async () => {
-    const generateSettingImage = data.onGenerateSettingImage as
-      | ((id: string, type: 'character' | 'scene') => Promise<void>)
-      | undefined;
-    if (!generateSettingImage || isGeneratingSettingImage || !hasSceneText) return;
+    if (!data.onGenerateSettingImage || isGeneratingSettingImage || !hasSceneText) return;
 
     setIsGeneratingSettingImage(true);
     try {
-      await generateSettingImage(id, 'scene');
+      await data.onGenerateSettingImage(id, 'scene');
     } finally {
       setIsGeneratingSettingImage(false);
     }
@@ -510,7 +484,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                 )}
               </button>
               <button
-                onClick={() => (data.onDelete as Function)(id)}
+                onClick={() => data.onDelete?.(id)}
                 className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
               >
                 <Trash2 className="w-3 h-3" />
@@ -640,7 +614,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                         {lang === 'zh' ? '位置描写' : 'Location Description'}
                       </label>
                       <textarea
-                        value={(data.location as string) || ''}
+                        value={data.location || ''}
                         onChange={(e) => updateNodeData({ location: e.target.value })}
                         placeholder={
                           lang === 'zh'
@@ -658,7 +632,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                         {lang === 'zh' ? '场景物品' : 'Scene Items'}
                       </label>
                       <textarea
-                        value={(data.items as string) || ''}
+                        value={data.items || ''}
                         onChange={(e) => updateNodeData({ items: e.target.value })}
                         placeholder={
                           lang === 'zh'
@@ -675,7 +649,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                         {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
                       </label>
                       <textarea
-                        value={(data.atmosphere as string) || ''}
+                        value={data.atmosphere || ''}
                         onChange={(e) => updateNodeData({ atmosphere: e.target.value })}
                         placeholder={
                           lang === 'zh'
@@ -692,7 +666,7 @@ export function SceneNode({ id, data, selected }: NodeProps) {
                         {lang === 'zh' ? '其他' : 'Other'}
                       </label>
                       <textarea
-                        value={(data.other as string) || ''}
+                        value={data.other || ''}
                         onChange={(e) => updateNodeData({ other: e.target.value })}
                         placeholder={lang === 'zh' ? '其他场景细节...' : 'Other scene details...'}
                         className={DETAIL_TEXTAREA_CLASS}

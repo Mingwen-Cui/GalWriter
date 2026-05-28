@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { clearAutoSave, getAutoSave, saveAutoSave } from '../lib/db';
+import { autosaveService } from './autosaveService';
 
 interface AutoSavePayload {
   snapshot: string;
@@ -33,7 +33,7 @@ export const useAutoSave = <TProjectData>({
 
   useEffect(() => {
     if (!enabled) return;
-    getAutoSave().then((data) => {
+    autosaveService.load().then((data) => {
       if (!data) return;
       setAutoSaveData(data);
       setShowAutoSaveModal(true);
@@ -49,7 +49,7 @@ export const useAutoSave = <TProjectData>({
     if (isNowDirty) {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(async () => {
-        await saveAutoSave(currentSnapshot);
+        await autosaveService.save(currentSnapshot);
       }, 5000);
     }
 
@@ -59,7 +59,7 @@ export const useAutoSave = <TProjectData>({
   }, [enabled, getProjectSnapshot, lastSavedSnapshotRef, setIsDirty]);
 
   const discardAutoSave = useCallback(async () => {
-    await clearAutoSave();
+    await autosaveService.clear();
     setShowAutoSaveModal(false);
     setAutoSaveData(null);
   }, []);
@@ -88,6 +88,6 @@ export const useAutoSave = <TProjectData>({
     setShowAutoSaveModal,
     discardAutoSave,
     recoverAutoSave,
-    clearAutoSave,
+    clearAutoSave: autosaveService.clear,
   };
 };

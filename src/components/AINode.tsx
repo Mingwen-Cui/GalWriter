@@ -20,12 +20,14 @@ import {
 } from 'lucide-react';
 import React, { memo, useEffect, useState } from 'react';
 
+import type { AIFlowNode, AINodeData } from '../domain/project';
+
 /**
  * AI 情节分析卡片组件
  * 以数值判断卡片为模板重新设计，符合相同的板式结构与圆点形状
  * 同时支持鼠标拉拽调整宽高
  */
-export function AINode({ id, data, selected }: NodeProps) {
+export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
@@ -36,11 +38,10 @@ export function AINode({ id, data, selected }: NodeProps) {
    * @param minimized 是否最小化
    */
   const setIsMinimized = (minimized: boolean) => {
-    if (data && typeof data.onUpdate === 'function') {
-      (data.onUpdate as Function)(id, { isMinimized: minimized });
-    }
+    data.onUpdate?.(id, { isMinimized: minimized });
   };
-  const title = (data.title as string) ?? 'AI 剧情分析';
+  const title = data.title ?? 'AI 剧情分析';
+  const result = data.result ?? '';
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -59,23 +60,24 @@ export function AINode({ id, data, selected }: NodeProps) {
     return () => clearTimeout(timer);
   }, [isMinimized, id]);
 
-  const updateNodeData = (updates: any) => {
-    if (data.onUpdate) {
-      (data.onUpdate as Function)(id, updates);
-    }
+  const updateNodeData = (updates: Partial<AINodeData>) => {
+    data.onUpdate?.(id, updates);
   };
 
   const onAnalyze = async (mode: string = 'summary') => {
-    if (data.onAIAnalyze) {
-      setLoading(true);
-      await (data.onAIAnalyze as Function)(id, mode);
+    if (!data.onAIAnalyze) return;
+
+    setLoading(true);
+    try {
+      await data.onAIAnalyze(id, mode);
+    } finally {
       setLoading(false);
     }
   };
 
   const onCopy = () => {
-    if (data.result) {
-      navigator.clipboard.writeText(data.result as string);
+    if (result) {
+      navigator.clipboard.writeText(result);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -188,7 +190,7 @@ export function AINode({ id, data, selected }: NodeProps) {
               )}
             </button>
             <button
-              onClick={() => (data.onDelete as Function)(id)}
+              onClick={() => data.onDelete?.(id)}
               className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
               title="删除卡片"
             >
@@ -218,7 +220,7 @@ export function AINode({ id, data, selected }: NodeProps) {
               ))}
             </div>
 
-            {data.result && (
+            {result && (
               <div className="mt-2 bg-[var(--app-bg)] rounded-lg border border-[var(--card-border)] flex flex-col overflow-hidden flex-1">
                 <div className="flex justify-between items-center px-3 py-2 border-b border-[var(--card-border)] bg-[var(--header-bg)]/50 shrink-0">
                   <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
@@ -241,9 +243,9 @@ export function AINode({ id, data, selected }: NodeProps) {
                 <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-[var(--card-border)] nodrag select-text">
                   <div
                     className="text-[10px] text-[var(--text-secondary)] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: formatResult(data.result as string) }}
+                    dangerouslySetInnerHTML={{ __html: formatResult(result) }}
                   />
-                  {!(data.result as string)?.includes('### 💡 修改解法') && (
+                  {!result.includes('### 💡 修改解法') && (
                     <button
                       onClick={() => onAnalyze('solution')}
                       disabled={loading}
