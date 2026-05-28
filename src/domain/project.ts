@@ -99,10 +99,17 @@ export interface PlaytestSettingsSetters {
 
 export type PlaytestSettingsState = PlaytestSettings & PlaytestSettingsSetters;
 
+export interface ApiKeySettings {
+  customApiKey: string;
+  deepseekApiKey: string;
+  openaiApiKey: string;
+  imageApiKey: string;
+  ttsApiKey: string;
+}
+
 export interface ProjectSettings extends PlaytestSettings {
   canvasBg: string;
   edgeStyle: EdgeStyle;
-  customApiKey: string;
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
   showStats: boolean;
@@ -111,13 +118,9 @@ export interface ProjectSettings extends PlaytestSettings {
   showTitles: boolean;
   generateLength: string;
   aiProvider: AiProvider;
-  deepseekApiKey: string;
-  openaiApiKey: string;
-  imageApiKey: string;
   imageApiUrl: string;
   imageModel: string;
   imageSize: string;
-  ttsApiKey: string;
   ttsApiUrl: string;
   ttsModel: string;
   ttsVoice: string;
@@ -140,7 +143,6 @@ export interface ProjectSettings extends PlaytestSettings {
 export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setCanvasBg: Dispatch<SetStateAction<string>>;
   setEdgeStyle: Dispatch<SetStateAction<EdgeStyle>>;
-  setCustomApiKey: Dispatch<SetStateAction<string>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;
@@ -149,13 +151,9 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowTitles: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setAiProvider: Dispatch<SetStateAction<AiProvider>>;
-  setDeepseekApiKey: Dispatch<SetStateAction<string>>;
-  setOpenaiApiKey: Dispatch<SetStateAction<string>>;
-  setImageApiKey: Dispatch<SetStateAction<string>>;
   setImageApiUrl: Dispatch<SetStateAction<string>>;
   setImageModel: Dispatch<SetStateAction<string>>;
   setImageSize: Dispatch<SetStateAction<string>>;
-  setTtsApiKey: Dispatch<SetStateAction<string>>;
   setTtsApiUrl: Dispatch<SetStateAction<string>>;
   setTtsModel: Dispatch<SetStateAction<string>>;
   setTtsVoice: Dispatch<SetStateAction<string>>;

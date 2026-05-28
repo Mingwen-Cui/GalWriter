@@ -39,16 +39,18 @@ import {
 import { SelectionMenu } from '../editor-features/selection-tools/SelectionMenu';
 import { useSelectionActions } from '../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../editor-features/selection-tools/useSelectionMenu';
-import { useAutoSave } from '../editor-services/useAutoSave';
+import { localPersistenceService } from '../editor-services/localPersistenceService';
 import { AIActionModal } from '../editor-shell/AIActionModal';
 import { AssistantPanel } from '../editor-shell/AssistantPanel';
-import { AutoSaveRecoveryModal } from '../editor-shell/AutoSaveRecoveryModal';
 import { EditorHeader } from '../editor-shell/EditorHeader';
 import { EditorLeftToolbar } from '../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../editor-shell/EditorRightToolbar';
 import { EditorToast } from '../editor-shell/EditorToast';
+import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
+import { ProjectSavePromptModal } from '../editor-shell/ProjectSavePromptModal';
 import { SaveProjectModal } from '../editor-shell/SaveProjectModal';
 import {
+  type AssistantTask,
   type AIButtonsConfig,
   type AIPromptsConfig,
   defaultAIButtonsConfig,
@@ -75,6 +77,7 @@ import { MemoizedGroupNode } from './GroupNode';
 import { MemoizedNumberConditionNode } from './NumberConditionNode';
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
 import { MemoizedPlotStructureNode } from './PlotStructureNode';
+import { ProjectPickerModal } from './ProjectPickerModal';
 import { MemoizedSceneNode } from './SceneNode';
 import { MemoizedStoryNode } from './StoryNode';
 import { MemoizedSummaryNode } from './SummaryNode';
@@ -83,6 +86,14 @@ import { MemoizedTextNode } from './TextNode';
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
+const APP_TITLE = '交互式剧本编辑器';
+const PROJECT_TITLE_PLACEHOLDER = '点击编辑标题';
+const DEFAULT_PROJECT_FILE_NAME = 'story-project';
+type PendingProjectAction =
+  | { type: 'create' }
+  | { type: 'open'; projectId: string }
+  | { type: 'import-new' }
+  | { type: 'close-window' };
 // 使用懒加载减少首屏体验
 const PlayTestModal = lazy(() =>
   import('./PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
@@ -142,6 +153,29 @@ const INITIAL_NODES: Node[] = [
     },
   },
 ];
+
+const formatProjectTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+};
+
+const buildAutoProjectName = (timestamp = Date.now()) => `Story_${formatProjectTimestamp(timestamp)}`;
+
+const getProjectDisplayName = (projectTitle: string, saveFileName: string) => {
+  const normalizedTitle = projectTitle.trim();
+  if (normalizedTitle) return normalizedTitle;
+
+  const normalizedFileName = saveFileName.trim();
+  if (normalizedFileName && normalizedFileName !== DEFAULT_PROJECT_FILE_NAME) return normalizedFileName;
+
+  return '';
+};
+
+const getPersistedProjectName = (projectTitle: string, saveFileName: string, timestamp = Date.now()) => {
+  const displayName = getProjectDisplayName(projectTitle, saveFileName);
+  return displayName || buildAutoProjectName(timestamp);
+};
 
 const TITLE_HEIGHT = 36;
 
@@ -336,9 +370,21 @@ export function StoryEditor() {
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
-  const [saveFileName, setSaveFileName] = useState('story-project');
+  const [showProjectHome, setShowProjectHome] = useState(true);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [projectIdToLoad, setProjectIdToLoad] = useState<string | null>(null);
+  const [pendingHomeProjectId, setPendingHomeProjectId] = useState<string | null>(null);
+  const [projectListLoading, setProjectListLoading] = useState(true);
+  const [projectSummaries, setProjectSummaries] = useState<
+    Awaited<ReturnType<typeof localPersistenceService.listProjects>>
+  >([]);
+  const [saveFileName, setSaveFileName] = useState(DEFAULT_PROJECT_FILE_NAME);
   const [language, setLanguage] = useState<Language>('zh');
-  const [projectTitle, setProjectTitle] = useState('交互式剧本编辑器');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [currentProjectPersisted, setCurrentProjectPersisted] = useState(false);
+  const [pendingProjectAction, setPendingProjectAction] = useState<PendingProjectAction | null>(null);
+  const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
+  const [projectIdPendingDeletion, setProjectIdPendingDeletion] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
@@ -500,13 +546,13 @@ export function StoryEditor() {
   const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: [] as Edge[] });
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [autosaveReady, setAutosaveReady] = useState(false);
+  const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
+  const importModeRef = useRef<'replace' | 'new'>('replace');
 
   const editorProjectSettings = useMemo(
     () => ({
       canvasBg,
       edgeStyle,
-      customApiKey,
       pasteAsPlainText,
       showNodeActions,
       showStats,
@@ -515,13 +561,9 @@ export function StoryEditor() {
       showTitles,
       generateLength,
       aiProvider,
-      deepseekApiKey,
-      openaiApiKey,
-      imageApiKey,
       imageApiUrl,
       imageModel,
       imageSize,
-      ttsApiKey,
       ttsApiUrl,
       ttsModel,
       ttsVoice,
@@ -558,17 +600,13 @@ export function StoryEditor() {
       aiProvider,
       bubbleStyle,
       canvasBg,
-      customApiKey,
-      deepseekApiKey,
       edgeStyle,
       generateLength,
-      imageApiKey,
       imageApiUrl,
       imageModel,
       imageSize,
       language,
       miniMapPosition,
-      openaiApiKey,
       pasteAsPlainText,
       playTestBlurBackground,
       playTestBlurText,
@@ -595,7 +633,6 @@ export function StoryEditor() {
       thinkingMode,
       theme,
       toolbarLayout,
-      ttsApiKey,
       ttsApiUrl,
       ttsModel,
       ttsProvider,
@@ -607,7 +644,6 @@ export function StoryEditor() {
     () => ({
       setCanvasBg,
       setEdgeStyle,
-      setCustomApiKey,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -616,13 +652,9 @@ export function StoryEditor() {
       setShowTitles,
       setGenerateLength,
       setAiProvider,
-      setDeepseekApiKey,
-      setOpenaiApiKey,
-      setImageApiKey,
       setImageApiUrl,
       setImageModel,
       setImageSize,
-      setTtsApiKey,
       setTtsApiUrl,
       setTtsModel,
       setTtsVoice,
@@ -660,8 +692,50 @@ export function StoryEditor() {
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('app-theme', theme);
   }, [theme]);
+
+  React.useEffect(() => {
+    if (!didHydrateLocalState) return;
+
+    void localPersistenceService.saveTheme(theme);
+  }, [didHydrateLocalState, theme]);
+
+  React.useEffect(() => {
+    if (!didHydrateLocalState) return;
+
+    void localPersistenceService.saveEditorSecrets({
+      customApiKey,
+      deepseekApiKey,
+      openaiApiKey,
+      imageApiKey,
+      ttsApiKey,
+      aiProvider,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      ttsApiUrl,
+      ttsModel,
+      ttsVoice,
+      ttsProvider,
+      thinkingMode,
+    });
+  }, [
+    aiProvider,
+    customApiKey,
+    deepseekApiKey,
+    didHydrateLocalState,
+    imageApiKey,
+    imageApiUrl,
+    imageModel,
+    imageSize,
+    openaiApiKey,
+    thinkingMode,
+    ttsApiKey,
+    ttsApiUrl,
+    ttsModel,
+    ttsProvider,
+    ttsVoice,
+  ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
@@ -1380,13 +1454,17 @@ export function StoryEditor() {
     assistantMessagesRef,
     handleNewAssistantTask,
     handleRenameAssistantTask,
-    handleCloseAssistantTask,
+    handleRequestCloseAssistantTask,
+    handleConfirmCloseAssistantTask,
+    handleCancelCloseAssistantTask,
+    assistantTaskPendingCloseId,
     handleAssistantSend,
     handleAssistantVoiceInput,
     toggleAssistantThought,
     handleAssistantResizePointerDown,
     handleAssistantResizePointerMove,
     handleAssistantResizePointerUp,
+    resetAssistantTasks,
   } = useAssistantPanel({
     language,
     isMobile,
@@ -1408,42 +1486,425 @@ export function StoryEditor() {
       setAssistantTasks,
       setActiveAssistantTaskId,
       saveFileName,
+      currentProjectId,
       setNodes,
       setEdges,
       setIsDirty,
       setShowSaveNameModal,
       lastSavedSnapshotRef: lastSavedSnapshot,
       showToast,
+      onImportedProject: async ({ projectData, suggestedProjectName, replaceCurrentProject }) => {
+        const shouldReplaceCurrentProject =
+          replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
+
+        if (shouldReplaceCurrentProject) {
+          await restoreProjectSession(currentProjectId, projectData, suggestedProjectName);
+          importModeRef.current = 'replace';
+          return true;
+        }
+
+        const nextProjectId = uuidv4();
+        const normalizedName = suggestedProjectName.trim() || DEFAULT_PROJECT_FILE_NAME;
+        await restoreProjectSession(nextProjectId, projectData, normalizedName);
+        await localPersistenceService.saveLocalProject({
+          id: nextProjectId,
+          projectName: normalizedName,
+          projectData,
+          updatedAt: Date.now(),
+        });
+        importModeRef.current = 'replace';
+        await refreshProjectSummaries();
+        return true;
+      },
       defaultEdgeOptions,
       defaultAIPrompts,
       defaultAIButtonsConfig,
     });
 
-  const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave } =
-    useAutoSave<ProjectSnapshotData>({
-      getProjectSnapshot,
-      lastSavedSnapshotRef: lastSavedSnapshot,
-      setIsDirty,
-      applyRecoveredProject: async (projectData) => {
-        await applyProjectData(projectData, { markSaved: true });
+  const refreshProjectSummaries = useCallback(async () => {
+    const projects = await localPersistenceService.listProjects();
+    setProjectSummaries(projects);
+  }, []);
+
+  const restoreProjectSession = useCallback(
+    async (
+      projectId: string,
+      projectData: ProjectSnapshotData,
+      projectName: string,
+      options?: { fromHome?: boolean },
+    ) => {
+      await applyProjectData(projectData, { markSaved: true });
+
+      setCurrentProjectId(projectId);
+      setSaveFileName(projectName.trim() || DEFAULT_PROJECT_FILE_NAME);
+      const nextProjectTitle =
+        projectData.settings?.projectTitle?.trim() ||
+        (projectName.trim() && projectName.trim() !== DEFAULT_PROJECT_FILE_NAME ? projectName : '');
+      setProjectTitle(nextProjectTitle);
+      setCurrentProjectPersisted(true);
+      resetAssistantTasks(projectData.assistantTasks, projectData.activeAssistantTaskId || null);
+      lastHistoryState.current = {
+        nodes: projectData.nodes as Node[],
+        edges: projectData.edges as Edge[],
+      };
+      setHistory({ past: [], future: [] });
+      setShowProjectHome(false);
+      await localPersistenceService.saveLastProjectId(projectId);
+      if (options?.fromHome) {
+        showToast(language === 'zh' ? '已打开本地项目' : 'Project opened');
+      }
+    },
+    [applyProjectData, language, resetAssistantTasks, showToast],
+  );
+
+  const resetEditorToBlankState = useCallback(() => {
+    const blankNodes = INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[];
+    const blankSnapshot = {
+      nodes: blankNodes,
+      edges: [] as Edge[],
+      settings: {
+        ...editorProjectSettings,
+        projectTitle: '',
       },
-      showToast,
-      language,
-      enabled: autosaveReady,
+      assistantTasks: undefined,
+      activeAssistantTaskId: undefined,
+    } as ProjectSnapshotData;
+
+    setCurrentProjectId(null);
+    setProjectIdToLoad(null);
+    setPendingHomeProjectId(null);
+    setCurrentProjectPersisted(false);
+    setSaveFileName(DEFAULT_PROJECT_FILE_NAME);
+    setProjectTitle('');
+    resetAssistantTasks(undefined, null);
+    setNodes(blankNodes);
+    setEdges([]);
+    lastHistoryState.current = { nodes: blankNodes, edges: [] as Edge[] };
+    setHistory({ past: [], future: [] });
+    lastSavedSnapshot.current = JSON.stringify(blankSnapshot);
+    setIsDirty(false);
+  }, [editorProjectSettings, resetAssistantTasks, setEdges, setNodes]);
+
+  const saveCurrentProject = useCallback(async () => {
+    if (!currentProjectId) return false;
+
+    const snapshot = JSON.parse(getProjectSnapshot()) as ProjectSnapshotData;
+    const persistedProjectName = getPersistedProjectName(projectTitle, saveFileName);
+    const persistedProjectTitle = projectTitle.trim() || persistedProjectName;
+
+    snapshot.settings = {
+      ...snapshot.settings,
+      projectTitle: persistedProjectTitle,
+    };
+
+    await localPersistenceService.saveLocalProject({
+      id: currentProjectId,
+      projectName: persistedProjectName,
+      projectData: snapshot,
+      updatedAt: Date.now(),
     });
 
-  // Initialize snapshot and theme preference
-  React.useEffect(() => {
-    lastSavedSnapshot.current = getProjectSnapshot();
-    setAutosaveReady(true);
+    setCurrentProjectPersisted(true);
+    setSaveFileName(persistedProjectName);
+    setProjectTitle(persistedProjectTitle);
+    lastSavedSnapshot.current = JSON.stringify(snapshot);
+    setIsDirty(false);
+    await refreshProjectSummaries();
+    showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
+    return true;
+  }, [
+    currentProjectId,
+    getProjectSnapshot,
+    language,
+    projectTitle,
+    refreshProjectSummaries,
+    saveFileName,
+    showToast,
+  ]);
 
-    const savedTheme = localStorage.getItem('app-theme') as 'light' | 'dark';
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
+  const handleCreateProject = useCallback(async () => {
+    const projectId = uuidv4();
+    const projectName = DEFAULT_PROJECT_FILE_NAME;
+    const emptyProject = {
+      nodes: INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[],
+      edges: [] as Edge[],
+      settings: {
+        ...editorProjectSettings,
+        projectTitle: '',
+      },
+      assistantTasks: undefined,
+      activeAssistantTaskId: undefined,
+    } as ProjectSnapshotData;
+
+    await restoreProjectSession(projectId, emptyProject, projectName);
+    lastSavedSnapshot.current = JSON.stringify(emptyProject);
+    setCurrentProjectPersisted(false);
+    setPendingHomeProjectId(null);
+    setProjectIdToLoad(null);
+  }, [editorProjectSettings, refreshProjectSummaries, restoreProjectSession]);
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, nextName: string) => {
+      const normalizedName = nextName.trim();
+
+      const persistedName = normalizedName || buildAutoProjectName();
+      await localPersistenceService.renameProject(projectId, persistedName);
+      if (projectId === currentProjectId) {
+        setSaveFileName(persistedName);
+        setProjectTitle(persistedName);
+      }
+      await refreshProjectSummaries();
+    },
+    [currentProjectId, refreshProjectSummaries],
+  );
+
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
+      await localPersistenceService.deleteProject(projectId);
+
+      if (projectId === currentProjectId) {
+        resetEditorToBlankState();
+        setShowProjectHome(true);
+      }
+
+      await refreshProjectSummaries();
+    },
+    [currentProjectId, refreshProjectSummaries, resetEditorToBlankState],
+  );
+
+  const performPendingProjectAction = useCallback(
+    async (action: PendingProjectAction | null) => {
+      if (!action) return;
+
+      if (action.type === 'create') {
+        await handleCreateProject();
+        return;
+      }
+
+      if (action.type === 'open') {
+        setPendingHomeProjectId(action.projectId);
+        setProjectIdToLoad(action.projectId);
+        return;
+      }
+
+      if (action.type === 'import-new') {
+        importModeRef.current = 'new';
+        jsonInputRef.current?.click();
+        return;
+      }
+
+      if (action.type === 'close-window') {
+        try {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          await getCurrentWindow().destroy();
+          return;
+        } catch (error) {
+          console.warn('Failed to close Tauri window, falling back to browser close', error);
+        }
+
+        window.close();
+      }
+    },
+    [handleCreateProject],
+  );
+
+  const requestProjectAction = useCallback(
+    (action: PendingProjectAction) => {
+      if (!isDirty) {
+        void performPendingProjectAction(action);
+        return;
+      }
+
+      setPendingProjectAction(action);
+      setShowProjectSavePrompt(true);
+    },
+    [isDirty, performPendingProjectAction],
+  );
+
+  const handleConfirmSaveCurrentProject = useCallback(async () => {
+    const action = pendingProjectAction;
+    setShowProjectSavePrompt(false);
+    setPendingProjectAction(null);
+    const didSave = await saveCurrentProject();
+    if (!didSave) return;
+    await performPendingProjectAction(action);
+  }, [pendingProjectAction, performPendingProjectAction, saveCurrentProject]);
+
+  const handleDiscardCurrentProjectChanges = useCallback(async () => {
+    const action = pendingProjectAction;
+    setShowProjectSavePrompt(false);
+    setPendingProjectAction(null);
+
+    if (currentProjectId && currentProjectPersisted) {
+      const savedProject = await localPersistenceService.loadProject(currentProjectId);
+      if (savedProject) {
+        await restoreProjectSession(
+          savedProject.id,
+          savedProject.projectData,
+          savedProject.projectName,
+        );
+      } else {
+        resetEditorToBlankState();
+      }
+    } else {
+      resetEditorToBlankState();
     }
-  }, [getProjectSnapshot]);
+
+    await performPendingProjectAction(action);
+  }, [
+    currentProjectId,
+    currentProjectPersisted,
+    pendingProjectAction,
+    performPendingProjectAction,
+    resetEditorToBlankState,
+    restoreProjectSession,
+  ]);
+
+  const handleCancelProjectAction = useCallback(() => {
+    setShowProjectSavePrompt(false);
+    setPendingProjectAction(null);
+  }, []);
+
+  const handleOpenProject = useCallback(
+    async (projectId: string) => {
+      requestProjectAction({ type: 'open', projectId });
+    },
+    [requestProjectAction],
+  );
+
+  const handleImportProjectFromHome = useCallback(() => {
+    requestProjectAction({ type: 'import-new' });
+  }, [requestProjectAction]);
+
+  const openImportPicker = useCallback(() => {
+    importModeRef.current = 'replace';
+    jsonInputRef.current?.click();
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const hydrateLocalState = async () => {
+      try {
+        const [appSettings, savedSecrets, projects] = await Promise.all([
+          localPersistenceService.loadAppSettings(),
+          localPersistenceService.loadEditorSecrets(),
+          localPersistenceService.listProjects(),
+        ]);
+
+        if (cancelled) return;
+        setProjectSummaries(projects);
+        setProjectListLoading(false);
+
+        if (savedSecrets) {
+          setCustomApiKey(savedSecrets.customApiKey);
+          setDeepseekApiKey(savedSecrets.deepseekApiKey);
+          setOpenaiApiKey(savedSecrets.openaiApiKey);
+          setImageApiKey(savedSecrets.imageApiKey);
+          setAiProvider(savedSecrets.aiProvider);
+          setImageApiUrl(savedSecrets.imageApiUrl);
+          setImageModel(savedSecrets.imageModel);
+          setImageSize(savedSecrets.imageSize);
+          setTtsApiKey(savedSecrets.ttsApiKey);
+          setTtsApiUrl(savedSecrets.ttsApiUrl);
+          setTtsModel(savedSecrets.ttsModel);
+          setTtsVoice(savedSecrets.ttsVoice);
+          setTtsProvider(savedSecrets.ttsProvider);
+          setThinkingMode(savedSecrets.thinkingMode);
+        }
+
+        if (appSettings.theme) {
+          setTheme(appSettings.theme);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          setTheme('dark');
+        }
+      } catch (error) {
+        console.error('Failed to hydrate local editor state', error);
+      } finally {
+        if (!cancelled) {
+          setDidHydrateLocalState(true);
+        }
+      }
+    };
+
+    void hydrateLocalState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!didHydrateLocalState || !projectIdToLoad) return;
+
+    let cancelled = false;
+
+    const loadSelectedProject = async () => {
+      const project = await localPersistenceService.loadProject(projectIdToLoad);
+      if (!project || cancelled) return;
+
+      await restoreProjectSession(project.id, project.projectData, project.projectName, {
+        fromHome: pendingHomeProjectId === project.id,
+      });
+      if (!cancelled) {
+        setPendingHomeProjectId(null);
+        setProjectIdToLoad(null);
+        await refreshProjectSummaries();
+      }
+    };
+
+    void loadSelectedProject();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    didHydrateLocalState,
+    pendingHomeProjectId,
+    projectIdToLoad,
+    refreshProjectSummaries,
+    restoreProjectSession,
+  ]);
+
+  React.useEffect(() => {
+    if (!currentProjectId) {
+      setIsDirty(false);
+      return;
+    }
+
+    const snapshot = getProjectSnapshot();
+    setIsDirty(snapshot !== lastSavedSnapshot.current);
+  }, [assistantTasks, currentProjectId, edges, getProjectSnapshot, nodes, projectTitle]);
+
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const bindCloseHandler = async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        unlisten = await getCurrentWindow().listen('tauri://close-requested', (event) => {
+          const closeEvent = event as typeof event & { preventDefault?: () => void };
+          closeEvent.preventDefault?.();
+
+          if (!isDirty) {
+            void getCurrentWindow().destroy();
+            return;
+          }
+
+          setPendingProjectAction({ type: 'close-window' });
+          setShowProjectSavePrompt(true);
+        });
+      } catch {
+        // Browser runtime: no Tauri close hook available.
+      }
+    };
+
+    void bindCloseHandler();
+
+    return () => {
+      unlisten?.();
+    };
+  }, [isDirty]);
 
   const footerHint = useMemo(() => {
     if (assistantOpen) {
@@ -1802,20 +2263,9 @@ ${direction}
     });
   }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath]);
 
-  const projectTitleInputUnits = useMemo(() => {
-    const fallbackTitle = language === 'zh' ? '项目标题' : 'Project title';
-    const title = projectTitle.trim() || fallbackTitle;
-    return (Array.from(title) as string[]).reduce(
-      (units: number, char: string) => units + (char.charCodeAt(0) > 255 ? 2 : 1),
-      0,
-    );
-  }, [language, projectTitle]);
-
-  const projectTitleInputWidth = `clamp(${isMobile ? '8rem' : '9rem'}, ${Math.min(Math.max(projectTitleInputUnits + 2, 10), 28)}ch, ${isMobile ? '13rem' : '18rem'})`;
-
   return (
     <div
-      className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
+      className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'} ${showProjectHome ? 'pointer-events-auto' : ''}`}
       style={{ backgroundColor: canvasBg }}
     >
       <style>{`
@@ -1833,24 +2283,33 @@ ${direction}
         background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
-      <EditorHeader
-        projectTitle={projectTitle}
-        projectTitleInputWidth={projectTitleInputWidth}
-        language={language}
-        bubbleStyle={bubbleStyle}
-        isMobile={isMobile}
-        isDirty={isDirty}
-        canRenderVideo={canRenderVideo}
-        assistantOpen={assistantOpen}
-        jsonInputRef={jsonInputRef}
-        setProjectTitle={setProjectTitle}
-        setShowPlayTest={setShowPlayTest}
-        setShowVideoRender={setShowVideoRender}
-        setAssistantOpen={setAssistantOpen}
-        handleExportJSON={handleExportJSON}
-        handleImportZIP={handleImportZIP}
-        t={t}
-      />
+        <EditorHeader
+          appTitle={APP_TITLE}
+          projectName={currentProjectId ? projectTitle.trim() : ''}
+          projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
+          onProjectNameChange={setProjectTitle}
+          onProjectNameCommit={async (nextName) => {
+            if (!currentProjectId) return;
+            await handleRenameProject(currentProjectId, nextName);
+          }}
+          language={language}
+          bubbleStyle={bubbleStyle}
+          isMobile={isMobile}
+          isDirty={isDirty}
+          canRenderVideo={canRenderVideo}
+          assistantOpen={assistantOpen}
+          jsonInputRef={jsonInputRef}
+          setShowPlayTest={setShowPlayTest}
+          setShowVideoRender={setShowVideoRender}
+          setAssistantOpen={setAssistantOpen}
+          openProjectHome={() => setShowProjectHome(true)}
+          openImportPicker={openImportPicker}
+          handleExportJSON={() => {
+            void saveCurrentProject();
+          }}
+          handleImportZIP={handleImportZIP}
+          t={t}
+        />
 
       <div className="relative flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
@@ -2058,7 +2517,7 @@ ${direction}
           setActiveAssistantTaskId={setActiveAssistantTaskId}
           handleNewAssistantTask={handleNewAssistantTask}
           handleRenameAssistantTask={handleRenameAssistantTask}
-          handleCloseAssistantTask={handleCloseAssistantTask}
+          handleCloseAssistantTask={handleRequestCloseAssistantTask}
           handleAssistantSend={handleAssistantSend}
           handleAssistantVoiceInput={handleAssistantVoiceInput}
           toggleAssistantThought={toggleAssistantThought}
@@ -2273,18 +2732,6 @@ ${direction}
       </Suspense>
 
       {/* 崩溃恢复弹窗 */}
-      <AutoSaveRecoveryModal
-        visible={showAutoSaveModal}
-        timestamp={autoSaveData?.timestamp}
-        language={language}
-        onDiscard={() => {
-          void discardAutoSave();
-        }}
-        onRecover={() => {
-          void recoverAutoSave();
-        }}
-      />
-
       {/* 保存文件名弹窗 */}
       <SaveProjectModal
         visible={showSaveNameModal}
@@ -2293,6 +2740,88 @@ ${direction}
         onClose={() => setShowSaveNameModal(false)}
         onConfirm={confirmExportJSON}
         t={t}
+      />
+
+      <ProjectSavePromptModal
+        visible={showProjectSavePrompt}
+        language={language}
+        projectName={getPersistedProjectName(projectTitle, saveFileName)}
+        onSave={() => {
+          void handleConfirmSaveCurrentProject();
+        }}
+        onDiscard={() => {
+          void handleDiscardCurrentProjectChanges();
+        }}
+        onCancel={handleCancelProjectAction}
+      />
+
+      <ProjectPickerModal
+        visible={showProjectHome}
+        language={language}
+        projects={projectSummaries}
+        loading={projectListLoading}
+        showCloseButton={Boolean(currentProjectId)}
+        onClose={() => setShowProjectHome(false)}
+        onCreateProject={() => {
+          requestProjectAction({ type: 'create' });
+        }}
+        onOpenProject={(projectId) => {
+          void handleOpenProject(projectId);
+        }}
+        onImportProject={handleImportProjectFromHome}
+        onRenameProject={async (projectId, projectName) => {
+          await handleRenameProject(projectId, projectName);
+        }}
+        onDeleteProject={async (projectId) => {
+          setProjectIdPendingDeletion(projectId);
+        }}
+      />
+
+      <ConfirmActionModal
+        visible={Boolean(projectIdPendingDeletion)}
+        language={language}
+        title={language === 'zh' ? '删除项目？' : 'Delete project?'}
+        description={
+          language === 'zh'
+            ? `确定要删除项目「${
+                projectSummaries.find((item) => item.id === projectIdPendingDeletion)?.projectName ||
+                '未命名项目'
+              }」吗？此操作不可撤销。`
+            : `Delete "${
+                projectSummaries.find((item) => item.id === projectIdPendingDeletion)?.projectName ||
+                'Untitled project'
+              }"? This cannot be undone.`
+        }
+        confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
+        onCancel={() => setProjectIdPendingDeletion(null)}
+        onConfirm={() => {
+          const projectId = projectIdPendingDeletion;
+          setProjectIdPendingDeletion(null);
+          if (projectId) {
+            void handleDeleteProject(projectId);
+          }
+        }}
+      />
+
+      <ConfirmActionModal
+        visible={Boolean(assistantTaskPendingCloseId)}
+        language={language}
+        title={language === 'zh' ? '关闭对话？' : 'Close conversation?'}
+        description={
+          language === 'zh'
+            ? `确定要关闭「${
+                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+                '这个对话'
+              }」吗？`
+            : `Close "${
+                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+                'this conversation'
+              }"?`
+        }
+        confirmLabel={language === 'zh' ? '关闭对话' : 'Close conversation'}
+        tone="warning"
+        onCancel={handleCancelCloseAssistantTask}
+        onConfirm={handleConfirmCloseAssistantTask}
       />
 
       {/* Zen Mode Overlay */}

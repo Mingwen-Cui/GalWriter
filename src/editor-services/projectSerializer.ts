@@ -134,7 +134,6 @@ const applyProjectSettings = (
 
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
-  if (incomingSettings.customApiKey) setters.setCustomApiKey(incomingSettings.customApiKey);
   if (incomingSettings.pasteAsPlainText !== undefined) {
     setters.setPasteAsPlainText(incomingSettings.pasteAsPlainText);
   }
@@ -149,13 +148,9 @@ const applyProjectSettings = (
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
   if (incomingSettings.aiProvider) setters.setAiProvider(incomingSettings.aiProvider);
-  if (incomingSettings.deepseekApiKey) setters.setDeepseekApiKey(incomingSettings.deepseekApiKey);
-  if (incomingSettings.openaiApiKey) setters.setOpenaiApiKey(incomingSettings.openaiApiKey);
-  if (incomingSettings.imageApiKey) setters.setImageApiKey(incomingSettings.imageApiKey);
   if (incomingSettings.imageApiUrl) setters.setImageApiUrl(incomingSettings.imageApiUrl);
   if (incomingSettings.imageModel) setters.setImageModel(incomingSettings.imageModel);
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
-  if (incomingSettings.ttsApiKey) setters.setTtsApiKey(incomingSettings.ttsApiKey);
   if (incomingSettings.ttsApiUrl) setters.setTtsApiUrl(incomingSettings.ttsApiUrl);
   if (incomingSettings.ttsModel) setters.setTtsModel(incomingSettings.ttsModel);
   if (incomingSettings.ttsVoice) setters.setTtsVoice(incomingSettings.ttsVoice);

@@ -1,12 +1,16 @@
-import { Film, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
+import { Film, FolderOpen, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
 
 interface EditorHeaderProps {
-  projectTitle: string;
-  projectTitleInputWidth: string;
+  appTitle: string;
+  projectName: string;
+  projectNamePlaceholder?: string;
+  onProjectNameChange: (value: string) => void;
+  onProjectNameCommit: (value: string) => Promise<void> | void;
   language: Language;
   bubbleStyle: BubbleStyle;
   isMobile: boolean;
@@ -14,10 +18,11 @@ interface EditorHeaderProps {
   canRenderVideo: boolean;
   assistantOpen: boolean;
   jsonInputRef: MutableRefObject<HTMLInputElement | null>;
-  setProjectTitle: Dispatch<SetStateAction<string>>;
   setShowPlayTest: Dispatch<SetStateAction<boolean>>;
   setShowVideoRender: Dispatch<SetStateAction<boolean>>;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
+  openProjectHome: () => void;
+  openImportPicker: () => void;
   handleExportJSON: () => void;
   handleImportZIP: (event: ChangeEvent<HTMLInputElement>) => void;
   t: {
@@ -28,8 +33,11 @@ interface EditorHeaderProps {
 }
 
 export function EditorHeader({
-  projectTitle,
-  projectTitleInputWidth,
+  appTitle,
+  projectName,
+  projectNamePlaceholder,
+  onProjectNameChange,
+  onProjectNameCommit,
   language,
   bubbleStyle,
   isMobile,
@@ -37,77 +45,174 @@ export function EditorHeader({
   canRenderVideo,
   assistantOpen,
   jsonInputRef,
-  setProjectTitle,
   setShowPlayTest,
   setShowVideoRender,
   setAssistantOpen,
+  openProjectHome,
+  openImportPicker,
   handleExportJSON,
   handleImportZIP,
   t,
 }: EditorHeaderProps) {
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
+  const [editingProjectName, setEditingProjectName] = useState(projectName);
+  const projectNameInputRef = useRef<HTMLInputElement | null>(null);
+  const projectNameSizerRef = useRef<HTMLSpanElement | null>(null);
+  const [projectNameWidth, setProjectNameWidth] = useState(120);
+
+  const displayProjectName = projectName.trim() || projectNamePlaceholder || '';
+
+  useEffect(() => {
+    if (!isEditingProjectName) {
+      setEditingProjectName(projectName);
+    }
+  }, [isEditingProjectName, projectName]);
+
+  useEffect(() => {
+    if (isEditingProjectName) {
+      projectNameInputRef.current?.focus();
+      projectNameInputRef.current?.select();
+    }
+  }, [isEditingProjectName]);
+
+  useEffect(() => {
+    const sizer = projectNameSizerRef.current;
+    if (!sizer) return;
+
+    const nextWidth = Math.min(Math.max(sizer.offsetWidth + 6, 72), 220);
+    setProjectNameWidth(nextWidth);
+  }, [displayProjectName, editingProjectName, isEditingProjectName, projectNamePlaceholder, projectName]);
+
+  const commitProjectName = async () => {
+    await onProjectNameCommit(editingProjectName);
+    setIsEditingProjectName(false);
+  };
+
   return (
-    <div className="pointer-events-none absolute left-6 top-3 z-30 flex items-center gap-3">
-      <div className="toolbar-bubble-surface editor-header-bubble pointer-events-auto min-w-0 flex items-center gap-2 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
+    <div className="pointer-events-none absolute left-4 top-3 z-30 md:left-6">
+      <div className="toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center gap-3 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2.5 py-1.5 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)]">
         <img
           src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
-          className="editor-header-logo h-8 w-8 theme-invert"
+          className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
           alt="Logo"
         />
-        <input
-          value={projectTitle}
-          onChange={(event) => setProjectTitle(event.target.value)}
-          placeholder={language === 'zh' ? '项目标题' : 'Project title'}
-          className="editor-header-title min-w-[8rem] max-w-[18rem] bg-transparent text-sm font-bold tracking-tight text-slate-900 outline-none placeholder:text-slate-400 transition-[width] dark:text-white md:text-base"
-          style={{ width: projectTitleInputWidth }}
-          aria-label={language === 'zh' ? '项目标题' : 'Project title'}
-        />
-        <div className="editor-header-divider mx-0.5 h-5 w-px bg-slate-200 dark:bg-slate-700" />
-        <button
-          onClick={() => setShowPlayTest(true)}
-          className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
-          title={t.playTest}
-        >
-          <PlayCircle className="h-4 w-4" />
-        </button>
+        <div className="min-w-0 flex items-center gap-4 overflow-hidden">
+          <div className="min-w-0 flex shrink items-center gap-3 overflow-hidden">
+            <span className="editor-header-title shrink-0 text-sm font-bold tracking-tight text-slate-900 dark:text-white md:text-base">
+              {appTitle}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingProjectName(projectName);
+                setIsEditingProjectName(true);
+              }}
+              className={`min-w-0 rounded-md px-1 py-0.5 text-left text-xs font-medium transition-colors md:text-sm ${
+                projectName.trim()
+                  ? 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
+                  : 'text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400'
+              }`}
+              title={displayProjectName}
+            >
+              {isEditingProjectName ? (
+                <input
+                  ref={projectNameInputRef}
+                  value={editingProjectName}
+                  onChange={(event) => {
+                    setEditingProjectName(event.target.value);
+                    onProjectNameChange(event.target.value);
+                  }}
+                  onBlur={() => {
+                    void commitProjectName();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void commitProjectName();
+                      (event.currentTarget as HTMLInputElement).blur();
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      setEditingProjectName(projectName);
+                      onProjectNameChange(projectName);
+                      setIsEditingProjectName(false);
+                      (event.currentTarget as HTMLInputElement).blur();
+                    }
+                  }}
+                  placeholder={projectNamePlaceholder}
+                  className="bg-transparent text-slate-500 outline-none placeholder:text-slate-300 dark:text-slate-400 dark:placeholder:text-slate-600"
+                  style={{ width: `${projectNameWidth}px` }}
+                />
+              ) : (
+                <span className="inline-block max-w-[220px] truncate align-middle">
+                  {displayProjectName}
+                </span>
+              )}
+            </button>
+            <span
+              ref={projectNameSizerRef}
+              className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-xs font-medium md:text-sm"
+              aria-hidden="true"
+            >
+              {editingProjectName || projectNamePlaceholder || ''}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 pl-2 sm:gap-2">
+            <button
+              onClick={openProjectHome}
+              className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={language === 'zh' ? '返回项目列表' : 'Project home'}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowPlayTest(true)}
+              className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
+              title={t.playTest}
+            >
+              <PlayCircle className="h-4 w-4" />
+            </button>
 
-        {canRenderVideo && (
-          <button
-            onClick={() => setShowVideoRender(true)}
-            className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
-            title={language === 'zh' ? '一键导出视频' : 'Export Video'}
-          >
-            <Film className="h-4 w-4" />
-          </button>
-        )}
+            {canRenderVideo && (
+              <button
+                onClick={() => setShowVideoRender(true)}
+                className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
+                title={language === 'zh' ? '一键导出视频' : 'Export Video'}
+              >
+                <Film className="h-4 w-4" />
+              </button>
+            )}
 
-        <button
-          onClick={handleExportJSON}
-          className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-            isDirty
-              ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
-              : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          title={
-            isDirty
-              ? language === 'zh'
-                ? '有未保存的更改 - 点击保存'
-                : 'Unsaved changes - Click to save'
-              : t.save
-          }
-        >
-          <Save className="h-4 w-4" />
-          {isDirty && (
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-          )}
-        </button>
+            <button
+              onClick={handleExportJSON}
+              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                isDirty
+                  ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
+                  : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              title={
+                isDirty
+                  ? language === 'zh'
+                    ? '有未保存的更改 - 点击保存'
+                    : 'Unsaved changes - Click to save'
+                  : t.save
+              }
+            >
+              <Save className="h-4 w-4" />
+              {isDirty && (
+                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              )}
+            </button>
 
-        <button
-          onClick={() => jsonInputRef.current?.click()}
-          className="header-glass-action header-glass-action-import flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-          title={t.import}
-        >
-          <Upload className="h-4 w-4" />
-        </button>
+            <button
+              onClick={openImportPicker}
+              className="header-glass-action header-glass-action-import flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={t.import}
+            >
+              <Upload className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
         <input
           type="file"
           accept=".zip,.json"
@@ -116,7 +221,6 @@ export function EditorHeader({
           onChange={handleImportZIP}
         />
       </div>
-
       <div className="hidden">
         <div className="toolbar-bubble-surface pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2 py-1 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
           <button

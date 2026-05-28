@@ -53,6 +53,17 @@ const createAssistantWelcomeMessage = (): AssistantMessage => ({
     '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
 });
 
+const createInitialAssistantTask = (language: 'zh' | 'en'): AssistantTask => {
+  const now = Date.now();
+  return {
+    id: uuidv4(),
+    title: language === 'zh' ? '对话 1' : 'Conversation 1',
+    createdAt: now,
+    updatedAt: now,
+    messages: [createAssistantWelcomeMessage()],
+  };
+};
+
 interface UseAssistantPanelParams {
   language: 'zh' | 'en';
   isMobile: boolean;
@@ -80,13 +91,17 @@ interface UseAssistantPanelResult {
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
   handleNewAssistantTask: () => void;
   handleRenameAssistantTask: (taskId: string, title: string) => void;
-  handleCloseAssistantTask: (taskId: string) => void;
+  handleRequestCloseAssistantTask: (taskId: string) => void;
+  handleConfirmCloseAssistantTask: () => void;
+  handleCancelCloseAssistantTask: () => void;
+  assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantVoiceInput: () => void;
   toggleAssistantThought: (messageId: string) => void;
   handleAssistantResizePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerUp: () => void;
+  resetAssistantTasks: (tasks?: AssistantTask[], activeTaskId?: string | null) => void;
 }
 
 export const useAssistantPanel = ({
@@ -109,19 +124,12 @@ export const useAssistantPanel = ({
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantListening, setAssistantListening] = useState(false);
-  const initialAssistantTaskIdRef = useRef(uuidv4());
-  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(
-    initialAssistantTaskIdRef.current,
-  );
+  const initialAssistantTaskRef = useRef(createInitialAssistantTask(language));
+  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskRef.current.id);
   const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [
-    {
-      id: initialAssistantTaskIdRef.current,
-      title: language === 'zh' ? '对话 1' : 'Conversation 1',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [createAssistantWelcomeMessage()],
-    },
+    initialAssistantTaskRef.current,
   ]);
+  const [assistantTaskPendingCloseId, setAssistantTaskPendingCloseId] = useState<string | null>(null);
   const assistantMessagesRef = useRef<HTMLDivElement>(null);
   const assistantThoughtTimerRef = useRef<number | null>(null);
 
@@ -183,6 +191,29 @@ export const useAssistantPanel = ({
     setAssistantInput('');
   }, [language]);
 
+  const resetAssistantTasks = useCallback(
+    (tasks?: AssistantTask[], activeTaskId?: string | null) => {
+      if (assistantThoughtTimerRef.current !== null) {
+        window.clearInterval(assistantThoughtTimerRef.current);
+        assistantThoughtTimerRef.current = null;
+      }
+
+      const nextTasks =
+        tasks && tasks.length > 0 ? tasks : [createInitialAssistantTask(language)];
+      const nextActiveTaskId =
+        activeTaskId && nextTasks.some((task) => task.id === activeTaskId)
+          ? activeTaskId
+          : nextTasks[0].id;
+
+      setAssistantTasks(nextTasks);
+      setActiveAssistantTaskId(nextActiveTaskId);
+      setAssistantInput('');
+      setAssistantLoading(false);
+      setAssistantListening(false);
+    },
+    [language],
+  );
+
   const handleRenameAssistantTask = useCallback((taskId: string, title: string) => {
     const nextTitle = title.trim();
     if (!nextTitle) return;
@@ -194,15 +225,8 @@ export const useAssistantPanel = ({
     );
   }, []);
 
-  const handleCloseAssistantTask = useCallback(
+  const closeAssistantTask = useCallback(
     (taskId: string) => {
-      const task = assistantTasks.find((item) => item.id === taskId);
-      const title = task?.title || (language === 'zh' ? '这个对话' : 'this conversation');
-      const confirmed = window.confirm(
-        language === 'zh' ? `确定要关闭「${title}」吗？` : `Close "${title}"?`,
-      );
-      if (!confirmed) return;
-
       if (assistantThoughtTimerRef.current !== null && taskId === activeAssistantTaskId) {
         window.clearInterval(assistantThoughtTimerRef.current);
         assistantThoughtTimerRef.current = null;
@@ -233,8 +257,22 @@ export const useAssistantPanel = ({
         return nextTasks;
       });
     },
-    [activeAssistantTaskId, assistantTasks, language],
+    [activeAssistantTaskId, language],
   );
+
+  const handleRequestCloseAssistantTask = useCallback((taskId: string) => {
+    setAssistantTaskPendingCloseId(taskId);
+  }, []);
+
+  const handleConfirmCloseAssistantTask = useCallback(() => {
+    if (!assistantTaskPendingCloseId) return;
+    closeAssistantTask(assistantTaskPendingCloseId);
+    setAssistantTaskPendingCloseId(null);
+  }, [assistantTaskPendingCloseId, closeAssistantTask]);
+
+  const handleCancelCloseAssistantTask = useCallback(() => {
+    setAssistantTaskPendingCloseId(null);
+  }, []);
 
   const playAssistantThought = useCallback(
     (reasoning?: string) => {
@@ -520,12 +558,16 @@ ${canvasContext || '无'}`;
     assistantMessagesRef,
     handleNewAssistantTask,
     handleRenameAssistantTask,
-    handleCloseAssistantTask,
+    handleRequestCloseAssistantTask,
+    handleConfirmCloseAssistantTask,
+    handleCancelCloseAssistantTask,
+    assistantTaskPendingCloseId,
     handleAssistantSend,
     handleAssistantVoiceInput,
     toggleAssistantThought,
     handleAssistantResizePointerDown,
     handleAssistantResizePointerMove,
     handleAssistantResizePointerUp,
+    resetAssistantTasks,
   };
 };

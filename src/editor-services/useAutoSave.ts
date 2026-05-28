@@ -9,6 +9,7 @@ interface AutoSavePayload {
 }
 
 interface UseAutoSaveParams<TProjectData> {
+  projectId: string | null;
   getProjectSnapshot: () => string;
   lastSavedSnapshotRef: MutableRefObject<string>;
   setIsDirty: Dispatch<SetStateAction<boolean>>;
@@ -19,6 +20,7 @@ interface UseAutoSaveParams<TProjectData> {
 }
 
 export const useAutoSave = <TProjectData>({
+  projectId,
   getProjectSnapshot,
   lastSavedSnapshotRef,
   setIsDirty,
@@ -32,16 +34,16 @@ export const useAutoSave = <TProjectData>({
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
-    autosaveService.load().then((data) => {
+    if (!enabled || !projectId) return;
+    autosaveService.loadForProject(projectId).then((data) => {
       if (!data) return;
       setAutoSaveData(data);
       setShowAutoSaveModal(true);
     });
-  }, [enabled]);
+  }, [enabled, projectId]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !projectId) return;
     const currentSnapshot = getProjectSnapshot();
     const isNowDirty = currentSnapshot !== lastSavedSnapshotRef.current;
     setIsDirty(isNowDirty);
@@ -49,20 +51,21 @@ export const useAutoSave = <TProjectData>({
     if (isNowDirty) {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(async () => {
-        await autosaveService.save(currentSnapshot);
+        await autosaveService.saveForProject(projectId, currentSnapshot);
       }, 5000);
     }
 
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [enabled, getProjectSnapshot, lastSavedSnapshotRef, setIsDirty]);
+  }, [enabled, getProjectSnapshot, lastSavedSnapshotRef, projectId, setIsDirty]);
 
   const discardAutoSave = useCallback(async () => {
-    await autosaveService.clear();
+    if (!projectId) return;
+    await autosaveService.clearForProject(projectId);
     setShowAutoSaveModal(false);
     setAutoSaveData(null);
-  }, []);
+  }, [projectId]);
 
   const recoverAutoSave = useCallback(async () => {
     if (!autoSaveData) return;
@@ -88,6 +91,6 @@ export const useAutoSave = <TProjectData>({
     setShowAutoSaveModal,
     discardAutoSave,
     recoverAutoSave,
-    clearAutoSave: autosaveService.clear,
+    clearAutoSave: projectId ? () => autosaveService.clearForProject(projectId) : autosaveService.clear,
   };
 };

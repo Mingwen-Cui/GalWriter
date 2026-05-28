@@ -36,12 +36,19 @@ interface UseProjectSerializationParams {
   setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   saveFileName: string;
+  currentProjectId: string | null;
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   setIsDirty: Dispatch<SetStateAction<boolean>>;
   setShowSaveNameModal: Dispatch<SetStateAction<boolean>>;
   lastSavedSnapshotRef: React.MutableRefObject<string>;
   showToast: (message: string) => void;
+  onImportedProject?: (params: {
+    projectData: ProjectSnapshotData;
+    suggestedProjectName: string;
+    replaceCurrentProject: boolean;
+    zip: JSZip | null;
+  }) => Promise<boolean> | boolean;
   defaultEdgeOptions: EdgeDefaults;
   defaultAIPrompts: AIPromptsConfig;
   defaultAIButtonsConfig: AIButtonsConfig;
@@ -59,12 +66,14 @@ export const useProjectSerialization = ({
   setAssistantTasks,
   setActiveAssistantTaskId,
   saveFileName,
+  currentProjectId,
   setNodes,
   setEdges,
   setIsDirty,
   setShowSaveNameModal,
   lastSavedSnapshotRef,
   showToast,
+  onImportedProject,
   defaultEdgeOptions,
   defaultAIPrompts,
   defaultAIButtonsConfig,
@@ -138,7 +147,9 @@ export const useProjectSerialization = ({
       lastSavedSnapshotRef.current = JSON.stringify(exportedProject);
       setIsDirty(false);
       setShowSaveNameModal(false);
-      await autosaveService.clear();
+      if (currentProjectId) {
+        await autosaveService.clearForProject(currentProjectId);
+      }
       showToast(settings.language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP');
     } catch (error) {
       console.error('Export failed:', error);
@@ -149,6 +160,7 @@ export const useProjectSerialization = ({
     }
   }, [
     createSnapshotData,
+    currentProjectId,
     lastSavedSnapshotRef,
     projectSerializer,
     saveFileName,
@@ -163,18 +175,19 @@ export const useProjectSerialization = ({
       const file = event.target.files?.[0];
       if (!file) return;
 
-      if (
-        lastSavedSnapshotRef.current !== getProjectSnapshot() &&
-        !window.confirm('当前项目有未保存的更改，导入新文件将覆盖当前内容。确定要继续吗？')
-      ) {
-        event.target.value = '';
-        return;
-      }
-
       try {
         const { projectData, zip } = await projectSerializer.importZip(file);
         if (projectData.nodes && projectData.edges) {
-          await applyProjectData(projectData, { zip, markSaved: true });
+          const handled = await onImportedProject?.({
+            projectData,
+            suggestedProjectName: file.name.replace(/\.(zip|json)$/i, '').trim() || 'imported-project',
+            replaceCurrentProject: Boolean(currentProjectId),
+            zip,
+          });
+
+          if (!handled) {
+            await applyProjectData(projectData, { zip, markSaved: true });
+          }
         }
       } catch (error) {
         console.error('Import failed:', error);
@@ -183,7 +196,12 @@ export const useProjectSerialization = ({
 
       event.target.value = '';
     },
-    [applyProjectData, getProjectSnapshot, lastSavedSnapshotRef, projectSerializer],
+    [
+      applyProjectData,
+      currentProjectId,
+      onImportedProject,
+      projectSerializer,
+    ],
   );
 
   return {

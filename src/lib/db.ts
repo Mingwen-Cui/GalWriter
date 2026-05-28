@@ -1,104 +1,318 @@
 import { DBSchema, IDBPDatabase, openDB } from 'idb';
 
+import type { ApiKeySettings, ProjectSettings, StoryProject } from '../domain/project';
+
+export interface AutoSaveRecord {
+  snapshot: string;
+  timestamp: number;
+}
+
+export interface LocalProjectRecord {
+  id: string;
+  projectName: string;
+  snapshot: StoryProject;
+  updatedAt: number;
+}
+
+export interface LocalProjectSummary {
+  id: string;
+  projectName: string;
+  updatedAt: number;
+}
+
+export interface LocalAppSettings {
+  theme: 'light' | 'dark' | null;
+  lastProjectId: string | null;
+}
+
+export type LocalApiKeySettings = ApiKeySettings &
+  Pick<ProjectSettings, 'aiProvider' | 'imageApiUrl' | 'imageModel' | 'imageSize' | 'ttsApiUrl' | 'ttsModel' | 'ttsVoice' | 'ttsProvider' | 'thinkingMode'>;
+
+interface StoredAutoSaveRecord {
+  timestamp: number;
+  snapshot: string;
+  media: Record<string, Blob>;
+}
+
+interface StoredLocalProjectRecord {
+  id: string;
+  projectName: string;
+  snapshot: string;
+  media: Record<string, Blob>;
+  updatedAt: number;
+}
+
 interface GalWriterDB extends DBSchema {
   autosave: {
-    key: 'current';
-    value: {
-      timestamp: number;
-      snapshot: string;
-      media: Record<string, Blob>;
+    key: string;
+    value: StoredAutoSaveRecord;
+  };
+  localProjects: {
+    key: string;
+    value: StoredLocalProjectRecord;
+    indexes: {
+      'by-updatedAt': number;
     };
   };
+  appSettings: {
+    key: string;
+    value: LocalAppSettings;
+  };
+  apiSettings: {
+    key: 'current';
+    value: LocalApiKeySettings;
+  };
 }
+
+const DB_NAME = 'GalWriterDB';
+const DB_VERSION = 2;
+const APP_SETTINGS_KEY = 'current';
+const DEFAULT_APP_SETTINGS: LocalAppSettings = {
+  theme: null,
+  lastProjectId: null,
+};
 
 let dbPromise: Promise<IDBPDatabase<GalWriterDB>> | null = null;
 
 const getDB = () => {
   if (!dbPromise) {
-    dbPromise = openDB<GalWriterDB>('GalWriterDB', 1, {
-      upgrade(db) {
-        db.createObjectStore('autosave');
+    dbPromise = openDB<GalWriterDB>(DB_NAME, DB_VERSION, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          db.createObjectStore('autosave');
+        }
+
+        if (!db.objectStoreNames.contains('localProjects')) {
+          const projectStore = db.createObjectStore('localProjects', { keyPath: 'id' });
+          projectStore.createIndex('by-updatedAt', 'updatedAt');
+        }
+
+        if (!db.objectStoreNames.contains('appSettings')) {
+          db.createObjectStore('appSettings');
+        }
+
+        if (!db.objectStoreNames.contains('apiSettings')) {
+          db.createObjectStore('apiSettings');
+        }
       },
     });
   }
   return dbPromise;
 };
 
-/**
- * 提取快照中的 blob: URL 并将它们转换为实际的 Blob 数据，随后一并存入 IndexedDB
- */
+const blobUrlRegex = /blob:https?:\/\/[^\s"'<>]+/g;
+
+const extractSnapshotMedia = async (snapshot: string) => {
+  const matches = snapshot.match(blobUrlRegex);
+  const uniqueUrls = [...new Set(matches || [])];
+  const media: Record<string, Blob> = {};
+
+  await Promise.all(
+    uniqueUrls.map(async (url) => {
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        media[url] = blob;
+      } catch (error) {
+        console.warn(`Failed to fetch blob for autosave: ${url}`, error);
+      }
+    }),
+  );
+
+  return { snapshot, media };
+};
+
+const reviveSnapshotMedia = (snapshot: string, media: Record<string, Blob>) => {
+  let revivedSnapshot = snapshot;
+
+  for (const [oldUrl, blob] of Object.entries(media)) {
+    const newUrl = URL.createObjectURL(blob);
+    revivedSnapshot = revivedSnapshot.split(oldUrl).join(newUrl);
+  }
+
+  return revivedSnapshot;
+};
+
 export const saveAutoSave = async (snapshot: string): Promise<void> => {
+  return saveNamedAutoSave('current', snapshot);
+};
+
+export const saveNamedAutoSave = async (key: string, snapshot: string): Promise<void> => {
   try {
-    // 匹配所有 blob: URL (例如 blob:http://localhost:3000/xxx-yyy-zzz)
-    const blobUrlRegex = /blob:https?:\/\/[^\s"'<>]+/g;
-    const matches = snapshot.match(blobUrlRegex);
-    const uniqueUrls = [...new Set(matches || [])];
-
-    const media: Record<string, Blob> = {};
-
-    await Promise.all(
-      uniqueUrls.map(async (url) => {
-        try {
-          const res = await fetch(url);
-          const blob = await res.blob();
-          media[url] = blob;
-        } catch (err) {
-          console.warn(`Failed to fetch blob for autosave: ${url}`, err);
-        }
-      }),
-    );
-
     const db = await getDB();
     await db.put(
       'autosave',
       {
+        ...(await extractSnapshotMedia(snapshot)),
         timestamp: Date.now(),
-        snapshot,
-        media,
       },
-      'current',
+      key,
     );
-
-    // console.log('[AutoSave] Saved successfully.', new Date().toLocaleTimeString());
   } catch (error) {
     console.error('[AutoSave] Failed to save to IndexedDB', error);
   }
 };
 
-/**
- * 获取自动保存的数据，并将过期的 blob: URL 替换为当前会话有效的新 blob: URL
- */
-export const getAutoSave = async (): Promise<{ snapshot: string; timestamp: number } | null> => {
+export const getAutoSave = async (): Promise<AutoSaveRecord | null> => {
+  return getNamedAutoSave('current');
+};
+
+export const getNamedAutoSave = async (key: string): Promise<AutoSaveRecord | null> => {
   try {
     const db = await getDB();
-    const data = await db.get('autosave', 'current');
+    const data = await db.get('autosave', key);
     if (!data) return null;
 
-    let newSnapshot = data.snapshot;
-
-    // 为每个旧的 Blob 生成一个新的会话有效 URL
-    for (const [oldUrl, blob] of Object.entries(data.media)) {
-      const newUrl = URL.createObjectURL(blob);
-      // 替换快照中的旧 URL
-      // 使用全局替换，因为同一个图片可能在多个地方（节点和边）被引用
-      newSnapshot = newSnapshot.split(oldUrl).join(newUrl);
-    }
-
-    return { snapshot: newSnapshot, timestamp: data.timestamp };
+    return {
+      snapshot: reviveSnapshotMedia(data.snapshot, data.media),
+      timestamp: data.timestamp,
+    };
   } catch (error) {
     console.error('[AutoSave] Failed to load from IndexedDB', error);
     return null;
   }
 };
 
-/**
- * 清除自动保存（通常在手动成功保存项目后调用）
- */
 export const clearAutoSave = async (): Promise<void> => {
+  return clearNamedAutoSave('current');
+};
+
+export const clearNamedAutoSave = async (key: string): Promise<void> => {
   try {
     const db = await getDB();
-    await db.delete('autosave', 'current');
+    await db.delete('autosave', key);
   } catch (error) {
     console.error('[AutoSave] Failed to clear IndexedDB', error);
   }
+};
+
+export const saveLocalProject = async (record: LocalProjectRecord): Promise<void> => {
+  const db = await getDB();
+  const serializedSnapshot = JSON.stringify(record.snapshot);
+  await db.put('localProjects', {
+    id: record.id,
+    projectName: record.projectName,
+    updatedAt: record.updatedAt,
+    ...(await extractSnapshotMedia(serializedSnapshot)),
+  });
+};
+
+export const getLocalProject = async (id: string): Promise<LocalProjectRecord | null> => {
+  const db = await getDB();
+  const record = await db.get('localProjects', id);
+  if (!record) return null;
+
+  return {
+    id: record.id,
+    projectName: record.projectName,
+    snapshot: JSON.parse(reviveSnapshotMedia(record.snapshot, record.media)) as StoryProject,
+    updatedAt: record.updatedAt,
+  };
+};
+
+export const getMostRecentLocalProject = async (): Promise<LocalProjectRecord | null> => {
+  const db = await getDB();
+  const tx = db.transaction('localProjects');
+  const index = tx.store.index('by-updatedAt');
+  const cursor = await index.openCursor(null, 'prev');
+  await tx.done;
+  if (!cursor) return null;
+
+  return {
+    id: cursor.value.id,
+    projectName: cursor.value.projectName,
+    snapshot: JSON.parse(reviveSnapshotMedia(cursor.value.snapshot, cursor.value.media)) as StoryProject,
+    updatedAt: cursor.value.updatedAt,
+  };
+};
+
+export const listLocalProjects = async (): Promise<LocalProjectSummary[]> => {
+  const db = await getDB();
+  const tx = db.transaction('localProjects');
+  const index = tx.store.index('by-updatedAt');
+  const summaries: LocalProjectSummary[] = [];
+  let cursor = await index.openCursor(null, 'prev');
+
+  while (cursor) {
+    summaries.push({
+      id: cursor.value.id,
+      projectName: cursor.value.projectName,
+      updatedAt: cursor.value.updatedAt,
+    });
+    cursor = await cursor.continue();
+  }
+
+  await tx.done;
+  return summaries;
+};
+
+export const renameLocalProject = async (id: string, projectName: string): Promise<void> => {
+  const db = await getDB();
+  const record = await db.get('localProjects', id);
+  if (!record) return;
+
+  let nextSnapshot = record.snapshot;
+
+  try {
+    const parsedSnapshot = JSON.parse(record.snapshot) as StoryProject;
+    nextSnapshot = JSON.stringify({
+      ...parsedSnapshot,
+      settings: {
+        ...parsedSnapshot.settings,
+        projectTitle: projectName,
+      },
+    } satisfies StoryProject);
+  } catch (error) {
+    console.warn('Failed to sync renamed project title into snapshot', error);
+  }
+
+  await db.put('localProjects', {
+    ...record,
+    projectName,
+    snapshot: nextSnapshot,
+    updatedAt: Date.now(),
+  });
+};
+
+export const deleteLocalProject = async (id: string): Promise<void> => {
+  const db = await getDB();
+  await Promise.all([db.delete('localProjects', id), db.delete('autosave', id)]);
+
+  const appSettings = await db.get('appSettings', APP_SETTINGS_KEY);
+  if (appSettings?.lastProjectId === id) {
+    await db.put(
+      'appSettings',
+      {
+        ...appSettings,
+        lastProjectId: null,
+      },
+      APP_SETTINGS_KEY,
+    );
+  }
+};
+
+export const saveAppSettings = async (
+  nextSettings: Partial<LocalAppSettings>,
+): Promise<LocalAppSettings> => {
+  const db = await getDB();
+  const current = ((await db.get('appSettings', APP_SETTINGS_KEY)) ??
+    DEFAULT_APP_SETTINGS) as LocalAppSettings;
+  const merged = { ...current, ...nextSettings };
+  await db.put('appSettings', merged, APP_SETTINGS_KEY);
+  return merged;
+};
+
+export const getAppSettings = async (): Promise<LocalAppSettings> => {
+  const db = await getDB();
+  return ((await db.get('appSettings', APP_SETTINGS_KEY)) ?? DEFAULT_APP_SETTINGS) as LocalAppSettings;
+};
+
+export const saveApiSettings = async (settings: LocalApiKeySettings): Promise<void> => {
+  const db = await getDB();
+  await db.put('apiSettings', settings, 'current');
+};
+
+export const getApiSettings = async (): Promise<LocalApiKeySettings | null> => {
+  const db = await getDB();
+  return (await db.get('apiSettings', 'current')) ?? null;
 };
