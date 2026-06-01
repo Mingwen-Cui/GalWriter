@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AITextResult } from '../../editor-services/aiClient';
+import {
+  buildAssistantDocumentContext,
+  readAssistantDocument,
+  type AssistantDocument,
+} from '../../lib/documentReader';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import { htmlToSpeechText } from '../../lib/tts';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
@@ -83,6 +88,8 @@ interface UseAssistantPanelResult {
   setAssistantInput: Dispatch<SetStateAction<string>>;
   assistantLoading: boolean;
   assistantListening: boolean;
+  assistantDocuments: AssistantDocument[];
+  assistantDocumentLoading: boolean;
   assistantTasks: AssistantTask[];
   setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
   activeAssistantTaskId: string;
@@ -96,6 +103,8 @@ interface UseAssistantPanelResult {
   handleCancelCloseAssistantTask: () => void;
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
+  handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
   toggleAssistantThought: (messageId: string) => void;
   handleAssistantResizePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -124,6 +133,8 @@ export const useAssistantPanel = ({
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantListening, setAssistantListening] = useState(false);
+  const [assistantDocuments, setAssistantDocuments] = useState<AssistantDocument[]>([]);
+  const [assistantDocumentLoading, setAssistantDocumentLoading] = useState(false);
   const initialAssistantTaskRef = useRef(createInitialAssistantTask(language));
   const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskRef.current.id);
   const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [
@@ -210,9 +221,68 @@ export const useAssistantPanel = ({
       setAssistantInput('');
       setAssistantLoading(false);
       setAssistantListening(false);
+      setAssistantDocuments((documents) => {
+        documents.forEach((document) => URL.revokeObjectURL(document.objectUrl));
+        return [];
+      });
     },
     [language],
   );
+
+  const handleAssistantDocumentUpload = useCallback(
+    async (files: FileList | null) => {
+      const selectedFiles = Array.from(files || []);
+      if (selectedFiles.length === 0) return;
+
+      setAssistantDocumentLoading(true);
+      try {
+        const documents = await Promise.all(
+          selectedFiles.map((file) => readAssistantDocument(file)),
+        );
+        setAssistantDocuments((currentDocuments) => {
+          const documentMap = new Map(
+            currentDocuments.map((document) => [document.id, document]),
+          );
+          documents.forEach((document) => documentMap.set(document.id, document));
+          return Array.from(documentMap.values()).slice(-5);
+        });
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? `已读取 ${documents.length} 个参考文档。接下来我会结合这些文档内容来回答和生成剧情。`
+                : `Read ${documents.length} reference document(s). I will use them as context for the next story requests.`,
+          },
+        ]);
+      } catch (error: any) {
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? `文档读取失败：${error.message || '请确认文件是可复制文字的 PDF 或 DOCX。'}`
+                : `Document reading failed: ${error.message || 'Please use a text-based PDF or DOCX file.'}`,
+          },
+        ]);
+      } finally {
+        setAssistantDocumentLoading(false);
+      }
+    },
+    [language, setAssistantMessages],
+  );
+
+  const handleRemoveAssistantDocument = useCallback((documentId: string) => {
+    setAssistantDocuments((documents) => {
+      const documentToRemove = documents.find((document) => document.id === documentId);
+      if (documentToRemove) URL.revokeObjectURL(documentToRemove.objectUrl);
+      return documents.filter((document) => document.id !== documentId);
+    });
+  }, []);
 
   const handleRenameAssistantTask = useCallback((taskId: string, title: string) => {
     const nextTitle = title.trim();
@@ -375,6 +445,8 @@ export const useAssistantPanel = ({
         })
         .join('\n');
 
+      const documentContext = buildAssistantDocumentContext(assistantDocuments);
+
       const wantsCards =
         /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
           userText,
@@ -402,6 +474,9 @@ ${userText}
 
 选中卡片：
 ${selectedContext || '无'}
+
+用户上传的参考文档：
+${documentContext || '无'}
 
 画布摘要：
 ${canvasContext || '无'}`;
@@ -453,6 +528,7 @@ ${canvasContext || '无'}`;
     [
       assistantInput,
       assistantLoading,
+      assistantDocuments,
       callAIForTextResult,
       createAssistantCards,
       nodes,
@@ -550,6 +626,8 @@ ${canvasContext || '无'}`;
     setAssistantInput,
     assistantLoading,
     assistantListening,
+    assistantDocuments,
+    assistantDocumentLoading,
     assistantTasks,
     setAssistantTasks,
     activeAssistantTaskId,
@@ -563,6 +641,8 @@ ${canvasContext || '无'}`;
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleAssistantDocumentUpload,
+    handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
     toggleAssistantThought,
     handleAssistantResizePointerDown,

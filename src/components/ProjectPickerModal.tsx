@@ -1,4 +1,15 @@
-import { Clock3, FilePlus2, FolderOpen, Pencil, Sparkles, Trash2, X, Download, Search } from 'lucide-react';
+import {
+  CheckSquare2,
+  Clock3,
+  Download,
+  FilePlus2,
+  FolderOpen,
+  Pencil,
+  Search,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { type WheelEvent, useEffect, useState } from 'react';
 
 import type { LocalProjectSummary } from '../lib/db';
@@ -16,7 +27,8 @@ interface ProjectPickerModalProps {
   onImportProject: () => void;
   onRenameProject: (projectId: string, projectName: string) => Promise<void> | void;
   onDeleteProject: (projectId: string) => Promise<void> | void;
-  onExportProject?: (projectId: string) => void;
+  onDeleteProjects?: (projectIds: string[]) => Promise<void> | void;
+  onExportProject?: (projectId: string) => Promise<void> | void;
 }
 
 const formatUpdatedAt = (timestamp: number, language: Language) =>
@@ -39,19 +51,29 @@ export function ProjectPickerModal({
   onImportProject,
   onRenameProject,
   onDeleteProject,
+  onDeleteProjects,
   onExportProject,
 }: ProjectPickerModalProps) {
   const isZh = language === 'zh';
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingProjectName, setEditingProjectName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!visible) {
       setEditingProjectId(null);
       setEditingProjectName('');
+      setBatchMode(false);
+      setSelectedProjectIds([]);
     }
   }, [visible]);
+
+  useEffect(() => {
+    const projectIds = new Set(projects.map(project => project.id));
+    setSelectedProjectIds(current => current.filter(projectId => projectIds.has(projectId)));
+  }, [projects]);
 
   if (!visible) return null;
 
@@ -75,6 +97,54 @@ export function ProjectPickerModal({
   const filteredProjects = projects.filter(p =>
     p.projectName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const visibleProjectIds = filteredProjects.map(project => project.id);
+  const selectedVisibleCount = selectedProjectIds.filter(projectId =>
+    visibleProjectIds.includes(projectId)
+  ).length;
+  const hasSelection = selectedProjectIds.length > 0;
+
+  const toggleProjectSelection = (projectId: string) => {
+    setSelectedProjectIds(current =>
+      current.includes(projectId)
+        ? current.filter(selectedId => selectedId !== projectId)
+        : [...current, projectId],
+    );
+  };
+
+  const toggleSelectVisibleProjects = () => {
+    setSelectedProjectIds(current => {
+      const visibleIds = new Set(visibleProjectIds);
+      const allVisibleSelected =
+        visibleProjectIds.length > 0 && visibleProjectIds.every(projectId => current.includes(projectId));
+
+      if (allVisibleSelected) {
+        return current.filter(projectId => !visibleIds.has(projectId));
+      }
+
+      return Array.from(new Set([...current, ...visibleProjectIds]));
+    });
+  };
+
+  const handleBatchExport = async () => {
+    if (!onExportProject || !hasSelection) return;
+    for (const projectId of selectedProjectIds) {
+      await onExportProject(projectId);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (!hasSelection) return;
+    if (onDeleteProjects) {
+      await onDeleteProjects(selectedProjectIds);
+      return;
+    } else {
+      for (const projectId of selectedProjectIds) {
+        await onDeleteProject(projectId);
+      }
+    }
+    setSelectedProjectIds([]);
+    setBatchMode(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[350] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -137,6 +207,29 @@ export function ProjectPickerModal({
                 </div>
                 <FolderOpen className="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" />
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchMode(current => !current);
+                  setSelectedProjectIds([]);
+                }}
+                className={`flex items-center justify-between rounded-xl border px-5 py-4 text-left shadow-sm transition-colors ${
+                  batchMode
+                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-200'
+                    : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700'
+                }`}
+              >
+                <div>
+                  <div className="text-base font-black">
+                    {isZh ? '批量选择' : 'Batch select'}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {isZh ? '选择多个项目后下载或删除。' : 'Select multiple projects to download or delete.'}
+                  </div>
+                </div>
+                <CheckSquare2 className="h-5 w-5 shrink-0" />
+              </button>
             </div>
 
             <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/50">
@@ -166,6 +259,48 @@ export function ProjectPickerModal({
                     className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
                   />
                 </div>
+                {batchMode && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={toggleSelectVisibleProjects}
+                      disabled={filteredProjects.length === 0}
+                      className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    >
+                      {selectedVisibleCount === visibleProjectIds.length && visibleProjectIds.length > 0 ? (
+                        <CheckSquare2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Square className="h-3.5 w-3.5" />
+                      )}
+                      {isZh ? '全选' : 'Select all'}
+                    </button>
+                    <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {isZh ? `已选择 ${selectedProjectIds.length} 个` : `${selectedProjectIds.length} selected`}
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      {onExportProject && (
+                        <button
+                          type="button"
+                          onClick={() => void handleBatchExport()}
+                          disabled={!hasSelection}
+                          className="flex h-8 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {isZh ? '下载' : 'Download'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void handleBatchDelete()}
+                        disabled={!hasSelection}
+                        className="flex h-8 items-center gap-2 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {isZh ? '删除' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div
@@ -193,13 +328,47 @@ export function ProjectPickerModal({
                     {filteredProjects.map((project) => (
                       <div
                         key={project.id}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-slate-700"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (editingProjectId === project.id) return;
+                          if (batchMode) {
+                            toggleProjectSelection(project.id);
+                            return;
+                          }
+                          onOpenProject(project.id);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
+                          if (editingProjectId === project.id) return;
+                          if (batchMode) {
+                            toggleProjectSelection(project.id);
+                            return;
+                          }
+                          onOpenProject(project.id);
+                        }}
+                        className={`group rounded-xl border bg-white px-4 py-3.5 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-900/80 ${
+                          selectedProjectIds.includes(project.id)
+                            ? 'border-indigo-300 ring-1 ring-indigo-200 dark:border-indigo-500/70 dark:ring-indigo-500/30'
+                            : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700'
+                        } ${editingProjectId === project.id ? 'cursor-default' : 'cursor-pointer'}`}
                       >
                         <div className="flex items-start gap-3">
+                          {batchMode && (
+                            <div className="pt-0.5 text-indigo-600 dark:text-indigo-300">
+                              {selectedProjectIds.includes(project.id) ? (
+                                <CheckSquare2 className="h-4 w-4" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </div>
+                          )}
                           <div className="min-w-0 flex-1">
                             {editingProjectId === project.id ? (
                               <input
                                 value={editingProjectName}
+                                onClick={(event) => event.stopPropagation()}
                                 onChange={(event) => setEditingProjectName(event.target.value)}
                                 onBlur={() => void commitRename()}
                                 onKeyDown={(event) => {
@@ -217,13 +386,9 @@ export function ProjectPickerModal({
                                 className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-slate-900 outline-none focus:border-indigo-400 dark:border-indigo-500/40 dark:bg-slate-900 dark:text-white"
                               />
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => onOpenProject(project.id)}
-                                className="block w-full truncate text-left text-sm font-black text-slate-900 transition-colors hover:text-indigo-600 dark:text-white dark:hover:text-indigo-200"
-                              >
+                              <div className="block w-full truncate text-left text-sm font-black text-slate-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-200">
                                 {project.projectName}
-                              </button>
+                              </div>
                             )}
                             <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
                               {isZh ? '最近编辑' : 'Updated'} {formatUpdatedAt(project.updatedAt, language)}
@@ -234,7 +399,10 @@ export function ProjectPickerModal({
                             {onExportProject && (
                               <button
                                 type="button"
-                                onClick={() => onExportProject(project.id)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void onExportProject(project.id);
+                                }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-white hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
                                 title={isZh ? '导出并下载' : 'Export and download'}
                               >
@@ -243,7 +411,8 @@ export function ProjectPickerModal({
                             )}
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 setEditingProjectId(project.id);
                                 setEditingProjectName(project.projectName);
                               }}
@@ -254,7 +423,10 @@ export function ProjectPickerModal({
                             </button>
                             <button
                               type="button"
-                              onClick={() => void onDeleteProject(project.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void onDeleteProject(project.id);
+                              }}
                               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
                               title={isZh ? '删除项目' : 'Delete project'}
                             >

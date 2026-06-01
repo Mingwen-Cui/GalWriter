@@ -117,6 +117,10 @@ interface SettingsModalProps {
   setPlayTestSkipSingleChoicePopup: (val: boolean) => void;
   playTestDimBackground: boolean;
   setPlayTestDimBackground: (val: boolean) => void;
+  playTestAutoAdvance: boolean;
+  setPlayTestAutoAdvance: (val: boolean) => void;
+  playTestAutoAdvanceDelay: number;
+  setPlayTestAutoAdvanceDelay: (val: number) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -197,6 +201,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestSkipSingleChoicePopup,
   playTestDimBackground,
   setPlayTestDimBackground,
+  playTestAutoAdvance,
+  setPlayTestAutoAdvance,
+  playTestAutoAdvanceDelay,
+  setPlayTestAutoAdvanceDelay,
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<
     'appearance' | 'editor' | 'playtest' | 'ai' | 'about'
@@ -940,6 +948,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
                 )}
+              </section>
+
+              <section className="space-y-4">
+                <header className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
+                  <h3 className="text-base font-black text-[var(--text-primary)]">
+                    {language === 'zh' ? '自动翻页' : 'Auto Advance'}
+                  </h3>
+                </header>
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <div className="text-sm font-bold text-[var(--text-secondary)]">
+                      {language === 'zh' ? '动画结束后自动继续' : 'Continue after animation'}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)] mt-1">
+                      {language === 'zh'
+                        ? '仅在没有多个选项时生效，多选项会暂停等待选择。'
+                        : 'Only runs when there is not more than one choice.'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
+                    className={`w-12 h-6 rounded-full transition-all duration-500 relative ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                  >
+                    <div
+                      className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-sm ${playTestAutoAdvance ? 'left-7' : 'left-1'}`}
+                    />
+                  </button>
+                </div>
+                <div
+                  className={`space-y-3 transition-opacity ${playTestAutoAdvance ? 'opacity-100' : 'opacity-45'}`}
+                >
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                      {language === 'zh' ? '等待秒数' : 'Wait Time'}
+                    </label>
+                    <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-full">
+                      {playTestAutoAdvanceDelay} {language === 'zh' ? '秒' : 's'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={playTestAutoAdvanceDelay}
+                    disabled={!playTestAutoAdvance}
+                    onChange={(e) => setPlayTestAutoAdvanceDelay(parseInt(e.target.value, 10))}
+                    className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)] disabled:cursor-not-allowed"
+                  />
+                </div>
               </section>
 
               {/* Playtest Dim Background */}

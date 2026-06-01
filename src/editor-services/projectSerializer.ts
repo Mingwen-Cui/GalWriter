@@ -223,6 +223,12 @@ const applyProjectSettings = (
   if (incomingSettings.playTestDimBackground !== undefined) {
     setters.setPlayTestDimBackground(incomingSettings.playTestDimBackground);
   }
+  if (incomingSettings.playTestAutoAdvance !== undefined) {
+    setters.setPlayTestAutoAdvance(incomingSettings.playTestAutoAdvance);
+  }
+  if (incomingSettings.playTestAutoAdvanceDelay !== undefined) {
+    setters.setPlayTestAutoAdvanceDelay(incomingSettings.playTestAutoAdvanceDelay);
+  }
 };
 
 const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>

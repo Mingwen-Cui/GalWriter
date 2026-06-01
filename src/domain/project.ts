@@ -97,6 +97,8 @@ export interface PlaytestSettings {
   playTestBlurText: boolean;
   playTestSkipSingleChoicePopup: boolean;
   playTestDimBackground: boolean;
+  playTestAutoAdvance: boolean;
+  playTestAutoAdvanceDelay: number;
 }
 
 export interface PlaytestSettingsSetters {
@@ -112,6 +114,8 @@ export interface PlaytestSettingsSetters {
   setPlayTestBlurText: Dispatch<SetStateAction<boolean>>;
   setPlayTestSkipSingleChoicePopup: Dispatch<SetStateAction<boolean>>;
   setPlayTestDimBackground: Dispatch<SetStateAction<boolean>>;
+  setPlayTestAutoAdvance: Dispatch<SetStateAction<boolean>>;
+  setPlayTestAutoAdvanceDelay: Dispatch<SetStateAction<number>>;
 }
 
 export type PlaytestSettingsState = PlaytestSettings & PlaytestSettingsSetters;

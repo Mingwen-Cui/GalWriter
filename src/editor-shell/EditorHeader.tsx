@@ -17,6 +17,7 @@ interface EditorHeaderProps {
   bubbleStyle: BubbleStyle;
   isMobile: boolean;
   isDirty: boolean;
+  isSavingProject?: boolean;
   canRenderVideo: boolean;
   assistantOpen: boolean;
   jsonInputRef: MutableRefObject<HTMLInputElement | null>;
@@ -46,6 +47,7 @@ export function EditorHeader({
   bubbleStyle,
   isMobile,
   isDirty,
+  isSavingProject = false,
   canRenderVideo,
   assistantOpen,
   jsonInputRef,
@@ -108,7 +110,13 @@ export function EditorHeader({
 
     const nextWidth = Math.min(Math.max(sizer.offsetWidth + 6, 72), 220);
     setProjectNameWidth(nextWidth);
-  }, [displayProjectName, editingProjectName, isEditingProjectName, projectNamePlaceholder, projectName]);
+  }, [
+    displayProjectName,
+    editingProjectName,
+    isEditingProjectName,
+    projectNamePlaceholder,
+    projectName,
+  ]);
 
   const commitProjectName = async () => {
     await onProjectNameCommit(editingProjectName);
@@ -117,14 +125,20 @@ export function EditorHeader({
 
   return (
     <div className="pointer-events-none absolute left-4 top-3 z-30 md:left-6">
-      <div className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center rounded-2xl border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}>
+      <div
+        className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center rounded-2xl border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}
+      >
         <img
           src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
           className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
           alt="Logo"
         />
-        <div className={`min-w-0 flex items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-4'}`}>
-          <div className={`min-w-0 flex shrink items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-3'}`}>
+        <div
+          className={`min-w-0 flex items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-4'}`}
+        >
+          <div
+            className={`min-w-0 flex shrink items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-3'}`}
+          >
             {bubbleStyle !== 'glass' && (
               <span className="editor-header-title shrink-0 text-sm font-bold tracking-tight text-slate-900 dark:text-white md:text-base">
                 {appTitle}
@@ -137,10 +151,11 @@ export function EditorHeader({
                   setEditingProjectName(projectName);
                   setIsEditingProjectName(true);
                 }}
-                className={`min-w-0 rounded-md px-1 py-0.5 text-left text-sm md:text-base font-bold transition-colors ${projectName.trim()
-                  ? 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
-                  : 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
+                className={`min-w-0 rounded-md px-1 py-0.5 text-left text-sm md:text-base font-bold transition-colors ${
+                  projectName.trim()
+                    ? 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
+                    : 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
                 title={displayProjectName}
               >
                 {isEditingProjectName ? (
@@ -192,19 +207,28 @@ export function EditorHeader({
               )}
             </div>
           </div>
-          <div className={`flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}>
+          <div
+            className={`flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
+          >
             <button
+              type="button"
               onClick={handleExportJSON}
-              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${isDirty
-                ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
-                : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              title={
+              disabled={isSavingProject}
+              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
                 isDirty
+                  ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
+                  : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
+              } ${isSavingProject ? 'cursor-wait opacity-70' : ''}`}
+              title={
+                isSavingProject
                   ? language === 'zh'
-                    ? '有未保存的更改 - 点击保存'
-                    : 'Unsaved changes - Click to save'
-                  : t.save
+                    ? '正在保存...'
+                    : 'Saving...'
+                  : isDirty
+                    ? language === 'zh'
+                      ? '有未保存的更改 - 点击保存'
+                      : 'Unsaved changes - Click to save'
+                    : t.save
               }
             >
               <Save className="h-4 w-4" />
@@ -237,7 +261,6 @@ export function EditorHeader({
                 <Film className="h-4 w-4" />
               </button>
             )}
-
           </div>
         </div>
         <input
@@ -252,10 +275,11 @@ export function EditorHeader({
         <div className="toolbar-bubble-surface pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2 py-1 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
           <button
             onClick={() => setAssistantOpen((open) => !open)}
-            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${assistantOpen
-              ? 'bg-indigo-600 text-white'
-              : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+              assistantOpen
+                ? 'bg-indigo-600 text-white'
+                : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
             title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
           >
             <Sparkles className="h-4 w-4" />

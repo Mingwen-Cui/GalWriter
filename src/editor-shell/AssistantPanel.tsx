@@ -1,12 +1,17 @@
 import {
   BrainCircuit,
   ChevronDown,
+  Download,
+  FileText,
   Loader2,
   Mic,
+  Plus,
   PlusCircle,
   Redo2,
   Send,
+  Trash2,
   Undo2,
+  UploadCloud,
   X,
 } from 'lucide-react';
 import type {
@@ -15,9 +20,10 @@ import type {
   PointerEvent as ReactPointerEvent,
   SetStateAction,
 } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
+import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 
 interface AssistantPanelProps {
@@ -26,6 +32,8 @@ interface AssistantPanelProps {
   assistantPanelWidth: number;
   assistantLoading: boolean;
   assistantListening: boolean;
+  assistantDocuments: AssistantDocument[];
+  assistantDocumentLoading: boolean;
   assistantInput: string;
   selectedAssistantTargetNodesCount: number;
   assistantTasks: AssistantTask[];
@@ -39,6 +47,8 @@ interface AssistantPanelProps {
   handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
+  handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
   toggleAssistantThought: (messageId: string) => void;
   handleAssistantResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -57,6 +67,8 @@ export function AssistantPanel({
   assistantPanelWidth,
   assistantLoading,
   assistantListening,
+  assistantDocuments,
+  assistantDocumentLoading,
   assistantInput,
   selectedAssistantTargetNodesCount,
   assistantTasks,
@@ -70,6 +82,8 @@ export function AssistantPanel({
   handleRenameAssistantTask,
   handleCloseAssistantTask,
   handleAssistantSend,
+  handleAssistantDocumentUpload,
+  handleRemoveAssistantDocument,
   handleAssistantVoiceInput,
   toggleAssistantThought,
   handleAssistantResizePointerDown,
@@ -85,6 +99,9 @@ export function AssistantPanel({
   const [panelVisible, setPanelVisible] = useState(assistantOpen);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
+  const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
+  const [documentDragActive, setDocumentDragActive] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (assistantOpen) {
@@ -109,6 +126,16 @@ export function AssistantPanel({
     handleRenameAssistantTask(editingTaskId, editingTaskTitle);
     setEditingTaskId(null);
     setEditingTaskTitle('');
+  };
+
+  const uploadAccept =
+    '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/*';
+
+  const handleDocumentFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    void handleAssistantDocumentUpload(files);
+    setDocumentUploadOpen(false);
+    setDocumentDragActive(false);
   };
 
   return (
@@ -291,6 +318,63 @@ export function AssistantPanel({
       </div>
 
       <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-2 flex items-center gap-2">
+          <input
+            ref={documentInputRef}
+            type="file"
+            multiple
+            accept={uploadAccept}
+            className="hidden"
+            onChange={(event) => {
+              handleDocumentFiles(event.target.files);
+              event.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => documentInputRef.current?.click()}
+            disabled={assistantLoading || assistantDocumentLoading}
+            className="hidden"
+            title={language === 'zh' ? '上传 PDF 或 Word 文档作为参考' : 'Upload PDF or Word reference documents'}
+          >
+            {assistantDocumentLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <UploadCloud className="h-3.5 w-3.5" />
+            )}
+            <span>{language === 'zh' ? '参考文档' : 'Docs'}</span>
+          </button>
+          {assistantDocuments.length > 0 && (
+            <div className="custom-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+              {assistantDocuments.map((document) => (
+                <div
+                  key={document.id}
+                  className="flex h-8 max-w-[160px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                  title={document.name}
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                  <span className="truncate">{document.name}</span>
+                  <a
+                    href={document.objectUrl}
+                    download={document.name}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600"
+                    title={language === 'zh' ? '下载文档' : 'Download document'}
+                  >
+                    <Download className="h-3 w-3" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAssistantDocument(document.id)}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-rose-500"
+                    title={language === 'zh' ? '移除文档' : 'Remove document'}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="assistant-quick-actions mb-2 flex gap-2">
           <button
             onClick={() =>
@@ -321,6 +405,19 @@ export function AssistantPanel({
           </button>
         </div>
         <div className="assistant-input-box flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
+          <button
+            type="button"
+            onClick={() => setDocumentUploadOpen(true)}
+            disabled={assistantLoading || assistantDocumentLoading}
+            className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+            title={language === 'zh' ? '上传参考文件' : 'Upload reference files'}
+          >
+            {assistantDocumentLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </button>
           <textarea
             value={assistantInput}
             onChange={(event) => setAssistantInput(event.target.value)}
@@ -364,6 +461,75 @@ export function AssistantPanel({
           </button>
         </div>
       </div>
+      {documentUploadOpen && (
+        <div className="fixed inset-0 z-[360] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-black text-slate-800 dark:text-white">
+                  {language === 'zh' ? '上传参考文件' : 'Upload reference files'}
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  {language === 'zh'
+                    ? '支持 PDF、Word、Excel、PPT 和常见文本文件'
+                    : 'Supports PDF, Word, Excel, PPT, and common text files'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocumentUploadOpen(false);
+                  setDocumentDragActive(false);
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
+                title={language === 'zh' ? '关闭' : 'Close'}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => documentInputRef.current?.click()}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleDocumentFiles(event.dataTransfer.files);
+              }}
+              disabled={assistantDocumentLoading}
+              className={`flex min-h-44 w-full flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center transition-colors disabled:opacity-60 ${
+                documentDragActive
+                  ? 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
+                  : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/40'
+              }`}
+            >
+              {assistantDocumentLoading ? (
+                <Loader2 className="mb-3 h-8 w-8 animate-spin" />
+              ) : (
+                <UploadCloud className="mb-3 h-8 w-8" />
+              )}
+              <div className="text-sm font-black">
+                {language === 'zh' ? '拖拽文件到这里，或点击上传' : 'Drop files here, or click to upload'}
+              </div>
+              <div className="mt-2 max-w-xs text-xs leading-relaxed opacity-80">
+                {language === 'zh'
+                  ? '为保证安全，只提取可读取的文本内容；不会执行宏、脚本或外部链接。旧版 .doc/.xls/.ppt 可能无法读取，请优先使用新版格式。'
+                  : 'For safety, only readable text is extracted. Macros, scripts, and external links are not executed. Legacy .doc/.xls/.ppt files may not be readable; modern formats are preferred.'}
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

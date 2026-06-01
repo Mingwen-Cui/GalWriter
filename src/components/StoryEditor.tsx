@@ -209,12 +209,17 @@ const getProjectDisplayName = (projectTitle: string, saveFileName: string) => {
   if (normalizedTitle) return normalizedTitle;
 
   const normalizedFileName = saveFileName.trim();
-  if (normalizedFileName && normalizedFileName !== DEFAULT_PROJECT_FILE_NAME) return normalizedFileName;
+  if (normalizedFileName && normalizedFileName !== DEFAULT_PROJECT_FILE_NAME)
+    return normalizedFileName;
 
   return '';
 };
 
-const getPersistedProjectName = (projectTitle: string, saveFileName: string, timestamp = Date.now()) => {
+const getPersistedProjectName = (
+  projectTitle: string,
+  saveFileName: string,
+  timestamp = Date.now(),
+) => {
   const displayName = getProjectDisplayName(projectTitle, saveFileName);
   return displayName || buildAutoProjectName(timestamp);
 };
@@ -420,9 +425,11 @@ export function StoryEditor() {
   const [language, setLanguage] = useState<Language>('zh');
   const [projectTitle, setProjectTitle] = useState('');
   const [currentProjectPersisted, setCurrentProjectPersisted] = useState(false);
-  const [pendingProjectAction, setPendingProjectAction] = useState<PendingProjectAction | null>(null);
+  const [pendingProjectAction, setPendingProjectAction] = useState<PendingProjectAction | null>(
+    null,
+  );
   const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
-  const [projectIdPendingDeletion, setProjectIdPendingDeletion] = useState<string | null>(null);
+  const [projectIdsPendingDeletion, setProjectIdsPendingDeletion] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
@@ -454,10 +461,16 @@ export function StoryEditor() {
     setPlayTestSkipSingleChoicePopup,
     playTestDimBackground,
     setPlayTestDimBackground,
+    playTestAutoAdvance,
+    setPlayTestAutoAdvance,
+    playTestAutoAdvanceDelay,
+    setPlayTestAutoAdvanceDelay,
   } = usePlaytestSettings();
 
   const t = translations[language];
   const [isDirty, setIsDirty] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const isSavingProjectRef = useRef(false);
   const lastSavedSnapshot = useRef<string>('');
 
   const activeTextProfile = useMemo(
@@ -518,10 +531,7 @@ export function StoryEditor() {
   });
 
   const handleCreateAIProfile = useCallback(
-    async (
-      kind: 'text' | 'image' | 'voice',
-      initialProfile: AIProfileSeed = {},
-    ) => {
+    async (kind: 'text' | 'image' | 'voice', initialProfile: AIProfileSeed = {}) => {
       const baseProfile =
         kind === 'text'
           ? buildDefaultTextProfile()
@@ -542,7 +552,10 @@ export function StoryEditor() {
   );
 
   const handleUpdateAIProfile = useCallback(
-    async (profileId: string, updates: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>) => {
+    async (
+      profileId: string,
+      updates: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>,
+    ) => {
       setSavedAIProfiles((current) =>
         updateProfileList(current, profileId, (profile) => Object.assign({}, profile, updates)),
       );
@@ -564,7 +577,9 @@ export function StoryEditor() {
       setSavedAIProfiles((current) => {
         const nextProfiles = current.filter((profile) => profile.id !== profileId);
         if (activeTextProfileId === profileId) {
-          setActiveTextProfileId(nextProfiles.find((profile) => profile.kind === 'text')?.id ?? null);
+          setActiveTextProfileId(
+            nextProfiles.find((profile) => profile.kind === 'text')?.id ?? null,
+          );
         }
         if (activeImageProfileId === profileId) {
           setActiveImageProfileId(
@@ -593,8 +608,7 @@ export function StoryEditor() {
         );
         if (!targetProfile) return currentProfiles;
 
-        const nextValue =
-          typeof value === 'function' ? value(targetProfile.size) : value;
+        const nextValue = typeof value === 'function' ? value(targetProfile.size) : value;
         return updateProfileList(currentProfiles, targetProfile.id, (profile) => ({
           ...profile,
           size: nextValue,
@@ -760,6 +774,8 @@ export function StoryEditor() {
       playTestBlurText,
       playTestSkipSingleChoicePopup,
       playTestDimBackground,
+      playTestAutoAdvance,
+      playTestAutoAdvanceDelay,
     }),
     [
       aiButtonsConfig,
@@ -785,6 +801,8 @@ export function StoryEditor() {
       playTestInteractionMode,
       playTestLayoutMode,
       playTestSkipSingleChoicePopup,
+      playTestAutoAdvance,
+      playTestAutoAdvanceDelay,
       playTestTypewriterSpeed,
       playTestVideoAutoPlay,
       presetColors,
@@ -845,6 +863,8 @@ export function StoryEditor() {
       setPlayTestBlurText,
       setPlayTestSkipSingleChoicePopup,
       setPlayTestDimBackground,
+      setPlayTestAutoAdvance,
+      setPlayTestAutoAdvanceDelay,
     }),
     [
       setCanvasBg,
@@ -881,6 +901,8 @@ export function StoryEditor() {
       setPlayTestBlurText,
       setPlayTestSkipSingleChoicePopup,
       setPlayTestDimBackground,
+      setPlayTestAutoAdvance,
+      setPlayTestAutoAdvanceDelay,
     ],
   );
 
@@ -1622,6 +1644,8 @@ export function StoryEditor() {
     setAssistantInput,
     assistantLoading,
     assistantListening,
+    assistantDocuments,
+    assistantDocumentLoading,
     assistantTasks,
     setAssistantTasks,
     activeAssistantTaskId,
@@ -1635,6 +1659,8 @@ export function StoryEditor() {
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleAssistantDocumentUpload,
+    handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
     toggleAssistantThought,
     handleAssistantResizePointerDown,
@@ -1763,33 +1789,49 @@ export function StoryEditor() {
   }, [editorProjectSettings, resetAssistantTasks, setEdges, setNodes]);
 
   const saveCurrentProject = useCallback(async () => {
-    if (!currentProjectId) return false;
+    if (isSavingProjectRef.current) return false;
 
-    const snapshot = JSON.parse(getProjectSnapshot()) as ProjectSnapshotData;
-    const persistedProjectName = getPersistedProjectName(projectTitle, saveFileName);
-    const persistedProjectTitle = projectTitle.trim() || persistedProjectName;
+    isSavingProjectRef.current = true;
+    setIsSavingProject(true);
 
-    snapshot.settings = {
-      ...snapshot.settings,
-      projectTitle: persistedProjectTitle,
-    };
+    try {
+      const savedAt = Date.now();
+      const projectId = currentProjectId ?? uuidv4();
+      const snapshot = JSON.parse(getProjectSnapshot()) as ProjectSnapshotData;
+      const persistedProjectName = getPersistedProjectName(projectTitle, saveFileName, savedAt);
+      const persistedProjectTitle = projectTitle.trim() || persistedProjectName;
 
-    await localPersistenceService.saveLocalProject({
-      id: currentProjectId,
-      projectName: persistedProjectName,
-      projectData: snapshot,
-      updatedAt: Date.now(),
-    });
+      snapshot.settings = {
+        ...snapshot.settings,
+        projectTitle: persistedProjectTitle,
+      };
 
-    setCurrentProjectPersisted(true);
-    setSaveFileName(persistedProjectName);
-    setProjectTitle(persistedProjectTitle);
-    setLastSavedTime(Date.now());
-    lastSavedSnapshot.current = JSON.stringify(snapshot);
-    setIsDirty(false);
-    await refreshProjectSummaries();
-    showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
-    return true;
+      await localPersistenceService.saveLocalProject({
+        id: projectId,
+        projectName: persistedProjectName,
+        projectData: snapshot,
+        updatedAt: savedAt,
+      });
+
+      setCurrentProjectId(projectId);
+      setCurrentProjectPersisted(true);
+      setSaveFileName(persistedProjectName);
+      setProjectTitle(persistedProjectTitle);
+      setLastSavedTime(savedAt);
+      lastSavedSnapshot.current = JSON.stringify(snapshot);
+      setIsDirty(false);
+      await refreshProjectSummaries();
+      showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
+      return true;
+    } catch (error) {
+      console.error('Failed to save project:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(language === 'zh' ? `保存失败: ${message}` : `Save failed: ${message}`);
+      return false;
+    } finally {
+      isSavingProjectRef.current = false;
+      setIsSavingProject(false);
+    }
   }, [
     currentProjectId,
     getProjectSnapshot,
@@ -1841,6 +1883,25 @@ export function StoryEditor() {
       await localPersistenceService.deleteProject(projectId);
 
       if (projectId === currentProjectId) {
+        resetEditorToBlankState();
+        setShowProjectHome(true);
+      }
+
+      await refreshProjectSummaries();
+    },
+    [currentProjectId, refreshProjectSummaries, resetEditorToBlankState],
+  );
+
+  const handleDeleteProjects = useCallback(
+    async (projectIds: string[]) => {
+      const uniqueProjectIds = Array.from(new Set(projectIds));
+      if (uniqueProjectIds.length === 0) return;
+
+      await Promise.all(
+        uniqueProjectIds.map(projectId => localPersistenceService.deleteProject(projectId)),
+      );
+
+      if (currentProjectId && uniqueProjectIds.includes(currentProjectId)) {
         resetEditorToBlankState();
         setShowProjectHome(true);
       }
@@ -1944,29 +2005,32 @@ export function StoryEditor() {
     setPendingProjectAction(null);
   }, []);
 
-  const handleExportProjectFromList = useCallback(async (projectId: string) => {
-    try {
-      const project = await localPersistenceService.loadProject(projectId);
-      if (!project) {
-        showToast(language === 'zh' ? '找不到要导出的项目' : 'Project not found for export');
-        return;
+  const handleExportProjectFromList = useCallback(
+    async (projectId: string) => {
+      try {
+        const project = await localPersistenceService.loadProject(projectId);
+        if (!project) {
+          showToast(language === 'zh' ? '找不到要导出的项目' : 'Project not found for export');
+          return;
+        }
+        const { createProjectSerializer } = await import('../editor-services/projectSerializer');
+        const serializer = createProjectSerializer({
+          defaultEdgeOptions,
+          defaultAIPrompts,
+          defaultAIButtonsConfig,
+        });
+        await serializer.exportZip({
+          projectData: project.projectData,
+          fileName: project.projectName,
+        });
+        showToast(language === 'zh' ? '项目导出成功' : 'Project exported successfully');
+      } catch (e) {
+        console.error(e);
+        showToast(language === 'zh' ? '导出失败' : 'Export failed');
       }
-      const { createProjectSerializer } = await import('../editor-services/projectSerializer');
-      const serializer = createProjectSerializer({
-        defaultEdgeOptions,
-        defaultAIPrompts,
-        defaultAIButtonsConfig,
-      });
-      await serializer.exportZip({
-        projectData: project.projectData,
-        fileName: project.projectName,
-      });
-      showToast(language === 'zh' ? '项目导出成功' : 'Project exported successfully');
-    } catch (e) {
-      console.error(e);
-      showToast(language === 'zh' ? '导出失败' : 'Export failed');
-    }
-  }, [language, showToast]);
+    },
+    [language, showToast],
+  );
 
   const handleOpenProject = useCallback(
     async (projectId: string) => {
@@ -2475,35 +2539,36 @@ ${direction}
         background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
-        <EditorHeader
-          appTitle={APP_TITLE}
-          projectName={currentProjectId ? projectTitle.trim() : ''}
-          projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
-          showLastSavedTime={showLastSavedTime}
-          lastSavedTime={lastSavedTime}
-          onProjectNameChange={setProjectTitle}
-          onProjectNameCommit={async (nextName) => {
-            if (!currentProjectId) return;
-            await handleRenameProject(currentProjectId, nextName);
-          }}
-          language={language}
-          bubbleStyle={bubbleStyle}
-          isMobile={isMobile}
-          isDirty={isDirty}
-          canRenderVideo={canRenderVideo}
-          assistantOpen={assistantOpen}
-          jsonInputRef={jsonInputRef}
-          setShowPlayTest={setShowPlayTest}
-          setShowVideoRender={setShowVideoRender}
-          setAssistantOpen={setAssistantOpen}
-          openProjectHome={() => setShowProjectHome(true)}
-          openImportPicker={openImportPicker}
-          handleExportJSON={() => {
-            void saveCurrentProject();
-          }}
-          handleImportZIP={handleImportZIP}
-          t={t}
-        />
+      <EditorHeader
+        appTitle={APP_TITLE}
+        projectName={currentProjectId ? projectTitle.trim() : ''}
+        projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
+        showLastSavedTime={showLastSavedTime}
+        lastSavedTime={lastSavedTime}
+        onProjectNameChange={setProjectTitle}
+        onProjectNameCommit={async (nextName) => {
+          if (!currentProjectId) return;
+          await handleRenameProject(currentProjectId, nextName);
+        }}
+        language={language}
+        bubbleStyle={bubbleStyle}
+        isMobile={isMobile}
+        isDirty={isDirty}
+        isSavingProject={isSavingProject}
+        canRenderVideo={canRenderVideo}
+        assistantOpen={assistantOpen}
+        jsonInputRef={jsonInputRef}
+        setShowPlayTest={setShowPlayTest}
+        setShowVideoRender={setShowVideoRender}
+        setAssistantOpen={setAssistantOpen}
+        openProjectHome={() => setShowProjectHome(true)}
+        openImportPicker={openImportPicker}
+        handleExportJSON={() => {
+          void saveCurrentProject();
+        }}
+        handleImportZIP={handleImportZIP}
+        t={t}
+      />
 
       <div className="relative flex-1 flex min-h-0 overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
@@ -2700,6 +2765,8 @@ ${direction}
           assistantPanelWidth={assistantPanelWidth}
           assistantLoading={assistantLoading}
           assistantListening={assistantListening}
+          assistantDocuments={assistantDocuments}
+          assistantDocumentLoading={assistantDocumentLoading}
           assistantInput={assistantInput}
           selectedAssistantTargetNodesCount={selectedAssistantTargetNodes.length}
           assistantTasks={assistantTasks}
@@ -2713,6 +2780,8 @@ ${direction}
           handleRenameAssistantTask={handleRenameAssistantTask}
           handleCloseAssistantTask={handleRequestCloseAssistantTask}
           handleAssistantSend={handleAssistantSend}
+          handleAssistantDocumentUpload={handleAssistantDocumentUpload}
+          handleRemoveAssistantDocument={handleRemoveAssistantDocument}
           handleAssistantVoiceInput={handleAssistantVoiceInput}
           toggleAssistantThought={toggleAssistantThought}
           handleAssistantResizePointerDown={handleAssistantResizePointerDown}
@@ -2807,6 +2876,10 @@ ${direction}
             setSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
             dimBackground={playTestDimBackground}
             setDimBackground={setPlayTestDimBackground}
+            autoAdvance={playTestAutoAdvance}
+            setAutoAdvance={setPlayTestAutoAdvance}
+            autoAdvanceDelay={playTestAutoAdvanceDelay}
+            setAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
           />
         )}
       </Suspense>
@@ -2904,6 +2977,10 @@ ${direction}
           setPlayTestSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
           playTestDimBackground={playTestDimBackground}
           setPlayTestDimBackground={setPlayTestDimBackground}
+          playTestAutoAdvance={playTestAutoAdvance}
+          setPlayTestAutoAdvance={setPlayTestAutoAdvance}
+          playTestAutoAdvanceDelay={playTestAutoAdvanceDelay}
+          setPlayTestAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
         />
       </Suspense>
 
@@ -2949,32 +3026,42 @@ ${direction}
           await handleRenameProject(projectId, projectName);
         }}
         onDeleteProject={async (projectId) => {
-          setProjectIdPendingDeletion(projectId);
+          setProjectIdsPendingDeletion([projectId]);
+        }}
+        onDeleteProjects={async (projectIds) => {
+          setProjectIdsPendingDeletion(projectIds);
         }}
         onExportProject={handleExportProjectFromList}
       />
 
       <ConfirmActionModal
-        visible={Boolean(projectIdPendingDeletion)}
+        visible={projectIdsPendingDeletion.length > 0}
         language={language}
         title={language === 'zh' ? '删除项目？' : 'Delete project?'}
         description={
-          language === 'zh'
+          projectIdsPendingDeletion.length > 1
+            ? language === 'zh'
+              ? `确定要删除这 ${projectIdsPendingDeletion.length} 个项目吗？此操作不可撤销。`
+              : `Delete these ${projectIdsPendingDeletion.length} projects? This cannot be undone.`
+            : language === 'zh'
             ? `确定要删除项目「${
-                projectSummaries.find((item) => item.id === projectIdPendingDeletion)?.projectName ||
-                '未命名项目'
+                projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                  ?.projectName || '未命名项目'
               }」吗？此操作不可撤销。`
             : `Delete "${
-                projectSummaries.find((item) => item.id === projectIdPendingDeletion)?.projectName ||
-                'Untitled project'
+                projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                  ?.projectName || 'Untitled project'
               }"? This cannot be undone.`
         }
         confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
-        onCancel={() => setProjectIdPendingDeletion(null)}
+        onCancel={() => setProjectIdsPendingDeletion([])}
         onConfirm={() => {
-          const projectId = projectIdPendingDeletion;
-          setProjectIdPendingDeletion(null);
-          if (projectId) {
+          const projectIds = projectIdsPendingDeletion;
+          setProjectIdsPendingDeletion([]);
+          const projectId = projectIds[0];
+          if (projectIds.length > 1) {
+            void handleDeleteProjects(projectIds);
+          } else if (projectId) {
             void handleDeleteProject(projectId);
           }
         }}

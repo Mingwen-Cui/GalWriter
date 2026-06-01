@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  FastForward,
   Layout,
   Loader2,
   Maximize2,
@@ -121,6 +122,10 @@ interface PlayTestProps {
   setSkipSingleChoicePopup: (val: boolean) => void;
   dimBackground: boolean;
   setDimBackground: (val: boolean) => void;
+  autoAdvance: boolean;
+  setAutoAdvance: (val: boolean) => void;
+  autoAdvanceDelay: number;
+  setAutoAdvanceDelay: (val: number) => void;
 }
 
 export function PlayTestModal({
@@ -155,6 +160,10 @@ export function PlayTestModal({
   setSkipSingleChoicePopup,
   dimBackground,
   setDimBackground,
+  autoAdvance,
+  setAutoAdvance,
+  autoAdvanceDelay,
+  setAutoAdvanceDelay,
 }: PlayTestProps) {
   const t = translations[language];
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
@@ -178,6 +187,7 @@ export function PlayTestModal({
   const [timeLeft, setTimeLeft] = useState(0);
   const typewriterTimerRef = useRef<any>(null);
   const timedTimerRef = useRef<any>(null);
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // NOTE: dimBackground 现在由外部 props 控制，与主设置同步
 
@@ -200,11 +210,28 @@ export function PlayTestModal({
   const currentNode = nodes.find((n) => n.id === currentNodeId);
   const textHtml =
     currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
+  const outEdges = edges.filter((e) => e.source === currentNodeId);
+  const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
+  const advanceToTarget = React.useCallback(
+    (targetId: string) => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
+      setHistory((prev) => [...prev, currentNodeId || '']);
+      navigateToNode(targetId);
+    },
+    [currentNodeId, navigateToNode],
+  );
 
   // 触发打字机或延时逻辑
   useEffect(() => {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
     if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
 
     if (currentNodeId === 'THE_END' || !currentNode) {
       setDisplayedHtml('');
@@ -268,8 +295,51 @@ export function PlayTestModal({
     return () => {
       if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
       if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
     };
   }, [currentNodeId, textHtml, interactionMode, typewriterSpeed, choiceDelay]);
+
+  useEffect(() => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+
+    if (
+      !autoAdvance ||
+      !animationCompleted ||
+      !currentNode ||
+      currentNodeId === 'THE_END' ||
+      currentNode.type === 'numberConditionNode' ||
+      currentNode.data.skip === true ||
+      outEdges.length > 1
+    ) {
+      return;
+    }
+
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      advanceToTarget(autoAdvanceTarget);
+    }, Math.max(0, autoAdvanceDelay) * 1000);
+
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
+    };
+  }, [
+    advanceToTarget,
+    animationCompleted,
+    autoAdvance,
+    autoAdvanceDelay,
+    autoAdvanceTarget,
+    currentNode,
+    currentNodeId,
+    outEdges.length,
+  ]);
 
   const handleTextContainerClick = () => {
     if (!animationCompleted) {
@@ -282,8 +352,7 @@ export function PlayTestModal({
       // 如果打字完毕，且开启了“单选项隐藏居中弹窗”的设置，并且当前没有多分支选项（<= 1个分支）
       if (choicesPosition === 'center' && skipSingleChoicePopup && outEdges.length <= 1) {
         const nextTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
-        setHistory((prev) => [...prev, currentNodeId || '']);
-        navigateToNode(nextTarget);
+        advanceToTarget(nextTarget);
       }
     }
   };
@@ -660,11 +729,8 @@ export function PlayTestModal({
     );
   }
 
-  const outEdges = edges.filter((e) => e.source === currentNodeId);
-
   const handleChoiceClick = (targetId: string) => {
-    setHistory([...history, currentNodeId]);
-    navigateToNode(targetId);
+    advanceToTarget(targetId);
   };
 
   const handleBack = () => {
@@ -739,6 +805,26 @@ export function PlayTestModal({
           >
             <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
             <span>{t.backHistory}</span>
+          </button>
+
+          <button
+            onClick={() => setAutoAdvance(!autoAdvance)}
+            className={`p-1.5 md:p-2 rounded-full transition-colors ${
+              autoAdvance
+                ? layoutMode === 'immersive'
+                  ? 'bg-sky-500/80 text-white'
+                  : isDarkMode
+                    ? 'bg-sky-500/30 text-sky-200'
+                    : 'bg-indigo-100 text-indigo-600'
+                : layoutMode === 'immersive'
+                  ? 'bg-white/10 text-white hover:bg-white/20'
+                  : isDarkMode
+                    ? 'bg-white/10 text-white hover:bg-white/20'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            title={language === 'zh' ? '自动翻页' : 'Auto advance'}
+          >
+            <FastForward className="w-5 h-5" />
           </button>
 
           {layoutMode === 'classic' && (
@@ -855,6 +941,50 @@ export function PlayTestModal({
                       className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${dimBackground ? 'left-6' : 'left-1'}`}
                     />
                   </button>
+                </div>
+
+                <div className="mb-4 px-1 border-t pt-3 border-white/5 order-7">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                    >
+                      {language === 'zh' ? '自动翻页' : 'Auto Advance'}
+                    </span>
+                    <button
+                      onClick={() => setAutoAdvance(!autoAdvance)}
+                      className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${autoAdvance ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                    >
+                      <div
+                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${autoAdvance ? 'left-6' : 'left-1'}`}
+                      />
+                    </button>
+                  </div>
+                  <div className={`mt-3 ${autoAdvance ? 'opacity-100' : 'opacity-45'}`}>
+                    <div className="flex justify-between text-[10px] font-bold mb-2">
+                      <span
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'text-slate-400'
+                            : 'text-slate-500'
+                        }
+                      >
+                        {language === 'zh' ? '等待' : 'Delay'}
+                      </span>
+                      <span className={layoutMode === 'immersive' ? 'text-sky-300' : 'text-sky-500'}>
+                        {autoAdvanceDelay}s
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={autoAdvanceDelay}
+                      disabled={!autoAdvance}
+                      onChange={(e) => setAutoAdvanceDelay(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-sky-500 disabled:cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 <div

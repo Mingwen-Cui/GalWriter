@@ -27,7 +27,9 @@
     "idb": "^8.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
+    "mammoth": "^1.12.0",
     "motion": "^12.23.24",
+    "pdfjs-dist": "^6.0.227",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uuid": "^14.0.0",
@@ -47,8 +49,8 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript-eslint": "^8.33.1",
     "typescript": "~5.8.2",
+    "typescript-eslint": "^8.33.1",
     "vite": "^6.2.0"
   }
 }

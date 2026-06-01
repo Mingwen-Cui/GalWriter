@@ -70,6 +70,12 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
   const [playTestDimBackground, setPlayTestDimBackground] = useState(() =>
     getStoredBoolean('playtest-dim-background', true),
   );
+  const [playTestAutoAdvance, setPlayTestAutoAdvance] = useState(() =>
+    getStoredBoolean('playtest-auto-advance', false),
+  );
+  const [playTestAutoAdvanceDelay, setPlayTestAutoAdvanceDelay] = useState(() =>
+    getStoredNumber('playtest-auto-advance-delay', 2),
+  );
 
   useEffect(() => {
     window.localStorage.setItem('playtest-dark-mode', String(playTestDarkMode));
@@ -87,7 +93,14 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
       String(playTestSkipSingleChoicePopup),
     );
     window.localStorage.setItem('playtest-dim-background', String(playTestDimBackground));
+    window.localStorage.setItem('playtest-auto-advance', String(playTestAutoAdvance));
+    window.localStorage.setItem(
+      'playtest-auto-advance-delay',
+      String(playTestAutoAdvanceDelay),
+    );
   }, [
+    playTestAutoAdvance,
+    playTestAutoAdvanceDelay,
     playTestBlurBackground,
     playTestBlurText,
     playTestChoiceDelay,
@@ -127,5 +140,9 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     setPlayTestSkipSingleChoicePopup,
     playTestDimBackground,
     setPlayTestDimBackground,
+    playTestAutoAdvance,
+    setPlayTestAutoAdvance,
+    playTestAutoAdvanceDelay,
+    setPlayTestAutoAdvanceDelay,
   };
 };
