@@ -151,6 +151,15 @@ export interface ImageAIProfile {
   apiUrl: string;
   model: string;
   size: string;
+  negativePrompt?: string;
+  steps?: number;
+  cfgScale?: number;
+  sampler?: string;
+  seed?: number;
+  restoreFaces?: boolean;
+  enableHr?: boolean;
+  hrScale?: number;
+  denoisingStrength?: number;
 }
 
 export interface VoiceAIProfile {

@@ -18,6 +18,12 @@ import {
   DEFAULT_IMAGE_API_URL,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_IMAGE_SIZE,
+  DEFAULT_STABLE_DIFFUSION_API_URL,
+  DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+  DEFAULT_STABLE_DIFFUSION_MODEL,
+  DEFAULT_STABLE_DIFFUSION_SAMPLER,
+  DEFAULT_STABLE_DIFFUSION_STEPS,
+  LOCAL_STABLE_DIFFUSION_PROVIDER,
 } from '../editor-features/media/imageGeneration';
 import { Language, translations } from '../lib/i18n';
 
@@ -151,6 +157,13 @@ const IMAGE_PROVIDER_OPTIONS: ProviderOption[] = [
     label: 'GLM',
     apiUrl: '',
     model: 'cogview-4',
+    size: '1024x1024',
+  },
+  {
+    value: LOCAL_STABLE_DIFFUSION_PROVIDER,
+    label: '本地 Stable Diffusion WebUI',
+    apiUrl: DEFAULT_STABLE_DIFFUSION_API_URL,
+    model: DEFAULT_STABLE_DIFFUSION_MODEL,
     size: '1024x1024',
   },
   {
@@ -294,6 +307,9 @@ const IMAGE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'cogview-4', label: 'CogView 4' },
     { value: 'cogview-3-flash', label: 'CogView 3 Flash' },
   ],
+  [LOCAL_STABLE_DIFFUSION_PROVIDER]: [
+    { value: DEFAULT_STABLE_DIFFUSION_MODEL, label: '当前 WebUI 模型' },
+  ],
 };
 
 const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
@@ -323,6 +339,10 @@ const IMAGE_SIZE_PRESETS = [
   { value: '1024x1536', zh: '2:3 竖图', en: '2:3 Portrait' },
   { value: '1536x1024', zh: '3:2 横图', en: '3:2 Landscape' },
   { value: '1792x1024', zh: '16:9 DALL-E', en: '16:9 DALL-E' },
+  { value: '512x512', zh: 'SD 1:1 快速预览', en: 'SD 1:1 quick preview' },
+  { value: '768x512', zh: 'SD 3:2 横图', en: 'SD 3:2 landscape' },
+  { value: '512x768', zh: 'SD 2:3 竖图', en: 'SD 2:3 portrait' },
+  { value: '768x768', zh: 'SD 1:1 高清', en: 'SD 1:1 high detail' },
 ];
 
 const parseImageApiTemplate = (text: string) => {
@@ -403,6 +423,15 @@ const buildDefaultImageDraft = (): ImageAIProfile => ({
   apiUrl: DEFAULT_IMAGE_API_URL,
   model: DEFAULT_IMAGE_MODEL,
   size: DEFAULT_IMAGE_SIZE,
+  negativePrompt: '',
+  steps: DEFAULT_STABLE_DIFFUSION_STEPS,
+  cfgScale: DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+  sampler: DEFAULT_STABLE_DIFFUSION_SAMPLER,
+  seed: -1,
+  restoreFaces: false,
+  enableHr: false,
+  hrScale: 2,
+  denoisingStrength: 0.7,
 });
 
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
@@ -459,12 +488,27 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
   }
 
   if (draft.kind === 'image') {
+    const sdDefaults =
+      provider === LOCAL_STABLE_DIFFUSION_PROVIDER
+        ? {
+            negativePrompt: draft.negativePrompt ?? '',
+            steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
+            cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+            sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
+            seed: draft.seed ?? -1,
+            restoreFaces: draft.restoreFaces ?? false,
+            enableHr: draft.enableHr ?? false,
+            hrScale: draft.hrScale ?? 2,
+            denoisingStrength: draft.denoisingStrength ?? 0.7,
+          }
+        : {};
     return {
       ...draft,
       provider,
       apiUrl: option?.apiUrl ?? draft.apiUrl,
       model: option?.model ?? draft.model,
       size: option?.size ?? draft.size,
+      ...sdDefaults,
     };
   }
 
@@ -709,6 +753,8 @@ export function AISettingsPanel({
     const modelOptions = getModelOptions(editorState.kind, draft.provider);
     const currentModelSelectValue = getModelSelectValue(editorState.kind, draft);
     const meta = getProfileKindMeta(editorState.kind, language);
+    const isLocalStableDiffusion =
+      draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -838,11 +884,18 @@ export function AISettingsPanel({
               <>
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
-                    {renderFieldLabel('API Key')}
+                    {renderFieldLabel(isLocalStableDiffusion ? 'API Key（可选）' : 'API Key')}
                     <input
                       type="password"
                       value={draft.apiKey}
                       onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                      placeholder={
+                        isLocalStableDiffusion
+                          ? language === 'zh'
+                            ? '本地 WebUI 通常可以留空'
+                            : 'Usually empty for local WebUI'
+                          : undefined
+                      }
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                     />
                   </div>
@@ -966,6 +1019,136 @@ export function AISettingsPanel({
                     </select>
                   </div>
                 </div>
+
+                {isLocalStableDiffusion && (
+                  <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-4">
+                    <div className="mb-4">
+                      <p className="text-sm font-black text-[var(--text-primary)]">
+                        Stable Diffusion WebUI 参数
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                        {language === 'zh'
+                          ? '需要在 AUTOMATIC1111 启动时开启 --api；API URL 填 WebUI 地址即可。'
+                          : 'Start AUTOMATIC1111 with --api, then use the WebUI address as API URL.'}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2 md:col-span-2">
+                        {renderFieldLabel(language === 'zh' ? '负面提示词' : 'Negative Prompt')}
+                        <textarea
+                          value={(draft as ImageAIProfile).negativePrompt ?? ''}
+                          onChange={(e) => updateDraft({ negativePrompt: e.target.value })}
+                          rows={3}
+                          placeholder="low quality, blurry, bad anatomy, watermark, text"
+                          className="w-full resize-y rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {renderFieldLabel('Steps')}
+                        <input
+                          type="number"
+                          min={1}
+                          max={150}
+                          value={(draft as ImageAIProfile).steps ?? DEFAULT_STABLE_DIFFUSION_STEPS}
+                          onChange={(e) => updateDraft({ steps: Number(e.target.value) })}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {renderFieldLabel('CFG Scale')}
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          step={0.5}
+                          value={(draft as ImageAIProfile).cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE}
+                          onChange={(e) => updateDraft({ cfgScale: Number(e.target.value) })}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {renderFieldLabel('Sampler')}
+                        <input
+                          type="text"
+                          value={(draft as ImageAIProfile).sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER}
+                          onChange={(e) => updateDraft({ sampler: e.target.value })}
+                          placeholder={DEFAULT_STABLE_DIFFUSION_SAMPLER}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {renderFieldLabel('Seed')}
+                        <input
+                          type="number"
+                          min={-1}
+                          value={(draft as ImageAIProfile).seed ?? -1}
+                          onChange={(e) => updateDraft({ seed: Number(e.target.value) })}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--card-border)] bg-white px-4 py-3 dark:bg-slate-950">
+                        <span className="text-sm font-black text-[var(--text-primary)]">
+                          Restore Faces
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean((draft as ImageAIProfile).restoreFaces)}
+                          onChange={(e) => updateDraft({ restoreFaces: e.target.checked })}
+                          className="h-5 w-5 accent-[var(--accent)]"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--card-border)] bg-white px-4 py-3 dark:bg-slate-950">
+                        <span className="text-sm font-black text-[var(--text-primary)]">
+                          Hires Fix
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean((draft as ImageAIProfile).enableHr)}
+                          onChange={(e) => updateDraft({ enableHr: e.target.checked })}
+                          className="h-5 w-5 accent-[var(--accent)]"
+                        />
+                      </label>
+
+                      {Boolean((draft as ImageAIProfile).enableHr) && (
+                        <>
+                          <div className="space-y-2">
+                            {renderFieldLabel('Hires Scale')}
+                            <input
+                              type="number"
+                              min={1}
+                              max={4}
+                              step={0.1}
+                              value={(draft as ImageAIProfile).hrScale ?? 2}
+                              onChange={(e) => updateDraft({ hrScale: Number(e.target.value) })}
+                              className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            {renderFieldLabel('Denoising')}
+                            <input
+                              type="number"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={(draft as ImageAIProfile).denoisingStrength ?? 0.7}
+                              onChange={(e) =>
+                                updateDraft({ denoisingStrength: Number(e.target.value) })
+                              }
+                              className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

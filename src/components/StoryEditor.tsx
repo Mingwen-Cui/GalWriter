@@ -29,6 +29,9 @@ import {
   DEFAULT_IMAGE_API_URL,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_IMAGE_SIZE,
+  DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+  DEFAULT_STABLE_DIFFUSION_SAMPLER,
+  DEFAULT_STABLE_DIFFUSION_STEPS,
 } from '../editor-features/media/imageGeneration';
 import { useMediaActions } from '../editor-features/media/useMediaActions';
 import { useNodeActions } from '../editor-features/node-actions/useNodeActions';
@@ -212,6 +215,15 @@ const buildDefaultImageProfile = (): ImageAIProfile => ({
   apiUrl: DEFAULT_IMAGE_API_URL,
   model: DEFAULT_IMAGE_MODEL,
   size: DEFAULT_IMAGE_SIZE,
+  negativePrompt: '',
+  steps: DEFAULT_STABLE_DIFFUSION_STEPS,
+  cfgScale: DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+  sampler: DEFAULT_STABLE_DIFFUSION_SAMPLER,
+  seed: -1,
+  restoreFaces: false,
+  enableHr: false,
+  hrScale: 2,
+  denoisingStrength: 0.7,
 });
 
 const buildDefaultVoiceProfile = (): VoiceAIProfile => ({
@@ -530,6 +542,16 @@ export function StoryEditor() {
   const imageApiUrl = activeImageProfile?.apiUrl ?? DEFAULT_IMAGE_API_URL;
   const imageModel = activeImageProfile?.model ?? DEFAULT_IMAGE_MODEL;
   const imageSize = activeImageProfile?.size ?? DEFAULT_IMAGE_SIZE;
+  const imageProvider = activeImageProfile?.provider ?? 'doubao';
+  const imageNegativePrompt = activeImageProfile?.negativePrompt ?? '';
+  const imageSteps = activeImageProfile?.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS;
+  const imageCfgScale = activeImageProfile?.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE;
+  const imageSampler = activeImageProfile?.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER;
+  const imageSeed = activeImageProfile?.seed ?? -1;
+  const imageRestoreFaces = activeImageProfile?.restoreFaces ?? false;
+  const imageEnableHr = activeImageProfile?.enableHr ?? false;
+  const imageHrScale = activeImageProfile?.hrScale ?? 2;
+  const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsModel = activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
@@ -1179,6 +1201,16 @@ export function StoryEditor() {
     imageApiUrl,
     imageModel,
     imageSize,
+    imageProvider,
+    imageNegativePrompt,
+    imageSteps,
+    imageCfgScale,
+    imageSampler,
+    imageSeed,
+    imageRestoreFaces,
+    imageEnableHr,
+    imageHrScale,
+    imageDenoisingStrength,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
     setNodes,

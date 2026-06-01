@@ -3,12 +3,55 @@ import type { Edge, Node } from '@xyflow/react';
 export const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 export const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 export const DEFAULT_IMAGE_SIZE = '2K';
+export const LOCAL_STABLE_DIFFUSION_PROVIDER = 'local-stable-diffusion';
+export const DEFAULT_STABLE_DIFFUSION_API_URL = 'http://127.0.0.1:7860';
+export const DEFAULT_STABLE_DIFFUSION_MODEL = 'stable-diffusion-webui';
+export const DEFAULT_STABLE_DIFFUSION_SAMPLER = 'DPM++ 2M Karras';
+export const DEFAULT_STABLE_DIFFUSION_STEPS = 20;
+export const DEFAULT_STABLE_DIFFUSION_CFG_SCALE = 7;
 const SEEDREAM_DIMENSION_SIZE = '2048x2048';
 const SEEDREAM_MIN_PIXELS = 3686400;
 
 export type ImageReference = {
   url: string;
   label: string;
+};
+
+export type StableDiffusionOptions = {
+  negativePrompt?: string;
+  steps?: number;
+  cfgScale?: number;
+  sampler?: string;
+  seed?: number;
+  restoreFaces?: boolean;
+  enableHr?: boolean;
+  hrScale?: number;
+  denoisingStrength?: number;
+};
+
+export const isLocalStableDiffusionProvider = (provider = '') =>
+  provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
+
+const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.min(max, Math.max(min, numberValue));
+};
+
+const parseImageDimensions = (size: string, fallback = 1024) => {
+  const match = size.trim().match(/^(\d{3,5})\s*[xX*]\s*(\d{3,5})$/);
+  if (!match) return { width: fallback, height: fallback };
+  return {
+    width: clampNumber(Number(match[1]), fallback, 64, 4096),
+    height: clampNumber(Number(match[2]), fallback, 64, 4096),
+  };
+};
+
+const normalizeStableDiffusionApiUrl = (url: string) => {
+  const baseUrl = (url.trim() || DEFAULT_STABLE_DIFFUSION_API_URL).replace(/\/$/, '');
+  if (/\/sdapi\/v1\/txt2img$/i.test(baseUrl)) return baseUrl;
+  if (/\/sdapi\/v1$/i.test(baseUrl)) return `${baseUrl}/txt2img`;
+  return `${baseUrl}/sdapi/v1/txt2img`;
 };
 
 const normalizeImageModel = (url: string, model: string, apiKey = '') => {
@@ -295,8 +338,50 @@ export const buildImageGenerationRequest = (
   size: string,
   prompt: string,
   apiKey = '',
+  provider = '',
+  stableDiffusionOptions: StableDiffusionOptions = {},
   referenceImages: string[] = [],
 ) => {
+  if (isLocalStableDiffusionProvider(provider)) {
+    const dimensions = parseImageDimensions(size);
+    return {
+      url: normalizeStableDiffusionApiUrl(url),
+      provider,
+      usesSeedream: false,
+      usesStableDiffusion: true,
+      body: {
+        prompt,
+        negative_prompt: stableDiffusionOptions.negativePrompt?.trim() || '',
+        steps: clampNumber(
+          stableDiffusionOptions.steps,
+          DEFAULT_STABLE_DIFFUSION_STEPS,
+          1,
+          150,
+        ),
+        cfg_scale: clampNumber(
+          stableDiffusionOptions.cfgScale,
+          DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+          1,
+          30,
+        ),
+        sampler_name:
+          stableDiffusionOptions.sampler?.trim() || DEFAULT_STABLE_DIFFUSION_SAMPLER,
+        seed: clampNumber(stableDiffusionOptions.seed, -1, -1, 2147483647),
+        width: dimensions.width,
+        height: dimensions.height,
+        batch_size: 1,
+        n_iter: 1,
+        restore_faces: Boolean(stableDiffusionOptions.restoreFaces),
+        enable_hr: Boolean(stableDiffusionOptions.enableHr),
+        hr_scale: clampNumber(stableDiffusionOptions.hrScale, 2, 1, 4),
+        denoising_strength: clampNumber(stableDiffusionOptions.denoisingStrength, 0.7, 0, 1),
+        ...(model.trim() && model.trim() !== DEFAULT_STABLE_DIFFUSION_MODEL
+          ? { override_settings: { sd_model_checkpoint: model.trim() } }
+          : {}),
+      },
+    };
+  }
+
   const normalizedModel = normalizeImageModel(url, model, apiKey);
   const normalizedUrl = normalizeImageApiUrl(url, normalizedModel, apiKey);
   const usesSeedream =
@@ -316,7 +401,9 @@ export const buildImageGenerationRequest = (
   if (usesSeedream) {
     return {
       url: requestUrl,
+      provider,
       usesSeedream: true,
+      usesStableDiffusion: false,
       body: {
         model: normalizedModel,
         prompt,
@@ -332,7 +419,9 @@ export const buildImageGenerationRequest = (
 
   return {
     url: requestUrl,
+    provider,
     usesSeedream: false,
+    usesStableDiffusion: false,
     body: {
       model: normalizedModel,
       prompt,

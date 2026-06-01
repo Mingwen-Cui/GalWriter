@@ -1,6 +1,6 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
@@ -8,6 +8,7 @@ import {
   buildImageGenerationRequest,
   buildReferencePrompt,
   getConnectedImageReferences,
+  isLocalStableDiffusionProvider,
   type ImageReference,
   toApiImageReference,
 } from './imageGeneration';
@@ -20,6 +21,16 @@ interface UseMediaActionsParams {
   imageApiUrl: string;
   imageModel: string;
   imageSize: string;
+  imageProvider: string;
+  imageNegativePrompt?: string;
+  imageSteps?: number;
+  imageCfgScale?: number;
+  imageSampler?: string;
+  imageSeed?: number;
+  imageRestoreFaces?: boolean;
+  imageEnableHr?: boolean;
+  imageHrScale?: number;
+  imageDenoisingStrength?: number;
   showTitles: boolean;
   setImageSize: Dispatch<SetStateAction<string>>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
@@ -67,11 +78,47 @@ export const useMediaActions = ({
   imageApiUrl,
   imageModel,
   imageSize,
+  imageProvider,
+  imageNegativePrompt,
+  imageSteps,
+  imageCfgScale,
+  imageSampler,
+  imageSeed,
+  imageRestoreFaces,
+  imageEnableHr,
+  imageHrScale,
+  imageDenoisingStrength,
   showTitles,
   setImageSize,
   setNodes,
   showToast,
 }: UseMediaActionsParams) => {
+  const stableDiffusionOptions = useMemo(
+    () => ({
+      negativePrompt: imageNegativePrompt,
+      steps: imageSteps,
+      cfgScale: imageCfgScale,
+      sampler: imageSampler,
+      seed: imageSeed,
+      restoreFaces: imageRestoreFaces,
+      enableHr: imageEnableHr,
+      hrScale: imageHrScale,
+      denoisingStrength: imageDenoisingStrength,
+    }),
+    [
+      imageNegativePrompt,
+      imageSteps,
+      imageCfgScale,
+      imageSampler,
+      imageSeed,
+      imageRestoreFaces,
+      imageEnableHr,
+      imageHrScale,
+      imageDenoisingStrength,
+    ],
+  );
+  const isLocalStableDiffusion = isLocalStableDiffusionProvider(imageProvider);
+
   const handleAddTextToImage = useCallback(
     (id: string) => {
       setNodes((nds) =>
@@ -124,7 +171,7 @@ export const useMediaActions = ({
 
   const requestGeneratedImage = useCallback(
     async (prompt: string) => {
-      if (!imageApiKey.trim()) {
+      if (!isLocalStableDiffusion && !imageApiKey.trim()) {
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
@@ -139,11 +186,13 @@ export const useMediaActions = ({
         imageSize,
         prompt,
         imageApiKey,
+        imageProvider,
+        stableDiffusionOptions,
       );
       const imageRequestBody = JSON.stringify(imageRequest.body);
       const imageRequestHeaders = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${imageApiKey.trim()}`,
+        ...(imageApiKey.trim() ? { Authorization: `Bearer ${imageApiKey.trim()}` } : {}),
       };
       const sendImageRequest = (url: string) =>
         fetch(url, {
@@ -206,9 +255,12 @@ export const useMediaActions = ({
 
       const result = await response.json();
       const imageData = result?.data?.[0];
-      const imageSrc = imageData?.b64_json
-        ? `data:image/png;base64,${imageData.b64_json}`
-        : imageData?.url;
+      const stableDiffusionImage = Array.isArray(result?.images) ? result.images[0] : '';
+      const imageSrc = stableDiffusionImage
+        ? `data:image/png;base64,${stableDiffusionImage}`
+        : imageData?.b64_json
+          ? `data:image/png;base64,${imageData.b64_json}`
+          : imageData?.url;
 
       if (!imageSrc) {
         throw new Error(
@@ -218,7 +270,17 @@ export const useMediaActions = ({
 
       return imageSrc as string;
     },
-    [imageApiKey, imageApiUrl, imageModel, imageSize, language, setImageSize],
+    [
+      imageApiKey,
+      imageApiUrl,
+      imageModel,
+      imageSize,
+      imageProvider,
+      stableDiffusionOptions,
+      isLocalStableDiffusion,
+      language,
+      setImageSize,
+    ],
   );
 
   const handleGenerateSettingNodeImage = useCallback(
@@ -352,7 +414,7 @@ export const useMediaActions = ({
         );
         return;
       }
-      if (!imageApiKey.trim()) {
+      if (!isLocalStableDiffusion && !imageApiKey.trim()) {
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
@@ -384,12 +446,14 @@ export const useMediaActions = ({
           imageSize,
           prompt,
           imageApiKey,
+          imageProvider,
+          stableDiffusionOptions,
           apiReferenceImages,
         );
         const imageRequestBody = JSON.stringify(imageRequest.body);
         const imageRequestHeaders = {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${imageApiKey.trim()}`,
+          ...(imageApiKey.trim() ? { Authorization: `Bearer ${imageApiKey.trim()}` } : {}),
         };
         const sendImageRequest = (url: string) =>
           fetch(url, {
@@ -452,9 +516,12 @@ export const useMediaActions = ({
 
         const result = await response.json();
         const imageData = result?.data?.[0];
-        const imageSrc = imageData?.b64_json
-          ? `data:image/png;base64,${imageData.b64_json}`
-          : imageData?.url;
+        const stableDiffusionImage = Array.isArray(result?.images) ? result.images[0] : '';
+        const imageSrc = stableDiffusionImage
+          ? `data:image/png;base64,${stableDiffusionImage}`
+          : imageData?.b64_json
+            ? `data:image/png;base64,${imageData.b64_json}`
+            : imageData?.url;
 
         if (!imageSrc) {
           throw new Error(
@@ -531,6 +598,9 @@ export const useMediaActions = ({
       imageApiUrl,
       imageModel,
       imageSize,
+      imageProvider,
+      stableDiffusionOptions,
+      isLocalStableDiffusion,
       language,
       nodes,
       setImageSize,
