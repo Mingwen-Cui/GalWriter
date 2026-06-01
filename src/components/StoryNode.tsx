@@ -101,6 +101,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
   const showTitles = data.showTitles !== false;
+  const storyTitlePlacement =
+    ((data.storyTitlePlacement as string) === 'outside'
+      ? 'outside-right'
+      : data.storyTitlePlacement) ?? 'inside';
+  const showTitleInside = showTitles && storyTitlePlacement === 'inside';
+  const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
   const isRoot = data.isRoot === true;
   const { zoom } = useViewport();
   const storeApi = useStoreApi();
@@ -223,7 +229,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       case 'hexagon':
         return 'px-8 py-4';
       default:
-        return 'p-3 pt-0';
+        return showTitleInside ? 'p-3 pt-0' : 'p-3';
     }
   };
 
@@ -622,6 +628,23 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         </div>
       </NodeToolbar>
 
+      {showTitleOutside && (
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => updateNodeData({ title: e.target.value })}
+          onFocus={(e) => e.target.select()}
+          className={`nodrag absolute -top-7 z-20 h-6 w-40 max-w-full border-0 bg-transparent px-0 text-[11px] font-bold uppercase tracking-widest shadow-none outline-none cursor-text ${
+            storyTitlePlacement === 'outside-left' ? 'left-0 text-left' : 'right-0 text-right'
+          }`}
+          style={{
+            color: nodeText,
+            textShadow: isDefaultColor ? '0 1px 2px rgba(15, 23, 42, 0.18)' : undefined,
+          }}
+          placeholder="标题..."
+        />
+      )}
+
       <div
         className={`w-full h-full flex flex-col items-center ${imageUrl || videoUrl || audioUrl ? 'justify-start' : 'justify-center'} shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${selected ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'border-[var(--card-border)]'}`}
         style={{
@@ -631,7 +654,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           borderRadius: shape === 'square' || shape === 'rounded-rectangle' ? CARD_RADIUS : '0',
         }}
       >
-        {showTitles && (
+        {showTitleInside && (
           <div
             className={`w-full flex justify-center py-2 z-20 relative shrink-0 ${imageUrl || videoUrl || audioUrl ? 'backdrop-blur-sm border-b border-[var(--card-border)]/30' : 'mb-2'}`}
             style={{

@@ -25,6 +25,7 @@ import {
 import type {
   ImageAIProfile,
   SavedAIProfile,
+  StoryTitlePlacement,
   TextAIProfile,
   VoiceAIProfile,
 } from '../domain/project';
@@ -37,12 +38,16 @@ interface SettingsModalProps {
   setLanguage: (lang: Language) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  closeButtonBehavior: 'minimize' | 'quit';
+  setCloseButtonBehavior: (behavior: 'minimize' | 'quit') => void;
   bubbleStyle: 'glass' | 'flat';
   setBubbleStyle: (style: 'glass' | 'flat') => void;
   canvasBg: string;
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
   setPresetColors: (colors: string[]) => void;
+  storyTitlePlacement: StoryTitlePlacement;
+  setStoryTitlePlacement: (placement: StoryTitlePlacement) => void;
   toolbarLayout: 'vertical' | 'horizontal';
   setToolbarLayout: (layout: 'vertical' | 'horizontal') => void;
   selectionMenuLayout: 'horizontal' | 'vertical';
@@ -130,12 +135,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setLanguage,
   theme,
   setTheme,
+  closeButtonBehavior,
+  setCloseButtonBehavior,
   bubbleStyle,
   setBubbleStyle,
   canvasBg,
   setCanvasBg,
   presetColors,
   setPresetColors,
+  storyTitlePlacement,
+  setStoryTitlePlacement,
   toolbarLayout,
   setToolbarLayout,
   selectionMenuLayout,
@@ -516,6 +525,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <span className="text-xs font-black tracking-widest uppercase">{t.bezier}</span>
                   </button>
+                </div>
+              </section>
+
+              <section>
+                <header className="flex items-center gap-3 mb-6">
+                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
+                  <h3 className="text-base font-black text-[var(--text-primary)]">
+                    {language === 'zh' ? '普通卡片标题位置' : 'Story Card Title Position'}
+                  </h3>
+                </header>
+                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)] max-w-sm">
+                  {[
+                    {
+                      id: 'inside',
+                      label: language === 'zh' ? '卡片内部' : 'Inside',
+                    },
+                    {
+                      id: 'outside-left',
+                      label: language === 'zh' ? '右上角外部' : 'Outside Top Right',
+                    },
+                    {
+                      id: 'outside-right',
+                      label: language === 'zh' ? '卡片外部右上角' : 'Outside Top Right',
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setStoryTitlePlacement(item.id as StoryTitlePlacement)}
+                      className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${storyTitlePlacement === item.id ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    >
+                      {item.id === 'outside-left'
+                        ? language === 'zh'
+                          ? '卡片外部左上角'
+                          : 'Outside Top Left'
+                        : item.label}
+                    </button>
+                  ))}
                 </div>
               </section>
 
@@ -1184,6 +1230,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <header className="flex items-center gap-3 mb-5">
+                  <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
+                  <h3 className="text-base font-black text-[var(--text-primary)]">
+                    {language === 'zh' ? '桌面端关闭按钮' : 'Desktop Close Button'}
+                  </h3>
+                </header>
+                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                  <button
+                    type="button"
+                    onClick={() => setCloseButtonBehavior('minimize')}
+                    className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'minimize' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    {language === 'zh' ? '最小化到后台' : 'Minimize'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCloseButtonBehavior('quit')}
+                    className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'quit' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  >
+                    {language === 'zh' ? '直接关闭应用' : 'Quit'}
+                  </button>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)] font-medium">
+                  {language === 'zh'
+                    ? '此选项只影响 Tauri 打包后的桌面应用，浏览器预览不会改变窗口行为。'
+                    : 'This only affects the packaged Tauri desktop app; browser preview behavior is unchanged.'}
+                </p>
+              </section>
 
               <section className="pt-4 border-t border-rose-500/20">
                 <button

@@ -146,6 +146,16 @@ const applyProjectSettings = (
   }
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
+  if (incomingSettings.storyTitlePlacement === 'inside') {
+    setters.setStoryTitlePlacement('inside');
+  } else if (incomingSettings.storyTitlePlacement === 'outside-left') {
+    setters.setStoryTitlePlacement('outside-left');
+  } else if (
+    incomingSettings.storyTitlePlacement === 'outside-right' ||
+    (incomingSettings.storyTitlePlacement as string) === 'outside'
+  ) {
+    setters.setStoryTitlePlacement('outside-right');
+  }
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
   if (incomingSettings.aiPrompts) {

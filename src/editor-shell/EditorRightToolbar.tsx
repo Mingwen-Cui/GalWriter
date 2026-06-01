@@ -62,7 +62,13 @@ export function EditorRightToolbar({
       className={`toolbar-bubble-surface glass-toolbar absolute right-6 top-4 z-20 flex ${
         toolbarLayout === 'horizontal' ? 'h-[52px] flex-row-reverse' : 'w-[52px] flex-col'
       } overflow-hidden rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1.5 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
-        rightToolbarCollapsed ? (toolbarLayout === 'horizontal' ? 'w-[104px]' : 'h-[104px]') : ''
+        rightToolbarCollapsed
+          ? toolbarLayout === 'horizontal'
+            ? bubbleStyle === 'flat'
+              ? 'w-[104px]'
+              : 'w-[104px]'
+            : 'h-[104px]'
+          : ''
       }`}
       style={
         assistantOpen && bubbleStyle === 'glass'
@@ -87,15 +93,11 @@ export function EditorRightToolbar({
         <Sparkles className="h-5 w-5" />
       </button>
 
-      <div
-        className={`bg-[var(--toolbar-border)]/50 ${
-          toolbarLayout === 'horizontal' ? 'h-8 w-px' : 'h-px w-full'
-        }`}
-      />
-
       <button
         onClick={() => setRightToolbarCollapsed((value) => !value)}
-        className="mx-auto flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 transition-all duration-300 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-white"
+        className={`flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 transition-all duration-300 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-white ${
+          bubbleStyle === 'flat' ? 'm-0' : toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto' : 'mx-auto'
+        }`}
         title={
           rightToolbarCollapsed
             ? language === 'zh'
@@ -109,9 +111,11 @@ export function EditorRightToolbar({
         <div
           className={`transition-transform duration-500 ${
             rightToolbarCollapsed
-              ? 'rotate-0'
+              ? toolbarLayout === 'horizontal'
+                ? 'rotate-90'
+                : 'rotate-0'
               : toolbarLayout === 'horizontal'
-                ? '-rotate-90'
+                ? 'rotate-[270deg]'
                 : 'rotate-180'
           }`}
         >

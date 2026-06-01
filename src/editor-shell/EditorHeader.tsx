@@ -36,7 +36,6 @@ interface EditorHeaderProps {
 }
 
 export function EditorHeader({
-  appTitle,
   projectName,
   projectNamePlaceholder,
   onProjectNameChange,
@@ -139,11 +138,6 @@ export function EditorHeader({
           <div
             className={`min-w-0 flex shrink items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-3'}`}
           >
-            {bubbleStyle !== 'glass' && (
-              <span className="editor-header-title shrink-0 text-sm font-bold tracking-tight text-slate-900 dark:text-white md:text-base">
-                {appTitle}
-              </span>
-            )}
             <div className="flex items-center gap-2 px-1">
               <button
                 type="button"

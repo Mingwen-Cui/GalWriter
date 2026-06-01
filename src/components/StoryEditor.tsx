@@ -39,9 +39,12 @@ import {
 import { SelectionMenu } from '../editor-features/selection-tools/SelectionMenu';
 import { useSelectionActions } from '../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../editor-features/selection-tools/useSelectionMenu';
+import { autosaveService } from '../editor-services/autosaveService';
 import { localPersistenceService } from '../editor-services/localPersistenceService';
+import { useAutoSave } from '../editor-services/useAutoSave';
 import { AIActionModal } from '../editor-shell/AIActionModal';
 import { AssistantPanel } from '../editor-shell/AssistantPanel';
+import { AutoSaveRecoveryModal } from '../editor-shell/AutoSaveRecoveryModal';
 import { EditorHeader } from '../editor-shell/EditorHeader';
 import { EditorLeftToolbar } from '../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../editor-shell/EditorRightToolbar';
@@ -61,6 +64,7 @@ import type {
   SavedAIProfile,
   CharacterNodeData,
   SceneNodeData,
+  StoryTitlePlacement,
   StoryNodeData,
   TextAIProfile,
   VoiceAIProfile,
@@ -91,6 +95,7 @@ const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const DEFAULT_TEXT_MODEL = 'deepseek-chat';
+type CloseButtonBehavior = 'minimize' | 'quit';
 const APP_TITLE = '交互式剧本编辑器';
 const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 const DEFAULT_PROJECT_FILE_NAME = '新建项目';
@@ -99,6 +104,23 @@ type PendingProjectAction =
   | { type: 'open'; projectId: string }
   | { type: 'import-new' }
   | { type: 'close-window' };
+
+const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
+  try {
+    const tauriCore = await import('@tauri-apps/api/core');
+    const invoke =
+      tauriCore.invoke ||
+      (tauriCore as any).default?.invoke ||
+      (window as any).__TAURI__?.core?.invoke;
+    await invoke?.('set_close_button_minimizes', {
+      minimizeOnClose: behavior === 'minimize',
+    });
+  } catch (error) {
+    if ((window as any).__TAURI__) {
+      console.error('Failed to sync close button behavior:', error);
+    }
+  }
+};
 // 使用懒加载减少首屏体验
 const PlayTestModal = lazy(() =>
   import('./PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
@@ -365,6 +387,7 @@ export function StoryEditor() {
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [interactionMode] = useState<'select' | 'box'>('select');
   const [showTitles, setShowTitles] = useState(true);
+  const [storyTitlePlacement, setStoryTitlePlacement] = useState<StoryTitlePlacement>('inside');
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [showSettings, setShowSettings] = useState(false);
   const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
@@ -431,6 +454,8 @@ export function StoryEditor() {
   const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
   const [projectIdsPendingDeletion, setProjectIdsPendingDeletion] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [closeButtonBehavior, setCloseButtonBehavior] =
+    useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
@@ -701,13 +726,15 @@ export function StoryEditor() {
         const currentHeight = (node.style?.height as number) || 200;
         const titleAlreadyAdded = node.data.titleHeightAdded === true;
 
-        if (showTitles && !titleAlreadyAdded) {
+        const shouldReserveTitleHeight = showTitles && storyTitlePlacement === 'inside';
+
+        if (shouldReserveTitleHeight && !titleAlreadyAdded) {
           return {
             ...node,
             style: { ...node.style, height: currentHeight + TITLE_HEIGHT },
             data: { ...node.data, titleHeightAdded: true },
           };
-        } else if (!showTitles && titleAlreadyAdded) {
+        } else if (!shouldReserveTitleHeight && titleAlreadyAdded) {
           return {
             ...node,
             style: { ...node.style, height: Math.max(50, currentHeight - TITLE_HEIGHT) },
@@ -717,7 +744,7 @@ export function StoryEditor() {
         return node;
       }),
     );
-  }, [showTitles, setNodes]);
+  }, [showTitles, storyTitlePlacement, setNodes]);
 
   const [history, setHistory] = useState<{
     past: { nodes: Node[]; edges: Edge[] }[];
@@ -739,6 +766,7 @@ export function StoryEditor() {
       saveAssistantConversations,
       presetColors,
       showTitles,
+      storyTitlePlacement,
       showLastSavedTime,
       generateLength,
       aiProvider,
@@ -815,6 +843,7 @@ export function StoryEditor() {
       showNodeActions,
       showStats,
       showTitles,
+      storyTitlePlacement,
       showLastSavedTime,
       thinkingMode,
       theme,
@@ -836,6 +865,7 @@ export function StoryEditor() {
       setSaveAssistantConversations,
       setPresetColors,
       setShowTitles,
+      setStoryTitlePlacement,
       setShowLastSavedTime,
       setGenerateLength,
       setImageSize,
@@ -875,6 +905,7 @@ export function StoryEditor() {
       setSaveAssistantConversations,
       setPresetColors,
       setShowTitles,
+      setStoryTitlePlacement,
       setGenerateLength,
       setImageSize,
       setAiPrompts,
@@ -917,6 +948,13 @@ export function StoryEditor() {
 
     void localPersistenceService.saveTheme(theme);
   }, [didHydrateLocalState, theme]);
+
+  React.useEffect(() => {
+    if (!didHydrateLocalState) return;
+
+    void localPersistenceService.saveCloseButtonBehavior(closeButtonBehavior);
+    void syncCloseButtonBehavior(closeButtonBehavior);
+  }, [closeButtonBehavior, didHydrateLocalState]);
 
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
@@ -982,7 +1020,7 @@ export function StoryEditor() {
     tx,
     ty,
     tzoom,
-    showTitles,
+    showTitles: showTitles && storyTitlePlacement === 'inside',
     language,
     titleHeight: TITLE_HEIGHT,
     getMediaDimensions,
@@ -1141,7 +1179,7 @@ export function StoryEditor() {
     imageApiUrl,
     imageModel,
     imageSize,
-    showTitles,
+    showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
     setNodes,
     showToast,
@@ -1255,7 +1293,7 @@ export function StoryEditor() {
   } = useNodeActions({
     nodes,
     language,
-    showTitles,
+    showTitles: showTitles && storyTitlePlacement === 'inside',
     titleHeight: TITLE_HEIGHT,
     getCenterPosition,
     getMediaDimensions,
@@ -1760,6 +1798,31 @@ export function StoryEditor() {
     [applyProjectData, language, resetAssistantTasks, showToast],
   );
 
+  const {
+    autoSaveData,
+    showAutoSaveModal,
+    discardAutoSave,
+    recoverAutoSave,
+    clearAutoSave,
+  } = useAutoSave<ProjectSnapshotData>({
+    projectId: currentProjectId,
+    getProjectSnapshot,
+    lastSavedSnapshotRef: lastSavedSnapshot,
+    setIsDirty,
+    applyRecoveredProject: async (projectData) => {
+      await applyProjectData(projectData, { markSaved: false });
+      lastHistoryState.current = {
+        nodes: projectData.nodes as Node[],
+        edges: projectData.edges as Edge[],
+      };
+      setHistory({ past: [], future: [] });
+      setIsDirty(true);
+    },
+    showToast,
+    language,
+    enabled: Boolean(didHydrateLocalState && currentProjectId),
+  });
+
   const resetEditorToBlankState = useCallback(() => {
     const blankNodes = INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[];
     const blankSnapshot = {
@@ -1820,6 +1883,7 @@ export function StoryEditor() {
       setLastSavedTime(savedAt);
       lastSavedSnapshot.current = JSON.stringify(snapshot);
       setIsDirty(false);
+      await autosaveService.clearForProject(projectId);
       await refreshProjectSummaries();
       showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
       return true;
@@ -1973,6 +2037,7 @@ export function StoryEditor() {
     const action = pendingProjectAction;
     setShowProjectSavePrompt(false);
     setPendingProjectAction(null);
+    await clearAutoSave();
 
     if (currentProjectId && currentProjectPersisted) {
       const savedProject = await localPersistenceService.loadProject(currentProjectId);
@@ -1992,6 +2057,7 @@ export function StoryEditor() {
 
     await performPendingProjectAction(action);
   }, [
+    clearAutoSave,
     currentProjectId,
     currentProjectPersisted,
     pendingProjectAction,
@@ -2073,6 +2139,8 @@ export function StoryEditor() {
         } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
           setTheme('dark');
         }
+        setCloseButtonBehavior(appSettings.closeButtonBehavior);
+        void syncCloseButtonBehavior(appSettings.closeButtonBehavior);
       } catch (error) {
         console.error('Failed to hydrate local editor state', error);
       } finally {
@@ -2428,6 +2496,7 @@ ${direction}
         data: {
           ...n.data,
           showTitles,
+          storyTitlePlacement,
           isAILoading: aiLoadingNodeId === n.id,
           onUpdate: handleUpdateNode,
           onAddNode: handleAddConnectedNode,
@@ -2466,6 +2535,7 @@ ${direction}
   }, [
     nodes,
     showTitles,
+    storyTitlePlacement,
     aiLoadingNodeId,
     handleUpdateNode,
     handleAddConnectedNode,
@@ -2908,12 +2978,16 @@ ${direction}
           setLanguage={setLanguage}
           theme={theme}
           setTheme={setTheme}
+          closeButtonBehavior={closeButtonBehavior}
+          setCloseButtonBehavior={setCloseButtonBehavior}
           bubbleStyle={bubbleStyle}
           setBubbleStyle={setBubbleStyle}
           canvasBg={canvasBg}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}
           setPresetColors={setPresetColors}
+          storyTitlePlacement={storyTitlePlacement}
+          setStoryTitlePlacement={setStoryTitlePlacement}
           toolbarLayout={toolbarLayout}
           setToolbarLayout={setToolbarLayout}
           selectionMenuLayout={selectionMenuLayout}
@@ -2986,6 +3060,18 @@ ${direction}
 
       {/* 崩溃恢复弹窗 */}
       {/* 保存文件名弹窗 */}
+      <AutoSaveRecoveryModal
+        visible={showAutoSaveModal}
+        timestamp={autoSaveData?.timestamp}
+        language={language}
+        onDiscard={() => {
+          void discardAutoSave();
+        }}
+        onRecover={() => {
+          void recoverAutoSave();
+        }}
+      />
+
       <SaveProjectModal
         visible={showSaveNameModal}
         saveFileName={saveFileName}

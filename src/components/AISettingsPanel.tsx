@@ -1,4 +1,4 @@
-import { BrainCircuit, ImageIcon, Volume2 } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, ImageIcon, Volume2 } from 'lucide-react';
 import React from 'react';
 
 import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
@@ -720,15 +720,19 @@ export function AISettingsPanel({
                 setEditorState(null);
                 setImageTemplateImportStatus('idle');
               }}
-              className="mb-4 text-xs font-black text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
+              className="group mb-4 inline-flex w-14 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs font-black text-transparent transition-colors"
             >
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]" />
+              <span className="shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]">
+                {language === 'zh' ? '返回' : 'Back'}
+              </span>
               {language === 'zh' ? '返回已保存配置' : 'Back to saved profiles'}
             </button>
             <div className="flex items-center gap-3">
               <div
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border bg-gradient-to-br ${meta.accent}`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br ${meta.accent}`}
               >
-                <meta.icon className="h-5 w-5" />
+                <meta.icon className="h-4 w-4" />
               </div>
               <div className="min-w-0">
                 <h3 className="text-xl font-black text-[var(--text-primary)]">
@@ -1110,15 +1114,15 @@ export function AISettingsPanel({
                       <div className="flex items-center justify-between gap-4 border-b border-[var(--header-border)] px-6 py-5">
                         <div className="flex min-w-0 items-center gap-4">
                           <div
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border bg-gradient-to-br ${meta.accent}`}
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br ${meta.accent}`}
                           >
-                            <meta.icon className="h-5 w-5" />
+                            <meta.icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
                             <h4 className="text-base font-black text-[var(--text-primary)]">
                               {meta.title}
                             </h4>
-                            <p className="mt-1 truncate text-xs font-medium text-[var(--text-muted)]">
+                            <p className="hidden">
                               {section.activeProfile?.name ||
                                 (language === 'zh'
                                   ? '需要创建新的 AI 接口配置'
@@ -1164,7 +1168,7 @@ export function AISettingsPanel({
                                       : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35'
                                   }`}
                                 >
-                                  <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-center justify-between gap-4">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
                                         <span
@@ -1176,15 +1180,15 @@ export function AISettingsPanel({
                                           {profile.name}
                                         </p>
                                       </div>
-                                      <p className="mt-2 truncate text-xs font-medium text-[var(--text-muted)]">
+                                      <p className="hidden">
                                         {profile.provider || 'custom'}
                                       </p>
-                                      <p className="mt-1 truncate text-xs font-medium text-[var(--text-muted)]/80">
+                                      <p className="hidden">
                                         {profile.model || (language === 'zh' ? '未指定模型' : 'No model selected')}
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
-                                      {isActive && (
+                                      {false && isActive && (
                                         <span className="rounded-full bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
                                           {language === 'zh' ? '正在使用' : 'Active'}
                                         </span>

@@ -37,10 +37,14 @@ export const useAutoSave = <TProjectData>({
     if (!enabled || !projectId) return;
     autosaveService.loadForProject(projectId).then((data) => {
       if (!data) return;
+      if (data.snapshot === lastSavedSnapshotRef.current) {
+        void autosaveService.clearForProject(projectId);
+        return;
+      }
       setAutoSaveData(data);
       setShowAutoSaveModal(true);
     });
-  }, [enabled, projectId]);
+  }, [enabled, lastSavedSnapshotRef, projectId]);
 
   useEffect(() => {
     if (!enabled || !projectId) return;

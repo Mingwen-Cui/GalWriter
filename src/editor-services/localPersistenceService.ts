@@ -100,6 +100,10 @@ export const localPersistenceService = {
     await saveAppSettings({ theme });
   },
 
+  async saveCloseButtonBehavior(closeButtonBehavior: 'minimize' | 'quit') {
+    await saveAppSettings({ closeButtonBehavior });
+  },
+
   renameProject(projectId: string, projectName: string) {
     return renameLocalProject(projectId, projectName);
   },

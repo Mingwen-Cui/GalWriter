@@ -28,6 +28,7 @@ export interface LocalProjectSummary {
 export interface LocalAppSettings {
   theme: 'light' | 'dark' | null;
   lastProjectId: string | null;
+  closeButtonBehavior: 'minimize' | 'quit';
 }
 
 export type LocalApiKeySettings = ApiKeySettings &
@@ -86,6 +87,7 @@ const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
   lastProjectId: null,
+  closeButtonBehavior: 'quit',
 };
 const AI_PROFILES_KEY = 'current';
 const DEFAULT_AI_PROFILES_STATE: LocalAIProfilesState = {
@@ -511,14 +513,17 @@ export const saveAppSettings = async (
   const db = await getDB();
   const current = ((await db.get('appSettings', APP_SETTINGS_KEY)) ??
     DEFAULT_APP_SETTINGS) as LocalAppSettings;
-  const merged = { ...current, ...nextSettings };
+  const merged = { ...DEFAULT_APP_SETTINGS, ...current, ...nextSettings };
   await db.put('appSettings', merged, APP_SETTINGS_KEY);
   return merged;
 };
 
 export const getAppSettings = async (): Promise<LocalAppSettings> => {
   const db = await getDB();
-  return ((await db.get('appSettings', APP_SETTINGS_KEY)) ?? DEFAULT_APP_SETTINGS) as LocalAppSettings;
+  return {
+    ...DEFAULT_APP_SETTINGS,
+    ...((await db.get('appSettings', APP_SETTINGS_KEY)) ?? {}),
+  } as LocalAppSettings;
 };
 
 export const saveApiSettings = async (settings: LocalApiKeySettings): Promise<void> => {

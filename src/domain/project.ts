@@ -21,6 +21,7 @@ export type ToolbarLayout = 'vertical' | 'horizontal';
 export type SelectionMenuLayout = 'horizontal' | 'vertical';
 export type EditorTheme = 'light' | 'dark';
 export type BubbleStyle = 'glass' | 'flat';
+export type StoryTitlePlacement = 'inside' | 'outside-left' | 'outside-right';
 export type MiniMapPosition = 'left' | 'right';
 export type TtsProvider =
   | 'system'
@@ -175,6 +176,7 @@ export interface ProjectSettings extends PlaytestSettings {
   saveAssistantConversations: boolean;
   presetColors: string[];
   showTitles: boolean;
+  storyTitlePlacement: StoryTitlePlacement;
   showLastSavedTime: boolean;
   generateLength: string;
   aiProvider: AiProvider;
@@ -209,6 +211,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
+  setStoryTitlePlacement: Dispatch<SetStateAction<StoryTitlePlacement>>;
   setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setImageSize: Dispatch<SetStateAction<string>>;
@@ -282,6 +285,7 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   language?: Language;
   theme?: EditorTheme;
   showTitles?: boolean;
+  storyTitlePlacement?: StoryTitlePlacement;
   showNodeActions?: boolean;
   pasteAsPlainText?: boolean;
   isAILoading?: boolean;

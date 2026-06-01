@@ -4,9 +4,14 @@ use std::{
   io::Write,
   path::{Path, PathBuf},
   process::Command,
+  sync::atomic::{AtomicBool, Ordering},
   time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Manager, State, WindowEvent};
+
+struct CloseBehaviorState {
+  minimize_on_close: AtomicBool,
+}
 
 #[derive(serde::Serialize)]
 struct RenderSaveResult {
@@ -388,6 +393,16 @@ try {{
 #[tauri::command]
 fn force_quit_app(app: AppHandle) {
   app.exit(0);
+}
+
+#[tauri::command]
+fn set_close_button_minimizes(
+  minimize_on_close: bool,
+  state: State<'_, CloseBehaviorState>,
+) {
+  state
+    .minimize_on_close
+    .store(minimize_on_close, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -1061,16 +1076,27 @@ fn save_rendered_frames(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .manage(CloseBehaviorState {
+      minimize_on_close: AtomicBool::new(false),
+    })
     .on_window_event(|window, event| {
       if let WindowEvent::CloseRequested { api, .. } = event {
-        api.prevent_close();
-        let _ = window.minimize();
+        let should_minimize = window
+          .try_state::<CloseBehaviorState>()
+          .map(|state| state.minimize_on_close.load(Ordering::Relaxed))
+          .unwrap_or(true);
+
+        if should_minimize {
+          api.prevent_close();
+          let _ = window.minimize();
+        }
       }
     })
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
       synthesize_system_speech,
       force_quit_app,
+      set_close_button_minimizes,
       save_rendered_video,
       save_rendered_frames,
       create_render_session,

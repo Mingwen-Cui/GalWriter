@@ -18,6 +18,7 @@ export type {
   ProjectSettingsSetters as EditorProjectSettingsSetters,
   ScrollMode,
   SelectionMenuLayout,
+  StoryTitlePlacement,
   ToolbarLayout,
   TtsProvider,
 } from '../domain/project';
