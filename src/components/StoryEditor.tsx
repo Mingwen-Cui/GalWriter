@@ -44,6 +44,8 @@ import { useSelectionActions } from '../editor-features/selection-tools/useSelec
 import { useSelectionMenu } from '../editor-features/selection-tools/useSelectionMenu';
 import { autosaveService } from '../editor-services/autosaveService';
 import { localPersistenceService } from '../editor-services/localPersistenceService';
+import { createProjectSerializer } from '../editor-services/projectSerializer';
+import { createProjectThumbnail } from '../editor-services/projectThumbnail';
 import { useAutoSave } from '../editor-services/useAutoSave';
 import { AIActionModal } from '../editor-shell/AIActionModal';
 import { AssistantPanel } from '../editor-shell/AssistantPanel';
@@ -450,6 +452,8 @@ export function StoryEditor() {
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [showProjectHome, setShowProjectHome] = useState(true);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
+  const [defaultProjectSaveDir, setDefaultProjectSaveDir] = useState<string | null>(null);
   const [projectIdToLoad, setProjectIdToLoad] = useState<string | null>(null);
   const [pendingHomeProjectId, setPendingHomeProjectId] = useState<string | null>(null);
   const [projectListLoading, setProjectListLoading] = useState(true);
@@ -572,6 +576,10 @@ export function StoryEditor() {
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const createCurrentProjectThumbnail = useCallback(
+    () => Promise.resolve(createProjectThumbnail(nodes, edges, canvasBg)),
+    [canvasBg, edges, nodes],
+  );
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({
     message: '',
     visible: false,
@@ -1759,30 +1767,53 @@ export function StoryEditor() {
       setActiveAssistantTaskId,
       saveFileName,
       currentProjectId,
+      currentProjectFilePath,
+      defaultProjectSaveDir,
       setNodes,
       setEdges,
       setIsDirty,
       setShowSaveNameModal,
       lastSavedSnapshotRef: lastSavedSnapshot,
       showToast,
-      onImportedProject: async ({ projectData, suggestedProjectName, replaceCurrentProject }) => {
+      getProjectThumbnailDataUrl: createCurrentProjectThumbnail,
+      onProjectFilePathSaved: async (filePath) => {
+        setCurrentProjectFilePath(filePath);
+        if (currentProjectId) {
+          await localPersistenceService.saveProjectFilePath(currentProjectId, filePath);
+        }
+      },
+      onImportedProject: async ({
+        projectData,
+        suggestedProjectName,
+        replaceCurrentProject,
+        zip,
+        thumbnailDataUrl,
+      }) => {
+        const restoredProjectData = zip
+          ? await createProjectSerializer({
+              defaultEdgeOptions,
+              defaultAIPrompts,
+              defaultAIButtonsConfig,
+            }).restoreImportedProject(projectData, zip)
+          : projectData;
         const shouldReplaceCurrentProject =
           replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
 
         if (shouldReplaceCurrentProject) {
-          await restoreProjectSession(currentProjectId, projectData, suggestedProjectName);
+          await restoreProjectSession(currentProjectId, restoredProjectData, suggestedProjectName);
           importModeRef.current = 'replace';
           return true;
         }
 
         const nextProjectId = uuidv4();
         const normalizedName = suggestedProjectName.trim() || DEFAULT_PROJECT_FILE_NAME;
-        await restoreProjectSession(nextProjectId, projectData, normalizedName);
+        await restoreProjectSession(nextProjectId, restoredProjectData, normalizedName);
         await localPersistenceService.saveLocalProject({
           id: nextProjectId,
           projectName: normalizedName,
-          projectData,
+          projectData: restoredProjectData,
           updatedAt: Date.now(),
+          thumbnailDataUrl: thumbnailDataUrl ?? null,
         });
         importModeRef.current = 'replace';
         await refreshProjectSummaries();
@@ -1806,8 +1837,10 @@ export function StoryEditor() {
       options?: { fromHome?: boolean; updatedAt?: number },
     ) => {
       await applyProjectData(projectData, { markSaved: true });
+      const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
 
       setCurrentProjectId(projectId);
+      setCurrentProjectFilePath(projectFilePath);
       setSaveFileName(projectName.trim() || DEFAULT_PROJECT_FILE_NAME);
       const nextProjectTitle =
         projectData.settings?.projectTitle?.trim() ||
@@ -1869,6 +1902,7 @@ export function StoryEditor() {
     } as ProjectSnapshotData;
 
     setCurrentProjectId(null);
+    setCurrentProjectFilePath(null);
     setProjectIdToLoad(null);
     setPendingHomeProjectId(null);
     setCurrentProjectPersisted(false);
@@ -1901,11 +1935,13 @@ export function StoryEditor() {
         projectTitle: persistedProjectTitle,
       };
 
+      const thumbnailDataUrl = await createCurrentProjectThumbnail();
       await localPersistenceService.saveLocalProject({
         id: projectId,
         projectName: persistedProjectName,
         projectData: snapshot,
         updatedAt: savedAt,
+        thumbnailDataUrl,
       });
 
       setCurrentProjectId(projectId);
@@ -1930,6 +1966,7 @@ export function StoryEditor() {
     }
   }, [
     currentProjectId,
+    createCurrentProjectThumbnail,
     getProjectSnapshot,
     language,
     projectTitle,
@@ -2111,23 +2148,87 @@ export function StoryEditor() {
           showToast(language === 'zh' ? '找不到要导出的项目' : 'Project not found for export');
           return;
         }
-        const { createProjectSerializer } = await import('../editor-services/projectSerializer');
         const serializer = createProjectSerializer({
           defaultEdgeOptions,
           defaultAIPrompts,
           defaultAIButtonsConfig,
         });
-        await serializer.exportZip({
+        const filePath = await localPersistenceService.getProjectFilePath(projectId);
+        const result = await serializer.exportZip({
           projectData: project.projectData,
           fileName: project.projectName,
+          filePath,
+          thumbnailDataUrl:
+            project.thumbnailDataUrl ??
+            createProjectThumbnail(
+              project.projectData.nodes as Node[],
+              project.projectData.edges as Edge[],
+              project.projectData.settings?.canvasBg,
+            ),
+          defaultSaveDir: defaultProjectSaveDir,
         });
+        if (result.canceled) return;
+        if (result.filePath) {
+          await localPersistenceService.saveProjectFilePath(projectId, result.filePath);
+          if (projectId === currentProjectId) {
+            setCurrentProjectFilePath(result.filePath);
+          }
+        }
         showToast(language === 'zh' ? '项目导出成功' : 'Project exported successfully');
       } catch (e) {
         console.error(e);
         showToast(language === 'zh' ? '导出失败' : 'Export failed');
       }
     },
-    [language, showToast],
+    [currentProjectId, defaultProjectSaveDir, language, showToast],
+  );
+
+  const handleExportProjectsBundleFromList = useCallback(
+    async (projectIds: string[]) => {
+      try {
+        const serializer = createProjectSerializer({
+          defaultEdgeOptions,
+          defaultAIPrompts,
+          defaultAIButtonsConfig,
+        });
+        const projects = (
+          await Promise.all(
+            projectIds.map(async (projectId) => {
+              const project = await localPersistenceService.loadProject(projectId);
+              if (!project) return null;
+              return {
+                projectData: project.projectData,
+                projectName: project.projectName,
+                thumbnailDataUrl:
+                  project.thumbnailDataUrl ??
+                  createProjectThumbnail(
+                    project.projectData.nodes as Node[],
+                    project.projectData.edges as Edge[],
+                    project.projectData.settings?.canvasBg,
+                  ),
+              };
+            }),
+          )
+        ).filter((project): project is NonNullable<typeof project> => Boolean(project));
+
+        if (projects.length === 0) {
+          showToast(language === 'zh' ? '找不到要导出的项目' : 'Projects not found for export');
+          return;
+        }
+
+        const result = await serializer.exportProjectBundle({
+          projects,
+          fileName: `GalWriter项目整合包-${new Date().toISOString().slice(0, 10)}.zip`,
+          defaultSaveDir: defaultProjectSaveDir,
+        });
+        if (result.canceled) return;
+        showToast(language === 'zh' ? '项目整合包导出成功' : 'Project bundle exported successfully');
+      } catch (e) {
+        console.error(e);
+        showToast(language === 'zh' ? '整合包导出失败' : 'Bundle export failed');
+      }
+    },
+    [defaultProjectSaveDir, language, showToast],
   );
 
   const handleOpenProject = useCallback(
@@ -2146,6 +2247,36 @@ export function StoryEditor() {
     jsonInputRef.current?.click();
   }, []);
 
+  const handleChooseDefaultProjectSaveLocation = useCallback(async () => {
+    if (!(window as any).__TAURI__) {
+      showToast(
+        language === 'zh'
+          ? '默认保存位置仅在桌面端可设置'
+          : 'Default save location can only be set in the desktop app',
+      );
+      return;
+    }
+
+    try {
+      const tauriCore = await import('@tauri-apps/api/core');
+      const invoke =
+        tauriCore.invoke ||
+        (tauriCore as any).default?.invoke ||
+        (window as any).__TAURI__?.core?.invoke;
+      const result = (await invoke?.('choose_project_default_save_dir', {
+        initialDir: defaultProjectSaveDir,
+      })) as { path?: string | null } | undefined;
+
+      if (!result?.path) return;
+      setDefaultProjectSaveDir(result.path);
+      await localPersistenceService.saveDefaultProjectSaveDir(result.path);
+      showToast(language === 'zh' ? '默认保存位置已更新' : 'Default save location updated');
+    } catch (error) {
+      console.error('Failed to choose default project save location:', error);
+      showToast(language === 'zh' ? '设置默认保存位置失败' : 'Failed to set default save location');
+    }
+  }, [defaultProjectSaveDir, language, showToast]);
+
   React.useEffect(() => {
     let cancelled = false;
 
@@ -2160,6 +2291,7 @@ export function StoryEditor() {
         if (cancelled) return;
         setProjectSummaries(projects);
         setProjectListLoading(false);
+        setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
 
         setSavedAIProfiles(savedProfilesState.profiles);
         setActiveTextProfileId(savedProfilesState.activeTextProfileId);
@@ -3132,6 +3264,7 @@ ${direction}
         projects={projectSummaries}
         loading={projectListLoading}
         showCloseButton={Boolean(currentProjectId)}
+        defaultProjectSaveDir={defaultProjectSaveDir}
         onClose={() => setShowProjectHome(false)}
         onCreateProject={() => {
           requestProjectAction({ type: 'create' });
@@ -3140,6 +3273,7 @@ ${direction}
           void handleOpenProject(projectId);
         }}
         onImportProject={handleImportProjectFromHome}
+        onChooseDefaultSaveLocation={handleChooseDefaultProjectSaveLocation}
         onRenameProject={async (projectId, projectName) => {
           await handleRenameProject(projectId, projectName);
         }}
@@ -3150,6 +3284,7 @@ ${direction}
           setProjectIdsPendingDeletion(projectIds);
         }}
         onExportProject={handleExportProjectFromList}
+        onExportProjectsBundle={handleExportProjectsBundleFromList}
       />
 
       <ConfirmActionModal

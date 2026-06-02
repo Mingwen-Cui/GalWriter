@@ -17,18 +17,22 @@ export interface LocalProjectRecord {
   projectName: string;
   snapshot: StoryProject;
   updatedAt: number;
+  thumbnailDataUrl?: string | null;
 }
 
 export interface LocalProjectSummary {
   id: string;
   projectName: string;
   updatedAt: number;
+  thumbnailDataUrl?: string | null;
 }
 
 export interface LocalAppSettings {
   theme: 'light' | 'dark' | null;
   lastProjectId: string | null;
   closeButtonBehavior: 'minimize' | 'quit';
+  projectFilePaths: Record<string, string>;
+  defaultProjectSaveDir: string | null;
 }
 
 export type LocalApiKeySettings = ApiKeySettings &
@@ -53,6 +57,7 @@ interface StoredLocalProjectRecord {
   snapshot: string;
   media: Record<string, Blob>;
   updatedAt: number;
+  thumbnailDataUrl?: string | null;
 }
 
 interface GalWriterDB extends DBSchema {
@@ -88,6 +93,8 @@ const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
   lastProjectId: null,
   closeButtonBehavior: 'quit',
+  projectFilePaths: {},
+  defaultProjectSaveDir: null,
 };
 const AI_PROFILES_KEY = 'current';
 const DEFAULT_AI_PROFILES_STATE: LocalAIProfilesState = {
@@ -409,6 +416,7 @@ export const saveLocalProject = async (record: LocalProjectRecord): Promise<void
     id: record.id,
     projectName: record.projectName,
     updatedAt: record.updatedAt,
+    thumbnailDataUrl: record.thumbnailDataUrl ?? null,
     ...(await extractSnapshotMedia(serializedSnapshot)),
   });
 };
@@ -423,6 +431,7 @@ export const getLocalProject = async (id: string): Promise<LocalProjectRecord | 
     projectName: record.projectName,
     snapshot: JSON.parse(reviveSnapshotMedia(record.snapshot, record.media)) as StoryProject,
     updatedAt: record.updatedAt,
+    thumbnailDataUrl: record.thumbnailDataUrl ?? null,
   };
 };
 
@@ -439,6 +448,7 @@ export const getMostRecentLocalProject = async (): Promise<LocalProjectRecord | 
     projectName: cursor.value.projectName,
     snapshot: JSON.parse(reviveSnapshotMedia(cursor.value.snapshot, cursor.value.media)) as StoryProject,
     updatedAt: cursor.value.updatedAt,
+    thumbnailDataUrl: cursor.value.thumbnailDataUrl ?? null,
   };
 };
 
@@ -454,6 +464,7 @@ export const listLocalProjects = async (): Promise<LocalProjectSummary[]> => {
       id: cursor.value.id,
       projectName: cursor.value.projectName,
       updatedAt: cursor.value.updatedAt,
+      thumbnailDataUrl: cursor.value.thumbnailDataUrl ?? null,
     });
     cursor = await cursor.continue();
   }

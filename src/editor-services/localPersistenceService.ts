@@ -27,6 +27,7 @@ export interface LocalProjectSnapshot {
   projectName: string;
   projectData: StoryProject;
   updatedAt: number;
+  thumbnailDataUrl?: string | null;
 }
 
 export interface LocalEditorSecrets extends ApiKeySettings {
@@ -53,6 +54,7 @@ const toProjectRecord = (snapshot: LocalProjectSnapshot) => ({
   projectName: snapshot.projectName,
   snapshot: snapshot.projectData,
   updatedAt: snapshot.updatedAt,
+  thumbnailDataUrl: snapshot.thumbnailDataUrl ?? null,
 });
 
 const toProjectSnapshot = (
@@ -64,6 +66,7 @@ const toProjectSnapshot = (
     projectName: record.projectName,
     projectData: record.snapshot,
     updatedAt: record.updatedAt,
+    thumbnailDataUrl: record.thumbnailDataUrl ?? null,
   };
 };
 
@@ -104,12 +107,39 @@ export const localPersistenceService = {
     await saveAppSettings({ closeButtonBehavior });
   },
 
+  async getProjectFilePath(projectId: string): Promise<string | null> {
+    const appSettings = await getAppSettings();
+    return appSettings.projectFilePaths[projectId] || null;
+  },
+
+  async saveProjectFilePath(projectId: string, filePath: string) {
+    const appSettings = await getAppSettings();
+    await saveAppSettings({
+      projectFilePaths: {
+        ...appSettings.projectFilePaths,
+        [projectId]: filePath,
+      },
+    });
+  },
+
+  async getDefaultProjectSaveDir(): Promise<string | null> {
+    const appSettings = await getAppSettings();
+    return appSettings.defaultProjectSaveDir || null;
+  },
+
+  async saveDefaultProjectSaveDir(defaultProjectSaveDir: string | null) {
+    await saveAppSettings({ defaultProjectSaveDir });
+  },
+
   renameProject(projectId: string, projectName: string) {
     return renameLocalProject(projectId, projectName);
   },
 
-  deleteProject(projectId: string) {
-    return deleteLocalProject(projectId);
+  async deleteProject(projectId: string) {
+    await deleteLocalProject(projectId);
+    const appSettings = await getAppSettings();
+    const { [projectId]: _deletedPath, ...projectFilePaths } = appSettings.projectFilePaths;
+    await saveAppSettings({ projectFilePaths });
   },
 
   async saveLastProjectId(projectId: string) {

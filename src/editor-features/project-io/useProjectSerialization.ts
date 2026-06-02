@@ -37,17 +37,22 @@ interface UseProjectSerializationParams {
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   saveFileName: string;
   currentProjectId: string | null;
+  currentProjectFilePath: string | null;
+  defaultProjectSaveDir: string | null;
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   setIsDirty: Dispatch<SetStateAction<boolean>>;
   setShowSaveNameModal: Dispatch<SetStateAction<boolean>>;
   lastSavedSnapshotRef: React.MutableRefObject<string>;
   showToast: (message: string) => void;
+  getProjectThumbnailDataUrl?: () => Promise<string | null>;
+  onProjectFilePathSaved?: (filePath: string) => Promise<void> | void;
   onImportedProject?: (params: {
     projectData: ProjectSnapshotData;
     suggestedProjectName: string;
     replaceCurrentProject: boolean;
     zip: JSZip | null;
+    thumbnailDataUrl?: string | null;
   }) => Promise<boolean> | boolean;
   defaultEdgeOptions: EdgeDefaults;
   defaultAIPrompts: AIPromptsConfig;
@@ -67,12 +72,16 @@ export const useProjectSerialization = ({
   setActiveAssistantTaskId,
   saveFileName,
   currentProjectId,
+  currentProjectFilePath,
+  defaultProjectSaveDir,
   setNodes,
   setEdges,
   setIsDirty,
   setShowSaveNameModal,
   lastSavedSnapshotRef,
   showToast,
+  getProjectThumbnailDataUrl,
+  onProjectFilePathSaved,
   onImportedProject,
   defaultEdgeOptions,
   defaultAIPrompts,
@@ -139,12 +148,22 @@ export const useProjectSerialization = ({
   const confirmExportZIP = useCallback(async () => {
     try {
       const projectData = createSnapshotData();
+      const thumbnailDataUrl = await getProjectThumbnailDataUrl?.();
       const exportedProject = await projectSerializer.exportZip({
         projectData,
         fileName: saveFileName,
+        filePath: currentProjectFilePath,
+        thumbnailDataUrl,
+        defaultSaveDir: defaultProjectSaveDir,
       });
 
-      lastSavedSnapshotRef.current = JSON.stringify(exportedProject);
+      if (exportedProject.canceled) return;
+
+      if (exportedProject.filePath) {
+        await onProjectFilePathSaved?.(exportedProject.filePath);
+      }
+
+      lastSavedSnapshotRef.current = JSON.stringify(exportedProject.projectData);
       setIsDirty(false);
       setShowSaveNameModal(false);
       if (currentProjectId) {
@@ -161,7 +180,11 @@ export const useProjectSerialization = ({
   }, [
     createSnapshotData,
     currentProjectId,
+    currentProjectFilePath,
+    defaultProjectSaveDir,
+    getProjectThumbnailDataUrl,
     lastSavedSnapshotRef,
+    onProjectFilePathSaved,
     projectSerializer,
     saveFileName,
     setIsDirty,
@@ -176,13 +199,15 @@ export const useProjectSerialization = ({
       if (!file) return;
 
       try {
-        const { projectData, zip } = await projectSerializer.importZip(file);
-        if (projectData.nodes && projectData.edges) {
+        const importedEntries = await projectSerializer.importProjectEntries(file);
+        for (const { projectData, suggestedProjectName, zip, thumbnailDataUrl } of importedEntries) {
+          if (!projectData.nodes || !projectData.edges) continue;
           const handled = await onImportedProject?.({
             projectData,
-            suggestedProjectName: file.name.replace(/\.(zip|json)$/i, '').trim() || 'imported-project',
-            replaceCurrentProject: Boolean(currentProjectId),
+            suggestedProjectName,
+            replaceCurrentProject: importedEntries.length === 1 && Boolean(currentProjectId),
             zip,
+            thumbnailDataUrl,
           });
 
           if (!handled) {

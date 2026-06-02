@@ -19,6 +19,16 @@ struct RenderSaveResult {
 }
 
 #[derive(serde::Serialize)]
+struct ProjectSaveResult {
+  path: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProjectSaveDirResult {
+  path: Option<String>,
+}
+
+#[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderSessionResult {
   work_dir: String,
@@ -94,6 +104,19 @@ fn unique_path(dir: &Path, stem: &str, extension: &str) -> PathBuf {
   candidate
 }
 
+fn ensure_zip_extension(path: PathBuf) -> PathBuf {
+  if path
+    .extension()
+    .and_then(|extension| extension.to_str())
+    .map(|extension| extension.eq_ignore_ascii_case("zip"))
+    .unwrap_or(false)
+  {
+    path
+  } else {
+    path.with_extension("zip")
+  }
+}
+
 fn powershell_encoded_command(script: &str) -> String {
   let bytes: Vec<u8> = script
     .encode_utf16()
@@ -125,6 +148,113 @@ fn powershell_encoded_command(script: &str) -> String {
 
 fn powershell_single_quoted(value: &str) -> String {
   format!("'{}'", value.replace('\'', "''"))
+}
+
+fn choose_project_save_path(file_name: &str, default_dir: Option<&str>) -> Result<Option<PathBuf>, String> {
+  if !cfg!(target_os = "windows") {
+    return Ok(None);
+  }
+
+  let default_name = sanitize_file_name(file_name);
+  let default_name = if default_name.ends_with(".zip") {
+    default_name
+  } else {
+    format!("{default_name}.zip")
+  };
+  let initial_dir = default_dir
+    .filter(|path| !path.trim().is_empty())
+    .map(|path| path.to_string())
+    .unwrap_or_else(|| downloads_dir().to_string_lossy().to_string());
+  let default_name_json =
+    serde_json::to_string(&default_name).map_err(|err| format!("Failed to encode file name: {err}"))?;
+  let initial_dir_json =
+    serde_json::to_string(&initial_dir).map_err(|err| format!("Failed to encode initial directory: {err}"))?;
+  let script = format!(
+    r#"
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.SaveFileDialog
+$dialog.Title = 'Save GalWriter Project'
+$dialog.Filter = 'GalWriter Project (*.zip)|*.zip|All files (*.*)|*.*'
+$dialog.FileName = ConvertFrom-Json -InputObject {default_name}
+$dialog.InitialDirectory = ConvertFrom-Json -InputObject {initial_dir}
+$dialog.AddExtension = $true
+$dialog.DefaultExt = 'zip'
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
+  [Console]::Out.Write($dialog.FileName)
+}}
+"#,
+    default_name = powershell_single_quoted(&default_name_json),
+    initial_dir = powershell_single_quoted(&initial_dir_json)
+  );
+
+  let output = Command::new("powershell")
+    .arg("-STA")
+    .arg("-NoProfile")
+    .arg("-ExecutionPolicy")
+    .arg("Bypass")
+    .arg("-EncodedCommand")
+    .arg(powershell_encoded_command(&script))
+    .output()
+    .map_err(|err| format!("Failed to open save dialog: {err}"))?;
+
+  if !output.status.success() {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    return Err(format!("Save dialog failed: {stderr}"));
+  }
+
+  let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+  if selected.is_empty() {
+    Ok(None)
+  } else {
+    Ok(Some(ensure_zip_extension(PathBuf::from(selected))))
+  }
+}
+
+#[tauri::command]
+fn choose_project_default_save_dir(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
+  if !cfg!(target_os = "windows") {
+    return Ok(ProjectSaveDirResult { path: None });
+  }
+
+  let selected_dir = initial_dir
+    .filter(|path| !path.trim().is_empty())
+    .unwrap_or_else(|| downloads_dir().to_string_lossy().to_string());
+  let selected_dir_json = serde_json::to_string(&selected_dir)
+    .map_err(|err| format!("Failed to encode initial directory: {err}"))?;
+  let script = format!(
+    r#"
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = 'Choose GalWriter default save location'
+$dialog.SelectedPath = ConvertFrom-Json -InputObject {selected_dir}
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
+  [Console]::Out.Write($dialog.SelectedPath)
+}}
+"#,
+    selected_dir = powershell_single_quoted(&selected_dir_json)
+  );
+
+  let output = Command::new("powershell")
+    .arg("-STA")
+    .arg("-NoProfile")
+    .arg("-ExecutionPolicy")
+    .arg("Bypass")
+    .arg("-EncodedCommand")
+    .arg(powershell_encoded_command(&script))
+    .output()
+    .map_err(|err| format!("Failed to open folder dialog: {err}"))?;
+
+  if !output.status.success() {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    return Err(format!("Folder dialog failed: {stderr}"));
+  }
+
+  let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+  Ok(ProjectSaveDirResult {
+    path: if selected.is_empty() { None } else { Some(selected) },
+  })
 }
 
 fn escape_concat_path(path: &Path) -> String {
@@ -331,6 +461,44 @@ fn default_render_dir() -> Result<RenderSaveResult, String> {
   fs::create_dir_all(&dir).map_err(|err| format!("Failed to create Downloads directory: {err}"))?;
   Ok(RenderSaveResult {
     path: dir.to_string_lossy().to_string(),
+  })
+}
+
+#[tauri::command]
+fn save_project_zip(
+  file_name: String,
+  bytes: Vec<u8>,
+  file_path: Option<String>,
+  default_dir: Option<String>,
+) -> Result<ProjectSaveResult, String> {
+  let selected_path = match default_dir.as_deref().filter(|path| !path.trim().is_empty()) {
+    Some(dir) => {
+      let file_name = sanitize_file_name(&file_name);
+      let file_name = if file_name.ends_with(".zip") {
+        file_name
+      } else {
+        format!("{file_name}.zip")
+      };
+      Some(PathBuf::from(dir).join(file_name))
+    }
+    None => match file_path.filter(|path| !path.trim().is_empty()) {
+      Some(path) => Some(ensure_zip_extension(PathBuf::from(path))),
+      None => choose_project_save_path(&file_name, default_dir.as_deref())?,
+    },
+  };
+
+  let Some(output_path) = selected_path else {
+    return Ok(ProjectSaveResult { path: None });
+  };
+
+  if let Some(parent) = output_path.parent() {
+    fs::create_dir_all(parent).map_err(|err| format!("Failed to create project directory: {err}"))?;
+  }
+
+  fs::write(&output_path, bytes).map_err(|err| format!("Failed to save project ZIP: {err}"))?;
+
+  Ok(ProjectSaveResult {
+    path: Some(output_path.to_string_lossy().to_string()),
   })
 }
 
@@ -1094,6 +1262,8 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
+      choose_project_default_save_dir,
+      save_project_zip,
       synthesize_system_speech,
       force_quit_app,
       set_close_button_minimizes,

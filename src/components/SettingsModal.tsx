@@ -128,6 +128,147 @@ interface SettingsModalProps {
   setPlayTestAutoAdvanceDelay: (val: number) => void;
 }
 
+const settingsText = {
+  zh: {
+    editorTab: '编辑器',
+    playtestTab: '剧本测试',
+    aboutTab: '关于与反馈',
+    language: '系统语言',
+    chinese: '简体中文',
+    toolbarBubbleStyle: '工具栏气泡质感',
+    glass: '玻璃',
+    flat: '扁平',
+    bgColorsDesc: '点击颜色块可自定义颜色，这些颜色会显示在画布右侧的快速切换栏中。',
+    storyTitlePosition: '普通卡片标题位置',
+    titleInside: '卡片内部',
+    titleOutsideLeft: '卡片外部左上角',
+    titleOutsideRight: '卡片外部右上角',
+    interactions: '交互与显示',
+    showLastSavedTime: '显示上次保存时间',
+    saveAssistantConversations: '保存 AI 助手对话',
+    playtestThemeLayout: '剧情测试主题与排版',
+    playtestTheme: '测试界面主题',
+    choicePosition: '选项按钮位置',
+    choiceCenter: '画面中间',
+    choiceAboveText: '文字上方',
+    choiceBelowText: '文字下方',
+    blurChoiceBackground: '选项弹出背景虚化',
+    enableBackgroundBlur: '开启背景虚化',
+    disableBackgroundBlur: '关闭背景虚化',
+    blurStoryTextToo: '虚化时模糊剧情文字',
+    blurText: '文字也虚化',
+    keepTextClear: '文字保持清晰',
+    hideCenterPopupSingleChoice: '单选项时隐藏居中弹窗',
+    hideClickText: '隐藏（点击文字继续）',
+    showPopup: '显示弹窗选择',
+    storyTextInteraction: '剧情文本交互策略',
+    storyTextDisplayMode: '剧情显示模式',
+    immediateMode: '立即显示（直接显示文本与选项）',
+    typewriterMode: '打字机效果（文本逐字打出后显示选项）',
+    timedMode: '延迟显示选项（文本载入 N 秒后显示选项）',
+    clickToShowMode: '点击显示选项（点击文本区域后显示选项）',
+    typewriterSpeed: '打字速度（每字延迟）',
+    charUnit: 'ms/字',
+    choicesDelay: '选择项延迟出现时间',
+    secondUnit: '秒',
+    autoAdvance: '自动翻页',
+    continueAfterAnimation: '动画结束后自动继续',
+    autoAdvanceDesc: '仅在没有多个选项时生效，多选项会暂停等待选择。',
+    waitTime: '等待秒数',
+    dimBackgroundOverlay: '暗化背景遮罩',
+    dimBackgroundDesc: '在沉浸模式下增加一层暗色遮罩，提升文字对比度与可读性。',
+    enableOverlay: '启用遮罩',
+    disableOverlay: '关闭遮罩',
+    multimediaSettings: '多媒体设置',
+    qqPersonal: 'QQ 号（个人）',
+    visitAuthorWebsite: '访问作者的网站',
+    helpUsageNotice: '帮助和使用须知',
+    aboutProductTitle: '交互式 AI 小说创作工具',
+    aboutProductDesc: '致力于构建下一代 AI 交互式小说创作工具，让每一颗想象力的种子都能开花结果。',
+    desktopCloseButton: '桌面端关闭按钮',
+    minimizeToTray: '最小化到后台',
+    quitApp: '直接关闭应用',
+    desktopCloseDesc: '此选项只影响 Tauri 打包后的桌面应用，浏览器预览不会改变窗口行为。',
+    forceQuitTitle: '强制退出应用',
+    forceCloseApp: '强制关闭 GalWriter AI',
+    forceCloseDesc: '当窗口关闭按钮只会最小化时，可以用这个按钮直接退出桌面应用。',
+    backToAbout: '返回关于与反馈',
+    responsibleUseTitle: '请合理、合法地使用 GalWriter AI',
+    responsibleUseDesc:
+      '本工具用于辅助个人创作、学习和原型设计。请在遵守所在地法律法规、平台规则和基本创作伦理的前提下使用。',
+  },
+  en: {
+    editorTab: 'Editor',
+    playtestTab: 'Playtest',
+    aboutTab: 'About & Feedback',
+    language: 'Language',
+    chinese: 'Chinese',
+    toolbarBubbleStyle: 'Toolbar Bubble Style',
+    glass: 'Glass',
+    flat: 'Flat',
+    bgColorsDesc: 'Click color blocks to customize. These will appear in the quick switcher.',
+    storyTitlePosition: 'Story Card Title Position',
+    titleInside: 'Inside',
+    titleOutsideLeft: 'Outside Top Left',
+    titleOutsideRight: 'Outside Top Right',
+    interactions: 'Interactions',
+    showLastSavedTime: 'Show last saved time',
+    saveAssistantConversations: 'Save AI assistant chats',
+    playtestThemeLayout: 'Playtest Theme & Layout',
+    playtestTheme: 'Playtest Theme',
+    choicePosition: 'Choice Position',
+    choiceCenter: 'Center',
+    choiceAboveText: 'Above Text',
+    choiceBelowText: 'Below Text',
+    blurChoiceBackground: 'Blur Choice Background',
+    enableBackgroundBlur: 'Enabled',
+    disableBackgroundBlur: 'Disabled',
+    blurStoryTextToo: 'Blur Story Text Too',
+    blurText: 'Blur Text',
+    keepTextClear: 'Keep Text Clear',
+    hideCenterPopupSingleChoice: 'Hide Center Popup for Single Choice',
+    hideClickText: 'Hide (Click Text)',
+    showPopup: 'Show Popup',
+    storyTextInteraction: 'Story Text Interaction',
+    storyTextDisplayMode: 'Story Text Display Mode',
+    immediateMode: 'Immediate (Show all instantly)',
+    typewriterMode: 'Typewriter (Reveal word-by-word)',
+    timedMode: 'Timed Delay (Show choices after N seconds)',
+    clickToShowMode: 'Click-to-Show (Tap text to unlock choices)',
+    typewriterSpeed: 'Typewriting Speed',
+    charUnit: 'ms/char',
+    choicesDelay: 'Choices Appending Delay',
+    secondUnit: 's',
+    autoAdvance: 'Auto Advance',
+    continueAfterAnimation: 'Continue after animation',
+    autoAdvanceDesc: 'Only runs when there is not more than one choice.',
+    waitTime: 'Wait Time',
+    dimBackgroundOverlay: 'Dim Background Overlay',
+    dimBackgroundDesc: 'Overlay a dark mask in immersive mode to improve text readability.',
+    enableOverlay: 'Enabled',
+    disableOverlay: 'Disabled',
+    multimediaSettings: 'Multimedia Settings',
+    qqPersonal: 'QQ (Personal)',
+    visitAuthorWebsite: 'Visit Author Website',
+    helpUsageNotice: 'Help & Usage Notice',
+    aboutProductTitle: 'Interactive AI Fiction Creation Tool',
+    aboutProductDesc:
+      'Dedicated to building next-gen AI narrative infrastructure, making every seed of imagination bloom.',
+    desktopCloseButton: 'Desktop Close Button',
+    minimizeToTray: 'Minimize',
+    quitApp: 'Quit',
+    desktopCloseDesc:
+      'This only affects the packaged Tauri desktop app; browser preview behavior is unchanged.',
+    forceQuitTitle: 'Force quit app',
+    forceCloseApp: 'Force Close GalWriter AI',
+    forceCloseDesc: 'Use this when the window close button only minimizes the desktop app.',
+    backToAbout: 'Back to About & Feedback',
+    responsibleUseTitle: 'Use GalWriter AI Responsibly',
+    responsibleUseDesc:
+      'This tool is intended for personal creation, learning, and prototyping. Use it in accordance with applicable laws, platform rules, and basic creative ethics.',
+  },
+} satisfies Record<Language, Record<string, string>>;
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
   setShowSettings,
@@ -236,6 +377,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     window.close();
   };
   const t = translations[language];
+  const s = settingsText[language];
+  const compactSegmentButtonClass = (active: boolean) =>
+    `flex-1 rounded-md py-2.5 text-xs font-bold transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    }`;
+  const compactTextButtonClass = (active: boolean) =>
+    `flex-1 rounded-md py-2.5 text-xs font-bold transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    }`;
+  const settingsRowClass = 'flex items-center gap-4';
+  const settingsRowTitleClass =
+    'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
+  const segmentedControlClass =
+    'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
 
   if (!showSettings) return null;
 
@@ -307,28 +466,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col h-full bg-transparent overflow-y-auto p-10 pt-8 custom-scrollbar">
+        <div className="flex-1 flex flex-col h-full bg-transparent overflow-y-auto p-8 pt-7 custom-scrollbar">
           {activeSettingsTab === 'appearance' && (
-            <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+            <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
               <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
+                <header className="hidden">
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {t.theme} & {language === 'zh' ? '语言' : 'Language'}
                   </h3>
                 </header>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className={settingsRowClass}>
+                    <h3 className={settingsRowTitleClass}>
                       {t.theme}
-                    </label>
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                    </h3>
+                    <div className={segmentedControlClass}>
                       <button
                         onClick={() => {
                           setTheme('light');
                           if (canvasBg === presetColors[1]) setCanvasBg(presetColors[0]);
                         }}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${theme === 'light' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        className={compactTextButtonClass(theme === 'light')}
                       >
                         {t.lightMode}
                       </button>
@@ -337,26 +495,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           setTheme('dark');
                           if (canvasBg === presetColors[0]) setCanvasBg(presetColors[1]);
                         }}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${theme === 'dark' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        className={compactTextButtonClass(theme === 'dark')}
                       >
                         {t.darkMode}
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                      {language === 'zh' ? '系统语言' : 'Language'}
-                    </label>
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                  <div className={`border-t border-[var(--header-border)] pt-3 ${settingsRowClass}`}>
+                    <h3 className={settingsRowTitleClass}>
+                      {s.language}
+                    </h3>
+                    <div className={segmentedControlClass}>
                       <button
                         onClick={() => setLanguage('zh')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${language === 'zh' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        className={compactTextButtonClass(language === 'zh')}
                       >
-                        {language === 'zh' ? '简体中文' : 'Chinese'}
+                        {s.chinese}
                       </button>
                       <button
                         onClick={() => setLanguage('en')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${language === 'en' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        className={compactTextButtonClass(language === 'en')}
                       >
                         English
                       </button>
@@ -365,84 +523,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {t.toolbarLayout}
-                  </h3>
-                </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+              <div className="border-t border-[var(--header-border)]" />
+
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '右侧工具' : 'Right Toolbar'}
+                </h3>
+                <div className={segmentedControlClass}>
                   <button
                     onClick={() => setToolbarLayout('vertical')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'vertical' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(toolbarLayout === 'vertical')}
                   >
                     {t.vertical}
                   </button>
                   <button
                     onClick={() => setToolbarLayout('horizontal')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${toolbarLayout === 'horizontal' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(toolbarLayout === 'horizontal')}
                   >
                     {t.horizontal}
                   </button>
                 </div>
               </section>
 
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '工具栏气泡质感' : 'Toolbar Bubble Style'}
-                  </h3>
-                </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+              <div className="border-t border-[var(--header-border)]" />
+
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>{s.toolbarBubbleStyle}</h3>
+                <div className={segmentedControlClass}>
                   <button
                     onClick={() => setBubbleStyle('glass')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${bubbleStyle === 'glass' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(bubbleStyle === 'glass')}
                   >
-                    {language === 'zh' ? '玻璃' : 'Glass'}
+                    {s.glass}
                   </button>
                   <button
                     onClick={() => setBubbleStyle('flat')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${bubbleStyle === 'flat' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(bubbleStyle === 'flat')}
                   >
-                    {language === 'zh' ? '扁平' : 'Flat'}
+                    {s.flat}
                   </button>
                 </div>
               </section>
 
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {t.selectionMenuLayout}
-                  </h3>
-                </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '框选菜单' : 'Selection Menu'}
+                </h3>
+                <div className={segmentedControlClass}>
                   <button
                     onClick={() => setSelectionMenuLayout('horizontal')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${selectionMenuLayout === 'horizontal' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(selectionMenuLayout === 'horizontal')}
                   >
                     {t.menuHorizontal}
                   </button>
                   <button
                     onClick={() => setSelectionMenuLayout('vertical')}
-                    className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${selectionMenuLayout === 'vertical' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                    className={compactSegmentButtonClass(selectionMenuLayout === 'vertical')}
                   >
                     {t.menuVertical}
                   </button>
                 </div>
               </section>
 
+              <div className="border-t-4 border-double border-[var(--header-border)]" />
+
               <section className="space-y-5">
                 <header className="flex items-center gap-3 mb-2">
-                  <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">{t.bgColors}</h3>
                 </header>
                 <p className="text-xs text-[var(--text-muted)] font-medium px-4">
-                  {language === 'zh'
-                    ? '点击颜色块可自定义颜色，这些颜色将显示在画布右侧的快速切换栏中。'
-                    : 'Click color blocks to customize. These will appear in the quick switcher.'}
+                  {s.bgColorsDesc}
                 </p>
                 <div className="grid grid-cols-3 gap-5">
                   {presetColors.map((color, idx) => (
@@ -482,18 +632,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {activeSettingsTab === 'editor' && (
-            <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">{t.edgeStyle}</h3>
-                </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-2 rounded-xl border border-[var(--header-border)] max-w-sm">
+            <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>{t.edgeStyle}</h3>
+                <div className={segmentedControlClass}>
                   <button
                     onClick={() => setEdgeStyle('step')}
-                    className={`flex-1 flex flex-col items-center gap-2 py-5 rounded-lg transition-all duration-500 ${edgeStyle === 'step' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-[1.05] z-10' : 'text-[var(--text-muted)] opacity-60 hover:opacity-100'}`}
+                    className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'step' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                   >
-                    <div className="w-14 h-10 border-2 border-current rounded-lg flex items-center justify-center mb-1">
+                    <div className="w-11 h-8 border-2 border-current rounded-md flex items-center justify-center">
                       <div className="relative w-8 h-5">
                         <div className="absolute top-0 left-0 w-2 h-2 rounded-full bg-current -translate-x-1 -translate-y-[3px]" />
                         <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-current translate-x-1 translate-y-[3px]" />
@@ -506,9 +653,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                   <button
                     onClick={() => setEdgeStyle('bezier')}
-                    className={`flex-1 flex flex-col items-center gap-2 py-5 rounded-lg transition-all duration-500 ${edgeStyle === 'bezier' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--accent)] border border-[var(--card-border)] scale-[1.05] z-10' : 'text-[var(--text-muted)] opacity-60 hover:opacity-100'}`}
+                    className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'bezier' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                   >
-                    <div className="w-14 h-10 border-2 border-current rounded-lg flex items-center justify-center mb-1">
+                    <div className="w-11 h-8 border-2 border-current rounded-md flex items-center justify-center">
                       <div className="relative w-8 h-5">
                         <svg
                           className="absolute inset-0 w-full h-full overflow-visible"
@@ -528,51 +675,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '普通卡片标题位置' : 'Story Card Title Position'}
-                  </h3>
-                </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)] max-w-sm">
+              <div className="border-t border-[var(--header-border)]" />
+
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>{s.storyTitlePosition}</h3>
+                <div className={segmentedControlClass}>
                   {[
                     {
                       id: 'inside',
-                      label: language === 'zh' ? '卡片内部' : 'Inside',
+                      label: s.titleInside,
                     },
                     {
                       id: 'outside-left',
-                      label: language === 'zh' ? '右上角外部' : 'Outside Top Right',
+                      label: s.titleOutsideLeft,
                     },
                     {
                       id: 'outside-right',
-                      label: language === 'zh' ? '卡片外部右上角' : 'Outside Top Right',
+                      label: s.titleOutsideRight,
                     },
                   ].map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setStoryTitlePlacement(item.id as StoryTitlePlacement)}
-                      className={`flex-1 py-3 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider ${storyTitlePlacement === item.id ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                      className={compactSegmentButtonClass(storyTitlePlacement === item.id)}
                     >
-                      {item.id === 'outside-left'
-                        ? language === 'zh'
-                          ? '卡片外部左上角'
-                          : 'Outside Top Left'
-                        : item.label}
+                      {item.label}
                     </button>
                   ))}
                 </div>
               </section>
 
+              <div className="border-t-4 border-double border-[var(--header-border)]" />
+
               <section className="space-y-2">
                 <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '交互与显示' : 'Interactions'}
                   </h3>
                 </header>
-                <div className="grid grid-cols-2 gap-x-12 gap-y-1">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-0">
                   {[
                     {
                       id: 'pastePlain',
@@ -615,28 +756,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   ].map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between py-4 border-b border-[var(--header-border)] last:border-0 group"
+                      className="flex items-center justify-between py-2.5 border-b border-[var(--header-border)] last:border-0 group"
                     >
                       <span className="text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                         {item.label}
                       </span>
                       <button
                         onClick={() => item.setter(!item.value)}
-                        className={`w-12 h-6 rounded-full transition-all duration-500 relative ${item.value ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                        className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                       >
                         <div
-                          className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-sm ${item.value ? 'left-7' : 'left-1'}`}
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
                         />
                       </button>
                     </div>
                   ))}
                 </div>
                 {showMiniMap && (
-                  <div className="mt-5 max-w-sm rounded-xl border border-[var(--header-border)] bg-[var(--app-bg)]/50 p-1.5">
-                    <div className="mb-1.5 px-2 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-                      {t.miniMapPosition}
-                    </div>
-                    <div className="flex gap-1">
+                  <div className={`mt-5 ${settingsRowClass}`}>
+                    <h3 className={settingsRowTitleClass}>{t.miniMapPosition}</h3>
+                    <div className={`${segmentedControlClass} gap-1`}>
                       <button
                         onClick={() => setMiniMapPosition('left')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black rounded-lg transition-all ${miniMapPosition === 'left' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
@@ -662,7 +801,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-10 animate-in slide-in-from-right-4 duration-500 pb-8">
               <section>
                 <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '剧情测试主题与排版' : 'Playtest Theme & Layout'}
                   </h3>
@@ -720,7 +858,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Playtest Choices Position */}
                 <section>
                   <header className="flex items-center gap-3 mb-6">
-                    <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh' ? '选项按钮位置' : 'Choice Position'}
                     </h3>
@@ -752,7 +889,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   <section>
                     <header className="flex items-center gap-3 mb-6">
-                      <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                       <h3 className="text-base font-black text-[var(--text-primary)]">
                         {t.choiceColumns}
                       </h3>
@@ -776,7 +912,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Playtest Blur Background */}
                 <section>
                   <header className="flex items-center gap-3 mb-6">
-                    <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh' ? '选项弹出背景虚化' : 'Blur Choice Background'}
                     </h3>
@@ -815,7 +950,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   <section>
                     <header className="flex items-center gap-3 mb-6">
-                      <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                       <h3 className="text-base font-black text-[var(--text-primary)]">
                         {language === 'zh' ? '虚化时模糊剧情文字' : 'Blur Story Text Too'}
                       </h3>
@@ -850,7 +984,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {playTestChoicesPosition === 'center' && (
                 <section className="animate-in fade-in slide-in-from-top-1 duration-200">
                   <header className="flex items-center gap-3 mb-6">
-                    <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh'
                         ? '单选项时隐藏居中弹窗'
@@ -885,7 +1018,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Interaction Modes Settings */}
               <section className="space-y-6">
                 <header className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '剧情文本交互策略' : 'Story Text Interaction'}
                   </h3>
@@ -998,7 +1130,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <section className="space-y-4">
                 <header className="flex items-center gap-3">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '自动翻页' : 'Auto Advance'}
                   </h3>
@@ -1050,7 +1181,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Playtest Dim Background */}
               <section>
                 <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '暗化背景遮罩' : 'Dim Background Overlay'}
                   </h3>
@@ -1087,7 +1217,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Playtest Video Autoplay */}
               <section className="space-y-2">
                 <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-indigo-500 dark:bg-sky-400 rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '多媒体设置' : 'Multimedia Settings'}
                   </h3>
@@ -1131,7 +1260,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
               <section>
                 <header className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {t.contactTitle}
                   </h3>
@@ -1233,12 +1361,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
                 <header className="flex items-center gap-3 mb-5">
-                  <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '桌面端关闭按钮' : 'Desktop Close Button'}
                   </h3>
                 </header>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                <div className="flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]">
                   <button
                     type="button"
                     onClick={() => setCloseButtonBehavior('minimize')}

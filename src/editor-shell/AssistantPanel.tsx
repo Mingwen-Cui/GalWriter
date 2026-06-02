@@ -102,6 +102,7 @@ export function AssistantPanel({
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
+  const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (assistantOpen) {
@@ -136,6 +137,17 @@ export function AssistantPanel({
     void handleAssistantDocumentUpload(files);
     setDocumentUploadOpen(false);
     setDocumentDragActive(false);
+  };
+
+  const applyAssistantTemplate = (template: string) => {
+    const cursorIndex = template.indexOf('_');
+    setAssistantInput(template);
+    window.requestAnimationFrame(() => {
+      const input = assistantInputRef.current;
+      if (!input) return;
+      input.focus();
+      if (cursorIndex >= 0) input.setSelectionRange(cursorIndex, cursorIndex + 1);
+    });
   };
 
   return (
@@ -419,6 +431,7 @@ export function AssistantPanel({
             )}
           </button>
           <textarea
+            ref={assistantInputRef}
             value={assistantInput}
             onChange={(event) => setAssistantInput(event.target.value)}
             onKeyDown={(event) => {
@@ -458,6 +471,24 @@ export function AssistantPanel({
             ) : (
               <Send className="h-4 w-4" />
             )}
+          </button>
+        </div>
+        <div className="assistant-template-row mt-2 flex flex-col gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => applyAssistantTemplate('给我生成一个_的人物卡片')}
+            disabled={assistantLoading}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-left font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300"
+          >
+            给我生成一个_的人物卡片
+          </button>
+          <button
+            type="button"
+            onClick={() => applyAssistantTemplate('给我生成一个_的地点卡片')}
+            disabled={assistantLoading}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-left font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300"
+          >
+            给我生成一个_的地点卡片
           </button>
         </div>
       </div>

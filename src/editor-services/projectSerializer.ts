@@ -37,6 +37,34 @@ export interface ProjectSerializerOptions {
 export interface ExportZipParams {
   projectData: ProjectSnapshotData;
   fileName: string;
+  filePath?: string | null;
+  thumbnailDataUrl?: string | null;
+  defaultSaveDir?: string | null;
+}
+
+export interface ProjectExportResult {
+  projectData: ProjectSnapshotData;
+  filePath: string | null;
+  canceled: boolean;
+}
+
+export interface ExportBundleProjectParams {
+  projectData: ProjectSnapshotData;
+  projectName: string;
+  thumbnailDataUrl?: string | null;
+}
+
+export interface ExportProjectBundleParams {
+  projects: ExportBundleProjectParams[];
+  fileName: string;
+  defaultSaveDir?: string | null;
+}
+
+export interface ImportedProjectEntry {
+  projectData: ProjectSnapshotData;
+  suggestedProjectName: string;
+  zip: JSZip | null;
+  thumbnailDataUrl?: string | null;
 }
 
 export interface ApplyImportedProjectParams {
@@ -81,6 +109,14 @@ const urlToBlob = async (url: string) => {
   }
   return null;
 };
+
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Failed to read blob.'));
+    reader.readAsDataURL(blob);
+  });
 
 const processHtmlMedia = async (html: string, assetsFolder: JSZip | null, nodeId: string) => {
   if (!html) return html;
@@ -280,6 +316,50 @@ const triggerDownload = (content: Blob, fileName: string) => {
   URL.revokeObjectURL(url);
 };
 
+const safeZipFolderName = (name: string, fallback: string) => {
+  const cleaned = name
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  return cleaned || fallback;
+};
+
+const saveZipWithTauri = async (
+  content: Blob,
+  fileName: string,
+  filePath?: string | null,
+  defaultSaveDir?: string | null,
+): Promise<ProjectExportResult | null> => {
+  if (!(window as any).__TAURI__) return null;
+
+  try {
+    const tauriCore = await import('@tauri-apps/api/core');
+    const invoke =
+      tauriCore.invoke ||
+      (tauriCore as any).default?.invoke ||
+      (window as any).__TAURI__?.core?.invoke;
+    if (!invoke) return null;
+
+    const bytes = Array.from(new Uint8Array(await content.arrayBuffer()));
+    const result = (await invoke('save_project_zip', {
+      fileName,
+      bytes,
+      filePath: filePath || null,
+      defaultDir: defaultSaveDir || null,
+    })) as { path?: string | null };
+
+    return {
+      projectData: {} as ProjectSnapshotData,
+      filePath: result.path || null,
+      canceled: !result.path,
+    };
+  } catch (error) {
+    console.error('Failed to save ZIP with Tauri', error);
+    throw error;
+  }
+};
+
 export const createProjectSerializer = (options: ProjectSerializerOptions) => {
   const createSnapshot = ({
     nodes,
@@ -323,8 +403,11 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     } satisfies ProjectSnapshotData;
   };
 
-  const exportZip = async ({ projectData, fileName }: ExportZipParams) => {
-    const zip = new JSZip();
+  const writeProjectToZip = async (
+    zip: JSZip,
+    projectData: ProjectSnapshotData,
+    thumbnailDataUrl?: string | null,
+  ) => {
     const assetsFolder = zip.folder('assets');
 
     const processedNodes = await Promise.all(
@@ -367,30 +450,169 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     };
 
     zip.file('project.json', JSON.stringify(exportProject, null, 2));
-
-    const content = await zip.generateAsync({ type: 'blob' });
-    const normalizedFileName = fileName.endsWith('.zip') ? fileName : `${fileName}.zip`;
-    triggerDownload(content, normalizedFileName);
+    if (thumbnailDataUrl) {
+      const thumbnailBlob = await urlToBlob(thumbnailDataUrl);
+      if (thumbnailBlob) {
+        zip.file('thumbnail.svg', thumbnailBlob);
+      }
+    }
 
     return exportProject;
   };
 
-  const importZip = async (file: File) => {
-    if (file.name.endsWith('.json')) {
+  const exportZip = async ({
+    projectData,
+    fileName,
+    filePath,
+    thumbnailDataUrl,
+    defaultSaveDir,
+  }: ExportZipParams): Promise<ProjectExportResult> => {
+    const zip = new JSZip();
+    const exportProject = await writeProjectToZip(zip, projectData, thumbnailDataUrl);
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const normalizedFileName = fileName.endsWith('.zip') ? fileName : `${fileName}.zip`;
+    const desktopResult = await saveZipWithTauri(
+      content,
+      normalizedFileName,
+      filePath,
+      defaultSaveDir,
+    );
+    if (desktopResult) {
       return {
-        projectData: JSON.parse(await file.text()) as ProjectSnapshotData,
-        zip: null,
+        ...desktopResult,
+        projectData: exportProject,
       };
+    }
+
+    triggerDownload(content, normalizedFileName);
+
+    return {
+      projectData: exportProject,
+      filePath: null,
+      canceled: false,
+    };
+  };
+
+  const exportProjectBundle = async ({
+    projects,
+    fileName,
+    defaultSaveDir,
+  }: ExportProjectBundleParams): Promise<ProjectExportResult> => {
+    const zip = new JSZip();
+    const usedFolders = new Set<string>();
+
+    for (const [index, project] of projects.entries()) {
+      const baseFolderName = safeZipFolderName(project.projectName, `project-${index + 1}`);
+      let folderName = baseFolderName;
+      let duplicateIndex = 2;
+      while (usedFolders.has(folderName)) {
+        folderName = `${baseFolderName}-${duplicateIndex}`;
+        duplicateIndex += 1;
+      }
+      usedFolders.add(folderName);
+
+      const projectFolder = zip.folder(folderName);
+      if (!projectFolder) continue;
+      await writeProjectToZip(projectFolder, project.projectData, project.thumbnailDataUrl);
+    }
+
+    zip.file(
+      'galwriter-project-bundle.json',
+      JSON.stringify(
+        {
+          type: 'galwriter-project-bundle',
+          version: 1,
+          projectCount: projects.length,
+          exportedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    );
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const normalizedFileName = fileName.endsWith('.zip') ? fileName : `${fileName}.zip`;
+    const desktopResult = await saveZipWithTauri(content, normalizedFileName, null, defaultSaveDir);
+    if (desktopResult) return desktopResult;
+
+    triggerDownload(content, normalizedFileName);
+
+    return {
+      projectData: {} as ProjectSnapshotData,
+      filePath: null,
+      canceled: false,
+    };
+  };
+
+  const importProjectEntries = async (file: File): Promise<ImportedProjectEntry[]> => {
+    if (file.name.endsWith('.json')) {
+      return [{
+        projectData: JSON.parse(await file.text()) as ProjectSnapshotData,
+        suggestedProjectName: file.name.replace(/\.json$/i, '').trim() || 'imported-project',
+        zip: null,
+        thumbnailDataUrl: null,
+      }];
     }
 
     const zip = await JSZip.loadAsync(file);
     const projectJsonFile = zip.file('project.json');
-    if (!projectJsonFile) throw new Error('Invalid project: project.json not found');
+    if (!projectJsonFile) {
+      const projectJsonFiles = Object.values(zip.files).filter(
+        (entry) => !entry.dir && /(^|\/)project\.json$/i.test(entry.name),
+      );
+      if (projectJsonFiles.length === 0) {
+        throw new Error('Invalid project: project.json not found');
+      }
 
-    return {
+      return Promise.all(
+        projectJsonFiles.map(async (entry) => {
+          const folderPrefix = entry.name.replace(/project\.json$/i, '');
+          const entryZip = new JSZip();
+          const filesInFolder = Object.values(zip.files).filter(
+            (fileEntry) => !fileEntry.dir && fileEntry.name.startsWith(folderPrefix),
+          );
+
+          await Promise.all(
+            filesInFolder.map(async (fileEntry) => {
+              const relativePath = fileEntry.name.slice(folderPrefix.length);
+              entryZip.file(relativePath, await fileEntry.async('blob'));
+            }),
+          );
+
+          const entryProjectJson = entryZip.file('project.json');
+          if (!entryProjectJson) throw new Error('Invalid bundled project');
+          const thumbnailFile = entryZip.file('thumbnail.svg') ?? entryZip.file('thumbnail.png');
+          const folderName = folderPrefix.replace(/\/$/, '').split('/').pop() || 'imported-project';
+
+          return {
+            projectData: JSON.parse(await entryProjectJson.async('string')) as ProjectSnapshotData,
+            suggestedProjectName: folderName.trim() || 'imported-project',
+            zip: entryZip,
+            thumbnailDataUrl: thumbnailFile
+              ? await blobToDataUrl(await thumbnailFile.async('blob'))
+              : null,
+          };
+        }),
+      );
+    }
+
+    const thumbnailFile = zip.file('thumbnail.svg') ?? zip.file('thumbnail.png');
+
+    return [{
       projectData: JSON.parse(await projectJsonFile.async('string')) as ProjectSnapshotData,
+      suggestedProjectName: file.name.replace(/\.(zip|json)$/i, '').trim() || 'imported-project',
       zip,
-    };
+      thumbnailDataUrl: thumbnailFile
+        ? await blobToDataUrl(await thumbnailFile.async('blob'))
+        : null,
+    }];
+  };
+
+  const importZip = async (file: File) => {
+    const [entry] = await importProjectEntries(file);
+    if (!entry) throw new Error('Invalid project: project.json not found');
+    return entry;
   };
 
   const restoreImportedProject = async (projectData: ProjectSnapshotData, zip: JSZip | null) => {
@@ -442,6 +664,8 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
   return {
     createSnapshot,
     exportZip,
+    exportProjectBundle,
+    importProjectEntries,
     importZip,
     restoreImportedProject,
     applyImportedProject,
