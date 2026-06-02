@@ -501,7 +501,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   </div>
-                  <div className={`border-t border-[var(--header-border)] pt-3 ${settingsRowClass}`}>
+                  <div className={` pt-3 ${settingsRowClass}`}>
                     <h3 className={settingsRowTitleClass}>
                       {s.language}
                     </h3>
@@ -523,7 +523,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <div className="border-t border-[var(--header-border)]" />
 
               <section className={settingsRowClass}>
                 <h3 className={settingsRowTitleClass}>
@@ -545,7 +544,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <div className="border-t border-[var(--header-border)]" />
 
               <section className={settingsRowClass}>
                 <h3 className={settingsRowTitleClass}>{s.toolbarBubbleStyle}</h3>
@@ -585,7 +583,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <div className="border-t-4 border-double border-[var(--header-border)]" />
+              {showMiniMap && (
+                <section className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {t.miniMapPosition}
+                  </h3>
+                  <div className={segmentedControlClass}>
+                    <button
+                      onClick={() => setMiniMapPosition('left')}
+                      className={compactSegmentButtonClass(miniMapPosition === 'left')}
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        {t.miniMapLeft}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setMiniMapPosition('right')}
+                      className={compactSegmentButtonClass(miniMapPosition === 'right')}
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        {t.miniMapRight}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              <div className="border-t border-[var(--header-border)]" />
 
               <section className="space-y-5">
                 <header className="flex items-center gap-3 mb-2">
@@ -675,7 +701,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <div className="border-t border-[var(--header-border)]" />
+
 
               <section className={settingsRowClass}>
                 <h3 className={settingsRowTitleClass}>{s.storyTitlePosition}</h3>
@@ -705,7 +731,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
-              <div className="border-t-4 border-double border-[var(--header-border)]" />
+              <div className="border-t border-[var(--header-border)]" />
 
               <section className="space-y-2">
                 <header className="flex items-center gap-3 mb-6">
@@ -772,241 +798,201 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   ))}
                 </div>
-                {showMiniMap && (
-                  <div className={`mt-5 ${settingsRowClass}`}>
-                    <h3 className={settingsRowTitleClass}>{t.miniMapPosition}</h3>
-                    <div className={`${segmentedControlClass} gap-1`}>
-                      <button
-                        onClick={() => setMiniMapPosition('left')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black rounded-lg transition-all ${miniMapPosition === 'left' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        {t.miniMapLeft}
-                      </button>
-                      <button
-                        onClick={() => setMiniMapPosition('right')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black rounded-lg transition-all ${miniMapPosition === 'right' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                      >
-                        {t.miniMapRight}
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </section>
             </div>
           )}
 
           {activeSettingsTab === 'playtest' && (
-            <div className="space-y-10 animate-in slide-in-from-right-4 duration-500 pb-8">
-              <section>
-                <header className="flex items-center gap-3 mb-6">
+            <div className="space-y-5 animate-in slide-in-from-right-4 duration-500 pb-8">
+              <section className="space-y-5">
+                <header className="flex items-center gap-3 mb-2">
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '剧情测试主题与排版' : 'Playtest Theme & Layout'}
                   </h3>
                 </header>
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Playtest Layout Mode */}
-                  <div
-                    className={`space-y-3 ${playTestLayoutMode !== 'classic' ? 'col-span-2' : ''}`}
-                  >
-                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                      {t.playtestLayoutMode}
-                    </label>
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+
+                {/* Playtest Layout Mode */}
+                <div className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {t.playtestLayoutMode}
+                  </h3>
+                  <div className={segmentedControlClass}>
+                    <button
+                      onClick={() => setPlayTestLayoutMode('classic')}
+                      className={compactSegmentButtonClass(playTestLayoutMode === 'classic')}
+                    >
+                      {t.layoutClassic}
+                    </button>
+                    <button
+                      onClick={() => setPlayTestLayoutMode('immersive')}
+                      className={compactSegmentButtonClass(playTestLayoutMode === 'immersive')}
+                    >
+                      {t.layoutImmersive}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Playtest Theme */}
+                {playTestLayoutMode === 'classic' && (
+                  <div className={settingsRowClass}>
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh' ? '测试界面主题' : 'Playtest Theme'}
+                    </h3>
+                    <div className={segmentedControlClass}>
                       <button
-                        onClick={() => setPlayTestLayoutMode('classic')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${playTestLayoutMode === 'classic' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        onClick={() => setPlayTestDarkMode(false)}
+                        className={compactSegmentButtonClass(!playTestDarkMode)}
                       >
-                        {t.layoutClassic}
+                        {t.lightMode}
                       </button>
                       <button
-                        onClick={() => setPlayTestLayoutMode('immersive')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${playTestLayoutMode === 'immersive' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        onClick={() => setPlayTestDarkMode(true)}
+                        className={compactSegmentButtonClass(playTestDarkMode)}
                       >
-                        {t.layoutImmersive}
+                        {t.darkMode}
                       </button>
                     </div>
                   </div>
+                )}
+              </section>
 
-                  {/* Playtest Theme */}
-                  {playTestLayoutMode === 'classic' && (
-                    <div className="space-y-3">
-                      <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                        {language === 'zh' ? '测试界面主题' : 'Playtest Theme'}
-                      </label>
-                      <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
-                        <button
-                          onClick={() => setPlayTestDarkMode(false)}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!playTestDarkMode ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {t.lightMode}
-                        </button>
-                        <button
-                          onClick={() => setPlayTestDarkMode(true)}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${playTestDarkMode ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {t.darkMode}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+              {/* Playtest Choices Position */}
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '选项按钮位置' : 'Choice Position'}
+                </h3>
+                <div className={segmentedControlClass}>
+                  {[
+                    { id: 'center', label: language === 'zh' ? '画面中间' : 'Center' },
+                    { id: 'aboveText', label: language === 'zh' ? '文字上方' : 'Above Text' },
+                    { id: 'belowText', label: language === 'zh' ? '文字下方' : 'Below Text' },
+                  ].map((pos) => (
+                    <button
+                      key={pos.id}
+                      onClick={() => setPlayTestChoicesPosition(pos.id as any)}
+                      className={compactSegmentButtonClass(playTestChoicesPosition === pos.id)}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
                 </div>
               </section>
 
-              <div className="flex flex-col">
-                {/* Playtest Choices Position */}
-                <section>
-                  <header className="flex items-center gap-3 mb-6">
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '选项按钮位置' : 'Choice Position'}
-                    </h3>
-                  </header>
-                  <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
-                    {[
-                      { id: 'center', label: language === 'zh' ? '画面中间' : 'Center' },
-                      { id: 'aboveText', label: language === 'zh' ? '文字上方' : 'Above Text' },
-                      { id: 'belowText', label: language === 'zh' ? '文字下方' : 'Below Text' },
-                    ].map((pos) => (
+              {/* Playtest Choices Columns */}
+              <div
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  playTestChoicesPosition !== 'center'
+                    ? 'max-h-[200px] opacity-100'
+                    : 'max-h-0 opacity-0 pointer-events-none'
+                }`}
+              >
+                <section className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {t.choiceColumns}
+                  </h3>
+                  <div className={segmentedControlClass}>
+                    {[1, 2, 3].map((cols) => (
                       <button
-                        key={pos.id}
-                        onClick={() => setPlayTestChoicesPosition(pos.id as any)}
-                        className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestChoicesPosition === pos.id ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        key={cols}
+                        onClick={() => setPlayTestChoicesColumns(cols)}
+                        className={compactSegmentButtonClass(playTestChoicesColumns === cols)}
                       >
-                        {pos.label}
+                        {t[`column${cols}` as keyof typeof t]}
                       </button>
                     ))}
                   </div>
                 </section>
-
-                {/* Playtest Choices Columns */}
-                <div
-                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    playTestChoicesPosition !== 'center'
-                      ? 'max-h-[200px] opacity-100 mt-10'
-                      : 'max-h-0 opacity-0 mt-0'
-                  }`}
-                >
-                  <section>
-                    <header className="flex items-center gap-3 mb-6">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {t.choiceColumns}
-                      </h3>
-                    </header>
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
-                      {[1, 2, 3].map((cols) => (
-                        <button
-                          key={cols}
-                          onClick={() => setPlayTestChoicesColumns(cols)}
-                          className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestChoicesColumns === cols ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {t[`column${cols}` as keyof typeof t]}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                </div>
               </div>
 
-              <div className="flex flex-col">
-                {/* Playtest Blur Background */}
-                <section>
-                  <header className="flex items-center gap-3 mb-6">
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '选项弹出背景虚化' : 'Blur Choice Background'}
-                    </h3>
-                  </header>
-                  <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+              {/* Playtest Blur Background */}
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '选项背景虚化' : 'Blur Background'}
+                </h3>
+                <div className={segmentedControlClass}>
+                  {[
+                    {
+                      id: 'true',
+                      value: true,
+                      label: language === 'zh' ? '开启' : 'Enabled',
+                    },
+                    {
+                      id: 'false',
+                      value: false,
+                      label: language === 'zh' ? '关闭' : 'Disabled',
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setPlayTestBlurBackground(opt.value)}
+                      className={compactSegmentButtonClass(playTestBlurBackground === opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Playtest Blur Text */}
+              <div
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  playTestBlurBackground
+                    ? 'max-h-[200px] opacity-100'
+                    : 'max-h-0 opacity-0 pointer-events-none'
+                }`}
+              >
+                <section className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {language === 'zh' ? '虚化剧情文字' : 'Blur Story Text'}
+                  </h3>
+                  <div className={segmentedControlClass}>
                     {[
                       {
                         id: 'true',
                         value: true,
-                        label: language === 'zh' ? '开启背景虚化' : 'Enabled',
+                        label: language === 'zh' ? '模糊' : 'Blur',
                       },
                       {
                         id: 'false',
                         value: false,
-                        label: language === 'zh' ? '关闭背景虚化' : 'Disabled',
+                        label: language === 'zh' ? '清晰' : 'Clear',
                       },
                     ].map((opt) => (
                       <button
                         key={opt.id}
-                        onClick={() => setPlayTestBlurBackground(opt.value)}
-                        className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestBlurBackground === opt.value ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        onClick={() => setPlayTestBlurText(opt.value)}
+                        className={compactSegmentButtonClass(playTestBlurText === opt.value)}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
                 </section>
-
-                {/* Playtest Blur Text */}
-                <div
-                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    playTestBlurBackground
-                      ? 'max-h-[200px] opacity-100 mt-10'
-                      : 'max-h-0 opacity-0 mt-0'
-                  }`}
-                >
-                  <section>
-                    <header className="flex items-center gap-3 mb-6">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '虚化时模糊剧情文字' : 'Blur Story Text Too'}
-                      </h3>
-                    </header>
-                    <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
-                      {[
-                        {
-                          id: 'true',
-                          value: true,
-                          label: language === 'zh' ? '文字也虚化' : 'Blur Text',
-                        },
-                        {
-                          id: 'false',
-                          value: false,
-                          label: language === 'zh' ? '文字保持清晰' : 'Keep Text Clear',
-                        },
-                      ].map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => setPlayTestBlurText(opt.value)}
-                          className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestBlurText === opt.value ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                </div>
               </div>
 
               {/* Playtest Skip Single Choice Popup */}
               {playTestChoicesPosition === 'center' && (
-                <section className="animate-in fade-in slide-in-from-top-1 duration-200">
-                  <header className="flex items-center gap-3 mb-6">
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh'
-                        ? '单选项时隐藏居中弹窗'
-                        : 'Hide Center Popup for Single Choice'}
-                    </h3>
-                  </header>
-                  <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+                <section className={`animate-in fade-in slide-in-from-top-1 duration-200 ${settingsRowClass}`}>
+                  <h3 className={settingsRowTitleClass}>
+                    {language === 'zh' ? '单选项弹窗' : 'Single Choice Popup'}
+                  </h3>
+                  <div className={segmentedControlClass}>
                     {[
                       {
                         id: 'true',
                         value: true,
-                        label: language === 'zh' ? '隐藏 (点击文字继续)' : 'Hide (Click Text)',
+                        label: language === 'zh' ? '隐藏' : 'Hide',
                       },
                       {
                         id: 'false',
                         value: false,
-                        label: language === 'zh' ? '显示弹窗选择' : 'Show Popup',
+                        label: language === 'zh' ? '显示' : 'Show',
                       },
                     ].map((opt) => (
                       <button
                         key={opt.id}
                         onClick={() => setPlayTestSkipSingleChoicePopup(opt.value)}
-                        className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestSkipSingleChoicePopup === opt.value ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                        className={compactSegmentButtonClass(playTestSkipSingleChoicePopup === opt.value)}
                       >
                         {opt.label}
                       </button>
@@ -1015,23 +1001,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </section>
               )}
 
+              <div className="border-t border-[var(--header-border)]" />
+
               {/* Interaction Modes Settings */}
-              <section className="space-y-6">
-                <header className="flex items-center gap-3">
+              <section className="space-y-5">
+                <header className="flex items-center gap-3 mb-2">
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '剧情文本交互策略' : 'Story Text Interaction'}
                   </h3>
                 </header>
 
                 {/* Interaction Mode Selection */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                    {language === 'zh' ? '剧情显示模式' : 'Story Text Display Mode'}
-                  </label>
+                <div className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {language === 'zh' ? '剧情显示模式' : 'Display Mode'}
+                  </h3>
                   <select
                     value={playTestInteractionMode}
                     onChange={(e) => setPlayTestInteractionMode(e.target.value)}
-                    className="w-full px-4 py-3 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-sm font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] cursor-pointer"
+                    className="flex-1 px-4 py-2.5 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-xs font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] cursor-pointer"
                   >
                     <option
                       value="immediate"
@@ -1078,16 +1066,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Dynamic Configuration Sliders based on Mode */}
                 {playTestInteractionMode === 'typewriter' && (
-                  <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                        {language === 'zh' ? '打字速度 (每字延迟)' : 'Typewriting Speed'}
-                      </label>
-                      <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-full">
-                        {playTestTypewriterSpeed} ms/字
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
+                  <div className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}>
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh' ? '打字速度' : 'Typewriting Speed'}
+                    </h3>
+                    <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                       <input
                         type="range"
                         min={10}
@@ -1097,22 +1080,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setPlayTestTypewriterSpeed(parseInt(e.target.value))}
                         className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                       />
-                      <span className="text-[10px] font-bold text-[var(--text-muted)]">100ms</span>
+                      <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                        {playTestTypewriterSpeed} ms/字
+                      </span>
                     </div>
                   </div>
                 )}
 
                 {playTestInteractionMode === 'timed' && (
-                  <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                        {language === 'zh' ? '选择项延迟出现时间' : 'Choices Appending Delay'}
-                      </label>
-                      <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-full">
-                        {playTestChoiceDelay} 秒
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
+                  <div className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}>
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh' ? '选项出现延迟' : 'Choices Delay'}
+                    </h3>
+                    <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                       <input
                         type="range"
                         min={0.5}
@@ -1122,91 +1102,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setPlayTestChoiceDelay(parseFloat(e.target.value))}
                         className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                       />
-                      <span className="text-[10px] font-bold text-[var(--text-muted)]">10秒</span>
+                      <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                        {playTestChoiceDelay} 秒
+                      </span>
                     </div>
                   </div>
                 )}
               </section>
 
-              <section className="space-y-4">
-                <header className="flex items-center gap-3">
+              <div className="border-t border-[var(--header-border)]" />
+
+              {/* Auto Advance Settings */}
+              <section className="space-y-5">
+                <header className="flex items-center gap-3 mb-2">
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '自动翻页' : 'Auto Advance'}
                   </h3>
                 </header>
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <div className="text-sm font-bold text-[var(--text-secondary)]">
-                      {language === 'zh' ? '动画结束后自动继续' : 'Continue after animation'}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] mt-1">
+
+                <div className={settingsRowClass}>
+                  <h3 className={settingsRowTitleClass}>
+                    {language === 'zh' ? '开启自动翻页' : 'Auto Advance'}
+                  </h3>
+                  <div className="flex-1 flex items-center justify-between">
+                    <span className="text-xs text-[var(--text-muted)] font-medium">
                       {language === 'zh'
-                        ? '仅在没有多个选项时生效，多选项会暂停等待选择。'
-                        : 'Only runs when there is not more than one choice.'}
+                        ? '仅在没有多个选项时生效，多选项会暂停等待'
+                        : 'Only runs when there is not more than one choice'}
+                    </span>
+                    <button
+                      onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
+                      className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                    >
+                      <div
+                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestAutoAdvance ? 'left-6' : 'left-1'}`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {playTestAutoAdvance && (
+                  <div className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}>
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh' ? '等待秒数' : 'Wait Time'}
+                    </h3>
+                    <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
+                      <input
+                        type="range"
+                        min={1}
+                        max={10}
+                        step={1}
+                        value={playTestAutoAdvanceDelay}
+                        onChange={(e) => setPlayTestAutoAdvanceDelay(parseInt(e.target.value, 10))}
+                        className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                      />
+                      <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                        {playTestAutoAdvanceDelay} 秒
+                      </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
-                    className={`w-12 h-6 rounded-full transition-all duration-500 relative ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                  >
-                    <div
-                      className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-sm ${playTestAutoAdvance ? 'left-7' : 'left-1'}`}
-                    />
-                  </button>
-                </div>
-                <div
-                  className={`space-y-3 transition-opacity ${playTestAutoAdvance ? 'opacity-100' : 'opacity-45'}`}
-                >
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                      {language === 'zh' ? '等待秒数' : 'Wait Time'}
-                    </label>
-                    <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-full">
-                      {playTestAutoAdvanceDelay} {language === 'zh' ? '秒' : 's'}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    step={1}
-                    value={playTestAutoAdvanceDelay}
-                    disabled={!playTestAutoAdvance}
-                    onChange={(e) => setPlayTestAutoAdvanceDelay(parseInt(e.target.value, 10))}
-                    className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)] disabled:cursor-not-allowed"
-                  />
-                </div>
+                )}
               </section>
 
               {/* Playtest Dim Background */}
-              <section>
-                <header className="flex items-center gap-3 mb-6">
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '暗化背景遮罩' : 'Dim Background Overlay'}
-                  </h3>
-                </header>
-                <p className="text-xs text-[var(--text-muted)] font-medium px-1 mb-4">
-                  {language === 'zh'
-                    ? '在沉浸模式下增加一层暗色遮罩，提升文字对比度与可读性。'
-                    : 'Overlay a dark mask in immersive mode to improve text readability.'}
-                </p>
-                <div className="flex bg-[var(--app-bg)]/50 p-1.5 rounded-xl border border-[var(--header-border)]">
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '暗化背景遮罩' : 'Dim Background'}
+                </h3>
+                <div className={segmentedControlClass}>
                   {[
                     {
                       id: 'true',
                       value: true,
-                      label: language === 'zh' ? '启用遮罩' : 'Enabled',
+                      label: language === 'zh' ? '启用' : 'Enabled',
                     },
                     {
                       id: 'false',
                       value: false,
-                      label: language === 'zh' ? '关闭遮罩' : 'Disabled',
+                      label: language === 'zh' ? '关闭' : 'Disabled',
                     },
                   ].map((opt) => (
                     <button
                       key={opt.id}
                       onClick={() => setPlayTestDimBackground(opt.value)}
-                      className={`flex-1 py-3 text-xs font-black rounded-lg transition-all uppercase tracking-wider ${playTestDimBackground === opt.value ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                      className={compactSegmentButtonClass(playTestDimBackground === opt.value)}
                     >
                       {opt.label}
                     </button>
@@ -1215,22 +1194,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </section>
 
               {/* Playtest Video Autoplay */}
-              <section className="space-y-2">
-                <header className="flex items-center gap-3 mb-6">
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '多媒体设置' : 'Multimedia Settings'}
-                  </h3>
-                </header>
-                <div className="flex items-center justify-between py-4 border-b border-[var(--header-border)] last:border-0 group">
-                  <span className="text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {language === 'zh' ? '多媒体设置' : 'Multimedia'}
+                </h3>
+                <div className="flex-1 flex items-center justify-between">
+                  <span className="text-xs text-[var(--text-muted)] font-medium">
                     {t.videoAutoPlay}
                   </span>
                   <button
                     onClick={() => setPlayTestVideoAutoPlay(!playTestVideoAutoPlay)}
-                    className={`w-12 h-6 rounded-full transition-all duration-500 relative ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-lg' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                    className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                   >
                     <div
-                      className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-sm ${playTestVideoAutoPlay ? 'left-7' : 'left-1'}`}
+                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
                     />
                   </button>
                 </div>

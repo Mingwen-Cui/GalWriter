@@ -1,4 +1,4 @@
-import { ArrowLeft, BrainCircuit, ImageIcon, Volume2 } from 'lucide-react';
+﻿import { ArrowLeft, BrainCircuit, ImageIcon, Volume2 } from 'lucide-react';
 import React from 'react';
 
 import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
@@ -51,15 +51,15 @@ type EditorState = {
 };
 type DeleteState =
   | {
-      mode: 'draft';
-      name: string;
-    }
+    mode: 'draft';
+    name: string;
+  }
   | {
-      mode: 'saved';
-      kind: ProfileKind;
-      profileId: string;
-      name: string;
-    };
+    mode: 'saved';
+    kind: ProfileKind;
+    profileId: string;
+    name: string;
+  };
 
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
@@ -491,16 +491,16 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     const sdDefaults =
       provider === LOCAL_STABLE_DIFFUSION_PROVIDER
         ? {
-            negativePrompt: draft.negativePrompt ?? '',
-            steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
-            cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
-            sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
-            seed: draft.seed ?? -1,
-            restoreFaces: draft.restoreFaces ?? false,
-            enableHr: draft.enableHr ?? false,
-            hrScale: draft.hrScale ?? 2,
-            denoisingStrength: draft.denoisingStrength ?? 0.7,
-          }
+          negativePrompt: draft.negativePrompt ?? '',
+          steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
+          cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+          sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
+          seed: draft.seed ?? -1,
+          restoreFaces: draft.restoreFaces ?? false,
+          enableHr: draft.enableHr ?? false,
+          hrScale: draft.hrScale ?? 2,
+          denoisingStrength: draft.denoisingStrength ?? 0.7,
+        }
         : {};
     return {
       ...draft,
@@ -922,16 +922,14 @@ export function AISettingsPanel({
                   <button
                     type="button"
                     onClick={() => updateDraft({ thinkingMode: !draft.thinkingMode })}
-                    className={`relative h-7 w-14 rounded-full transition-all ${
-                      draft.thinkingMode
-                        ? 'bg-[var(--accent)]'
-                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                    }`}
+                    className={`relative h-7 w-14 rounded-full transition-all ${draft.thinkingMode
+                      ? 'bg-[var(--accent)]'
+                      : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                      }`}
                   >
                     <div
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
-                        draft.thinkingMode ? 'left-8' : 'left-1'
-                      }`}
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${draft.thinkingMode ? 'left-8' : 'left-1'
+                        }`}
                     />
                   </button>
                 </div>
@@ -962,11 +960,10 @@ export function AISettingsPanel({
                   </div>
                   {imageTemplateImportStatus !== 'idle' && (
                     <p
-                      className={`text-xs font-bold ${
-                        imageTemplateImportStatus === 'success'
-                          ? 'text-emerald-500'
-                          : 'text-amber-500'
-                      }`}
+                      className={`text-xs font-bold ${imageTemplateImportStatus === 'success'
+                        ? 'text-emerald-500'
+                        : 'text-amber-500'
+                        }`}
                     >
                       {imageTemplateImportStatus === 'success'
                         ? language === 'zh'
@@ -1241,15 +1238,15 @@ export function AISettingsPanel({
                   mode: editorState.mode === 'create' ? 'draft' : 'saved',
                   ...(editorState.mode === 'create'
                     ? {
-                        name: draft.name.trim() || (language === 'zh' ? '未保存配置' : 'Unsaved profile'),
-                      }
+                      name: draft.name.trim() || (language === 'zh' ? '未保存配置' : 'Unsaved profile'),
+                    }
                     : {
-                        kind: editorState.kind,
-                        profileId: editorState.profileId || '',
-                        name:
-                          draft.name.trim() ||
-                          buildFallbackProfileName(editorState.kind, language),
-                      }),
+                      kind: editorState.kind,
+                      profileId: editorState.profileId || '',
+                      name:
+                        draft.name.trim() ||
+                        buildFallbackProfileName(editorState.kind, language),
+                    }),
                 } as DeleteState)
               }
               className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 text-sm font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-[0.99] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
@@ -1345,19 +1342,17 @@ export function AISettingsPanel({
                                   onClick={() => {
                                     void onSelectAIProfile(section.kind, profile.id);
                                   }}
-                                  className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${
-                                    isActive
-                                      ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-md ring-2 ring-[var(--accent)]/15'
-                                      : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35'
-                                  }`}
+                                  className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${isActive
+                                    ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-md ring-2 ring-[var(--accent)]/15'
+                                    : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35'
+                                    }`}
                                 >
                                   <div className="flex items-center justify-between gap-4">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
                                         <span
-                                          className={`h-2.5 w-2.5 rounded-full ${
-                                            isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
-                                          }`}
+                                          className={`h-2.5 w-2.5 rounded-full ${isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
+                                            }`}
                                         />
                                         <p className="truncate text-sm font-black text-[var(--text-primary)]">
                                           {profile.name}
@@ -1462,33 +1457,29 @@ export function AISettingsPanel({
                         [item.key]: !aiButtonsConfig[item.key],
                       })
                     }
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all ${
-                      aiButtonsConfig[item.key]
-                        ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 hover:bg-[var(--accent)]/10'
-                        : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-50 hover:opacity-70'
-                    }`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all ${aiButtonsConfig[item.key]
+                      ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 hover:bg-[var(--accent)]/10'
+                      : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-50 hover:opacity-70'
+                      }`}
                   >
                     <span className="text-lg">{item.emoji}</span>
                     <span
-                      className={`flex-1 text-sm font-semibold ${
-                        aiButtonsConfig[item.key]
-                          ? 'text-[var(--text-primary)]'
-                          : 'text-[var(--text-muted)]'
-                      }`}
+                      className={`flex-1 text-sm font-semibold ${aiButtonsConfig[item.key]
+                        ? 'text-[var(--text-primary)]'
+                        : 'text-[var(--text-muted)]'
+                        }`}
                     >
                       {item.label}
                     </span>
                     <div
-                      className={`relative h-5 w-10 rounded-full transition-all ${
-                        aiButtonsConfig[item.key]
-                          ? 'bg-[var(--accent)]'
-                          : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                      }`}
+                      className={`relative h-5 w-10 rounded-full transition-all ${aiButtonsConfig[item.key]
+                        ? 'bg-[var(--accent)]'
+                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                        }`}
                     >
                       <div
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
-                          aiButtonsConfig[item.key] ? 'left-5' : 'left-0.5'
-                        }`}
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${aiButtonsConfig[item.key] ? 'left-5' : 'left-0.5'
+                          }`}
                       />
                     </div>
                   </div>
@@ -1509,16 +1500,14 @@ export function AISettingsPanel({
                   className="rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                 >
                   <div
-                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
-                      showCustomAiPrompts
-                        ? 'bg-[var(--accent)] shadow-lg'
-                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                    }`}
+                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${showCustomAiPrompts
+                      ? 'bg-[var(--accent)] shadow-lg'
+                      : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                      }`}
                   >
                     <div
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
-                        showCustomAiPrompts ? 'left-6' : 'left-1'
-                      }`}
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${showCustomAiPrompts ? 'left-6' : 'left-1'
+                        }`}
                     />
                   </div>
                 </button>
