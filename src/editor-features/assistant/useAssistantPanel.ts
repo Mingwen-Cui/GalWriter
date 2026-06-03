@@ -51,6 +51,12 @@ type AssistantSpeechRecognitionInstance = {
 
 type AssistantSpeechRecognitionCtor = new () => AssistantSpeechRecognitionInstance;
 
+type AssistantHistorySnapshot = {
+  tasks: AssistantTask[];
+  activeTaskId: string;
+  input: string;
+};
+
 const createAssistantWelcomeMessage = (): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
@@ -69,6 +75,12 @@ const createInitialAssistantTask = (language: 'zh' | 'en'): AssistantTask => {
   };
 };
 
+const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
+  tasks.map((task) => ({
+    ...task,
+    messages: task.messages.map((message) => ({ ...message })),
+  }));
+
 interface UseAssistantPanelParams {
   language: 'zh' | 'en';
   isMobile: boolean;
@@ -77,6 +89,8 @@ interface UseAssistantPanelParams {
   nodes: Node[];
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
   createAssistantCards: (cards: AssistantCardDraft[], mode?: 'append' | 'fill-selected') => number;
+  hasTextApiKey: boolean;
+  onMissingTextApiKeyRequest?: () => void;
 }
 
 interface UseAssistantPanelResult {
@@ -110,6 +124,10 @@ interface UseAssistantPanelResult {
   handleAssistantResizePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerUp: () => void;
+  handleAssistantUndo: () => void;
+  handleAssistantRedo: () => void;
+  canAssistantUndo: boolean;
+  canAssistantRedo: boolean;
   resetAssistantTasks: (tasks?: AssistantTask[], activeTaskId?: string | null) => void;
 }
 
@@ -121,6 +139,8 @@ export const useAssistantPanel = ({
   nodes,
   callAIForTextResult,
   createAssistantCards,
+  hasTextApiKey,
+  onMissingTextApiKeyRequest,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantWidth, setAssistantWidth] = useState(360);
@@ -143,6 +163,12 @@ export const useAssistantPanel = ({
   const [assistantTaskPendingCloseId, setAssistantTaskPendingCloseId] = useState<string | null>(null);
   const assistantMessagesRef = useRef<HTMLDivElement>(null);
   const assistantThoughtTimerRef = useRef<number | null>(null);
+  const assistantTasksRef = useRef<AssistantTask[]>([]);
+  const activeAssistantTaskIdRef = useRef(activeAssistantTaskId);
+  const assistantInputRef = useRef(assistantInput);
+  const assistantHistoryPastRef = useRef<AssistantHistorySnapshot[]>([]);
+  const assistantHistoryFutureRef = useRef<AssistantHistorySnapshot[]>([]);
+  const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
 
   const assistantPanelWidth = Math.min(
     Math.max(assistantWidth, 300),
@@ -154,6 +180,81 @@ export const useAssistantPanel = ({
     [assistantTasks, activeAssistantTaskId],
   );
   const assistantMessages = activeAssistantTask?.messages || [];
+
+  useEffect(() => {
+    assistantTasksRef.current = assistantTasks;
+  }, [assistantTasks]);
+
+  useEffect(() => {
+    activeAssistantTaskIdRef.current = activeAssistantTaskId;
+  }, [activeAssistantTaskId]);
+
+  useEffect(() => {
+    assistantInputRef.current = assistantInput;
+  }, [assistantInput]);
+
+  const createAssistantHistorySnapshot = useCallback(
+    (): AssistantHistorySnapshot => ({
+      tasks: cloneAssistantTasks(assistantTasksRef.current),
+      activeTaskId: activeAssistantTaskIdRef.current,
+      input: assistantInputRef.current,
+    }),
+    [],
+  );
+
+  const restoreAssistantHistorySnapshot = useCallback((snapshot: AssistantHistorySnapshot) => {
+    if (assistantThoughtTimerRef.current !== null) {
+      window.clearInterval(assistantThoughtTimerRef.current);
+      assistantThoughtTimerRef.current = null;
+    }
+
+    const restoredTasks = cloneAssistantTasks(snapshot.tasks);
+    assistantTasksRef.current = restoredTasks;
+    activeAssistantTaskIdRef.current = snapshot.activeTaskId;
+    assistantInputRef.current = snapshot.input;
+    setAssistantTasks(restoredTasks);
+    setActiveAssistantTaskId(snapshot.activeTaskId);
+    setAssistantInput(snapshot.input);
+    setAssistantLoading(false);
+  }, []);
+
+  const pushAssistantHistory = useCallback(() => {
+    assistantHistoryPastRef.current = [
+      ...assistantHistoryPastRef.current.slice(-39),
+      createAssistantHistorySnapshot(),
+    ];
+    assistantHistoryFutureRef.current = [];
+    setAssistantHistoryVersion((version) => version + 1);
+  }, [createAssistantHistorySnapshot]);
+
+  const handleAssistantUndo = useCallback(() => {
+    if (assistantLoading || assistantHistoryPastRef.current.length === 0) return;
+
+    const previous = assistantHistoryPastRef.current[assistantHistoryPastRef.current.length - 1];
+    assistantHistoryPastRef.current = assistantHistoryPastRef.current.slice(0, -1);
+    assistantHistoryFutureRef.current = [
+      createAssistantHistorySnapshot(),
+      ...assistantHistoryFutureRef.current,
+    ].slice(0, 40);
+    restoreAssistantHistorySnapshot(previous);
+    setAssistantHistoryVersion((version) => version + 1);
+  }, [assistantLoading, createAssistantHistorySnapshot, restoreAssistantHistorySnapshot]);
+
+  const handleAssistantRedo = useCallback(() => {
+    if (assistantLoading || assistantHistoryFutureRef.current.length === 0) return;
+
+    const next = assistantHistoryFutureRef.current[0];
+    assistantHistoryFutureRef.current = assistantHistoryFutureRef.current.slice(1);
+    assistantHistoryPastRef.current = [
+      ...assistantHistoryPastRef.current.slice(-39),
+      createAssistantHistorySnapshot(),
+    ];
+    restoreAssistantHistorySnapshot(next);
+    setAssistantHistoryVersion((version) => version + 1);
+  }, [assistantLoading, createAssistantHistorySnapshot, restoreAssistantHistorySnapshot]);
+
+  const canAssistantUndo = assistantHistoryVersion >= 0 && assistantHistoryPastRef.current.length > 0;
+  const canAssistantRedo = assistantHistoryVersion >= 0 && assistantHistoryFutureRef.current.length > 0;
 
   const setAssistantMessages = useCallback(
     (updater: SetStateAction<AssistantMessage[]>) => {
@@ -200,6 +301,9 @@ export const useAssistantPanel = ({
     ]);
     setActiveAssistantTaskId(id);
     setAssistantInput('');
+    assistantHistoryPastRef.current = [];
+    assistantHistoryFutureRef.current = [];
+    setAssistantHistoryVersion((version) => version + 1);
   }, [language]);
 
   const resetAssistantTasks = useCallback(
@@ -219,6 +323,9 @@ export const useAssistantPanel = ({
       setAssistantTasks(nextTasks);
       setActiveAssistantTaskId(nextActiveTaskId);
       setAssistantInput('');
+      assistantHistoryPastRef.current = [];
+      assistantHistoryFutureRef.current = [];
+      setAssistantHistoryVersion((version) => version + 1);
       setAssistantLoading(false);
       setAssistantListening(false);
       setAssistantDocuments((documents) => {
@@ -409,10 +516,28 @@ export const useAssistantPanel = ({
       const userText = (overrideText ?? assistantInput).trim();
       if (!userText || assistantLoading) return;
 
+      pushAssistantHistory();
       setAssistantInput('');
       setAssistantLoading(true);
       const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
       setAssistantMessages((messages) => [...messages, userMessage]);
+
+      if (!hasTextApiKey) {
+        onMissingTextApiKeyRequest?.();
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? '还没有配置文本 AI 接口。请点击右侧工具栏的设置按钮，在“AI 接口配置”里添加 API Key 后再开始对话。'
+                : 'No text AI API is configured yet. Click the settings button on the right toolbar, then add an API key in AI Provider Profiles before chatting.',
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
 
       const describeAssistantNode = (node: Node, index: number) => {
         if (node.type === 'characterNode') {
@@ -532,8 +657,12 @@ ${canvasContext || '无'}`;
       assistantDocuments,
       callAIForTextResult,
       createAssistantCards,
+      hasTextApiKey,
+      language,
       nodes,
+      onMissingTextApiKeyRequest,
       playAssistantThought,
+      pushAssistantHistory,
       selectedAssistantTargetNodes,
       setAssistantMessages,
     ],
@@ -649,6 +778,10 @@ ${canvasContext || '无'}`;
     handleAssistantResizePointerDown,
     handleAssistantResizePointerMove,
     handleAssistantResizePointerUp,
+    handleAssistantUndo,
+    handleAssistantRedo,
+    canAssistantUndo,
+    canAssistantRedo,
     resetAssistantTasks,
   };
 };

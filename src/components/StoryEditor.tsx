@@ -404,6 +404,7 @@ export function StoryEditor() {
   const [storyTitlePlacement, setStoryTitlePlacement] = useState<StoryTitlePlacement>('inside');
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsAttention, setSettingsAttention] = useState(false);
   const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
   const [activeTextProfileId, setActiveTextProfileId] = useState<string | null>(null);
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
@@ -453,7 +454,7 @@ export function StoryEditor() {
   const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [includeApiProfilesInExport, setIncludeApiProfilesInExport] = useState(false);
-  const [showProjectHome, setShowProjectHome] = useState(true);
+  const [showProjectHome, setShowProjectHome] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
   const [defaultProjectSaveDir, setDefaultProjectSaveDir] = useState<string | null>(null);
@@ -825,6 +826,7 @@ export function StoryEditor() {
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
+  const missingTextApiKey = didHydrateLocalState && !activeTextProfile?.apiKey.trim();
   const importModeRef = useRef<'replace' | 'new'>('replace');
 
   const editorProjectSettings = useMemo(
@@ -1793,6 +1795,10 @@ export function StoryEditor() {
     handleAssistantResizePointerDown,
     handleAssistantResizePointerMove,
     handleAssistantResizePointerUp,
+    handleAssistantUndo,
+    handleAssistantRedo,
+    canAssistantUndo,
+    canAssistantRedo,
     resetAssistantTasks,
   } = useAssistantPanel({
     language,
@@ -1802,6 +1808,11 @@ export function StoryEditor() {
     nodes,
     callAIForTextResult,
     createAssistantCards,
+    hasTextApiKey: !missingTextApiKey,
+    onMissingTextApiKeyRequest: () => {
+      setSettingsAttention(true);
+      window.setTimeout(() => setSettingsAttention(false), 1800);
+    },
   });
 
   const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
@@ -1879,11 +1890,12 @@ export function StoryEditor() {
     setProjectSummaries(projects);
   }, []);
 
-  const handleApplySettingsToOtherProjects = useCallback(async () => {
+  const handleApplySettingsToOtherProjects = useCallback(async (targetProjectIds: string[]) => {
     try {
       const updatedCount = await localPersistenceService.applySettingsToOtherProjects(
         editorProjectSettings,
         currentProjectId,
+        targetProjectIds,
       );
       await refreshProjectSummaries();
 
@@ -2388,6 +2400,7 @@ export function StoryEditor() {
         if (cancelled) return;
         setProjectSummaries(projects);
         setProjectListLoading(false);
+        setShowProjectHome(projects.length > 0);
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
 
         setSavedAIProfiles(savedProfilesState.profiles);
@@ -2915,6 +2928,8 @@ ${direction}
             showPresetColors={showPresetColors}
             historyPastLength={history.past.length}
             historyFutureLength={history.future.length}
+            missingTextApiKey={missingTextApiKey}
+            settingsAttention={settingsAttention}
             setAssistantOpen={setAssistantOpen}
             setRightToolbarCollapsed={setRightToolbarCollapsed}
             setShowSettings={setShowSettings}
@@ -3092,10 +3107,10 @@ ${direction}
           handleAssistantResizePointerDown={handleAssistantResizePointerDown}
           handleAssistantResizePointerMove={handleAssistantResizePointerMove}
           handleAssistantResizePointerUp={handleAssistantResizePointerUp}
-          undo={undo}
-          redo={redo}
-          canUndo={history.past.length > 0}
-          canRedo={history.future.length > 0}
+          handleAssistantUndo={handleAssistantUndo}
+          handleAssistantRedo={handleAssistantRedo}
+          canAssistantUndo={canAssistantUndo}
+          canAssistantRedo={canAssistantRedo}
           showStats={showStats}
           language={language}
         />
@@ -3206,6 +3221,7 @@ ${direction}
         <SettingsModal
           showSettings={showSettings}
           setShowSettings={setShowSettings}
+          missingTextApiKey={missingTextApiKey}
           language={language}
           setLanguage={setLanguage}
           theme={theme}
@@ -3248,6 +3264,8 @@ ${direction}
           activeTextProfileId={activeTextProfileId}
           activeImageProfileId={activeImageProfileId}
           activeVoiceProfileId={activeVoiceProfileId}
+          projectSummaries={projectSummaries}
+          currentProjectId={currentProjectId}
           onCreateAIProfile={handleCreateAIProfile}
           onUpdateAIProfile={handleUpdateAIProfile}
           onSelectAIProfile={handleSelectAIProfile}

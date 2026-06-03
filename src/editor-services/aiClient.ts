@@ -113,6 +113,10 @@ export const createAIClient = (config: AIClientConfig) => {
     const configuredModel = config.model.trim();
     const configuredUrl = config.apiUrl.trim();
 
+    if (!key) {
+      throw new Error('请先点击右侧工具栏的设置按钮，在“AI 接口配置”里添加 API Key。');
+    }
+
     if (config.provider === 'deepseek') {
       if (key) {
         const model = configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');

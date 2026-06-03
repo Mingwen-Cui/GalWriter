@@ -166,14 +166,21 @@ export const localPersistenceService = {
     ]);
   },
 
-  async applySettingsToOtherProjects(settings: ProjectSettings, currentProjectId: string | null) {
+  async applySettingsToOtherProjects(
+    settings: ProjectSettings,
+    currentProjectId: string | null,
+    targetProjectIds?: string[],
+  ) {
     const projects = await listLocalProjects();
-    const targetProjects = projects.filter((project) => project.id !== currentProjectId);
+    const targetIdSet = targetProjectIds ? new Set(targetProjectIds) : null;
+    const targetProjects = projects.filter(
+      (project) => project.id !== currentProjectId && (!targetIdSet || targetIdSet.has(project.id)),
+    );
 
-    await Promise.all(
+    const results = await Promise.all(
       targetProjects.map(async (project) => {
         const snapshot = toProjectSnapshot(await getLocalProject(project.id));
-        if (!snapshot) return;
+        if (!snapshot) return false;
 
         await saveLocalProject(
           toProjectRecord({
@@ -188,9 +195,10 @@ export const localPersistenceService = {
             updatedAt: Date.now(),
           }),
         );
+        return true;
       }),
     );
 
-    return targetProjects.length;
+    return results.filter(Boolean).length;
   },
 };

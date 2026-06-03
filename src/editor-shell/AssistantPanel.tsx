@@ -60,10 +60,10 @@ interface AssistantPanelProps {
   handleAssistantResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   handleAssistantResizePointerUp: () => void;
-  undo: () => void;
-  redo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
+  handleAssistantUndo: () => void;
+  handleAssistantRedo: () => void;
+  canAssistantUndo: boolean;
+  canAssistantRedo: boolean;
   showStats: boolean;
   language: Language;
 }
@@ -96,10 +96,10 @@ export function AssistantPanel({
   handleAssistantResizePointerDown,
   handleAssistantResizePointerMove,
   handleAssistantResizePointerUp,
-  undo,
-  redo,
-  canUndo,
-  canRedo,
+  handleAssistantUndo,
+  handleAssistantRedo,
+  canAssistantUndo,
+  canAssistantRedo,
   showStats,
   language,
 }: AssistantPanelProps) {
@@ -274,18 +274,18 @@ export function AssistantPanel({
             {language === 'zh' ? '新对话' : 'New conversation'}
           </button>
           <button
-            onClick={undo}
-            disabled={!canUndo}
+            onClick={handleAssistantUndo}
+            disabled={!canAssistantUndo || assistantLoading}
             className="assistant-glass-action assistant-glass-action-undo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
-            title={language === 'zh' ? '撤回最近一次画布修改' : 'Undo canvas change'}
+            title={language === 'zh' ? '撤回最近一次助手对话文本' : 'Undo assistant conversation text'}
           >
             <Undo2 className="h-4 w-4" />
           </button>
           <button
-            onClick={redo}
-            disabled={!canRedo}
+            onClick={handleAssistantRedo}
+            disabled={!canAssistantRedo || assistantLoading}
             className="assistant-glass-action assistant-glass-action-redo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
-            title={language === 'zh' ? '恢复撤回的画布修改' : 'Redo canvas change'}
+            title={language === 'zh' ? '恢复撤回的助手对话文本' : 'Redo assistant conversation text'}
           >
             <Redo2 className="h-4 w-4" />
           </button>

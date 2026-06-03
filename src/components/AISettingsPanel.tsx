@@ -572,6 +572,7 @@ interface AISettingsPanelProps {
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
   activeVoiceProfileId: string | null;
+  missingTextApiKey: boolean;
   onCreateAIProfile: (
     kind: ProfileKind,
     initialProfile?: ProfileSeed,
@@ -593,6 +594,7 @@ export function AISettingsPanel({
   activeTextProfileId,
   activeImageProfileId,
   activeVoiceProfileId,
+  missingTextApiKey,
   onCreateAIProfile,
   onUpdateAIProfile,
   onSelectAIProfile,
@@ -1303,11 +1305,6 @@ export function AISettingsPanel({
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh' ? 'AI 接口配置' : 'AI Provider Profiles'}
                     </h3>
-                    <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                      {language === 'zh'
-                        ? '这些配置只保存在当前浏览器或桌面端本机，不会跟着项目导出。'
-                        : 'These profiles stay on this device only and are never exported with projects.'}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -1315,6 +1312,7 @@ export function AISettingsPanel({
               <div className="grid gap-5">
                 {sections.map((section) => {
                   const meta = getProfileKindMeta(section.kind, language);
+                  const showMissingApiHint = section.kind === 'text' && missingTextApiKey;
                   const profileCountLabel =
                     language === 'zh'
                       ? `${section.profiles.length} 个配置`
@@ -1336,6 +1334,9 @@ export function AISettingsPanel({
                               <h4 className="text-base font-black text-[var(--text-primary)]">
                                 {meta.title}
                               </h4>
+                              {showMissingApiHint && (
+                                <span className="h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
+                              )}
                               <span className={`rounded px-2 py-0.5 text-[10px] font-black ${meta.badge}`}>
                                 {profileCountLabel}
                               </span>

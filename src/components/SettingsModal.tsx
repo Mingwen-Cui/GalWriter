@@ -17,7 +17,6 @@ import {
 import React, { useState } from 'react';
 
 import { AISettingsPanel } from './AISettingsPanel';
-import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
 import {
   type AIButtonsConfig,
   type AIPromptsConfig,
@@ -31,10 +30,12 @@ import type {
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
 import { getTauriInvoke } from '../lib/tauriRuntime';
+import type { LocalProjectSummary } from '../lib/db';
 
 interface SettingsModalProps {
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
+  missingTextApiKey: boolean;
   language: Language;
   setLanguage: (lang: Language) => void;
   theme: 'light' | 'dark';
@@ -77,6 +78,8 @@ interface SettingsModalProps {
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
   activeVoiceProfileId: string | null;
+  projectSummaries: LocalProjectSummary[];
+  currentProjectId: string | null;
   onCreateAIProfile: (
     kind: 'text' | 'image' | 'voice',
     initialProfile?: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>,
@@ -131,7 +134,7 @@ interface SettingsModalProps {
   setPlayTestAutoAdvance: (val: boolean) => void;
   playTestAutoAdvanceDelay: number;
   setPlayTestAutoAdvanceDelay: (val: number) => void;
-  onApplySettingsToOtherProjects?: () => void | Promise<void>;
+  onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
 }
 
 const settingsText = {
@@ -275,9 +278,18 @@ const settingsText = {
   },
 } satisfies Record<Language, Record<string, string>>;
 
+const formatProjectUpdatedAt = (timestamp: number, language: Language) =>
+  new Date(timestamp).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
   setShowSettings,
+  missingTextApiKey,
   language,
   setLanguage,
   theme,
@@ -320,6 +332,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeTextProfileId,
   activeImageProfileId,
   activeVoiceProfileId,
+  projectSummaries,
+  currentProjectId,
   onCreateAIProfile,
   onUpdateAIProfile,
   onSelectAIProfile,
@@ -373,6 +387,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
+  const [selectedApplyProjectIds, setSelectedApplyProjectIds] = useState<string[]>([]);
   const forceQuitApp = async () => {
     try {
       const invoke = await getTauriInvoke();
@@ -402,13 +417,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
   const segmentedControlClass =
     'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
+  const applyTargetProjects = projectSummaries.filter((project) => project.id !== currentProjectId);
+  const allApplyTargetsSelected =
+    applyTargetProjects.length > 0 &&
+    applyTargetProjects.every((project) => selectedApplyProjectIds.includes(project.id));
+  const openApplySettingsSelector = () => {
+    setSelectedApplyProjectIds(applyTargetProjects.map((project) => project.id));
+    setShowApplySettingsConfirm(true);
+  };
+  const toggleApplyProject = (projectId: string) => {
+    setSelectedApplyProjectIds((current) =>
+      current.includes(projectId)
+        ? current.filter((selectedId) => selectedId !== projectId)
+        : [...current, projectId],
+    );
+  };
+  const toggleAllApplyProjects = () => {
+    setSelectedApplyProjectIds(allApplyTargetsSelected ? [] : applyTargetProjects.map((project) => project.id));
+  };
   const handleApplySettingsToOtherProjects = async () => {
     if (!onApplySettingsToOtherProjects || isApplyingSettings) return;
 
     setShowApplySettingsConfirm(false);
     setIsApplyingSettings(true);
     try {
-      await onApplySettingsToOtherProjects();
+      await onApplySettingsToOtherProjects(selectedApplyProjectIds);
     } finally {
       setIsApplyingSettings(false);
     }
@@ -428,7 +461,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </h2>
           <button
             type="button"
-            onClick={() => setShowApplySettingsConfirm(true)}
+            onClick={openApplySettingsSelector}
             disabled={!onApplySettingsToOtherProjects || isApplyingSettings}
             className="inline-flex h-8 items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
             title={language === 'zh' ? '应用当前设置到其他项目' : 'Apply current settings to other projects'}
@@ -481,7 +514,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveSettingsTab(tab.id as any)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
                   activeSettingsTab === tab.id
                     ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] scale-[1.02] border border-[var(--card-border)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)]/50'
@@ -497,6 +530,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {tab.icon}
                 </span>
                 {tab.label}
+                {tab.id === 'ai' && missingTextApiKey && (
+                  <span className="absolute right-3.5 top-3 h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
+                )}
               </button>
             ))}
           </div>
@@ -1338,6 +1374,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               activeTextProfileId={activeTextProfileId}
               activeImageProfileId={activeImageProfileId}
               activeVoiceProfileId={activeVoiceProfileId}
+              missingTextApiKey={missingTextApiKey}
               onCreateAIProfile={onCreateAIProfile}
               onUpdateAIProfile={onUpdateAIProfile}
               onSelectAIProfile={onSelectAIProfile}
@@ -1586,23 +1623,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
     </div>
-    <ConfirmActionModal
-      visible={showApplySettingsConfirm}
-      language={language}
-      tone="warning"
-      title={language === 'zh' ? '应用到其他项目？' : 'Apply to other projects?'}
-      description={
-        language === 'zh'
-          ? '这会把当前项目的设置同步到所有其他本地项目。每个项目的标题会保留。'
-          : 'This will sync the current project settings to all other local projects. Project titles will be preserved.'
-      }
-      confirmLabel={language === 'zh' ? '确认应用' : 'Apply'}
-      cancelLabel={language === 'zh' ? '取消' : 'Cancel'}
-      onCancel={() => setShowApplySettingsConfirm(false)}
-      onConfirm={() => {
-        void handleApplySettingsToOtherProjects();
-      }}
-    />
+    {showApplySettingsConfirm && (
+      <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+        <div className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--panel-bg)] shadow-[0_32px_80px_rgba(15,23,42,0.28)]">
+          <div className="border-b border-[var(--header-border)] px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-[var(--text-primary)]">
+                  {language === 'zh' ? '选择要应用设置的项目' : 'Choose target projects'}
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                  {language === 'zh'
+                    ? '勾选要复制当前设置的项目文件。项目标题会保留。'
+                    : 'Select the project files that should receive the current settings. Project titles will be preserved.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAllApplyProjects}
+                disabled={applyTargetProjects.length === 0}
+                className="shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {allApplyTargetsSelected
+                  ? language === 'zh'
+                    ? '取消全选'
+                    : 'Clear all'
+                  : language === 'zh'
+                    ? '全选'
+                    : 'Select all'}
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 custom-scrollbar">
+            {applyTargetProjects.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-5 py-10 text-center text-sm font-bold text-[var(--text-muted)]">
+                {language === 'zh' ? '暂无其他本地项目可应用。' : 'No other local projects available.'}
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {applyTargetProjects.map((project) => {
+                  const selected = selectedApplyProjectIds.includes(project.id);
+                  return (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => toggleApplyProject(project.id)}
+                      className={`flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-all ${
+                        selected
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]/15'
+                          : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-[var(--accent)]/35'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleApplyProject(project.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+                      />
+                      <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]">
+                        {project.thumbnailDataUrl ? (
+                          <img
+                            src={project.thumbnailDataUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            draggable={false}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-black text-[var(--text-primary)]">
+                          {project.projectName || (language === 'zh' ? '未命名项目' : 'Untitled project')}
+                        </div>
+                        <div className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                          {language === 'zh' ? '最近编辑' : 'Updated'}{' '}
+                          {formatProjectUpdatedAt(project.updatedAt, language)}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 border-t border-[var(--header-border)] px-6 py-4">
+            <button
+              type="button"
+              onClick={() => setShowApplySettingsConfirm(false)}
+              className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            >
+              {language === 'zh' ? '取消' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handleApplySettingsToOtherProjects();
+              }}
+              disabled={selectedApplyProjectIds.length === 0 || isApplyingSettings}
+              className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+            >
+              {language === 'zh'
+                ? `应用到 ${selectedApplyProjectIds.length} 个项目`
+                : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 };

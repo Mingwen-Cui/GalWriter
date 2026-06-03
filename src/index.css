@@ -939,6 +939,23 @@ input[type='range']::-moz-range-track {
   animation: toolbarSlideUp 0.3s ease-out;
 }
 
+@keyframes settingsAttentionPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+
+  45% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 6px rgba(244, 63, 94, 0.14);
+  }
+}
+
+.settings-attention-pulse {
+  animation: settingsAttentionPulse 0.9s ease-in-out 2;
+}
+
 /* 优化合并后的控制按钮样式 */
 .react-flow__controls-button {
   border: none !important;

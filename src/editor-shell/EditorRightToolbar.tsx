@@ -19,6 +19,8 @@ interface EditorRightToolbarProps {
   showPresetColors: boolean;
   historyPastLength: number;
   historyFutureLength: number;
+  missingTextApiKey: boolean;
+  settingsAttention: boolean;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setRightToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
@@ -48,6 +50,8 @@ export function EditorRightToolbar({
   showPresetColors,
   historyPastLength,
   historyFutureLength,
+  missingTextApiKey,
+  settingsAttention,
   setAssistantOpen,
   setRightToolbarCollapsed,
   setShowSettings,
@@ -133,10 +137,15 @@ export function EditorRightToolbar({
         >
           <button
             onClick={() => setShowSettings(true)}
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className={`relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
+              settingsAttention ? 'settings-attention-pulse' : ''
+            }`}
             title={t.settings}
           >
             <Settings className="h-5 w-5" />
+            {missingTextApiKey && (
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
+            )}
           </button>
 
           <button
