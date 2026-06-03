@@ -1,4 +1,4 @@
-import { Film, FolderOpen, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
+import { Download, Film, FolderOpen, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -26,7 +26,8 @@ interface EditorHeaderProps {
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   openProjectHome: () => void;
   openImportPicker: () => void;
-  handleExportJSON: () => void;
+  handleSaveProject: () => void;
+  handleExportProject: () => void;
   handleImportZIP: (event: ChangeEvent<HTMLInputElement>) => void;
   t: {
     playTest: string;
@@ -55,7 +56,8 @@ export function EditorHeader({
   setAssistantOpen,
   openProjectHome,
   openImportPicker,
-  handleExportJSON,
+  handleSaveProject,
+  handleExportProject,
   handleImportZIP,
   t,
 }: EditorHeaderProps) {
@@ -206,7 +208,7 @@ export function EditorHeader({
           >
             <button
               type="button"
-              onClick={handleExportJSON}
+              onClick={handleSaveProject}
               disabled={isSavingProject}
               className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
                 isDirty
@@ -229,6 +231,15 @@ export function EditorHeader({
               {isDirty && (
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportProject}
+              className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={language === 'zh' ? '导出 ZIP 备份文件' : 'Export ZIP backup file'}
+            >
+              <Download className="h-4 w-4" />
             </button>
 
             <button

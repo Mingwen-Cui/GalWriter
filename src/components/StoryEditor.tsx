@@ -66,6 +66,7 @@ import {
 } from '../editor-state/editorConfig';
 import type {
   ImageAIProfile,
+  ProjectAIProfilesExport,
   SavedAIProfile,
   CharacterNodeData,
   SceneNodeData,
@@ -409,6 +410,7 @@ export function StoryEditor() {
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
   const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
+  const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
 
@@ -450,6 +452,7 @@ export function StoryEditor() {
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
+  const [includeApiProfilesInExport, setIncludeApiProfilesInExport] = useState(false);
   const [showProjectHome, setShowProjectHome] = useState(true);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
@@ -565,6 +568,39 @@ export function StoryEditor() {
   const activeImageProfileName = activeImageProfile?.name ?? '';
   const activeVoiceProfileName = activeVoiceProfile?.name ?? '';
 
+  const getExportedAIProfiles = useCallback((): ProjectAIProfilesExport | null => {
+    const profiles = [activeTextProfile, activeImageProfile, activeVoiceProfile].filter(
+      (profile): profile is SavedAIProfile => Boolean(profile),
+    );
+
+    if (profiles.length === 0) return null;
+
+    const exportedProfileIds = new Set(profiles.map((profile) => profile.id));
+    return {
+      profiles,
+      activeTextProfileId:
+        activeTextProfileId && exportedProfileIds.has(activeTextProfileId)
+          ? activeTextProfileId
+          : null,
+      activeImageProfileId:
+        activeImageProfileId && exportedProfileIds.has(activeImageProfileId)
+          ? activeImageProfileId
+          : null,
+      activeVoiceProfileId:
+        activeVoiceProfileId && exportedProfileIds.has(activeVoiceProfileId)
+          ? activeVoiceProfileId
+          : null,
+      exportedAt: new Date().toISOString(),
+    };
+  }, [
+    activeImageProfile,
+    activeImageProfileId,
+    activeTextProfile,
+    activeTextProfileId,
+    activeVoiceProfile,
+    activeVoiceProfileId,
+  ]);
+
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
 
@@ -580,9 +616,14 @@ export function StoryEditor() {
     () => Promise.resolve(createProjectThumbnail(nodes, edges, canvasBg)),
     [canvasBg, edges, nodes],
   );
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+  const [toast, setToast] = useState<{
+    message: string;
+    visible: boolean;
+    tone: 'success' | 'error';
+  }>({
     message: '',
     visible: false,
+    tone: 'success',
   });
 
   const handleCreateAIProfile = useCallback(
@@ -674,8 +715,8 @@ export function StoryEditor() {
   );
 
   // NOTE: 用 useCallback 包裹以保持稳定引用，避免依赖此函数的 useCallback 在每次渲染时重建
-  const showToast = useCallback((message: string) => {
-    setToast({ message, visible: true });
+  const showToast = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
+    setToast({ message, visible: true, tone });
     setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   }, []);
 
@@ -808,6 +849,7 @@ export function StoryEditor() {
       ttsVoice,
       ttsProvider,
       thinkingMode,
+      customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
       scrollMode,
@@ -841,6 +883,7 @@ export function StoryEditor() {
       aiProvider,
       bubbleStyle,
       canvasBg,
+      customAiPromptsEnabled,
       edgeStyle,
       generateLength,
       imageApiUrl,
@@ -899,6 +942,7 @@ export function StoryEditor() {
       setShowLastSavedTime,
       setGenerateLength,
       setImageSize,
+      setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
       setScrollMode,
@@ -938,6 +982,7 @@ export function StoryEditor() {
       setStoryTitlePlacement,
       setGenerateLength,
       setImageSize,
+      setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
       setScrollMode,
@@ -1776,6 +1821,7 @@ export function StoryEditor() {
       lastSavedSnapshotRef: lastSavedSnapshot,
       showToast,
       getProjectThumbnailDataUrl: createCurrentProjectThumbnail,
+      getExportedAIProfiles,
       onProjectFilePathSaved: async (filePath) => {
         setCurrentProjectFilePath(filePath);
         if (currentProjectId) {
@@ -2174,6 +2220,18 @@ export function StoryEditor() {
             setCurrentProjectFilePath(result.filePath);
           }
         }
+        window.setTimeout(() => {
+          const savedLocation = result.filePath
+            ? result.filePath
+            : language === 'zh'
+              ? '浏览器下载文件夹'
+              : 'your browser downloads folder';
+          showToast(
+            language === 'zh'
+              ? `ZIP 备份已导出到：${savedLocation}`
+              : `ZIP backup exported to: ${savedLocation}`,
+          );
+        }, 0);
         showToast(language === 'zh' ? '项目导出成功' : 'Project exported successfully');
       } catch (e) {
         console.error(e);
@@ -2222,6 +2280,18 @@ export function StoryEditor() {
           defaultSaveDir: defaultProjectSaveDir,
         });
         if (result.canceled) return;
+        window.setTimeout(() => {
+          const savedLocation = result.filePath
+            ? result.filePath
+            : language === 'zh'
+              ? '浏览器下载文件夹'
+              : 'your browser downloads folder';
+          showToast(
+            language === 'zh'
+              ? `ZIP 整合包已导出到：${savedLocation}`
+              : `ZIP bundle exported to: ${savedLocation}`,
+          );
+        }, 0);
         showToast(language === 'zh' ? '项目整合包导出成功' : 'Project bundle exported successfully');
       } catch (e) {
         console.error(e);
@@ -2253,6 +2323,7 @@ export function StoryEditor() {
         language === 'zh'
           ? '默认保存位置仅在桌面端可设置'
           : 'Default save location can only be set in the desktop app',
+        'error',
       );
       return;
     }
@@ -2797,8 +2868,11 @@ ${direction}
         setAssistantOpen={setAssistantOpen}
         openProjectHome={() => setShowProjectHome(true)}
         openImportPicker={openImportPicker}
-        handleExportJSON={() => {
+        handleSaveProject={() => {
           void saveCurrentProject();
+        }}
+        handleExportProject={() => {
+          setShowSaveNameModal(true);
         }}
         handleImportZIP={handleImportZIP}
         t={t}
@@ -3184,6 +3258,8 @@ ${direction}
           onDeleteAIProfile={handleDeleteAIProfile}
           generateLength={generateLength}
           setGenerateLength={setGenerateLength}
+          customAiPromptsEnabled={customAiPromptsEnabled}
+          setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}
           setAiPrompts={setAiPrompts}
           aiButtonsConfig={aiButtonsConfig}
@@ -3239,9 +3315,11 @@ ${direction}
       <SaveProjectModal
         visible={showSaveNameModal}
         saveFileName={saveFileName}
+        includeApiProfiles={includeApiProfilesInExport}
         onChangeFileName={setSaveFileName}
+        onChangeIncludeApiProfiles={setIncludeApiProfilesInExport}
         onClose={() => setShowSaveNameModal(false)}
-        onConfirm={confirmExportJSON}
+        onConfirm={() => confirmExportJSON({ includeApiProfiles: includeApiProfilesInExport })}
         t={t}
       />
 
@@ -3402,7 +3480,7 @@ ${direction}
       </Suspense>
 
       {/* Global Toast Notification */}
-      <EditorToast message={toast.message} visible={toast.visible} />
+      <EditorToast message={toast.message} visible={toast.visible} tone={toast.tone} />
     </div>
   );
 }

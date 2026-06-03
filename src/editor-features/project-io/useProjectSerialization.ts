@@ -10,6 +10,7 @@ import type {
   EditorProjectSettings,
   EditorProjectSettingsSetters,
 } from '../../editor-state/editorConfig';
+import type { ProjectAIProfilesExport } from '../../domain/project';
 import { autosaveService } from '../../editor-services/autosaveService';
 import {
   createProjectSerializer,
@@ -46,6 +47,7 @@ interface UseProjectSerializationParams {
   lastSavedSnapshotRef: React.MutableRefObject<string>;
   showToast: (message: string) => void;
   getProjectThumbnailDataUrl?: () => Promise<string | null>;
+  getExportedAIProfiles?: () => ProjectAIProfilesExport | null;
   onProjectFilePathSaved?: (filePath: string) => Promise<void> | void;
   onImportedProject?: (params: {
     projectData: ProjectSnapshotData;
@@ -81,6 +83,7 @@ export const useProjectSerialization = ({
   lastSavedSnapshotRef,
   showToast,
   getProjectThumbnailDataUrl,
+  getExportedAIProfiles,
   onProjectFilePathSaved,
   onImportedProject,
   defaultEdgeOptions,
@@ -145,9 +148,15 @@ export const useProjectSerialization = ({
     ],
   );
 
-  const confirmExportZIP = useCallback(async () => {
+  const confirmExportZIP = useCallback(async (options?: { includeApiProfiles?: boolean }) => {
     try {
       const projectData = createSnapshotData();
+      if (options?.includeApiProfiles) {
+        const exportedAIProfiles = getExportedAIProfiles?.();
+        if (exportedAIProfiles?.profiles.length) {
+          projectData.exportedAIProfiles = exportedAIProfiles;
+        }
+      }
       const thumbnailDataUrl = await getProjectThumbnailDataUrl?.();
       const exportedProject = await projectSerializer.exportZip({
         projectData,
@@ -170,6 +179,16 @@ export const useProjectSerialization = ({
         await autosaveService.clearForProject(currentProjectId);
       }
       showToast(settings.language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP');
+      const savedLocation = exportedProject.filePath
+        ? exportedProject.filePath
+        : settings.language === 'zh'
+          ? '浏览器下载文件夹'
+          : 'your browser downloads folder';
+      showToast(
+        settings.language === 'zh'
+          ? `ZIP 备份已导出到：${savedLocation}`
+          : `ZIP backup exported to: ${savedLocation}`,
+      );
     } catch (error) {
       console.error('Export failed:', error);
       const message = error instanceof Error ? error.message : String(error);
@@ -182,6 +201,7 @@ export const useProjectSerialization = ({
     currentProjectId,
     currentProjectFilePath,
     defaultProjectSaveDir,
+    getExportedAIProfiles,
     getProjectThumbnailDataUrl,
     lastSavedSnapshotRef,
     onProjectFilePathSaved,

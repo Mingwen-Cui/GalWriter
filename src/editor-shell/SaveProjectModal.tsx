@@ -3,13 +3,17 @@ import { Save } from 'lucide-react';
 interface SaveProjectModalProps {
   visible: boolean;
   saveFileName: string;
+  includeApiProfiles: boolean;
   onChangeFileName: (value: string) => void;
+  onChangeIncludeApiProfiles: (value: boolean) => void;
   onClose: () => void;
   onConfirm: () => void;
   t: {
     exportProject: string;
     saveProjectDesc: string;
     projectName: string;
+    includeApiProfiles: string;
+    includeApiProfilesDesc: string;
     cancel: string;
     confirmSave: string;
   };
@@ -18,7 +22,9 @@ interface SaveProjectModalProps {
 export function SaveProjectModal({
   visible,
   saveFileName,
+  includeApiProfiles,
   onChangeFileName,
+  onChangeIncludeApiProfiles,
   onClose,
   onConfirm,
   t,
@@ -51,9 +57,26 @@ export function SaveProjectModal({
               autoFocus
             />
             <span className="absolute right-6 top-1/2 -translate-y-1/2 text-base font-bold text-slate-300 group-focus-within:text-indigo-400">
-              .json
+              .zip
             </span>
           </div>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:hover:bg-amber-950/50">
+            <input
+              type="checkbox"
+              checked={includeApiProfiles}
+              onChange={(event) => onChangeIncludeApiProfiles(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-amber-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-slate-800 dark:text-slate-100">
+                {t.includeApiProfiles}
+              </span>
+              <span className="mt-1 block text-xs font-medium leading-relaxed text-amber-700 dark:text-amber-200">
+                {t.includeApiProfilesDesc}
+              </span>
+            </span>
+          </label>
 
           <div className="flex w-full gap-4">
             <button

@@ -10,7 +10,7 @@ export const translations = {
     undo: '撤销',
     redo: '重做',
     playTest: '测试剧本',
-    save: '保存剧本',
+    save: '保存到本机库',
     import: '导入剧本',
     unsaved: '未保存',
     dirtyWarning: '您有未保存的更改，确定要离开吗？系统建议您先保存文件。',
@@ -64,7 +64,7 @@ export const translations = {
     showActions: '显示节点增加按钮',
     showStats: '显示底部统计',
     bgColors: '常用背景颜色预设',
-    aiSettings: 'AI 接口设置',
+    aiSettings: 'AI 配置',
     aiProvider: 'AI 提供商',
     genLength: '生成长度',
     thinkingMode: '思考模式',
@@ -106,11 +106,13 @@ export const translations = {
     skipForNow: '暂时跳过',
 
     // Save Modal
-    exportProject: '导出剧本工程',
+    exportProject: '导出 ZIP 备份',
     saveProjectDesc:
       '请为您的项目命名。导出的 ZIP 压缩包包含剧本逻辑及所有多媒体素材，可随时重新导入。',
     projectName: '项目名称',
-    confirmSave: '确认保存',
+    includeApiProfiles: '导出正在使用的 API 配置',
+    includeApiProfilesDesc: '勾选后会把当前启用的文本、图片、语音 API 配置和 API Key 写入 ZIP。',
+    confirmSave: '导出 ZIP',
 
     // Guide
     guideTestTitle: '项目测试与保存',
@@ -171,7 +173,7 @@ export const translations = {
     undo: 'Undo',
     redo: 'Redo',
     playTest: 'Play Test',
-    save: 'Save Project',
+    save: 'Save Locally',
     import: 'Import Project',
     unsaved: 'Unsaved',
     dirtyWarning:
@@ -229,7 +231,7 @@ export const translations = {
     showActions: 'Show node action buttons',
     showStats: 'Show footer stats',
     bgColors: 'Preset background colors',
-    aiSettings: 'AI Interface Settings',
+    aiSettings: 'AI Interface',
     aiProvider: 'AI Provider',
     genLength: 'Generation Length',
     thinkingMode: 'Thinking Mode',
@@ -271,11 +273,14 @@ export const translations = {
     skipForNow: 'Skip for now',
 
     // Save Modal
-    exportProject: 'Export Project',
+    exportProject: 'Export ZIP Backup',
     saveProjectDesc:
       'Please name your project. The exported ZIP bundle contains script logic and all media assets.',
     projectName: 'Project Name',
-    confirmSave: 'Confirm Save',
+    includeApiProfiles: 'Export active API profiles',
+    includeApiProfilesDesc:
+      'When checked, the active text, image, and voice API profiles, including API keys, are written into the ZIP.',
+    confirmSave: 'Export ZIP',
 
     // Guide
     guideTestTitle: 'Test & Save',

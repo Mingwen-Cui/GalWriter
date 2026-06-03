@@ -176,6 +176,14 @@ export interface VoiceAIProfile {
 
 export type SavedAIProfile = TextAIProfile | ImageAIProfile | VoiceAIProfile;
 
+export interface ProjectAIProfilesExport {
+  profiles: SavedAIProfile[];
+  activeTextProfileId: string | null;
+  activeImageProfileId: string | null;
+  activeVoiceProfileId: string | null;
+  exportedAt: string;
+}
+
 export interface ProjectSettings extends PlaytestSettings {
   canvasBg: string;
   edgeStyle: EdgeStyle;
@@ -197,7 +205,8 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsVoice: string;
   ttsProvider: TtsProvider;
   thinkingMode: boolean;
-  aiPrompts: AIPromptsConfig;
+  customAiPromptsEnabled: boolean;
+  aiPrompts?: AIPromptsConfig;
   aiButtonsConfig: AIButtonsConfig;
   scrollMode: ScrollMode;
   showMiniMap: boolean;
@@ -224,6 +233,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setImageSize: Dispatch<SetStateAction<string>>;
+  setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;
   setScrollMode: Dispatch<SetStateAction<ScrollMode>>;
@@ -467,4 +477,5 @@ export interface StoryProject {
   settings: ProjectSettings;
   assistantTasks?: AssistantTask[];
   activeAssistantTaskId?: string;
+  exportedAIProfiles?: ProjectAIProfilesExport;
 }

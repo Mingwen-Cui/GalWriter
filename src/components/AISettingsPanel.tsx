@@ -1,13 +1,20 @@
-﻿import { ArrowLeft, BrainCircuit, ImageIcon, Volume2 } from 'lucide-react';
+﻿import {
+  ArrowLeft,
+  BrainCircuit,
+  Check,
+  Feather,
+  ImageIcon,
+  Lightbulb,
+  MessageCircle,
+  PanelTopDashed,
+  PenLine,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Volume2,
+} from 'lucide-react';
 import React from 'react';
 
-import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
-import {
-  type AIButtonsConfig,
-  type AIPromptsConfig,
-  defaultAIButtonsConfig,
-  defaultAIPrompts,
-} from '../editor-state/editorConfig';
 import type {
   ImageAIProfile,
   SavedAIProfile,
@@ -25,6 +32,13 @@ import {
   DEFAULT_STABLE_DIFFUSION_STEPS,
   LOCAL_STABLE_DIFFUSION_PROVIDER,
 } from '../editor-features/media/imageGeneration';
+import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
+import {
+  type AIButtonsConfig,
+  type AIPromptsConfig,
+  defaultAIButtonsConfig,
+  defaultAIPrompts,
+} from '../editor-state/editorConfig';
 import { Language, translations } from '../lib/i18n';
 
 type ProfileKind = 'text' | 'image' | 'voice';
@@ -525,24 +539,30 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
   if (kind === 'text') {
     return {
       title: language === 'zh' ? '文本 AI' : 'Text AI',
+      subtitle: language === 'zh' ? '续写、润色、助手对话' : 'Writing, polishing, assistant chat',
       icon: BrainCircuit,
       accent:
-        'from-indigo-500/15 to-indigo-500/5 text-indigo-600 border-indigo-200/70 dark:border-indigo-500/30 dark:text-indigo-300',
+        'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-300',
+      badge: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300',
     };
   }
   if (kind === 'image') {
     return {
       title: language === 'zh' ? '图片 AI' : 'Image AI',
+      subtitle: language === 'zh' ? '角色、场景、背景生成' : 'Character, scene, background generation',
       icon: ImageIcon,
       accent:
-        'from-emerald-500/15 to-emerald-500/5 text-emerald-600 border-emerald-200/70 dark:border-emerald-500/30 dark:text-emerald-300',
+        'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300',
+      badge: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300',
     };
   }
   return {
     title: language === 'zh' ? '语音 AI' : 'Voice AI',
+    subtitle: language === 'zh' ? '朗读、配音、语音合成' : 'Reading, dubbing, speech generation',
     icon: Volume2,
     accent:
-      'from-sky-500/15 to-sky-500/5 text-sky-600 border-sky-200/70 dark:border-sky-500/30 dark:text-sky-300',
+      'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30 dark:text-sky-300',
+    badge: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300',
   };
 };
 
@@ -559,6 +579,8 @@ interface AISettingsPanelProps {
   onUpdateAIProfile: (profileId: string, updates: ProfileUpdates) => void | Promise<void>;
   onSelectAIProfile: (kind: ProfileKind, profileId: string) => void | Promise<void>;
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
+  customAiPromptsEnabled: boolean;
+  setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
@@ -575,6 +597,8 @@ export function AISettingsPanel({
   onUpdateAIProfile,
   onSelectAIProfile,
   onDeleteAIProfile,
+  customAiPromptsEnabled,
+  setCustomAiPromptsEnabled,
   aiPrompts,
   setAiPrompts,
   aiButtonsConfig,
@@ -583,10 +607,16 @@ export function AISettingsPanel({
   const t = translations[language];
   const [editorState, setEditorState] = React.useState<EditorState | null>(null);
   const [deleteState, setDeleteState] = React.useState<DeleteState | null>(null);
-  const [showCustomAiPrompts, setShowCustomAiPrompts] = React.useState(false);
   const [imageTemplateImportStatus, setImageTemplateImportStatus] = React.useState<
     'idle' | 'success' | 'empty' | 'blocked'
   >('idle');
+
+  const toggleCustomAiPrompts = React.useCallback(() => {
+    if (customAiPromptsEnabled) {
+      setAiPrompts(defaultAIPrompts);
+    }
+    setCustomAiPromptsEnabled(!customAiPromptsEnabled);
+  }, [customAiPromptsEnabled, setAiPrompts, setCustomAiPromptsEnabled]);
 
   const textProfiles = savedAIProfiles.filter(
     (profile): profile is TextAIProfile => profile.kind === 'text',
@@ -1269,7 +1299,6 @@ export function AISettingsPanel({
             <section className="space-y-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-6 w-1.5 rounded-full bg-[var(--accent)]" />
                   <div>
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh' ? 'AI 接口配置' : 'AI Provider Profiles'}
@@ -1286,42 +1315,49 @@ export function AISettingsPanel({
               <div className="grid gap-5">
                 {sections.map((section) => {
                   const meta = getProfileKindMeta(section.kind, language);
+                  const profileCountLabel =
+                    language === 'zh'
+                      ? `${section.profiles.length} 个配置`
+                      : `${section.profiles.length} profile${section.profiles.length === 1 ? '' : 's'}`;
                   return (
                     <div
                       key={section.kind}
-                      className="overflow-hidden rounded-[28px] border border-[var(--card-border)] bg-[var(--card-bg)]/85 shadow-sm"
+                      className="overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)]/90 shadow-sm"
                     >
-                      <div className="flex items-center justify-between gap-4 border-b border-[var(--header-border)] px-6 py-5">
-                        <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex items-start justify-between gap-4 border-b border-[var(--header-border)] px-5 py-4">
+                        <div className="flex min-w-0 items-start gap-3">
                           <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br ${meta.accent}`}
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${meta.accent}`}
                           >
                             <meta.icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="text-base font-black text-[var(--text-primary)]">
-                              {meta.title}
-                            </h4>
-                            <p className="hidden">
-                              {section.activeProfile?.name ||
-                                (language === 'zh'
-                                  ? '需要创建新的 AI 接口配置'
-                                  : 'Create a new AI profile')}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-base font-black text-[var(--text-primary)]">
+                                {meta.title}
+                              </h4>
+                              <span className={`rounded px-2 py-0.5 text-[10px] font-black ${meta.badge}`}>
+                                {profileCountLabel}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                              {meta.subtitle}
                             </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => openCreate(section.kind)}
-                          className="shrink-0 rounded-2xl border border-[var(--card-border)] bg-white px-4 py-2.5 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
                         >
+                          <Plus className="h-3.5 w-3.5" />
                           {language === 'zh' ? '新建配置' : 'New Profile'}
                         </button>
                       </div>
 
-                      <div className="max-h-[260px] overflow-y-auto px-4 py-4 custom-scrollbar">
+                      <div className="max-h-[260px] overflow-y-auto px-4 py-3 custom-scrollbar">
                         {section.profiles.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-5 py-10 text-center">
+                          <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
                               {language === 'zh' ? '还没有保存的配置' : 'No saved profiles yet'}
                             </p>
@@ -1332,7 +1368,7 @@ export function AISettingsPanel({
                             </p>
                           </div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {section.profiles.map((profile) => {
                               const isActive = profile.id === section.activeId;
                               return (
@@ -1342,32 +1378,31 @@ export function AISettingsPanel({
                                   onClick={() => {
                                     void onSelectAIProfile(section.kind, profile.id);
                                   }}
-                                  className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${isActive
-                                    ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-md ring-2 ring-[var(--accent)]/15'
-                                    : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35'
+                                  className={`w-full rounded-md border px-3.5 py-3 text-left transition-all ${isActive
+                                    ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm ring-1 ring-[var(--accent)]/15'
+                                    : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35 hover:bg-[var(--app-bg)]/55'
                                     }`}
                                 >
-                                  <div className="flex items-center justify-between gap-4">
+                                  <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2.5">
                                         <span
-                                          className={`h-2.5 w-2.5 rounded-full ${isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
+                                          className={`h-2 w-2 rounded-full ${isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
                                             }`}
                                         />
                                         <p className="truncate text-sm font-black text-[var(--text-primary)]">
                                           {profile.name}
                                         </p>
                                       </div>
-                                      <p className="hidden">
-                                        {profile.provider || 'custom'}
-                                      </p>
-                                      <p className="hidden">
+                                      <p className="mt-1 truncate pl-4.5 text-[11px] font-medium text-[var(--text-muted)]">
+                                        {(profile.provider || 'custom').toUpperCase()}
+                                        {' / '}
                                         {profile.model || (language === 'zh' ? '未指定模型' : 'No model selected')}
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
-                                      {false && isActive && (
-                                        <span className="rounded-full bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
+                                      {isActive && (
+                                        <span className="rounded bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
                                           {language === 'zh' ? '正在使用' : 'Active'}
                                         </span>
                                       )}
@@ -1376,8 +1411,9 @@ export function AISettingsPanel({
                                           event.stopPropagation();
                                           openEdit(profile);
                                         }}
-                                        className="rounded-full border border-[var(--card-border)] px-3 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                        className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                       >
+                                        <Pencil className="h-3 w-3" />
                                         {language === 'zh' ? '编辑' : 'Edit'}
                                       </span>
                                     </div>
@@ -1394,57 +1430,56 @@ export function AISettingsPanel({
               </div>
             </section>
 
-            <section className="space-y-4 border-t border-[var(--header-border)] pt-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-6 w-1.5 rounded-full bg-indigo-500 dark:bg-sky-400" />
+            <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? 'AI 续写弹窗按钮' : 'AI Action Buttons'}
                   </h3>
+                  <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                    {language === 'zh'
+                      ? '控制 AI 续写选择弹窗中显示哪些功能按钮。'
+                      : 'Control which action buttons appear in the AI writing modal.'}
+                  </p>
                 </div>
                 <button
                   onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
-                  className="rounded-lg px-2 py-1 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)]/50 hover:text-[var(--accent)]"
+                  className="shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
                   {language === 'zh' ? '全部恢复' : 'Reset All'}
                 </button>
               </div>
-              <p className="text-xs font-medium text-[var(--text-muted)]">
-                {language === 'zh'
-                  ? '控制 AI 续写选择弹窗中显示哪些功能按钮。'
-                  : 'Control which action buttons appear in the AI writing modal.'}
-              </p>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(
                   [
                     {
                       key: 'continue' as const,
-                      emoji: '✍️',
+                      Icon: PenLine,
                       label: language === 'zh' ? '根据前文续写' : 'Continue from context',
                     },
                     {
                       key: 'creative' as const,
-                      emoji: '💡',
+                      Icon: Lightbulb,
                       label: language === 'zh' ? '提供不同创意' : 'Creative alternatives',
                     },
                     {
                       key: 'rewrite' as const,
-                      emoji: '🔄',
+                      Icon: RefreshCw,
                       label: language === 'zh' ? '改写当前内容' : 'Rewrite current content',
                     },
                     {
                       key: 'interpolate' as const,
-                      emoji: '🧩',
+                      Icon: PanelTopDashed,
                       label: language === 'zh' ? '补充中间内容' : 'Fill in the gap',
                     },
                     {
                       key: 'scene_only' as const,
-                      emoji: '🏞',
+                      Icon: Feather,
                       label: language === 'zh' ? '仅增加场景描写' : 'Scene description only',
                     },
                     {
                       key: 'dialogue_only' as const,
-                      emoji: '💬',
+                      Icon: MessageCircle,
                       label: language === 'zh' ? '仅增加对话' : 'Dialogue only',
                     },
                   ] as const
@@ -1457,12 +1492,19 @@ export function AISettingsPanel({
                         [item.key]: !aiButtonsConfig[item.key],
                       })
                     }
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all ${aiButtonsConfig[item.key]
-                      ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 hover:bg-[var(--accent)]/10'
-                      : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-50 hover:opacity-70'
+                    className={`group flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${aiButtonsConfig[item.key]
+                      ? 'border-[var(--accent)]/45 bg-[var(--accent)]/5 shadow-sm'
+                      : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-70 hover:opacity-100'
                       }`}
                   >
-                    <span className="text-lg">{item.emoji}</span>
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${aiButtonsConfig[item.key]
+                        ? 'bg-[var(--accent)] text-white'
+                        : 'bg-[var(--card-bg)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+                        }`}
+                    >
+                      <item.Icon className="h-4 w-4" />
+                    </span>
                     <span
                       className={`flex-1 text-sm font-semibold ${aiButtonsConfig[item.key]
                         ? 'text-[var(--text-primary)]'
@@ -1472,53 +1514,49 @@ export function AISettingsPanel({
                       {item.label}
                     </span>
                     <div
-                      className={`relative h-5 w-10 rounded-full transition-all ${aiButtonsConfig[item.key]
-                        ? 'bg-[var(--accent)]'
-                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${aiButtonsConfig[item.key]
+                        ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                        : 'border-[var(--header-border)] bg-[var(--card-bg)] text-transparent'
                         }`}
                     >
-                      <div
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${aiButtonsConfig[item.key] ? 'left-5' : 'left-0.5'
-                          }`}
-                      />
+                      <Check className="h-3.5 w-3.5" />
                     </div>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="space-y-6 border-t border-[var(--header-border)] pt-4">
-              <div className="mb-2 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-6 w-1.5 rounded-full bg-indigo-500 dark:bg-sky-400" />
+            <section className="space-y-5 border-t border-[var(--header-border)] pt-5">
+              <div className="mb-2 flex items-start justify-between gap-4">
+                <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh' ? '自定义 AI 提示词' : 'Custom AI Prompts'}
                   </h3>
+                  <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                    {language === 'zh'
+                      ? '开启后可修改模板变量；关闭后保存项目时不会保留自定义文字。'
+                      : 'Enable to edit prompt templates. When disabled, custom text is not saved with the project.'}
+                  </p>
                 </div>
                 <button
-                  onClick={() => setShowCustomAiPrompts(!showCustomAiPrompts)}
-                  className="rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
+                  onClick={toggleCustomAiPrompts}
+                  className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                 >
                   <div
-                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${showCustomAiPrompts
+                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${customAiPromptsEnabled
                       ? 'bg-[var(--accent)] shadow-lg'
                       : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
                       }`}
                   >
                     <div
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${showCustomAiPrompts ? 'left-6' : 'left-1'
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${customAiPromptsEnabled ? 'left-6' : 'left-1'
                         }`}
                     />
                   </div>
                 </button>
               </div>
-              {showCustomAiPrompts && (
+              {customAiPromptsEnabled && (
                 <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                  <p className="mb-4 text-xs font-medium text-[var(--text-muted)]">
-                    {language === 'zh'
-                      ? '可在此处修改 AI 对话时使用的模板变量，修改会自动保存在工程中。'
-                      : 'Modify the prompt templates used for AI interactions. Changes are saved with the project.'}
-                  </p>
                   {Object.entries(aiPrompts || {}).map(([key, value]) => {
                     const labelMap: Record<string, string> = {
                       basePrompt:

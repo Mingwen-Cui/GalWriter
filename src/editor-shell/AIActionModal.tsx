@@ -1,3 +1,14 @@
+import {
+  Feather,
+  Lightbulb,
+  MessageCircle,
+  PanelTopDashed,
+  PenLine,
+  RefreshCw,
+  Sparkles,
+  X,
+} from 'lucide-react';
+
 import type { AIButtonsConfig } from '../editor-state/editorConfig';
 
 interface AIActionModalProps {
@@ -33,60 +44,54 @@ const BUTTONS = [
   {
     key: 'continue' as const,
     id: 'ai-action-continue',
-    emoji: '✍️',
-    borderClass:
-      'border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-900/50 dark:hover:border-indigo-500 dark:hover:bg-indigo-950/30',
-    titleClass: 'group-hover:text-indigo-700 dark:group-hover:text-indigo-400',
+    Icon: PenLine,
+    toneClass:
+      'bg-indigo-50 text-indigo-600 ring-indigo-100 group-hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20',
     titleKey: 'aiContinue' as const,
     descKey: 'aiContinueDesc' as const,
   },
   {
     key: 'creative' as const,
     id: 'ai-action-creative',
-    emoji: '💡',
-    borderClass:
-      'border-purple-100 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-900/50 dark:hover:border-purple-500 dark:hover:bg-purple-950/30',
-    titleClass: 'group-hover:text-purple-700 dark:group-hover:text-purple-400',
+    Icon: Lightbulb,
+    toneClass:
+      'bg-violet-50 text-violet-600 ring-violet-100 group-hover:bg-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20',
     titleKey: 'aiCreative' as const,
     descKey: 'aiCreativeDesc' as const,
   },
   {
     key: 'rewrite' as const,
     id: 'ai-action-rewrite',
-    emoji: '🔄',
-    borderClass:
-      'border-amber-100 hover:border-amber-400 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:border-amber-500 dark:hover:bg-amber-950/30',
-    titleClass: 'group-hover:text-amber-700 dark:group-hover:text-amber-400',
+    Icon: RefreshCw,
+    toneClass:
+      'bg-amber-50 text-amber-600 ring-amber-100 group-hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20',
     titleKey: 'aiRewrite' as const,
     descKey: 'aiRewriteDesc' as const,
   },
   {
     key: 'interpolate' as const,
     id: 'ai-action-interpolate',
-    emoji: '🧩',
-    borderClass:
-      'border-green-100 hover:border-green-400 hover:bg-green-50 dark:border-green-900/50 dark:hover:border-green-500 dark:hover:bg-green-950/30',
-    titleClass: 'group-hover:text-green-700 dark:group-hover:text-green-400',
+    Icon: PanelTopDashed,
+    toneClass:
+      'bg-emerald-50 text-emerald-600 ring-emerald-100 group-hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
     titleKey: 'aiInterpolate' as const,
     descKey: 'aiInterpolateDesc' as const,
   },
   {
     key: 'scene_only' as const,
     id: 'ai-action-scene',
-    emoji: '🏞',
-    borderClass:
-      'border-sky-100 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-900/50 dark:hover:border-sky-500 dark:hover:bg-sky-950/30',
-    titleClass: 'group-hover:text-sky-700 dark:group-hover:text-sky-400',
+    Icon: Feather,
+    toneClass:
+      'bg-sky-50 text-sky-600 ring-sky-100 group-hover:bg-sky-100 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20',
     titleKey: 'aiSceneOnly' as const,
     descKey: 'aiSceneOnlyDesc' as const,
   },
   {
     key: 'dialogue_only' as const,
     id: 'ai-action-dialogue',
-    emoji: '💬',
-    borderClass:
-      'border-rose-100 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:border-rose-500 dark:hover:bg-rose-950/30',
-    titleClass: 'group-hover:text-rose-700 dark:group-hover:text-rose-400',
+    Icon: MessageCircle,
+    toneClass:
+      'bg-rose-50 text-rose-600 ring-rose-100 group-hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
     titleKey: 'aiDialogueOnly' as const,
     descKey: 'aiDialogueOnlyDesc' as const,
   },
@@ -104,45 +109,59 @@ export function AIActionModal({
 
   return (
     <div
-      className="animate-in fade-in fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm duration-200"
+      className="animate-in fade-in fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm duration-200"
       onClick={onClose}
     >
       <div
-        className="animate-in slide-in-from-bottom-4 w-full max-w-sm rounded-2xl border border-transparent bg-white p-5 shadow-md duration-300 dark:border-slate-800 dark:bg-slate-900 md:p-6"
+        className="animate-in slide-in-from-bottom-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 duration-300 dark:border-slate-800 dark:bg-slate-950"
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 className="mb-1 text-base font-bold text-slate-800 dark:text-slate-100">
-          {t.aiAssistant}
-        </h3>
-        <p className="mb-5 text-xs text-slate-500 dark:text-slate-400">{t.aiChooseMethod}</p>
-        <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800 md:px-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
+                {t.aiAssistant}
+              </h3>
+              <p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">
+                {t.aiChooseMethod}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label={t.cancel}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid max-h-[62vh] grid-cols-1 gap-3 overflow-y-auto p-4 md:grid-cols-2 md:p-5">
           {BUTTONS.filter((button) => aiButtonsConfig[button.key]).map((button) => (
             <button
               key={button.key}
               id={button.id}
               onClick={() => onGenerate(pendingAINodeId, button.key)}
-              className={`group flex w-full items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all ${button.borderClass}`}
+              className="group flex min-h-28 w-full items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70 active:translate-y-0 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:shadow-black/20"
             >
-              <span className="mt-0.5 text-xl">{button.emoji}</span>
-              <div>
-                <div
-                  className={`text-sm font-semibold text-slate-800 dark:text-slate-200 ${button.titleClass}`}
-                >
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 transition-colors ${button.toneClass}`}
+              >
+                <button.Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-bold leading-5 text-slate-900 dark:text-slate-100">
                   {t[button.titleKey]}
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                   {t[button.descKey]}
                 </div>
               </div>
             </button>
           ))}
         </div>
-        <button
-          onClick={onClose}
-          className="mt-4 w-full py-2 text-sm text-slate-500 transition-colors hover:text-slate-700"
-        >
-          {t.cancel}
-        </button>
       </div>
     </div>
   );

@@ -89,6 +89,8 @@ interface SettingsModalProps {
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
   generateLength: string;
   setGenerateLength: (len: string) => void;
+  customAiPromptsEnabled: boolean;
+  setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
@@ -318,6 +320,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDeleteAIProfile,
   generateLength,
   setGenerateLength,
+  customAiPromptsEnabled,
+  setCustomAiPromptsEnabled,
   aiPrompts,
   setAiPrompts,
   aiButtonsConfig,
@@ -1226,6 +1230,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onUpdateAIProfile={onUpdateAIProfile}
               onSelectAIProfile={onSelectAIProfile}
               onDeleteAIProfile={onDeleteAIProfile}
+              customAiPromptsEnabled={customAiPromptsEnabled}
+              setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
               aiPrompts={aiPrompts}
               setAiPrompts={setAiPrompts}
               aiButtonsConfig={aiButtonsConfig}

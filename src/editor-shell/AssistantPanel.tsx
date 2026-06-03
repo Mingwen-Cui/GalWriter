@@ -3,15 +3,20 @@ import {
   ChevronDown,
   Download,
   FileText,
+  Lightbulb,
   Loader2,
+  MapPin,
   Mic,
+  PencilLine,
   Plus,
   PlusCircle,
   Redo2,
+  SearchCheck,
   Send,
   Trash2,
   Undo2,
   UploadCloud,
+  UserRound,
   X,
 } from 'lucide-react';
 import type {
@@ -21,6 +26,7 @@ import type {
   SetStateAction,
 } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
 import type { AssistantDocument } from '../lib/documentReader';
@@ -101,8 +107,20 @@ export function AssistantPanel({
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
   const [documentDragActive, setDocumentDragActive] = useState(false);
+  const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
+  const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
+  const [cardGenerateMenuPosition, setCardGenerateMenuPosition] = useState({
+    left: 0,
+    top: 0,
+  });
+  const [suggestMenuPosition, setSuggestMenuPosition] = useState({
+    left: 0,
+    top: 0,
+  });
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
+  const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (assistantOpen) {
@@ -114,8 +132,6 @@ export function AssistantPanel({
     setPanelVisible(false);
     setShouldRender(false);
   }, [assistantOpen]);
-
-  if (!shouldRender) return null;
 
   const startRenamingTask = (task: AssistantTask) => {
     setEditingTaskId(task.id);
@@ -142,6 +158,8 @@ export function AssistantPanel({
   const applyAssistantTemplate = (template: string) => {
     const cursorIndex = template.indexOf('_');
     setAssistantInput(template);
+    setCardGenerateOpen(false);
+    setSuggestMenuOpen(false);
     window.requestAnimationFrame(() => {
       const input = assistantInputRef.current;
       if (!input) return;
@@ -149,6 +167,78 @@ export function AssistantPanel({
       if (cursorIndex >= 0) input.setSelectionRange(cursorIndex, cursorIndex + 1);
     });
   };
+
+  const getFloatingMenuPosition = (button: HTMLButtonElement, menuWidth = 256) => {
+    const rect = button.getBoundingClientRect();
+    const left = Math.min(
+      Math.max(12, rect.left + rect.width / 2 - menuWidth / 2),
+      window.innerWidth - menuWidth - 12,
+    );
+    return {
+      left,
+      top: Math.max(12, rect.top - 12),
+    };
+  };
+
+  const updateCardGenerateMenuPosition = () => {
+    const button = cardGenerateButtonRef.current;
+    if (!button) return;
+    setCardGenerateMenuPosition(getFloatingMenuPosition(button));
+  };
+
+  const updateSuggestMenuPosition = () => {
+    const button = suggestButtonRef.current;
+    if (!button) return;
+    setSuggestMenuPosition(getFloatingMenuPosition(button));
+  };
+
+  const toggleCardGenerateMenu = () => {
+    if (cardGenerateOpen) {
+      setCardGenerateOpen(false);
+      return;
+    }
+
+    setSuggestMenuOpen(false);
+    updateCardGenerateMenuPosition();
+    setCardGenerateOpen(true);
+  };
+
+  const toggleSuggestMenu = () => {
+    if (suggestMenuOpen) {
+      setSuggestMenuOpen(false);
+      return;
+    }
+
+    setCardGenerateOpen(false);
+    updateSuggestMenuPosition();
+    setSuggestMenuOpen(true);
+  };
+
+  useEffect(() => {
+    if (!cardGenerateOpen) return undefined;
+
+    const handleWindowChange = () => updateCardGenerateMenuPosition();
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
+    return () => {
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
+    };
+  }, [cardGenerateOpen]);
+
+  useEffect(() => {
+    if (!suggestMenuOpen) return undefined;
+
+    const handleWindowChange = () => updateSuggestMenuPosition();
+    window.addEventListener('resize', handleWindowChange);
+    window.addEventListener('scroll', handleWindowChange, true);
+    return () => {
+      window.removeEventListener('resize', handleWindowChange);
+      window.removeEventListener('scroll', handleWindowChange, true);
+    };
+  }, [suggestMenuOpen]);
+
+  if (!shouldRender) return null;
 
   return (
     <aside
@@ -389,25 +479,31 @@ export function AssistantPanel({
         </div>
         <div className="assistant-quick-actions mb-2 flex gap-2">
           <button
-            onClick={() =>
-              handleAssistantSend('根据选中的卡片，给我三个后续剧情建议，不要生成卡片。')
-            }
+            ref={suggestButtonRef}
+            type="button"
+            onClick={toggleSuggestMenu}
             disabled={assistantLoading}
-            className="assistant-bottom-glass-action assistant-bottom-action-suggest rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="assistant-bottom-glass-action assistant-bottom-action-suggest flex items-center justify-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {language === 'zh' ? '建议' : 'Suggest'}
+            <ChevronDown className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`} />
           </button>
-          <button
-            onClick={() => handleAssistantSend('根据选中的卡片，生成并布置三张后续剧情卡片。')}
-            disabled={assistantLoading}
-            className="assistant-bottom-glass-action assistant-bottom-action-generate rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
-          >
-            {language === 'zh' ? '生成卡片' : 'Generate cards'}
-          </button>
+          <div className="relative flex-1">
+            <button
+              ref={cardGenerateButtonRef}
+              type="button"
+              onClick={toggleCardGenerateMenu}
+              disabled={assistantLoading}
+              className="assistant-bottom-glass-action assistant-bottom-action-generate flex w-full items-center justify-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
+            >
+              {language === 'zh' ? '生成卡片' : 'Generate cards'}
+              <ChevronDown className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
           <button
             onClick={() =>
               handleAssistantSend(
-                '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。',
+                '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。回复格式：按【已填字段】【补全理由】【可继续扩写】说明修改结果。',
               )
             }
             disabled={assistantLoading || selectedAssistantTargetNodesCount === 0}
@@ -451,7 +547,7 @@ export function AssistantPanel({
           <button
             onClick={handleAssistantVoiceInput}
             disabled={assistantLoading || assistantListening}
-            className={`h-9 w-9 shrink-0 rounded-xl transition-colors ${
+            className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
               assistantListening
                 ? 'animate-pulse bg-rose-500 text-white'
                 : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
@@ -473,25 +569,104 @@ export function AssistantPanel({
             )}
           </button>
         </div>
-        <div className="assistant-template-row mt-2 flex flex-col gap-2 text-xs">
+      </div>
+      {cardGenerateOpen &&
+        createPortal(
+        <div
+          className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+          style={{
+            left: cardGenerateMenuPosition.left,
+            top: cardGenerateMenuPosition.top,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => applyAssistantTemplate('根据选中的卡片，生成并布置_张后续剧情卡片。')}
+            disabled={assistantLoading}
+            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+          >
+            <PlusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              {language === 'zh'
+                ? '生成并布置_张后续剧情卡片'
+                : 'Generate _ following story cards'}
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => applyAssistantTemplate('给我生成一个_的人物卡片')}
             disabled={assistantLoading}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-left font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300"
+            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
           >
-            给我生成一个_的人物卡片
+            <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>给我生成一个_的人物卡片</span>
           </button>
           <button
             type="button"
             onClick={() => applyAssistantTemplate('给我生成一个_的地点卡片')}
             disabled={assistantLoading}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-left font-bold text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300"
+            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
           >
-            给我生成一个_的地点卡片
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>给我生成一个_的地点卡片</span>
           </button>
-        </div>
-      </div>
+        </div>,
+        document.body,
+      )}
+      {suggestMenuOpen &&
+        createPortal(
+          <div
+            className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+            style={{
+              left: suggestMenuPosition.left,
+              top: suggestMenuPosition.top,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setSuggestMenuOpen(false);
+                void handleAssistantSend(
+                  '根据选中的卡片，给我合理性建议，不要生成卡片。回复格式：按【是否合理】【问题点】【调整方案】整理，重点检查动机、因果、信息量和角色行为。',
+                );
+              }}
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <SearchCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>合理性建议</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSuggestMenuOpen(false);
+                void handleAssistantSend(
+                  '根据选中的卡片，给我修改建议，不要生成卡片。回复格式：按【可修改处】【为什么改】【改法示例】整理，优先给出能直接落笔的修改方向。',
+                );
+              }}
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <PencilLine className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>修改建议</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSuggestMenuOpen(false);
+                void handleAssistantSend(
+                  '根据选中的卡片，给我三个后续写作建议，不要生成卡片。回复格式：每条建议都包含【方向】【冲突】【下一步】三项，语言简洁具体。',
+                );
+              }}
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>后续写作建议</span>
+            </button>
+          </div>,
+          document.body,
+        )}
       {documentUploadOpen && (
         <div className="fixed inset-0 z-[360] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-950">

@@ -194,8 +194,13 @@ const applyProjectSettings = (
   }
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
+  const shouldUseCustomPrompts =
+    Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;
+  setters.setCustomAiPromptsEnabled(shouldUseCustomPrompts);
   if (incomingSettings.aiPrompts) {
     setters.setAiPrompts({ ...defaultPrompts, ...incomingSettings.aiPrompts });
+  } else {
+    setters.setAiPrompts(defaultPrompts);
   }
   if (incomingSettings.aiButtonsConfig) {
     setters.setAiButtonsConfig({
@@ -394,10 +399,15 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       data: { label: typeof edge.data?.label === 'string' ? edge.data.label : '' },
     }));
 
+    const settingsForSnapshot = { ...settings };
+    if (!settingsForSnapshot.customAiPromptsEnabled) {
+      delete settingsForSnapshot.aiPrompts;
+    }
+
     return {
       nodes: simpleNodes,
       edges: simpleEdges,
-      settings,
+      settings: settingsForSnapshot,
       assistantTasks: settings.saveAssistantConversations ? assistantTasks : undefined,
       activeAssistantTaskId: settings.saveAssistantConversations ? activeAssistantTaskId : undefined,
     } satisfies ProjectSnapshotData;

@@ -448,7 +448,7 @@ export const useAssistantPanel = ({
       const documentContext = buildAssistantDocumentContext(assistantDocuments);
 
       const wantsCards =
-        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
+        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|地点|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
           userText,
         );
       const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
@@ -468,6 +468,7 @@ export const useAssistantPanel = ({
 }
 
 当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
+如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
 
 用户请求：
 ${userText}
