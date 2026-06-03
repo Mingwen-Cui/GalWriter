@@ -4,14 +4,25 @@ use std::{
   io::Write,
   path::{Path, PathBuf},
   process::Command,
-  sync::atomic::{AtomicBool, Ordering},
+  sync::Mutex,
   time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
-struct CloseBehaviorState {
-  minimize_on_close: AtomicBool,
-}
+#[cfg(target_os = "windows")]
+use windows::{
+  core::PCWSTR,
+  Win32::{
+    System::Com::{
+      CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+      COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
+    },
+    UI::Shell::{
+      FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM,
+      FOS_PATHMUSTEXIST, FOS_PICKFOLDERS, SIGDN_FILESYSPATH,
+    },
+  },
+};
 
 #[derive(serde::Serialize)]
 struct RenderSaveResult {
@@ -59,6 +70,10 @@ struct RenderTextStyle {
   body_font_size: u32,
   title_color: String,
   body_color: String,
+}
+
+struct CloseButtonBehaviorState {
+  minimize_on_close: Mutex<bool>,
 }
 
 fn sanitize_file_name(file_name: &str) -> String {
@@ -211,8 +226,102 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
   }
 }
 
+#[cfg(target_os = "windows")]
+fn wide_null(value: &str) -> Vec<u16> {
+  value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn shell_item_path(item: &IShellItem) -> Result<String, String> {
+  let path_ptr = item
+    .GetDisplayName(SIGDN_FILESYSPATH)
+    .map_err(|err| format!("Failed to read selected folder: {err}"))?;
+
+  if path_ptr.is_null() {
+    return Err("Selected folder path was empty".to_string());
+  }
+
+  let mut len = 0usize;
+  while *path_ptr.0.add(len) != 0 {
+    len += 1;
+  }
+
+  let path = String::from_utf16_lossy(std::slice::from_raw_parts(path_ptr.0, len));
+  CoTaskMemFree(Some(path_ptr.0.cast()));
+  Ok(path)
+}
+
+#[cfg(target_os = "windows")]
+fn choose_project_default_save_dir_windows(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
+  unsafe {
+    let coinit = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    let should_uninitialize = coinit.is_ok();
+
+    let result = (|| {
+      let dialog: IFileOpenDialog =
+        CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)
+          .map_err(|err| format!("Failed to create folder picker: {err}"))?;
+      let options = dialog
+        .GetOptions()
+        .map_err(|err| format!("Failed to read folder picker options: {err}"))?;
+      dialog
+        .SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST)
+        .map_err(|err| format!("Failed to configure folder picker: {err}"))?;
+
+      let title = wide_null("Choose GalWriter default save location");
+      dialog
+        .SetTitle(PCWSTR(title.as_ptr()))
+        .map_err(|err| format!("Failed to set folder picker title: {err}"))?;
+
+      if let Some(path) = initial_dir.filter(|path| !path.trim().is_empty()) {
+        let folder_path = wide_null(&path);
+        if let Ok(folder) = SHCreateItemFromParsingName::<_, _, IShellItem>(
+          PCWSTR(folder_path.as_ptr()),
+          None,
+        ) {
+          let _ = dialog.SetFolder(&folder);
+        }
+      }
+
+      if let Err(err) = dialog.Show(None) {
+        if err.code().0 == 0x800704C7u32 as i32 {
+          return Ok(ProjectSaveDirResult { path: None });
+        }
+        return Err(format!("Folder picker failed: {err}"));
+      }
+
+      let item = dialog
+        .GetResult()
+        .map_err(|err| format!("Failed to get selected folder: {err}"))?;
+      Ok(ProjectSaveDirResult {
+        path: Some(shell_item_path(&item)?),
+      })
+    })();
+
+    if should_uninitialize {
+      CoUninitialize();
+    }
+
+    result
+  }
+}
+
 #[tauri::command]
 fn choose_project_default_save_dir(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
+  #[cfg(target_os = "windows")]
+  {
+    return choose_project_default_save_dir_windows(initial_dir);
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = initial_dir;
+    return Ok(ProjectSaveDirResult { path: None });
+  }
+}
+
+#[allow(dead_code)]
+fn choose_project_default_save_dir_powershell(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
   if !cfg!(target_os = "windows") {
     return Ok(ProjectSaveDirResult { path: None });
   }
@@ -565,12 +674,13 @@ fn force_quit_app(app: AppHandle) {
 
 #[tauri::command]
 fn set_close_button_minimizes(
+  state: State<'_, CloseButtonBehaviorState>,
   minimize_on_close: bool,
-  state: State<'_, CloseBehaviorState>,
 ) {
-  state
-    .minimize_on_close
-    .store(minimize_on_close, Ordering::Relaxed);
+  match state.minimize_on_close.lock() {
+    Ok(mut value) => *value = minimize_on_close,
+    Err(poisoned) => *poisoned.into_inner() = minimize_on_close,
+  }
 }
 
 #[tauri::command]
@@ -1244,21 +1354,8 @@ fn save_rendered_frames(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .manage(CloseBehaviorState {
-      minimize_on_close: AtomicBool::new(false),
-    })
-    .on_window_event(|window, event| {
-      if let WindowEvent::CloseRequested { api, .. } = event {
-        let should_minimize = window
-          .try_state::<CloseBehaviorState>()
-          .map(|state| state.minimize_on_close.load(Ordering::Relaxed))
-          .unwrap_or(true);
-
-        if should_minimize {
-          api.prevent_close();
-          let _ = window.minimize();
-        }
-      }
+    .manage(CloseButtonBehaviorState {
+      minimize_on_close: Mutex::new(false),
     })
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
@@ -1285,6 +1382,22 @@ pub fn run() {
         )?;
       }
       Ok(())
+    })
+    .on_window_event(|window, event| {
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        let state = window.state::<CloseButtonBehaviorState>();
+        let minimize_on_close = match state.minimize_on_close.lock() {
+          Ok(value) => *value,
+          Err(poisoned) => *poisoned.into_inner(),
+        };
+
+        if minimize_on_close {
+          api.prevent_close();
+          let _ = window.minimize();
+        } else {
+          window.app_handle().exit(0);
+        }
+      }
     })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

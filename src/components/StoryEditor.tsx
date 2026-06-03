@@ -82,6 +82,7 @@ import {
   formatRegionStoryForPrompt,
   parseGeneratedPlotCards,
 } from '../lib/plotStructure';
+import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import { MemoizedAINode } from './AINode';
 import { MemoizedBackgroundNode } from './BackgroundNode';
 import { MemoizedBatchReplaceNode } from './BatchReplaceNode';
@@ -113,16 +114,14 @@ type PendingProjectAction =
 
 const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
   try {
-    const tauriCore = await import('@tauri-apps/api/core');
-    const invoke =
-      tauriCore.invoke ||
-      (tauriCore as any).default?.invoke ||
-      (window as any).__TAURI__?.core?.invoke;
-    await invoke?.('set_close_button_minimizes', {
+    if (!isTauriRuntime()) return;
+
+    const invoke = await getTauriInvoke();
+    await invoke('set_close_button_minimizes', {
       minimizeOnClose: behavior === 'minimize',
     });
   } catch (error) {
-    if ((window as any).__TAURI__) {
+    if (isTauriRuntime()) {
       console.error('Failed to sync close button behavior:', error);
     }
   }
@@ -2349,7 +2348,7 @@ export function StoryEditor() {
   }, []);
 
   const handleChooseDefaultProjectSaveLocation = useCallback(async () => {
-    if (!(window as any).__TAURI__) {
+    if (!isTauriRuntime()) {
       showToast(
         language === 'zh'
           ? '默认保存位置仅在桌面端可设置'
@@ -2360,12 +2359,8 @@ export function StoryEditor() {
     }
 
     try {
-      const tauriCore = await import('@tauri-apps/api/core');
-      const invoke =
-        tauriCore.invoke ||
-        (tauriCore as any).default?.invoke ||
-        (window as any).__TAURI__?.core?.invoke;
-      const result = (await invoke?.('choose_project_default_save_dir', {
+      const invoke = await getTauriInvoke();
+      const result = (await invoke('choose_project_default_save_dir', {
         initialDir: defaultProjectSaveDir,
       })) as { path?: string | null } | undefined;
 
@@ -2465,36 +2460,6 @@ export function StoryEditor() {
     const snapshot = getProjectSnapshot();
     setIsDirty(snapshot !== lastSavedSnapshot.current);
   }, [assistantTasks, currentProjectId, edges, getProjectSnapshot, nodes, projectTitle]);
-
-  React.useEffect(() => {
-    let unlisten: (() => void) | undefined;
-
-    const bindCloseHandler = async () => {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        unlisten = await getCurrentWindow().listen('tauri://close-requested', (event) => {
-          const closeEvent = event as typeof event & { preventDefault?: () => void };
-          closeEvent.preventDefault?.();
-
-          if (!isDirty) {
-            void getCurrentWindow().destroy();
-            return;
-          }
-
-          setPendingProjectAction({ type: 'close-window' });
-          setShowProjectSavePrompt(true);
-        });
-      } catch {
-        // Browser runtime: no Tauri close hook available.
-      }
-    };
-
-    void bindCloseHandler();
-
-    return () => {
-      unlisten?.();
-    };
-  }, [isDirty]);
 
   const footerHint = useMemo(() => {
     if (assistantOpen) {

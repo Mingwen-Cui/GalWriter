@@ -30,6 +30,7 @@ import type {
   VoiceAIProfile,
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
+import { getTauriInvoke } from '../lib/tauriRuntime';
 
 interface SettingsModalProps {
   showSettings: boolean;
@@ -374,15 +375,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
   const forceQuitApp = async () => {
     try {
-      const tauriCore = await import('@tauri-apps/api/core');
-      const invoke =
-        tauriCore.invoke ||
-        (tauriCore as any).default?.invoke ||
-        (window as any).__TAURI__?.core?.invoke;
-      if (invoke) {
-        await invoke('force_quit_app');
-        return;
-      }
+      const invoke = await getTauriInvoke();
+      await invoke('force_quit_app');
+      return;
     } catch (error) {
       console.error('Force quit failed:', error);
     }
