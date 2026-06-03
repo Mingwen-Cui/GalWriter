@@ -64,6 +64,7 @@ interface AssistantPanelProps {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  showStats: boolean;
   language: Language;
 }
 
@@ -99,6 +100,7 @@ export function AssistantPanel({
   redo,
   canUndo,
   canRedo,
+  showStats,
   language,
 }: AssistantPanelProps) {
   const [shouldRender, setShouldRender] = useState(assistantOpen);
@@ -245,7 +247,7 @@ export function AssistantPanel({
       className={`${
         isMobile
           ? 'assistant-panel-mobile fixed inset-y-0 left-6 right-0 z-[220] shadow-sm'
-          : 'assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm'
+          : `assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm ${showStats ? '' : 'assistant-panel-full-height'}`
       } assistant-panel-shell ${
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
@@ -538,7 +540,7 @@ export function AssistantPanel({
             }}
             placeholder={
               language === 'zh'
-                ? '和 AI 讨论剧情，或让它生成/修改人物、场景、剧情卡片...'
+                ? '请你给我生成一个故事'
                 : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
             }
             rows={2}

@@ -181,6 +181,9 @@ const applyProjectSettings = (
     setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);
   }
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
+  if (incomingSettings.showPresetColors !== undefined) {
+    setters.setShowPresetColors(incomingSettings.showPresetColors);
+  }
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   if (incomingSettings.storyTitlePlacement === 'inside') {
     setters.setStoryTitlePlacement('inside');

@@ -165,4 +165,32 @@ export const localPersistenceService = {
       saveAppSettings({ lastProjectId: snapshot.id }),
     ]);
   },
+
+  async applySettingsToOtherProjects(settings: ProjectSettings, currentProjectId: string | null) {
+    const projects = await listLocalProjects();
+    const targetProjects = projects.filter((project) => project.id !== currentProjectId);
+
+    await Promise.all(
+      targetProjects.map(async (project) => {
+        const snapshot = toProjectSnapshot(await getLocalProject(project.id));
+        if (!snapshot) return;
+
+        await saveLocalProject(
+          toProjectRecord({
+            ...snapshot,
+            projectData: {
+              ...snapshot.projectData,
+              settings: {
+                ...settings,
+                projectTitle: snapshot.projectData.settings.projectTitle,
+              },
+            },
+            updatedAt: Date.now(),
+          }),
+        );
+      }),
+    );
+
+    return targetProjects.length;
+  },
 };

@@ -451,6 +451,7 @@ export function StoryEditor() {
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
+  const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [includeApiProfilesInExport, setIncludeApiProfilesInExport] = useState(false);
   const [showProjectHome, setShowProjectHome] = useState(true);
@@ -836,6 +837,7 @@ export function StoryEditor() {
       showStats,
       saveAssistantConversations,
       presetColors,
+      showPresetColors,
       showTitles,
       storyTitlePlacement,
       showLastSavedTime,
@@ -914,6 +916,7 @@ export function StoryEditor() {
       showControls,
       showMiniMap,
       showNodeActions,
+      showPresetColors,
       showStats,
       showTitles,
       storyTitlePlacement,
@@ -937,6 +940,7 @@ export function StoryEditor() {
       setShowStats,
       setSaveAssistantConversations,
       setPresetColors,
+      setShowPresetColors,
       setShowTitles,
       setStoryTitlePlacement,
       setShowLastSavedTime,
@@ -978,6 +982,7 @@ export function StoryEditor() {
       setShowStats,
       setSaveAssistantConversations,
       setPresetColors,
+      setShowPresetColors,
       setShowTitles,
       setStoryTitlePlacement,
       setGenerateLength,
@@ -1874,6 +1879,32 @@ export function StoryEditor() {
     const projects = await localPersistenceService.listProjects();
     setProjectSummaries(projects);
   }, []);
+
+  const handleApplySettingsToOtherProjects = useCallback(async () => {
+    try {
+      const updatedCount = await localPersistenceService.applySettingsToOtherProjects(
+        editorProjectSettings,
+        currentProjectId,
+      );
+      await refreshProjectSummaries();
+
+      showToast(
+        language === 'zh'
+          ? updatedCount > 0
+            ? `已应用到 ${updatedCount} 个其他项目`
+            : '没有可应用的其他项目'
+          : updatedCount > 0
+            ? `Applied to ${updatedCount} other project${updatedCount === 1 ? '' : 's'}`
+            : 'No other projects to apply',
+      );
+    } catch (error) {
+      console.error('Failed to apply settings to other projects:', error);
+      showToast(
+        language === 'zh' ? '应用到其他项目失败' : 'Failed to apply settings to other projects',
+        'error',
+      );
+    }
+  }, [currentProjectId, editorProjectSettings, language, refreshProjectSummaries, showToast]);
 
   const restoreProjectSession = useCallback(
     async (
@@ -2916,6 +2947,7 @@ ${direction}
             showTitles={showTitles}
             canvasBg={canvasBg}
             presetColors={presetColors}
+            showPresetColors={showPresetColors}
             historyPastLength={history.past.length}
             historyFutureLength={history.future.length}
             setAssistantOpen={setAssistantOpen}
@@ -2998,7 +3030,7 @@ ${direction}
               />
               {showMiniMap && (
                 <div
-                  className={`canvas-bottom-overlay toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
+                  className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
                 >
                   <MiniMap
                     pannable={true}
@@ -3035,14 +3067,14 @@ ${direction}
               )}
               {!showMiniMap && showControls && (
                 <div
-                  className={`canvas-bottom-overlay toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-lg shadow-xl overflow-hidden p-0.5 animate-in slide-in-from-bottom-4 duration-300`}
+                  className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] h-8 w-40 bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300`}
                 >
                   <Controls
                     showInteractive={false}
                     showZoom={true}
                     showFitView={true}
                     orientation="horizontal"
-                    className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0"
+                    className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
                   />
                 </div>
               )}
@@ -3099,6 +3131,7 @@ ${direction}
           redo={redo}
           canUndo={history.past.length > 0}
           canRedo={history.future.length > 0}
+          showStats={showStats}
           language={language}
         />
       </div>
@@ -3200,10 +3233,6 @@ ${direction}
             edges={edges}
             onClose={() => setShowVideoRender(false)}
             language={language}
-            onUndo={undo}
-            onRedo={redo}
-            canUndo={history.past.length > 0}
-            canRedo={history.future.length > 0}
           />
         )}
       </Suspense>
@@ -3224,6 +3253,8 @@ ${direction}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}
           setPresetColors={setPresetColors}
+          showPresetColors={showPresetColors}
+          setShowPresetColors={setShowPresetColors}
           storyTitlePlacement={storyTitlePlacement}
           setStoryTitlePlacement={setStoryTitlePlacement}
           toolbarLayout={toolbarLayout}
@@ -3295,6 +3326,7 @@ ${direction}
           setPlayTestAutoAdvance={setPlayTestAutoAdvance}
           playTestAutoAdvanceDelay={playTestAutoAdvanceDelay}
           setPlayTestAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
+          onApplySettingsToOtherProjects={handleApplySettingsToOtherProjects}
         />
       </Suspense>
 

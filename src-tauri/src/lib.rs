@@ -912,10 +912,10 @@ fn finish_high_perf_render(
     let video_path = segment.video_path.as_deref().and_then(|path| safe_join(&work_dir, path).ok()).filter(|path| path.exists());
     let audio_path = segment.audio_path.as_deref().and_then(|path| safe_join(&work_dir, path).ok()).filter(|path| path.exists());
 
+    let video_duration = video_path.as_ref().and_then(|path| ffmpeg_duration(&app, path)).unwrap_or(0.0);
+    let audio_duration = audio_path.as_ref().and_then(|path| ffmpeg_duration(&app, path)).unwrap_or(0.0);
     let source_duration = segment.duration_secs
-      .or_else(|| video_path.as_ref().and_then(|path| ffmpeg_duration(&app, path)))
-      .or_else(|| audio_path.as_ref().and_then(|path| ffmpeg_duration(&app, path)))
-      .unwrap_or(default_seconds)
+      .unwrap_or_else(|| video_duration.max(audio_duration).max(default_seconds))
       .max(0.5);
     let duration = (source_duration / speed).max(0.5);
     let mut audio_for_segment = audio_path.clone();

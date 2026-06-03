@@ -55,7 +55,7 @@ const createAssistantWelcomeMessage = (): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
   content:
-    '你好，我可以陪你从零开始创作自己的小说或互动剧本：一起想世界观、人物、场景、剧情分支和多种结局。你也可以选中自己的卡片，让我帮你整理思路、续写片段和补全设定。让我们一起把故事写成独属于你的故事。',
+    '你好，我可以帮你生成故事、整理设定和续写剧情。',
 });
 
 const createInitialAssistantTask = (language: 'zh' | 'en'): AssistantTask => {

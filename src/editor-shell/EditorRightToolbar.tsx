@@ -16,6 +16,7 @@ interface EditorRightToolbarProps {
   showTitles: boolean;
   canvasBg: string;
   presetColors: string[];
+  showPresetColors: boolean;
   historyPastLength: number;
   historyFutureLength: number;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
@@ -44,6 +45,7 @@ export function EditorRightToolbar({
   showTitles,
   canvasBg,
   presetColors,
+  showPresetColors,
   historyPastLength,
   historyFutureLength,
   setAssistantOpen,
@@ -165,7 +167,9 @@ export function EditorRightToolbar({
             <Redo2 className="h-5 w-5" />
           </button>
 
-          <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
+          {showPresetColors && (
+            <>
+              <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 
           <div
             className={`flex items-center gap-2 py-1 ${
@@ -186,6 +190,8 @@ export function EditorRightToolbar({
               />
             ))}
           </div>
+            </>
+          )}
         </div>
       )}
     </div>

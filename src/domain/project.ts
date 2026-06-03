@@ -192,6 +192,7 @@ export interface ProjectSettings extends PlaytestSettings {
   showStats: boolean;
   saveAssistantConversations: boolean;
   presetColors: string[];
+  showPresetColors: boolean;
   showTitles: boolean;
   storyTitlePlacement: StoryTitlePlacement;
   showLastSavedTime: boolean;
@@ -228,6 +229,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowStats: Dispatch<SetStateAction<boolean>>;
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
+  setShowPresetColors: Dispatch<SetStateAction<boolean>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
   setStoryTitlePlacement: Dispatch<SetStateAction<StoryTitlePlacement>>;
   setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;

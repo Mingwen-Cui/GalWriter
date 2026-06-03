@@ -34,11 +34,86 @@ const getNodeSize = (node: Node) => ({
   height: readNumber(node.height ?? node.measured?.height ?? node.style?.height, 160),
 });
 
-const getNodeCenter = (node: Node, viewport: { x: number; y: number; zoom: number }) => {
+type ThumbnailInternalNode = Node & {
+  measured: {
+    width?: number;
+    height?: number;
+  };
+  internals: {
+    positionAbsolute: {
+      x: number;
+      y: number;
+    };
+    z: number;
+    userNode: Node;
+  };
+};
+
+const getNodePositionWithOrigin = (node: Node) => {
   const size = getNodeSize(node);
+  const origin = node.origin ?? [0, 0];
   return {
-    x: node.position.x * viewport.zoom + viewport.x + (size.width * viewport.zoom) / 2,
-    y: node.position.y * viewport.zoom + viewport.y + (size.height * viewport.zoom) / 2,
+    x: node.position.x - size.width * origin[0],
+    y: node.position.y - size.height * origin[1],
+  };
+};
+
+const createThumbnailNodeLookup = (nodes: Node[]) => {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const absolutePositionCache = new Map<string, { x: number; y: number }>();
+
+  const getAbsolutePosition = (node: Node): { x: number; y: number } => {
+    const cached = absolutePositionCache.get(node.id);
+    if (cached) return cached;
+
+    const position = getNodePositionWithOrigin(node);
+    const parent = node.parentId ? nodesById.get(node.parentId) : undefined;
+    const parentPosition = parent ? getAbsolutePosition(parent) : { x: 0, y: 0 };
+    const absolutePosition = {
+      x: parentPosition.x + position.x,
+      y: parentPosition.y + position.y,
+    };
+    absolutePositionCache.set(node.id, absolutePosition);
+    return absolutePosition;
+  };
+
+  return new Map<string, ThumbnailInternalNode>(
+    nodes.map((node) => {
+      const size = getNodeSize(node);
+      return [
+        node.id,
+        {
+          ...node,
+          measured: {
+            width: size.width,
+            height: size.height,
+          },
+          internals: {
+            positionAbsolute: getAbsolutePosition(node),
+            z: readNumber(node.zIndex, 0),
+            userNode: node,
+          },
+        },
+      ];
+    }),
+  );
+};
+
+const getNodeAbsolutePosition = (
+  node: Node,
+  nodeLookup: Map<string, ThumbnailInternalNode>,
+) => nodeLookup.get(node.id)?.internals.positionAbsolute ?? getNodePositionWithOrigin(node);
+
+const getNodeCenter = (
+  node: Node,
+  viewport: { x: number; y: number; zoom: number },
+  nodeLookup: Map<string, ThumbnailInternalNode>,
+) => {
+  const size = getNodeSize(node);
+  const position = getNodeAbsolutePosition(node, nodeLookup);
+  return {
+    x: position.x * viewport.zoom + viewport.x + (size.width * viewport.zoom) / 2,
+    y: position.y * viewport.zoom + viewport.y + (size.height * viewport.zoom) / 2,
   };
 };
 
@@ -73,9 +148,10 @@ export const createProjectThumbnail = (
   const visibleNodes = nodes.filter((node) => node.type !== 'backgroundNode');
   if (visibleNodes.length === 0) return createEmptyThumbnail(backgroundColor);
   const bg = escapeXml(normalizeColor(backgroundColor));
+  const nodeLookup = createThumbnailNodeLookup(nodes);
 
   const viewport = getViewportForBounds(
-    getNodesBounds(nodes),
+    getNodesBounds(nodes, { nodeLookup }),
     THUMBNAIL_WIDTH,
     THUMBNAIL_HEIGHT,
     0.05,
@@ -89,8 +165,8 @@ export const createProjectThumbnail = (
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) return '';
-      const start = getNodeCenter(source, viewport);
-      const end = getNodeCenter(target, viewport);
+      const start = getNodeCenter(source, viewport, nodeLookup);
+      const end = getNodeCenter(target, viewport, nodeLookup);
       return `<path d="M ${start.x.toFixed(1)} ${start.y.toFixed(1)} C ${((start.x + end.x) / 2).toFixed(1)} ${start.y.toFixed(1)}, ${((start.x + end.x) / 2).toFixed(1)} ${end.y.toFixed(1)}, ${end.x.toFixed(1)} ${end.y.toFixed(1)}" fill="none" stroke="#818cf8" stroke-width="3" stroke-linecap="round" opacity="0.62"/>`;
     })
     .join('\n');
@@ -98,8 +174,9 @@ export const createProjectThumbnail = (
   const nodeSvg = nodes
     .map((node) => {
       const size = getNodeSize(node);
-      const x = node.position.x * viewport.zoom + viewport.x;
-      const y = node.position.y * viewport.zoom + viewport.y;
+      const position = getNodeAbsolutePosition(node, nodeLookup);
+      const x = position.x * viewport.zoom + viewport.x;
+      const y = position.y * viewport.zoom + viewport.y;
       const width = Math.max(18, size.width * viewport.zoom);
       const height = Math.max(14, size.height * viewport.zoom);
       const isBackground = node.type === 'backgroundNode';

@@ -295,6 +295,10 @@ body,
   pointer-events: auto;
 }
 
+.bubble-glass-mode .assistant-panel-desktop.assistant-panel-full-height {
+  bottom: 0 !important;
+}
+
 .bubble-glass-mode .assistant-panel-desktop.assistant-panel-exiting {
   opacity: 0;
   transform: translateX(100%);
@@ -655,6 +659,10 @@ body,
          使其悬浮在 footer 上方而不被遮挡。原始 bottom-4 = 1rem，加上 2rem 共 3rem */
 .bubble-glass-mode .canvas-bottom-overlay {
   bottom: 3rem !important;
+}
+
+.bubble-glass-mode .canvas-bottom-overlay.canvas-bottom-overlay-no-footer {
+  bottom: 1rem !important;
 }
 
 

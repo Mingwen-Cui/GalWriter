@@ -11,13 +11,13 @@ import {
   Mail,
   MessageCircle,
   PlayCircle,
-  Settings,
   ShieldAlert,
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { AISettingsPanel } from './AISettingsPanel';
+import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
 import {
   type AIButtonsConfig,
   type AIPromptsConfig,
@@ -46,6 +46,8 @@ interface SettingsModalProps {
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
   setPresetColors: (colors: string[]) => void;
+  showPresetColors: boolean;
+  setShowPresetColors: (show: boolean) => void;
   storyTitlePlacement: StoryTitlePlacement;
   setStoryTitlePlacement: (placement: StoryTitlePlacement) => void;
   toolbarLayout: 'vertical' | 'horizontal';
@@ -128,6 +130,7 @@ interface SettingsModalProps {
   setPlayTestAutoAdvance: (val: boolean) => void;
   playTestAutoAdvanceDelay: number;
   setPlayTestAutoAdvanceDelay: (val: number) => void;
+  onApplySettingsToOtherProjects?: () => void | Promise<void>;
 }
 
 const settingsText = {
@@ -286,6 +289,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setCanvasBg,
   presetColors,
   setPresetColors,
+  showPresetColors,
+  setShowPresetColors,
   storyTitlePlacement,
   setStoryTitlePlacement,
   toolbarLayout,
@@ -359,11 +364,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestAutoAdvance,
   playTestAutoAdvanceDelay,
   setPlayTestAutoAdvanceDelay,
+  onApplySettingsToOtherProjects,
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<
     'appearance' | 'editor' | 'playtest' | 'ai' | 'about'
   >('appearance');
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
+  const [isApplyingSettings, setIsApplyingSettings] = useState(false);
+  const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
   const forceQuitApp = async () => {
     try {
       const tauriCore = await import('@tauri-apps/api/core');
@@ -399,25 +407,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
   const segmentedControlClass =
     'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
+  const handleApplySettingsToOtherProjects = async () => {
+    if (!onApplySettingsToOtherProjects || isApplyingSettings) return;
+
+    setShowApplySettingsConfirm(false);
+    setIsApplyingSettings(true);
+    try {
+      await onApplySettingsToOtherProjects();
+    } finally {
+      setIsApplyingSettings(false);
+    }
+  };
 
   if (!showSettings) return null;
 
   return (
+    <>
     <div
       className={`fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
     >
-      <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+      <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+        <div className="h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
+          <h2 className="flex-1 text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
+            {t.settings}
+          </h2>
+          <button
+            type="button"
+            onClick={() => setShowApplySettingsConfirm(true)}
+            disabled={!onApplySettingsToOtherProjects || isApplyingSettings}
+            className="inline-flex h-8 items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+            title={language === 'zh' ? '应用当前设置到其他项目' : 'Apply current settings to other projects'}
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>
+              {isApplyingSettings
+                ? language === 'zh'
+                  ? '应用中...'
+                  : 'Applying...'
+                : language === 'zh'
+                  ? '应用到其他项目'
+                  : 'Apply to other projects'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSettings(false)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] hover:border-[var(--accent)]/30"
+            title={language === 'zh' ? '关闭设置' : 'Close settings'}
+            aria-label={language === 'zh' ? '关闭设置' : 'Close settings'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sidebar Navigation */}
         <div className="w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
-          <div className="flex items-center gap-3 px-2 py-4 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 ring-4 ring-white dark:ring-slate-800">
-              <Settings className="w-5 h-5 text-white" />
-            </div>
-            <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              {t.settings}
-            </h2>
-          </div>
-
           <div className="flex-1 space-y-1.5">
             {[
               { id: 'appearance', label: t.theme, icon: <ImageIcon className="w-4 h-4" /> },
@@ -587,6 +632,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </section>
 
+              <section className="grid grid-cols-2 gap-x-8 gap-y-0">
+                {[
+                  { id: 'showStats', label: t.showStats, value: showStats, setter: setShowStats },
+                  {
+                    id: 'showLastSavedTime',
+                    label: s.showLastSavedTime,
+                    value: showLastSavedTime,
+                    setter: setShowLastSavedTime,
+                  },
+                  {
+                    id: 'saveAssistantConversations',
+                    label: s.saveAssistantConversations,
+                    value: saveAssistantConversations,
+                    setter: setSaveAssistantConversations,
+                  },
+                  {
+                    id: 'showMiniMap',
+                    label: t.showMiniMap,
+                    value: showMiniMap,
+                    setter: setShowMiniMap,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between py-2.5 border-b border-[var(--header-border)] last:border-0 group"
+                  >
+                    <span className="text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                      {item.label}
+                    </span>
+                    <button
+                      onClick={() => item.setter(!item.value)}
+                      className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                    >
+                      <div
+                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </section>
+
               {showMiniMap && (
                 <section className={settingsRowClass}>
                   <h3 className={settingsRowTitleClass}>
@@ -615,11 +701,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </section>
               )}
 
+              <section className={settingsRowClass}>
+                <h3 className={settingsRowTitleClass}>
+                  {t.showControls}
+                </h3>
+                <div className={segmentedControlClass}>
+                  <button
+                    onClick={() => setShowControls(true)}
+                    className={compactSegmentButtonClass(showControls)}
+                  >
+                    {language === 'zh' ? '显示' : 'Show'}
+                  </button>
+                  <button
+                    onClick={() => setShowControls(false)}
+                    className={compactSegmentButtonClass(!showControls)}
+                  >
+                    {language === 'zh' ? '隐藏' : 'Hide'}
+                  </button>
+                </div>
+              </section>
+
               <div className="border-t border-[var(--header-border)]" />
 
               <section className="space-y-5">
-                <header className="flex items-center gap-3 mb-2">
+                <header className="flex items-center justify-between gap-3 mb-2">
                   <h3 className="text-base font-black text-[var(--text-primary)]">{t.bgColors}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowPresetColors(!showPresetColors)}
+                    className={`w-10 h-5 overflow-hidden rounded-full transition-all duration-300 relative text-[0px] ${showPresetColors ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                  >
+                    <div
+                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${showPresetColors ? 'left-6' : 'left-1'}`}
+                    />
+                    {showPresetColors
+                      ? language === 'zh'
+                        ? '工具栏显示'
+                        : 'Shown in toolbar'
+                      : language === 'zh'
+                        ? '工具栏隐藏'
+                        : 'Hidden in toolbar'}
+                  </button>
                 </header>
                 <p className="text-xs text-[var(--text-muted)] font-medium px-4">
                   {s.bgColorsDesc}
@@ -757,7 +879,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value: showNodeActions,
                       setter: setShowNodeActions,
                     },
-                    { id: 'showStats', label: t.showStats, value: showStats, setter: setShowStats },
                     {
                       id: 'showLastSavedTime',
                       label: language === 'zh' ? '显示上次保存时间' : 'Show last saved time',
@@ -777,13 +898,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value: showMiniMap,
                       setter: setShowMiniMap,
                     },
-                    {
-                      id: 'showControls',
-                      label: t.showControls,
-                      value: showControls,
-                      setter: setShowControls,
-                    },
-                  ].map((item) => (
+                  ]
+                    .filter((item) => item.id === 'pastePlain' || item.id === 'showActions')
+                    .map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between py-2.5 border-b border-[var(--header-border)] last:border-0 group"
@@ -1471,7 +1588,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
         </div>
+        </div>
       </div>
     </div>
+    <ConfirmActionModal
+      visible={showApplySettingsConfirm}
+      language={language}
+      tone="warning"
+      title={language === 'zh' ? '应用到其他项目？' : 'Apply to other projects?'}
+      description={
+        language === 'zh'
+          ? '这会把当前项目的设置同步到所有其他本地项目。每个项目的标题会保留。'
+          : 'This will sync the current project settings to all other local projects. Project titles will be preserved.'
+      }
+      confirmLabel={language === 'zh' ? '确认应用' : 'Apply'}
+      cancelLabel={language === 'zh' ? '取消' : 'Cancel'}
+      onCancel={() => setShowApplySettingsConfirm(false)}
+      onConfirm={() => {
+        void handleApplySettingsToOtherProjects();
+      }}
+    />
+    </>
   );
 };
