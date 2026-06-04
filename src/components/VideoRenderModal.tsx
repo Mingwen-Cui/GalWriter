@@ -4,11 +4,11 @@ import {
   Clock,
   Download,
   Film,
-  GripVertical,
   Image,
   Layers,
   Loader2,
   MoveHorizontal,
+  MoveVertical,
   Music,
   Pause,
   Play,
@@ -29,6 +29,7 @@ type RenderStatus = 'idle' | 'rendering' | 'done' | 'error';
 type ExportFormat = 'webm' | 'mp4' | 'mkv';
 type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 type TimelineScaleMode = 'seconds' | 'frames';
+type TimelineWheelMode = 'vertical' | 'horizontal';
 
 type VideoRenderModalProps = {
   nodes: FlowNode[];
@@ -327,19 +328,60 @@ const encodeWav = (buffer: AudioBuffer) => {
   return Array.from(new Uint8Array(arrayBuffer));
 };
 
-const formatSeconds = (seconds: number) => {
-  const safeSeconds = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const rest = safeSeconds % 60;
-  return `${minutes}:${String(rest).padStart(2, '0')}`;
+const formatSeconds = (seconds: number, precision = 0) => {
+  const safeSeconds = Math.max(0, seconds);
+  if (precision <= 0) {
+    const roundedSeconds = Math.round(safeSeconds);
+    const minutes = Math.floor(roundedSeconds / 60);
+    const rest = roundedSeconds % 60;
+    return `${minutes}:${String(rest).padStart(2, '0')}`;
+  }
+  const roundedSeconds = Number(safeSeconds.toFixed(precision));
+  const minutes = Math.floor(roundedSeconds / 60);
+  const rest = roundedSeconds - minutes * 60;
+  const fixedRest = rest.toFixed(precision);
+  const [whole, decimal = ''] = fixedRest.split('.');
+  return `${minutes}:${whole.padStart(2, '0')}.${decimal}`;
 };
 
-const chooseTimelineTickStep = (durationSeconds: number) => {
-  if (durationSeconds <= 12) return 1;
-  if (durationSeconds <= 30) return 2;
-  if (durationSeconds <= 90) return 5;
-  if (durationSeconds <= 240) return 10;
-  return 30;
+const getTimelineTickSettings = (
+  pixelsPerSecond: number,
+  scaleMode: TimelineScaleMode,
+  frameRate: number,
+) => {
+  const minimumLabelGapPx = scaleMode === 'frames' ? 72 : 64;
+  const minimumSecondsPerTick = minimumLabelGapPx / Math.max(1, pixelsPerSecond);
+  const secondSteps = [
+    1 / 60,
+    1 / 30,
+    1 / 24,
+    1 / 12,
+    0.1,
+    0.2,
+    0.25,
+    0.5,
+    1,
+    2,
+    5,
+    10,
+    15,
+    30,
+    60,
+  ];
+
+  if (scaleMode === 'frames') {
+    const framesPerTick = Math.max(1, Math.ceil(minimumSecondsPerTick * frameRate));
+    return {
+      step: framesPerTick / frameRate,
+      precision: 0,
+    };
+  }
+
+  const step = secondSteps.find((candidate) => candidate >= minimumSecondsPerTick) || 120;
+  return {
+    step,
+    precision: step < 1 ? Math.min(2, Math.ceil(-Math.log10(step))) : 0,
+  };
 };
 
 const getTimelineSegmentLayout = (start: number, duration: number, pixelsPerSecond: number) => {
@@ -822,7 +864,9 @@ export function VideoRenderModal({
   const [exportPanelWidth, setExportPanelWidth] = useState(380);
   const [timelineHeight, setTimelineHeight] = useState(250);
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
+  const [timelineWheelMode, setTimelineWheelMode] = useState<TimelineWheelMode>('horizontal');
   const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(TIMELINE_PIXELS_PER_SECOND);
+  const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(60);
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
   const [timelineScrollInfo, setTimelineScrollInfo] = useState({
     scrollLeft: 0,
@@ -905,14 +949,23 @@ export function VideoRenderModal({
       return metric;
     });
     const totalDuration = Math.max(0.25, cursor);
-    const width = Math.max(1, Math.ceil(totalDuration * timelinePixelsPerSecond));
+    const displayDuration = Math.max(totalDuration, timelineDisplayDuration);
+    const width = Math.max(1, Math.ceil(displayDuration * timelinePixelsPerSecond));
     return {
       segments,
       totalDuration,
+      displayDuration,
       width,
-      pixelsPerSecond: width / totalDuration,
+      pixelsPerSecond: width / displayDuration,
     };
-  }, [defaultSeconds, speed, timelineDurationById, timelineNodes, timelinePixelsPerSecond]);
+  }, [
+    defaultSeconds,
+    speed,
+    timelineDisplayDuration,
+    timelineDurationById,
+    timelineNodes,
+    timelinePixelsPerSecond,
+  ]);
   const timelineMetricById = useMemo(
     () => new Map(timelineMetrics.segments.map((metric) => [metric.node.id, metric])),
     [timelineMetrics.segments],
@@ -925,17 +978,25 @@ export function VideoRenderModal({
     : 0;
   const activeTimelineFrame = Math.floor(activeTimelineTime * frameRate);
   const timelinePlayheadLeft = activeTimelineTime * timelineMetrics.pixelsPerSecond;
-  const timelineTickStep = chooseTimelineTickStep(timelineMetrics.totalDuration);
+  const timelineTickSettings = getTimelineTickSettings(
+    timelineMetrics.pixelsPerSecond,
+    timelineScaleMode,
+    frameRate,
+  );
   const timelineTicks = useMemo(() => {
     const ticks: number[] = [];
-    for (let time = 0; time <= timelineMetrics.totalDuration + 0.001; time += timelineTickStep) {
+    for (
+      let time = 0;
+      time <= timelineMetrics.displayDuration + 0.001;
+      time += timelineTickSettings.step
+    ) {
       ticks.push(Number(time.toFixed(3)));
     }
-    if (ticks[ticks.length - 1] !== timelineMetrics.totalDuration) {
-      ticks.push(timelineMetrics.totalDuration);
+    if (ticks[ticks.length - 1] !== timelineMetrics.displayDuration) {
+      ticks.push(timelineMetrics.displayDuration);
     }
     return ticks;
-  }, [timelineMetrics.totalDuration, timelineTickStep]);
+  }, [timelineMetrics.displayDuration, timelineTickSettings.step]);
 
   const captureTimelineState = (): TimelineHistoryState => ({
     timelineIds: [...timelineIds],
@@ -1051,7 +1112,12 @@ export function VideoRenderModal({
     });
   };
 
-  const applyTimelineViewportWindow = (leftTrackX: number, rightTrackX: number, trackWidth: number) => {
+  const applyTimelineViewportWindow = (
+    leftTrackX: number,
+    rightTrackX: number,
+    trackWidth: number,
+    activeSide: 'left' | 'right',
+  ) => {
     const element = timelineViewportRef.current;
     if (!element || trackWidth <= 0) return;
     const viewportWidth = Math.max(1, element.clientWidth);
@@ -1061,7 +1127,7 @@ export function VideoRenderModal({
     const windowWidth = Math.max(minWindowWidth, windowRight - windowLeft);
     const targetScrollWidth = (viewportWidth * trackWidth) / windowWidth;
     const nextScale = clamp(
-      targetScrollWidth / timelineMetrics.totalDuration,
+      targetScrollWidth / timelineMetrics.displayDuration,
       TIMELINE_MIN_PIXELS_PER_SECOND,
       TIMELINE_MAX_PIXELS_PER_SECOND,
     );
@@ -1070,9 +1136,13 @@ export function VideoRenderModal({
     window.requestAnimationFrame(() => {
       const nextElement = timelineViewportRef.current;
       if (!nextElement) return;
-      const nextScrollWidth = Math.max(1, timelineMetrics.totalDuration * nextScale);
+      const nextScrollWidth = Math.max(1, timelineMetrics.displayDuration * nextScale);
+      const targetScrollLeft =
+        activeSide === 'right'
+          ? (windowRight / trackWidth) * nextScrollWidth - nextElement.clientWidth
+          : (windowLeft / trackWidth) * nextScrollWidth;
       nextElement.scrollLeft = clamp(
-        (windowLeft / trackWidth) * nextScrollWidth,
+        targetScrollLeft,
         0,
         Math.max(0, nextScrollWidth - nextElement.clientWidth),
       );
@@ -1142,10 +1212,10 @@ export function VideoRenderModal({
     const rect = track.getBoundingClientRect();
     const pointerTrackX = clamp(event.clientX - rect.left, 0, drag.trackWidth);
     if (drag.side === 'left') {
-      applyTimelineViewportWindow(pointerTrackX, drag.anchorTrackX, drag.trackWidth);
+      applyTimelineViewportWindow(pointerTrackX, drag.anchorTrackX, drag.trackWidth, 'left');
       return;
     }
-    applyTimelineViewportWindow(drag.anchorTrackX, pointerTrackX, drag.trackWidth);
+    applyTimelineViewportWindow(drag.anchorTrackX, pointerTrackX, drag.trackWidth, 'right');
   };
 
   const handleTimelineScaleHandleEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -1212,6 +1282,22 @@ export function VideoRenderModal({
   React.useEffect(() => {
     setTimelineHeight((prev) => clamp(prev, PANEL_SIZE_LIMITS.timeline.min, timelineMax));
   }, [timelineMax]);
+
+  React.useEffect(() => {
+    const viewportSeconds = Math.max(
+      1,
+      timelineScrollInfo.clientWidth / Math.max(1, timelineMetrics.pixelsPerSecond),
+    );
+    const minimumDisplayDuration = Math.max(60, timelineMetrics.totalDuration + viewportSeconds * 2);
+    if (timelineDisplayDuration < minimumDisplayDuration) {
+      setTimelineDisplayDuration(Math.ceil(minimumDisplayDuration));
+    }
+  }, [
+    timelineDisplayDuration,
+    timelineMetrics.pixelsPerSecond,
+    timelineMetrics.totalDuration,
+    timelineScrollInfo.clientWidth,
+  ]);
 
   React.useEffect(() => {
     syncTimelineScrollInfo();
@@ -1366,16 +1452,6 @@ export function VideoRenderModal({
     setAudioTrackIds((prev) => [...prev, makeTrackId('audio')]);
   };
 
-  const selectAllTimelineNodes = () => {
-    pushTimelineHistory();
-    setSelectedIds(new Set(timelineIds));
-  };
-
-  const disableAllTimelineNodes = () => {
-    pushTimelineHistory();
-    setSelectedIds(new Set());
-  };
-
   const handleAssetDragStart = (
     event: React.DragEvent,
     id: string,
@@ -1427,21 +1503,41 @@ export function VideoRenderModal({
     } else addNodeToTimeline(draggedId, droppedTrackKind, trackId);
   };
 
-  const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (event.shiftKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-    const element = event.currentTarget;
+  const handleTimelineWheel = (event: WheelEvent) => {
+    if (timelineWheelMode === 'vertical') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const element = timelineViewportRef.current;
+    if (!element) return;
     const maxScrollLeft = element.scrollWidth - element.clientWidth;
-    if (maxScrollLeft <= 0) return;
+    const scrollDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (maxScrollLeft <= 0 || scrollDelta === 0) return;
 
-    const movingRight = event.deltaY > 0;
+    const movingRight = scrollDelta > 0;
     const canMoveRight = element.scrollLeft < maxScrollLeft - 1;
     const canMoveLeft = element.scrollLeft > 1;
     if ((movingRight && canMoveRight) || (!movingRight && canMoveLeft)) {
-      event.preventDefault();
-      element.scrollLeft += event.deltaY;
+      element.scrollLeft += scrollDelta;
       syncTimelineScrollInfo();
+      return;
+    }
+
+    if (movingRight && !canMoveRight) {
+      const viewportSeconds = Math.max(
+        1,
+        element.clientWidth / Math.max(1, timelineMetrics.pixelsPerSecond),
+      );
+      setTimelineDisplayDuration((prev) => Math.ceil(prev + Math.max(30, viewportSeconds * 2)));
     }
   };
+
+  React.useEffect(() => {
+    const element = timelineViewportRef.current;
+    if (!element) return;
+    element.addEventListener('wheel', handleTimelineWheel, { passive: false });
+    return () => element.removeEventListener('wheel', handleTimelineWheel);
+  }, [handleTimelineWheel]);
 
   React.useEffect(() => {
     const handleRenderKeyDown = (event: KeyboardEvent) => {
@@ -2180,17 +2276,17 @@ export function VideoRenderModal({
     if (node.data?.audioUrl) return isZh ? '按音频时长' : 'Audio length';
     return `${defaultSeconds}s`;
   };
-  const timelineScrollableWidth = Math.max(
-    0,
-    timelineScrollInfo.scrollWidth - timelineScrollInfo.clientWidth,
-  );
   const timelineThumbWidthPercent =
     timelineScrollInfo.scrollWidth > 0
-      ? clamp((timelineScrollInfo.clientWidth / timelineScrollInfo.scrollWidth) * 100, 3, 100)
+      ? clamp((timelineScrollInfo.clientWidth / timelineScrollInfo.scrollWidth) * 100, 0, 100)
       : 100;
   const timelineThumbLeftPercent =
-    timelineScrollableWidth > 0
-      ? (timelineScrollInfo.scrollLeft / timelineScrollableWidth) * (100 - timelineThumbWidthPercent)
+    timelineScrollInfo.scrollWidth > 0
+      ? clamp(
+          (timelineScrollInfo.scrollLeft / timelineScrollInfo.scrollWidth) * 100,
+          0,
+          100 - timelineThumbWidthPercent,
+        )
       : 0;
 
   return (
@@ -2291,7 +2387,6 @@ export function VideoRenderModal({
             </div>
             <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
               {visibleAssetNodes.map((node) => {
-                const originalIndex = orderedNodes.findIndex((item) => item.id === node.id);
                 const region = nodeRegionById.get(node.id);
                 return (
                   <div
@@ -2319,9 +2414,6 @@ export function VideoRenderModal({
                         ) : (
                           mediaIcon(node, 'w-5 h-5')
                         )}
-                        <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-black text-white">
-                          {originalIndex + 1}
-                        </span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text-muted)]">
@@ -2362,12 +2454,17 @@ export function VideoRenderModal({
             className="min-h-0 min-w-0 bg-[var(--vr-surface-soft)] flex flex-col flex-1"
             style={{ minWidth: MIN_PREVIEW_WIDTH }}
           >
-            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+            <div className="grid h-12 grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--vr-border)] px-4">
+              <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
                 <Play className="w-4 h-4 text-[var(--vr-accent)]" />
                 {isZh ? '测试预览窗口' : 'Preview Monitor'}
               </div>
-              <div className="flex items-center gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
+              <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black tabular-nums text-[var(--vr-text)]">
+                {timelineScaleMode === 'frames'
+                  ? `${isZh ? '帧' : 'Frame'} ${activeTimelineFrame}`
+                  : `${formatSeconds(activeTimelineTime)} · ${activeTimelineFrame}f`}
+              </div>
+              <div className="flex min-w-0 items-center justify-end gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
                 <span>{resolution.label}</span>
                 <span>{frameRate} fps</span>
               </div>
@@ -2381,18 +2478,6 @@ export function VideoRenderModal({
                       style={{ boxShadow: 'var(--vr-shadow)' }}
                     >
                       <canvas ref={canvasRef} className="w-full h-full block bg-black" />
-                      <div className="absolute left-3 top-3 rounded bg-black/55 px-2 py-1 text-[11px] font-black text-white">
-                        {activePreviewNode
-                          ? segmentTitle(activePreviewNode)
-                          : isZh
-                            ? '暂无预览'
-                            : 'No preview'}
-                      </div>
-                      <div className="absolute right-3 top-3 rounded bg-black/55 px-2 py-1 text-[11px] font-black tabular-nums text-white">
-                        {timelineScaleMode === 'frames'
-                          ? `${isZh ? '帧' : 'Frame'} ${activeTimelineFrame}`
-                          : `${formatSeconds(activeTimelineTime)} · ${activeTimelineFrame}f`}
-                      </div>
                     </div>
                   </div>
                   <div className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-4 py-3 shadow-sm">
@@ -2764,7 +2849,7 @@ export function VideoRenderModal({
           </aside>
         </main>
 
-        <section className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_34px]">
+        <section className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]">
           <div className="absolute inset-x-0 top-0">
             <ResizeHandle
               label={isZh ? '调整视频编辑时间线高度' : 'Resize editing timeline'}
@@ -2776,74 +2861,92 @@ export function VideoRenderModal({
               onChange={setTimelineHeight}
             />
           </div>
-          <div className="px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--vr-border)] px-4">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
               <Clock className="w-4 h-4 text-[var(--vr-accent)]" />
               {isZh ? '视频编辑时间线' : 'Editing Timeline'}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5 flex items-center">
-                {(['seconds', 'frames'] as TimelineScaleMode[]).map((mode) => (
+            <div className="flex justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => seekTimelineTime(0)}
+                disabled={!activePreviewNode || status === 'rendering'}
+                className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
+                title={isZh ? '跳到开头' : 'Jump to start'}
+                aria-label={isZh ? '跳到时间线开头' : 'Jump to timeline start'}
+              >
+                <span className="text-xs font-black">|&lt;</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTimelineTime >= timelineMetrics.totalDuration - 0.001) {
+                    seekTimelineTime(0, { keepPlaying: true });
+                  }
+                  setPreviewPlaying((prev) => !prev);
+                }}
+                disabled={!activePreviewNode || status === 'rendering'}
+                className="h-8 w-8 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
+                title={
+                  previewPlaying
+                    ? isZh
+                      ? '暂停时间线'
+                      : 'Pause timeline'
+                    : isZh
+                      ? '播放时间线'
+                      : 'Play timeline'
+                }
+              >
+                {previewPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => seekTimelineTime(timelineMetrics.totalDuration)}
+                disabled={!activePreviewNode || status === 'rendering'}
+                className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
+                title={isZh ? '跳到结尾' : 'Jump to end'}
+                aria-label={isZh ? '跳到时间线结尾' : 'Jump to timeline end'}
+              >
+                <span className="text-xs font-black">&gt;|</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <div className="flex h-8 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
+                {(['vertical', 'horizontal'] as TimelineWheelMode[]).map((mode) => (
                   <button
                     key={mode}
                     type="button"
-                    onClick={() => setTimelineScaleMode(mode)}
-                    className={`h-7 px-2.5 rounded-md text-xs font-black transition-colors ${
-                      timelineScaleMode === mode
+                    onClick={() => setTimelineWheelMode(mode)}
+                    className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-black transition-colors ${
+                      timelineWheelMode === mode
                         ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                         : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
                     }`}
                     title={
-                      mode === 'seconds'
+                      mode === 'vertical'
                         ? isZh
-                          ? '按秒数显示比例尺'
-                          : 'Show ruler in seconds'
+                          ? '鼠标滚轮上下滚动时间线区域'
+                          : 'Mouse wheel scrolls vertically'
                         : isZh
-                          ? '按帧数显示比例尺'
-                          : 'Show ruler in frames'
+                          ? '鼠标滚轮左右移动时间线'
+                          : 'Mouse wheel scrolls horizontally'
                     }
                   >
-                    {mode === 'seconds' ? (isZh ? '秒数' : 'Sec') : isZh ? '帧数' : 'Frame'}
+                    {mode === 'vertical' ? (
+                      <MoveVertical className="w-3.5 h-3.5" />
+                    ) : (
+                      <MoveHorizontal className="w-3.5 h-3.5" />
+                    )}
+                    {mode === 'vertical' ? (isZh ? '上下' : 'Y') : isZh ? '左右' : 'X'}
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={addVideoTrack}
-                className="h-8 px-2.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center gap-1.5"
-                title={isZh ? '新增视频轨' : 'Add video track'}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {isZh ? '视频轨' : 'Video'}
-              </button>
-              <button
-                type="button"
-                onClick={addAudioTrack}
-                className="h-8 px-2.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center gap-1.5"
-                title={isZh ? '新增音频轨' : 'Add audio track'}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {isZh ? '音频轨' : 'Audio'}
-              </button>
-              <button
-                onClick={selectAllTimelineNodes}
-                className="px-3 py-1.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
-              >
-                {isZh ? '全选轨道' : 'All tracks'}
-              </button>
-              <button
-                onClick={disableAllTimelineNodes}
-                className="px-3 py-1.5 text-xs font-black rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
-              >
-                {isZh ? '静音全部' : 'Disable all'}
-              </button>
             </div>
           </div>
           <div
             ref={timelineViewportRef}
             className="min-h-0 overflow-y-auto overflow-x-hidden p-4"
             onScroll={syncTimelineScrollInfo}
-            onWheel={handleTimelineWheel}
             onDragOver={(event) => {
               event.preventDefault();
               event.dataTransfer.dropEffect = 'move';
@@ -2851,9 +2954,36 @@ export function VideoRenderModal({
             onDrop={(event) => handleTimelineDrop(event)}
           >
             <div className="min-w-max space-y-3">
-              <div className="grid gap-3" style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}>
-                <div className="text-[10px] font-black text-[var(--vr-text-muted)] flex items-center justify-end">
-                  {timelineScaleMode === 'seconds' ? (isZh ? '秒' : 'Sec') : isZh ? '帧' : 'Frm'}
+              <div
+                className="sticky -top-4 z-30 -mx-4 grid gap-3 bg-[var(--vr-surface)]/95 px-4 backdrop-blur"
+                style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
+              >
+                <div className="flex h-8 items-center justify-end">
+                  <div className="flex h-7 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
+                    {(['seconds', 'frames'] as TimelineScaleMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setTimelineScaleMode(mode)}
+                        className={`h-6 min-w-8 rounded-md px-1.5 text-[10px] font-black transition-colors ${
+                          timelineScaleMode === mode
+                            ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                            : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                        }`}
+                        title={
+                          mode === 'seconds'
+                            ? isZh
+                              ? '按秒数显示比例尺'
+                              : 'Show ruler in seconds'
+                            : isZh
+                              ? '按帧数显示比例尺'
+                              : 'Show ruler in frames'
+                        }
+                      >
+                        {mode === 'seconds' ? (isZh ? '秒' : 'Sec') : isZh ? '帧' : 'Frm'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div
                   className="relative h-8 cursor-ew-resize rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)]"
@@ -2869,7 +2999,7 @@ export function VideoRenderModal({
                     const label =
                       timelineScaleMode === 'frames'
                         ? `${Math.round(time * frameRate)}f`
-                        : formatSeconds(time);
+                        : formatSeconds(time, timelineTickSettings.precision);
                     return (
                       <div
                         key={`${time}-${timelineScaleMode}`}
@@ -2885,9 +3015,7 @@ export function VideoRenderModal({
                   <div
                     className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]"
                     style={{ left: timelinePlayheadLeft }}
-                  >
-                    <span className="absolute -top-1 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-[var(--vr-accent)] shadow-sm" />
-                  </div>
+                  />
                 </div>
               </div>
               <div className="relative">
@@ -2903,7 +3031,19 @@ export function VideoRenderModal({
                   </div>
                 </div>
                 <div className="space-y-3">
-              {videoTrackIds.map((trackId, trackIndex) => {
+              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
+                <button
+                  type="button"
+                  onClick={addVideoTrack}
+                  className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
+                  title={isZh ? '新增视频轨' : 'Add video track'}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+                <div />
+              </div>
+              {[...videoTrackIds].reverse().map((trackId) => {
+                const trackIndex = videoTrackIds.indexOf(trackId);
                 const trackNodes = timelineNodes.filter(
                   (node) => (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
                 );
@@ -2939,7 +3079,6 @@ export function VideoRenderModal({
                     >
                       {trackMetrics.map((metric) => {
                       const node = metric.node;
-                      const index = timelineIds.indexOf(node.id);
                       const enabled = selectedIds.has(node.id);
                       const segmentLayout = getTimelineSegmentLayout(
                         metric.start,
@@ -2964,10 +3103,26 @@ export function VideoRenderModal({
                             width: segmentLayout.width,
                           }}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-black text-[var(--vr-text-muted)]">
-                              #{index + 1}
-                            </span>
+                          {node.data?.imageUrl ? (
+                            <img
+                              src={node.data.imageUrl as string}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover"
+                              draggable={false}
+                            />
+                          ) : node.data?.videoUrl ? (
+                            <video
+                              src={node.data.videoUrl as string}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              muted
+                              playsInline
+                              draggable={false}
+                            />
+                          ) : null}
+                          {(node.data?.imageUrl || node.data?.videoUrl) && (
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/65" />
+                          )}
+                          <div className="relative z-10 flex items-center justify-end">
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
@@ -2976,20 +3131,25 @@ export function VideoRenderModal({
                                   removeTimelineNode(node.id);
                                 }}
                                 onDragStart={(event) => event.preventDefault()}
-                                className="w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
+                                className={`w-5 h-5 rounded flex items-center justify-center ${
+                                  node.data?.imageUrl || node.data?.videoUrl
+                                    ? 'bg-black/45 text-white hover:bg-rose-500 hover:text-white'
+                                    : 'text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)]'
+                                }`}
                                 title={isZh ? '从时间线删除' : 'Remove from timeline'}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                              <GripVertical className="w-3.5 h-3.5 text-[var(--vr-text-muted)]" />
                             </div>
                           </div>
-                          <div className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text)]">
-                            {mediaIcon(node, 'w-3.5 h-3.5')}
+                          <div
+                            className={`relative z-10 mt-2 flex items-center gap-1.5 text-[11px] font-black ${
+                              node.data?.imageUrl || node.data?.videoUrl
+                                ? 'text-white drop-shadow'
+                                : 'text-[var(--vr-text)]'
+                            }`}
+                          >
                             <span className="truncate">{segmentTitle(node)}</span>
-                          </div>
-                          <div className="mt-1 text-[10px] text-[var(--vr-text-muted)] truncate">
-                            {formatSeconds(metric.duration)} · {segmentDurationLabel(node)}
                           </div>
                         </div>
                       );
@@ -3006,6 +3166,13 @@ export function VideoRenderModal({
                 </div>
                 );
               })}
+              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center py-1">
+                <div />
+                <div
+                  className="h-0.5 rounded-full bg-[var(--vr-border-strong)]"
+                  style={{ width: timelineMetrics.width }}
+                />
+              </div>
               {audioTrackIds.map((trackId, trackIndex) => {
                 const trackNodes = timelineNodes.filter(
                   (node) => (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
@@ -3042,6 +3209,7 @@ export function VideoRenderModal({
                     >
                       {trackMetrics.map((metric) => {
                       const node = metric.node;
+                      const audioText = segmentText(node) || segmentTitle(node);
                       const segmentLayout = getTimelineSegmentLayout(
                         metric.start,
                         metric.duration,
@@ -3059,7 +3227,6 @@ export function VideoRenderModal({
                           event.dataTransfer.dropEffect = 'move';
                         }}
                         onDrop={(event) => handleTimelineDrop(event, node.id, trackId, 'audio')}
-                        onClick={() => toggleNode(node.id)}
                         className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-lg border px-3 text-left transition-all ${selectedIds.has(node.id) ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] opacity-55'}`}
                         style={{
                           left: segmentLayout.left,
@@ -3067,19 +3234,7 @@ export function VideoRenderModal({
                         }}
                       >
                         <div className="flex items-center gap-2 text-[11px] font-black text-[var(--vr-text)]">
-                          <Music className="w-3.5 h-3.5 text-[var(--vr-accent)]" />
-                          <span className="truncate">
-                            {node.data?.audioUrl || node.data?.videoUrl
-                              ? isZh
-                                ? '关联音频'
-                                : 'Linked audio'
-                              : isZh
-                                ? '默认停留'
-                                : 'Hold'}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-[10px] text-[var(--vr-text-muted)] truncate">
-                          {formatSeconds(metric.duration)} · {segmentDurationLabel(node)}
+                          <span className="truncate">{audioText}</span>
                         </div>
                       </button>
                     );
@@ -3096,16 +3251,24 @@ export function VideoRenderModal({
                 </div>
                 );
               })}
+              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
+                <button
+                  type="button"
+                  onClick={addAudioTrack}
+                  className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
+                  title={isZh ? '新增音频轨' : 'Add audio track'}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+                <div />
+              </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="border-t border-[var(--vr-border)] bg-[var(--vr-surface)] px-4 py-2">
-            <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-              <div className="text-[10px] font-black text-[var(--vr-text-muted)] text-right tabular-nums">
-                {Math.round(timelinePixelsPerSecond)} px/s
-              </div>
-              <div className="relative h-4 rounded-full bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]">
+          <div className="flex h-6 items-center border-t border-[var(--vr-border)] bg-[var(--vr-surface)] px-4">
+            <div className="flex h-full w-full items-center">
+              <div className="relative h-2 w-full rounded-full bg-slate-200">
                 <div
                   className="absolute inset-y-1 rounded-full bg-[var(--vr-accent-soft)]"
                   style={{
@@ -3128,7 +3291,7 @@ export function VideoRenderModal({
                   <div className="absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/50" />
                   <button
                     type="button"
-                    className="absolute left-0 top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm outline-none hover:brightness-110"
+                    className="absolute left-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm outline-none transition-[width,height,filter] hover:h-5 hover:w-5 hover:brightness-110 active:h-5 active:w-5"
                     onPointerDown={(event) => handleTimelineScaleHandleStart(event, 'left')}
                     onPointerMove={handleTimelineScaleHandleMove}
                     onPointerUp={handleTimelineScaleHandleEnd}
@@ -3138,7 +3301,7 @@ export function VideoRenderModal({
                   />
                   <button
                     type="button"
-                    className="absolute right-0 top-1/2 z-10 h-5 w-5 translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm outline-none hover:brightness-110"
+                    className="absolute right-0 top-1/2 z-10 h-4 w-4 translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm outline-none transition-[width,height,filter] hover:h-5 hover:w-5 hover:brightness-110 active:h-5 active:w-5"
                     onPointerDown={(event) => handleTimelineScaleHandleStart(event, 'right')}
                     onPointerMove={handleTimelineScaleHandleMove}
                     onPointerUp={handleTimelineScaleHandleEnd}
