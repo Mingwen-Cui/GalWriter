@@ -474,8 +474,7 @@ export function StoryEditor() {
   const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
   const [projectIdsPendingDeletion, setProjectIdsPendingDeletion] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [closeButtonBehavior, setCloseButtonBehavior] =
-    useState<CloseButtonBehavior>('quit');
+  const [closeButtonBehavior, setCloseButtonBehavior] = useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
@@ -1890,32 +1889,35 @@ export function StoryEditor() {
     setProjectSummaries(projects);
   }, []);
 
-  const handleApplySettingsToOtherProjects = useCallback(async (targetProjectIds: string[]) => {
-    try {
-      const updatedCount = await localPersistenceService.applySettingsToOtherProjects(
-        editorProjectSettings,
-        currentProjectId,
-        targetProjectIds,
-      );
-      await refreshProjectSummaries();
+  const handleApplySettingsToOtherProjects = useCallback(
+    async (targetProjectIds: string[]) => {
+      try {
+        const updatedCount = await localPersistenceService.applySettingsToOtherProjects(
+          editorProjectSettings,
+          currentProjectId,
+          targetProjectIds,
+        );
+        await refreshProjectSummaries();
 
-      showToast(
-        language === 'zh'
-          ? updatedCount > 0
-            ? `已应用到 ${updatedCount} 个其他项目`
-            : '没有可应用的其他项目'
-          : updatedCount > 0
-            ? `Applied to ${updatedCount} other project${updatedCount === 1 ? '' : 's'}`
-            : 'No other projects to apply',
-      );
-    } catch (error) {
-      console.error('Failed to apply settings to other projects:', error);
-      showToast(
-        language === 'zh' ? '应用到其他项目失败' : 'Failed to apply settings to other projects',
-        'error',
-      );
-    }
-  }, [currentProjectId, editorProjectSettings, language, refreshProjectSummaries, showToast]);
+        showToast(
+          language === 'zh'
+            ? updatedCount > 0
+              ? `已应用到 ${updatedCount} 个其他项目`
+              : '没有可应用的其他项目'
+            : updatedCount > 0
+              ? `Applied to ${updatedCount} other project${updatedCount === 1 ? '' : 's'}`
+              : 'No other projects to apply',
+        );
+      } catch (error) {
+        console.error('Failed to apply settings to other projects:', error);
+        showToast(
+          language === 'zh' ? '应用到其他项目失败' : 'Failed to apply settings to other projects',
+          'error',
+        );
+      }
+    },
+    [currentProjectId, editorProjectSettings, language, refreshProjectSummaries, showToast],
+  );
 
   const restoreProjectSession = useCallback(
     async (
@@ -1951,30 +1953,25 @@ export function StoryEditor() {
     [applyProjectData, language, resetAssistantTasks, showToast],
   );
 
-  const {
-    autoSaveData,
-    showAutoSaveModal,
-    discardAutoSave,
-    recoverAutoSave,
-    clearAutoSave,
-  } = useAutoSave<ProjectSnapshotData>({
-    projectId: currentProjectId,
-    getProjectSnapshot,
-    lastSavedSnapshotRef: lastSavedSnapshot,
-    setIsDirty,
-    applyRecoveredProject: async (projectData) => {
-      await applyProjectData(projectData, { markSaved: false });
-      lastHistoryState.current = {
-        nodes: projectData.nodes as Node[],
-        edges: projectData.edges as Edge[],
-      };
-      setHistory({ past: [], future: [] });
-      setIsDirty(true);
-    },
-    showToast,
-    language,
-    enabled: Boolean(didHydrateLocalState && currentProjectId),
-  });
+  const { autoSaveData, showAutoSaveModal, discardAutoSave, recoverAutoSave, clearAutoSave } =
+    useAutoSave<ProjectSnapshotData>({
+      projectId: currentProjectId,
+      getProjectSnapshot,
+      lastSavedSnapshotRef: lastSavedSnapshot,
+      setIsDirty,
+      applyRecoveredProject: async (projectData) => {
+        await applyProjectData(projectData, { markSaved: false });
+        lastHistoryState.current = {
+          nodes: projectData.nodes as Node[],
+          edges: projectData.edges as Edge[],
+        };
+        setHistory({ past: [], future: [] });
+        setIsDirty(true);
+      },
+      showToast,
+      language,
+      enabled: Boolean(didHydrateLocalState && currentProjectId),
+    });
 
   const resetEditorToBlankState = useCallback(() => {
     const blankNodes = INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[];
@@ -2119,7 +2116,7 @@ export function StoryEditor() {
       if (uniqueProjectIds.length === 0) return;
 
       await Promise.all(
-        uniqueProjectIds.map(projectId => localPersistenceService.deleteProject(projectId)),
+        uniqueProjectIds.map((projectId) => localPersistenceService.deleteProject(projectId)),
       );
 
       if (currentProjectId && uniqueProjectIds.includes(currentProjectId)) {
@@ -2334,7 +2331,9 @@ export function StoryEditor() {
               : `ZIP bundle exported to: ${savedLocation}`,
           );
         }, 0);
-        showToast(language === 'zh' ? '项目整合包导出成功' : 'Project bundle exported successfully');
+        showToast(
+          language === 'zh' ? '项目整合包导出成功' : 'Project bundle exported successfully',
+        );
       } catch (e) {
         console.error(e);
         showToast(language === 'zh' ? '整合包导出失败' : 'Bundle export failed');
@@ -3114,21 +3113,22 @@ ${direction}
           showStats={showStats}
           language={language}
         />
+        {!isMobile && showStats && (
+          <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
+            <div className="flex gap-4">
+              <span className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}:{' '}
+                {nodes.length}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}:{' '}
+                {edges.length}
+              </span>
+            </div>
+            <div className="opacity-60 font-medium">{footerHint}</div>
+          </footer>
+        )}
       </div>
-
-      {!isMobile && showStats && (
-        <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
-          <div className="flex gap-4">
-            <span className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}
-            </span>
-          </div>
-          <div className="opacity-60 font-medium">{footerHint}</div>
-        </footer>
-      )}
 
       {/* 思考内容右上角浮层：DeepSeek思考模式下短暂显示 */}
       {false && thinkingContent && (
@@ -3390,14 +3390,14 @@ ${direction}
               ? `确定要删除这 ${projectIdsPendingDeletion.length} 个项目吗？此操作不可撤销。`
               : `Delete these ${projectIdsPendingDeletion.length} projects? This cannot be undone.`
             : language === 'zh'
-            ? `确定要删除项目「${
-                projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                  ?.projectName || '未命名项目'
-              }」吗？此操作不可撤销。`
-            : `Delete "${
-                projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                  ?.projectName || 'Untitled project'
-              }"? This cannot be undone.`
+              ? `确定要删除项目「${
+                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                    ?.projectName || '未命名项目'
+                }」吗？此操作不可撤销。`
+              : `Delete "${
+                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                    ?.projectName || 'Untitled project'
+                }"? This cannot be undone.`
         }
         confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
         onCancel={() => setProjectIdsPendingDeletion([])}

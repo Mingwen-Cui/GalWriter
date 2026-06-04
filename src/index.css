@@ -639,20 +639,43 @@ body,
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  background: rgba(255, 255, 255, 0.28) !important;
+  overflow: hidden;
+  background: transparent !important;
   border-color: rgba(255, 255, 255, 0.32) !important;
   box-shadow: -4px 0 16px rgba(15, 23, 42, 0.06) !important;
   backdrop-filter: blur(24px) saturate(1.4) !important;
   -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
   color: rgba(51, 65, 85, 0.86) !important;
   isolation: isolate;
+  transform: translateZ(0);
+  will-change: backdrop-filter;
+}
+
+.bubble-glass-mode .editor-footer::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+}
+
+.bubble-glass-mode .editor-footer > * {
+  position: relative;
+  z-index: 1;
 }
 
 [data-theme='dark'] .bubble-glass-mode .editor-footer {
-  background: rgba(15, 15, 18, 0.58) !important;
+  background: transparent !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   box-shadow: -4px 0 18px rgba(0, 0, 0, 0.18) !important;
   color: rgba(255, 255, 255, 0.72) !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .editor-footer::before {
+  background: rgba(15, 15, 18, 0.58);
 }
 
 /* NOTE: minimap/controls 容器在玻璃模式下需额外向上偏移 footer 高度（h-8 = 2rem），
@@ -664,7 +687,6 @@ body,
 .bubble-glass-mode .canvas-bottom-overlay.canvas-bottom-overlay-no-footer {
   bottom: 1rem !important;
 }
-
 
 .bubble-glass-mode .react-flow__minimap-node {
   fill: rgba(255, 255, 255, 0.38) !important;
@@ -1142,7 +1164,10 @@ input[type='range']::-moz-range-track {
   background: rgba(129, 140, 248, 0.18) !important;
 }
 
-[data-theme='dark'] .bubble-glass-mode .glass-toolbar button.glass-toolbar-active:not(.exclude-glass) {
+[data-theme='dark']
+  .bubble-glass-mode
+  .glass-toolbar
+  button.glass-toolbar-active:not(.exclude-glass) {
   background: oklch(0.511 0.262 276.966 / 0.18) !important;
 }
 
