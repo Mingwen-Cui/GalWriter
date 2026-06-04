@@ -120,8 +120,6 @@ interface PlayTestProps {
   setBlurText: (val: boolean) => void;
   skipSingleChoicePopup: boolean;
   setSkipSingleChoicePopup: (val: boolean) => void;
-  dimBackground: boolean;
-  setDimBackground: (val: boolean) => void;
   autoAdvance: boolean;
   setAutoAdvance: (val: boolean) => void;
   autoAdvanceDelay: number;
@@ -158,8 +156,6 @@ export function PlayTestModal({
   setBlurText,
   skipSingleChoicePopup,
   setSkipSingleChoicePopup,
-  dimBackground,
-  setDimBackground,
   autoAdvance,
   setAutoAdvance,
   autoAdvanceDelay,
@@ -188,8 +184,6 @@ export function PlayTestModal({
   const typewriterTimerRef = useRef<any>(null);
   const timedTimerRef = useRef<any>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // NOTE: dimBackground 现在由外部 props 控制，与主设置同步
 
   /**
    * 跳转到指定节点并重置动画完成状态，避免切换时按钮闪烁
@@ -320,9 +314,12 @@ export function PlayTestModal({
       return;
     }
 
-    autoAdvanceTimerRef.current = setTimeout(() => {
-      advanceToTarget(autoAdvanceTarget);
-    }, Math.max(0, autoAdvanceDelay) * 1000);
+    autoAdvanceTimerRef.current = setTimeout(
+      () => {
+        advanceToTarget(autoAdvanceTarget);
+      },
+      Math.max(0, autoAdvanceDelay) * 1000,
+    );
 
     return () => {
       if (autoAdvanceTimerRef.current) {
@@ -880,7 +877,7 @@ export function PlayTestModal({
             {showSettings && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border z-[110] p-4 scale-in max-h-[85vh] overflow-y-auto flex flex-col ${
+                className={`absolute right-0 mt-2 w-[min(calc(100vw-1rem),42rem)] rounded-2xl shadow-2xl border z-[110] p-3 md:p-4 scale-in max-h-[85vh] overflow-y-auto ${
                   layoutMode === 'immersive'
                     ? 'bg-black/85 border-white/10 text-white backdrop-blur-md'
                     : isDarkMode
@@ -889,342 +886,387 @@ export function PlayTestModal({
                 }`}
               >
                 {/* 界面排版选择 */}
-                <div className="mb-4 order-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div
-                    className={`text-xs font-bold uppercase tracking-wider mb-2 ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
-                  >
-                    {t.playtestLayoutMode}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setLayoutMode('classic')}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center ${layoutMode === 'classic' ? (isDarkMode ? 'bg-sky-600 text-white' : 'bg-indigo-600 text-white') : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}
-                    >
-                      {t.layoutClassic}
-                    </button>
-                    <button
-                      onClick={() => setLayoutMode('immersive')}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center ${layoutMode === 'immersive' ? 'bg-sky-600 text-white' : isDarkMode ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-                    >
-                      {t.layoutImmersive}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5 order-9">
-                  <span
-                    className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
-                  >
-                    {t.videoAutoPlay}
-                  </span>
-                  <button
-                    onClick={() => setVideoAutoPlay(!videoAutoPlay)}
-                    className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${videoAutoPlay ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                    className={`rounded-xl border p-3 order-0 ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${videoAutoPlay ? 'left-6' : 'left-1'}`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between mb-4 px-1 border-t pt-3 border-white/5 order-8">
-                  <span
-                    className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
-                  >
-                    {t.dimBackground}
-                  </span>
-                  <button
-                    onClick={() => setDimBackground(!dimBackground)}
-                    className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${dimBackground ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
-                  >
-                    <div
-                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${dimBackground ? 'left-6' : 'left-1'}`}
-                    />
-                  </button>
-                </div>
-
-                <div className="mb-4 px-1 border-t pt-3 border-white/5 order-7">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                      className={`text-xs font-bold uppercase tracking-wider mb-2 ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
                     >
-                      {language === 'zh' ? '自动翻页' : 'Auto Advance'}
-                    </span>
-                    <button
-                      onClick={() => setAutoAdvance(!autoAdvance)}
-                      className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${autoAdvance ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
-                    >
-                      <div
-                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${autoAdvance ? 'left-6' : 'left-1'}`}
-                      />
-                    </button>
-                  </div>
-                  <div className={`mt-3 ${autoAdvance ? 'opacity-100' : 'opacity-45'}`}>
-                    <div className="flex justify-between text-[10px] font-bold mb-2">
-                      <span
-                        className={
-                          layoutMode === 'immersive' || isDarkMode
-                            ? 'text-slate-400'
-                            : 'text-slate-500'
-                        }
-                      >
-                        {language === 'zh' ? '等待' : 'Delay'}
-                      </span>
-                      <span className={layoutMode === 'immersive' ? 'text-sky-300' : 'text-sky-500'}>
-                        {autoAdvanceDelay}s
-                      </span>
+                      {t.playtestLayoutMode}
                     </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      step={1}
-                      value={autoAdvanceDelay}
-                      disabled={!autoAdvance}
-                      onChange={(e) => setAutoAdvanceDelay(parseInt(e.target.value, 10))}
-                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-sky-500 disabled:cursor-not-allowed"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setLayoutMode('classic')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center ${layoutMode === 'classic' ? (isDarkMode ? 'bg-sky-600 text-white' : 'bg-indigo-600 text-white') : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}
+                      >
+                        {t.layoutClassic}
+                      </button>
+                      <button
+                        onClick={() => setLayoutMode('immersive')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center ${layoutMode === 'immersive' ? 'bg-sky-600 text-white' : isDarkMode ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                      >
+                        {t.layoutImmersive}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div
-                  className={`text-xs font-bold uppercase tracking-wider mb-3 order-2 ${choicesPosition === 'center' ? 'hidden' : ''} ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1 border-t pt-3 border-white/5`}
-                >
-                  {t.choiceColumns}
-                </div>
-                <div
-                  className={`flex flex-col gap-1 order-2 ${choicesPosition === 'center' ? 'hidden' : ''}`}
-                >
-                  {[1, 2, 3].map((cols) => (
-                    <button
-                      key={cols}
-                      onClick={() => {
-                        setChoicesColumns(cols);
-                        setShowSettings(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${
-                        choicesColumns === cols
-                          ? layoutMode === 'immersive'
-                            ? 'bg-sky-600 text-white'
-                            : isDarkMode
-                              ? 'bg-sky-600 text-white'
-                              : 'bg-indigo-600 text-white'
-                          : layoutMode === 'immersive'
-                            ? 'text-slate-300 hover:bg-white/10'
-                            : isDarkMode
-                              ? 'text-slate-300 hover:bg-white/10'
-                              : 'text-slate-700 hover:bg-slate-100'
+                  <div
+                    className={`rounded-xl border p-3 space-y-3 order-7 ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                      >
+                        {language === 'zh' ? '自动翻页' : 'Auto Advance'}
+                      </span>
+                      <button
+                        onClick={() => setAutoAdvance(!autoAdvance)}
+                        className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${autoAdvance ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${autoAdvance ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+                    <div className={`mt-3 ${autoAdvance ? 'opacity-100' : 'opacity-45'}`}>
+                      <div className="flex justify-between text-[10px] font-bold mb-2">
+                        <span
+                          className={
+                            layoutMode === 'immersive' || isDarkMode
+                              ? 'text-slate-400'
+                              : 'text-slate-500'
+                          }
+                        >
+                          {language === 'zh' ? '等待' : 'Delay'}
+                        </span>
+                        <span
+                          className={layoutMode === 'immersive' ? 'text-sky-300' : 'text-sky-500'}
+                        >
+                          {autoAdvanceDelay}s
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={10}
+                        step={1}
+                        value={autoAdvanceDelay}
+                        disabled={!autoAdvance}
+                        onChange={(e) => setAutoAdvanceDelay(parseInt(e.target.value, 10))}
+                        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-sky-500 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                      >
+                        {t.videoAutoPlay}
+                      </span>
+                      <button
+                        onClick={() => setVideoAutoPlay(!videoAutoPlay)}
+                        className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${videoAutoPlay ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${videoAutoPlay ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`rounded-xl border p-3 order-2 ${choicesPosition === 'center' ? 'hidden' : ''} ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div
+                      className={`text-xs font-bold uppercase tracking-wider mb-3 ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
+                    >
+                      {t.choiceColumns}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, 2, 3].map((cols) => (
+                        <button
+                          key={cols}
+                          onClick={() => {
+                            setChoicesColumns(cols);
+                            setShowSettings(false);
+                          }}
+                          className={`w-full text-center px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+                            choicesColumns === cols
+                              ? layoutMode === 'immersive'
+                                ? 'bg-sky-600 text-white'
+                                : isDarkMode
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-indigo-600 text-white'
+                              : layoutMode === 'immersive'
+                                ? 'text-slate-300 hover:bg-white/10'
+                                : isDarkMode
+                                  ? 'text-slate-300 hover:bg-white/10'
+                                  : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>{t[`column${cols}` as keyof typeof t]}</span>
+                          {choicesColumns === cols && (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`rounded-xl border p-3 space-y-3 order-6 ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div
+                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
+                    >
+                      {language === 'zh' ? '文本显示' : 'Text Transition'}
+                    </div>
+                    <select
+                      value={interactionMode}
+                      onChange={(e) => setInteractionMode(e.target.value)}
+                      className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border outline-none ${
+                        layoutMode === 'immersive'
+                          ? 'bg-slate-900 border-white/20 text-white'
+                          : isDarkMode
+                            ? 'bg-slate-800 border-slate-700 text-white'
+                            : 'bg-white border-slate-200 text-slate-700'
                       }`}
                     >
-                      <span>{t[`column${cols}` as keyof typeof t]}</span>
-                      {choicesColumns === cols && (
-                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                      <option
+                        value="immediate"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '立即显现' : 'Immediate'}
+                      </option>
+                      <option
+                        value="typewriter"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '打字机' : 'Typewriter'}
+                      </option>
+                      <option
+                        value="timed"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '延时展现' : 'Timed Delay'}
+                      </option>
+                      <option
+                        value="clickToShow"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '点击显示' : 'Click to Show'}
+                      </option>
+                    </select>
 
-                <div className="border-t border-white/10 pt-3 mt-3 space-y-3 order-6">
-                  <div
-                    className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
-                  >
-                    {language === 'zh' ? '文本显示' : 'Text Transition'}
-                  </div>
-                  <select
-                    value={interactionMode}
-                    onChange={(e) => setInteractionMode(e.target.value)}
-                    className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border outline-none ${
-                      layoutMode === 'immersive'
-                        ? 'bg-slate-900 border-white/20 text-white'
-                        : isDarkMode
-                          ? 'bg-slate-800 border-slate-700 text-white'
-                          : 'bg-white border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <option
-                      value="immediate"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '立即显现' : 'Immediate'}
-                    </option>
-                    <option
-                      value="typewriter"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '打字机' : 'Typewriter'}
-                    </option>
-                    <option
-                      value="timed"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '延时展现' : 'Timed Delay'}
-                    </option>
-                    <option
-                      value="clickToShow"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '点击显示' : 'Click to Show'}
-                    </option>
-                  </select>
-
-                  {interactionMode === 'typewriter' && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] opacity-70">
-                          {language === 'zh' ? '速度' : 'Speed'}
-                        </span>
-                        <span className="text-[10px] opacity-70">{typewriterSpeed}ms</span>
+                    {interactionMode === 'typewriter' && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[10px] opacity-70">
+                            {language === 'zh' ? '速度' : 'Speed'}
+                          </span>
+                          <span className="text-[10px] opacity-70">{typewriterSpeed}ms</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={10}
+                          max={100}
+                          step={5}
+                          value={typewriterSpeed}
+                          onChange={(e) => setTypewriterSpeed(parseInt(e.target.value))}
+                          className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={10}
-                        max={100}
-                        step={5}
-                        value={typewriterSpeed}
-                        onChange={(e) => setTypewriterSpeed(parseInt(e.target.value))}
-                        className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-sky-400"
-                      />
-                    </div>
-                  )}
+                    )}
 
-                  {interactionMode === 'timed' && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] opacity-70">
-                          {language === 'zh' ? '延迟' : 'Delay'}
-                        </span>
-                        <span className="text-[10px] opacity-70">{choiceDelay}s</span>
+                    {interactionMode === 'timed' && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[10px] opacity-70">
+                            {language === 'zh' ? '延迟' : 'Delay'}
+                          </span>
+                          <span className="text-[10px] opacity-70">{choiceDelay}s</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0.5}
+                          max={10}
+                          step={0.5}
+                          value={choiceDelay}
+                          onChange={(e) => setChoiceDelay(parseFloat(e.target.value))}
+                          className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={0.5}
-                        max={10}
-                        step={0.5}
-                        value={choiceDelay}
-                        onChange={(e) => setChoiceDelay(parseFloat(e.target.value))}
-                        className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-sky-400"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-white/10 pt-3 mt-3 space-y-3 order-1">
-                  <div
-                    className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
-                  >
-                    {language === 'zh' ? '选项按钮位置' : 'Choices Position'}
+                    )}
                   </div>
-                  <select
-                    value={choicesPosition}
-                    onChange={(e) => setChoicesPosition(e.target.value as any)}
-                    className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border outline-none ${
-                      layoutMode === 'immersive'
-                        ? 'bg-slate-900 border-white/20 text-white'
-                        : isDarkMode
-                          ? 'bg-slate-800 border-slate-700 text-white'
-                          : 'bg-white border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <option
-                      value="center"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '画面中间' : 'Center'}
-                    </option>
-                    <option
-                      value="aboveText"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '文字上方' : 'Above Text'}
-                    </option>
-                    <option
-                      value="belowText"
-                      className={
-                        layoutMode === 'immersive' || isDarkMode
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-800'
-                      }
-                    >
-                      {language === 'zh' ? '文字下方' : 'Below Text'}
-                    </option>
-                  </select>
-                </div>
 
-                <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 order-3">
-                  <span
-                    className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
-                  >
-                    {language === 'zh' ? '选项背景虚化' : 'Blur Background'}
-                  </span>
-                  <button
-                    onClick={() => setBlurBackground(!blurBackground)}
-                    className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${blurBackground ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                  <div
+                    className={`rounded-xl border p-3 space-y-3 order-1 ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${blurBackground ? 'left-6' : 'left-1'}`}
-                    />
-                  </button>
+                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'} px-1`}
+                    >
+                      {language === 'zh' ? '选项按钮位置' : 'Choices Position'}
+                    </div>
+                    <select
+                      value={choicesPosition}
+                      onChange={(e) => setChoicesPosition(e.target.value as any)}
+                      className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border outline-none ${
+                        layoutMode === 'immersive'
+                          ? 'bg-slate-900 border-white/20 text-white'
+                          : isDarkMode
+                            ? 'bg-slate-800 border-slate-700 text-white'
+                            : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <option
+                        value="center"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '画面中间' : 'Center'}
+                      </option>
+                      <option
+                        value="aboveText"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '文字上方' : 'Above Text'}
+                      </option>
+                      <option
+                        value="belowText"
+                        className={
+                          layoutMode === 'immersive' || isDarkMode
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-800'
+                        }
+                      >
+                        {language === 'zh' ? '文字下方' : 'Below Text'}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div
+                    className={`rounded-xl border p-3 space-y-3 order-3 ${
+                      layoutMode === 'immersive'
+                        ? 'bg-white/5 border-white/10'
+                        : isDarkMode
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                      >
+                        {language === 'zh' ? '选项背景虚化' : 'Blur Background'}
+                      </span>
+                      <button
+                        onClick={() => setBlurBackground(!blurBackground)}
+                        className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${blurBackground ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${blurBackground ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+
+                    {blurBackground && (
+                      <div className="flex items-center justify-between border-t border-white/10 pt-3 animate-in fade-in duration-200">
+                        <span
+                          className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                        >
+                          {language === 'zh' ? '虚化模糊文字' : 'Blur Story Text'}
+                        </span>
+                        <button
+                          onClick={() => setBlurText(!blurText)}
+                          className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${blurText ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                        >
+                          <div
+                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${blurText ? 'left-6' : 'left-1'}`}
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {choicesPosition === 'center' && (
+                    <div
+                      className={`rounded-xl border p-3 flex items-center justify-between animate-in fade-in duration-200 order-5 ${
+                        layoutMode === 'immersive'
+                          ? 'bg-white/5 border-white/10'
+                          : isDarkMode
+                            ? 'bg-white/5 border-white/10'
+                            : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
+                      >
+                        {language === 'zh' ? '单选项隐藏弹窗' : 'Skip Single Popup'}
+                      </span>
+                      <button
+                        onClick={() => setSkipSingleChoicePopup(!skipSingleChoicePopup)}
+                        className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${skipSingleChoicePopup ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${skipSingleChoicePopup ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {blurBackground && (
-                  <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200 order-4">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
-                    >
-                      {language === 'zh' ? '虚化模糊文字' : 'Blur Story Text'}
-                    </span>
-                    <button
-                      onClick={() => setBlurText(!blurText)}
-                      className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${blurText ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
-                    >
-                      <div
-                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${blurText ? 'left-6' : 'left-1'}`}
-                      />
-                    </button>
-                  </div>
-                )}
-
-                {choicesPosition === 'center' && (
-                  <div className="border-t border-white/10 pt-3 mt-3 flex items-center justify-between px-1 animate-in fade-in duration-200 order-5">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider ${layoutMode === 'immersive' ? 'text-slate-400' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}
-                    >
-                      {language === 'zh' ? '单选项隐藏弹窗' : 'Skip Single Popup'}
-                    </span>
-                    <button
-                      onClick={() => setSkipSingleChoicePopup(!skipSingleChoicePopup)}
-                      className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${skipSingleChoicePopup ? (layoutMode === 'immersive' ? 'bg-sky-500' : isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
-                    >
-                      <div
-                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${skipSingleChoicePopup ? 'left-6' : 'left-1'}`}
-                      />
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -1330,8 +1372,6 @@ export function PlayTestModal({
                     className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
                   />
                 )}
-                {/* 暗色遮罩层，提升文字对比度 */}
-                {dimBackground && <div className="absolute inset-0 bg-black/45 z-[1]" />}
               </div>
 
               {/* 2. 悬浮的选项与对话框 */}

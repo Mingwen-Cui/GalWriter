@@ -3195,8 +3195,6 @@ ${direction}
             setBlurText={setPlayTestBlurText}
             skipSingleChoicePopup={playTestSkipSingleChoicePopup}
             setSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
-            dimBackground={playTestDimBackground}
-            setDimBackground={setPlayTestDimBackground}
             autoAdvance={playTestAutoAdvance}
             setAutoAdvance={setPlayTestAutoAdvance}
             autoAdvanceDelay={playTestAutoAdvanceDelay}
@@ -3303,8 +3301,6 @@ ${direction}
           setPlayTestBlurText={setPlayTestBlurText}
           playTestSkipSingleChoicePopup={playTestSkipSingleChoicePopup}
           setPlayTestSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
-          playTestDimBackground={playTestDimBackground}
-          setPlayTestDimBackground={setPlayTestDimBackground}
           playTestAutoAdvance={playTestAutoAdvance}
           setPlayTestAutoAdvance={setPlayTestAutoAdvance}
           playTestAutoAdvanceDelay={playTestAutoAdvanceDelay}
