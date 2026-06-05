@@ -832,6 +832,14 @@ input[type='range']::-moz-range-track {
   --vr-accent: var(--accent);
   --vr-accent-strong: var(--accent-hover);
   --vr-accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --vr-video-track-bg: rgba(14, 165, 233, 0.08);
+  --vr-video-track-border: rgba(14, 165, 233, 0.22);
+  --vr-video-clip-bg: rgba(14, 165, 233, 0.16);
+  --vr-video-clip-border: rgba(14, 165, 233, 0.46);
+  --vr-audio-track-bg: rgba(168, 85, 247, 0.08);
+  --vr-audio-track-border: rgba(168, 85, 247, 0.22);
+  --vr-audio-clip-bg: rgba(168, 85, 247, 0.15);
+  --vr-audio-clip-border: rgba(168, 85, 247, 0.44);
   --vr-danger-soft: rgba(244, 63, 94, 0.1);
   --vr-shadow: 0 18px 54px rgba(15, 23, 42, 0.12);
 }
@@ -850,6 +858,14 @@ input[type='range']::-moz-range-track {
   --vr-accent: var(--accent);
   --vr-accent-strong: var(--accent-hover);
   --vr-accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --vr-video-track-bg: rgba(56, 189, 248, 0.08);
+  --vr-video-track-border: rgba(56, 189, 248, 0.22);
+  --vr-video-clip-bg: rgba(56, 189, 248, 0.16);
+  --vr-video-clip-border: rgba(56, 189, 248, 0.48);
+  --vr-audio-track-bg: rgba(192, 132, 252, 0.09);
+  --vr-audio-track-border: rgba(192, 132, 252, 0.24);
+  --vr-audio-clip-bg: rgba(192, 132, 252, 0.17);
+  --vr-audio-clip-border: rgba(192, 132, 252, 0.48);
   --vr-danger-soft: rgba(251, 113, 133, 0.12);
   --vr-shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
 }

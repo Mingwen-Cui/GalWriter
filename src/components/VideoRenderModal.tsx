@@ -1,12 +1,22 @@
 ﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import {
+  CheckCircle2,
   Clock,
+  ClipboardCopy,
+  Copy,
   Download,
+  Eye,
   Film,
+  FileDown,
+  FileText,
+  Gauge,
   Image,
   Layers,
+  ListPlus,
   Loader2,
+  Magnet,
+  Mic,
   MoveHorizontal,
   MoveVertical,
   Music,
@@ -14,9 +24,13 @@ import {
   Play,
   Plus,
   Redo2,
+  RotateCcw,
+  Scissors,
   Settings,
+  Sparkles,
   Trash2,
   Undo2,
+  UserRound,
   Video,
   X,
 } from 'lucide-react';
@@ -90,7 +104,32 @@ type TimelineHistoryState = {
   audioTrackIds: string[];
   videoTrackByNodeId: Record<string, string>;
   audioTrackByNodeId: Record<string, string>;
+  timelineStartById: Record<string, number>;
   activePreviewId: string;
+};
+
+type RenderContextMenuTarget = {
+  kind: 'asset' | 'timeline' | 'audio' | 'preview' | 'empty';
+  nodeId?: string;
+  trackId?: string;
+  trackKind?: 'video' | 'audio';
+};
+
+type RenderContextMenuState = RenderContextMenuTarget & {
+  x: number;
+  y: number;
+};
+
+type RenderContextMenuItem = {
+  label: string;
+  icon: React.ReactNode;
+  onSelect?: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+};
+
+type RenderContextMenuSection = {
+  items: RenderContextMenuItem[];
 };
 
 const DEFAULT_VIDEO_BITRATE = '6000k';
@@ -112,7 +151,6 @@ const TIMELINE_LABEL_WIDTH = 76;
 const TIMELINE_PIXELS_PER_SECOND = 72;
 const TIMELINE_MIN_PIXELS_PER_SECOND = 8;
 const TIMELINE_MAX_PIXELS_PER_SECOND = 1800;
-const TIMELINE_SEGMENT_GAP = 6;
 const PANEL_SIZE_LIMITS = {
   asset: { min: 220, max: 520 },
   export: { min: 280, max: 560 },
@@ -385,12 +423,9 @@ const getTimelineTickSettings = (
 };
 
 const getTimelineSegmentLayout = (start: number, duration: number, pixelsPerSecond: number) => {
-  const slotLeft = start * pixelsPerSecond;
-  const slotWidth = Math.max(1, duration * pixelsPerSecond);
-  const gap = Math.min(TIMELINE_SEGMENT_GAP, Math.max(0, slotWidth - 1));
   return {
-    left: slotLeft + gap / 2,
-    width: Math.max(1, slotWidth - gap),
+    left: start * pixelsPerSecond,
+    width: Math.max(0, duration * pixelsPerSecond),
   };
 };
 
@@ -795,26 +830,21 @@ function ResizeHandle({ label, axis, value, min, max, onChange, reverse }: Resiz
         onChange(clamp(value + nextSign * 16, min, max));
       }}
       className={`group relative z-10 shrink-0 outline-none ${
-        isHorizontal
-          ? '-mx-1 w-2 cursor-col-resize'
-          : '-my-1 h-2 cursor-row-resize'
+        isHorizontal ? '-mx-1 w-2 cursor-col-resize' : '-my-1 h-2 cursor-row-resize'
       }`}
     >
       <span
         className={`absolute rounded-full bg-[var(--vr-border-strong)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100 ${
-          isHorizontal ? 'inset-y-4 left-1/2 w-0.5 -translate-x-1/2' : 'inset-x-4 top-1/2 h-0.5 -translate-y-1/2'
+          isHorizontal
+            ? 'inset-y-4 left-1/2 w-0.5 -translate-x-1/2'
+            : 'inset-x-4 top-1/2 h-0.5 -translate-y-1/2'
         }`}
       />
     </div>
   );
 }
 
-export function VideoRenderModal({
-  nodes,
-  edges,
-  onClose,
-  language,
-}: VideoRenderModalProps) {
+export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(orderedNodes.map((node) => node.id)),
@@ -830,6 +860,7 @@ export function VideoRenderModal({
   const [audioTrackByNodeId, setAudioTrackByNodeId] = useState<Record<string, string>>(() =>
     Object.fromEntries(orderedNodes.map((node) => [node.id, 'audio-1'])),
   );
+  const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>({});
   const [timelinePast, setTimelinePast] = useState<TimelineHistoryState[]>([]);
   const [timelineFuture, setTimelineFuture] = useState<TimelineHistoryState[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string>(() => orderedNodes[0]?.id || '');
@@ -865,7 +896,10 @@ export function VideoRenderModal({
   const [timelineHeight, setTimelineHeight] = useState(250);
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
   const [timelineWheelMode, setTimelineWheelMode] = useState<TimelineWheelMode>('horizontal');
-  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(TIMELINE_PIXELS_PER_SECOND);
+  const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(true);
+  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(
+    TIMELINE_PIXELS_PER_SECOND,
+  );
   const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(60);
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
   const [timelineScrollInfo, setTimelineScrollInfo] = useState({
@@ -873,6 +907,7 @@ export function VideoRenderModal({
     scrollWidth: 1,
     clientWidth: 1,
   });
+  const [contextMenu, setContextMenu] = useState<RenderContextMenuState | null>(null);
   const [error, setError] = useState('');
   const [savedPath, setSavedPath] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -939,16 +974,17 @@ export function VideoRenderModal({
     const segments = timelineNodes.map((node) => {
       const mediaDuration = timelineDurationById[node.id] || defaultSeconds;
       const duration = Math.max(0.25, mediaDuration / speed);
+      const start = timelineStartById[node.id] ?? cursor;
       const metric = {
         node,
-        start: cursor,
+        start,
         duration,
-        end: cursor + duration,
+        end: start + duration,
       };
       cursor += duration;
       return metric;
     });
-    const totalDuration = Math.max(0.25, cursor);
+    const totalDuration = Math.max(0.25, ...segments.map((segment) => segment.end));
     const displayDuration = Math.max(totalDuration, timelineDisplayDuration);
     const width = Math.max(1, Math.ceil(displayDuration * timelinePixelsPerSecond));
     return {
@@ -963,6 +999,7 @@ export function VideoRenderModal({
     speed,
     timelineDisplayDuration,
     timelineDurationById,
+    timelineStartById,
     timelineNodes,
     timelinePixelsPerSecond,
   ]);
@@ -1005,6 +1042,7 @@ export function VideoRenderModal({
     audioTrackIds: [...audioTrackIds],
     videoTrackByNodeId: { ...videoTrackByNodeId },
     audioTrackByNodeId: { ...audioTrackByNodeId },
+    timelineStartById: { ...timelineStartById },
     activePreviewId,
   });
 
@@ -1015,6 +1053,7 @@ export function VideoRenderModal({
     setAudioTrackIds(snapshot.audioTrackIds);
     setVideoTrackByNodeId(snapshot.videoTrackByNodeId);
     setAudioTrackByNodeId(snapshot.audioTrackByNodeId);
+    setTimelineStartById(snapshot.timelineStartById || {});
     setActivePreviewId(snapshot.activePreviewId);
   };
 
@@ -1023,8 +1062,26 @@ export function VideoRenderModal({
     setTimelineFuture([]);
   };
 
+  const closeContextMenu = () => setContextMenu(null);
+
+  const openContextMenu = (
+    event: React.MouseEvent<HTMLElement>,
+    target: RenderContextMenuTarget,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const menuWidth = 240;
+    const menuHeight = target.nodeId ? 430 : 260;
+    setContextMenu({
+      ...target,
+      x: clamp(event.clientX, 8, Math.max(8, window.innerWidth - menuWidth - 8)),
+      y: clamp(event.clientY, 8, Math.max(8, window.innerHeight - menuHeight - 8)),
+    });
+  };
+
   const undoTimeline = () => {
     if (timelinePast.length === 0 || status === 'rendering') return;
+    closeContextMenu();
     const previous = timelinePast[timelinePast.length - 1];
     setTimelinePast((prev) => prev.slice(0, -1));
     setTimelineFuture((prev) => [captureTimelineState(), ...prev]);
@@ -1033,6 +1090,7 @@ export function VideoRenderModal({
 
   const redoTimeline = () => {
     if (timelineFuture.length === 0 || status === 'rendering') return;
+    closeContextMenu();
     const next = timelineFuture[0];
     setTimelineFuture((prev) => prev.slice(1));
     setTimelinePast((prev) => [...prev, captureTimelineState()]);
@@ -1042,8 +1100,9 @@ export function VideoRenderModal({
   const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean }) => {
     const nextTime = clamp(time, 0, timelineMetrics.totalDuration);
     const segment =
-      timelineMetrics.segments.find((metric) => nextTime >= metric.start && nextTime < metric.end) ||
-      timelineMetrics.segments[timelineMetrics.segments.length - 1];
+      timelineMetrics.segments.find(
+        (metric) => nextTime >= metric.start && nextTime < metric.end,
+      ) || timelineMetrics.segments[timelineMetrics.segments.length - 1];
     if (!segment) return;
 
     if (segment.node.id !== activePreviewId) {
@@ -1054,9 +1113,77 @@ export function VideoRenderModal({
     if (!options?.keepPlaying) setPreviewPlaying(false);
   };
 
-  const seekTimelineFromClientX = (clientX: number, rect: DOMRect, options?: { keepPlaying?: boolean }) => {
+  const seekTimelineFromClientX = (
+    clientX: number,
+    rect: DOMRect,
+    options?: { keepPlaying?: boolean },
+  ) => {
     const offset = clamp(clientX - rect.left, 0, rect.width);
     seekTimelineTime(offset / timelineMetrics.pixelsPerSecond, options);
+  };
+
+  const snapTimelineTime = (time: number) => {
+    if (!timelineSnapEnabled) return Math.max(0, time);
+    const step = timelineScaleMode === 'frames' ? 1 / frameRate : 0.25;
+    return Math.max(0, Math.round(time / step) * step);
+  };
+
+  const snapToTimelineClipEdges = (nodeId: string, wantedStart: number, duration: number) => {
+    if (!timelineSnapEnabled) return Math.max(0, wantedStart);
+    const gridStart = snapTimelineTime(wantedStart);
+    const snapToleranceSeconds = Math.max(0.08, 10 / Math.max(1, timelineMetrics.pixelsPerSecond));
+    const candidates = timelineMetrics.segments
+      .filter((segment) => segment.node.id !== nodeId)
+      .flatMap((segment) => [
+        segment.start,
+        segment.end,
+        segment.start - duration,
+        segment.end - duration,
+      ])
+      .map((candidate) => Math.max(0, candidate));
+
+    const nearestEdge = candidates.reduce<{ time: number; distance: number } | null>(
+      (nearest, candidate) => {
+        const distance = Math.abs(candidate - wantedStart);
+        if (distance > snapToleranceSeconds) return nearest;
+        if (!nearest || distance < nearest.distance) return { time: candidate, distance };
+        return nearest;
+      },
+      null,
+    );
+
+    return nearestEdge ? Math.max(0, nearestEdge.time) : gridStart;
+  };
+
+  const findNonOverlappingTrackStart = (
+    nodeId: string,
+    wantedStart: number,
+    duration: number,
+    trackKind: 'video' | 'audio',
+    trackId: string,
+  ) => {
+    const assignedTrackByNodeId = trackKind === 'video' ? videoTrackByNodeId : audioTrackByNodeId;
+    const fallbackTrackId = trackKind === 'video' ? videoTrackIds[0] : audioTrackIds[0];
+    const siblings = timelineMetrics.segments
+      .filter((segment) => {
+        if (segment.node.id === nodeId) return false;
+        return (assignedTrackByNodeId[segment.node.id] || fallbackTrackId) === trackId;
+      })
+      .sort((a, b) => a.start - b.start);
+    let nextStart = snapToTimelineClipEdges(nodeId, wantedStart, duration);
+    const overlaps = (start: number, segment: (typeof siblings)[number]) =>
+      start < segment.end - 0.001 && start + duration > segment.start + 0.001;
+
+    for (const segment of siblings) {
+      if (!overlaps(nextStart, segment)) continue;
+      if (nextStart < segment.start) {
+        const beforeStart = snapTimelineTime(Math.max(0, segment.start - duration));
+        if (!overlaps(beforeStart, segment)) return beforeStart;
+      }
+      nextStart = snapTimelineTime(segment.end);
+    }
+
+    return nextStart;
   };
 
   const handleTimelineScrubStart = (event: React.PointerEvent<HTMLElement>) => {
@@ -1122,8 +1249,16 @@ export function VideoRenderModal({
     if (!element || trackWidth <= 0) return;
     const viewportWidth = Math.max(1, element.clientWidth);
     const minWindowWidth = Math.min(trackWidth, 10);
-    const windowLeft = clamp(Math.min(leftTrackX, rightTrackX - minWindowWidth), 0, trackWidth - minWindowWidth);
-    const windowRight = clamp(Math.max(rightTrackX, windowLeft + minWindowWidth), windowLeft + minWindowWidth, trackWidth);
+    const windowLeft = clamp(
+      Math.min(leftTrackX, rightTrackX - minWindowWidth),
+      0,
+      trackWidth - minWindowWidth,
+    );
+    const windowRight = clamp(
+      Math.max(rightTrackX, windowLeft + minWindowWidth),
+      windowLeft + minWindowWidth,
+      trackWidth,
+    );
     const windowWidth = Math.max(minWindowWidth, windowRight - windowLeft);
     const targetScrollWidth = (viewportWidth * trackWidth) / windowWidth;
     const nextScale = clamp(
@@ -1167,7 +1302,10 @@ export function VideoRenderModal({
     const element = timelineViewportRef.current;
     if (!drag || !element) return;
     const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth);
-    const maxThumbTravel = Math.max(1, drag.trackWidth - (element.clientWidth / element.scrollWidth) * drag.trackWidth);
+    const maxThumbTravel = Math.max(
+      1,
+      drag.trackWidth - (element.clientWidth / element.scrollWidth) * drag.trackWidth,
+    );
     element.scrollLeft = clamp(
       drag.startScrollLeft + ((event.clientX - drag.startX) / maxThumbTravel) * maxScrollLeft,
       0,
@@ -1235,6 +1373,9 @@ export function VideoRenderModal({
     });
     setSelectedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
     setActivePreviewId((prev) => (prev && validIds.has(prev) ? prev : orderedNodes[0]?.id || ''));
+    setTimelineStartById((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => validIds.has(id))),
+    );
     setVideoTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
       orderedNodes.forEach((node) => {
@@ -1288,7 +1429,10 @@ export function VideoRenderModal({
       1,
       timelineScrollInfo.clientWidth / Math.max(1, timelineMetrics.pixelsPerSecond),
     );
-    const minimumDisplayDuration = Math.max(60, timelineMetrics.totalDuration + viewportSeconds * 2);
+    const minimumDisplayDuration = Math.max(
+      60,
+      timelineMetrics.totalDuration + viewportSeconds * 2,
+    );
     if (timelineDisplayDuration < minimumDisplayDuration) {
       setTimelineDisplayDuration(Math.ceil(minimumDisplayDuration));
     }
@@ -1338,6 +1482,7 @@ export function VideoRenderModal({
   }, [selectedNodes, defaultSeconds, speed]);
 
   const toggleNode = (id: string) => {
+    closeContextMenu();
     pushTimelineHistory();
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -1351,8 +1496,10 @@ export function VideoRenderModal({
     id: string,
     trackKind: 'video' | 'audio' = 'video',
     trackId?: string,
+    startTime?: number,
   ) => {
     if (!nodeById.has(id)) return;
+    closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     if (trackKind === 'video' && trackId) {
@@ -1360,6 +1507,9 @@ export function VideoRenderModal({
     }
     if (trackKind === 'audio' && trackId) {
       setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+    }
+    if (typeof startTime === 'number') {
+      setTimelineStartById((prev) => ({ ...prev, [id]: Math.max(0, startTime) }));
     }
     setSelectedIds((prev) => new Set(prev).add(id));
     setActivePreviewId(id);
@@ -1371,6 +1521,7 @@ export function VideoRenderModal({
     placement: 'before' | 'after' = 'before',
   ) => {
     if (!dragId || !targetId || dragId === targetId) return;
+    closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => {
       const withoutDragged = prev.filter((id) => id !== dragId);
@@ -1384,6 +1535,7 @@ export function VideoRenderModal({
 
   const removeTimelineNode = (id: string) => {
     if (!timelineIds.includes(id)) return;
+    closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => prev.filter((item) => item !== id));
     setSelectedIds((prev) => {
@@ -1404,10 +1556,15 @@ export function VideoRenderModal({
       const { [id]: _removed, ...next } = prev;
       return next;
     });
+    setTimelineStartById((prev) => {
+      const { [id]: _removed, ...next } = prev;
+      return next;
+    });
   };
 
   const removeVideoTrack = (trackId: string) => {
     if (videoTrackIds.length <= 1) return;
+    closeContextMenu();
     pushTimelineHistory();
     setVideoTrackIds((prev) => {
       if (prev.length <= 1) return prev;
@@ -1426,6 +1583,7 @@ export function VideoRenderModal({
 
   const removeAudioTrack = (trackId: string) => {
     if (audioTrackIds.length <= 1) return;
+    closeContextMenu();
     pushTimelineHistory();
     setAudioTrackIds((prev) => {
       if (prev.length <= 1) return prev;
@@ -1443,23 +1601,86 @@ export function VideoRenderModal({
   };
 
   const addVideoTrack = () => {
+    closeContextMenu();
     pushTimelineHistory();
     setVideoTrackIds((prev) => [...prev, makeTrackId('video')]);
   };
 
   const addAudioTrack = () => {
+    closeContextMenu();
     pushTimelineHistory();
     setAudioTrackIds((prev) => [...prev, makeTrackId('audio')]);
+  };
+
+  const previewNode = (id: string) => {
+    if (!nodeById.has(id)) return;
+    closeContextMenu();
+    setActivePreviewId(id);
+    setPreviewTime(0);
+    setPreviewPlaying(false);
+  };
+
+  const selectTimelineFromNode = (id: string) => {
+    const startIndex = timelineIds.indexOf(id);
+    if (startIndex < 0) return;
+    closeContextMenu();
+    pushTimelineHistory();
+    setSelectedIds(new Set(timelineIds.slice(startIndex)));
+    setActivePreviewId(id);
+    setPreviewTime(0);
+    setPreviewPlaying(false);
+  };
+
+  const selectOnlyNode = (id: string) => {
+    if (!timelineIds.includes(id)) return;
+    closeContextMenu();
+    pushTimelineHistory();
+    setSelectedIds(new Set([id]));
+    setActivePreviewId(id);
+  };
+
+  const selectAllTimelineNodes = () => {
+    closeContextMenu();
+    pushTimelineHistory();
+    setSelectedIds(new Set(timelineIds));
+  };
+
+  const clearTimelineSelection = () => {
+    closeContextMenu();
+    pushTimelineHistory();
+    setSelectedIds(new Set());
+  };
+
+  const assignNodeTrack = (id: string, trackKind: 'video' | 'audio', trackId: string) => {
+    if (!timelineIds.includes(id)) return;
+    closeContextMenu();
+    pushTimelineHistory();
+    if (trackKind === 'video') {
+      setVideoTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+      return;
+    }
+    setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+  };
+
+  const addNearestAssetToTimeline = (trackKind: 'video' | 'audio' = 'video') => {
+    const missingNode = visibleAssetNodes.find((node) => !timelineIds.includes(node.id));
+    if (!missingNode) return;
+    addNodeToTimeline(missingNode.id, trackKind);
   };
 
   const handleAssetDragStart = (
     event: React.DragEvent,
     id: string,
     trackKind?: 'video' | 'audio',
+    dragOffsetSeconds = 0,
   ) => {
     event.stopPropagation();
     event.dataTransfer.setData('application/x-galwriter-node', id);
     if (trackKind) event.dataTransfer.setData('application/x-galwriter-track-kind', trackKind);
+    event.dataTransfer.setData(
+      'application/x-galwriter-drag-offset-seconds',
+      String(Math.max(0, dragOffsetSeconds)),
+    );
     event.dataTransfer.setData('text/plain', id);
     event.dataTransfer.effectAllowed = 'copyMove';
   };
@@ -1480,26 +1701,55 @@ export function VideoRenderModal({
       trackKind ||
       (event.dataTransfer.getData('application/x-galwriter-track-kind') as 'video' | 'audio') ||
       'video';
-    if (targetId && timelineIds.includes(draggedId)) {
-      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-      const currentTrackId =
-        droppedTrackKind === 'video'
-          ? videoTrackByNodeId[draggedId] || videoTrackIds[0]
-          : audioTrackByNodeId[draggedId] || audioTrackIds[0];
-      if (draggedId === targetId && trackId && currentTrackId !== trackId) {
-        pushTimelineHistory();
+    if (trackId) {
+      const trackElement = (event.currentTarget as HTMLElement).closest(
+        '[data-render-track-kind]',
+      ) as HTMLElement | null;
+      const rect = (trackElement || (event.currentTarget as HTMLElement)).getBoundingClientRect();
+      const dragOffsetSeconds =
+        Number.parseFloat(
+          event.dataTransfer.getData('application/x-galwriter-drag-offset-seconds'),
+        ) || 0;
+      const duration =
+        timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed);
+      const droppedTime =
+        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
+        dragOffsetSeconds;
+      const nextStart = findNonOverlappingTrackStart(
+        draggedId,
+        droppedTime,
+        duration,
+        droppedTrackKind,
+        trackId,
+      );
+      const shouldPreservePlayhead = draggedId === activePreviewId;
+      const preservedTimelineTime = activeTimelineTime;
+
+      pushTimelineHistory();
+      setTimelineIds((prev) => (prev.includes(draggedId) ? prev : [...prev, draggedId]));
+      if (droppedTrackKind === 'video') {
+        setVideoTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
+      } else {
+        setAudioTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
       }
+      setTimelineStartById((prev) => ({ ...prev, [draggedId]: nextStart }));
+      if (shouldPreservePlayhead) {
+        preservePreviewTimeOnNodeChangeRef.current = true;
+        setPreviewTime(clamp((preservedTimelineTime - nextStart) * speed, 0, duration * speed));
+      }
+      setSelectedIds((prev) => new Set(prev).add(draggedId));
+      if (!activePreviewId) setActivePreviewId(draggedId);
+      return;
+    }
+
+    if (targetId && timelineIds.includes(draggedId)) {
       reorderTimelineNode(
         draggedId,
         targetId,
-        event.clientX > rect.left + rect.width / 2 ? 'after' : 'before',
+        event.clientX > (event.currentTarget as HTMLElement).getBoundingClientRect().left
+          ? 'after'
+          : 'before',
       );
-      if (trackId && droppedTrackKind === 'video') {
-        setVideoTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
-      }
-      if (trackId && droppedTrackKind === 'audio') {
-        setAudioTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
-      }
     } else addNodeToTimeline(draggedId, droppedTrackKind, trackId);
   };
 
@@ -1538,6 +1788,22 @@ export function VideoRenderModal({
     element.addEventListener('wheel', handleTimelineWheel, { passive: false });
     return () => element.removeEventListener('wheel', handleTimelineWheel);
   }, [handleTimelineWheel]);
+
+  React.useEffect(() => {
+    if (!contextMenu) return undefined;
+    const handleCloseMenu = () => closeContextMenu();
+    const handleMenuKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeContextMenu();
+    };
+    document.addEventListener('pointerdown', handleCloseMenu);
+    document.addEventListener('scroll', handleCloseMenu, true);
+    document.addEventListener('keydown', handleMenuKeyDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleCloseMenu);
+      document.removeEventListener('scroll', handleCloseMenu, true);
+      document.removeEventListener('keydown', handleMenuKeyDown, true);
+    };
+  }, [contextMenu]);
 
   React.useEffect(() => {
     const handleRenderKeyDown = (event: KeyboardEvent) => {
@@ -2048,8 +2314,8 @@ export function VideoRenderModal({
           if (linkedAudio) await linkedAudio.play();
           const renderStart = performance.now();
           const durationMs =
-            Math.max(500, Math.max(validDuration(video.duration), audioDuration, defaultSeconds)) /
-            speed *
+            (Math.max(500, Math.max(validDuration(video.duration), audioDuration, defaultSeconds)) /
+              speed) *
             1000;
           while (performance.now() - renderStart < durationMs) {
             const elapsedSecs = (performance.now() - renderStart) / 1000;
@@ -2276,6 +2542,269 @@ export function VideoRenderModal({
     if (node.data?.audioUrl) return isZh ? '按音频时长' : 'Audio length';
     return `${defaultSeconds}s`;
   };
+  const buildContextMenuSections = (
+    menu: RenderContextMenuState,
+    node?: FlowNode,
+  ): RenderContextMenuSection[] => {
+    const isTimelineNode = !!node && timelineIds.includes(node.id);
+    const canMutate = status !== 'rendering';
+
+    if (!node) {
+      return [
+        {
+          items: [
+            {
+              label: isZh ? '插入最近素材到视频轨' : 'Insert next asset to video track',
+              icon: <ListPlus className="w-4 h-4" />,
+              onSelect: () => addNearestAssetToTimeline('video'),
+              disabled:
+                !canMutate || visibleAssetNodes.every((item) => timelineIds.includes(item.id)),
+            },
+            {
+              label: isZh ? '插入最近素材到音频轨' : 'Insert next asset to audio track',
+              icon: <Mic className="w-4 h-4" />,
+              onSelect: () => addNearestAssetToTimeline('audio'),
+              disabled:
+                !canMutate || visibleAssetNodes.every((item) => timelineIds.includes(item.id)),
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: isZh ? '选择全部时间线卡片' : 'Select all timeline cards',
+              icon: <CheckCircle2 className="w-4 h-4" />,
+              onSelect: selectAllTimelineNodes,
+              disabled: !canMutate || timelineIds.length === 0,
+            },
+            {
+              label: isZh ? '清空导出选择' : 'Clear export selection',
+              icon: <Scissors className="w-4 h-4" />,
+              onSelect: clearTimelineSelection,
+              disabled: !canMutate || selectedIds.size === 0,
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: isZh ? '新增视频轨' : 'Add video track',
+              icon: <Video className="w-4 h-4" />,
+              onSelect: addVideoTrack,
+              disabled: !canMutate,
+            },
+            {
+              label: isZh ? '新增音频轨' : 'Add audio track',
+              icon: <Music className="w-4 h-4" />,
+              onSelect: addAudioTrack,
+              disabled: !canMutate,
+            },
+          ],
+        },
+      ];
+    }
+
+    const trackItems =
+      menu.trackKind === 'audio'
+        ? audioTrackIds.map((trackId, index) => ({
+            label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
+            icon: <Music className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
+            disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+          }))
+        : videoTrackIds.map((trackId, index) => ({
+            label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
+            icon: <Video className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'video', trackId),
+            disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+          }));
+
+    return [
+      {
+        items: [
+          {
+            label: isZh ? '预览此段' : 'Preview this segment',
+            icon: <Eye className="w-4 h-4" />,
+            onSelect: () => previewNode(node.id),
+            disabled: status === 'rendering',
+          },
+          {
+            label: isZh ? '只导出此段' : 'Export only this segment',
+            icon: <FileDown className="w-4 h-4" />,
+            onSelect: () => selectOnlyNode(node.id),
+            disabled: !canMutate || !isTimelineNode,
+          },
+          {
+            label: isZh ? '从此处开始导出' : 'Export from here',
+            icon: <Gauge className="w-4 h-4" />,
+            onSelect: () => selectTimelineFromNode(node.id),
+            disabled: !canMutate || !isTimelineNode,
+          },
+        ],
+      },
+      {
+        items: [
+          {
+            label: isZh ? '加入视频时间线' : 'Add to video timeline',
+            icon: <ListPlus className="w-4 h-4" />,
+            onSelect: () => addNodeToTimeline(node.id, 'video', menu.trackId),
+            disabled: !canMutate || isTimelineNode,
+          },
+          {
+            label: isZh ? '加入音频时间线' : 'Add to audio timeline',
+            icon: <Mic className="w-4 h-4" />,
+            onSelect: () => addNodeToTimeline(node.id, 'audio', menu.trackId),
+            disabled: !canMutate || isTimelineNode,
+          },
+          {
+            label: selectedIds.has(node.id)
+              ? isZh
+                ? '从导出中排除'
+                : 'Exclude from export'
+              : isZh
+                ? '加入导出选择'
+                : 'Include in export',
+            icon: <CheckCircle2 className="w-4 h-4" />,
+            onSelect: () => toggleNode(node.id),
+            disabled: !canMutate || !isTimelineNode,
+          },
+        ],
+      },
+      {
+        items: [
+          {
+            label: isZh ? '重新生成此段画面' : 'Regenerate visuals',
+            icon: <RotateCcw className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '重新生成配音' : 'Regenerate voice',
+            icon: <Mic className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '编辑剧情内容' : 'Edit story content',
+            icon: <FileText className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '编辑角色/表情' : 'Edit character/expression',
+            icon: <UserRound className="w-4 h-4" />,
+            disabled: true,
+          },
+        ],
+      },
+      {
+        items: [
+          {
+            label: isZh ? '调整时长' : 'Adjust duration',
+            icon: <Clock className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '拆分卡片' : 'Split card',
+            icon: <Scissors className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '复制卡片' : 'Duplicate card',
+            icon: <Copy className="w-4 h-4" />,
+            disabled: true,
+          },
+        ],
+      },
+      ...(trackItems.length > 1 ? [{ items: trackItems }] : []),
+      {
+        items: [
+          {
+            label: isZh ? '复制卡片标题' : 'Copy card title',
+            icon: <ClipboardCopy className="w-4 h-4" />,
+            onSelect: () => {
+              closeContextMenu();
+              navigator.clipboard?.writeText(segmentTitle(node));
+            },
+          },
+          {
+            label: isZh ? '标记为重点镜头' : 'Mark as key shot',
+            icon: <Sparkles className="w-4 h-4" />,
+            disabled: true,
+          },
+          {
+            label: isZh ? '从时间线删除' : 'Remove from timeline',
+            icon: <Trash2 className="w-4 h-4" />,
+            onSelect: () => removeTimelineNode(node.id),
+            disabled: !canMutate || !isTimelineNode,
+            danger: true,
+          },
+        ],
+      },
+    ];
+  };
+
+  const renderContextMenu = () => {
+    if (!contextMenu) return null;
+    const node = contextMenu.nodeId ? nodeById.get(contextMenu.nodeId) : undefined;
+    const sections = buildContextMenuSections(contextMenu, node);
+    const body = node ? segmentText(node) : '';
+
+    return (
+      <div
+        className="fixed z-[500] w-60 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] py-1 shadow-2xl"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        {node && (
+          <div className="border-b border-[var(--vr-border)] px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2 text-[11px] font-black text-[var(--vr-text-muted)]">
+              {mediaIcon(node, 'w-3.5 h-3.5')}
+              <span>{mediaKind(node).toUpperCase()}</span>
+              <span className="ml-auto tabular-nums">{segmentDurationLabel(node)}</span>
+            </div>
+            <div className="mt-1 truncate text-xs font-black text-[var(--vr-text)]">
+              {segmentTitle(node)}
+            </div>
+            {body && (
+              <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--vr-text-muted)]">
+                {body}
+              </div>
+            )}
+          </div>
+        )}
+        {!node && (
+          <div className="border-b border-[var(--vr-border)] px-3 py-2 text-xs font-black text-[var(--vr-text)]">
+            {isZh ? '时间线菜单' : 'Timeline menu'}
+          </div>
+        )}
+        {sections.map((section, sectionIndex) => (
+          <div
+            key={sectionIndex}
+            className={sectionIndex > 0 ? 'border-t border-[var(--vr-border)] py-1' : 'py-1'}
+          >
+            {section.items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                disabled={item.disabled}
+                onClick={() => {
+                  if (item.disabled) return;
+                  item.onSelect?.();
+                }}
+                className={`flex h-8 w-full items-center gap-2 px-3 text-left text-xs font-bold transition-colors ${
+                  item.danger
+                    ? 'text-rose-500 hover:bg-[var(--vr-danger-soft)]'
+                    : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+                } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-soft)]`}
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <span className="min-w-0 truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
   const timelineThumbWidthPercent =
     timelineScrollInfo.scrollWidth > 0
       ? clamp((timelineScrollInfo.clientWidth / timelineScrollInfo.scrollWidth) * 100, 0, 100)
@@ -2394,6 +2923,9 @@ export function VideoRenderModal({
                     draggable
                     onDragStart={(event) => handleAssetDragStart(event, node.id)}
                     onClick={() => setActivePreviewId(node.id)}
+                    onContextMenu={(event) =>
+                      openContextMenu(event, { kind: 'asset', nodeId: node.id })
+                    }
                     className={`group cursor-grab active:cursor-grabbing rounded-lg border p-2.5 transition-all ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
                   >
                     <div className="flex gap-3">
@@ -2476,6 +3008,12 @@ export function VideoRenderModal({
                     <div
                       className="relative h-full max-h-full max-w-full aspect-video rounded-lg bg-black border border-[var(--vr-border-strong)] overflow-hidden"
                       style={{ boxShadow: 'var(--vr-shadow)' }}
+                      onContextMenu={(event) =>
+                        openContextMenu(event, {
+                          kind: 'preview',
+                          nodeId: activePreviewNode?.id,
+                        })
+                      }
                     >
                       <canvas ref={canvasRef} className="w-full h-full block bg-black" />
                     </div>
@@ -2849,7 +3387,10 @@ export function VideoRenderModal({
           </aside>
         </main>
 
-        <section className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]">
+        <section
+          className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]"
+          onContextMenu={(event) => openContextMenu(event, { kind: 'empty' })}
+        >
           <div className="absolute inset-x-0 top-0">
             <ResizeHandle
               label={isZh ? '调整视频编辑时间线高度' : 'Resize editing timeline'}
@@ -2911,6 +3452,28 @@ export function VideoRenderModal({
               </button>
             </div>
             <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setTimelineSnapEnabled((prev) => !prev)}
+                className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-black transition-colors ${
+                  timelineSnapEnabled
+                    ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                }`}
+                title={
+                  timelineSnapEnabled
+                    ? isZh
+                      ? '吸附已开启'
+                      : 'Snapping on'
+                    : isZh
+                      ? '吸附已关闭'
+                      : 'Snapping off'
+                }
+                aria-pressed={timelineSnapEnabled}
+              >
+                <Magnet className="w-3.5 h-3.5" />
+                {isZh ? '吸附' : 'Snap'}
+              </button>
               <div className="flex h-8 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
                 {(['vertical', 'horizontal'] as TimelineWheelMode[]).map((mode) => (
                   <button
@@ -2992,6 +3555,7 @@ export function VideoRenderModal({
                   onPointerMove={handleTimelineScrubMove}
                   onPointerUp={handleTimelineScrubEnd}
                   onPointerCancel={handleTimelineScrubEnd}
+                  onContextMenu={(event) => openContextMenu(event, { kind: 'empty' })}
                   title={isZh ? '拖动或点击移动播放条' : 'Drag or click to move playhead'}
                 >
                   {timelineTicks.map((time) => {
@@ -3030,238 +3594,289 @@ export function VideoRenderModal({
                       : formatSeconds(activeTimelineTime)}
                   </div>
                 </div>
-                <div className="space-y-3">
-              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                <button
-                  type="button"
-                  onClick={addVideoTrack}
-                  className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
-                  title={isZh ? '新增视频轨' : 'Add video track'}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-                <div />
-              </div>
-              {[...videoTrackIds].reverse().map((trackId) => {
-                const trackIndex = videoTrackIds.indexOf(trackId);
-                const trackNodes = timelineNodes.filter(
-                  (node) => (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
-                );
-                const trackMetrics = trackNodes
-                  .map((node) => timelineMetricById.get(node.id))
-                  .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
-                return (
-                  <div key={trackId} className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                    <div className="flex items-center gap-1 text-[11px] font-black text-[var(--vr-text-muted)]">
-                      <span className="min-w-0 truncate">
-                        {isZh ? `视频轨 ${trackIndex + 1}` : `Video ${trackIndex + 1}`}
-                      </span>
-                      {videoTrackIds.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeVideoTrack(trackId)}
-                          className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
-                          title={isZh ? '删除视频轨' : 'Delete video track'}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div
-                      className="relative min-h-20"
-                      style={{ width: timelineMetrics.width }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.dataTransfer.dropEffect = 'move';
-                      }}
-                      onDrop={(event) => handleTimelineDrop(event, undefined, trackId, 'video')}
+                <div className="space-y-0">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center">
+                    <button
+                      type="button"
+                      onClick={addVideoTrack}
+                      className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
+                      title={isZh ? '新增视频轨' : 'Add video track'}
                     >
-                      {trackMetrics.map((metric) => {
-                      const node = metric.node;
-                      const enabled = selectedIds.has(node.id);
-                      const segmentLayout = getTimelineSegmentLayout(
-                        metric.start,
-                        metric.duration,
-                        timelineMetrics.pixelsPerSecond,
-                      );
-                      return (
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <div />
+                  </div>
+                  {[...videoTrackIds].reverse().map((trackId) => {
+                    const trackIndex = videoTrackIds.indexOf(trackId);
+                    const trackNodes = timelineNodes.filter(
+                      (node) => (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+                    );
+                    const trackMetrics = trackNodes
+                      .map((node) => timelineMetricById.get(node.id))
+                      .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
+                    return (
+                      <div
+                        key={trackId}
+                        className="grid grid-cols-[76px_minmax(0,1fr)] items-center"
+                      >
+                        <div className="flex items-center gap-1 text-[11px] font-black text-sky-600 dark:text-sky-300">
+                          <span className="min-w-0 truncate">
+                            {isZh ? `视频轨 ${trackIndex + 1}` : `Video ${trackIndex + 1}`}
+                          </span>
+                          {videoTrackIds.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeVideoTrack(trackId)}
+                              className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
+                              title={isZh ? '删除视频轨' : 'Delete video track'}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                         <div
-                          key={`${trackId}-${node.id}`}
-                          draggable
-                          onDragStart={(event) => handleAssetDragStart(event, node.id, 'video')}
+                          data-render-track-kind="video"
+                          className="relative min-h-20 overflow-hidden rounded-lg border border-[var(--vr-video-track-border)] bg-[var(--vr-video-track-bg)]"
+                          style={{ width: timelineMetrics.width }}
+                          onContextMenu={(event) =>
+                            openContextMenu(event, { kind: 'empty', trackId, trackKind: 'video' })
+                          }
                           onDragOver={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
                             event.dataTransfer.dropEffect = 'move';
                           }}
-                          onDrop={(event) => handleTimelineDrop(event, node.id, trackId, 'video')}
-                          onClick={() => setActivePreviewId(node.id)}
-                          className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-lg border p-2 cursor-grab active:cursor-grabbing transition-all ${enabled ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] opacity-60'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-accent)]/35' : ''}`}
-                          style={{
-                            left: segmentLayout.left,
-                            width: segmentLayout.width,
-                          }}
+                          onDrop={(event) => handleTimelineDrop(event, undefined, trackId, 'video')}
                         >
-                          {node.data?.imageUrl ? (
-                            <img
-                              src={node.data.imageUrl as string}
-                              alt=""
-                              className="absolute inset-0 h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : node.data?.videoUrl ? (
-                            <video
-                              src={node.data.videoUrl as string}
-                              className="absolute inset-0 h-full w-full object-cover"
-                              muted
-                              playsInline
-                              draggable={false}
-                            />
-                          ) : null}
-                          {(node.data?.imageUrl || node.data?.videoUrl) && (
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/65" />
-                          )}
-                          <div className="relative z-10 flex items-center justify-end">
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={(event) => {
+                          {trackMetrics.map((metric) => {
+                            const node = metric.node;
+                            const enabled = selectedIds.has(node.id);
+                            const segmentLayout = getTimelineSegmentLayout(
+                              metric.start,
+                              metric.duration,
+                              timelineMetrics.pixelsPerSecond,
+                            );
+                            return (
+                              <div
+                                key={`${trackId}-${node.id}`}
+                                draggable
+                                onDragStart={(event) =>
+                                  handleAssetDragStart(
+                                    event,
+                                    node.id,
+                                    'video',
+                                    (event.clientX -
+                                      event.currentTarget.getBoundingClientRect().left) /
+                                      Math.max(1, timelineMetrics.pixelsPerSecond),
+                                  )
+                                }
+                                onDragOver={(event) => {
+                                  event.preventDefault();
                                   event.stopPropagation();
-                                  removeTimelineNode(node.id);
+                                  event.dataTransfer.dropEffect = 'move';
                                 }}
-                                onDragStart={(event) => event.preventDefault()}
-                                className={`w-5 h-5 rounded flex items-center justify-center ${
-                                  node.data?.imageUrl || node.data?.videoUrl
-                                    ? 'bg-black/45 text-white hover:bg-rose-500 hover:text-white'
-                                    : 'text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)]'
-                                }`}
-                                title={isZh ? '从时间线删除' : 'Remove from timeline'}
+                                onDrop={(event) =>
+                                  handleTimelineDrop(event, node.id, trackId, 'video')
+                                }
+                                onClick={() => setActivePreviewId(node.id)}
+                                onContextMenu={(event) =>
+                                  openContextMenu(event, {
+                                    kind: 'timeline',
+                                    nodeId: node.id,
+                                    trackId,
+                                    trackKind: 'video',
+                                  })
+                                }
+                                className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border p-2 cursor-grab active:cursor-grabbing transition-colors ${enabled ? 'border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)]' : 'border-[var(--vr-video-track-border)] bg-[var(--vr-panel)] opacity-60'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
+                                style={{
+                                  left: segmentLayout.left,
+                                  width: segmentLayout.width,
+                                }}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                {node.data?.imageUrl ? (
+                                  <img
+                                    src={node.data.imageUrl as string}
+                                    alt=""
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    draggable={false}
+                                  />
+                                ) : node.data?.videoUrl ? (
+                                  <video
+                                    src={node.data.videoUrl as string}
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    muted
+                                    playsInline
+                                    draggable={false}
+                                  />
+                                ) : null}
+                                {(node.data?.imageUrl || node.data?.videoUrl) && (
+                                  <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/65" />
+                                )}
+                                <div className="relative z-10 flex items-center justify-end">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        removeTimelineNode(node.id);
+                                      }}
+                                      onDragStart={(event) => event.preventDefault()}
+                                      className={`w-5 h-5 rounded flex items-center justify-center ${
+                                        node.data?.imageUrl || node.data?.videoUrl
+                                          ? 'bg-black/45 text-white hover:bg-rose-500 hover:text-white'
+                                          : 'text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)]'
+                                      }`}
+                                      title={isZh ? '从时间线删除' : 'Remove from timeline'}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`relative z-10 mt-2 flex items-center gap-1.5 text-[11px] font-black ${
+                                    node.data?.imageUrl || node.data?.videoUrl
+                                      ? 'text-white drop-shadow'
+                                      : 'text-[var(--vr-text)]'
+                                  }`}
+                                >
+                                  <span className="truncate">{segmentTitle(node)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {trackNodes.length === 0 ? (
+                            <div
+                              className="h-20 rounded-lg border border-dashed border-[var(--vr-video-track-border)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
+                              style={{ width: timelineMetrics.width }}
+                            >
+                              {isZh ? '把左侧素材拖到这里' : 'Drag assets here'}
                             </div>
-                          </div>
-                          <div
-                            className={`relative z-10 mt-2 flex items-center gap-1.5 text-[11px] font-black ${
-                              node.data?.imageUrl || node.data?.videoUrl
-                                ? 'text-white drop-shadow'
-                                : 'text-[var(--vr-text)]'
-                            }`}
-                          >
-                            <span className="truncate">{segmentTitle(node)}</span>
-                          </div>
+                          ) : null}
                         </div>
-                      );
-                    })}
-                    {trackNodes.length === 0 ? (
-                      <div
-                        className="h-20 rounded-lg border border-dashed border-[var(--vr-border-strong)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
-                        style={{ width: timelineMetrics.width }}
-                      >
-                        {isZh ? '把左侧素材拖到这里' : 'Drag assets here'}
                       </div>
-                    ) : null}
-                  </div>
-                </div>
-                );
-              })}
-              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center py-1">
-                <div />
-                <div
-                  className="h-0.5 rounded-full bg-[var(--vr-border-strong)]"
-                  style={{ width: timelineMetrics.width }}
-                />
-              </div>
-              {audioTrackIds.map((trackId, trackIndex) => {
-                const trackNodes = timelineNodes.filter(
-                  (node) => (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
-                );
-                const trackMetrics = trackNodes
-                  .map((node) => timelineMetricById.get(node.id))
-                  .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
-                return (
-                  <div key={trackId} className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                    <div className="flex items-center gap-1 text-[11px] font-black text-[var(--vr-text-muted)]">
-                      <span className="min-w-0 truncate">
-                        {isZh ? `音频轨 ${trackIndex + 1}` : `Audio ${trackIndex + 1}`}
-                      </span>
-                      {audioTrackIds.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeAudioTrack(trackId)}
-                          className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
-                          title={isZh ? '删除音频轨' : 'Delete audio track'}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div
-                      className="relative min-h-12"
-                      style={{ width: timelineMetrics.width }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.dataTransfer.dropEffect = 'move';
-                      }}
-                      onDrop={(event) => handleTimelineDrop(event, undefined, trackId, 'audio')}
-                    >
-                      {trackMetrics.map((metric) => {
-                      const node = metric.node;
-                      const audioText = segmentText(node) || segmentTitle(node);
-                      const segmentLayout = getTimelineSegmentLayout(
-                        metric.start,
-                        metric.duration,
-                        timelineMetrics.pixelsPerSecond,
-                      );
-                      return (
-                      <button
-                        key={`${trackId}-${node.id}-audio`}
-                        type="button"
-                        draggable
-                        onDragStart={(event) => handleAssetDragStart(event, node.id, 'audio')}
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          event.dataTransfer.dropEffect = 'move';
-                        }}
-                        onDrop={(event) => handleTimelineDrop(event, node.id, trackId, 'audio')}
-                        className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-lg border px-3 text-left transition-all ${selectedIds.has(node.id) ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] opacity-55'}`}
-                        style={{
-                          left: segmentLayout.left,
-                          width: segmentLayout.width,
-                        }}
-                      >
-                        <div className="flex items-center gap-2 text-[11px] font-black text-[var(--vr-text)]">
-                          <span className="truncate">{audioText}</span>
-                        </div>
-                      </button>
                     );
-                    })}
-                    {trackNodes.length === 0 ? (
-                      <div
-                        className="h-12 rounded-lg border border-dashed border-[var(--vr-border-strong)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
-                        style={{ width: timelineMetrics.width }}
-                      >
-                        {isZh ? '把音频片段拖到这里' : 'Drag audio clips here'}
-                      </div>
-                    ) : null}
+                  })}
+                  <div className="py-1">
+                    <div
+                      className="h-0.5 rounded-full bg-[var(--vr-border-strong)]"
+                      style={{ width: TIMELINE_LABEL_WIDTH + 12 + timelineMetrics.width }}
+                    />
                   </div>
-                </div>
-                );
-              })}
-              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3 items-center">
-                <button
-                  type="button"
-                  onClick={addAudioTrack}
-                  className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
-                  title={isZh ? '新增音频轨' : 'Add audio track'}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-                <div />
-              </div>
+                  {audioTrackIds.map((trackId, trackIndex) => {
+                    const trackNodes = timelineNodes.filter(
+                      (node) => (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+                    );
+                    const trackMetrics = trackNodes
+                      .map((node) => timelineMetricById.get(node.id))
+                      .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
+                    return (
+                      <div
+                        key={trackId}
+                        className="grid grid-cols-[76px_minmax(0,1fr)] items-center"
+                      >
+                        <div className="flex items-center gap-1 text-[11px] font-black text-violet-600 dark:text-violet-300">
+                          <span className="min-w-0 truncate">
+                            {isZh ? `音频轨 ${trackIndex + 1}` : `Audio ${trackIndex + 1}`}
+                          </span>
+                          {audioTrackIds.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeAudioTrack(trackId)}
+                              className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
+                              title={isZh ? '删除音频轨' : 'Delete audio track'}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div
+                          data-render-track-kind="audio"
+                          className="relative min-h-12 overflow-hidden rounded-lg border border-[var(--vr-audio-track-border)] bg-[var(--vr-audio-track-bg)]"
+                          style={{ width: timelineMetrics.width }}
+                          onContextMenu={(event) =>
+                            openContextMenu(event, { kind: 'empty', trackId, trackKind: 'audio' })
+                          }
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            event.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDrop={(event) => handleTimelineDrop(event, undefined, trackId, 'audio')}
+                        >
+                          {trackMetrics.map((metric) => {
+                            const node = metric.node;
+                            const audioText = segmentText(node) || segmentTitle(node);
+                            const segmentLayout = getTimelineSegmentLayout(
+                              metric.start,
+                              metric.duration,
+                              timelineMetrics.pixelsPerSecond,
+                            );
+                            return (
+                              <button
+                                key={`${trackId}-${node.id}-audio`}
+                                type="button"
+                                draggable
+                                onDragStart={(event) =>
+                                  handleAssetDragStart(
+                                    event,
+                                    node.id,
+                                    'audio',
+                                    (event.clientX -
+                                      event.currentTarget.getBoundingClientRect().left) /
+                                      Math.max(1, timelineMetrics.pixelsPerSecond),
+                                  )
+                                }
+                                onDragOver={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  event.dataTransfer.dropEffect = 'move';
+                                }}
+                                onDrop={(event) =>
+                                  handleTimelineDrop(event, node.id, trackId, 'audio')
+                                }
+                                onContextMenu={(event) =>
+                                  openContextMenu(event, {
+                                    kind: 'audio',
+                                    nodeId: node.id,
+                                    trackId,
+                                    trackKind: 'audio',
+                                  })
+                                }
+                                className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border px-3 text-left transition-colors ${selectedIds.has(node.id) ? 'border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)]' : 'border-[var(--vr-audio-track-border)] bg-[var(--vr-panel)] opacity-55'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
+                                style={{
+                                  left: segmentLayout.left,
+                                  width: segmentLayout.width,
+                                }}
+                              >
+                                <div className="flex items-center gap-2 text-[11px] font-black text-[var(--vr-text)]">
+                                  <span className="truncate">{audioText}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                          {trackNodes.length === 0 ? (
+                            <div
+                              className="h-12 rounded-lg border border-dashed border-[var(--vr-audio-track-border)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
+                              style={{ width: timelineMetrics.width }}
+                            >
+                              {isZh ? '把音频片段拖到这里' : 'Drag audio clips here'}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center">
+                    <button
+                      type="button"
+                      onClick={addAudioTrack}
+                      className="h-7 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
+                      title={isZh ? '新增音频轨' : 'Add audio track'}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <div />
+                  </div>
                 </div>
               </div>
             </div>
@@ -3307,7 +3922,9 @@ export function VideoRenderModal({
                     onPointerUp={handleTimelineScaleHandleEnd}
                     onPointerCancel={handleTimelineScaleHandleEnd}
                     title={isZh ? '拖动调整可视窗口宽度' : 'Drag to resize timeline window'}
-                    aria-label={isZh ? '调整时间轴缩放右手柄' : 'Adjust timeline scale right handle'}
+                    aria-label={
+                      isZh ? '调整时间轴缩放右手柄' : 'Adjust timeline scale right handle'
+                    }
                   />
                 </div>
               </div>
@@ -3315,6 +3932,7 @@ export function VideoRenderModal({
           </div>
         </section>
       </div>
+      {renderContextMenu()}
     </div>
   );
 }
