@@ -95,7 +95,6 @@ type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
-  dialoguePanelHeight: number;
 };
 
 type SegmentRenderInfo = {
@@ -570,6 +569,7 @@ function WebPlaytestPreview({
   choiceColor,
   choiceTextColor,
   settings,
+  projectTitle,
   onUpdateSettings,
   onUpdateRenderStyle,
 }: {
@@ -580,6 +580,7 @@ function WebPlaytestPreview({
   choiceColor: string;
   choiceTextColor: string;
   settings: WebExportSettings;
+  projectTitle: string;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -759,17 +760,14 @@ function WebPlaytestPreview({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const renderPreviewToolbar = (titleText = isZh ? '网页互动预览' : 'Interactive Web Preview') => (
+  const renderPreviewToolbar = (titleText = projectTitle || (isZh ? '未命名作品' : 'Untitled Project')) => (
     <div
       className={`flex h-12 items-center justify-between border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent px-3 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md transition-opacity ${
         previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
     >
       <div className="min-w-0 flex items-center gap-2.5">
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-500/18 text-sky-200 ring-1 ring-sky-300/20">
-          <Eye className="h-4 w-4" />
-        </div>
-        <span className="truncate text-xs font-black uppercase tracking-wide text-white/88">
+        <span className="truncate text-sm font-black text-white/88">
           {titleText}
         </span>
       </div>
@@ -783,15 +781,6 @@ function WebPlaytestPreview({
         >
           <RotateCcw className="h-3.5 w-3.5" />
           <span>{isZh ? '返回' : 'Back'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={reset}
-          className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 active:scale-95"
-          title={isZh ? '重置预览' : 'Reset preview'}
-          aria-label={isZh ? '重置预览' : 'Reset preview'}
-        >
-          <Undo2 className="h-4 w-4" />
         </button>
         <div className="relative">
           <button
@@ -812,6 +801,17 @@ function WebPlaytestPreview({
               className="absolute right-0 top-10 z-40 w-[min(560px,calc(100vw-2rem))] max-h-[min(72vh,560px)] overflow-y-auto rounded-2xl border border-white/12 bg-slate-950/94 p-4 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
               onClick={(event) => event.stopPropagation()}
             >
+              <button
+                type="button"
+                onClick={() => {
+                  reset();
+                  setShowPreviewSettings(false);
+                }}
+                className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-black text-white/82 transition-colors hover:bg-white/16 hover:text-white"
+              >
+                <Undo2 className="h-4 w-4" />
+                <span>{isZh ? '重置预览' : 'Reset preview'}</span>
+              </button>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                   <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
@@ -978,23 +978,6 @@ function WebPlaytestPreview({
                     {isZh ? '视频自动播放' : 'Video Autoplay'}
                   </button>
                 </div>
-                <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 md:col-span-2">
-                  <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
-                    <span>{isZh ? '标题正文背景高度' : 'Title and Body Background Height'}</span>
-                    <span>{settings.dialoguePanelHeight}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={18}
-                    max={55}
-                    step={1}
-                    value={settings.dialoguePanelHeight}
-                    onChange={(event) =>
-                      onUpdateSettings('dialoguePanelHeight', Number(event.target.value))
-                    }
-                    className="w-full accent-sky-400"
-                  />
-                </label>
                 <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
                   <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                     <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
@@ -1070,11 +1053,11 @@ function WebPlaytestPreview({
         ref={previewRootRef}
         className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
       >
-        {renderPreviewToolbar(isZh ? '网页互动预览' : 'Interactive Web Preview')}
+        {renderPreviewToolbar()}
         <button
           type="button"
           onClick={() => setPreviewControlsHidden((prev) => !prev)}
-          className="absolute bottom-4 left-4 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white shadow-xl shadow-black/25 backdrop-blur-md transition-all hover:bg-black/62 active:scale-95"
+          className="absolute bottom-4 right-4 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white shadow-xl shadow-black/25 backdrop-blur-md transition-all hover:bg-black/62 active:scale-95"
           title={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
           aria-label={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
         >
@@ -1152,9 +1135,9 @@ function WebPlaytestPreview({
           </div>
         )}
         <div
-          className={`border-t border-white/10 p-4 ${
+          className={`relative border-t border-white/10 p-4 pr-16 ${
             settings.layoutMode === 'immersive'
-              ? 'absolute bottom-4 left-1/2 -translate-x-1/2 rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
+              ? 'absolute bottom-4 left-1/2 -translate-x-1/2 overflow-y-auto rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
               : ''
           }`}
           style={{
@@ -1164,20 +1147,25 @@ function WebPlaytestPreview({
               settings.layoutMode === 'immersive'
                 ? 'min(960px, calc(100% - 112px))'
                 : undefined,
-            height:
-              settings.layoutMode === 'immersive'
-                ? `${settings.dialoguePanelHeight}%`
-                : undefined,
             maxHeight:
               settings.layoutMode === 'immersive'
-                ? `${settings.dialoguePanelHeight}%`
+                ? 'min(46%, 430px)'
                 : undefined,
           }}
         >
+          <button
+            type="button"
+            onClick={() => setPreviewControlsHidden((prev) => !prev)}
+            className="absolute right-3 top-3 z-30 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-black/35 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-all hover:bg-black/55 active:scale-95"
+            title={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+            aria-label={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+          >
+            {previewControlsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </button>
           {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           <div
             key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
-            className="mt-2 max-h-32 overflow-hidden text-sm leading-relaxed text-slate-200"
+            className="mt-2 text-sm leading-relaxed text-slate-200"
             style={{
               color: renderStyle.bodyColor,
               fontSize: renderStyle.bodyFontSize,
@@ -1196,15 +1184,6 @@ function WebPlaytestPreview({
           {settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => setPreviewControlsHidden((prev) => !prev)}
-        className="absolute bottom-4 left-4 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white shadow-xl shadow-black/25 backdrop-blur-md transition-all hover:bg-black/62 active:scale-95"
-        title={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
-        aria-label={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
-      >
-        {previewControlsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-      </button>
     </div>
   );
 }
@@ -1553,10 +1532,11 @@ function ResizeHandle({ label, axis, value, min, max, onChange, reverse }: Resiz
 export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
-  const webProjectName = useMemo(
+  const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
   );
+  const [webProjectName, setWebProjectName] = useState(defaultWebProjectName);
   const [webChoiceColor, setWebChoiceColor] = useState('#0ea5e9');
   const [webChoiceTextColor, setWebChoiceTextColor] = useState('#ffffff');
   const [webSettings, setWebSettings] = useState<WebExportSettings>({
@@ -1568,7 +1548,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     typewriterSpeed: 65,
     autoAdvance: false,
     videoAutoPlay: false,
-    dialoguePanelHeight: 34,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(orderedNodes.map((node) => node.id)),
@@ -1612,7 +1591,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   });
   const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>({
     titleFontSize: 34,
-    bodyFontSize: 22,
+    bodyFontSize: 18,
     titleColor: '#ffffff',
     bodyColor: '#f8fafc',
     panelColor: '#111827',
@@ -3598,6 +3577,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       return;
     }
 
+    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
+
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -3780,7 +3761,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
     try {
       await exportInteractiveWebZip(storyNodes, edges, {
-        projectName: webProjectName,
+        projectName: exportTitle,
         language,
         style: {
           ...webRenderStyle,
@@ -3792,7 +3773,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       setStatus('done');
       setProgressValue(100);
       setProgress(isZh ? '网页 ZIP 已导出' : 'Web ZIP exported');
-      setSavedPath(`${webProjectName || 'galwriter-web'}-web.zip`);
+      setSavedPath(`${exportTitle}-web.zip`);
     } catch (exportError: any) {
       console.error('Web export failed:', exportError);
       setStatus('error');
@@ -5807,6 +5788,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   choiceColor={webChoiceColor}
                   choiceTextColor={webChoiceTextColor}
                   settings={webSettings}
+                  projectTitle={webProjectName}
                   onUpdateSettings={updateWebSettings}
                   onUpdateRenderStyle={updateWebRenderStyle}
                 />
@@ -5819,6 +5801,19 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                 <span className="truncate">{isZh ? '导出设置' : 'Export Settings'}</span>
               </div>
               <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '作品题目' : 'Project Title'}
+                  </div>
+                  <input
+                    type="text"
+                    value={webProjectName}
+                    onChange={(event) => setWebProjectName(event.target.value)}
+                    placeholder={defaultWebProjectName || 'galwriter-web'}
+                    className="h-10 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-sm font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                     {isZh ? '界面排版' : 'Layout'}
@@ -5980,25 +5975,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       disabled={webSettings.interactionMode !== 'typewriter'}
                       onChange={(nextValue) =>
                         updateWebSettings('typewriterSpeed', Math.max(0, Math.round(nextValue)))
-                      }
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {isZh ? '标题正文背景' : 'Text Backdrop'}
-                  </div>
-                  <label className="block rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
-                    <RangeControl
-                      label={isZh ? '背景高度' : 'Backdrop height'}
-                      min={18}
-                      max={55}
-                      step={1}
-                      value={webSettings.dialoguePanelHeight}
-                      valueLabel={`${webSettings.dialoguePanelHeight}%`}
-                      onChange={(nextValue) =>
-                        updateWebSettings('dialoguePanelHeight', Math.round(nextValue))
                       }
                     />
                   </label>

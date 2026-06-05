@@ -29,7 +29,6 @@ type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
-  dialoguePanelHeight: number;
 };
 
 type WebExportNode = {
@@ -117,6 +116,20 @@ const addImageAsset = async (
   }
 };
 
+const addExportLogoAsset = async (iconFolder: JSZip | null) => {
+  if (!iconFolder) return './icons/app.svg';
+  try {
+    const response = await fetch('./icon.png');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    iconFolder.file('logo.png', blob);
+    return './icons/logo.png';
+  } catch (error) {
+    console.warn('Could not pack web export logo:', error);
+    return './icons/app.svg';
+  }
+};
+
 const nodeTitle = (node: FlowNode) =>
   String(
     node.data?.title ||
@@ -138,12 +151,22 @@ const makeContentScript = (payload: {
   edges: WebExportEdge[];
 }) => `window.GALWRITER_CONTENT = ${JSON.stringify(payload, null, 2)};\n`;
 
-const makeIndexHtml = (title: string, language: string) => `<!doctype html>
+const WEB_EXPORT_ICONS: Record<string, string> = {
+  'app.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0ea5e9"/><path d="M18 16h28a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4Z" fill="#082f49"/><path d="M23 26h18M23 34h13M23 42h20" stroke="#e0f2fe" stroke-width="4" stroke-linecap="round"/></svg>`,
+  'arrow-left.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+  'reset.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>`,
+  'settings.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.05.05a2.1 2.1 0 0 1-3 3l-.05-.05a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1.08 1.65V21a2.1 2.1 0 0 1-4.2 0v-.08A1.8 1.8 0 0 0 8.4 19.3a1.8 1.8 0 0 0-2 .36l-.05.05a2.1 2.1 0 1 1-3-3l.05-.05a1.8 1.8 0 0 0 .36-2A1.8 1.8 0 0 0 2.1 13H2a2.1 2.1 0 0 1 0-4.2h.08A1.8 1.8 0 0 0 3.7 7.72a1.8 1.8 0 0 0-.36-2l-.05-.05a2.1 2.1 0 0 1 3-3l.05.05a1.8 1.8 0 0 0 2 .36H8.4A1.8 1.8 0 0 0 9.5 1.42V1.3a2.1 2.1 0 1 1 4.2 0v.08a1.8 1.8 0 0 0 1.08 1.65 1.8 1.8 0 0 0 2-.36l.05-.05a2.1 2.1 0 1 1 3 3l-.05.05a1.8 1.8 0 0 0-.36 2V7.7A1.8 1.8 0 0 0 21.08 8H21a2.1 2.1 0 0 1 0 4.2h-.08A1.8 1.8 0 0 0 19.4 15Z"/></svg>`,
+  'eye.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  'eye-off.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.9 5.3A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.3 3.4"/><path d="M6.6 6.8C3.6 8.8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.7-1.2"/></svg>`,
+};
+
+const makeIndexHtml = (title: string, language: string, faviconPath: string) => `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
+  <link rel="icon" href="${escapeHtml(faviconPath)}" />
   <script src="./content.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -185,7 +208,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       min-height: 56px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 16px;
       padding: 12px 18px;
       border-bottom: 1px solid rgba(255,255,255,0.12);
@@ -194,7 +217,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       transition: opacity 180ms ease;
     }
     h1 { display: none; margin: 0; font-size: 15px; letter-spacing: 0; }
-    .toolbar { display: flex; align-items: center; gap: 8px; }
+    .toolbar { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
     .settings-wrap { position: relative; }
     .tool {
       border: 1px solid rgba(255,255,255,0.16);
@@ -203,7 +226,13 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       border-radius: 8px;
       padding: 8px 11px;
       cursor: pointer;
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
     }
+    .tool img { width: 18px; height: 18px; display: block; }
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
     .settings-menu {
       position: absolute;
@@ -262,16 +291,6 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       background: #0ea5e9;
       color: #ffffff;
     }
-    .settings-range-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      color: rgba(248,250,252,0.80);
-      font-size: 12px;
-      font-weight: 900;
-    }
-    .settings-range { width: 100%; accent-color: #38bdf8; }
     main {
       position: relative;
       min-height: 0;
@@ -348,16 +367,17 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     .media.empty { color: rgba(248,250,252,0.42); font-weight: 700; }
     .dialogue {
       border-top: 1px solid rgba(255,255,255,0.14);
-      height: var(--dialogue-height, 34vh);
-      max-height: var(--dialogue-height, 34vh);
+      height: auto;
+      max-height: min(45vh, 420px);
       padding: clamp(14px, 2.5vw, 20px);
       background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 18%);
-      overflow: hidden;
+      overflow: auto;
     }
     .app.immersive .dialogue {
       align-self: end;
       margin: 0 auto clamp(14px, 3vh, 24px);
       width: min(960px, calc(100% - 112px));
+      max-height: min(46vh, 430px);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px;
       background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 36%);
@@ -375,12 +395,9 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       text-overflow: ellipsis;
     }
     .text {
-      height: 100%;
-      max-height: 100%;
       color: var(--body-color, #e5e7eb);
       line-height: 1.55;
       font-size: var(--body-size, 16px);
-      overflow: hidden;
       overflow-wrap: anywhere;
     }
     .zen-toggle {
@@ -399,6 +416,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       cursor: pointer;
     }
     .zen-toggle:hover { background: rgba(0,0,0,0.62); }
+    .zen-toggle img { width: 20px; height: 20px; display: block; margin: auto; }
     .text :first-child { margin-top: 0; }
     .text :last-child { margin-bottom: 0; }
     .choices {
@@ -456,9 +474,9 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     }
     @media (max-width: 720px) {
       main { padding: 0; }
-      header { align-items: flex-start; flex-direction: column; }
-      .toolbar { width: 100%; }
-      .tool { flex: 1; }
+      header { align-items: center; justify-content: flex-end; }
+      .toolbar { width: 100%; justify-content: flex-end; }
+      .tool { flex: 0 0 auto; }
       .stage {
         height: calc(100vh - 138px);
         max-height: calc(100vh - 138px);
@@ -469,11 +487,12 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       }
       .dialogue { padding: 16px; }
       .app.immersive .dialogue {
-        width: calc(100% - 80px);
+        width: calc(100% - 24px);
+        margin-left: 12px;
         margin-right: 12px;
       }
       .settings-grid { grid-template-columns: 1fr; }
-      .settings-menu { right: -88px; }
+      .settings-menu { right: 0; }
     }
   </style>
 </head>
@@ -485,7 +504,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
         <button class="tool" id="backButton" type="button"></button>
         <button class="tool" id="resetButton" type="button"></button>
         <div class="settings-wrap">
-          <button class="tool" id="settingsButton" type="button" aria-haspopup="true" aria-expanded="false">&#9881;</button>
+          <button class="tool" id="settingsButton" type="button" aria-haspopup="true" aria-expanded="false"><img src="./icons/settings.svg" alt="" /></button>
           <div class="settings-menu" id="settingsMenu" hidden></div>
         </div>
       </div>
@@ -493,7 +512,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     <main>
       <div class="backdrop" id="backdrop"></div>
       <section class="stage" id="stage"></section>
-      <button class="zen-toggle" id="zenButton" type="button" aria-label="Toggle controls">◉</button>
+      <button class="zen-toggle" id="zenButton" type="button" aria-label="Toggle controls"><img src="./icons/eye.svg" alt="" /></button>
     </main>
   </div>
   <script>
@@ -508,15 +527,13 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     settings.videoAutoPlay = Boolean(settings.videoAutoPlay);
     settings.blurBackground = Boolean(settings.blurBackground);
     settings.skipSingleChoicePopup = settings.skipSingleChoicePopup !== false;
-    settings.dialoguePanelHeight = Math.max(18, Math.min(55, Number(settings.dialoguePanelHeight) || 34));
     document.documentElement.style.setProperty("--title-size", Math.max(12, Number(style.titleFontSize) || 18) + "px");
-    document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 16) + "px");
+    document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--title-color", style.titleColor || "#f8fafc");
     document.documentElement.style.setProperty("--body-color", style.bodyColor || "#e5e7eb");
     document.documentElement.style.setProperty("--panel-color", style.panelColor || "rgba(7, 10, 16, 0.82)");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
-    document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
     const labels = content.language === "zh"
       ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u7f6e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c" }
       : content.language === "ja"
@@ -541,8 +558,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
           blur: "\\u80cc\\u666f\\u865a\\u5316",
           skipSingle: "\\u9690\\u85cf\\u5355\\u9009",
           media: "\\u5a92\\u4f53",
-          autoplay: "\\u89c6\\u9891\\u81ea\\u52a8\\u64ad\\u653e",
-          height: "\\u6807\\u9898\\u6b63\\u6587\\u80cc\\u666f\\u9ad8\\u5ea6"
+          autoplay: "\\u89c6\\u9891\\u81ea\\u52a8\\u64ad\\u653e"
         }
       : {
           layout: "Layout",
@@ -562,8 +578,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
           blur: "Backdrop Blur",
           skipSingle: "Skip Single",
           media: "Media",
-          autoplay: "Video Autoplay",
-          height: "Title and Body Background Height"
+          autoplay: "Video Autoplay"
         };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
@@ -579,8 +594,8 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     const settingsMenu = document.getElementById("settingsMenu");
     const zenButton = document.getElementById("zenButton");
     titleEl.textContent = content.title || "GalWriter";
-    backButton.textContent = labels.back;
-    resetButton.textContent = labels.reset;
+    backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
+    resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
     backdropEl.classList.toggle("blurred", settings.blurBackground);
     let typewriterTimers = [];
@@ -642,17 +657,12 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
             '<div class="settings-label">' + menuText.media + '</div>' +
             settingButton(menuText.autoplay, "videoAutoPlay", String(!settings.videoAutoPlay), settings.videoAutoPlay) +
           '</div>' +
-          '<label class="settings-card wide">' +
-            '<div class="settings-range-row"><span>' + menuText.height + '</span><span id="heightValue">' + settings.dialoguePanelHeight + '%</span></div>' +
-            '<input class="settings-range" id="dialogueHeightInput" type="range" min="18" max="55" step="1" value="' + settings.dialoguePanelHeight + '" />' +
-          '</label>' +
         '</div>';
     }
 
     function applyRuntimeSettings() {
       document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
       backdropEl.classList.toggle("blurred", settings.blurBackground);
-      document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
       renderSettingsMenu();
       render();
     }
@@ -774,6 +784,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + '</div>' +
         '<div class="dialogue">' +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
+          '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>' +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
           (data.audioUrl ? '<audio src="' + escapeAttr(data.audioUrl) + '" controls preload="metadata"></audio>' : '') +
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
@@ -810,7 +821,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     zenButton.addEventListener("click", () => {
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
-      zenButton.textContent = controlsHidden ? "◎" : "◉";
+      zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
     });
     settingsButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -834,20 +845,6 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
         settings[action] = value;
       }
       applyRuntimeSettings();
-    });
-    settingsMenu.addEventListener("input", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement) || target.id !== "dialogueHeightInput") return;
-      settings.dialoguePanelHeight = Math.max(18, Math.min(55, Number(target.value) || 34));
-      document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
-      const label = document.getElementById("heightValue");
-      if (label) label.textContent = settings.dialoguePanelHeight + "%";
-    });
-    settingsMenu.addEventListener("change", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement) || target.id !== "dialogueHeightInput") return;
-      renderSettingsMenu();
-      render();
     });
     document.addEventListener("click", (event) => {
       if (settingsMenu.hidden) return;
@@ -885,7 +882,7 @@ export async function exportInteractiveWebZip(
   const title = options.projectName?.trim() || 'galwriter-web';
   const style: WebExportStyle = {
     titleFontSize: options.style?.titleFontSize || 34,
-    bodyFontSize: options.style?.bodyFontSize || 22,
+    bodyFontSize: options.style?.bodyFontSize || 18,
     titleColor: options.style?.titleColor || '#f8fafc',
     bodyColor: options.style?.bodyColor || '#e5e7eb',
     panelColor: options.style?.panelColor || 'rgba(7, 10, 16, 0.82)',
@@ -903,7 +900,6 @@ export async function exportInteractiveWebZip(
     typewriterSpeed: options.settings?.typewriterSpeed ?? 65,
     autoAdvance: options.settings?.autoAdvance ?? false,
     videoAutoPlay: options.settings?.videoAutoPlay ?? false,
-    dialoguePanelHeight: options.settings?.dialoguePanelHeight ?? 34,
   };
 
   const webNodes: WebExportNode[] = [];
@@ -941,7 +937,12 @@ export async function exportInteractiveWebZip(
     label: typeof edge.data?.label === 'string' ? edge.data.label : undefined,
   }));
 
-  zip.file('index.html', makeIndexHtml(title, options.language));
+  const iconFolder = zip.folder('icons');
+  Object.entries(WEB_EXPORT_ICONS).forEach(([fileName, svg]) => {
+    iconFolder?.file(fileName, svg);
+  });
+  const faviconPath = await addExportLogoAsset(iconFolder);
+  zip.file('index.html', makeIndexHtml(title, options.language, faviconPath));
   zip.file(
     'content.js',
     makeContentScript({
