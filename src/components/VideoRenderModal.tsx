@@ -42,7 +42,8 @@ import {
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../lib/i18n';
-import { htmlToSpeechText } from '../lib/tts';
+import { generateSpeechAudio, htmlToSpeechText } from '../lib/tts';
+import { exportInteractiveWebZip } from '../lib/webExport';
 
 type RenderStatus = 'idle' | 'rendering' | 'done' | 'error';
 type ExportFormat = 'webm' | 'mp4' | 'mkv';
@@ -50,6 +51,8 @@ type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 type TimelineScaleMode = 'seconds' | 'frames';
 type TimelineWheelMode = 'vertical' | 'horizontal';
 type AssetCardLayout = 'row' | 'grid';
+type ExportSettingsMode = 'video' | 'audio';
+type RenderWorkspaceMode = 'video' | 'web';
 type TimelineSegmentMetric = {
   node: FlowNode;
   start: number;
@@ -80,6 +83,17 @@ type RenderStyle = {
   panelColor: string;
   titleAnimation: TextAnimation;
   bodyAnimation: TextAnimation;
+};
+
+type WebExportSettings = {
+  layoutMode: 'classic' | 'immersive';
+  choicesPosition: 'center' | 'aboveText' | 'belowText';
+  blurBackground: boolean;
+  skipSingleChoicePopup: boolean;
+  interactionMode: 'immediate' | 'typewriter';
+  typewriterSpeed: number;
+  autoAdvance: boolean;
+  videoAutoPlay: boolean;
 };
 
 type SegmentRenderInfo = {
@@ -517,6 +531,319 @@ const getOrderedStoryNodes = (nodes: FlowNode[], edges: FlowEdge[]) => {
   return ordered;
 };
 
+const getNodeDisplayTitle = (node?: FlowNode | null) =>
+  String(
+    node?.data?.title ||
+      node?.data?.characterName ||
+      node?.data?.sceneName ||
+      node?.data?.label ||
+      'Untitled',
+  );
+
+const getNodeDisplayText = (node?: FlowNode | null) =>
+  String(node?.data?.text || node?.data?.description || node?.data?.content || '');
+
+const webAnimationStyle = (animation: TextAnimation): React.CSSProperties => {
+  if (animation === 'fade' || animation === 'typewriter') {
+    return { animation: 'webPreviewFade 360ms ease both' };
+  }
+  if (animation === 'slideUp') {
+    return { animation: 'webPreviewSlideUp 360ms ease both' };
+  }
+  return {};
+};
+
+function WebPlaytestPreview({
+  nodes,
+  edges,
+  language,
+  renderStyle,
+  choiceColor,
+  settings,
+}: {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  language: Language;
+  renderStyle: RenderStyle;
+  choiceColor: string;
+  settings: WebExportSettings;
+}) {
+  const isZh = language === 'zh';
+  const playableNodes = useMemo(
+    () => nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden),
+    [nodes],
+  );
+  const root = useMemo(
+    () => playableNodes.find((node) => node.data?.isRoot) || playableNodes[0] || null,
+    [playableNodes],
+  );
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => root?.id || null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [animationDone, setAnimationDone] = useState(settings.interactionMode !== 'typewriter');
+
+  React.useEffect(() => {
+    if (!root) {
+      setCurrentNodeId(null);
+      setHistory([]);
+      return;
+    }
+    setCurrentNodeId((current) =>
+      current && (current === 'THE_END' || playableNodes.some((node) => node.id === current))
+        ? current
+        : root.id,
+    );
+  }, [playableNodes, root]);
+
+  const currentNode =
+    currentNodeId && currentNodeId !== 'THE_END'
+      ? playableNodes.find((node) => node.id === currentNodeId)
+      : null;
+  const outEdges = currentNodeId
+    ? edges.filter((edge) => edge.source === currentNodeId)
+    : [];
+  const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
+  const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
+  const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
+  const title = getNodeDisplayTitle(currentNode);
+  const text = getNodeDisplayText(currentNode);
+  const shouldHideCenteredSingleChoice =
+    settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
+  const shouldShowChoices = animationDone && !shouldHideCenteredSingleChoice;
+
+  const goTo = (targetId: string) => {
+    if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
+    setCurrentNodeId(targetId);
+  };
+
+  React.useEffect(() => {
+    setAnimationDone(settings.interactionMode !== 'typewriter');
+    if (settings.interactionMode !== 'typewriter') return;
+    const textLength = Math.max(1, stripHtml(text).length);
+    const timer = window.setTimeout(() => setAnimationDone(true), textLength * settings.typewriterSpeed);
+    return () => window.clearTimeout(timer);
+  }, [currentNodeId, settings.interactionMode, settings.typewriterSpeed, text]);
+
+  React.useEffect(() => {
+    if (!settings.autoAdvance || !animationDone || outEdges.length > 1) return;
+    const timer = window.setTimeout(() => goTo(outEdges[0]?.target || 'THE_END'), 900);
+    return () => window.clearTimeout(timer);
+  }, [animationDone, currentNodeId, outEdges, settings.autoAdvance]);
+
+  const continueFromText = () => {
+    if (!shouldHideCenteredSingleChoice || !animationDone) return;
+    goTo(outEdges[0]?.target || 'THE_END');
+  };
+
+  const renderChoiceButtons = (extraClass = '') => {
+    if (!shouldShowChoices) return null;
+    const choiceEdges = outEdges.length > 0 ? outEdges : [];
+    if (choiceEdges.length === 0) {
+      return (
+        <div className={`grid gap-2 ${extraClass}`}>
+          <button
+            type="button"
+            onClick={() => goTo('THE_END')}
+            className="rounded-lg px-3 py-2 text-left text-xs font-black text-white transition-colors"
+            style={{ backgroundColor: `${choiceColor}22`, border: `1px solid ${choiceColor}66` }}
+          >
+            {isZh ? '剧本结束' : 'The End'}
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className={`grid gap-2 ${extraClass}`}>
+        {choiceEdges.map((edge, index) => {
+          const target = playableNodes.find((node) => node.id === edge.target);
+          const label =
+            getNodeDisplayTitle(target) ||
+            edge.data?.label ||
+            (choiceEdges.length === 1
+              ? isZh
+                ? '继续'
+                : 'Continue'
+              : `${isZh ? '选项' : 'Option'} ${index + 1}`);
+          return (
+            <button
+              key={edge.id}
+              type="button"
+              onClick={() => goTo(edge.target)}
+              className="rounded-lg px-3 py-2 text-left text-xs font-black text-white transition-colors"
+              style={{ backgroundColor: `${choiceColor}22`, border: `1px solid ${choiceColor}66` }}
+            >
+              {label as string}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const reset = () => {
+    setHistory([]);
+    setCurrentNodeId(root?.id || null);
+  };
+
+  const back = () => {
+    setHistory((prev) => {
+      const next = [...prev];
+      const previous = next.pop();
+      if (previous) setCurrentNodeId(previous);
+      return next;
+    });
+  };
+
+  if (!root) {
+    return (
+      <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
+        {isZh ? '没有可预览的剧本节点' : 'No story nodes to preview'}
+      </div>
+    );
+  }
+
+  if (currentNodeId === 'THE_END') {
+    return (
+      <div className="flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-[var(--vr-border-strong)] bg-[var(--vr-panel)] shadow-sm">
+        <div className="flex h-12 items-center justify-between border-b border-[var(--vr-border)] px-4">
+          <span className="text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+            {isZh ? '网页预览' : 'Web Preview'}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={back}
+              disabled={history.length === 0}
+              className="h-8 rounded-lg bg-[var(--vr-surface-soft)] px-3 text-xs font-black text-[var(--vr-text-soft)] disabled:opacity-40"
+            >
+              {isZh ? '返回' : 'Back'}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="h-8 rounded-lg bg-[var(--vr-accent-soft)] px-3 text-xs font-black text-[var(--vr-accent-strong)]"
+            >
+              {isZh ? '重置' : 'Reset'}
+            </button>
+          </div>
+        </div>
+        <div className="grid flex-1 place-items-center p-6 text-center text-2xl font-black text-[var(--vr-text)]">
+          {isZh ? '剧本结束' : 'The End'}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-[var(--vr-border-strong)] bg-[var(--vr-panel)] shadow-sm">
+      <style>
+        {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
+      </style>
+      {imageUrl && (
+        <div
+          className={`absolute inset-0 bg-cover bg-center opacity-35 scale-105 ${settings.blurBackground ? 'blur-sm' : ''}`}
+          style={{ backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` }}
+        />
+      )}
+      <div
+        className={`relative z-10 grid h-full bg-slate-950/45 ${
+          settings.layoutMode === 'immersive'
+            ? 'grid-rows-[48px_minmax(0,1fr)]'
+            : 'grid-rows-[48px_minmax(0,1fr)_auto]'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-4">
+          <div className="min-w-0 flex items-center gap-2">
+            <Eye className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+            <span className="truncate text-xs font-black uppercase tracking-wide text-white/85">
+              {isZh ? '网页互动预览' : 'Interactive Web Preview'}
+            </span>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={back}
+              disabled={history.length === 0}
+              className="h-8 rounded-lg bg-white/10 px-3 text-xs font-black text-white transition-colors hover:bg-white/15 disabled:opacity-40"
+            >
+              {isZh ? '返回' : 'Back'}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="h-8 rounded-lg bg-sky-500/20 px-3 text-xs font-black text-sky-100 transition-colors hover:bg-sky-500/30"
+            >
+              {isZh ? '重置' : 'Reset'}
+            </button>
+          </div>
+        </div>
+        <div className="min-h-0 p-4">
+          <div className="flex h-full min-h-0 items-center justify-center overflow-hidden rounded-lg bg-black/35">
+            {imageUrl ? (
+              <img src={imageUrl} alt="" className="h-full w-full object-contain" />
+            ) : videoUrl ? (
+              <video
+                src={videoUrl}
+                controls
+                playsInline
+                autoPlay={settings.videoAutoPlay}
+                muted={settings.videoAutoPlay}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="px-6 text-center text-sm font-bold text-white/45">
+                {isZh ? '当前节点没有图片或视频' : 'This node has no image or video'}
+              </div>
+            )}
+          </div>
+        </div>
+        {settings.choicesPosition === 'center' && shouldShowChoices && (
+          <div
+            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/15 bg-slate-950/80 p-4 backdrop-blur-xl"
+            style={{ width: 'min(520px, calc(100% - 32px))' }}
+          >
+            {renderChoiceButtons()}
+          </div>
+        )}
+        <div
+          className={`border-t border-white/10 p-4 ${
+            settings.layoutMode === 'immersive'
+              ? 'absolute inset-x-4 bottom-4 rounded-lg border border-white/10 backdrop-blur-xl'
+              : ''
+          }`}
+          style={{ backgroundColor: renderStyle.panelColor }}
+        >
+          <div
+            key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
+            className="font-black"
+            style={{
+              color: renderStyle.titleColor,
+              fontSize: renderStyle.titleFontSize,
+              ...webAnimationStyle(renderStyle.titleAnimation),
+            }}
+          >
+            {title}
+          </div>
+          {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
+          <div
+            key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
+            className="mt-2 max-h-32 overflow-y-auto text-sm leading-6 text-slate-200"
+            style={{
+              color: renderStyle.bodyColor,
+              fontSize: renderStyle.bodyFontSize,
+              ...webAnimationStyle(renderStyle.bodyAnimation),
+            }}
+            onClick={continueFromText}
+            dangerouslySetInnerHTML={{ __html: text || (isZh ? '（无正文）' : '(No body text)') }}
+          />
+          {audioUrl && <audio src={audioUrl} controls preload="metadata" className="mt-3 w-full" />}
+          {settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const readNumber = (value: unknown, fallback: number) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
@@ -860,6 +1187,21 @@ function ResizeHandle({ label, axis, value, min, max, onChange, reverse }: Resiz
 
 export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
+  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
+  const [webProjectName, setWebProjectName] = useState(
+    () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
+  );
+  const [webChoiceColor, setWebChoiceColor] = useState('#0ea5e9');
+  const [webSettings, setWebSettings] = useState<WebExportSettings>({
+    layoutMode: 'classic',
+    choicesPosition: 'belowText',
+    blurBackground: true,
+    skipSingleChoicePopup: false,
+    interactionMode: 'typewriter',
+    typewriterSpeed: 65,
+    autoAdvance: false,
+    videoAutoPlay: false,
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(orderedNodes.map((node) => node.id)),
   );
@@ -909,6 +1251,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>('row');
   const [assetCardScale, setAssetCardScale] = useState(1);
   const [exportPanelWidth, setExportPanelWidth] = useState(380);
+  const [exportSettingsMode, setExportSettingsMode] = useState<ExportSettingsMode>('video');
   const [timelineHeight, setTimelineHeight] = useState(250);
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
   const [timelineWheelMode, setTimelineWheelMode] = useState<TimelineWheelMode>('horizontal');
@@ -936,6 +1279,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [error, setError] = useState('');
   const [outputDirError, setOutputDirError] = useState('');
   const [savedPath, setSavedPath] = useState('');
+  const [audioMessage, setAudioMessage] = useState('');
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [isRecordingVoiceover, setIsRecordingVoiceover] = useState(false);
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -943,6 +1289,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const assetViewportRef = useRef<HTMLDivElement>(null);
   const timelineViewportRef = useRef<HTMLDivElement>(null);
   const timelineScrubSurfaceRef = useRef<HTMLDivElement>(null);
+  const voiceoverRecorderRef = useRef<MediaRecorder | null>(null);
+  const voiceoverChunksRef = useRef<BlobPart[]>([]);
+  const voiceoverStreamRef = useRef<MediaStream | null>(null);
   const timelineScrubRef = useRef(false);
   const timelineScaleDragRef = useRef<{
     side: 'left' | 'right';
@@ -1581,6 +1930,131 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setError('');
   };
 
+  const addAudioAssetFromBlob = (blob: Blob, title: string, generated = false) => {
+    const url = URL.createObjectURL(blob);
+    uploadedObjectUrlsRef.current.add(url);
+    const node: FlowNode = {
+      id: `generated-audio-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type: 'storyNode',
+      position: { x: 0, y: 0 },
+      data: {
+        title,
+        text: '',
+        audioUrl: url,
+        ...(generated ? { ttsGenerated: true } : {}),
+      },
+    };
+    setUploadedAssetNodes((prev) => [node, ...prev]);
+    setAssetRegionFilter('all');
+    setActivePreviewId(node.id);
+    setAudioTrackByNodeId((prev) => ({ ...prev, [node.id]: audioTrackIds[0] || 'audio-1' }));
+    setAudioMessage(isZh ? '音频已添加到素材栏，可拖到音频轨。' : 'Audio added to assets. Drag it to an audio track.');
+    setError('');
+  };
+
+  const selectedSpeechText = () =>
+    selectedNodes
+      .map((node, index) => {
+        const title = htmlToSpeechText(String(node.data?.title || ''));
+        const body = htmlToSpeechText(String(node.data?.text || ''));
+        const text = [title, body].filter(Boolean).join('\n');
+        return text ? `${index + 1}. ${text}` : '';
+      })
+      .filter(Boolean)
+      .join('\n\n')
+      .trim();
+
+  const generateAudioFromSelectedText = async () => {
+    if (audioBusy) return;
+    const speechText = selectedSpeechText();
+    if (!speechText) {
+      setAudioMessage(isZh ? '选中的片段没有可朗读文字。' : 'Selected segments have no readable text.');
+      return;
+    }
+    setAudioBusy(true);
+    setAudioMessage(isZh ? '正在生成语音...' : 'Generating speech...');
+    try {
+      const audio = await generateSpeechAudio(speechText, {
+        provider: 'system',
+        apiUrl: '',
+        apiKey: '',
+        model: '',
+        voice: '',
+      });
+      addAudioAssetFromBlob(
+        audio.blob,
+        isZh ? `剧本文字配音 ${new Date().toLocaleTimeString()}` : `Script voiceover ${new Date().toLocaleTimeString()}`,
+        true,
+      );
+    } catch (speechError) {
+      const message =
+        speechError instanceof Error
+          ? speechError.message
+          : isZh
+            ? '文字转音频失败。'
+            : 'Text to audio failed.';
+      setAudioMessage(message);
+    } finally {
+      setAudioBusy(false);
+    }
+  };
+
+  const startVoiceoverRecording = async () => {
+    if (isRecordingVoiceover) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      voiceoverChunksRef.current = [];
+      voiceoverStreamRef.current = stream;
+      voiceoverRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) voiceoverChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(voiceoverChunksRef.current, {
+          type: mimeType || recorder.mimeType || 'audio/webm',
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        voiceoverStreamRef.current = null;
+        voiceoverRecorderRef.current = null;
+        voiceoverChunksRef.current = [];
+        setIsRecordingVoiceover(false);
+        if (blob.size > 0) {
+          addAudioAssetFromBlob(
+            blob,
+            isZh ? `用户配音 ${new Date().toLocaleTimeString()}` : `Voiceover ${new Date().toLocaleTimeString()}`,
+          );
+        }
+      };
+      recorder.start();
+      setIsRecordingVoiceover(true);
+      setAudioMessage(isZh ? '正在录音，点击停止生成音频素材。' : 'Recording. Stop to create an audio asset.');
+    } catch (recordError) {
+      setIsRecordingVoiceover(false);
+      setAudioMessage(
+        recordError instanceof Error
+          ? recordError.message
+          : isZh
+            ? '无法打开麦克风。'
+            : 'Could not open the microphone.',
+      );
+    }
+  };
+
+  const stopVoiceoverRecording = () => {
+    const recorder = voiceoverRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+      return;
+    }
+    voiceoverStreamRef.current?.getTracks().forEach((track) => track.stop());
+    voiceoverStreamRef.current = null;
+    setIsRecordingVoiceover(false);
+  };
+
   const handleAssetUploadInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files?.length) handleUploadedAssetFiles(event.target.files);
     event.target.value = '';
@@ -1707,6 +2181,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   React.useEffect(() => {
     const objectUrls = uploadedObjectUrlsRef.current;
     return () => {
+      if (voiceoverRecorderRef.current?.state === 'recording') {
+        voiceoverRecorderRef.current.stop();
+      }
+      voiceoverStreamRef.current?.getTracks().forEach((track) => track.stop());
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
       objectUrls.clear();
     };
@@ -2214,6 +2692,13 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setRenderStyle((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateWebSettings = <K extends keyof WebExportSettings>(
+    key: K,
+    value: WebExportSettings[K],
+  ) => {
+    setWebSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
   const updateProgress = (label: string, current: number, total: number) => {
     const percent = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
     setProgress(`${label} ${percent}%`);
@@ -2664,11 +3149,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
     const shouldUseTauriExport = isTauriRuntime();
     if (!shouldUseTauriExport && exportFormat !== 'webm') {
-      setStatus('error');
-      setError(
+      window.alert(
         isZh
-          ? `${exportFormat.toUpperCase()} 需要 Tauri 桌面端调用 FFmpeg 转码。网页端只能直接导出 WebM。`
-          : `${exportFormat.toUpperCase()} requires Tauri desktop FFmpeg transcoding. Web export can only save WebM directly.`,
+          ? `${exportFormat.toUpperCase()} 网页端只能直接导出 WebM。`
+          : `${exportFormat.toUpperCase()} web export can only save WebM directly.`,
       );
       return;
     }
@@ -2835,6 +3319,42 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       console.error('Video render failed:', renderError);
       setStatus('error');
       setError(renderError?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
+    }
+  };
+
+  const exportWebProject = async () => {
+    if (status === 'rendering') return;
+    const storyNodes = nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden);
+    if (storyNodes.length === 0) {
+      setStatus('error');
+      setError(isZh ? '没有可导出的剧本节点' : 'No story nodes to export');
+      return;
+    }
+
+    setStatus('rendering');
+    setError('');
+    setSavedPath('');
+    setProgressValue(15);
+    setProgress(isZh ? '正在生成网页 ZIP...' : 'Generating web ZIP...');
+
+    try {
+      await exportInteractiveWebZip(storyNodes, edges, {
+        projectName: webProjectName,
+        language,
+        style: {
+          ...renderStyle,
+          choiceColor: webChoiceColor,
+        },
+        settings: webSettings,
+      });
+      setStatus('done');
+      setProgressValue(100);
+      setProgress(isZh ? '网页 ZIP 已导出' : 'Web ZIP exported');
+      setSavedPath(`${webProjectName || 'galwriter-web'}-web.zip`);
+    } catch (exportError: any) {
+      console.error('Web export failed:', exportError);
+      setStatus('error');
+      setError(exportError?.message || (isZh ? '网页导出失败' : 'Web export failed'));
     }
   };
 
@@ -3301,7 +3821,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     >
       <div
         className="h-full w-full grid"
-        style={{ gridTemplateRows: `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px` }}
+        style={{
+          gridTemplateRows:
+            workspaceMode === 'web'
+              ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
+              : `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px`,
+        }}
       >
         <header className="h-14 px-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 backdrop-blur-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
@@ -3328,8 +3853,46 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                 )}
               </button>
             </div>
+            <div className="flex h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+              {(['video', 'web'] as RenderWorkspaceMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    if (status === 'rendering') return;
+                    setWorkspaceMode(mode);
+                    setError('');
+                    setProgress('');
+                    setSavedPath('');
+                  }}
+                  className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-black transition-colors ${
+                    workspaceMode === mode
+                      ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                      : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                  }`}
+                  aria-pressed={workspaceMode === mode}
+                  title={
+                    mode === 'video'
+                      ? isZh
+                        ? '切换到视频导出'
+                        : 'Switch to video export'
+                      : isZh
+                        ? '切换到网页导出'
+                        : 'Switch to web export'
+                  }
+                >
+                  {mode === 'video' ? (
+                    <Film className="h-3.5 w-3.5" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                  )}
+                  {mode === 'video' ? (isZh ? '视频' : 'Video') : isZh ? '网页' : 'Web'}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            {workspaceMode === 'video' && (
             <div className="flex items-center gap-1 border-r border-[var(--vr-border)] pr-2 mr-1">
               <button
                 type="button"
@@ -3350,11 +3913,26 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                 <Redo2 className="w-4 h-4" />
               </button>
             </div>
+            )}
             <button
-              onClick={renderVideo}
-              disabled={status === 'rendering' || selectedNodes.length === 0}
+              onClick={workspaceMode === 'web' ? exportWebProject : renderVideo}
+              disabled={
+                status === 'rendering' ||
+                (workspaceMode === 'video' && selectedNodes.length === 0) ||
+                (workspaceMode === 'web' &&
+                  nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden)
+                    .length === 0)
+              }
               className="h-9 px-3 rounded-lg bg-[var(--vr-accent)] text-white text-xs font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] hover:brightness-105 shadow-sm"
-              title={isZh ? '一键导出视频' : 'Export Video'}
+              title={
+                workspaceMode === 'web'
+                  ? isZh
+                    ? '导出网页 ZIP'
+                    : 'Export Web ZIP'
+                  : isZh
+                    ? '一键导出视频'
+                    : 'Export Video'
+              }
             >
               {status === 'rendering' ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -3366,6 +3944,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   ? isZh
                     ? '渲染中...'
                     : 'Rendering...'
+                  : workspaceMode === 'web'
+                    ? isZh
+                      ? '导出网页'
+                      : 'Export Web'
                   : isZh
                     ? '一键导出视频'
                     : 'Export Video'}
@@ -3381,6 +3963,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           </div>
         </header>
 
+        {workspaceMode === 'video' ? (
+        <>
         <main className="min-h-0 flex bg-[var(--vr-bg)]">
           <aside
             className="min-h-0 border-r border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0"
@@ -3710,9 +4294,42 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0"
             style={{ width: exportPanelWidth }}
           >
-            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
-              <Settings className="w-4 h-4 text-[var(--vr-accent)]" />
-              {isZh ? '导出设置' : 'Export Settings'}
+            <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+              <div className="min-w-0 flex items-center gap-2">
+                <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+                <span className="truncate">{isZh ? '导出设置' : 'Export Settings'}</span>
+              </div>
+              <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
+                {(['video', 'audio'] as ExportSettingsMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setExportSettingsMode(mode)}
+                    className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
+                      exportSettingsMode === mode
+                        ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                        : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                    }`}
+                    title={
+                      mode === 'video'
+                        ? isZh
+                          ? '切换到导出设置'
+                          : 'Show export settings'
+                        : isZh
+                          ? '切换到音频设置'
+                          : 'Show audio settings'
+                    }
+                    aria-pressed={exportSettingsMode === mode}
+                  >
+                    {mode === 'video' ? (
+                      <Video className="h-3.5 w-3.5" />
+                    ) : (
+                      <Music className="h-3.5 w-3.5" />
+                    )}
+                    {mode === 'video' ? (isZh ? '视频' : 'Video') : isZh ? '音频' : 'Audio'}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
               {false && isTauriRuntime() && exportFormat !== 'webm' && (
@@ -3750,6 +4367,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   </label>
                 </div>
               )}
+              {exportSettingsMode === 'video' ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
@@ -4034,6 +4652,78 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   )}
                 </label>
               </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                      {isZh ? '文字转音频' : 'Text to Audio'}
+                    </div>
+                    <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 space-y-3">
+                      <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
+                        {isZh
+                          ? `将当前选中的 ${selectedNodes.length} 个片段文字生成音频素材。`
+                          : `Create an audio asset from ${selectedNodes.length} selected segment(s).`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={generateAudioFromSelectedText}
+                        disabled={audioBusy || selectedNodes.length === 0}
+                        className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white transition-colors hover:bg-[var(--vr-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {audioBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        {isZh ? '生成语音' : 'Generate speech'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                      {isZh ? '用户配音' : 'Voiceover'}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => assetUploadInputRef.current?.click()}
+                        className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-xs font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                      >
+                        <FolderOpen className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{isZh ? '上传音频' : 'Upload audio'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
+                        className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${
+                          isRecordingVoiceover
+                            ? 'bg-rose-500 text-white hover:bg-rose-600'
+                            : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+                        }`}
+                      >
+                        <Mic className="h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {isRecordingVoiceover
+                            ? isZh
+                              ? '停止录音'
+                              : 'Stop'
+                            : isZh
+                              ? '录制配音'
+                              : 'Record'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2 text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
+                    {audioMessage ||
+                      (isZh
+                        ? '生成或上传后，音频会出现在左侧素材栏，可拖到下方音频轨。'
+                        : 'Generated or uploaded audio appears in the left assets panel and can be dragged to an audio track.')}
+                  </div>
+                </div>
+              )}
               {(progress || error) && (
                 <div className="space-y-2">
                   {!error && (
@@ -4631,8 +5321,462 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             </div>
           </div>
         </section>
+        </>
+        ) : (
+          <main className="min-h-0 grid grid-cols-[minmax(0,1fr)_minmax(300px,380px)] bg-[var(--vr-bg)]">
+            <section className="min-h-0 min-w-0 bg-[var(--vr-surface-soft)] flex flex-col">
+              <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-[var(--vr-border)] px-4">
+                <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+                  <Play className="w-4 h-4 text-[var(--vr-accent)]" />
+                  {isZh ? '测试预览窗口' : 'Preview Monitor'}
+                </div>
+                <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black text-[var(--vr-text)]">
+                  HTML
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 p-4 xl:p-5">
+                <WebPlaytestPreview
+                  nodes={nodes}
+                  edges={edges}
+                  language={language}
+                  renderStyle={renderStyle}
+                  choiceColor={webChoiceColor}
+                  settings={webSettings}
+                />
+              </div>
+            </section>
+
+            <aside className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
+              <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+                <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+                <span className="truncate">{isZh ? '导出设置' : 'Export Settings'}</span>
+              </div>
+              <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '网页参数' : 'Web'}
+                  </div>
+                  <label className="space-y-1.5 block">
+                    <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
+                      {isZh ? '网页项目名' : 'Web project name'}
+                    </span>
+                    <input
+                      type="text"
+                      value={webProjectName}
+                      onChange={(event) => setWebProjectName(event.target.value)}
+                      className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)]"
+                      placeholder="galwriter-web"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '界面排版' : 'Layout'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['classic', 'immersive'] as WebExportSettings['layoutMode'][]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => updateWebSettings('layoutMode', mode)}
+                        className={`h-9 rounded-lg px-3 text-xs font-black transition-colors ${
+                          webSettings.layoutMode === mode
+                            ? 'bg-[var(--vr-accent)] text-white'
+                            : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                        }`}
+                      >
+                        {mode === 'classic'
+                          ? isZh
+                            ? '经典排版'
+                            : 'Classic'
+                          : isZh
+                            ? '沉浸全屏'
+                            : 'Immersive'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '选项按钮位置' : 'Choice Position'}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['center', 'aboveText', 'belowText'] as WebExportSettings['choicesPosition'][]).map(
+                      (position) => (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() => updateWebSettings('choicesPosition', position)}
+                          className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                            webSettings.choicesPosition === position
+                              ? 'bg-[var(--vr-accent)] text-white'
+                              : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                          }`}
+                        >
+                          {position === 'center'
+                            ? isZh
+                              ? '画面中间'
+                              : 'Center'
+                            : position === 'aboveText'
+                              ? isZh
+                                ? '文字上方'
+                                : 'Above'
+                              : isZh
+                                ? '文字下方'
+                                : 'Below'}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '选项弹出背景虚化' : 'Choice Backdrop Blur'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('blurBackground', true)}
+                      className={`h-9 rounded-lg px-3 text-xs font-black transition-colors ${
+                        webSettings.blurBackground
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '开启背景虚化' : 'Blur On'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('blurBackground', false)}
+                      className={`h-9 rounded-lg px-3 text-xs font-black transition-colors ${
+                        !webSettings.blurBackground
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '关闭背景虚化' : 'Blur Off'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '单选项时隐藏居中弹窗' : 'Single Choice Popup'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('skipSingleChoicePopup', true)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        webSettings.skipSingleChoicePopup
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '隐藏' : 'Hide'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('skipSingleChoicePopup', false)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        !webSettings.skipSingleChoicePopup
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '显示弹窗选择' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '剧情文本交互策略' : 'Text Interaction'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('interactionMode', 'typewriter')}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        webSettings.interactionMode === 'typewriter'
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '打字机效果' : 'Typewriter'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('interactionMode', 'immediate')}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        webSettings.interactionMode === 'immediate'
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '立即显示' : 'Immediate'}
+                    </button>
+                  </div>
+                  <label className="block rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
+                    <RangeControl
+                      label={isZh ? '打字速度' : 'Type speed'}
+                      min={10}
+                      max={200}
+                      step={5}
+                      value={webSettings.typewriterSpeed}
+                      valueLabel={`${webSettings.typewriterSpeed} ms/${isZh ? '字' : 'char'}`}
+                      disabled={webSettings.interactionMode !== 'typewriter'}
+                      onChange={(nextValue) =>
+                        updateWebSettings('typewriterSpeed', Math.max(0, Math.round(nextValue)))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '自动翻页' : 'Auto Advance'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('autoAdvance', true)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        webSettings.autoAdvance
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '自动继续' : 'On'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('autoAdvance', false)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        !webSettings.autoAdvance
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '手动选择' : 'Off'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '多媒体设置' : 'Media'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('videoAutoPlay', true)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        webSettings.videoAutoPlay
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '视频自动播放' : 'Autoplay'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWebSettings('videoAutoPlay', false)}
+                      className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                        !webSettings.videoAutoPlay
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                      }`}
+                    >
+                      {isZh ? '手动播放' : 'Manual'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '标题样式' : 'Title Style'}
+                  </div>
+                  <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '字号' : 'Size'}
+                      </span>
+                      <DragSizeControl
+                        label={
+                          isZh
+                            ? '拖动调整网页标题字号，单击输入精确数字'
+                            : 'Drag to adjust web title size, click to type an exact value'
+                        }
+                        value={renderStyle.titleFontSize}
+                        min={18}
+                        max={120}
+                        step={1}
+                        onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '动画' : 'Animation'}
+                      </span>
+                      <select
+                        value={renderStyle.titleAnimation}
+                        onChange={(event) =>
+                          updateRenderStyle('titleAnimation', event.target.value as TextAnimation)
+                        }
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {TEXT_ANIMATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {isZh ? option.zh : option.en}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '颜色' : 'Color'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.titleColor}
+                        onChange={(event) => updateRenderStyle('titleColor', event.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '正文样式' : 'Body Style'}
+                  </div>
+                  <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '字号' : 'Size'}
+                      </span>
+                      <DragSizeControl
+                        label={
+                          isZh
+                            ? '拖动调整网页正文字号，单击输入精确数字'
+                            : 'Drag to adjust web body size, click to type an exact value'
+                        }
+                        value={renderStyle.bodyFontSize}
+                        min={16}
+                        max={96}
+                        step={1}
+                        onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '动画' : 'Animation'}
+                      </span>
+                      <select
+                        value={renderStyle.bodyAnimation}
+                        onChange={(event) =>
+                          updateRenderStyle('bodyAnimation', event.target.value as TextAnimation)
+                        }
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {TEXT_ANIMATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {isZh ? option.zh : option.en}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '颜色' : 'Color'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.bodyColor}
+                        onChange={(event) => updateRenderStyle('bodyColor', event.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '选择按钮' : 'Choice Buttons'}
+                  </div>
+                  <div className="grid grid-cols-[1fr_56px] gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '文字底色' : 'Button color'}
+                      </span>
+                      <input
+                        type="color"
+                        value={webChoiceColor}
+                        onChange={(event) => setWebChoiceColor(event.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '面板' : 'Panel'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.panelColor}
+                        onChange={(event) => updateRenderStyle('panelColor', event.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={exportWebProject}
+                  disabled={status === 'rendering'}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white transition-colors hover:bg-[var(--vr-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {status === 'rendering' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {isZh ? '导出网页 ZIP' : 'Export Web ZIP'}
+                </button>
+
+                {(progress || error) && (
+                  <div className="space-y-2">
+                    {!error && (
+                      <div className="h-2 rounded-full bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] overflow-hidden">
+                        <div
+                          className="h-full bg-[var(--vr-accent)] transition-all"
+                          style={{ width: `${progressValue}%` }}
+                        />
+                      </div>
+                    )}
+                    <p
+                      className={`text-xs font-bold ${error ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--vr-text-muted)]'}`}
+                    >
+                      {error || progress}
+                    </p>
+                  </div>
+                )}
+                {savedPath && (
+                  <div className="rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)] break-all">
+                    {isZh ? '已保存：' : 'Saved: '}
+                    {savedPath}
+                  </div>
+                )}
+              </div>
+            </aside>
+          </main>
+        )}
       </div>
-      {renderContextMenu()}
+      {workspaceMode === 'video' && renderContextMenu()}
     </div>
   );
 }

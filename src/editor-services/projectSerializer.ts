@@ -413,7 +413,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       settings: settingsForSnapshot,
       assistantTasks: settings.saveAssistantConversations ? assistantTasks : undefined,
       activeAssistantTaskId: settings.saveAssistantConversations ? activeAssistantTaskId : undefined,
-    } satisfies ProjectSnapshotData;
+    } as ProjectSnapshotData;
   };
 
   const writeProjectToZip = async (
@@ -628,24 +628,32 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     return entry;
   };
 
-  const restoreImportedProject = async (projectData: ProjectSnapshotData, zip: JSZip | null) => {
-    const restoredNodes = await restoreProjectNodes(projectData.nodes, zip);
+  const restoreImportedProject = async (
+    projectData: ProjectSnapshotData,
+    zip: JSZip | null = null,
+  ): Promise<ProjectSnapshotData> => {
+    const restoredNodes = await restoreProjectNodes(projectData.nodes as Node[], zip);
+    const restoredEdges = (projectData.edges || []).map((edge) => ({
+      ...edge,
+      markerEnd: options.defaultEdgeOptions.markerEnd,
+      style: options.defaultEdgeOptions.style,
+    }));
 
     return {
       ...projectData,
-      nodes: restoredNodes,
-      edges: projectData.edges.map((edge) => ({
-        ...edge,
-        type: 'customEdge',
-        markerEnd: options.defaultEdgeOptions.markerEnd,
-        style: options.defaultEdgeOptions.style,
-      })),
+      nodes: restoredNodes as StoryNode[],
+      edges: restoredEdges as StoryEdge[],
     };
   };
 
   const applyImportedProject = async (
-    { projectData, settingsSetters, setAssistantTasks, setActiveAssistantTaskId }: ApplyImportedProjectParams,
-    zip: JSZip | null,
+    {
+      projectData,
+      settingsSetters,
+      setAssistantTasks,
+      setActiveAssistantTaskId,
+    }: ApplyImportedProjectParams,
+    zip: JSZip | null = null,
   ) => {
     const restoredProject = await restoreImportedProject(projectData, zip);
 

@@ -14,6 +14,7 @@ import {
   parseSettingJson,
   type GeneratedCharacterSetting,
   type GeneratedSceneSetting,
+  type LanguageCode,
 } from '../lib/settingDice';
 
 export type AITextResult = {
@@ -39,13 +40,13 @@ export interface AIAnalyzeParams {
 export interface AISettingGenerationParams {
   type: 'character';
   data: CharacterNodeData;
-  language: 'zh' | 'en';
+  language: LanguageCode;
 }
 
 export interface AISceneSettingGenerationParams {
   type: 'scene';
   data: SceneNodeData;
-  language: 'zh' | 'en';
+  language: LanguageCode;
 }
 
 export type AISettingRequest = AISettingGenerationParams | AISceneSettingGenerationParams;

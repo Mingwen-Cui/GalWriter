@@ -1,4 +1,4 @@
-export type Language = 'zh' | 'en';
+export type Language = 'zh' | 'en' | 'ja';
 
 export const translations = {
   zh: {
@@ -330,5 +330,172 @@ export const translations = {
     selectionMenuLayout: 'Selection Menu Layout',
     menuVertical: 'Vertical',
     menuHorizontal: 'Horizontal',
+  },
+  ja: {
+    // Header
+    editorTitle: 'インタラクティブシナリオエディタ',
+    hideTitles: 'タイトルを非表示',
+    showTitles: 'タイトルを表示',
+    settings: '設定',
+    undo: '元に戻す',
+    redo: 'やり直し',
+    playTest: 'プレイテスト',
+    save: 'ローカルに保存',
+    import: 'プロジェクトをインポート',
+    unsaved: '未保存',
+    dirtyWarning:
+      '未保存の変更があります。本当に終了しますか？先に保存することをお勧めします。',
+
+    // Toolbar
+    tools: 'ツール',
+    toolSelect: '選択と移動',
+    toolBox: 'ボックス選択',
+    toolSquare: '正方形ノードを追加',
+    toolDiamond: 'ひし形ノードを追加',
+    toolRounded: '角丸矩形を追加 (開始/終了)',
+    toolBg: '背景エリアを追加 (カードを囲む)',
+    toolAIHub: 'AIサマリーノードを追加 (矢印で入力を接続)',
+    toolMedia: 'メディアをインポート (画像/動画/音声)',
+    toolText: 'カスタムテキストラベルを追加 (サイズ/色/太字)',
+    toolBatchReplace:
+      '矢印の線を右クリックして削除します。矢印の線をダブルクリックして反転します。',
+    toolPlotStructure:
+      'プロット構造設計カードを追加 (背景/グループ内にストーリーの続きを自动生成)',
+    toolScene: 'シーン設定カードを追加',
+    fit: 'フィット',
+    crop: '切り抜き',
+    fill: '引き伸ばし',
+    objectFit: 'メディア表示モード',
+
+    // Footer
+    nodes: 'ノード',
+    paths: 'パス',
+    footerHint:
+      '矢印を右クリックして削除。背景カードのロックアイコンをクリックしてロック/解除。',
+
+    // AI Actions
+    aiAssistant: 'AI執筆アシスタント',
+    aiChooseMethod: 'AIの生成方法を選択してください：',
+    aiContinue: '文脈から執筆',
+    aiContinueDesc: '現在のプロットを自然に継続',
+    aiCreative: '異なるアイデア',
+    aiCreativeDesc: '異なるクリエイティブな方向性を提示',
+    aiRewrite: '選択範囲を書き換え',
+    aiRewriteDesc: '核心を維持し、表現とテンポを最適化',
+    aiInterpolate: '中間の内容を補完',
+    aiInterpolateDesc: 'ノード間の架け橋となる内容を生成',
+    aiSceneOnly: '環境描写のみを追加',
+    aiSceneOnlyDesc: '対話なしで環境やアクションのみを追加',
+    aiDialogueOnly: '対話のみを追加',
+    aiDialogueOnlyDesc: 'シーンやアクションなしでキャラクターの対話のみを追加',
+    cancel: 'キャンセル',
+
+    // Settings
+    edgeStyle: '接続線のスタイル',
+    step: 'ステップ',
+    bezier: 'ベジェ',
+    pastePlain: 'プレーンテキストとして貼り付け',
+    showActions: 'ノードのアクションボタンを表示',
+    showStats: 'フッターの統計を表示',
+    bgColors: 'プリセット背景色',
+    aiSettings: 'AI設定',
+    aiProvider: 'AIプロバイダー',
+    genLength: '生成トークン长',
+    thinkingMode: '思考モード',
+    thinkingModeDesc: '対応モデルは右上に思考プロセスを表示します',
+    geminiKey: 'Gemini API キー',
+    deepseekKey: 'DeepSeek API キー',
+    openaiKey: 'OpenAI API キー',
+    moonshotKey: 'Moonshot (Kimi) API キー',
+    wrapWithBackground: '動的ラップを使用',
+    dynamicWrap: '動的ラップ',
+    bgCard: '背景カード',
+    connectToAIHub: 'AIハブに接続',
+    finish: '完了',
+    contactTitle: '開発者に連絡 (崔銘文)',
+    contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
+    author: '開発者',
+
+    // MiniMap
+    showMiniMap: 'ミニマップを表示',
+    showControls: 'ズームコントロールを表示',
+    miniMapPosition: 'ミニマップの位置',
+    miniMapLeft: '左側',
+    miniMapRight: '右側',
+
+    // Theme
+    theme: 'テーマ',
+    lightMode: 'ライトモード',
+    darkMode: 'ダークモード',
+
+    // Storyline
+    showStoryline: 'ストーリーラインを追跡',
+    hideStoryline: 'ストーリーラインをリセット',
+    storylineDesc: '現在ノードの上流および下流ルートをハイライトします',
+    unhideAll: '非表示のカードをすべて復元',
+    hideNode: 'このカードを非表示',
+    boldText: '太字',
+    italicText: '斜体',
+    underlineText: '下線',
+    skipForNow: 'とりあえずスキップ',
+
+    // Save Modal
+    exportProject: 'ZIPバックアップをエクスポート',
+    saveProjectDesc:
+      'プロジェクト名を入力してください。エクスポートされたZIPにはスクリプト論理とすべてのメディア素材が含まれます。',
+    projectName: 'プロジェクト名',
+    includeApiProfiles: 'アクティブなAPI設定をエクスポート',
+    includeApiProfilesDesc:
+      'チェックすると、現在アクティブなテキスト、画像、音声のAPI設定（APIキーを含む）がZIPに書き込まれます。',
+    confirmSave: 'ZIPをエクスポート',
+
+    // Guide
+    guideTestTitle: 'テストと保存',
+    guideTestDesc: 'ZIPプロジェクトを保存するか、プレイテストモードに入ってインタラクティブな効果をプレビューします。',
+    guideToolTitle: 'ノードとツール',
+    guideToolDesc: 'ドラッグまたはクリックしてノードを追加します。AIノードを使用してプロットロジックを要約します。',
+    guideCanvasDesc: '空白部分をダブルクリックしてノードを素早く追加',
+    guideStoryTitle: 'ストーリーエディタ',
+    guideStart: '執筆を開始',
+    dontShowAgain: '再表示しない',
+    disclaimer: '免責事項',
+    disclaimer1:
+      '当サイトはユーザーの個人コンテンツを自動的に保存しません。重要な情報は手動で保存してください。データの消失に関して当サイトは一切の責任を負いません。',
+    disclaimer2: '基本機能とサービス向上のためにCookieが使用される場合があります。',
+    disclaimer3: 'AI生成コンテンツは参考用です。ご自身の責任においてご利用ください。',
+
+    // Play Test
+    noScript: 'スクリプトが見つかりません',
+    createStartNode: 'まず開始ノードを作成してください。',
+    close: '閉じる',
+    playTestTitle: 'スクリプトプレイテスト',
+    backHistory: 'ロールバック (タイムトラベル)',
+    storyEnd: 'ストーリー終了',
+    branchEnded: 'この分岐は終了しました。再開しますか？',
+    restart: '再開',
+    continue: '次へ...',
+    option: '選択肢',
+    draftEnded: '次へ... (ドラフト終了)',
+    layoutSettings: '表示設定',
+    playtestLayoutMode: 'レイアウトモード',
+    layoutClassic: 'クラシックレイアウト',
+    layoutImmersive: '没入型全画面',
+    toggleFullscreen: '全画面モード',
+    enterFullscreen: '全画面表示',
+    exitFullscreen: '全画面表示を終了',
+    choiceColumns: 'ボタン配置',
+    videoAutoPlay: '動画の自動再生',
+    dimBackground: '背景の輝度を下げる',
+    column1: '1列に配置',
+    column2: '2列に配置',
+    column3: '3列に配置',
+    enterZenMode: 'ゼンモードに入る',
+    exitZenMode: 'ゼンモードを終了',
+    toolbarLayout: 'ツールバーの配置',
+    vertical: '右側縦並び',
+    horizontal: '右側横並び',
+    selectionMenuLayout: '選択メニューの配置',
+    menuVertical: '垂直',
+    menuHorizontal: '水平',
   },
 };

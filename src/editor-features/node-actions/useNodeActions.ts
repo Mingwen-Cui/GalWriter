@@ -2,10 +2,11 @@ import type { Edge, Node } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import type { Language } from '../../lib/i18n';
 
 interface UseNodeActionsParams {
   nodes: Node[];
-  language: 'zh' | 'en';
+  language: Language;
   showTitles: boolean;
   titleHeight: number;
   getCenterPosition: () => { x: number; y: number };
@@ -77,7 +78,12 @@ export const useNodeActions = ({
       selected: true,
       data: {
         id: newId,
-        content: language === 'zh' ? '在此处输入文本?..' : 'Enter text here...',
+        content:
+          language === 'zh'
+            ? '在此处输入文本?..'
+            : language === 'ja'
+              ? 'ここにテキストを入力してください...'
+              : 'Enter text here...',
         fontSize: 24,
         color: '#334155',
         fontFamily: 'system-ui, sans-serif',
@@ -147,7 +153,16 @@ export const useNodeActions = ({
       id: newId,
       type: 'characterNode',
       position: { x: center.x - 140, y: center.y - 150 },
-      data: { id: newId, characterName: '新角色', traits: '' },
+      data: {
+        id: newId,
+        characterName:
+          language === 'zh'
+            ? '新角色'
+            : language === 'ja'
+              ? '新キャラクター'
+              : 'New Character',
+        traits: '',
+      },
     };
     setNodes((currentNodes) => [...currentNodes, newNode]);
   }, [getCenterPosition, setNodes]);
@@ -159,7 +174,16 @@ export const useNodeActions = ({
       id: newId,
       type: 'sceneNode',
       position: { x: center.x - 140, y: center.y - 150 },
-      data: { id: newId, sceneName: language === 'zh' ? '新场景' : 'New Scene', description: '' },
+      data: {
+        id: newId,
+        sceneName:
+          language === 'zh'
+            ? '新场景'
+            : language === 'ja'
+              ? '新シーン'
+              : 'New Scene',
+        description: '',
+      },
     };
     setNodes((currentNodes) => [...currentNodes, newNode]);
   }, [getCenterPosition, language, setNodes]);
@@ -178,7 +202,8 @@ export const useNodeActions = ({
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};
-        let title = language === 'zh' ? '媒体' : 'Media';
+        let title =
+          language === 'zh' ? '媒体' : language === 'ja' ? 'メディア' : 'Media';
 
         const { width, height } = await getMediaDimensions(url, file.type);
         let displayWidth = 400;
@@ -191,13 +216,16 @@ export const useNodeActions = ({
 
         if (file.type.startsWith('image/')) {
           mediaData = { imageUrl: url };
-          title = language === 'zh' ? '图片' : 'Image';
+          title =
+            language === 'zh' ? '图片' : language === 'ja' ? '画像' : 'Image';
         } else if (file.type.startsWith('video/')) {
           mediaData = { videoUrl: url };
-          title = language === 'zh' ? '视频' : 'Video';
+          title =
+            language === 'zh' ? '视频' : language === 'ja' ? '動画' : 'Video';
         } else if (file.type.startsWith('audio/')) {
           mediaData = { audioUrl: url };
-          title = language === 'zh' ? '音频' : 'Audio';
+          title =
+            language === 'zh' ? '音频' : language === 'ja' ? '音声' : 'Audio';
           displayWidth = 300;
           displayHeight = 150;
         }

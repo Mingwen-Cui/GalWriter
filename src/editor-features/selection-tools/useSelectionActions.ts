@@ -6,10 +6,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { TtsProvider } from '../../editor-state/editorConfig';
 import { ttsService } from '../../editor-services/ttsService';
 
+import type { Language } from '../../lib/i18n';
+
 interface UseSelectionActionsParams {
   nodes: Node[];
   edges: Edge[];
-  language: 'zh' | 'en';
+  language: Language;
   ttsLoading: boolean;
   ttsProvider: TtsProvider;
   ttsApiKey: string;
@@ -56,7 +58,9 @@ export const useSelectionActions = ({
     showToast(
       language === 'zh'
         ? `已复制${selectedNodes.length} 个节点`
-        : `${selectedNodes.length} nodes copied`,
+        : language === 'ja'
+          ? `${selectedNodes.length} 個のノードをコピーしました`
+          : `${selectedNodes.length} nodes copied`,
     );
   }, [edges, language, nodes, setNodeClipboard, showToast]);
 
@@ -114,7 +118,9 @@ export const useSelectionActions = ({
         showToast(
           language === 'zh'
             ? '当前环境不支持直接读取剪贴板，请使用快捷键 Ctrl+V'
-            : 'Clipboard reading is not supported, please use Ctrl+V',
+            : language === 'ja'
+              ? '現在の環境ではクリップボードの直接読み取りがサポートされていません。Ctrl+Vを使用してください。'
+              : 'Clipboard reading is not supported, please use Ctrl+V',
         );
         return;
       }
@@ -158,7 +164,9 @@ export const useSelectionActions = ({
         showToast(
           language === 'zh'
             ? '起点节点受保护，无法删除'
-            : 'Root node is protected and cannot be deleted',
+            : language === 'ja'
+              ? 'スタートノードは保護されているため削除できません'
+              : 'Root node is protected and cannot be deleted',
         );
       }
       return;
@@ -175,7 +183,13 @@ export const useSelectionActions = ({
     );
 
     const totalDeleted = nodeIdsToDelete.size + edgeIdsToDelete.size;
-    showToast(language === 'zh' ? `已删除${totalDeleted} 个项目` : `Deleted ${totalDeleted} items`);
+    showToast(
+      language === 'zh'
+        ? `已删除${totalDeleted} 个项目`
+        : language === 'ja'
+          ? `${totalDeleted} 個の項目を削除しました`
+          : `Deleted ${totalDeleted} items`,
+    );
   }, [edges, language, nodes, setEdges, setNodes, showToast]);
 
   const hideSelected = useCallback(() => {
@@ -201,7 +215,9 @@ export const useSelectionActions = ({
     showToast(
       language === 'zh'
         ? `已隐藏${selectedNodeIds.length} 个卡片`
-        : `${selectedNodeIds.length} cards hidden`,
+        : language === 'ja'
+          ? `${selectedNodeIds.length} 個のカードを非表示にしました`
+          : `${selectedNodeIds.length} cards hidden`,
     );
   }, [language, nodes, setNodes, showToast]);
 
@@ -213,7 +229,11 @@ export const useSelectionActions = ({
 
     if (storyNodes.length === 0) {
       showToast(
-        language === 'zh' ? '请先框选需要朗读的剧情卡片' : 'Select story cards to narrate first',
+        language === 'zh'
+          ? '请先框选需要朗读的剧情卡片'
+          : language === 'ja'
+            ? '読み上げるストーリーカードを範囲選択してください'
+            : 'Select story cards to narrate first',
       );
       return;
     }
@@ -230,7 +250,9 @@ export const useSelectionActions = ({
         showToast(
           language === 'zh'
             ? `正在生成朗读音频 ${index + 1}/${storyNodes.length}`
-            : `Generating narration ${index + 1}/${storyNodes.length}`,
+            : language === 'ja'
+              ? `音声生成中 ${index + 1}/${storyNodes.length}`
+              : `Generating narration ${index + 1}/${storyNodes.length}`,
         );
 
         const audio = await ttsService.generate({
@@ -261,13 +283,17 @@ export const useSelectionActions = ({
       }
 
       showToast(
-        language === 'zh' ? '朗读音频已生成并关联到卡片' : 'Narration audio generated and attached',
+        language === 'zh'
+          ? '朗读音频已生成并关联到卡片'
+          : language === 'ja'
+            ? '音声の生成が完了し、カードに関連付けられました'
+            : 'Narration audio generated and attached',
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('TTS generation failed:', error);
       alert(
-        `${language === 'zh' ? '朗读音频生成失败' : 'Narration generation failed'}: ${message}`,
+        `${language === 'zh' ? '朗读音频生成失败' : language === 'ja' ? '音声の生成に失敗しました' : 'Narration generation failed'}: ${message}`,
       );
     } finally {
       setTtsLoading(false);
@@ -293,7 +319,13 @@ export const useSelectionActions = ({
         data: { ...node.data, hidden: false },
       })),
     );
-    showToast(language === 'zh' ? '已恢复所有隐藏卡片' : 'All cards restored');
+    showToast(
+      language === 'zh'
+        ? '已恢复所有隐藏卡片'
+        : language === 'ja'
+          ? '非表示のカードをすべて復元しました'
+          : 'All cards restored',
+    );
   }, [language, setNodes, showToast]);
 
   return {

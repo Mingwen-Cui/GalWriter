@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { autosaveService } from './autosaveService';
+import type { Language } from '../lib/i18n';
 
 interface AutoSavePayload {
   snapshot: string;
@@ -15,7 +16,7 @@ interface UseAutoSaveParams<TProjectData> {
   setIsDirty: Dispatch<SetStateAction<boolean>>;
   applyRecoveredProject: (projectData: TProjectData) => Promise<void>;
   showToast: (message: string) => void;
-  language: 'zh' | 'en';
+  language: Language;
   enabled: boolean;
 }
 
@@ -80,7 +81,9 @@ export const useAutoSave = <TProjectData>({
       showToast(
         language === 'zh'
           ? '已恢复进度，请记得手动保存'
-          : 'Progress recovered, please remember to save',
+          : language === 'ja'
+            ? '進捗を復元しました。手動で保存することを忘れないでください。'
+            : 'Progress recovered, please remember to save',
       );
     } catch (error) {
       console.error('Failed to restore autosave', error);

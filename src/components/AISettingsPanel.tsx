@@ -357,18 +357,18 @@ const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
 };
 
 const IMAGE_SIZE_PRESETS = [
-  { value: '2K', zh: '官方 2K', en: 'Official 2K' },
-  { value: '2048x2048', zh: '1:1 即梦 2K', en: '1:1 Seedream 2K' },
-  { value: '2560x1440', zh: '16:9 即梦横屏', en: '16:9 Seedream landscape' },
-  { value: '1440x2560', zh: '9:16 即梦竖屏', en: '9:16 Seedream portrait' },
-  { value: '1024x1024', zh: '1:1 标准方图', en: '1:1 Standard square' },
-  { value: '1024x1536', zh: '2:3 竖图', en: '2:3 Portrait' },
-  { value: '1536x1024', zh: '3:2 横图', en: '3:2 Landscape' },
-  { value: '1792x1024', zh: '16:9 DALL-E', en: '16:9 DALL-E' },
-  { value: '512x512', zh: 'SD 1:1 快速预览', en: 'SD 1:1 quick preview' },
-  { value: '768x512', zh: 'SD 3:2 横图', en: 'SD 3:2 landscape' },
-  { value: '512x768', zh: 'SD 2:3 竖图', en: 'SD 2:3 portrait' },
-  { value: '768x768', zh: 'SD 1:1 高清', en: 'SD 1:1 high detail' },
+  { value: '2K', zh: '官方 2K', ja: '公式 2K', en: 'Official 2K' },
+  { value: '2048x2048', zh: '1:1 即梦 2K', ja: '1:1 即夢 2K', en: '1:1 Seedream 2K' },
+  { value: '2560x1440', zh: '16:9 即梦横屏', ja: '16:9 即夢横向き', en: '16:9 Seedream landscape' },
+  { value: '1440x2560', zh: '9:16 即梦竖屏', ja: '9:16 即夢縦向き', en: '9:16 Seedream portrait' },
+  { value: '1024x1024', zh: '1:1 标准方图', ja: '1:1 標準スクエア', en: '1:1 Standard square' },
+  { value: '1024x1536', zh: '2:3 竖图', ja: '2:3 縦画像', en: '2:3 Portrait' },
+  { value: '1536x1024', zh: '3:2 横图', ja: '3:2 横画像', en: '3:2 Landscape' },
+  { value: '1792x1024', zh: '16:9 DALL-E', ja: '16:9 DALL-E', en: '16:9 DALL-E' },
+  { value: '512x512', zh: 'SD 1:1 快速预览', ja: 'SD 1:1 クイックプレビュー', en: 'SD 1:1 quick preview' },
+  { value: '768x512', zh: 'SD 3:2 横图', ja: 'SD 3:2 横画像', en: 'SD 3:2 landscape' },
+  { value: '512x768', zh: 'SD 2:3 竖图', ja: 'SD 2:3 縦画像', en: 'SD 2:3 portrait' },
+  { value: '768x768', zh: 'SD 1:1 高清', ja: 'SD 1:1 高精細', en: 'SD 1:1 high detail' },
 ];
 
 const parseImageApiTemplate = (text: string) => {
@@ -421,13 +421,21 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
         : kind === 'image'
           ? '图片配置'
           : '语音配置'
-      : kind === 'text'
-        ? 'Text Profile'
-        : kind === 'image'
-          ? 'Image Profile'
-          : 'Voice Profile';
+      : language === 'ja'
+        ? kind === 'text'
+          ? 'テキスト設定'
+          : kind === 'image'
+            ? '画像設定'
+            : '音声設定'
+        : kind === 'text'
+          ? 'Text Profile'
+          : kind === 'image'
+            ? 'Image Profile'
+            : 'Voice Profile';
   return `${prefix}_${formatTimestamp(Date.now())}`;
 };
+
+const isLikelyUrlProfileName = (name: string) => /^https?:\/\//i.test(name.trim());
 
 const buildDefaultTextDraft = (): TextAIProfile => ({
   id: 'draft-text',
@@ -718,6 +726,7 @@ export function AISettingsPanel({
         : kind === 'image'
           ? buildDefaultImageDraft()
           : buildDefaultVoiceDraft();
+    draft.name = buildFallbackProfileName(kind, language);
     setImageTemplateImportStatus('idle');
     setEditorState({
       mode: 'create',
@@ -775,7 +784,11 @@ export function AISettingsPanel({
   const handleSaveProfile = async () => {
     if (!editorState) return;
 
-    const finalName = editorState.draft.name.trim() || buildFallbackProfileName(editorState.kind, language);
+    const trimmedName = editorState.draft.name.trim();
+    const finalName =
+      trimmedName && !isLikelyUrlProfileName(trimmedName)
+        ? trimmedName
+        : buildFallbackProfileName(editorState.kind, language);
     const payload = {
       ...editorState.draft,
       name: finalName,
@@ -883,6 +896,9 @@ export function AISettingsPanel({
               {renderFieldLabel(language === 'zh' ? '配置名称' : 'Profile Name')}
               <input
                 type="text"
+                name={`ai-${draft.kind}-profile-name`}
+                autoComplete="off"
+                spellCheck={false}
                 value={draft.name}
                 onChange={(e) => updateDraft({ name: e.target.value })}
                 placeholder={
@@ -946,6 +962,9 @@ export function AISettingsPanel({
                 {currentModelSelectValue === CUSTOM_MODEL_VALUE && (
                   <input
                     type="text"
+                    name={`ai-${draft.kind}-custom-model`}
+                    autoComplete="off"
+                    spellCheck={false}
                     value={draft.model}
                     onChange={(e) => updateDraft({ model: e.target.value })}
                     placeholder={
@@ -970,6 +989,8 @@ export function AISettingsPanel({
                     )}
                     <input
                       type="password"
+                      name={`ai-${draft.kind}-api-key`}
+                      autoComplete="new-password"
                       value={draft.apiKey}
                       onChange={(e) => updateDraft({ apiKey: e.target.value })}
                       placeholder={
@@ -990,6 +1011,9 @@ export function AISettingsPanel({
                     {renderFieldLabel('API URL')}
                     <input
                       type="text"
+                      name="ai-text-api-url"
+                      autoComplete="off"
+                      spellCheck={false}
                       value={draft.apiUrl}
                       onChange={(e) => updateDraft({ apiUrl: e.target.value })}
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1072,6 +1096,9 @@ export function AISettingsPanel({
                     {renderFieldLabel('API URL')}
                     <input
                       type="text"
+                      name="ai-image-api-url"
+                      autoComplete="off"
+                      spellCheck={false}
                       value={draft.apiUrl}
                       onChange={(e) => updateDraft({ apiUrl: e.target.value })}
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1082,6 +1109,8 @@ export function AISettingsPanel({
                     {renderFieldLabel('API Key')}
                     <input
                       type="password"
+                      name="ai-image-api-key"
+                      autoComplete="new-password"
                       value={draft.apiKey}
                       onChange={(e) => updateDraft({ apiKey: e.target.value })}
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1241,12 +1270,14 @@ export function AISettingsPanel({
                 {draft.provider === 'system' ? (
                   <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4">
                     <p className="text-sm font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '系统语音' : 'System voice'}
+                      {language === 'zh' ? '系统语音' : language === 'ja' ? 'システム音声' : 'System voice'}
                     </p>
                     <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
                       {language === 'zh'
                         ? '系统语音使用桌面端内置朗读能力，不需要联网或填写 API Key。'
-                        : 'System voice uses the desktop app built-in speech engine and does not require an API key.'}
+                        : language === 'ja'
+                          ? 'システム音声はデスクトップ内蔵のスピーチエンジンを使用するため、インターネット接続やAPIキーの入力は不要です。'
+                          : 'System voice uses the desktop app built-in speech engine and does not require an API key.'}
                     </p>
                   </div>
                 ) : (
@@ -1257,6 +1288,9 @@ export function AISettingsPanel({
                           {renderFieldLabel('App Key')}
                           <input
                             type="text"
+                            name="ai-voice-app-key"
+                            autoComplete="off"
+                            spellCheck={false}
                             value={draft.appKey}
                             onChange={(e) => updateDraft({ appKey: e.target.value })}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1266,6 +1300,8 @@ export function AISettingsPanel({
                           {renderFieldLabel('App Secret')}
                           <input
                             type="password"
+                            name="ai-voice-app-secret"
+                            autoComplete="new-password"
                             value={draft.apiKey}
                             onChange={(e) => updateDraft({ apiKey: e.target.value })}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1277,6 +1313,8 @@ export function AISettingsPanel({
                         {renderFieldLabel('API Key')}
                         <input
                           type="password"
+                          name="ai-voice-api-key"
+                          autoComplete="new-password"
                           value={draft.apiKey}
                           onChange={(e) => updateDraft({ apiKey: e.target.value })}
                           className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1288,6 +1326,9 @@ export function AISettingsPanel({
                       {renderFieldLabel('API URL')}
                       <input
                         type="text"
+                        name="ai-voice-api-url"
+                        autoComplete="off"
+                        spellCheck={false}
                         value={draft.apiUrl}
                         onChange={(e) => updateDraft({ apiUrl: e.target.value })}
                         className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1300,9 +1341,12 @@ export function AISettingsPanel({
                   {renderFieldLabel('Voice')}
                   <input
                     type="text"
+                    name="ai-voice-name"
+                    autoComplete="off"
+                    spellCheck={false}
                     value={draft.voice}
                     onChange={(e) => updateDraft({ voice: e.target.value })}
-                    placeholder={language === 'zh' ? '例如：alloy / youxiaoqin' : 'For example: alloy / youxiaoqin'}
+                    placeholder={language === 'zh' ? '例如：alloy / youxiaoqin' : language === 'ja' ? '例：alloy / youxiaoqin' : 'For example: alloy / youxiaoqin'}
                     className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </div>
@@ -1316,7 +1360,7 @@ export function AISettingsPanel({
               onClick={handleSaveProfile}
               className="rounded-2xl bg-slate-900 px-5 py-3.5 text-sm font-black text-white transition-all hover:bg-black active:scale-[0.99] dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
             >
-              {language === 'zh' ? '保存' : 'Save'}
+              {language === 'zh' ? '保存' : language === 'ja' ? '保存' : 'Save'}
             </button>
             <button
               type="button"
@@ -1325,7 +1369,7 @@ export function AISettingsPanel({
                   mode: editorState.mode === 'create' ? 'draft' : 'saved',
                   ...(editorState.mode === 'create'
                     ? {
-                      name: draft.name.trim() || (language === 'zh' ? '未保存配置' : 'Unsaved profile'),
+                      name: draft.name.trim() || (language === 'zh' ? '未保存配置' : language === 'ja' ? '未保存の設定' : 'Unsaved profile'),
                     }
                     : {
                       kind: editorState.kind,
@@ -1338,7 +1382,7 @@ export function AISettingsPanel({
               }
               className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 text-sm font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-[0.99] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
             >
-              {language === 'zh' ? '删除' : 'Delete'}
+              {language === 'zh' ? '删除' : language === 'ja' ? '削除' : 'Delete'}
             </button>
           </div>
         </div>
@@ -1358,7 +1402,7 @@ export function AISettingsPanel({
                 <div className="flex items-center gap-3">
                   <div>
                     <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? 'AI 接口配置' : 'AI Provider Profiles'}
+                      {language === 'zh' ? 'AI 接口配置' : language === 'ja' ? 'AIプロバイダー設定' : 'AI Provider Profiles'}
                     </h3>
                   </div>
                 </div>
@@ -1371,7 +1415,9 @@ export function AISettingsPanel({
                   const profileCountLabel =
                     language === 'zh'
                       ? `${section.profiles.length} 个配置`
-                      : `${section.profiles.length} profile${section.profiles.length === 1 ? '' : 's'}`;
+                      : language === 'ja'
+                        ? `${section.profiles.length} 個の設定`
+                        : `${section.profiles.length} profile${section.profiles.length === 1 ? '' : 's'}`;
                   return (
                     <div
                       key={section.kind}
@@ -1407,7 +1453,7 @@ export function AISettingsPanel({
                           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          {language === 'zh' ? '新建配置' : 'New Profile'}
+                          {language === 'zh' ? '新建配置' : language === 'ja' ? '新規設定' : 'New Profile'}
                         </button>
                       </div>
 
@@ -1415,12 +1461,14 @@ export function AISettingsPanel({
                         {section.profiles.length === 0 ? (
                           <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
-                              {language === 'zh' ? '还没有保存的配置' : 'No saved profiles yet'}
+                              {language === 'zh' ? '还没有保存的配置' : language === 'ja' ? '保存された設定はまだありません' : 'No saved profiles yet'}
                             </p>
                             <p className="mt-2 text-xs font-medium leading-relaxed text-[var(--text-muted)]">
                               {language === 'zh'
                                 ? '点击右上角新建，先填写配置，再按保存。'
-                                : 'Create one from the top-right button, then save it.'}
+                                : language === 'ja'
+                                  ? '右上端の新規作成ボタンをクリックし、設定を入力してから保存してください。'
+                                  : 'Create one from the top-right button, then save it.'}
                             </p>
                           </div>
                         ) : (
@@ -1453,13 +1501,13 @@ export function AISettingsPanel({
                                       <p className="mt-1 truncate pl-4.5 text-[11px] font-medium text-[var(--text-muted)]">
                                         {(profile.provider || 'custom').toUpperCase()}
                                         {' / '}
-                                        {profile.model || (language === 'zh' ? '未指定模型' : 'No model selected')}
+                                        {profile.model || (language === 'zh' ? '未指定模型' : language === 'ja' ? '未指定モデル' : 'No model selected')}
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                       {isActive && (
                                         <span className="rounded bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
-                                          {language === 'zh' ? '正在使用' : 'Active'}
+                                          {language === 'zh' ? '正在使用' : language === 'ja' ? '使用中' : 'Active'}
                                         </span>
                                       )}
                                       <span
@@ -1470,7 +1518,7 @@ export function AISettingsPanel({
                                         className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                       >
                                         <Pencil className="h-3 w-3" />
-                                        {language === 'zh' ? '编辑' : 'Edit'}
+                                        {language === 'zh' ? '编辑' : language === 'ja' ? '編集' : 'Edit'}
                                       </span>
                                     </div>
                                   </div>
@@ -1490,19 +1538,21 @@ export function AISettingsPanel({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? 'AI 续写弹窗按钮' : 'AI Action Buttons'}
+                    {language === 'zh' ? 'AI 续写弹窗按钮' : language === 'ja' ? 'AI執筆アクションボタン' : 'AI Action Buttons'}
                   </h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
                     {language === 'zh'
                       ? '控制 AI 续写选择弹窗中显示哪些功能按钮。'
-                      : 'Control which action buttons appear in the AI writing modal.'}
+                      : language === 'ja'
+                        ? 'AI執筆ダイアログに表示するアクションボタンを設定します。'
+                        : 'Control which action buttons appear in the AI writing modal.'}
                   </p>
                 </div>
                 <button
                   onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
                   className="shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
-                  {language === 'zh' ? '全部恢复' : 'Reset All'}
+                  {language === 'zh' ? '全部恢复' : language === 'ja' ? 'すべてリセット' : 'Reset All'}
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1511,32 +1561,32 @@ export function AISettingsPanel({
                     {
                       key: 'continue' as const,
                       Icon: PenLine,
-                      label: language === 'zh' ? '根据前文续写' : 'Continue from context',
+                      label: language === 'zh' ? '根据前文续写' : language === 'ja' ? '文脈から執筆' : 'Continue from context',
                     },
                     {
                       key: 'creative' as const,
                       Icon: Lightbulb,
-                      label: language === 'zh' ? '提供不同创意' : 'Creative alternatives',
+                      label: language === 'zh' ? '提供不同创意' : language === 'ja' ? '異なるアイデア' : 'Creative alternatives',
                     },
                     {
                       key: 'rewrite' as const,
                       Icon: RefreshCw,
-                      label: language === 'zh' ? '改写当前内容' : 'Rewrite current content',
+                      label: language === 'zh' ? '改写当前内容' : language === 'ja' ? '選択範囲を書き換え' : 'Rewrite current content',
                     },
                     {
                       key: 'interpolate' as const,
                       Icon: PanelTopDashed,
-                      label: language === 'zh' ? '补充中间内容' : 'Fill in the gap',
+                      label: language === 'zh' ? '补充中间内容' : language === 'ja' ? '中間の内容を補完' : 'Fill in the gap',
                     },
                     {
                       key: 'scene_only' as const,
                       Icon: Feather,
-                      label: language === 'zh' ? '仅增加场景描写' : 'Scene description only',
+                      label: language === 'zh' ? '仅增加场景描写' : language === 'ja' ? '描写を増やす' : 'Scene description only',
                     },
                     {
                       key: 'dialogue_only' as const,
                       Icon: MessageCircle,
-                      label: language === 'zh' ? '仅增加对话' : 'Dialogue only',
+                      label: language === 'zh' ? '仅增加对话' : language === 'ja' ? '会話を増やす' : 'Dialogue only',
                     },
                   ] as const
                 ).map((item) => (
@@ -1586,12 +1636,14 @@ export function AISettingsPanel({
               <div className="mb-2 flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '自定义 AI 提示词' : 'Custom AI Prompts'}
+                    {language === 'zh' ? '自定义 AI 提示词' : language === 'ja' ? 'カスタムAIプロンプト' : 'Custom AI Prompts'}
                   </h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
                     {language === 'zh'
                       ? '开启后可修改模板变量；关闭后保存项目时不会保留自定义文字。'
-                      : 'Enable to edit prompt templates. When disabled, custom text is not saved with the project.'}
+                      : language === 'ja'
+                        ? '有効にするとプロンプトテンプレートを編集できます。無効にした場合、カスタムテキストは保存されません。'
+                        : 'Enable to edit prompt templates. When disabled, custom text is not saved with the project.'}
                   </p>
                 </div>
                 <button
@@ -1618,18 +1670,75 @@ export function AISettingsPanel({
                       basePrompt:
                         language === 'zh'
                           ? '基础前置提示 (所有续写功能共享)'
-                          : 'Base System Prompt',
-                      continue: language === 'zh' ? '自然续写' : 'Continue Naturally',
-                      creative: language === 'zh' ? '不同创意方向' : 'Creative Directions',
-                      rewrite: language === 'zh' ? '文笔改写润色' : 'Rewrite & Polish',
-                      interpolate: language === 'zh' ? '承上启下补充' : 'Interpolate Segment',
-                      sceneOnly: language === 'zh' ? '仅环境描写' : 'Scene Description Only',
-                      dialogueOnly: language === 'zh' ? '仅人物对话' : 'Dialogue Only',
-                      analyzeStructure: language === 'zh' ? '分析结构' : 'Analyze Structure',
-                      analyzeSuggestions: language === 'zh' ? '后续剧情建议' : 'Plot Suggestions',
-                      analyzeDirection: language === 'zh' ? '写作方向指导' : 'Direction Guidance',
-                      analyzeSolution: language === 'zh' ? '解法与修改方案' : 'Fix Solutions',
-                      analyzeSummary: language === 'zh' ? '整体汇总报告' : 'General Summary',
+                          : language === 'ja'
+                            ? 'システムプロンプト（すべての機能で共有）'
+                            : 'Base System Prompt',
+                      continue:
+                        language === 'zh'
+                          ? '自然续写'
+                          : language === 'ja'
+                            ? '自然に書き続け'
+                            : 'Continue Naturally',
+                      creative:
+                        language === 'zh'
+                          ? '不同创意方向'
+                          : language === 'ja'
+                            ? '異なるアイデア方向'
+                            : 'Creative Directions',
+                      rewrite:
+                        language === 'zh'
+                          ? '文笔改写润色'
+                          : language === 'ja'
+                            ? '文章の書き換えと推敲'
+                            : 'Rewrite & Polish',
+                      interpolate:
+                        language === 'zh'
+                          ? '承上启下补充'
+                          : language === 'ja'
+                            ? '中間の内容を補完'
+                            : 'Interpolate Segment',
+                      sceneOnly:
+                        language === 'zh'
+                          ? '仅环境描写'
+                          : language === 'ja'
+                            ? '環境描写のみ'
+                            : 'Scene Description Only',
+                      dialogueOnly:
+                        language === 'zh'
+                          ? '仅人物对话'
+                          : language === 'ja'
+                            ? '対話のみ'
+                            : 'Dialogue Only',
+                      analyzeStructure:
+                        language === 'zh'
+                          ? '分析结构'
+                          : language === 'ja'
+                            ? '構造分析'
+                            : 'Analyze Structure',
+                      analyzeSuggestions:
+                        language === 'zh'
+                          ? '后续剧情建议'
+                          : language === 'ja'
+                            ? 'その後の展開のアドバイス'
+                            : 'Plot Suggestions',
+                      analyzeDirection:
+                        language === 'zh'
+                          ? '写作方向指导'
+                          : language === 'ja'
+                            ? '執筆方向のガイダンス'
+                            : 'Direction Guidance',
+                      analyzeSolution:
+                        language === 'zh'
+                          ? '解法与修改方案'
+                          : language === 'ja'
+                            ? '修正方案と解決策'
+                            : 'Fix Solutions',
+                      analyzeSummary:
+                        language === 'zh'
+                          ? '整体汇总报告'
+                          : language === 'ja'
+                            ? '全体のまとめ報告'
+                            : 'General Summary',
                     };
                     const defaultValue =
                       defaultAIPrompts[key as keyof typeof defaultAIPrompts] ?? '';
@@ -1643,10 +1752,10 @@ export function AISettingsPanel({
                           {isModified && (
                             <button
                               onClick={() => setAiPrompts({ ...aiPrompts, [key]: defaultValue })}
-                              title={language === 'zh' ? '恢复默认' : 'Restore Default'}
+                              title={language === 'zh' ? '恢复默认' : language === 'ja' ? 'デフォルトに戻す' : 'Restore Default'}
                               className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600 transition-all hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
                             >
-                              ↺ {language === 'zh' ? '恢复初始' : 'Restore'}
+                              ↺ {language === 'zh' ? '恢复初始' : language === 'ja' ? '元に戻す' : 'Restore'}
                             </button>
                           )}
                         </div>
@@ -1673,28 +1782,40 @@ export function AISettingsPanel({
           deleteState?.mode === 'draft'
             ? language === 'zh'
               ? '放弃这个新配置？'
-              : 'Discard this new profile?'
+              : language === 'ja'
+                ? 'この新規設定を破棄しますか？'
+                : 'Discard this new profile?'
             : language === 'zh'
               ? '删除这个配置？'
-              : 'Delete this profile?'
+              : language === 'ja'
+                ? 'この設定を削除しますか？'
+                : 'Delete this profile?'
         }
         description={
           deleteState?.mode === 'draft'
             ? language === 'zh'
               ? '这个配置还没有保存，删除后不会留下任何本地记录。'
-              : 'This profile has not been saved yet, so nothing will be kept locally.'
+              : language === 'ja'
+                ? 'この設定はまだ保存されていないため、破棄するとローカルの記録には残りません。'
+                : 'This profile has not been saved yet, so nothing will be kept locally.'
             : language === 'zh'
               ? `确定要删除「${deleteState?.name || '这个配置'}」吗？删除后无法恢复。`
-              : `Delete "${deleteState?.name || 'this profile'}"? This cannot be undone.`
+              : language === 'ja'
+                ? `本当に「${deleteState?.name || 'この設定'}」を削除しますか？この操作は取り消せません。`
+                : `Delete "${deleteState?.name || 'this profile'}"? This cannot be undone.`
         }
         confirmLabel={
           deleteState?.mode === 'draft'
             ? language === 'zh'
               ? '删除草稿'
-              : 'Discard draft'
+              : language === 'ja'
+                ? '下書きを破棄'
+                : 'Discard draft'
             : language === 'zh'
               ? '删除配置'
-              : 'Delete profile'
+              : language === 'ja'
+                ? '設定を削除'
+                : 'Delete profile'
         }
         onCancel={() => setDeleteState(null)}
         onConfirm={() => {

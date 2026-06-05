@@ -94,7 +94,7 @@ export function EditorRightToolbar({
             ? 'glass-toolbar-active bg-indigo-600 text-white shadow-sm'
             : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
         } flex items-center justify-center`}
-        title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
+        title={language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
       >
         <Sparkles className="h-5 w-5" />
       </button>
@@ -108,10 +108,14 @@ export function EditorRightToolbar({
           rightToolbarCollapsed
             ? language === 'zh'
               ? '展开工具栏'
-              : 'Expand Toolbar'
+              : language === 'ja'
+                ? 'ツールバーを展開'
+                : 'Expand Toolbar'
             : language === 'zh'
               ? '折叠工具栏'
-              : 'Collapse Toolbar'
+              : language === 'ja'
+                ? 'ツールバーを折りたたむ'
+                : 'Collapse Toolbar'
         }
       >
         <div
@@ -195,7 +199,7 @@ export function EditorRightToolbar({
                     : ''
                 }`}
                 style={{ backgroundColor: color }}
-                title={`${language === 'zh' ? '背景颜色' : 'BG Color'} ${index + 1}`}
+                title={`${language === 'zh' ? '背景颜色' : language === 'ja' ? '背景色' : 'BG Color'} ${index + 1}`}
               />
             ))}
           </div>

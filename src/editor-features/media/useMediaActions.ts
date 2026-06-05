@@ -12,11 +12,12 @@ import {
   type ImageReference,
   toApiImageReference,
 } from './imageGeneration';
+import type { Language } from '../../lib/i18n';
 
 interface UseMediaActionsParams {
   nodes: Node[];
   edges: Edge[];
-  language: 'zh' | 'en';
+  language: Language;
   imageApiKey: string;
   imageApiUrl: string;
   imageModel: string;
@@ -132,7 +133,11 @@ export const useMediaActions = ({
               ...node.data,
               text:
                 currentText ||
-                (language === 'zh' ? '在此处输入描述文本...' : 'Enter description here...'),
+                (language === 'zh'
+                  ? '在此处输入描述文本...'
+                  : language === 'ja'
+                    ? 'ここに説明を入力してください...'
+                    : 'Enter description here...'),
               showTextOverlay: true,
             },
             style: {
@@ -175,7 +180,9 @@ export const useMediaActions = ({
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
-            : 'Configure the image generation API key in Settings first.',
+            : language === 'ja'
+              ? '先に設定で画像生成APIキーを入力してください。'
+              : 'Configure the image generation API key in Settings first.',
         );
         return null;
       }
@@ -218,7 +225,7 @@ export const useMediaActions = ({
           window.location.protocol.startsWith('http');
         if (!canRetryArkProxy) {
           throw new Error(
-            `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+            `${language === 'zh' ? '图片请求无法发送' : language === 'ja' ? '画像リクエストを送信できませんでした' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
           );
         }
         activeImageRequestUrl = fallbackArkProxyUrl;
@@ -264,7 +271,11 @@ export const useMediaActions = ({
 
       if (!imageSrc) {
         throw new Error(
-          language === 'zh' ? '图片 API 没有返回可用图片。' : 'Image API returned no usable image.',
+          language === 'zh'
+            ? '图片 API 没有返回可用图片。'
+            : language === 'ja'
+              ? '画像APIが利用可能な画像を返しませんでした。'
+              : 'Image API returned no usable image.',
         );
       }
 
@@ -292,9 +303,17 @@ export const useMediaActions = ({
         const titleText =
           type === 'character'
             ? (node.data.characterName as string) ||
-              (language === 'zh' ? '未命名角色' : 'Unnamed Character')
+              (language === 'zh'
+                ? '未命名角色'
+                : language === 'ja'
+                  ? '名前のないキャラクター'
+                  : 'Unnamed Character')
             : (node.data.sceneName as string) ||
-              (language === 'zh' ? '未命名场景' : 'Unnamed Scene');
+              (language === 'zh'
+                ? '未命名场景'
+                : language === 'ja'
+                  ? '名前のないシーン'
+                  : 'Unnamed Scene');
         const bodyText =
           type === 'character'
             ? formatCharacterNodeText(node.data as Record<string, unknown>)
@@ -305,7 +324,9 @@ export const useMediaActions = ({
           alert(
             language === 'zh'
               ? '请先填写人物或场景设定。'
-              : 'Fill in the character or scene setting first.',
+              : language === 'ja'
+                ? '先にキャラクターまたはシーン設定を入力してください。'
+                : 'Fill in the character or scene setting first.',
           );
           return;
         }
@@ -326,7 +347,12 @@ export const useMediaActions = ({
               const generatedOutfitId =
                 (current.data.generatedSettingImageId as string) || uuidv4();
               const currentOutfits = (current.data.outfits as any[]) || [];
-              const generatedOutfitName = language === 'zh' ? 'AI 三视图' : 'AI Three-view';
+              const generatedOutfitName =
+                language === 'zh'
+                  ? 'AI 三视图'
+                  : language === 'ja'
+                    ? 'AI三面図'
+                    : 'AI Three-view';
               const hasGeneratedOutfit = currentOutfits.some(
                 (outfit) => outfit.id === generatedOutfitId,
               );
@@ -354,7 +380,12 @@ export const useMediaActions = ({
 
             const generatedImageId = (current.data.generatedSettingImageId as string) || uuidv4();
             const currentImages = (current.data.images as any[]) || [];
-            const generatedImageName = language === 'zh' ? 'AI 场景图' : 'AI Scene Image';
+            const generatedImageName =
+              language === 'zh'
+                ? 'AI 场景图'
+                : language === 'ja'
+                  ? 'AIシーン画像'
+                  : 'AI Scene Image';
             const hasGeneratedImage = currentImages.some((image) => image.id === generatedImageId);
             const nextImages = hasGeneratedImage
               ? currentImages.map((image) =>
@@ -383,15 +414,19 @@ export const useMediaActions = ({
           type === 'character'
             ? language === 'zh'
               ? '人物三视图已生成'
-              : 'Character three-view generated'
+              : language === 'ja'
+                ? 'キャラクター三面図が生成されました'
+                : 'Character three-view generated'
             : language === 'zh'
               ? '场景图片已生成'
-              : 'Scene image generated',
+              : language === 'ja'
+                ? 'シーン画像が生成されました'
+                : 'Scene image generated',
         );
       } catch (error: any) {
         console.error('Setting image generation failed:', error);
         alert(
-          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+          `${language === 'zh' ? '图片生成失败' : language === 'ja' ? '画像の生成に失敗しました' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
         );
       }
     },
@@ -410,7 +445,9 @@ export const useMediaActions = ({
         alert(
           language === 'zh'
             ? '请先在普通卡片里输入图片提示词。'
-            : 'Enter an image prompt in the story card first.',
+            : language === 'ja'
+              ? '先にストーリーカードにプロンプトを入力してください。'
+              : 'Enter an image prompt in the story card first.',
         );
         return;
       }
@@ -418,7 +455,9 @@ export const useMediaActions = ({
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
-            : 'Configure the image generation API key in Settings first.',
+            : language === 'ja'
+              ? '先に設定で画像生成APIキーを入力してください。'
+              : 'Configure the image generation API key in Settings first.',
         );
         return;
       }
@@ -470,8 +509,8 @@ export const useMediaActions = ({
           const fallbackArkProxyUrl =
             typeof window !== 'undefined' &&
             /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-              ? '/api/ark-image'
-              : 'http://127.0.0.1:3000/api/ark-image';
+            ? '/api/ark-image'
+            : 'http://127.0.0.1:3000/api/ark-image';
           const canRetryArkProxy =
             imageRequest.usesSeedream &&
             imageRequest.url !== fallbackArkProxyUrl &&
@@ -479,7 +518,7 @@ export const useMediaActions = ({
             window.location.protocol.startsWith('http');
           if (!canRetryArkProxy) {
             throw new Error(
-              `${language === 'zh' ? '图片请求无法发送' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+              `${language === 'zh' ? '图片请求无法发送' : language === 'ja' ? '画像リクエストを送信できませんでした' : 'Image request could not be sent'} (${imageRequest.url}). ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
             );
           }
           activeImageRequestUrl = fallbackArkProxyUrl;
@@ -527,7 +566,9 @@ export const useMediaActions = ({
           throw new Error(
             language === 'zh'
               ? '图片 API 没有返回可用图片。'
-              : 'Image API returned no usable image.',
+              : language === 'ja'
+                ? '画像APIが利用可能な画像を返しませんでした。'
+                : 'Image API returned no usable image.',
           );
         }
 
@@ -569,7 +610,12 @@ export const useMediaActions = ({
             style: { width: currentWidth, height: currentHeight },
             data: {
               id: extractedId,
-              title: language === 'zh' ? '旧图片' : 'Previous Image',
+              title:
+                language === 'zh'
+                  ? '旧图片'
+                  : language === 'ja'
+                    ? '以前の画像'
+                    : 'Previous Image',
               shape: 'square',
               color: '#ffffff',
               text: '',
@@ -583,12 +629,16 @@ export const useMediaActions = ({
           return [...nextNodes, extractedNode];
         });
         showToast(
-          language === 'zh' ? '图片已生成到当前卡片' : 'Image generated into the current card',
+          language === 'zh'
+            ? '图片已生成到当前卡片'
+            : language === 'ja'
+              ? 'カードに画像が生成されました'
+              : 'Image generated into the current card',
         );
       } catch (error: any) {
         console.error('Image generation failed:', error);
         alert(
-          `${language === 'zh' ? '图片生成失败' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
+          `${language === 'zh' ? '图片生成失败' : language === 'ja' ? '画像の生成に失敗しました' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
         );
       }
     },
@@ -679,7 +729,18 @@ export const useMediaActions = ({
             },
             data: {
               id: newId,
-              title: media.type === 'image' ? '提取图片' : '提取视频',
+              title:
+                media.type === 'image'
+                  ? language === 'zh'
+                    ? '提取图片'
+                    : language === 'ja'
+                      ? '画像を抽出'
+                      : 'Extract Image'
+                  : language === 'zh'
+                    ? '提取视频'
+                    : language === 'ja'
+                      ? '動画を抽出'
+                      : 'Extract Video',
               imageUrl: media.type === 'image' ? media.url : undefined,
               videoUrl: media.type === 'video' ? media.url : undefined,
               audioUrl: media.type === 'audio' ? media.url : undefined,
@@ -692,7 +753,7 @@ export const useMediaActions = ({
         return [...clearedNodes, ...newNodes];
       });
     },
-    [nodes, setNodes, showTitles],
+    [language, nodes, setNodes, showTitles],
   );
 
   return {

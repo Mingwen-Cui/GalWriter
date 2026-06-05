@@ -77,19 +77,34 @@ export function EditorHeader({
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const weeks = Math.floor(days / 7);
 
-    if (days < 1) {
-      if (hours >= 1) return `${hours}小时前`;
-      return `${Math.max(1, minutes)}分钟前`;
+    if (language === 'zh') {
+      if (days < 1) {
+        if (hours >= 1) return `${hours}小时前`;
+        return `${Math.max(1, minutes)}分钟前`;
+      }
+      if (days < 7) return `${days}天前`;
+      if (days < 30) return `${weeks}周前`;
+      const date = new Date(timestamp);
+      return `${date.getMonth() + 1}月${date.getDate()}日`;
+    } else if (language === 'ja') {
+      if (days < 1) {
+        if (hours >= 1) return `${hours}時間前`;
+        return `${Math.max(1, minutes)}分前`;
+      }
+      if (days < 7) return `${days}日前`;
+      if (days < 30) return `${weeks}週間前`;
+      const date = new Date(timestamp);
+      return `${date.getMonth() + 1}月${date.getDate()}日`;
+    } else {
+      if (days < 1) {
+        if (hours >= 1) return `${hours}h ago`;
+        return `${Math.max(1, minutes)}m ago`;
+      }
+      if (days < 7) return `${days}d ago`;
+      if (days < 30) return `${weeks}w ago`;
+      const date = new Date(timestamp);
+      return `${date.toLocaleString('en-US', { month: 'short' })} ${date.getDate()}`;
     }
-    if (days < 7) {
-      return `${days}天前`;
-    }
-    if (days < 30) {
-      return `${weeks}周前`;
-    }
-
-    const date = new Date(timestamp);
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
   useEffect(() => {
@@ -123,6 +138,8 @@ export function EditorHeader({
     await onProjectNameCommit(editingProjectName);
     setIsEditingProjectName(false);
   };
+
+  const defaultProjectName = language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
   return (
     <div className="pointer-events-none absolute left-4 top-3 z-30 md:left-6">
@@ -179,13 +196,13 @@ export function EditorHeader({
                         (event.currentTarget as HTMLInputElement).blur();
                       }
                     }}
-                    placeholder="新建项目"
+                    placeholder={defaultProjectName}
                     className="bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
                     style={{ width: `${projectNameWidth}px` }}
                   />
                 ) : (
                   <span className="inline-block max-w-[220px] truncate align-middle">
-                    {projectName.trim() ? projectName : '新建项目'}
+                    {projectName.trim() ? projectName : defaultProjectName}
                   </span>
                 )}
               </button>
@@ -194,11 +211,17 @@ export function EditorHeader({
                 className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold md:text-base"
                 aria-hidden="true"
               >
-                {editingProjectName || '新建项目'}
+                {editingProjectName || defaultProjectName}
               </span>
               {showLastSavedTime && (
                 <span className="text-xs text-slate-500 whitespace-nowrap ml-2">
-                  {lastSavedTime ? `上次保存: ${formatLastSavedTime(lastSavedTime)}` : '尚未保存'}
+                  {lastSavedTime
+                    ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
+                    : language === 'zh'
+                      ? '尚未保存'
+                      : language === 'ja'
+                        ? '未保存'
+                        : 'Not saved yet'}
                 </span>
               )}
             </div>
@@ -219,11 +242,15 @@ export function EditorHeader({
                 isSavingProject
                   ? language === 'zh'
                     ? '正在保存...'
-                    : 'Saving...'
+                    : language === 'ja'
+                      ? '保存中...'
+                      : 'Saving...'
                   : isDirty
                     ? language === 'zh'
                       ? '有未保存的更改 - 点击保存'
-                      : 'Unsaved changes - Click to save'
+                      : language === 'ja'
+                        ? '未保存の変更があります - クリックして保存'
+                        : 'Unsaved changes - Click to save'
                     : t.save
               }
             >
@@ -237,7 +264,7 @@ export function EditorHeader({
               type="button"
               onClick={handleExportProject}
               className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              title={language === 'zh' ? '导出 ZIP 备份文件' : 'Export ZIP backup file'}
+              title={language === 'zh' ? '导出 ZIP 备份文件' : language === 'ja' ? 'ZIPバックアップファイルをエクスポート' : 'Export ZIP backup file'}
             >
               <Download className="h-4 w-4" />
             </button>
@@ -245,7 +272,7 @@ export function EditorHeader({
             <button
               onClick={openProjectHome}
               className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              title={language === 'zh' ? '项目列表' : 'Project home'}
+              title={language === 'zh' ? '项目列表' : language === 'ja' ? 'プロジェクト一覧' : 'Project home'}
             >
               <FolderOpen className="h-4 w-4" />
             </button>
@@ -261,7 +288,7 @@ export function EditorHeader({
               <button
                 onClick={() => setShowVideoRender(true)}
                 className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
-                title={language === 'zh' ? '导出为视频' : 'Export Video'}
+                title={language === 'zh' ? '导出为视频' : language === 'ja' ? '動画としてエクスポート' : 'Export Video'}
               >
                 <Film className="h-4 w-4" />
               </button>
@@ -285,7 +312,7 @@ export function EditorHeader({
                 ? 'bg-indigo-600 text-white'
                 : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
-            title={language === 'zh' ? 'AI 助手' : 'AI Assistant'}
+            title={language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
           >
             <Sparkles className="h-4 w-4" />
           </button>

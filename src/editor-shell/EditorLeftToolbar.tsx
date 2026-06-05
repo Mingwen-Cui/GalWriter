@@ -87,10 +87,14 @@ export function EditorLeftToolbar({
           toolbarCollapsed
             ? language === 'zh'
               ? '展开工具栏'
-              : 'Expand Toolbar'
+              : language === 'ja'
+                ? 'ツールバーを展開'
+                : 'Expand Toolbar'
             : language === 'zh'
               ? '折叠工具栏'
-              : 'Collapse Toolbar'
+              : language === 'ja'
+                ? 'ツールバーを折りたたむ'
+                : 'Collapse Toolbar'
         }
       >
         <div
@@ -123,7 +127,7 @@ export function EditorLeftToolbar({
           <button
             className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewCharacterNode}
-            title={language === 'zh' ? '添加人物卡片' : 'Add Character Card'}
+            title={language === 'zh' ? '添加人物卡片' : language === 'ja' ? '人物カードを追加' : 'Add Character Card'}
           >
             <UserCircle2 strokeWidth={2.5} className="h-5 w-5" />
           </button>
@@ -149,7 +153,7 @@ export function EditorLeftToolbar({
           <button
             className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewSummaryNode}
-            title={language === 'zh' ? '文本转换/汇总' : 'Text Summary'}
+            title={language === 'zh' ? '文本转换/汇总' : language === 'ja' ? 'テキスト変換/要約' : 'Text Summary'}
           >
             <FileText strokeWidth={2.5} className="h-5 w-5" />
           </button>
@@ -165,7 +169,7 @@ export function EditorLeftToolbar({
           <button
             className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewNumberConditionNode}
-            title={language === 'zh' ? '数字判断卡片' : 'Number Condition'}
+            title={language === 'zh' ? '数字判断卡片' : language === 'ja' ? '数値判定カード' : 'Number Condition'}
           >
             <Calculator strokeWidth={2.5} className="h-5 w-5" />
           </button>

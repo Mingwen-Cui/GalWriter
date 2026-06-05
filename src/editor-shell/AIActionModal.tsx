@@ -9,13 +9,14 @@ import {
   X,
 } from 'lucide-react';
 
+import type { Language } from '../lib/i18n';
 import type { AIButtonsConfig } from '../editor-state/editorConfig';
 
 interface AIActionModalProps {
   visible: boolean;
   pendingAINodeId: string | null;
   aiButtonsConfig: AIButtonsConfig;
-  language: 'zh' | 'en';
+  language: Language;
   onClose: () => void;
   onGenerate: (
     nodeId: string,

@@ -1,9 +1,10 @@
 import { FileArchive } from 'lucide-react';
+import type { Language } from '../lib/i18n';
 
 interface AutoSaveRecoveryModalProps {
   visible: boolean;
   timestamp?: number;
-  language: 'zh' | 'en';
+  language: Language;
   onDiscard: () => void;
   onRecover: () => void;
 }
@@ -24,12 +25,14 @@ export function AutoSaveRecoveryModal({
           <FileArchive className="h-8 w-8" />
         </div>
         <h3 className="mb-2 text-xl font-black text-slate-800 dark:text-slate-100">
-          {language === 'zh' ? '发现未保存的进度' : 'Unsaved Progress Found'}
+          {language === 'zh' ? '发现未保存的进度' : language === 'ja' ? '未保存の下書きが見つかりました' : 'Unsaved Progress Found'}
         </h3>
         <p className="mb-8 text-center text-sm leading-relaxed text-slate-500 dark:text-slate-400">
           {language === 'zh'
             ? `系统检测到异常退出前有未保存的进度（${new Date(timestamp).toLocaleTimeString()}）。是否恢复？`
-            : `Detected unsaved progress from ${new Date(timestamp).toLocaleTimeString()}. Do you want to recover it?`}
+            : language === 'ja'
+              ? `異常終了する前の未保存データ（${new Date(timestamp).toLocaleTimeString()}）が検出されました。復元しますか？`
+              : `Detected unsaved progress from ${new Date(timestamp).toLocaleTimeString()}. Do you want to recover it?`}
         </p>
 
         <div className="flex w-full gap-4">
@@ -37,13 +40,13 @@ export function AutoSaveRecoveryModal({
             onClick={onDiscard}
             className="flex-1 rounded-xl border-2 border-slate-100 py-3 font-bold text-slate-400 transition-all hover:bg-slate-50"
           >
-            {language === 'zh' ? '放弃进度' : 'Discard'}
+            {language === 'zh' ? '放弃进度' : language === 'ja' ? '破棄する' : 'Discard'}
           </button>
           <button
             onClick={onRecover}
             className="flex-1 rounded-xl bg-indigo-600 py-3 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700"
           >
-            {language === 'zh' ? '恢复进度' : 'Recover'}
+            {language === 'zh' ? '恢复进度' : language === 'ja' ? '復元する' : 'Recover'}
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import { htmlToSpeechText } from '../../lib/tts';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
+import type { Language } from '../../lib/i18n';
 
 export type AssistantCardDraft = {
   type?: 'story' | 'character' | 'scene';
@@ -57,21 +58,30 @@ type AssistantHistorySnapshot = {
   input: string;
 };
 
-const createAssistantWelcomeMessage = (): AssistantMessage => ({
+const createAssistantWelcomeMessage = (language: Language): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
   content:
-    '你好，我可以帮你生成故事、整理设定和续写剧情。',
+    language === 'zh'
+      ? '你好，我可以帮你生成故事、整理设定和续写剧情。'
+      : language === 'ja'
+        ? 'こんにちは！ストーリーの生成、設定の整理、プロットの継続をお手伝いできます。'
+        : 'Hello! I can help you generate stories, organize settings, and continue writing plots.',
 });
 
-const createInitialAssistantTask = (language: 'zh' | 'en'): AssistantTask => {
+const createInitialAssistantTask = (language: Language): AssistantTask => {
   const now = Date.now();
   return {
     id: uuidv4(),
-    title: language === 'zh' ? '对话 1' : 'Conversation 1',
+    title:
+      language === 'zh'
+        ? '对话 1'
+        : language === 'ja'
+          ? '対話 1'
+          : 'Conversation 1',
     createdAt: now,
     updatedAt: now,
-    messages: [createAssistantWelcomeMessage()],
+    messages: [createAssistantWelcomeMessage(language)],
   };
 };
 
@@ -82,7 +92,7 @@ const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
   }));
 
 interface UseAssistantPanelParams {
-  language: 'zh' | 'en';
+  language: Language;
   isMobile: boolean;
   flowWidth: number;
   selectedAssistantTargetNodes: Node[];
@@ -292,10 +302,15 @@ export const useAssistantPanel = ({
     setAssistantTasks((tasks) => [
       {
         id,
-        title: language === 'zh' ? `对话 ${tasks.length + 1}` : `Conversation ${tasks.length + 1}`,
+        title:
+          language === 'zh'
+            ? `对话 ${tasks.length + 1}`
+            : language === 'ja'
+              ? `対話 ${tasks.length + 1}`
+              : `Conversation ${tasks.length + 1}`,
         createdAt: now,
         updatedAt: now,
-        messages: [createAssistantWelcomeMessage()],
+        messages: [createAssistantWelcomeMessage(language)],
       },
       ...tasks,
     ]);
@@ -361,7 +376,9 @@ export const useAssistantPanel = ({
             content:
               language === 'zh'
                 ? `已读取 ${documents.length} 个参考文档。接下来我会结合这些文档内容来回答和生成剧情。`
-                : `Read ${documents.length} reference document(s). I will use them as context for the next story requests.`,
+                : language === 'ja'
+                  ? `${documents.length}個の参照ドキュメントを読み込みました。今後のストーリー生成のコンテキストとして使用します。`
+                  : `Read ${documents.length} reference document(s). I will use them as context for the next story requests.`,
           },
         ]);
       } catch (error: any) {
@@ -373,7 +390,9 @@ export const useAssistantPanel = ({
             content:
               language === 'zh'
                 ? `文档读取失败：${error.message || '请确认文件是可复制文字的 PDF 或 DOCX。'}`
-                : `Document reading failed: ${error.message || 'Please use a text-based PDF or DOCX file.'}`,
+                : language === 'ja'
+                  ? `ドキュメントの読み込みに失敗しました：${error.message || 'テキストコピー可能なPDFまたはDOCXファイルを使用してください。'}`
+                  : `Document reading failed: ${error.message || 'Please use a text-based PDF or DOCX file.'}`,
           },
         ]);
       } finally {
@@ -417,10 +436,15 @@ export const useAssistantPanel = ({
           return [
             {
               id,
-              title: language === 'zh' ? '对话 1' : 'Conversation 1',
+              title:
+                language === 'zh'
+                  ? '对话 1'
+                  : language === 'ja'
+                    ? '対話 1'
+                    : 'Conversation 1',
               createdAt: now,
               updatedAt: now,
-              messages: [createAssistantWelcomeMessage()],
+              messages: [createAssistantWelcomeMessage(language)],
             },
           ];
         }
@@ -531,8 +555,10 @@ export const useAssistantPanel = ({
             role: 'assistant',
             content:
               language === 'zh'
-                ? '还没有配置文本 AI 接口。请点击右侧工具栏的设置按钮，在“AI 接口配置”里添加 API Key 后再开始对话。'
-                : 'No text AI API is configured yet. Click the settings button on the right toolbar, then add an API key in AI Provider Profiles before chatting.',
+                ? '还没有配置文本 AI 接口。请点击右侧工具栏 of 设置按钮，在“AI 接口配置”里添加 API Key 后再开始对话。'
+                : language === 'ja'
+                  ? 'テキストAIプロバイダーが設定されていません。右側のツールバーの設定ボタンをクリックし、「AIサービス設定」でAPIキーを追加してからチャットを開始してください。'
+                  : 'No text AI API is configured yet. Click the settings button on the right toolbar, then add an API key in AI Provider Profiles before chatting.',
           },
         ]);
         setAssistantLoading(false);
@@ -644,7 +670,12 @@ ${canvasContext || '无'}`;
           {
             id: uuidv4(),
             role: 'assistant',
-            content: `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`,
+            content:
+              language === 'zh'
+                ? `AI 助手暂时没能完成请求：${error.message || '请检查 API 配置和网络连接'}`
+                : language === 'ja'
+                  ? `AIアシスタントがリクエストを完了できませんでした：${error.message || 'API設定とネットワーク接続を確認してください'}`
+                  : `AI Assistant failed to complete the request: ${error.message || 'Please check API configuration and network connection'}`,
           },
         ]);
       } finally {
@@ -677,12 +708,19 @@ ${canvasContext || '无'}`;
       runtimeWindow.SpeechRecognition || runtimeWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('当前浏览器不支持语音输入。');
+      alert(
+        language === 'zh'
+          ? '当前浏览器不支持语音输入。'
+          : language === 'ja'
+            ? 'お使いのブラウザは音声入力をサポートしていません。'
+            : 'Speech recognition is not supported in this browser.',
+      );
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = language === 'zh' ? 'zh-CN' : 'en-US';
+    recognition.lang =
+      language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => setAssistantListening(true);

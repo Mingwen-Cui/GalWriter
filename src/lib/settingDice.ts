@@ -1,4 +1,4 @@
-export type LanguageCode = 'zh' | 'en';
+export type LanguageCode = 'zh' | 'en' | 'ja';
 
 export type GeneratedCharacterSetting = {
   characterName?: string;
@@ -56,7 +56,8 @@ export const buildCharacterSettingPrompt = (data: Record<string, unknown>, lang:
     ['Background', data.background],
     ['Other', data.other],
   ]);
-  const outputLanguage = lang === 'zh' ? 'Simplified Chinese' : 'English';
+  const outputLanguage =
+    lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English';
 
   return `You are a visual novel character designer.
 Task: ${useExisting ? 'expand the available character information into a richer, coherent setting' : 'randomly create a fresh character setting'}.
@@ -88,7 +89,8 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
     ['Atmosphere', data.atmosphere],
     ['Other', data.other],
   ]);
-  const outputLanguage = lang === 'zh' ? 'Simplified Chinese' : 'English';
+  const outputLanguage =
+    lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English';
 
   return `You are a visual novel scene designer.
 Task: ${useExisting ? 'expand the available scene information into a richer, coherent setting' : 'randomly create a fresh scene setting'}.

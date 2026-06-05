@@ -2,13 +2,15 @@ import type { Node } from '@xyflow/react';
 import { useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { Language } from '../../lib/i18n';
+
 interface UseCanvasDnDParams {
   canvasWrapperRef: React.RefObject<HTMLDivElement | null>;
   tx: number;
   ty: number;
   tzoom: number;
   showTitles: boolean;
-  language: 'zh' | 'en';
+  language: Language;
   titleHeight: number;
   getMediaDimensions: (url: string, type: string) => Promise<{ width: number; height: number }>;
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
@@ -82,7 +84,7 @@ export const useCanvasDnD = ({
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};
-        let title = language === 'zh' ? '导入文件' : 'Import File';
+        let title = language === 'zh' ? '导入文件' : language === 'ja' ? 'ファイルをインポート' : 'Import File';
 
         const { width, height } = await getMediaDimensions(url, file.type);
         let displayWidth = 400;
@@ -95,13 +97,13 @@ export const useCanvasDnD = ({
 
         if (file.type.startsWith('image/')) {
           mediaData = { imageUrl: url };
-          title = language === 'zh' ? '导入图片' : 'Import Image';
+          title = language === 'zh' ? '导入图片' : language === 'ja' ? '画像をインポート' : 'Import Image';
         } else if (file.type.startsWith('video/')) {
           mediaData = { videoUrl: url };
-          title = language === 'zh' ? '导入视频' : 'Import Video';
+          title = language === 'zh' ? '导入视频' : language === 'ja' ? '動画をインポート' : 'Import Video';
         } else if (file.type.startsWith('audio/')) {
           mediaData = { audioUrl: url };
-          title = language === 'zh' ? '导入音频' : 'Import Audio';
+          title = language === 'zh' ? '导入音频' : language === 'ja' ? '音声ファイルをインポート' : 'Import Audio';
           displayWidth = 300;
           displayHeight = 150;
         }

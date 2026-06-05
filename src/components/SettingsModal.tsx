@@ -136,6 +136,27 @@ const settingsText = {
     aboutTab: '关于与反馈',
     language: '系统语言',
     chinese: '简体中文',
+    japanese: '日本語',
+    closeSettings: '关闭设置',
+    themeLanguage: '主题与语言',
+    rightToolbar: '右侧工具',
+    selectionMenu: '框选菜单',
+    show: '显示',
+    hide: '隐藏',
+    shownInToolbar: '工具栏显示',
+    hiddenInToolbar: '工具栏隐藏',
+    applyCurrentSettingsTitle: '应用当前设置到其他项目',
+    applying: '应用中...',
+    applyToOtherProjects: '应用到其他项目',
+    chooseTargetProjects: '选择要应用设置的项目',
+    chooseTargetProjectsDesc: '勾选要复制当前设置的项目文件。项目标题会保留。',
+    clearAll: '取消全选',
+    selectAll: '全选',
+    noOtherProjects: '暂无其他本地项目可应用。',
+    untitledProject: '未命名项目',
+    updated: '最近编辑',
+    copied: '已复制！',
+    clickToCopy: '点击复制',
     toolbarBubbleStyle: '工具栏气泡质感',
     glass: '玻璃',
     flat: '扁平',
@@ -195,6 +216,16 @@ const settingsText = {
     responsibleUseTitle: '请合理、合法地使用 GalWriter AI',
     responsibleUseDesc:
       '本工具用于辅助个人创作、学习和原型设计。请在遵守所在地法律法规、平台规则和基本创作伦理的前提下使用。',
+    responsibleUseRule1:
+      '请不要将本软件本体、安装包或未经授权的改版拿去售卖、倒卖或包装成付费产品。',
+    responsibleUseRule2:
+      '请不要使用本软件生成、传播违法违规内容，包括诈骗、暴力犯罪、色情剥削、仇恨骚扰、侵犯隐私等内容。',
+    responsibleUseRule3:
+      'AI 生成内容可能存在错误、偏见或不适合公开发布的表达，发布前请自行审校并承担相应责任。',
+    responsibleUseRule4:
+      '请尊重他人的版权、肖像权、隐私权和商业权益，不要冒充他人或未经许可使用受保护素材。',
+    responsibleDisclaimer:
+      '免责声明：作者不对用户使用本软件产生的内容、收益、纠纷或法律后果承担责任。继续使用即表示你理解并愿意遵守以上须知。',
   },
   en: {
     editorTab: 'Editor',
@@ -202,6 +233,28 @@ const settingsText = {
     aboutTab: 'About & Feedback',
     language: 'Language',
     chinese: 'Chinese',
+    japanese: 'Japanese',
+    closeSettings: 'Close settings',
+    themeLanguage: 'Theme & Language',
+    rightToolbar: 'Right Toolbar',
+    selectionMenu: 'Selection Menu',
+    show: 'Show',
+    hide: 'Hide',
+    shownInToolbar: 'Shown in toolbar',
+    hiddenInToolbar: 'Hidden in toolbar',
+    applyCurrentSettingsTitle: 'Apply current settings to other projects',
+    applying: 'Applying...',
+    applyToOtherProjects: 'Apply to other projects',
+    chooseTargetProjects: 'Choose target projects',
+    chooseTargetProjectsDesc:
+      'Select the project files that should receive the current settings. Project titles will be preserved.',
+    clearAll: 'Clear all',
+    selectAll: 'Select all',
+    noOtherProjects: 'No other local projects available.',
+    untitledProject: 'Untitled project',
+    updated: 'Updated',
+    copied: 'Copied!',
+    clickToCopy: 'Click to Copy',
     toolbarBubbleStyle: 'Toolbar Bubble Style',
     glass: 'Glass',
     flat: 'Flat',
@@ -263,11 +316,124 @@ const settingsText = {
     responsibleUseTitle: 'Use GalWriter AI Responsibly',
     responsibleUseDesc:
       'This tool is intended for personal creation, learning, and prototyping. Use it in accordance with applicable laws, platform rules, and basic creative ethics.',
+    responsibleUseRule1:
+      'Do not sell, resell, or repackage this software, installer, or unauthorized modified versions as a paid product.',
+    responsibleUseRule2:
+      'Do not use this software to generate or distribute illegal or harmful content, including fraud, violent crime, sexual exploitation, hate, harassment, or privacy violations.',
+    responsibleUseRule3:
+      'AI-generated content may contain mistakes, bias, or unsuitable wording. Review it before publishing and take responsibility for the final output.',
+    responsibleUseRule4:
+      'Respect copyright, likeness rights, privacy, and commercial rights. Do not impersonate others or use protected material without permission.',
+    responsibleDisclaimer:
+      'Disclaimer: The author is not responsible for content, revenue, disputes, or legal consequences arising from user behavior. Continued use means you understand and agree to follow this notice.',
+  },
+  ja: {
+    editorTab: 'エディタ',
+    playtestTab: 'テストプレイ',
+    aboutTab: 'バージョン情報',
+    language: 'システム言語',
+    chinese: '中国語（簡体字）',
+    japanese: '日本語',
+    closeSettings: '設定を閉じる',
+    themeLanguage: 'テーマと言語',
+    rightToolbar: '右側ツールバー',
+    selectionMenu: '選択メニュー',
+    show: '表示',
+    hide: '非表示',
+    shownInToolbar: 'ツールバーに表示',
+    hiddenInToolbar: 'ツールバーで非表示',
+    applyCurrentSettingsTitle: '現在の設定を他のプロジェクトに適用',
+    applying: '適用中...',
+    applyToOtherProjects: '他のプロジェクトに適用',
+    chooseTargetProjects: '設定を適用するプロジェクトを選択',
+    chooseTargetProjectsDesc:
+      '現在の設定をコピーするプロジェクトファイルを選択してください。プロジェクト名は保持されます。',
+    clearAll: '全解除',
+    selectAll: 'すべて選択',
+    noOtherProjects: '適用できる他のローカルプロジェクトはありません。',
+    untitledProject: '無題のプロジェクト',
+    updated: '最近の編集',
+    copied: 'コピーしました！',
+    clickToCopy: 'クリックしてコピー',
+    toolbarBubbleStyle: 'ツールバーのバブルスタイル',
+    glass: 'ガラス',
+    flat: 'フラット',
+    bgColorsDesc: '色をクリックするとカスタマイズできます。これらの色はキャンバス右側のクイック切り替えバーに表示されます。',
+    storyTitlePosition: '通常カードのタイトル位置',
+    titleInside: 'カード内部',
+    titleOutsideLeft: 'カードの左上（外部）',
+    titleOutsideRight: 'カードの右上（外部）',
+    interactions: 'インタラクションと表示',
+    showLastSavedTime: '最终保存時間の表示',
+    saveAssistantConversations: 'AIアシスタントの会話を保存する',
+    playtestThemeLayout: 'テストプレイのテーマとレイアウト',
+    playtestTheme: 'テストUIのテーマ',
+    choicePosition: '選択肢ボタンの位置',
+    choiceCenter: '画面中央',
+    choiceAboveText: 'テキストの上',
+    choiceBelowText: 'テキストの下',
+    blurChoiceBackground: '選択肢表示時の背景ぼかし',
+    enableBackgroundBlur: '背景ぼかしを有効にする',
+    disableBackgroundBlur: '背景ぼかしを無効にする',
+    blurStoryTextToo: '背景ぼかし時にストーリーテキストもぼかす',
+    blurText: 'テキストもぼかす',
+    keepTextClear: 'テキストをクリアに保つ',
+    hideCenterPopupSingleChoice: '単一選択肢の場合は中央ポップアップを非表示',
+    hideClickText: '非表示（クリックして進む）',
+    showPopup: 'ポップアップ選択を表示',
+    storyTextInteraction: 'ストーリーテキストの表示設定',
+    storyTextDisplayMode: '表示モード',
+    immediateMode: '即時表示（テキストと選択肢を同時に表示）',
+    typewriterMode: 'タイプライター風表示（文字を徐々に表示し、終わったら選択肢を表示）',
+    timedMode: '遅延表示（テキストロードのN秒後に選択肢を表示）',
+    clickToShowMode: 'クリックで表示（テキスト領域をクリック後に選択肢を表示）',
+    typewriterSpeed: 'タイピング速度（文字ごとのディレイ）',
+    charUnit: 'ms/文字',
+    choicesDelay: '選択肢の表示ディレイ',
+    secondUnit: '秒',
+    autoAdvance: '自動ページ送り',
+    continueAfterAnimation: 'アニメーション終了後に自動で進む',
+    autoAdvanceDesc: '複数の選択肢がない場合のみ有効です。複数の選択肢がある場合は選択を待ちます。',
+    waitTime: '待機時間',
+    enableOverlay: 'オーバーレイを表示',
+    disableOverlay: 'オーバーレイを非表示',
+    multimediaSettings: 'マルチメディア設定',
+    qqPersonal: 'QQ（個人）',
+    visitAuthorWebsite: '開発者のウェブサイトを訪問',
+    helpUsageNotice: 'ヘルプと利用規約',
+    aboutProductTitle: 'インタラクティブAI小説執筆ツール',
+    aboutProductDesc: '次世代のAIインタラクティブ小説創作インフラの構築を目指し、想像力のすべての種が花を咲かせるよう支援します。',
+    desktopCloseButton: 'デスクトップ閉じるボタンの挙動',
+    minimizeToTray: 'タスクトレイに最小化',
+    quitApp: 'アプリを終了',
+    desktopCloseDesc: 'この設定はTauriデスクトップアプリにのみ適用されます。ブラウザでのプレビュー動作には影響しません。',
+    forceQuitTitle: 'アプリを強制終了',
+    forceCloseApp: 'GalWriter AIを強制終了',
+    forceCloseDesc: 'ウィンドウの閉じるボタンが最小化として動作する場合に、このボタンで直接アプリを終了できます。',
+    backToAbout: 'バージョン情報に戻る',
+    responsibleUseTitle: 'GalWriter AIの適切な利用について',
+    responsibleUseDesc: '本ツールは個人の創作活動、学習、およびプロトタイピングの支援を目的としています。現地の法律、プラットフォーム利用規約、および基本的な創作倫理を遵守してご利用ください。',
+    responsibleUseRule1:
+      '本ソフトウェア本体、インストーラー、または無断で改変した版を販売、転売、有料製品として再包装しないでください。',
+    responsibleUseRule2:
+      '詐欺、暴力犯罪、性的搾取、ヘイト、嫌がらせ、プライバシー侵害など、違法または有害な内容の生成や配布に使用しないでください。',
+    responsibleUseRule3:
+      'AI 生成コンテンツには誤り、偏り、公開に適さない表現が含まれる場合があります。公開前に確認し、最終的な内容にはご自身で責任を持ってください。',
+    responsibleUseRule4:
+      '著作権、肖像権、プライバシー、商業上の権利を尊重してください。他者になりすましたり、許可なく保護された素材を使用したりしないでください。',
+    responsibleDisclaimer:
+      '免責事項：作者は、ユーザーの利用によって生じたコンテンツ、収益、紛争、法的結果について責任を負いません。利用を続けることで、この注意事項を理解し遵守することに同意したものとみなされます。',
   },
 } satisfies Record<Language, Record<string, string>>;
 
+const localeByLanguage: Record<Language, string> = {
+  zh: 'zh-CN',
+  en: 'en-US',
+  ja: 'ja-JP',
+};
+
 const formatProjectUpdatedAt = (timestamp: number, language: Language) =>
-  new Date(timestamp).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', {
+  new Date(timestamp).toLocaleString(localeByLanguage[language], {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -386,6 +552,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const t = translations[language];
   const s = settingsText[language];
+  const applyProjectCountLabel =
+    language === 'zh'
+      ? `应用到 ${selectedApplyProjectIds.length} 个项目`
+      : language === 'ja'
+        ? `${selectedApplyProjectIds.length} 件のプロジェクトに適用`
+        : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`;
   const compactSegmentButtonClass = (active: boolean) =>
     `flex-1 rounded-md py-2.5 text-xs font-bold transition-all ${
       active
@@ -452,29 +624,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={openApplySettingsSelector}
               disabled={!onApplySettingsToOtherProjects || isApplyingSettings}
               className="inline-flex h-8 items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
-              title={
-                language === 'zh'
-                  ? '应用当前设置到其他项目'
-                  : 'Apply current settings to other projects'
-              }
+              title={s.applyCurrentSettingsTitle}
             >
               <ArrowRight className="w-3.5 h-3.5" />
               <span>
-                {isApplyingSettings
-                  ? language === 'zh'
-                    ? '应用中...'
-                    : 'Applying...'
-                  : language === 'zh'
-                    ? '应用到其他项目'
-                    : 'Apply to other projects'}
+                {isApplyingSettings ? s.applying : s.applyToOtherProjects}
               </span>
             </button>
             <button
               type="button"
               onClick={() => setShowSettings(false)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] hover:border-[var(--accent)]/30"
-              title={language === 'zh' ? '关闭设置' : 'Close settings'}
-              aria-label={language === 'zh' ? '关闭设置' : 'Close settings'}
+              title={s.closeSettings}
+              aria-label={s.closeSettings}
             >
               <X className="w-4 h-4" />
             </button>
@@ -488,18 +650,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   { id: 'appearance', label: t.theme, icon: <ImageIcon className="w-4 h-4" /> },
                   {
                     id: 'editor',
-                    label: language === 'zh' ? '编辑器' : 'Editor',
+                    label: s.editorTab,
                     icon: <Layers className="w-4 h-4" />,
                   },
                   {
                     id: 'playtest',
-                    label: language === 'zh' ? '剧本测试' : 'Playtest',
+                    label: s.playtestTab,
                     icon: <PlayCircle className="w-4 h-4" />,
                   },
                   { id: 'ai', label: t.aiSettings, icon: <BrainCircuit className="w-4 h-4" /> },
                   {
                     id: 'about',
-                    label: language === 'zh' ? '关于与反馈' : 'About & Feedback',
+                    label: s.aboutTab,
                     icon: <MessageCircle className="w-4 h-4" />,
                   },
                 ].map((tab) => (
@@ -544,7 +706,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section>
                     <header className="hidden">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {t.theme} & {language === 'zh' ? '语言' : 'Language'}
+                        {s.themeLanguage}
                       </h3>
                     </header>
                     <div className="grid grid-cols-1 gap-3">
@@ -586,6 +748,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           >
                             English
                           </button>
+                          <button
+                            onClick={() => setLanguage('ja')}
+                            className={compactTextButtonClass(language === 'ja')}
+                          >
+                            {s.japanese}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -593,7 +761,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>
-                      {language === 'zh' ? '右侧工具' : 'Right Toolbar'}
+                      {s.rightToolbar}
                     </h3>
                     <div className={segmentedControlClass}>
                       <button
@@ -631,7 +799,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>
-                      {language === 'zh' ? '框选菜单' : 'Selection Menu'}
+                      {s.selectionMenu}
                     </h3>
                     <div className={segmentedControlClass}>
                       <button
@@ -728,13 +896,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setShowControls(true)}
                         className={compactSegmentButtonClass(showControls)}
                       >
-                        {language === 'zh' ? '显示' : 'Show'}
+                        {s.show}
                       </button>
                       <button
                         onClick={() => setShowControls(false)}
                         className={compactSegmentButtonClass(!showControls)}
                       >
-                        {language === 'zh' ? '隐藏' : 'Hide'}
+                        {s.hide}
                       </button>
                     </div>
                   </section>
@@ -755,12 +923,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${showPresetColors ? 'left-6' : 'left-1'}`}
                         />
                         {showPresetColors
-                          ? language === 'zh'
-                            ? '工具栏显示'
-                            : 'Shown in toolbar'
-                          : language === 'zh'
-                            ? '工具栏隐藏'
-                            : 'Hidden in toolbar'}
+                          ? s.shownInToolbar
+                          : s.hiddenInToolbar}
                       </button>
                     </header>
                     <p className="text-xs text-[var(--text-muted)] font-medium px-4">
@@ -884,7 +1048,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-2">
                     <header className="flex items-center gap-3 mb-6">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '交互与显示' : 'Interactions'}
+                        {s.interactions}
                       </h3>
                     </header>
                     <div className="grid grid-cols-2 gap-x-8 gap-y-0">
@@ -903,13 +1067,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         },
                         {
                           id: 'showLastSavedTime',
-                          label: language === 'zh' ? '显示上次保存时间' : 'Show last saved time',
+                          label: s.showLastSavedTime,
                           value: showLastSavedTime,
                           setter: setShowLastSavedTime,
                         },
                         {
                           id: 'saveAssistantConversations',
-                          label: language === 'zh' ? '保存 AI 助手对话' : 'Save AI assistant chats',
+                          label: s.saveAssistantConversations,
                           value: saveAssistantConversations,
                           setter: setSaveAssistantConversations,
                         },
@@ -949,7 +1113,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-5">
                     <header className="flex items-center gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '剧情测试主题与排版' : 'Playtest Theme & Layout'}
+                        {s.playtestThemeLayout}
                       </h3>
                     </header>
 
@@ -976,7 +1140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {playTestLayoutMode === 'classic' && (
                       <div className={settingsRowClass}>
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh' ? '测试界面主题' : 'Playtest Theme'}
+                          {s.playtestTheme}
                         </h3>
                         <div className={segmentedControlClass}>
                           <button
@@ -999,13 +1163,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Playtest Choices Position */}
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>
-                      {language === 'zh' ? '选项按钮位置' : 'Choice Position'}
+                      {s.choicePosition}
                     </h3>
                     <div className={segmentedControlClass}>
                       {[
-                        { id: 'center', label: language === 'zh' ? '画面中间' : 'Center' },
-                        { id: 'aboveText', label: language === 'zh' ? '文字上方' : 'Above Text' },
-                        { id: 'belowText', label: language === 'zh' ? '文字下方' : 'Below Text' },
+                        { id: 'center', label: s.choiceCenter },
+                        { id: 'aboveText', label: s.choiceAboveText },
+                        { id: 'belowText', label: s.choiceBelowText },
                       ].map((pos) => (
                         <button
                           key={pos.id}
@@ -1046,19 +1210,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
                       <h3 className={settingsRowTitleClass}>
-                        {language === 'zh' ? '选项背景虚化' : 'Blur Background'}
+                        {s.blurChoiceBackground}
                       </h3>
                       <div className={segmentedControlClass}>
                         {[
                           {
                             id: 'true',
                             value: true,
-                            label: language === 'zh' ? '开启' : 'Enabled',
+                            label: s.enableBackgroundBlur,
                           },
                           {
                             id: 'false',
                             value: false,
-                            label: language === 'zh' ? '关闭' : 'Disabled',
+                            label: s.disableBackgroundBlur,
                           },
                         ].map((opt) => (
                           <button
@@ -1083,19 +1247,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     >
                       <div className={settingsRowClass}>
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh' ? '虚化剧情文字' : 'Blur Story Text'}
+                          {s.blurStoryTextToo}
                         </h3>
                         <div className={segmentedControlClass}>
                           {[
                             {
                               id: 'true',
                               value: true,
-                              label: language === 'zh' ? '模糊' : 'Blur',
+                              label: s.blurText,
                             },
                             {
                               id: 'false',
                               value: false,
-                              label: language === 'zh' ? '清晰' : 'Clear',
+                              label: s.keepTextClear,
                             },
                           ].map((opt) => (
                             <button
@@ -1117,19 +1281,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`animate-in fade-in slide-in-from-top-1 duration-200 ${settingsRowClass}`}
                     >
                       <h3 className={settingsRowTitleClass}>
-                        {language === 'zh' ? '单选项弹窗' : 'Single Choice Popup'}
+                        {s.hideCenterPopupSingleChoice}
                       </h3>
                       <div className={segmentedControlClass}>
                         {[
                           {
                             id: 'true',
                             value: true,
-                            label: language === 'zh' ? '隐藏' : 'Hide',
+                            label: s.hideClickText,
                           },
                           {
                             id: 'false',
                             value: false,
-                            label: language === 'zh' ? '显示' : 'Show',
+                            label: s.showPopup,
                           },
                         ].map((opt) => (
                           <button
@@ -1152,14 +1316,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-5">
                     <header className="flex items-center gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '剧情文本交互策略' : 'Story Text Interaction'}
+                        {s.storyTextInteraction}
                       </h3>
                     </header>
 
                     {/* Interaction Mode Selection */}
                     <div className={settingsRowClass}>
                       <h3 className={settingsRowTitleClass}>
-                        {language === 'zh' ? '剧情显示模式' : 'Display Mode'}
+                        {s.storyTextDisplayMode}
                       </h3>
                       <select
                         value={playTestInteractionMode}
@@ -1172,9 +1336,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
                           }
                         >
-                          {language === 'zh'
-                            ? '立即显示 (直接显示文本与选项)'
-                            : 'Immediate (Show all instantly)'}
+                          {s.immediateMode}
                         </option>
                         <option
                           value="typewriter"
@@ -1182,9 +1344,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
                           }
                         >
-                          {language === 'zh'
-                            ? '打字机效果 (文本逐字打出后显示选项)'
-                            : 'Typewriter (Reveal word-by-word)'}
+                          {s.typewriterMode}
                         </option>
                         <option
                           value="timed"
@@ -1192,9 +1352,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
                           }
                         >
-                          {language === 'zh'
-                            ? '延迟显示选项 (文本载入 N 秒后显示选项)'
-                            : 'Timed Delay (Show choices after N seconds)'}
+                          {s.timedMode}
                         </option>
                         <option
                           value="clickToShow"
@@ -1202,9 +1360,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
                           }
                         >
-                          {language === 'zh'
-                            ? '点击显示选项 (点击文本区域后显示选项)'
-                            : 'Click-to-Show (Tap text to unlock choices)'}
+                          {s.clickToShowMode}
                         </option>
                       </select>
                     </div>
@@ -1215,7 +1371,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh' ? '打字速度' : 'Typewriting Speed'}
+                          {s.typewriterSpeed}
                         </h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
@@ -1228,7 +1384,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                           />
                           <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestTypewriterSpeed} ms/字
+                            {playTestTypewriterSpeed} {s.charUnit}
                           </span>
                         </div>
                       </div>
@@ -1239,7 +1395,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh' ? '选项出现延迟' : 'Choices Delay'}
+                          {s.choicesDelay}
                         </h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
@@ -1252,7 +1408,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                           />
                           <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestChoiceDelay} 秒
+                            {playTestChoiceDelay} {s.secondUnit}
                           </span>
                         </div>
                       </div>
@@ -1265,19 +1421,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-5">
                     <header className="flex items-center gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '自动翻页' : 'Auto Advance'}
+                        {s.autoAdvance}
                       </h3>
                     </header>
 
                     <div className={settingsRowClass}>
                       <h3 className={settingsRowTitleClass}>
-                        {language === 'zh' ? '开启自动翻页' : 'Auto Advance'}
+                        {s.continueAfterAnimation}
                       </h3>
                       <div className="flex-1 flex items-center justify-between">
                         <span className="text-xs text-[var(--text-muted)] font-medium">
-                          {language === 'zh'
-                            ? '仅在没有多个选项时生效，多选项会暂停等待'
-                            : 'Only runs when there is not more than one choice'}
+                          {s.autoAdvanceDesc}
                         </span>
                         <button
                           onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
@@ -1295,7 +1449,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh' ? '等待秒数' : 'Wait Time'}
+                          {s.waitTime}
                         </h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
@@ -1310,7 +1464,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
                           />
                           <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestAutoAdvanceDelay} 秒
+                            {playTestAutoAdvanceDelay} {s.secondUnit}
                           </span>
                         </div>
                       </div>
@@ -1320,7 +1474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Playtest Video Autoplay */}
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>
-                      {language === 'zh' ? '多媒体设置' : 'Multimedia'}
+                        {s.multimediaSettings}
                     </h3>
                     <div className="flex-1 flex items-center justify-between">
                       <span className="text-xs text-[var(--text-muted)] font-medium">
@@ -1414,7 +1568,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ) : (
                               <Copy className="w-4 h-4" />
                             )}
-                            <span>{item.copied ? 'Copied!' : 'Click to Copy'}</span>
+                              <span>{item.copied ? s.copied : s.clickToCopy}</span>
                           </div>
                         </div>
                       ))}
@@ -1425,7 +1579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="col-span-2 flex items-center justify-center gap-2 px-6 py-4 bg-[var(--accent)] text-white rounded-xl text-sm font-black shadow-xl transition-all hover:shadow-2xl hover:-translate-y-0.5 active:scale-95"
                       >
                         <ExternalLink className="w-4 h-4" />
-                        <span>{language === 'zh' ? '访问作者的网站' : 'Visit Author Website'}</span>
+                        <span>{s.visitAuthorWebsite}</span>
                       </a>
                       <button
                         type="button"
@@ -1433,7 +1587,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="col-span-2 flex items-center justify-center gap-2 px-6 py-4 bg-[var(--card-bg)] text-[var(--text-primary)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black shadow-sm transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:-translate-y-0.5 active:scale-95"
                       >
                         <HelpCircle className="w-4 h-4" />
-                        <span>{language === 'zh' ? '帮助和使用须知' : 'Help & Usage Notice'}</span>
+                        <span>{s.helpUsageNotice}</span>
                       </button>
                     </div>
                   </section>
@@ -1442,16 +1596,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                     <BrainCircuit className="w-12 h-12 text-indigo-500 dark:text-sky-400 mx-auto mb-6 relative z-10" />
                     <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">
-                      交互式AI小说创作工具
+                      {s.aboutProductTitle}
                     </h4>
                     <p className="text-indigo-600/40 dark:text-sky-400/40 text-xs font-bold uppercase tracking-[0.4em] mb-6 relative z-10">
                       AIGC x Narrative Architecture
                     </p>
                     <div className="h-px bg-slate-200 dark:bg-white/10 w-24 mx-auto mb-6 relative z-10" />
                     <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed max-w-[320px] mx-auto relative z-10 font-medium">
-                      {language === 'zh'
-                        ? '致力于构建下一代AI交互式小说创作工具，让每一颗想象力的种子都能开花结果。'
-                        : 'Dedicated to building next-gen AI narrative infrastructure, making every seed of imagination bloom.'}
+                      {s.aboutProductDesc}
                     </p>
                   </section>
 
@@ -1470,7 +1622,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
                     <header className="flex items-center gap-3 mb-5">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '桌面端关闭按钮' : 'Desktop Close Button'}
+                        {s.desktopCloseButton}
                       </h3>
                     </header>
                     <div className="flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]">
@@ -1479,20 +1631,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setCloseButtonBehavior('minimize')}
                         className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'minimize' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
                       >
-                        {language === 'zh' ? '最小化到后台' : 'Minimize'}
+                        {s.minimizeToTray}
                       </button>
                       <button
                         type="button"
                         onClick={() => setCloseButtonBehavior('quit')}
                         className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'quit' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
                       >
-                        {language === 'zh' ? '直接关闭应用' : 'Quit'}
+                        {s.quitApp}
                       </button>
                     </div>
                     <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)] font-medium">
-                      {language === 'zh'
-                        ? '此选项只影响 Tauri 打包后的桌面应用，浏览器预览不会改变窗口行为。'
-                        : 'This only affects the packaged Tauri desktop app; browser preview behavior is unchanged.'}
+                      {s.desktopCloseDesc}
                     </p>
                   </section>
 
@@ -1501,17 +1651,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={forceQuitApp}
                       className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-rose-600 text-white text-sm font-black shadow-lg transition-all hover:bg-rose-700 hover:shadow-xl active:scale-95"
-                      title={language === 'zh' ? '强制退出应用' : 'Force quit app'}
+                      title={s.forceQuitTitle}
                     >
                       <X className="w-4 h-4" />
                       <span>
-                        {language === 'zh' ? '强制关闭 GalWriter AI' : 'Force Close GalWriter AI'}
+                        {s.forceCloseApp}
                       </span>
                     </button>
                     <p className="mt-3 text-center text-[10px] leading-relaxed font-bold text-rose-500/80">
-                      {language === 'zh'
-                        ? '当窗口关闭按钮只会最小化时，可以用这个按钮直接退出桌面应用。'
-                        : 'Use this when the window close button only minimizes the desktop app.'}
+                      {s.forceCloseDesc}
                     </p>
                   </section>
                 </div>
@@ -1525,14 +1673,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="inline-flex items-center gap-2 text-sm font-bold text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span>{language === 'zh' ? '返回关注与反馈' : 'Back to About & Feedback'}</span>
+                    <span>{s.backToAbout}</span>
                   </button>
 
                   <section>
                     <header className="flex items-center gap-3 mb-6">
                       <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '帮助和使用须知' : 'Help & Usage Notice'}
+                        {s.helpUsageNotice}
                       </h3>
                     </header>
 
@@ -1543,32 +1691,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div>
                           <h4 className="text-lg font-black text-[var(--text-primary)] mb-2">
-                            {language === 'zh'
-                              ? '请合理、合法地使用 GalWriter AI'
-                              : 'Use GalWriter AI Responsibly'}
+                            {s.responsibleUseTitle}
                           </h4>
                           <p className="text-sm leading-relaxed text-[var(--text-secondary)] font-medium">
-                            {language === 'zh'
-                              ? '本工具用于辅助个人创作、学习和原型设计。请在遵守所在地法律法规、平台规则和基本创作伦理的前提下使用。'
-                              : 'This tool is intended for personal creation, learning, and prototyping. Use it in accordance with applicable laws, platform rules, and basic creative ethics.'}
+                            {s.responsibleUseDesc}
                           </p>
                         </div>
                       </div>
 
                       <div className="grid gap-3">
                         {[
-                          language === 'zh'
-                            ? '请不要将本软件本体、安装包或未经授权的改版拿去售卖、倒卖或包装成付费产品。'
-                            : 'Do not sell, resell, or repackage this software, installer, or unauthorized modified versions as a paid product.',
-                          language === 'zh'
-                            ? '请不要使用本软件生成、传播违法违规内容，包括诈骗、暴力犯罪、色情剥削、仇恨骚扰、侵犯隐私等内容。'
-                            : 'Do not use this software to generate or distribute illegal or harmful content, including fraud, violent crime, sexual exploitation, hate, harassment, or privacy violations.',
-                          language === 'zh'
-                            ? 'AI 生成内容可能存在错误、偏见或不适合公开发布的表达，发布前请自行审校并承担相应责任。'
-                            : 'AI-generated content may contain mistakes, bias, or unsuitable wording. Review it before publishing and take responsibility for the final output.',
-                          language === 'zh'
-                            ? '请尊重他人的版权、肖像权、隐私权和商业权益，不要冒充他人或未经许可使用受保护素材。'
-                            : 'Respect copyright, likeness rights, privacy, and commercial rights. Do not impersonate others or use protected material without permission.',
+                          s.responsibleUseRule1,
+                          s.responsibleUseRule2,
+                          s.responsibleUseRule3,
+                          s.responsibleUseRule4,
                         ].map((item, index) => (
                           <div
                             key={index}
@@ -1586,9 +1722,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                       <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                         <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300 font-bold">
-                          {language === 'zh'
-                            ? '免责声明：作者不对用户使用本软件产生的内容、收益、纠纷或法律后果承担责任。继续使用即表示你理解并愿意遵守以上须知。'
-                            : 'Disclaimer: The author is not responsible for content, revenue, disputes, or legal consequences arising from user behavior. Continued use means you understand and agree to follow this notice.'}
+                          {s.responsibleDisclaimer}
                         </p>
                       </div>
                     </div>
@@ -1606,12 +1740,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '选择要应用设置的项目' : 'Choose target projects'}
+                    {s.chooseTargetProjects}
                   </h3>
                   <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                    {language === 'zh'
-                      ? '勾选要复制当前设置的项目文件。项目标题会保留。'
-                      : 'Select the project files that should receive the current settings. Project titles will be preserved.'}
+                    {s.chooseTargetProjectsDesc}
                   </p>
                 </div>
                 <button
@@ -1620,13 +1752,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   disabled={applyTargetProjects.length === 0}
                   className="shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {allApplyTargetsSelected
-                    ? language === 'zh'
-                      ? '取消全选'
-                      : 'Clear all'
-                    : language === 'zh'
-                      ? '全选'
-                      : 'Select all'}
+                  {allApplyTargetsSelected ? s.clearAll : s.selectAll}
                 </button>
               </div>
             </div>
@@ -1634,9 +1760,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="min-h-0 flex-1 overflow-y-auto p-5 custom-scrollbar">
               {applyTargetProjects.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-5 py-10 text-center text-sm font-bold text-[var(--text-muted)]">
-                  {language === 'zh'
-                    ? '暂无其他本地项目可应用。'
-                    : 'No other local projects available.'}
+                  {s.noOtherProjects}
                 </div>
               ) : (
                 <div className="grid gap-3">
@@ -1672,11 +1796,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-black text-[var(--text-primary)]">
-                            {project.projectName ||
-                              (language === 'zh' ? '未命名项目' : 'Untitled project')}
+                            {project.projectName || s.untitledProject}
                           </div>
                           <div className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                            {language === 'zh' ? '最近编辑' : 'Updated'}{' '}
+                            {s.updated}{' '}
                             {formatProjectUpdatedAt(project.updatedAt, language)}
                           </div>
                         </div>
@@ -1693,7 +1816,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setShowApplySettingsConfirm(false)}
                 className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
               >
-                {language === 'zh' ? '取消' : 'Cancel'}
+                {t.cancel}
               </button>
               <button
                 type="button"
@@ -1703,9 +1826,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 disabled={selectedApplyProjectIds.length === 0 || isApplyingSettings}
                 className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
               >
-                {language === 'zh'
-                  ? `应用到 ${selectedApplyProjectIds.length} 个项目`
-                  : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`}
+                {applyProjectCountLabel}
               </button>
             </div>
           </div>
