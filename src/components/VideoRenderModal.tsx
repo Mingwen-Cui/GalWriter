@@ -7,6 +7,7 @@ import {
   Copy,
   Download,
   Eye,
+  EyeOff,
   Film,
   FileDown,
   FileText,
@@ -94,6 +95,7 @@ type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
+  dialoguePanelHeight: number;
 };
 
 type SegmentRenderInfo = {
@@ -132,6 +134,13 @@ type TimelineHistoryState = {
   audioTrackByNodeId: Record<string, string>;
   timelineStartById: Record<string, number>;
   activePreviewId: string;
+};
+
+type WebHistoryState = {
+  settings: WebExportSettings;
+  renderStyle: RenderStyle;
+  choiceColor: string;
+  choiceTextColor: string;
 };
 
 type RenderContextMenuTarget = {
@@ -559,14 +568,23 @@ function WebPlaytestPreview({
   language,
   renderStyle,
   choiceColor,
+  choiceTextColor,
   settings,
+  onUpdateSettings,
+  onUpdateRenderStyle,
 }: {
   nodes: FlowNode[];
   edges: FlowEdge[];
   language: Language;
   renderStyle: RenderStyle;
   choiceColor: string;
+  choiceTextColor: string;
   settings: WebExportSettings;
+  onUpdateSettings: <K extends keyof WebExportSettings>(
+    key: K,
+    value: WebExportSettings[K],
+  ) => void;
+  onUpdateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
 }) {
   const isZh = language === 'zh';
   const playableNodes = useMemo(
@@ -580,6 +598,11 @@ function WebPlaytestPreview({
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => root?.id || null);
   const [history, setHistory] = useState<string[]>([]);
   const [animationDone, setAnimationDone] = useState(settings.interactionMode !== 'typewriter');
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const [showPreviewSettings, setShowPreviewSettings] = useState(false);
+  const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
+  const [displayedPreviewText, setDisplayedPreviewText] = useState('');
+  const previewRootRef = useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!root) {
@@ -604,11 +627,12 @@ function WebPlaytestPreview({
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
   const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
-  const title = getNodeDisplayTitle(currentNode);
   const text = getNodeDisplayText(currentNode);
   const shouldHideCenteredSingleChoice =
     settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
-  const shouldShowChoices = animationDone && !shouldHideCenteredSingleChoice;
+  const shouldShowChoices =
+    !shouldHideCenteredSingleChoice && (animationDone || !settings.autoAdvance);
+  const canClickContinue = outEdges.length <= 1;
 
   const goTo = (targetId: string) => {
     if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
@@ -617,10 +641,22 @@ function WebPlaytestPreview({
 
   React.useEffect(() => {
     setAnimationDone(settings.interactionMode !== 'typewriter');
-    if (settings.interactionMode !== 'typewriter') return;
-    const textLength = Math.max(1, stripHtml(text).length);
-    const timer = window.setTimeout(() => setAnimationDone(true), textLength * settings.typewriterSpeed);
-    return () => window.clearTimeout(timer);
+    if (settings.interactionMode !== 'typewriter') {
+      setDisplayedPreviewText(text);
+      return;
+    }
+    const source = stripHtml(text);
+    let index = 0;
+    setDisplayedPreviewText('');
+    const timer = window.setInterval(() => {
+      index += 1;
+      setDisplayedPreviewText(source.slice(0, index));
+      if (index >= source.length) {
+        window.clearInterval(timer);
+        setAnimationDone(true);
+      }
+    }, settings.typewriterSpeed);
+    return () => window.clearInterval(timer);
   }, [currentNodeId, settings.interactionMode, settings.typewriterSpeed, text]);
 
   React.useEffect(() => {
@@ -630,7 +666,7 @@ function WebPlaytestPreview({
   }, [animationDone, currentNodeId, outEdges, settings.autoAdvance]);
 
   const continueFromText = () => {
-    if (!shouldHideCenteredSingleChoice || !animationDone) return;
+    if (!canClickContinue) return;
     goTo(outEdges[0]?.target || 'THE_END');
   };
 
@@ -643,8 +679,12 @@ function WebPlaytestPreview({
           <button
             type="button"
             onClick={() => goTo('THE_END')}
-            className="rounded-lg px-3 py-2 text-left text-xs font-black text-white transition-colors"
-            style={{ backgroundColor: `${choiceColor}22`, border: `1px solid ${choiceColor}66` }}
+            className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug shadow-lg shadow-black/15 transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
+            style={{
+              backgroundColor: `${choiceColor}cc`,
+              border: `1px solid ${choiceColor}`,
+              color: choiceTextColor,
+            }}
           >
             {isZh ? '剧本结束' : 'The End'}
           </button>
@@ -668,8 +708,12 @@ function WebPlaytestPreview({
               key={edge.id}
               type="button"
               onClick={() => goTo(edge.target)}
-              className="rounded-lg px-3 py-2 text-left text-xs font-black text-white transition-colors"
-              style={{ backgroundColor: `${choiceColor}22`, border: `1px solid ${choiceColor}66` }}
+              className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug shadow-lg shadow-black/15 transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
+              style={{
+                backgroundColor: `${choiceColor}cc`,
+                border: `1px solid ${choiceColor}`,
+                color: choiceTextColor,
+              }}
             >
               {label as string}
             </button>
@@ -693,6 +737,325 @@ function WebPlaytestPreview({
     });
   };
 
+  const togglePreviewFullscreen = async () => {
+    const previewRoot = previewRootRef.current;
+    if (!previewRoot) return;
+    try {
+      if (document.fullscreenElement === previewRoot) {
+        await document.exitFullscreen();
+        return;
+      }
+      await previewRoot.requestFullscreen();
+    } catch (fullscreenError) {
+      console.warn('Could not toggle web preview fullscreen:', fullscreenError);
+    }
+  };
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsPreviewFullscreen(document.fullscreenElement === previewRootRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const renderPreviewToolbar = (titleText = isZh ? '网页互动预览' : 'Interactive Web Preview') => (
+    <div
+      className={`flex h-12 items-center justify-between border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent px-3 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md transition-opacity ${
+        previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+      }`}
+    >
+      <div className="min-w-0 flex items-center gap-2.5">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-500/18 text-sky-200 ring-1 ring-sky-300/20">
+          <Eye className="h-4 w-4" />
+        </div>
+        <span className="truncate text-xs font-black uppercase tracking-wide text-white/88">
+          {titleText}
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={back}
+          disabled={history.length === 0}
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-white/12 px-3 text-xs font-black text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-35 disabled:grayscale disabled:hover:bg-white/12 disabled:active:scale-100"
+          title={isZh ? '返回上一页' : 'Back'}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          <span>{isZh ? '返回' : 'Back'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white transition-all hover:bg-white/20 active:scale-95"
+          title={isZh ? '重置预览' : 'Reset preview'}
+          aria-label={isZh ? '重置预览' : 'Reset preview'}
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowPreviewSettings((prev) => !prev)}
+            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
+              showPreviewSettings
+                ? 'bg-white/24 text-white'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+            title={isZh ? '预览设置' : 'Preview settings'}
+            aria-label={isZh ? '预览设置' : 'Preview settings'}
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+          {showPreviewSettings && (
+            <div
+              className="absolute right-0 top-10 z-40 w-[min(560px,calc(100vw-2rem))] max-h-[min(72vh,560px)] overflow-y-auto rounded-2xl border border-white/12 bg-slate-950/94 p-4 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '界面排版' : 'Layout'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['classic', 'immersive'] as WebExportSettings['layoutMode'][]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => onUpdateSettings('layoutMode', mode)}
+                        className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                          settings.layoutMode === mode
+                            ? 'bg-sky-500 text-white'
+                            : 'bg-white/10 text-white/75 hover:bg-white/16'
+                        }`}
+                      >
+                        {mode === 'classic'
+                          ? isZh
+                            ? '经典'
+                            : 'Classic'
+                          : isZh
+                            ? '沉浸'
+                            : 'Immersive'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '选项位置' : 'Choice Position'}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['center', 'aboveText', 'belowText'] as WebExportSettings['choicesPosition'][]).map(
+                      (position) => (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() => onUpdateSettings('choicesPosition', position)}
+                          className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                            settings.choicesPosition === position
+                              ? 'bg-sky-500 text-white'
+                              : 'bg-white/10 text-white/75 hover:bg-white/16'
+                          }`}
+                        >
+                          {position === 'center'
+                            ? isZh
+                              ? '中间'
+                              : 'Center'
+                            : position === 'aboveText'
+                              ? isZh
+                                ? '上方'
+                                : 'Above'
+                              : isZh
+                                ? '下方'
+                                : 'Below'}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '交互' : 'Interaction'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings('interactionMode', 'typewriter')}
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        settings.interactionMode === 'typewriter'
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '打字机' : 'Typewriter'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings('interactionMode', 'immediate')}
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        settings.interactionMode === 'immediate'
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '立即显示' : 'Immediate'}
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '自动翻页' : 'Auto Advance'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings('autoAdvance', true)}
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        settings.autoAdvance
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '自动' : 'On'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings('autoAdvance', false)}
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        !settings.autoAdvance
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '手动' : 'Manual'}
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '显示效果' : 'Display'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings('blurBackground', !settings.blurBackground)}
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        settings.blurBackground
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '背景虚化' : 'Backdrop'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onUpdateSettings('skipSingleChoicePopup', !settings.skipSingleChoicePopup)
+                      }
+                      className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+                        settings.skipSingleChoicePopup
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white/10 text-white/75 hover:bg-white/16'
+                      }`}
+                    >
+                      {isZh ? '隐藏单选' : 'Skip Single'}
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+                    {isZh ? '媒体' : 'Media'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings('videoAutoPlay', !settings.videoAutoPlay)}
+                    className={`h-8 w-full rounded-lg px-2 text-xs font-black transition-colors ${
+                      settings.videoAutoPlay
+                        ? 'bg-sky-500 text-white'
+                        : 'bg-white/10 text-white/75 hover:bg-white/16'
+                    }`}
+                  >
+                    {isZh ? '视频自动播放' : 'Video Autoplay'}
+                  </button>
+                </div>
+                <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 md:col-span-2">
+                  <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
+                    <span>{isZh ? '标题正文背景高度' : 'Title and Body Background Height'}</span>
+                    <span>{settings.dialoguePanelHeight}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={18}
+                    max={55}
+                    step={1}
+                    value={settings.dialoguePanelHeight}
+                    onChange={(event) =>
+                      onUpdateSettings('dialoguePanelHeight', Number(event.target.value))
+                    }
+                    className="w-full accent-sky-400"
+                  />
+                </label>
+                <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+                  <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                    <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
+                      <span>{isZh ? '标题字号' : 'Title Size'}</span>
+                      <span>{renderStyle.titleFontSize}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={18}
+                      max={120}
+                      step={1}
+                      value={renderStyle.titleFontSize}
+                      onChange={(event) =>
+                        onUpdateRenderStyle('titleFontSize', Number(event.target.value))
+                      }
+                      className="w-full accent-sky-400"
+                    />
+                  </label>
+                  <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                    <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
+                      <span>{isZh ? '正文字号' : 'Body Size'}</span>
+                      <span>{renderStyle.bodyFontSize}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={16}
+                      max={96}
+                      step={1}
+                      value={renderStyle.bodyFontSize}
+                      onChange={(event) =>
+                        onUpdateRenderStyle('bodyFontSize', Number(event.target.value))
+                      }
+                      className="w-full accent-sky-400"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={togglePreviewFullscreen}
+          className="grid h-8 w-8 place-items-center rounded-full bg-sky-500/22 text-sky-100 transition-all hover:bg-sky-500/34 active:scale-95"
+          title={isPreviewFullscreen ? (isZh ? '退出测试全屏' : 'Exit test fullscreen') : isZh ? '测试全屏' : 'Test fullscreen'}
+          aria-label={
+            isPreviewFullscreen
+              ? isZh
+                ? '退出测试全屏'
+                : 'Exit test fullscreen'
+              : isZh
+                ? '测试全屏'
+                : 'Test fullscreen'
+          }
+        >
+          {isPreviewFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+
   if (!root) {
     return (
       <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
@@ -703,29 +1066,20 @@ function WebPlaytestPreview({
 
   if (currentNodeId === 'THE_END') {
     return (
-      <div className="flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-[var(--vr-border-strong)] bg-[var(--vr-panel)] shadow-sm">
-        <div className="flex h-12 items-center justify-between border-b border-[var(--vr-border)] px-4">
-          <span className="text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
-            {isZh ? '网页预览' : 'Web Preview'}
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={back}
-              disabled={history.length === 0}
-              className="h-8 rounded-lg bg-[var(--vr-surface-soft)] px-3 text-xs font-black text-[var(--vr-text-soft)] disabled:opacity-40"
-            >
-              {isZh ? '返回' : 'Back'}
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              className="h-8 rounded-lg bg-[var(--vr-accent-soft)] px-3 text-xs font-black text-[var(--vr-accent-strong)]"
-            >
-              {isZh ? '重置' : 'Reset'}
-            </button>
-          </div>
-        </div>
+      <div
+        ref={previewRootRef}
+        className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
+      >
+        {renderPreviewToolbar(isZh ? '网页互动预览' : 'Interactive Web Preview')}
+        <button
+          type="button"
+          onClick={() => setPreviewControlsHidden((prev) => !prev)}
+          className="absolute bottom-4 left-4 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white shadow-xl shadow-black/25 backdrop-blur-md transition-all hover:bg-black/62 active:scale-95"
+          title={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+          aria-label={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+        >
+          {previewControlsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+        </button>
         <div className="grid flex-1 place-items-center p-6 text-center text-2xl font-black text-[var(--vr-text)]">
           {isZh ? '剧本结束' : 'The End'}
         </div>
@@ -734,7 +1088,10 @@ function WebPlaytestPreview({
   }
 
   return (
-    <div className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-[var(--vr-border-strong)] bg-[var(--vr-panel)] shadow-sm">
+    <div
+      ref={previewRootRef}
+      className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
+    >
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
@@ -752,35 +1109,22 @@ function WebPlaytestPreview({
             : 'grid-rows-[48px_minmax(0,1fr)_auto]'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-4">
-          <div className="min-w-0 flex items-center gap-2">
-            <Eye className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
-            <span className="truncate text-xs font-black uppercase tracking-wide text-white/85">
-              {isZh ? '网页互动预览' : 'Interactive Web Preview'}
-            </span>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              onClick={back}
-              disabled={history.length === 0}
-              className="h-8 rounded-lg bg-white/10 px-3 text-xs font-black text-white transition-colors hover:bg-white/15 disabled:opacity-40"
-            >
-              {isZh ? '返回' : 'Back'}
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              className="h-8 rounded-lg bg-sky-500/20 px-3 text-xs font-black text-sky-100 transition-colors hover:bg-sky-500/30"
-            >
-              {isZh ? '重置' : 'Reset'}
-            </button>
-          </div>
-        </div>
+        {renderPreviewToolbar()}
         <div className="min-h-0 p-4">
-          <div className="flex h-full min-h-0 items-center justify-center overflow-hidden rounded-lg bg-black/35">
+          <div
+            className={`flex h-full min-h-0 items-center justify-center overflow-hidden bg-black/35 ${
+              settings.layoutMode === 'immersive' ? 'rounded-none' : 'rounded-lg'
+            }`}
+            onClick={continueFromText}
+          >
             {imageUrl ? (
-              <img src={imageUrl} alt="" className="h-full w-full object-contain" />
+              <img
+                src={imageUrl}
+                alt=""
+                className={`h-full w-full ${
+                  settings.layoutMode === 'immersive' ? 'object-cover' : 'object-contain'
+                }`}
+              />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
@@ -788,7 +1132,9 @@ function WebPlaytestPreview({
                 playsInline
                 autoPlay={settings.videoAutoPlay}
                 muted={settings.videoAutoPlay}
-                className="h-full w-full object-contain"
+                className={`h-full w-full ${
+                  settings.layoutMode === 'immersive' ? 'object-cover' : 'object-contain'
+                }`}
               />
             ) : (
               <div className="px-6 text-center text-sm font-bold text-white/45">
@@ -799,7 +1145,7 @@ function WebPlaytestPreview({
         </div>
         {settings.choicesPosition === 'center' && shouldShowChoices && (
           <div
-            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/15 bg-slate-950/80 p-4 backdrop-blur-xl"
+            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
             style={{ width: 'min(520px, calc(100% - 32px))' }}
           >
             {renderChoiceButtons()}
@@ -808,38 +1154,57 @@ function WebPlaytestPreview({
         <div
           className={`border-t border-white/10 p-4 ${
             settings.layoutMode === 'immersive'
-              ? 'absolute inset-x-4 bottom-4 rounded-lg border border-white/10 backdrop-blur-xl'
+              ? 'absolute bottom-4 left-1/2 -translate-x-1/2 rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
               : ''
           }`}
-          style={{ backgroundColor: renderStyle.panelColor }}
+          style={{
+            backgroundColor:
+              settings.layoutMode === 'immersive' ? `${renderStyle.panelColor}cc` : renderStyle.panelColor,
+            width:
+              settings.layoutMode === 'immersive'
+                ? 'min(960px, calc(100% - 112px))'
+                : undefined,
+            height:
+              settings.layoutMode === 'immersive'
+                ? `${settings.dialoguePanelHeight}%`
+                : undefined,
+            maxHeight:
+              settings.layoutMode === 'immersive'
+                ? `${settings.dialoguePanelHeight}%`
+                : undefined,
+          }}
         >
-          <div
-            key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
-            className="font-black"
-            style={{
-              color: renderStyle.titleColor,
-              fontSize: renderStyle.titleFontSize,
-              ...webAnimationStyle(renderStyle.titleAnimation),
-            }}
-          >
-            {title}
-          </div>
           {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           <div
             key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
-            className="mt-2 max-h-32 overflow-y-auto text-sm leading-6 text-slate-200"
+            className="mt-2 max-h-32 overflow-hidden text-sm leading-relaxed text-slate-200"
             style={{
               color: renderStyle.bodyColor,
               fontSize: renderStyle.bodyFontSize,
               ...webAnimationStyle(renderStyle.bodyAnimation),
             }}
             onClick={continueFromText}
-            dangerouslySetInnerHTML={{ __html: text || (isZh ? '（无正文）' : '(No body text)') }}
-          />
+          >
+            {settings.interactionMode === 'typewriter'
+              ? displayedPreviewText || ''
+              : null}
+            {settings.interactionMode !== 'typewriter' && (
+              <span dangerouslySetInnerHTML={{ __html: text || (isZh ? '（无正文）' : '(No body text)') }} />
+            )}
+          </div>
           {audioUrl && <audio src={audioUrl} controls preload="metadata" className="mt-3 w-full" />}
           {settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setPreviewControlsHidden((prev) => !prev)}
+        className="absolute bottom-4 left-4 z-30 grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white shadow-xl shadow-black/25 backdrop-blur-md transition-all hover:bg-black/62 active:scale-95"
+        title={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+        aria-label={previewControlsHidden ? (isZh ? '显示上方按钮' : 'Show controls') : isZh ? '隐藏上方按钮' : 'Hide controls'}
+      >
+        {previewControlsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+      </button>
     </div>
   );
 }
@@ -1188,19 +1553,22 @@ function ResizeHandle({ label, axis, value, min, max, onChange, reverse }: Resiz
 export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
-  const [webProjectName, setWebProjectName] = useState(
+  const webProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
+    [orderedNodes],
   );
   const [webChoiceColor, setWebChoiceColor] = useState('#0ea5e9');
+  const [webChoiceTextColor, setWebChoiceTextColor] = useState('#ffffff');
   const [webSettings, setWebSettings] = useState<WebExportSettings>({
-    layoutMode: 'classic',
-    choicesPosition: 'belowText',
+    layoutMode: 'immersive',
+    choicesPosition: 'center',
     blurBackground: true,
-    skipSingleChoicePopup: false,
+    skipSingleChoicePopup: true,
     interactionMode: 'typewriter',
     typewriterSpeed: 65,
     autoAdvance: false,
     videoAutoPlay: false,
+    dialoguePanelHeight: 34,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(orderedNodes.map((node) => node.id)),
@@ -1219,6 +1587,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>({});
   const [timelinePast, setTimelinePast] = useState<TimelineHistoryState[]>([]);
   const [timelineFuture, setTimelineFuture] = useState<TimelineHistoryState[]>([]);
+  const [webPast, setWebPast] = useState<WebHistoryState[]>([]);
+  const [webFuture, setWebFuture] = useState<WebHistoryState[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string>(() => orderedNodes[0]?.id || '');
   const [assetRegionFilter, setAssetRegionFilter] = useState('all');
   const [resolutionIndex, setResolutionIndex] = useState(0);
@@ -1234,6 +1604,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [renderStyle, setRenderStyle] = useState<RenderStyle>({
     titleFontSize: 56,
     bodyFontSize: 38,
+    titleColor: '#ffffff',
+    bodyColor: '#f8fafc',
+    panelColor: '#111827',
+    titleAnimation: 'none',
+    bodyAnimation: 'typewriter',
+  });
+  const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>({
+    titleFontSize: 34,
+    bodyFontSize: 22,
     titleColor: '#ffffff',
     bodyColor: '#f8fafc',
     panelColor: '#111827',
@@ -1460,6 +1839,25 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setTimelineFuture([]);
   };
 
+  const captureWebState = (): WebHistoryState => ({
+    settings: { ...webSettings },
+    renderStyle: { ...webRenderStyle },
+    choiceColor: webChoiceColor,
+    choiceTextColor: webChoiceTextColor,
+  });
+
+  const restoreWebState = (snapshot: WebHistoryState) => {
+    setWebSettings(snapshot.settings);
+    setWebRenderStyle(snapshot.renderStyle);
+    setWebChoiceColor(snapshot.choiceColor);
+    setWebChoiceTextColor(snapshot.choiceTextColor);
+  };
+
+  const pushWebHistory = () => {
+    setWebPast((prev) => [...prev, captureWebState()]);
+    setWebFuture([]);
+  };
+
   const closeContextMenu = () => setContextMenu(null);
 
   const toggleFullscreen = async () => {
@@ -1535,6 +1933,22 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setTimelineFuture((prev) => prev.slice(1));
     setTimelinePast((prev) => [...prev, captureTimelineState()]);
     restoreTimelineState(next);
+  };
+
+  const undoWeb = () => {
+    if (webPast.length === 0 || status === 'rendering') return;
+    const previous = webPast[webPast.length - 1];
+    setWebPast((prev) => prev.slice(0, -1));
+    setWebFuture((prev) => [captureWebState(), ...prev]);
+    restoreWebState(previous);
+  };
+
+  const redoWeb = () => {
+    if (webFuture.length === 0 || status === 'rendering') return;
+    const next = webFuture[0];
+    setWebFuture((prev) => prev.slice(1));
+    setWebPast((prev) => [...prev, captureWebState()]);
+    restoreWebState(next);
   };
 
   const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean; preserveFocus?: boolean }) => {
@@ -2665,6 +3079,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       if (isEditingText) return;
 
       if (event.code === 'Space' && !modifier && !event.altKey && !event.shiftKey) {
+        if (workspaceMode !== 'video') return;
         event.stopPropagation();
         event.preventDefault();
         if (!activePreviewNode || status === 'rendering') return;
@@ -2679,6 +3094,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
       event.stopPropagation();
       event.preventDefault();
+      if (workspaceMode === 'web') {
+        if (key === 'z' && event.shiftKey) redoWeb();
+        else if (key === 'z') undoWeb();
+        else redoWeb();
+        return;
+      }
       if (key === 'z' && event.shiftKey) redoTimeline();
       else if (key === 'z') undoTimeline();
       else redoTimeline();
@@ -2692,11 +3113,31 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setRenderStyle((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateWebRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
+    if (webRenderStyle[key] === value) return;
+    pushWebHistory();
+    setWebRenderStyle((prev) => ({ ...prev, [key]: value }));
+  };
+
   const updateWebSettings = <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
   ) => {
+    if (webSettings[key] === value) return;
+    pushWebHistory();
     setWebSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateWebChoiceColor = (value: string) => {
+    if (webChoiceColor === value) return;
+    pushWebHistory();
+    setWebChoiceColor(value);
+  };
+
+  const updateWebChoiceTextColor = (value: string) => {
+    if (webChoiceTextColor === value) return;
+    pushWebHistory();
+    setWebChoiceTextColor(value);
   };
 
   const updateProgress = (label: string, current: number, total: number) => {
@@ -3342,8 +3783,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         projectName: webProjectName,
         language,
         style: {
-          ...renderStyle,
+          ...webRenderStyle,
           choiceColor: webChoiceColor,
+          choiceTextColor: webChoiceTextColor,
         },
         settings: webSettings,
       });
@@ -3828,30 +4270,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               : `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px`,
         }}
       >
-        <header className="h-14 px-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 backdrop-blur-xl flex items-center justify-between shadow-sm">
+        <header className="relative h-14 px-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 backdrop-blur-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] border border-[var(--vr-border)] flex items-center justify-center text-[var(--vr-accent-strong)]">
               <Film className="w-5 h-5" />
             </div>
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center">
               <h2 className="text-sm font-black truncate">
-                {isZh ? '渲染剧本视频' : 'Render Script Video'}
+                {isZh ? '渲染剧本' : 'Render Script'}
               </h2>
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="h-7 w-7 shrink-0 rounded-md text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                title={isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'}
-                aria-label={
-                  isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'
-                }
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="mx-auto h-3.5 w-3.5" />
-                ) : (
-                  <Maximize2 className="mx-auto h-3.5 w-3.5" />
-                )}
-              </button>
             </div>
             <div className="flex h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
               {(['video', 'web'] as RenderWorkspaceMode[]).map((mode) => (
@@ -3891,6 +4318,21 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               ))}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+            title={isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'}
+            aria-label={
+              isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'
+            }
+          >
+            {isFullscreen ? (
+              <Minimize2 className="mx-auto h-4 w-4" />
+            ) : (
+              <Maximize2 className="mx-auto h-4 w-4" />
+            )}
+          </button>
           <div className="flex items-center gap-2">
             {workspaceMode === 'video' && (
             <div className="flex items-center gap-1 border-r border-[var(--vr-border)] pr-2 mr-1">
@@ -3909,6 +4351,28 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                 disabled={timelineFuture.length === 0 || status === 'rendering'}
                 className="h-9 w-9 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-35 disabled:hover:text-[var(--vr-text-muted)] disabled:hover:bg-transparent transition-colors flex items-center justify-center"
                 title={isZh ? '重做渲染视频内操作' : 'Redo render workspace change'}
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+            </div>
+            )}
+            {workspaceMode === 'web' && (
+            <div className="flex items-center gap-1 border-r border-[var(--vr-border)] pr-2 mr-1">
+              <button
+                type="button"
+                onClick={undoWeb}
+                disabled={webPast.length === 0 || status === 'rendering'}
+                className="h-9 w-9 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-35 disabled:hover:text-[var(--vr-text-muted)] disabled:hover:bg-transparent transition-colors flex items-center justify-center"
+                title={isZh ? '撤销网页页面设置' : 'Undo web page change'}
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={redoWeb}
+                disabled={webFuture.length === 0 || status === 'rendering'}
+                className="h-9 w-9 rounded-lg text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-35 disabled:hover:text-[var(--vr-text-muted)] disabled:hover:bg-transparent transition-colors flex items-center justify-center"
+                title={isZh ? '重做网页页面设置' : 'Redo web page change'}
               >
                 <Redo2 className="w-4 h-4" />
               </button>
@@ -5339,9 +5803,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   nodes={nodes}
                   edges={edges}
                   language={language}
-                  renderStyle={renderStyle}
+                  renderStyle={webRenderStyle}
                   choiceColor={webChoiceColor}
+                  choiceTextColor={webChoiceTextColor}
                   settings={webSettings}
+                  onUpdateSettings={updateWebSettings}
+                  onUpdateRenderStyle={updateWebRenderStyle}
                 />
               </div>
             </section>
@@ -5352,24 +5819,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                 <span className="truncate">{isZh ? '导出设置' : 'Export Settings'}</span>
               </div>
               <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="space-y-2">
-                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {isZh ? '网页参数' : 'Web'}
-                  </div>
-                  <label className="space-y-1.5 block">
-                    <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '网页项目名' : 'Web project name'}
-                    </span>
-                    <input
-                      type="text"
-                      value={webProjectName}
-                      onChange={(event) => setWebProjectName(event.target.value)}
-                      className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)]"
-                      placeholder="galwriter-web"
-                    />
-                  </label>
-                </div>
-
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                     {isZh ? '界面排版' : 'Layout'}
@@ -5538,6 +5987,25 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '标题正文背景' : 'Text Backdrop'}
+                  </div>
+                  <label className="block rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
+                    <RangeControl
+                      label={isZh ? '背景高度' : 'Backdrop height'}
+                      min={18}
+                      max={55}
+                      step={1}
+                      value={webSettings.dialoguePanelHeight}
+                      valueLabel={`${webSettings.dialoguePanelHeight}%`}
+                      onChange={(nextValue) =>
+                        updateWebSettings('dialoguePanelHeight', Math.round(nextValue))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                     {isZh ? '自动翻页' : 'Auto Advance'}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -5561,7 +6029,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                           : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
                       }`}
                     >
-                      {isZh ? '手动选择' : 'Off'}
+                      {isZh ? '手动翻页' : 'Manual'}
                     </button>
                   </div>
                 </div>
@@ -5598,52 +6066,28 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {isZh ? '标题样式' : 'Title Style'}
+                    {isZh ? '按钮样式' : 'Button Style'}
                   </div>
-                  <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <label className="min-w-0 space-y-1.5">
                       <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                        {isZh ? '字号' : 'Size'}
+                        {isZh ? '文字颜色' : 'Text color'}
                       </span>
-                      <DragSizeControl
-                        label={
-                          isZh
-                            ? '拖动调整网页标题字号，单击输入精确数字'
-                            : 'Drag to adjust web title size, click to type an exact value'
-                        }
-                        value={renderStyle.titleFontSize}
-                        min={18}
-                        max={120}
-                        step={1}
-                        onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
+                      <input
+                        type="color"
+                        value={webChoiceTextColor}
+                        onChange={(event) => updateWebChoiceTextColor(event.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
                       />
                     </label>
                     <label className="min-w-0 space-y-1.5">
                       <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                        {isZh ? '动画' : 'Animation'}
-                      </span>
-                      <select
-                        value={renderStyle.titleAnimation}
-                        onChange={(event) =>
-                          updateRenderStyle('titleAnimation', event.target.value as TextAnimation)
-                        }
-                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                      >
-                        {TEXT_ANIMATION_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {isZh ? option.zh : option.en}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="min-w-0 space-y-1.5">
-                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                        {isZh ? '颜色' : 'Color'}
+                        {isZh ? '背景颜色' : 'Background color'}
                       </span>
                       <input
                         type="color"
-                        value={renderStyle.titleColor}
-                        onChange={(event) => updateRenderStyle('titleColor', event.target.value)}
+                        value={webChoiceColor}
+                        onChange={(event) => updateWebChoiceColor(event.target.value)}
                         className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
                       />
                     </label>
@@ -5665,11 +6109,11 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                             ? '拖动调整网页正文字号，单击输入精确数字'
                             : 'Drag to adjust web body size, click to type an exact value'
                         }
-                        value={renderStyle.bodyFontSize}
+                        value={webRenderStyle.bodyFontSize}
                         min={16}
                         max={96}
                         step={1}
-                        onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
+                        onChange={(nextValue) => updateWebRenderStyle('bodyFontSize', nextValue)}
                       />
                     </label>
                     <label className="min-w-0 space-y-1.5">
@@ -5677,9 +6121,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                         {isZh ? '动画' : 'Animation'}
                       </span>
                       <select
-                        value={renderStyle.bodyAnimation}
+                        value={webRenderStyle.bodyAnimation}
                         onChange={(event) =>
-                          updateRenderStyle('bodyAnimation', event.target.value as TextAnimation)
+                          updateWebRenderStyle(
+                            'bodyAnimation',
+                            event.target.value as TextAnimation,
+                          )
                         }
                         className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
                       >
@@ -5696,8 +6143,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       </span>
                       <input
                         type="color"
-                        value={renderStyle.bodyColor}
-                        onChange={(event) => updateRenderStyle('bodyColor', event.target.value)}
+                        value={webRenderStyle.bodyColor}
+                        onChange={(event) => updateWebRenderStyle('bodyColor', event.target.value)}
                         className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
                       />
                     </label>
@@ -5706,47 +6153,22 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
                 <div className="space-y-2">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {isZh ? '选择按钮' : 'Choice Buttons'}
+                    {isZh ? '文本面板' : 'Text Panel'}
                   </div>
-                  <div className="grid grid-cols-[1fr_56px] gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <label className="min-w-0 space-y-1.5">
                       <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                        {isZh ? '文字底色' : 'Button color'}
+                        {isZh ? '面板背景' : 'Panel background'}
                       </span>
                       <input
                         type="color"
-                        value={webChoiceColor}
-                        onChange={(event) => setWebChoiceColor(event.target.value)}
-                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
-                      />
-                    </label>
-                    <label className="min-w-0 space-y-1.5">
-                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                        {isZh ? '面板' : 'Panel'}
-                      </span>
-                      <input
-                        type="color"
-                        value={renderStyle.panelColor}
-                        onChange={(event) => updateRenderStyle('panelColor', event.target.value)}
+                        value={webRenderStyle.panelColor}
+                        onChange={(event) => updateWebRenderStyle('panelColor', event.target.value)}
                         className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
                       />
                     </label>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={exportWebProject}
-                  disabled={status === 'rendering'}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white transition-colors hover:bg-[var(--vr-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {status === 'rendering' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  {isZh ? '导出网页 ZIP' : 'Export Web ZIP'}
-                </button>
 
                 {(progress || error) && (
                   <div className="space-y-2">

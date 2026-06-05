@@ -17,6 +17,7 @@ type WebExportStyle = {
   titleAnimation: 'none' | 'fade' | 'slideUp' | 'typewriter';
   bodyAnimation: 'none' | 'fade' | 'slideUp' | 'typewriter';
   choiceColor: string;
+  choiceTextColor: string;
 };
 
 type WebExportSettings = {
@@ -28,6 +29,7 @@ type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
+  dialoguePanelHeight: number;
 };
 
 type WebExportNode = {
@@ -147,16 +149,20 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      min-height: 100vh;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
       background: #10131a;
       color: #f8fafc;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     button { font: inherit; }
     .app {
-      min-height: 100vh;
+      width: 100vw;
+      height: 100vh;
       display: grid;
       grid-template-rows: auto 1fr;
+      overflow: hidden;
       background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.20), rgba(15, 23, 42, 0.84)),
         #10131a;
@@ -167,6 +173,13 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       right: 0;
       top: 0;
       z-index: 5;
+      border-bottom: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.72), rgba(0,0,0,0.34), transparent);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+    }
+    .app.controls-hidden header {
+      opacity: 0;
+      pointer-events: none;
     }
     header {
       min-height: 56px;
@@ -176,11 +189,13 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       gap: 16px;
       padding: 12px 18px;
       border-bottom: 1px solid rgba(255,255,255,0.12);
-      background: rgba(10, 13, 20, 0.72);
+      background: rgba(10, 13, 20, 0.52);
       backdrop-filter: blur(16px);
+      transition: opacity 180ms ease;
     }
-    h1 { margin: 0; font-size: 15px; letter-spacing: 0; }
+    h1 { display: none; margin: 0; font-size: 15px; letter-spacing: 0; }
     .toolbar { display: flex; align-items: center; gap: 8px; }
+    .settings-wrap { position: relative; }
     .tool {
       border: 1px solid rgba(255,255,255,0.16);
       background: rgba(255,255,255,0.08);
@@ -190,6 +205,73 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       cursor: pointer;
     }
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
+    .settings-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 10px);
+      z-index: 20;
+      width: min(560px, calc(100vw - 24px));
+      max-height: min(72vh, 560px);
+      overflow: auto;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      background: rgba(8, 11, 18, 0.94);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.42);
+      backdrop-filter: blur(18px);
+    }
+    .settings-menu[hidden] { display: none; }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .settings-card {
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      padding: 12px;
+    }
+    .settings-card.wide { grid-column: 1 / -1; }
+    .settings-label {
+      margin: 0 0 8px;
+      color: rgba(248,250,252,0.52);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .settings-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .settings-buttons.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .settings-option {
+      min-height: 34px;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.10);
+      color: rgba(248,250,252,0.78);
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .settings-option.active {
+      background: #0ea5e9;
+      color: #ffffff;
+    }
+    .settings-range-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: rgba(248,250,252,0.80);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .settings-range { width: 100%; accent-color: #38bdf8; }
     main {
       position: relative;
       min-height: 0;
@@ -197,6 +279,9 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       place-items: center;
       padding: 24px;
       overflow: hidden;
+    }
+    .app.immersive main {
+      padding: 0;
     }
     .backdrop {
       position: absolute;
@@ -221,9 +306,10 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       position: relative;
       z-index: 1;
       width: min(1100px, 100%);
-      min-height: min(720px, calc(100vh - 112px));
+      height: min(720px, calc(100vh - 112px));
+      max-height: calc(100vh - 112px);
       display: grid;
-      grid-template-rows: minmax(220px, 1fr) auto;
+      grid-template-rows: minmax(0, 1fr) auto;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(12, 16, 24, 0.76);
       border-radius: 8px;
@@ -233,7 +319,8 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     }
     .app.immersive .stage {
       width: 100%;
-      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
       border: 0;
       border-radius: 0;
       background: transparent;
@@ -242,7 +329,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     }
     .media {
       position: relative;
-      min-height: 260px;
+      min-height: 0;
       display: grid;
       place-items: center;
       background: rgba(0,0,0,0.24);
@@ -254,32 +341,64 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       object-fit: contain;
       display: block;
     }
+    .app.immersive .media img,
+    .app.immersive .media video {
+      object-fit: cover;
+    }
     .media.empty { color: rgba(248,250,252,0.42); font-weight: 700; }
     .dialogue {
       border-top: 1px solid rgba(255,255,255,0.14);
-      padding: 20px;
-      background: var(--panel-color, rgba(7, 10, 16, 0.82));
+      height: var(--dialogue-height, 34vh);
+      max-height: var(--dialogue-height, 34vh);
+      padding: clamp(14px, 2.5vw, 20px);
+      background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 18%);
+      overflow: hidden;
     }
     .app.immersive .dialogue {
       align-self: end;
-      margin: 0 auto 24px;
-      width: min(1000px, calc(100% - 32px));
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 8px;
+      margin: 0 auto clamp(14px, 3vh, 24px);
+      width: min(960px, calc(100% - 112px));
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 36%);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.30);
       backdrop-filter: blur(18px);
     }
     .title {
-      margin: 0 0 10px;
+      margin: 0 0 8px;
       color: var(--title-color, #f8fafc);
       font-size: var(--title-size, 18px);
       font-weight: 900;
+      line-height: 1.18;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .text {
-      min-height: 76px;
+      height: 100%;
+      max-height: 100%;
       color: var(--body-color, #e5e7eb);
-      line-height: 1.72;
+      line-height: 1.55;
       font-size: var(--body-size, 16px);
+      overflow: hidden;
+      overflow-wrap: anywhere;
     }
+    .zen-toggle {
+      position: absolute;
+      left: 24px;
+      bottom: 24px;
+      z-index: 18;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.44);
+      color: #f8fafc;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+    }
+    .zen-toggle:hover { background: rgba(0,0,0,0.62); }
     .text :first-child { margin-top: 0; }
     .text :last-child { margin-bottom: 0; }
     .choices {
@@ -294,22 +413,19 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       top: 50%;
       z-index: 6;
       width: min(520px, calc(100% - 32px));
+      max-height: min(62vh, 420px);
       transform: translate(-50%, -50%);
       margin: 0;
-      padding: 16px;
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 8px;
-      background: rgba(8, 11, 18, 0.78);
-      backdrop-filter: blur(18px);
     }
     .choice {
       width: 100%;
       border: 1px solid color-mix(in srgb, var(--choice-color, #0ea5e9), white 25%);
-      background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 82%);
-      color: #f8fafc;
+      background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 20%);
+      color: var(--choice-text-color, #ffffff);
       border-radius: 8px;
       padding: 12px 14px;
       text-align: left;
+      line-height: 1.35;
       cursor: pointer;
       transition: background 140ms ease, border-color 140ms ease;
     }
@@ -339,12 +455,25 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       font-weight: 900;
     }
     @media (max-width: 720px) {
-      main { padding: 12px; }
+      main { padding: 0; }
       header { align-items: flex-start; flex-direction: column; }
       .toolbar { width: 100%; }
       .tool { flex: 1; }
-      .stage { min-height: calc(100vh - 138px); }
+      .stage {
+        height: calc(100vh - 138px);
+        max-height: calc(100vh - 138px);
+      }
+      .app.immersive .stage {
+        height: 100vh;
+        max-height: 100vh;
+      }
       .dialogue { padding: 16px; }
+      .app.immersive .dialogue {
+        width: calc(100% - 80px);
+        margin-right: 12px;
+      }
+      .settings-grid { grid-template-columns: 1fr; }
+      .settings-menu { right: -88px; }
     }
   </style>
 </head>
@@ -355,36 +484,87 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       <div class="toolbar">
         <button class="tool" id="backButton" type="button"></button>
         <button class="tool" id="resetButton" type="button"></button>
+        <div class="settings-wrap">
+          <button class="tool" id="settingsButton" type="button" aria-haspopup="true" aria-expanded="false">&#9881;</button>
+          <div class="settings-menu" id="settingsMenu" hidden></div>
+        </div>
       </div>
     </header>
     <main>
       <div class="backdrop" id="backdrop"></div>
       <section class="stage" id="stage"></section>
+      <button class="zen-toggle" id="zenButton" type="button" aria-label="Toggle controls">◉</button>
     </main>
   </div>
   <script>
     const content = window.GALWRITER_CONTENT || { nodes: [], edges: [], title: "GalWriter" };
     const style = content.style || {};
     const settings = content.settings || {};
-    settings.layoutMode = settings.layoutMode || "classic";
-    settings.choicesPosition = settings.choicesPosition || "belowText";
+    settings.layoutMode = settings.layoutMode || "immersive";
+    settings.choicesPosition = settings.choicesPosition || "center";
     settings.interactionMode = settings.interactionMode || "typewriter";
     settings.typewriterSpeed = Math.max(0, Number(settings.typewriterSpeed) || 65);
     settings.autoAdvance = Boolean(settings.autoAdvance);
     settings.videoAutoPlay = Boolean(settings.videoAutoPlay);
     settings.blurBackground = Boolean(settings.blurBackground);
-    settings.skipSingleChoicePopup = Boolean(settings.skipSingleChoicePopup);
+    settings.skipSingleChoicePopup = settings.skipSingleChoicePopup !== false;
+    settings.dialoguePanelHeight = Math.max(18, Math.min(55, Number(settings.dialoguePanelHeight) || 34));
     document.documentElement.style.setProperty("--title-size", Math.max(12, Number(style.titleFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 16) + "px");
     document.documentElement.style.setProperty("--title-color", style.titleColor || "#f8fafc");
     document.documentElement.style.setProperty("--body-color", style.bodyColor || "#e5e7eb");
     document.documentElement.style.setProperty("--panel-color", style.panelColor || "rgba(7, 10, 16, 0.82)");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
+    document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
+    document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
     const labels = content.language === "zh"
       ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u7f6e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c" }
       : content.language === "ja"
         ? { back: "\\u623b\\u308b", reset: "\\u30ea\\u30bb\\u30c3\\u30c8", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093" }
         : { back: "Back", reset: "Reset", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview" };
+    const menuText = content.language === "zh"
+      ? {
+          layout: "\\u754c\\u9762\\u6392\\u7248",
+          classic: "\\u7ecf\\u5178",
+          immersive: "\\u6c89\\u6d78",
+          choices: "\\u9009\\u9879\\u4f4d\\u7f6e",
+          center: "\\u4e2d\\u95f4",
+          above: "\\u4e0a\\u65b9",
+          below: "\\u4e0b\\u65b9",
+          interaction: "\\u4ea4\\u4e92",
+          typewriter: "\\u6253\\u5b57\\u673a",
+          immediate: "\\u7acb\\u5373\\u663e\\u793a",
+          auto: "\\u81ea\\u52a8\\u7ffb\\u9875",
+          autoOn: "\\u81ea\\u52a8",
+          manual: "\\u624b\\u52a8",
+          display: "\\u663e\\u793a\\u6548\\u679c",
+          blur: "\\u80cc\\u666f\\u865a\\u5316",
+          skipSingle: "\\u9690\\u85cf\\u5355\\u9009",
+          media: "\\u5a92\\u4f53",
+          autoplay: "\\u89c6\\u9891\\u81ea\\u52a8\\u64ad\\u653e",
+          height: "\\u6807\\u9898\\u6b63\\u6587\\u80cc\\u666f\\u9ad8\\u5ea6"
+        }
+      : {
+          layout: "Layout",
+          classic: "Classic",
+          immersive: "Immersive",
+          choices: "Choice Position",
+          center: "Center",
+          above: "Above",
+          below: "Below",
+          interaction: "Interaction",
+          typewriter: "Typewriter",
+          immediate: "Immediate",
+          auto: "Auto Advance",
+          autoOn: "On",
+          manual: "Manual",
+          display: "Display",
+          blur: "Backdrop Blur",
+          skipSingle: "Skip Single",
+          media: "Media",
+          autoplay: "Video Autoplay",
+          height: "Title and Body Background Height"
+        };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -395,6 +575,9 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     const backdropEl = document.getElementById("backdrop");
     const backButton = document.getElementById("backButton");
     const resetButton = document.getElementById("resetButton");
+    const settingsButton = document.getElementById("settingsButton");
+    const settingsMenu = document.getElementById("settingsMenu");
+    const zenButton = document.getElementById("zenButton");
     titleEl.textContent = content.title || "GalWriter";
     backButton.textContent = labels.back;
     resetButton.textContent = labels.reset;
@@ -402,9 +585,76 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
     backdropEl.classList.toggle("blurred", settings.blurBackground);
     let typewriterTimers = [];
     let autoAdvanceTimer = null;
+    let controlsHidden = false;
 
     function nodeTitle(node) {
       return (node && node.data && node.data.title) || labels.option;
+    }
+
+    function activeClass(condition) {
+      return condition ? " active" : "";
+    }
+
+    function settingButton(label, action, value, active) {
+      return '<button class="settings-option' + activeClass(active) + '" type="button" data-action="' + action + '" data-value="' + value + '">' + label + '</button>';
+    }
+
+    function renderSettingsMenu() {
+      settingsMenu.innerHTML =
+        '<div class="settings-grid">' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.layout + '</div>' +
+            '<div class="settings-buttons">' +
+              settingButton(menuText.classic, "layoutMode", "classic", settings.layoutMode === "classic") +
+              settingButton(menuText.immersive, "layoutMode", "immersive", settings.layoutMode === "immersive") +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.choices + '</div>' +
+            '<div class="settings-buttons three">' +
+              settingButton(menuText.center, "choicesPosition", "center", settings.choicesPosition === "center") +
+              settingButton(menuText.above, "choicesPosition", "aboveText", settings.choicesPosition === "aboveText") +
+              settingButton(menuText.below, "choicesPosition", "belowText", settings.choicesPosition === "belowText") +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.interaction + '</div>' +
+            '<div class="settings-buttons">' +
+              settingButton(menuText.typewriter, "interactionMode", "typewriter", settings.interactionMode === "typewriter") +
+              settingButton(menuText.immediate, "interactionMode", "immediate", settings.interactionMode === "immediate") +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.auto + '</div>' +
+            '<div class="settings-buttons">' +
+              settingButton(menuText.autoOn, "autoAdvance", "true", settings.autoAdvance) +
+              settingButton(menuText.manual, "autoAdvance", "false", !settings.autoAdvance) +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.display + '</div>' +
+            '<div class="settings-buttons">' +
+              settingButton(menuText.blur, "blurBackground", String(!settings.blurBackground), settings.blurBackground) +
+              settingButton(menuText.skipSingle, "skipSingleChoicePopup", String(!settings.skipSingleChoicePopup), settings.skipSingleChoicePopup) +
+            '</div>' +
+          '</div>' +
+          '<div class="settings-card">' +
+            '<div class="settings-label">' + menuText.media + '</div>' +
+            settingButton(menuText.autoplay, "videoAutoPlay", String(!settings.videoAutoPlay), settings.videoAutoPlay) +
+          '</div>' +
+          '<label class="settings-card wide">' +
+            '<div class="settings-range-row"><span>' + menuText.height + '</span><span id="heightValue">' + settings.dialoguePanelHeight + '%</span></div>' +
+            '<input class="settings-range" id="dialogueHeightInput" type="range" min="18" max="55" step="1" value="' + settings.dialoguePanelHeight + '" />' +
+          '</label>' +
+        '</div>';
+    }
+
+    function applyRuntimeSettings() {
+      document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
+      backdropEl.classList.toggle("blurred", settings.blurBackground);
+      document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
+      renderSettingsMenu();
+      render();
     }
 
     function outEdges(id) {
@@ -484,7 +734,7 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
 
     function continueFromText() {
       const edges = outEdges(currentId);
-      if (settings.skipSingleChoicePopup && settings.choicesPosition === "center" && edges.length <= 1) {
+      if (edges.length <= 1) {
         goTo(edges[0]?.target || "THE_END");
       }
     }
@@ -523,7 +773,6 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       stageEl.innerHTML =
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + '</div>' +
         '<div class="dialogue">' +
-          '<h2 class="title' + animationClass(style.titleAnimation) + '" id="nodeTitle">' + escapeHtml(nodeTitle(node)) + '</h2>' +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
           (data.audioUrl ? '<audio src="' + escapeAttr(data.audioUrl) + '" controls preload="metadata"></audio>' : '') +
@@ -531,10 +780,12 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
       stageEl.querySelector(".text")?.addEventListener("click", continueFromText);
+      stageEl.querySelector(".media")?.addEventListener("click", continueFromText);
+      const hideChoicesDuringTypewriter = settings.autoAdvance && settings.interactionMode === "typewriter";
       stageEl.querySelectorAll(".choices").forEach((element) => {
-        element.hidden = settings.interactionMode === "typewriter";
+        element.hidden = hideChoicesDuringTypewriter;
       });
-      applyTypewriter(document.getElementById("nodeTitle"), escapeHtml(nodeTitle(node)), style.titleAnimation === "typewriter", false);
+      if (!hideChoicesDuringTypewriter) bindChoices();
       applyTypewriter(document.getElementById("nodeText"), data.text || "", settings.interactionMode === "typewriter" || style.bodyAnimation === "typewriter", true);
       if (settings.interactionMode !== "typewriter" && style.bodyAnimation !== "typewriter") showChoicesAndMaybeAdvance();
     }
@@ -556,6 +807,56 @@ const makeIndexHtml = (title: string, language: string) => `<!doctype html>
       currentId = root ? root.id : null;
       render();
     });
+    zenButton.addEventListener("click", () => {
+      controlsHidden = !controlsHidden;
+      document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
+      zenButton.textContent = controlsHidden ? "◎" : "◉";
+    });
+    settingsButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const willOpen = settingsMenu.hidden;
+      settingsMenu.hidden = !willOpen;
+      settingsButton.setAttribute("aria-expanded", String(willOpen));
+      if (willOpen) renderSettingsMenu();
+    });
+    settingsMenu.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("[data-action]");
+      if (!(button instanceof HTMLElement)) return;
+      const action = button.getAttribute("data-action");
+      const value = button.getAttribute("data-value");
+      if (!action || value == null) return;
+      if (action === "autoAdvance" || action === "blurBackground" || action === "skipSingleChoicePopup" || action === "videoAutoPlay") {
+        settings[action] = value === "true";
+      } else {
+        settings[action] = value;
+      }
+      applyRuntimeSettings();
+    });
+    settingsMenu.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.id !== "dialogueHeightInput") return;
+      settings.dialoguePanelHeight = Math.max(18, Math.min(55, Number(target.value) || 34));
+      document.documentElement.style.setProperty("--dialogue-height", settings.dialoguePanelHeight + "vh");
+      const label = document.getElementById("heightValue");
+      if (label) label.textContent = settings.dialoguePanelHeight + "%";
+    });
+    settingsMenu.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.id !== "dialogueHeightInput") return;
+      renderSettingsMenu();
+      render();
+    });
+    document.addEventListener("click", (event) => {
+      if (settingsMenu.hidden) return;
+      const target = event.target;
+      if (target instanceof Node && settingsMenu.parentElement?.contains(target)) return;
+      settingsMenu.hidden = true;
+      settingsButton.setAttribute("aria-expanded", "false");
+    });
+    renderSettingsMenu();
     render();
   </script>
 </body>
@@ -584,23 +885,25 @@ export async function exportInteractiveWebZip(
   const title = options.projectName?.trim() || 'galwriter-web';
   const style: WebExportStyle = {
     titleFontSize: options.style?.titleFontSize || 34,
-    bodyFontSize: options.style?.bodyFontSize || 26,
+    bodyFontSize: options.style?.bodyFontSize || 22,
     titleColor: options.style?.titleColor || '#f8fafc',
     bodyColor: options.style?.bodyColor || '#e5e7eb',
     panelColor: options.style?.panelColor || 'rgba(7, 10, 16, 0.82)',
     titleAnimation: options.style?.titleAnimation || 'fade',
     bodyAnimation: options.style?.bodyAnimation || 'typewriter',
     choiceColor: options.style?.choiceColor || '#0ea5e9',
+    choiceTextColor: options.style?.choiceTextColor || '#ffffff',
   };
   const settings: WebExportSettings = {
-    layoutMode: options.settings?.layoutMode || 'classic',
-    choicesPosition: options.settings?.choicesPosition || 'belowText',
+    layoutMode: options.settings?.layoutMode || 'immersive',
+    choicesPosition: options.settings?.choicesPosition || 'center',
     blurBackground: options.settings?.blurBackground ?? true,
-    skipSingleChoicePopup: options.settings?.skipSingleChoicePopup ?? false,
+    skipSingleChoicePopup: options.settings?.skipSingleChoicePopup ?? true,
     interactionMode: options.settings?.interactionMode || 'typewriter',
     typewriterSpeed: options.settings?.typewriterSpeed ?? 65,
     autoAdvance: options.settings?.autoAdvance ?? false,
     videoAutoPlay: options.settings?.videoAutoPlay ?? false,
+    dialoguePanelHeight: options.settings?.dialoguePanelHeight ?? 34,
   };
 
   const webNodes: WebExportNode[] = [];
