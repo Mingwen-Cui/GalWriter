@@ -113,8 +113,38 @@ export const createAIClient = (config: AIClientConfig) => {
     const configuredModel = config.model.trim();
     const configuredUrl = config.apiUrl.trim();
 
-    if (!key) {
+    if (!key && config.provider !== 'ollama') {
       throw new Error('请先点击右侧工具栏的设置按钮，在“AI 接口配置”里添加 API Key。');
+    }
+
+    if (config.provider === 'ollama') {
+      const model = configuredModel || 'gemma4';
+      const endpoint = configuredUrl
+        ? /\/generate\/?$/i.test(configuredUrl)
+          ? configuredUrl
+          : `${configuredUrl.replace(/\/$/, '')}/generate`
+        : 'http://localhost:11434/api/generate';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          prompt,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama API 错误: ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      return {
+        content: data.response || '',
+      };
     }
 
     if (config.provider === 'deepseek') {

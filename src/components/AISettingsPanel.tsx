@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   BrainCircuit,
   Check,
@@ -128,6 +128,12 @@ const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
     label: 'GLM',
     apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
     model: 'glm-5',
+  },
+  {
+    value: 'ollama',
+    label: 'Ollama',
+    apiUrl: 'http://localhost:11434/api',
+    model: 'gemma4',
   },
   {
     value: 'custom',
@@ -295,6 +301,12 @@ const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'glm-4-plus', label: 'GLM 4 Plus' },
     { value: 'glm-4-air', label: 'GLM 4 Air' },
     { value: 'glm-4-flash', label: 'GLM 4 Flash' },
+  ],
+  ollama: [
+    { value: 'gemma4', label: 'gemma4' },
+    { value: 'llama3', label: 'llama3' },
+    { value: 'qwen2.5', label: 'qwen2.5' },
+    { value: 'mistral', label: 'mistral' },
   ],
 };
 
@@ -612,6 +624,34 @@ export function AISettingsPanel({
   const [imageTemplateImportStatus, setImageTemplateImportStatus] = React.useState<
     'idle' | 'success' | 'empty' | 'blocked'
   >('idle');
+  const [localOllamaModels, setLocalOllamaModels] = React.useState<ModelOption[]>([]);
+
+  React.useEffect(() => {
+    if (editorState?.kind === 'text' && editorState.draft.provider === 'ollama') {
+      const fetchOllamaModels = async () => {
+        try {
+          const url = editorState.draft.apiUrl || 'http://localhost:11434/api';
+          const cleanUrl = url.replace(/\/$/, '');
+          const response = await fetch(`${cleanUrl}/tags`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data.models)) {
+              const options = data.models.map((m: any) => ({
+                value: m.name,
+                label: m.name,
+              }));
+              setLocalOllamaModels(options);
+            }
+          }
+        } catch (err) {
+          console.warn('获取 Ollama 本地模型列表失败:', err);
+        }
+      };
+      void fetchOllamaModels();
+    } else {
+      setLocalOllamaModels([]);
+    }
+  }, [editorState?.kind, editorState?.draft.provider, editorState?.draft.apiUrl]);
 
   const toggleCustomAiPrompts = React.useCallback(() => {
     if (customAiPromptsEnabled) {
@@ -782,11 +822,16 @@ export function AISettingsPanel({
 
     const draft = editorState.draft;
     const providerOptions = getProviderOptions(editorState.kind);
-    const modelOptions = getModelOptions(editorState.kind, draft.provider);
+    const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
+    const modelOptions =
+      draft.kind === 'text' && draft.provider === 'ollama' && localOllamaModels.length > 0
+        ? localOllamaModels
+        : rawModelOptions;
     const currentModelSelectValue = getModelSelectValue(editorState.kind, draft);
     const meta = getProfileKindMeta(editorState.kind, language);
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
+    const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -916,7 +961,13 @@ export function AISettingsPanel({
               <>
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
-                    {renderFieldLabel(isLocalStableDiffusion ? 'API Key（可选）' : 'API Key')}
+                    {renderFieldLabel(
+                      isLocalStableDiffusion || isOllama
+                        ? language === 'zh'
+                          ? 'API Key（可选）'
+                          : 'API Key (Optional)'
+                        : 'API Key'
+                    )}
                     <input
                       type="password"
                       value={draft.apiKey}
@@ -926,7 +977,11 @@ export function AISettingsPanel({
                           ? language === 'zh'
                             ? '本地 WebUI 通常可以留空'
                             : 'Usually empty for local WebUI'
-                          : undefined
+                          : isOllama
+                            ? language === 'zh'
+                              ? 'Ollama 本地服务通常可以留空'
+                              : 'Usually empty for local Ollama'
+                            : undefined
                       }
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                     />

@@ -825,7 +825,7 @@ export function StoryEditor() {
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
-  const missingTextApiKey = didHydrateLocalState && !activeTextProfile?.apiKey.trim();
+  const missingTextApiKey = didHydrateLocalState && activeTextProfile?.provider !== 'ollama' && !activeTextProfile?.apiKey.trim();
   const importModeRef = useRef<'replace' | 'new'>('replace');
 
   const editorProjectSettings = useMemo(
