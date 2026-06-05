@@ -10,6 +10,7 @@ import {
   Film,
   FileDown,
   FileText,
+  FolderOpen,
   Gauge,
   Grid2X2,
   Image,
@@ -17,7 +18,9 @@ import {
   ListPlus,
   Loader2,
   Magnet,
+  Maximize2,
   Mic,
+  Minimize2,
   MoveHorizontal,
   MoveVertical,
   Music,
@@ -160,6 +163,8 @@ const TIMELINE_LABEL_WIDTH = 76;
 const TIMELINE_PIXELS_PER_SECOND = 72;
 const TIMELINE_MIN_PIXELS_PER_SECOND = 8;
 const TIMELINE_MAX_PIXELS_PER_SECOND = 1800;
+const ASSET_CARD_MIN_SCALE = 0.72;
+const ASSET_CARD_MAX_SCALE = 1.75;
 const PANEL_SIZE_LIMITS = {
   asset: { min: 220, max: 520 },
   export: { min: 280, max: 560 },
@@ -902,6 +907,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [assetPanelWidth, setAssetPanelWidth] = useState(320);
   const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>('row');
+  const [assetCardScale, setAssetCardScale] = useState(1);
   const [exportPanelWidth, setExportPanelWidth] = useState(380);
   const [timelineHeight, setTimelineHeight] = useState(250);
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
@@ -920,12 +926,21 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     scrollWidth: 1,
     clientWidth: 1,
   });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [assetScrollInfo, setAssetScrollInfo] = useState({
+    scrollTop: 0,
+    scrollHeight: 1,
+    clientHeight: 1,
+  });
   const [contextMenu, setContextMenu] = useState<RenderContextMenuState | null>(null);
   const [error, setError] = useState('');
+  const [outputDirError, setOutputDirError] = useState('');
   const [savedPath, setSavedPath] = useState('');
+  const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const assetUploadInputRef = useRef<HTMLInputElement>(null);
+  const assetViewportRef = useRef<HTMLDivElement>(null);
   const timelineViewportRef = useRef<HTMLDivElement>(null);
   const timelineScrubSurfaceRef = useRef<HTMLDivElement>(null);
   const timelineScrubRef = useRef(false);
@@ -934,10 +949,20 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     anchorTrackX: number;
     trackWidth: number;
   } | null>(null);
+  const assetScaleDragRef = useRef<{
+    side: 'top' | 'bottom';
+    startY: number;
+    startScale: number;
+  } | null>(null);
   const timelineScrollDragRef = useRef<{
     startX: number;
     startScrollLeft: number;
     trackWidth: number;
+  } | null>(null);
+  const assetScrollDragRef = useRef<{
+    startY: number;
+    startScrollTop: number;
+    trackHeight: number;
   } | null>(null);
   const preservePreviewTimeOnNodeChangeRef = useRef(false);
   const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
@@ -1088,6 +1113,48 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
   const closeContextMenu = () => setContextMenu(null);
 
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      await modalRootRef.current?.requestFullscreen();
+    } catch {
+      setError(isZh ? '当前环境无法切换全屏。' : 'Fullscreen is not available here.');
+    }
+  };
+
+  const chooseOutputDir = async () => {
+    if (!isTauriRuntime()) {
+      setOutputDirError(
+        isZh ? '选择文件夹仅在桌面端可用。' : 'Folder picking is only available in the desktop app.',
+      );
+      return;
+    }
+
+    try {
+      setOutputDirError('');
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<{ path?: string | null }>('choose_render_output_dir', {
+        initialDir: outputDir,
+      });
+      if (result?.path) {
+        setOutputDir(result.path);
+        setOutputDirError('');
+        setError('');
+      }
+    } catch (err) {
+      setOutputDirError(
+        err instanceof Error
+          ? err.message
+          : isZh
+            ? '选择保存位置失败。'
+            : 'Failed to choose save location.',
+      );
+    }
+  };
+
   const openContextMenu = (
     event: React.MouseEvent<HTMLElement>,
     target: RenderContextMenuTarget,
@@ -1206,6 +1273,48 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     return nextStart;
   };
 
+  const hasAudioTrackSpace = (
+    nodeId: string,
+    start: number,
+    duration: number,
+    trackId: string,
+  ) => {
+    return !timelineMetrics.segments.some((segment) => {
+      if (segment.node.id === nodeId) return false;
+      const segmentTrackId = audioTrackByNodeId[segment.node.id] || audioTrackIds[0];
+      if (segmentTrackId !== trackId) return false;
+      return start < segment.end - 0.001 && start + duration > segment.start + 0.001;
+    });
+  };
+
+  const assignAudioTrackForVideoPlacement = (
+    nodeId: string,
+    start: number,
+    duration: number,
+    videoTrackId: string,
+  ) => {
+    const currentAudioTrackId = audioTrackByNodeId[nodeId] || audioTrackIds[0];
+    const matchingAudioTrackId = audioTrackIds[videoTrackIds.indexOf(videoTrackId)];
+    const candidateTrackIds = [
+      matchingAudioTrackId,
+      currentAudioTrackId,
+      ...audioTrackIds,
+    ].filter(
+      (trackId, index, list): trackId is string => !!trackId && list.indexOf(trackId) === index,
+    );
+    const availableTrackId = candidateTrackIds.find((candidateTrackId) =>
+      hasAudioTrackSpace(nodeId, start, duration, candidateTrackId),
+    );
+    const nextTrackId = availableTrackId || makeTrackId('audio');
+
+    if (!availableTrackId) {
+      setAudioTrackIds((prev) => (prev.includes(nextTrackId) ? prev : [...prev, nextTrackId]));
+    }
+    setAudioTrackByNodeId((prev) =>
+      prev[nodeId] === nextTrackId ? prev : { ...prev, [nodeId]: nextTrackId },
+    );
+  };
+
   const handleTimelineScrubStart = (event: React.PointerEvent<HTMLElement>) => {
     if (status === 'rendering') return;
     event.preventDefault();
@@ -1255,6 +1364,34 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       scrollLeft: element.scrollLeft,
       scrollWidth: element.scrollWidth,
       clientWidth: element.clientWidth,
+    });
+  };
+
+  const syncAssetScrollInfo = () => {
+    const element = assetViewportRef.current;
+    if (!element) return;
+    setAssetScrollInfo({
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    });
+  };
+
+  const updateAssetCardScale = (nextScale: number) => {
+    const element = assetViewportRef.current;
+    const centerRatio =
+      element && element.scrollHeight > 0
+        ? (element.scrollTop + element.clientHeight / 2) / element.scrollHeight
+        : 0.5;
+    setAssetCardScale(clamp(nextScale, ASSET_CARD_MIN_SCALE, ASSET_CARD_MAX_SCALE));
+    window.requestAnimationFrame(() => {
+      const nextElement = assetViewportRef.current;
+      if (!nextElement) return;
+      nextElement.scrollTop = Math.max(
+        0,
+        centerRatio * nextElement.scrollHeight - nextElement.clientHeight / 2,
+      );
+      syncAssetScrollInfo();
     });
   };
 
@@ -1360,6 +1497,42 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     }
   };
 
+  const handleAssetScrollThumbStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    const element = assetViewportRef.current;
+    if (!element) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    assetScrollDragRef.current = {
+      startY: event.clientY,
+      startScrollTop: element.scrollTop,
+      trackHeight: event.currentTarget.parentElement?.clientHeight || 1,
+    };
+  };
+
+  const handleAssetScrollThumbMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = assetScrollDragRef.current;
+    const element = assetViewportRef.current;
+    if (!drag || !element) return;
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    const maxThumbTravel = Math.max(
+      1,
+      drag.trackHeight - (element.clientHeight / element.scrollHeight) * drag.trackHeight,
+    );
+    element.scrollTop = clamp(
+      drag.startScrollTop + ((event.clientY - drag.startY) / maxThumbTravel) * maxScrollTop,
+      0,
+      maxScrollTop,
+    );
+    syncAssetScrollInfo();
+  };
+
+  const handleAssetScrollThumbEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    assetScrollDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   const getUploadedAssetKind = (file: File) => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('video/')) return 'video';
@@ -1446,6 +1619,20 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     };
   };
 
+  const handleAssetScaleHandleStart = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    side: 'top' | 'bottom',
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    assetScaleDragRef.current = {
+      side,
+      startY: event.clientY,
+      startScale: assetCardScale,
+    };
+  };
+
   const handleTimelineScaleHandleMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = timelineScaleDragRef.current;
     if (!drag) return;
@@ -1462,8 +1649,27 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     applyTimelineViewportWindow(drag.anchorTrackX, pointerTrackX, drag.trackWidth, 'right');
   };
 
+  const handleAssetScaleHandleMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = assetScaleDragRef.current;
+    if (!drag) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const dragDistance =
+      drag.side === 'top' ? event.clientY - drag.startY : drag.startY - event.clientY;
+    const scaleMultiplier = Math.exp(dragDistance / 180);
+    updateAssetCardScale(drag.startScale * scaleMultiplier);
+  };
+
   const handleTimelineScaleHandleEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
     timelineScaleDragRef.current = null;
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handleAssetScaleHandleEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    assetScaleDragRef.current = null;
     event.stopPropagation();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1504,6 +1710,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
       objectUrls.clear();
     };
+  }, []);
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === modalRootRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    handleFullscreenChange();
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   React.useEffect(() => {
@@ -1566,6 +1781,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   }, [timelineMetrics.width, timelineHeight]);
 
   React.useEffect(() => {
+    syncAssetScrollInfo();
+  }, [assetCardLayout, assetCardScale, assetPanelWidth, visibleAssetNodes.length]);
+
+  React.useEffect(() => {
     if (!isTauriRuntime()) return;
     let cancelled = false;
     const loadDefaultDir = async () => {
@@ -1622,6 +1841,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setTimelineIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     if (trackKind === 'video' && trackId) {
       setVideoTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+      assignAudioTrackForVideoPlacement(
+        id,
+        Math.max(0, startTime ?? timelineStartById[id] ?? timelineMetricById.get(id)?.start ?? 0),
+        timelineMetricById.get(id)?.duration || Math.max(0.25, defaultSeconds / speed),
+        trackId,
+      );
     }
     if (trackKind === 'audio' && trackId) {
       setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
@@ -1794,6 +2019,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     pushTimelineHistory();
     if (trackKind === 'video') {
       setVideoTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+      assignAudioTrackForVideoPlacement(
+        id,
+        timelineMetricById.get(id)?.start ?? timelineStartById[id] ?? 0,
+        timelineMetricById.get(id)?.duration || Math.max(0.25, defaultSeconds / speed),
+        trackId,
+      );
       return;
     }
     setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
@@ -1866,6 +2097,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       setTimelineIds((prev) => (prev.includes(draggedId) ? prev : [...prev, draggedId]));
       if (droppedTrackKind === 'video') {
         setVideoTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
+        assignAudioTrackForVideoPlacement(draggedId, nextStart, duration, trackId);
       } else {
         setAudioTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
       }
@@ -3049,9 +3281,24 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           100 - timelineThumbWidthPercent,
         )
       : 0;
+  const assetThumbHeightPercent =
+    assetScrollInfo.scrollHeight > 0
+      ? clamp((assetScrollInfo.clientHeight / assetScrollInfo.scrollHeight) * 100, 8, 100)
+      : 100;
+  const assetThumbTopPercent =
+    assetScrollInfo.scrollHeight > 0
+      ? clamp(
+          (assetScrollInfo.scrollTop / assetScrollInfo.scrollHeight) * 100,
+          0,
+          100 - assetThumbHeightPercent,
+        )
+      : 0;
 
   return (
-    <div className="video-render-workspace fixed inset-0 z-[350] bg-[var(--vr-bg)] text-[var(--vr-text)]">
+    <div
+      ref={modalRootRef}
+      className="video-render-workspace fixed inset-0 z-[350] bg-[var(--vr-bg)] text-[var(--vr-text)]"
+    >
       <div
         className="h-full w-full grid"
         style={{ gridTemplateRows: `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px` }}
@@ -3061,10 +3308,25 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             <div className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] border border-[var(--vr-border)] flex items-center justify-center text-[var(--vr-accent-strong)]">
               <Film className="w-5 h-5" />
             </div>
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
               <h2 className="text-sm font-black truncate">
                 {isZh ? '渲染剧本视频' : 'Render Script Video'}
               </h2>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="h-7 w-7 shrink-0 rounded-md text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                title={isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'}
+                aria-label={
+                  isFullscreen ? (isZh ? '退出全屏' : 'Exit fullscreen') : isZh ? '全屏' : 'Fullscreen'
+                }
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="mx-auto h-3.5 w-3.5" />
+                ) : (
+                  <Maximize2 className="mx-auto h-3.5 w-3.5" />
+                )}
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -3189,74 +3451,136 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               </select>
               </div>
             </div>
-            <div
-              className={`video-render-scroll min-h-0 flex-1 overflow-y-auto p-3 ${
-                assetCardLayout === 'grid'
-                  ? 'grid auto-rows-max grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2'
-                  : 'space-y-2'
-              }`}
-            >
-              {visibleAssetNodes.map((node) => {
-                const region = nodeRegionById.get(node.id);
-                return (
-                  <div
-                    key={node.id}
-                    draggable
-                    onDragStart={(event) => handleAssetDragStart(event, node.id)}
-                    onClick={() => setActivePreviewId(node.id)}
-                    onContextMenu={(event) =>
-                      openContextMenu(event, { kind: 'asset', nodeId: node.id })
-                    }
-                    className={`group cursor-grab active:cursor-grabbing rounded-lg border transition-all ${
-                      assetCardLayout === 'grid' ? 'p-2' : 'p-2.5'
-                    } ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
-                  >
-                    <div className={assetCardLayout === 'grid' ? 'flex flex-col gap-2' : 'flex gap-3'}>
+            <div className="relative min-h-0 flex-1">
+              <div
+                ref={assetViewportRef}
+                onScroll={syncAssetScrollInfo}
+                className="video-render-scroll video-render-scroll-hidden min-h-0 h-full overflow-y-auto p-3 pr-7"
+              >
+                <div
+                  className={
+                    assetCardLayout === 'grid'
+                      ? 'grid auto-rows-max grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2 origin-top-left'
+                      : 'space-y-2 origin-top-left'
+                  }
+                  style={{ zoom: assetCardScale }}
+                >
+                  {visibleAssetNodes.map((node) => {
+                    const region = nodeRegionById.get(node.id);
+                    return (
                       <div
-                        className={`relative rounded-md overflow-hidden bg-black border border-[var(--vr-border)] shrink-0 flex items-center justify-center text-[var(--vr-text-muted)] ${
-                          assetCardLayout === 'grid' ? 'aspect-video w-full' : 'w-20 h-14'
-                        }`}
+                        key={node.id}
+                        draggable
+                        onDragStart={(event) => handleAssetDragStart(event, node.id)}
+                        onClick={() => setActivePreviewId(node.id)}
+                        onContextMenu={(event) =>
+                          openContextMenu(event, { kind: 'asset', nodeId: node.id })
+                        }
+                        className={`group cursor-grab active:cursor-grabbing rounded-lg border transition-all ${
+                          assetCardLayout === 'grid' ? 'p-2' : 'p-2.5'
+                        } ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
                       >
-                        {node.data?.imageUrl ? (
-                          <img
-                            src={node.data.imageUrl as string}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : node.data?.videoUrl ? (
-                          <video
-                            src={node.data.videoUrl as string}
-                            className="w-full h-full object-cover"
-                            muted
-                            playsInline
-                          />
-                        ) : (
-                          mediaIcon(node, 'w-5 h-5')
-                        )}
+                        <div
+                          className={
+                            assetCardLayout === 'grid' ? 'flex flex-col gap-2' : 'flex gap-3'
+                          }
+                        >
+                          <div
+                            className={`relative rounded-md overflow-hidden bg-black border border-[var(--vr-border)] shrink-0 flex items-center justify-center text-[var(--vr-text-muted)] ${
+                              assetCardLayout === 'grid' ? 'aspect-video w-full' : 'w-20 h-14'
+                            }`}
+                          >
+                            {node.data?.imageUrl ? (
+                              <img
+                                src={node.data.imageUrl as string}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : node.data?.videoUrl ? (
+                              <video
+                                src={node.data.videoUrl as string}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                              />
+                            ) : (
+                              mediaIcon(node, 'w-5 h-5')
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text-muted)]">
+                              {mediaIcon(node, 'w-3.5 h-3.5')}
+                              <span>{mediaKind(node).toUpperCase()}</span>
+                            </div>
+                            <div className="mt-1 text-xs font-black text-[var(--vr-text)] truncate">
+                              {segmentTitle(node)}
+                            </div>
+                            <div className="mt-1 text-[11px] text-[var(--vr-text-muted)] truncate">
+                              {region
+                                ? `${region.type === 'dynamicGroup' ? (isZh ? '包裹' : 'Wrap') : isZh ? '背景' : 'Background'} · ${region.label}`
+                                : segmentText(node) || (isZh ? '无正文' : 'No body text')}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text-muted)]">
-                          {mediaIcon(node, 'w-3.5 h-3.5')}
-                          <span>{mediaKind(node).toUpperCase()}</span>
-                        </div>
-                        <div className="mt-1 text-xs font-black text-[var(--vr-text)] truncate">
-                          {segmentTitle(node)}
-                        </div>
-                        <div className="mt-1 text-[11px] text-[var(--vr-text-muted)] truncate">
-                          {region
-                            ? `${region.type === 'dynamicGroup' ? (isZh ? '包裹' : 'Wrap') : isZh ? '背景' : 'Background'} · ${region.label}`
-                            : segmentText(node) || (isZh ? '无正文' : 'No body text')}
-                        </div>
-                      </div>
+                    );
+                  })}
+                  {visibleAssetNodes.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-[var(--vr-border-strong)] px-3 py-8 text-center text-xs font-bold text-[var(--vr-text-muted)]">
+                      {isZh ? '这个区域里暂无可渲染卡片' : 'No renderable cards in this region'}
                     </div>
-                  </div>
-                );
-              })}
-              {visibleAssetNodes.length === 0 && (
-                <div className="rounded-lg border border-dashed border-[var(--vr-border-strong)] px-3 py-8 text-center text-xs font-bold text-[var(--vr-text-muted)]">
-                  {isZh ? '这个区域里暂无可渲染卡片' : 'No renderable cards in this region'}
+                  )}
                 </div>
-              )}
+              </div>
+              <div className="absolute inset-y-3 right-2 w-4">
+                <div className="relative h-full w-2 rounded-full bg-slate-200">
+                  <div
+                    className="absolute inset-x-1 rounded-full bg-[var(--vr-accent-soft)]"
+                    style={{
+                      top: `${assetThumbTopPercent}%`,
+                      height: `${assetThumbHeightPercent}%`,
+                    }}
+                  />
+                  <div
+                    className="absolute inset-x-0 cursor-grab active:cursor-grabbing"
+                    style={{
+                      top: `${assetThumbTopPercent}%`,
+                      height: `${assetThumbHeightPercent}%`,
+                    }}
+                    onPointerDown={handleAssetScrollThumbStart}
+                    onPointerMove={handleAssetScrollThumbMove}
+                    onPointerUp={handleAssetScrollThumbEnd}
+                    onPointerCancel={handleAssetScrollThumbEnd}
+                    title={isZh ? '拖动滚动素材卡片' : 'Drag to scroll asset cards'}
+                  >
+                    <span className="pointer-events-none absolute inset-y-1 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-[var(--vr-accent)] opacity-70 transition-opacity" />
+                    <button
+                      type="button"
+                      className="absolute -top-1 left-1/2 z-10 h-3 w-3 -translate-x-1/2 rounded-full border border-white/70 bg-[var(--vr-accent)] shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] active:scale-110"
+                      onPointerDown={(event) => handleAssetScaleHandleStart(event, 'top')}
+                      onPointerMove={handleAssetScaleHandleMove}
+                      onPointerUp={handleAssetScaleHandleEnd}
+                      onPointerCancel={handleAssetScaleHandleEnd}
+                      title={isZh ? '拖动调整素材卡片缩放上手柄' : 'Drag to adjust asset scale top handle'}
+                      aria-label={
+                        isZh ? '调整素材卡片缩放上手柄' : 'Adjust asset scale top handle'
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="absolute -bottom-1 left-1/2 z-10 h-3 w-3 -translate-x-1/2 rounded-full border border-white/70 bg-[var(--vr-accent)] shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] active:scale-110"
+                      onPointerDown={(event) => handleAssetScaleHandleStart(event, 'bottom')}
+                      onPointerMove={handleAssetScaleHandleMove}
+                      onPointerUp={handleAssetScaleHandleEnd}
+                      onPointerCancel={handleAssetScaleHandleEnd}
+                      title={isZh ? '拖动调整素材卡片缩放下手柄' : 'Drag to adjust asset scale bottom handle'}
+                      aria-label={
+                        isZh ? '调整素材卡片缩放下手柄' : 'Adjust asset scale bottom handle'
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </aside>
 
@@ -3305,8 +3629,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       <canvas ref={canvasRef} className="w-full h-full block bg-black" />
                     </div>
                   </div>
-                  <div className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-3 py-2 shadow-sm">
+                    <div className="flex items-center gap-2.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -3318,7 +3642,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                           setPreviewPlaying((prev) => !prev);
                         }}
                         disabled={timelineNodes.length === 0 || status === 'rendering'}
-                        className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
+                        className="h-7 w-7 rounded-md bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
                         title={
                           previewPlaying
                             ? isZh
@@ -3330,9 +3654,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                         }
                       >
                         {previewPlaying ? (
-                          <Pause className="w-4 h-4" />
+                          <Pause className="h-3.5 w-3.5" />
                         ) : (
-                          <Play className="w-4 h-4" />
+                          <Play className="h-3.5 w-3.5" />
                         )}
                       </button>
                       <div className="min-w-0 flex-1">
@@ -3426,243 +3750,288 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   </label>
                 </div>
               )}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '分辨率' : 'Resolution'}
-                    </span>
-                    <select
-                      value={resolutionIndex}
-                      onChange={(e) => setResolutionIndex(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {RESOLUTION_OPTIONS.map((option, index) => (
-                        <option key={option.label} value={index}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '导出格式' : 'Export format'}
-                    </span>
-                    <select
-                      value={exportFormat}
-                      onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {EXPORT_FORMAT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label className="space-y-2">
-                  <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                    {isZh ? '播放倍速' : 'Playback speed'}
-                  </span>
-                  <div className="px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]">
-                    <RangeControl
-                      label={isZh ? '速度' : 'Speed'}
-                      min={0.25}
-                      max={3}
-                      step={0.25}
-                      value={speed}
-                      valueLabel={`${speed.toFixed(2)}x · ${isZh ? '预计' : 'Est.'} ${formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}`}
-                      onChange={(nextValue) => setSpeed(Math.max(0.25, nextValue || 1))}
-                    />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '视频参数' : 'Video'}
                   </div>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '视频帧率' : 'Frame rate'}
-                    </span>
-                    <select
-                      value={frameRate}
-                      onChange={(e) => setFrameRate(Number(e.target.value) || 30)}
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {FRAME_RATE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option} fps
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '编码器' : 'Encoder'}
-                    </span>
-                    <select
-                      value={encoder}
-                      onChange={(e) => setEncoder(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {ENCODER_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '分辨率' : 'Resolution'}
+                      </span>
+                      <select
+                        value={resolutionIndex}
+                        onChange={(e) => setResolutionIndex(Number(e.target.value))}
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {RESOLUTION_OPTIONS.map((option, index) => (
+                          <option key={option.label} value={index}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '帧率' : 'FPS'}
+                      </span>
+                      <select
+                        value={frameRate}
+                        onChange={(e) => setFrameRate(Number(e.target.value) || 30)}
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {FRAME_RATE_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option} fps
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '格式' : 'Format'}
+                      </span>
+                      <select
+                        value={exportFormat}
+                        onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {EXPORT_FORMAT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '无音频停留秒数' : 'No-audio hold'}
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      step="1"
-                      value={defaultSeconds}
-                      onChange={(e) => setDefaultSeconds(clamp(Number(e.target.value) || 4, 1, 30))}
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '提前完成动画(秒)' : 'Finish animation early'}
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="30"
-                      step="0.1"
-                      value={animationLeadSeconds}
-                      onChange={(e) =>
-                        setAnimationLeadSeconds(clamp(Number(e.target.value) || 0, 0, 30))
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    />
-                  </label>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '标题样式' : 'Title Style'}
+                  </div>
+                  <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '字号' : 'Size'}
+                      </span>
+                      <DragSizeControl
+                        label={
+                          isZh
+                            ? '拖动调整标题字号，单击输入精确数字'
+                            : 'Drag to adjust title size, click to type an exact value'
+                        }
+                        value={renderStyle.titleFontSize}
+                        min={18}
+                        max={120}
+                        step={1}
+                        onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '动画' : 'Animation'}
+                      </span>
+                      <select
+                        value={renderStyle.titleAnimation}
+                        onChange={(e) =>
+                          updateRenderStyle('titleAnimation', e.target.value as TextAnimation)
+                        }
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {TEXT_ANIMATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {isZh ? option.zh : option.en}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '颜色' : 'Color'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.titleColor}
+                        onChange={(e) => updateRenderStyle('titleColor', e.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '标题字号' : 'Title size'}
-                    </span>
-                    <DragSizeControl
-                      label={
-                        isZh
-                          ? '拖动调整标题字号，单击输入精确数字'
-                          : 'Drag to adjust title size, click to type an exact value'
-                      }
-                      value={renderStyle.titleFontSize}
-                      min={18}
-                      max={120}
-                      step={1}
-                      onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '标题动画' : 'Title animation'}
-                    </span>
-                    <select
-                      value={renderStyle.titleAnimation}
-                      onChange={(e) =>
-                        updateRenderStyle('titleAnimation', e.target.value as TextAnimation)
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {TEXT_ANIMATION_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {isZh ? option.zh : option.en}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '正文样式' : 'Body Style'}
+                  </div>
+                  <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '字号' : 'Size'}
+                      </span>
+                      <DragSizeControl
+                        label={
+                          isZh
+                            ? '拖动调整正文字号，单击输入精确数字'
+                            : 'Drag to adjust body size, click to type an exact value'
+                        }
+                        value={renderStyle.bodyFontSize}
+                        min={16}
+                        max={96}
+                        step={1}
+                        onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '动画' : 'Animation'}
+                      </span>
+                      <select
+                        value={renderStyle.bodyAnimation}
+                        onChange={(e) =>
+                          updateRenderStyle('bodyAnimation', e.target.value as TextAnimation)
+                        }
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {TEXT_ANIMATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {isZh ? option.zh : option.en}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '颜色' : 'Color'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.bodyColor}
+                        onChange={(e) => updateRenderStyle('bodyColor', e.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '正文字号' : 'Body size'}
-                    </span>
-                    <DragSizeControl
-                      label={
-                        isZh
-                          ? '拖动调整正文字号，单击输入精确数字'
-                          : 'Drag to adjust body size, click to type an exact value'
-                      }
-                      value={renderStyle.bodyFontSize}
-                      min={16}
-                      max={96}
-                      step={1}
-                      onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '正文动画' : 'Body animation'}
-                    </span>
-                    <select
-                      value={renderStyle.bodyAnimation}
-                      onChange={(e) =>
-                        updateRenderStyle('bodyAnimation', e.target.value as TextAnimation)
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                    >
-                      {TEXT_ANIMATION_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {isZh ? option.zh : option.en}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    {isZh ? '导出细节' : 'Export Details'}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '编码器' : 'Encoder'}
+                      </span>
+                      <select
+                        value={encoder}
+                        onChange={(e) => setEncoder(e.target.value)}
+                        className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      >
+                        {ENCODER_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '无音频' : 'No audio'}
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        step="1"
+                        value={defaultSeconds}
+                        onChange={(e) =>
+                          setDefaultSeconds(clamp(Number(e.target.value) || 4, 1, 30))
+                        }
+                        className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '底色' : 'Panel'}
+                      </span>
+                      <input
+                        type="color"
+                        value={renderStyle.panelColor}
+                        onChange={(e) => updateRenderStyle('panelColor', e.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '播放倍速' : 'Playback speed'}
+                      </span>
+                      <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2">
+                        <RangeControl
+                          label={isZh ? '速度' : 'Speed'}
+                          min={0.25}
+                          max={3}
+                          step={0.25}
+                          value={speed}
+                          valueLabel={`${speed.toFixed(2)}x · ${isZh ? '预计' : 'Est.'} ${formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}`}
+                          onChange={(nextValue) => setSpeed(Math.max(0.25, nextValue || 1))}
+                        />
+                      </div>
+                    </label>
+                    <label className="min-w-0 space-y-1.5">
+                      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                        {isZh ? '提前完成动画(秒)' : 'Finish animation early'}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="0.1"
+                        value={animationLeadSeconds}
+                        onChange={(e) =>
+                          setAnimationLeadSeconds(clamp(Number(e.target.value) || 0, 0, 30))
+                        }
+                        className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '标题' : 'Title'}
-                    </span>
-                    <input
-                      type="color"
-                      value={renderStyle.titleColor}
-                      onChange={(e) => updateRenderStyle('titleColor', e.target.value)}
-                      className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '正文' : 'Body'}
-                    </span>
-                    <input
-                      type="color"
-                      value={renderStyle.bodyColor}
-                      onChange={(e) => updateRenderStyle('bodyColor', e.target.value)}
-                      className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-black text-[var(--vr-text-soft)]">
-                      {isZh ? '底色' : 'Panel'}
-                    </span>
-                    <input
-                      type="color"
-                      value={renderStyle.panelColor}
-                      onChange={(e) => updateRenderStyle('panelColor', e.target.value)}
-                      className="w-full h-9 px-1 py-1 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)]"
-                    />
-                  </label>
-                </div>
-                <label className="space-y-2">
-                  <span className="text-xs font-black text-[var(--vr-text-soft)]">
+
+                <label className="space-y-1.5">
+                  <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
                     {isZh ? '保存位置' : 'Save location'}
                   </span>
-                  <input
-                    type="text"
-                    value={outputDir}
-                    onChange={(e) => setOutputDir(e.target.value)}
-                    placeholder={isZh ? '默认保存到系统下载目录' : 'Defaults to Downloads'}
-                    className="w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)]"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={outputDir}
+                      onChange={(e) => {
+                        setOutputDir(e.target.value);
+                        setOutputDirError('');
+                      }}
+                      placeholder={isZh ? '默认保存到系统下载目录' : 'Defaults to Downloads'}
+                      className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
+                        outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={chooseOutputDir}
+                      className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                      title={isZh ? '选择保存文件夹' : 'Choose save folder'}
+                      aria-label={isZh ? '选择保存文件夹' : 'Choose save folder'}
+                    >
+                      <FolderOpen className="mx-auto h-4 w-4" />
+                    </button>
+                  </div>
+                  {outputDirError && (
+                    <span className="block text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                      {outputDirError}
+                    </span>
+                  )}
                 </label>
               </div>
               {(progress || error) && (

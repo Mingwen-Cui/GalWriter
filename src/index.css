@@ -908,6 +908,15 @@ input[type='range']::-moz-range-track {
   background-clip: padding-box;
 }
 
+.video-render-scroll-hidden {
+  scrollbar-width: none;
+}
+
+.video-render-scroll-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .video-render-preview-stage {
   container-type: size;
 }

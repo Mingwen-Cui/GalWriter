@@ -252,7 +252,10 @@ unsafe fn shell_item_path(item: &IShellItem) -> Result<String, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn choose_project_default_save_dir_windows(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
+fn choose_folder_windows(
+  initial_dir: Option<String>,
+  title_text: &str,
+) -> Result<ProjectSaveDirResult, String> {
   unsafe {
     let coinit = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     let should_uninitialize = coinit.is_ok();
@@ -268,7 +271,7 @@ fn choose_project_default_save_dir_windows(initial_dir: Option<String>) -> Resul
         .SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST)
         .map_err(|err| format!("Failed to configure folder picker: {err}"))?;
 
-      let title = wide_null("Choose GalWriter default save location");
+      let title = wide_null(title_text);
       dialog
         .SetTitle(PCWSTR(title.as_ptr()))
         .map_err(|err| format!("Failed to set folder picker title: {err}"))?;
@@ -310,7 +313,21 @@ fn choose_project_default_save_dir_windows(initial_dir: Option<String>) -> Resul
 fn choose_project_default_save_dir(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
   #[cfg(target_os = "windows")]
   {
-    return choose_project_default_save_dir_windows(initial_dir);
+    return choose_folder_windows(initial_dir, "Choose GalWriter default save location");
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = initial_dir;
+    return Ok(ProjectSaveDirResult { path: None });
+  }
+}
+
+#[tauri::command]
+fn choose_render_output_dir(initial_dir: Option<String>) -> Result<ProjectSaveDirResult, String> {
+  #[cfg(target_os = "windows")]
+  {
+    return choose_folder_windows(initial_dir, "Choose video render save location");
   }
 
   #[cfg(not(target_os = "windows"))]
@@ -1359,6 +1376,7 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
+      choose_render_output_dir,
       choose_project_default_save_dir,
       save_project_zip,
       synthesize_system_speech,
