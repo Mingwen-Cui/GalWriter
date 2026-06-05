@@ -11,6 +11,7 @@ import {
   FileDown,
   FileText,
   Gauge,
+  Grid2X2,
   Image,
   Layers,
   ListPlus,
@@ -25,6 +26,7 @@ import {
   Plus,
   Redo2,
   RotateCcw,
+  Rows3,
   Scissors,
   Settings,
   Sparkles,
@@ -44,6 +46,13 @@ type ExportFormat = 'webm' | 'mp4' | 'mkv';
 type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 type TimelineScaleMode = 'seconds' | 'frames';
 type TimelineWheelMode = 'vertical' | 'horizontal';
+type AssetCardLayout = 'row' | 'grid';
+type TimelineSegmentMetric = {
+  node: FlowNode;
+  start: number;
+  duration: number;
+  end: number;
+};
 
 type VideoRenderModalProps = {
   nodes: FlowNode[];
@@ -892,6 +901,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [assetPanelWidth, setAssetPanelWidth] = useState(320);
+  const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>('row');
   const [exportPanelWidth, setExportPanelWidth] = useState(380);
   const [timelineHeight, setTimelineHeight] = useState(250);
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
@@ -902,6 +912,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   );
   const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(60);
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
+  const [uploadedAssetNodes, setUploadedAssetNodes] = useState<FlowNode[]>([]);
+  const [focusedPreviewId, setFocusedPreviewId] = useState('');
+  const [timelinePreviewTime, setTimelinePreviewTime] = useState(0);
   const [timelineScrollInfo, setTimelineScrollInfo] = useState({
     scrollLeft: 0,
     scrollWidth: 1,
@@ -912,7 +925,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [savedPath, setSavedPath] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const assetUploadInputRef = useRef<HTMLInputElement>(null);
   const timelineViewportRef = useRef<HTMLDivElement>(null);
+  const timelineScrubSurfaceRef = useRef<HTMLDivElement>(null);
   const timelineScrubRef = useRef(false);
   const timelineScaleDragRef = useRef<{
     side: 'left' | 'right';
@@ -927,10 +942,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const preservePreviewTimeOnNodeChangeRef = useRef(false);
   const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
   const previewDrawIdRef = useRef(0);
+  const uploadedObjectUrlsRef = useRef<Set<string>>(new Set());
 
+  const allAssetNodes = useMemo(
+    () => [...uploadedAssetNodes, ...orderedNodes],
+    [orderedNodes, uploadedAssetNodes],
+  );
   const nodeById = useMemo(
-    () => new Map(orderedNodes.map((node) => [node.id, node])),
-    [orderedNodes],
+    () => new Map(allAssetNodes.map((node) => [node.id, node])),
+    [allAssetNodes],
   );
   const timelineNodes = useMemo(
     () => timelineIds.map((id) => nodeById.get(id)).filter(Boolean) as FlowNode[],
@@ -940,7 +960,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     () => timelineNodes.filter((node) => selectedIds.has(node.id)),
     [timelineNodes, selectedIds],
   );
-  const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || orderedNodes[0];
+  const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || allAssetNodes[0];
+  const focusedPreviewNode = focusedPreviewId ? nodeById.get(focusedPreviewId) : undefined;
   const resolution = RESOLUTION_OPTIONS[resolutionIndex] || RESOLUTION_OPTIONS[0];
   const isZh = language === 'zh';
   const fallbackEstimatedSeconds = (selectedNodes.length * defaultSeconds) / speed;
@@ -964,11 +985,14 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     return new Map(entries);
   }, [orderedNodes, nodes]);
   const visibleAssetNodes = useMemo(() => {
-    if (assetRegionFilter === 'all') return orderedNodes;
+    if (assetRegionFilter === 'all') return allAssetNodes;
     if (assetRegionFilter === 'outside')
-      return orderedNodes.filter((node) => !nodeRegionById.get(node.id));
+      return [
+        ...uploadedAssetNodes,
+        ...orderedNodes.filter((node) => !nodeRegionById.get(node.id)),
+      ];
     return orderedNodes.filter((node) => nodeRegionById.get(node.id)?.id === assetRegionFilter);
-  }, [assetRegionFilter, orderedNodes, nodeRegionById]);
+  }, [allAssetNodes, assetRegionFilter, orderedNodes, uploadedAssetNodes, nodeRegionById]);
   const timelineMetrics = useMemo(() => {
     let cursor = 0;
     const segments = timelineNodes.map((node) => {
@@ -1007,12 +1031,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     () => new Map(timelineMetrics.segments.map((metric) => [metric.node.id, metric])),
     [timelineMetrics.segments],
   );
-  const activeTimelineMetric = activePreviewNode
-    ? timelineMetricById.get(activePreviewNode.id)
+  const focusedTimelineMetric = focusedPreviewNode
+    ? timelineMetricById.get(focusedPreviewNode.id)
     : undefined;
-  const activeTimelineTime = activeTimelineMetric
-    ? clamp(activeTimelineMetric.start + previewTime / speed, 0, timelineMetrics.totalDuration)
-    : 0;
+  const activeTimelineTime = focusedTimelineMetric
+    ? clamp(focusedTimelineMetric.start + previewTime / speed, 0, timelineMetrics.totalDuration)
+    : clamp(timelinePreviewTime, 0, timelineMetrics.totalDuration);
   const activeTimelineFrame = Math.floor(activeTimelineTime * frameRate);
   const timelinePlayheadLeft = activeTimelineTime * timelineMetrics.pixelsPerSecond;
   const timelineTickSettings = getTimelineTickSettings(
@@ -1097,19 +1121,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     restoreTimelineState(next);
   };
 
-  const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean }) => {
+  const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean; preserveFocus?: boolean }) => {
     const nextTime = clamp(time, 0, timelineMetrics.totalDuration);
-    const segment =
-      timelineMetrics.segments.find(
-        (metric) => nextTime >= metric.start && nextTime < metric.end,
-      ) || timelineMetrics.segments[timelineMetrics.segments.length - 1];
-    if (!segment) return;
-
-    if (segment.node.id !== activePreviewId) {
-      preservePreviewTimeOnNodeChangeRef.current = true;
+    if (!options?.preserveFocus) setFocusedPreviewId('');
+    setTimelinePreviewTime(nextTime);
+    if (options?.preserveFocus && focusedTimelineMetric) {
+      setPreviewTime(
+        clamp((nextTime - focusedTimelineMetric.start) * speed, 0, focusedTimelineMetric.duration * speed),
+      );
     }
-    setActivePreviewId(segment.node.id);
-    setPreviewTime(clamp((nextTime - segment.start) * speed, 0, segment.duration * speed));
     if (!options?.keepPlaying) setPreviewPlaying(false);
   };
 
@@ -1207,6 +1227,25 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+  };
+
+  const handleTimelinePlayheadGrabStart = (event: React.PointerEvent<HTMLElement>) => {
+    if (status === 'rendering') return;
+    const scrubSurface = timelineScrubSurfaceRef.current;
+    if (!scrubSurface) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    timelineScrubRef.current = true;
+    seekTimelineFromClientX(event.clientX, scrubSurface.getBoundingClientRect());
+  };
+
+  const handleTimelinePlayheadGrabMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (!timelineScrubRef.current || status === 'rendering') return;
+    const scrubSurface = timelineScrubSurfaceRef.current;
+    if (!scrubSurface) return;
+    event.preventDefault();
+    seekTimelineFromClientX(event.clientX, scrubSurface.getBoundingClientRect());
   };
 
   const syncTimelineScrollInfo = () => {
@@ -1321,6 +1360,73 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     }
   };
 
+  const getUploadedAssetKind = (file: File) => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('audio/')) return 'audio';
+
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'].includes(extension)) return 'image';
+    if (['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'].includes(extension)) return 'video';
+    if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(extension)) return 'audio';
+    return '';
+  };
+
+  const handleUploadedAssetFiles = (files: FileList | File[]) => {
+    const fileList = Array.from(files);
+    const nextNodes: FlowNode[] = [];
+
+    fileList.forEach((file, index) => {
+      const kind = getUploadedAssetKind(file);
+      if (!kind) return;
+
+      const url = URL.createObjectURL(file);
+      uploadedObjectUrlsRef.current.add(url);
+      const title = file.name.replace(/\.[^/.]+$/, '') || file.name;
+      nextNodes.push({
+        id: `uploaded-asset-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+        type: 'storyNode',
+        position: { x: 0, y: 0 },
+        data: {
+          title,
+          text: '',
+          ...(kind === 'image' ? { imageUrl: url } : {}),
+          ...(kind === 'video' ? { videoUrl: url } : {}),
+          ...(kind === 'audio' ? { audioUrl: url } : {}),
+        },
+      });
+    });
+
+    if (nextNodes.length === 0) {
+      setError(isZh ? '请选择图片、视频或音频文件。' : 'Choose image, video, or audio files.');
+      return;
+    }
+
+    setUploadedAssetNodes((prev) => [...nextNodes, ...prev]);
+    setAssetRegionFilter('all');
+    setActivePreviewId(nextNodes[0].id);
+    setError('');
+  };
+
+  const handleAssetUploadInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files?.length) handleUploadedAssetFiles(event.target.files);
+    event.target.value = '';
+  };
+
+  const handleAssetFileDragOver = (event: React.DragEvent<HTMLElement>) => {
+    if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleAssetFileDrop = (event: React.DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer.files.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    handleUploadedAssetFiles(event.dataTransfer.files);
+  };
+
   const handleTimelineScaleHandleStart = (
     event: React.PointerEvent<HTMLButtonElement>,
     side: 'left' | 'right',
@@ -1365,14 +1471,14 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   };
 
   React.useEffect(() => {
-    const validIds = new Set(orderedNodes.map((node) => node.id));
+    const validIds = new Set(allAssetNodes.map((node) => node.id));
     setTimelineIds((prev) => {
       const kept = prev.filter((id) => validIds.has(id));
       const missing = orderedNodes.map((node) => node.id).filter((id) => !kept.includes(id));
       return [...kept, ...missing];
     });
     setSelectedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
-    setActivePreviewId((prev) => (prev && validIds.has(prev) ? prev : orderedNodes[0]?.id || ''));
+    setActivePreviewId((prev) => (prev && validIds.has(prev) ? prev : allAssetNodes[0]?.id || ''));
     setTimelineStartById((prev) =>
       Object.fromEntries(Object.entries(prev).filter(([id]) => validIds.has(id))),
     );
@@ -1390,7 +1496,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       });
       return next;
     });
-  }, [orderedNodes, videoTrackIds, audioTrackIds]);
+  }, [allAssetNodes, orderedNodes, videoTrackIds, audioTrackIds]);
+
+  React.useEffect(() => {
+    const objectUrls = uploadedObjectUrlsRef.current;
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls.clear();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (assetRegionFilter === 'all' || assetRegionFilter === 'outside') return;
@@ -1406,11 +1520,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     }
     setPreviewTime(0);
     setPreviewPlaying(false);
-  }, [activePreviewNode?.id]);
+  }, [focusedPreviewNode?.id]);
 
   React.useEffect(() => {
     setPreviewTime((prev) => Math.min(prev, previewDuration));
   }, [previewDuration]);
+
+  React.useEffect(() => {
+    setTimelinePreviewTime((prev) => Math.min(prev, timelineMetrics.totalDuration));
+  }, [timelineMetrics.totalDuration]);
 
   React.useEffect(() => {
     setAssetPanelWidth((prev) => clamp(prev, PANEL_SIZE_LIMITS.asset.min, assetPanelMax));
@@ -1548,6 +1666,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         timelineNodes.find((node) => node.id !== id) || orderedNodes.find((node) => node.id !== id);
       setActivePreviewId(nextNode?.id || '');
     }
+    if (focusedPreviewId === id) {
+      setFocusedPreviewId('');
+    }
     setVideoTrackByNodeId((prev) => {
       const { [id]: _removed, ...next } = prev;
       return next;
@@ -1615,6 +1736,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const previewNode = (id: string) => {
     if (!nodeById.has(id)) return;
     closeContextMenu();
+    if (timelineMetricById.has(id)) {
+      focusTimelineSegment(id);
+      return;
+    }
     setActivePreviewId(id);
     setPreviewTime(0);
     setPreviewPlaying(false);
@@ -1648,7 +1773,19 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const clearTimelineSelection = () => {
     closeContextMenu();
     pushTimelineHistory();
+    setFocusedPreviewId('');
     setSelectedIds(new Set());
+  };
+
+  const focusTimelineSegment = (nodeId: string) => {
+    const metric = timelineMetricById.get(nodeId);
+    if (!metric) return;
+    preservePreviewTimeOnNodeChangeRef.current = true;
+    setFocusedPreviewId(nodeId);
+    setActivePreviewId(nodeId);
+    setTimelinePreviewTime(metric.start);
+    setPreviewTime(0);
+    setPreviewPlaying(false);
   };
 
   const assignNodeTrack = (id: string, trackKind: 'video' | 'audio', trackId: string) => {
@@ -2219,6 +2356,63 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     ctx.shadowBlur = 0;
   };
 
+  const getTopVisualTimelineSegment = (time: number) => {
+    const candidates = timelineMetrics.segments.filter((metric) => {
+      const trackId = videoTrackByNodeId[metric.node.id] || videoTrackIds[0];
+      return (
+        videoTrackIds.includes(trackId) &&
+        time >= metric.start &&
+        time < metric.end &&
+        (metric.node.data?.videoUrl || metric.node.data?.imageUrl || segmentText(metric.node))
+      );
+    });
+    return candidates.sort((a, b) => {
+      const aTrackIndex = videoTrackIds.indexOf(videoTrackByNodeId[a.node.id] || videoTrackIds[0]);
+      const bTrackIndex = videoTrackIds.indexOf(videoTrackByNodeId[b.node.id] || videoTrackIds[0]);
+      return bTrackIndex - aTrackIndex;
+    })[0];
+  };
+
+  const drawTimelineCompositeFrame = async (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    time: number,
+  ) => {
+    const segment = getTopVisualTimelineSegment(time);
+    if (!segment) {
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, width, height);
+      return;
+    }
+
+    const localTime = clamp((time - segment.start) * speed, 0, segment.duration * speed);
+    const videoUrl = segment.node.data?.videoUrl as string | undefined;
+    if (videoUrl) {
+      if (previewVideoRef.current?.url !== videoUrl) {
+        previewVideoRef.current = { url: videoUrl, video: await loadVideo(videoUrl) };
+      }
+      const video = previewVideoRef.current.video;
+      await seekVideo(video, localTime);
+      await drawFrame(
+        ctx,
+        segment.node,
+        width,
+        height,
+        {
+          source: video,
+          width: video.videoWidth || width,
+          height: video.videoHeight || height,
+        },
+        localTime,
+        segment.duration * speed,
+      );
+      return;
+    }
+
+    await drawFrame(ctx, segment.node, width, height, undefined, localTime, segment.duration * speed);
+  };
+
   const renderVideo = async () => {
     if (selectedNodes.length === 0 || status === 'rendering') return;
     const canvas = canvasRef.current;
@@ -2413,24 +2607,24 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   };
 
   React.useEffect(() => {
-    if (!activePreviewNode) {
-      setPreviewDuration(defaultSeconds);
+    if (!focusedPreviewNode) {
+      setPreviewDuration(Math.max(0.1, timelineMetrics.totalDuration));
       return;
     }
 
     let cancelled = false;
     const loadPreviewDuration = async () => {
-      const duration = await getNodeMediaDuration(activePreviewNode);
+      const duration = await getNodeMediaDuration(focusedPreviewNode);
       if (!cancelled) setPreviewDuration(duration);
     };
     loadPreviewDuration();
     return () => {
       cancelled = true;
     };
-  }, [activePreviewNode, defaultSeconds]);
+  }, [focusedPreviewNode, defaultSeconds, timelineMetrics.totalDuration]);
 
   React.useEffect(() => {
-    if (!activePreviewNode || status === 'rendering') return;
+    if (status === 'rendering') return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
@@ -2440,7 +2634,17 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
     const drawPreview = async () => {
       const drawId = ++previewDrawIdRef.current;
-      const videoUrl = activePreviewNode.data?.videoUrl as string | undefined;
+      if (!focusedPreviewNode) {
+        await drawTimelineCompositeFrame(
+          ctx,
+          resolution.width,
+          resolution.height,
+          timelinePreviewTime,
+        );
+        return;
+      }
+
+      const videoUrl = focusedPreviewNode.data?.videoUrl as string | undefined;
       if (videoUrl) {
         try {
           if (previewVideoRef.current?.url !== videoUrl) {
@@ -2452,7 +2656,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           if (cancelled || drawId !== previewDrawIdRef.current) return;
           await drawFrame(
             ctx,
-            activePreviewNode,
+            focusedPreviewNode,
             resolution.width,
             resolution.height,
             {
@@ -2474,7 +2678,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       if (cancelled || drawId !== previewDrawIdRef.current) return;
       await drawFrame(
         ctx,
-        activePreviewNode,
+        focusedPreviewNode,
         resolution.width,
         resolution.height,
         undefined,
@@ -2492,8 +2696,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       cancelled = true;
     };
   }, [
-    activePreviewNode,
+    focusedPreviewNode,
     previewTime,
+    timelinePreviewTime,
+    timelineMetrics,
+    videoTrackByNodeId,
+    videoTrackIds,
     resolution.width,
     resolution.height,
     renderStyle,
@@ -2505,8 +2713,23 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     if (!previewPlaying || status === 'rendering') return;
     const startedAt = performance.now();
     const startTimelineTime = activeTimelineTime;
+    const startPreviewTime = previewTime;
     const timer = window.setInterval(() => {
-      const nextTime = startTimelineTime + (performance.now() - startedAt) / 1000;
+      const elapsed = (performance.now() - startedAt) / 1000;
+      if (focusedTimelineMetric) {
+        const nextPreviewTime = startPreviewTime + elapsed * speed;
+        if (nextPreviewTime >= previewDuration) {
+          setPreviewTime(previewDuration);
+          setTimelinePreviewTime(focusedTimelineMetric.end);
+          setPreviewPlaying(false);
+          return;
+        }
+        setPreviewTime(nextPreviewTime);
+        setTimelinePreviewTime(focusedTimelineMetric.start + nextPreviewTime / speed);
+        return;
+      }
+
+      const nextTime = startTimelineTime + elapsed;
       if (nextTime >= timelineMetrics.totalDuration) {
         seekTimelineTime(timelineMetrics.totalDuration);
         setPreviewPlaying(false);
@@ -2515,7 +2738,16 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       seekTimelineTime(nextTime, { keepPlaying: true });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [activeTimelineTime, previewPlaying, status, timelineMetrics.totalDuration]);
+  }, [
+    activeTimelineTime,
+    focusedTimelineMetric,
+    previewDuration,
+    previewPlaying,
+    previewTime,
+    speed,
+    status,
+    timelineMetrics.totalDuration,
+  ]);
 
   const mediaKind = (node: FlowNode) => {
     if (node.data?.videoUrl) return 'video';
@@ -2891,17 +3123,59 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           <aside
             className="min-h-0 border-r border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0"
             style={{ width: assetPanelWidth }}
+            onDragOver={handleAssetFileDragOver}
+            onDrop={handleAssetFileDrop}
           >
             <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
                 <Layers className="w-4 h-4 text-[var(--vr-accent)]" />
                 {isZh ? '素材卡片' : 'Asset Cards'}
               </div>
-              <span className="text-[11px] text-[var(--vr-text-muted)]">
-                {visibleAssetNodes.length}/{orderedNodes.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[var(--vr-text-muted)]">
+                  {visibleAssetNodes.length}/{allAssetNodes.length}
+                </span>
+                <div className="flex h-7 items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAssetCardLayout('row')}
+                    className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors ${assetCardLayout === 'row' ? 'bg-[var(--vr-panel)] text-[var(--vr-accent)] shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+                    title={isZh ? '横向排列' : 'Row layout'}
+                    aria-label={isZh ? '横向排列' : 'Row layout'}
+                  >
+                    <Rows3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssetCardLayout('grid')}
+                    className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors ${assetCardLayout === 'grid' ? 'bg-[var(--vr-panel)] text-[var(--vr-accent)] shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+                    title={isZh ? '网格排列' : 'Grid layout'}
+                    aria-label={isZh ? '网格排列' : 'Grid layout'}
+                  >
+                    <Grid2X2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="px-3 py-2 border-b border-[var(--vr-border)]">
+              <input
+                ref={assetUploadInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                onChange={handleAssetUploadInputChange}
+                className="hidden"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => assetUploadInputRef.current?.click()}
+                  className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-accent)] flex items-center justify-center hover:bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] transition-colors"
+                  title={isZh ? '上传素材文件' : 'Upload media assets'}
+                  aria-label={isZh ? '上传素材文件' : 'Upload media assets'}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               <select
                 value={assetRegionFilter}
                 onChange={(event) => setAssetRegionFilter(event.target.value)}
@@ -2913,8 +3187,15 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   </option>
                 ))}
               </select>
+              </div>
             </div>
-            <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
+            <div
+              className={`video-render-scroll min-h-0 flex-1 overflow-y-auto p-3 ${
+                assetCardLayout === 'grid'
+                  ? 'grid auto-rows-max grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2'
+                  : 'space-y-2'
+              }`}
+            >
               {visibleAssetNodes.map((node) => {
                 const region = nodeRegionById.get(node.id);
                 return (
@@ -2926,10 +3207,16 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                     onContextMenu={(event) =>
                       openContextMenu(event, { kind: 'asset', nodeId: node.id })
                     }
-                    className={`group cursor-grab active:cursor-grabbing rounded-lg border p-2.5 transition-all ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
+                    className={`group cursor-grab active:cursor-grabbing rounded-lg border transition-all ${
+                      assetCardLayout === 'grid' ? 'p-2' : 'p-2.5'
+                    } ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
                   >
-                    <div className="flex gap-3">
-                      <div className="relative w-20 h-14 rounded-md overflow-hidden bg-black border border-[var(--vr-border)] shrink-0 flex items-center justify-center text-[var(--vr-text-muted)]">
+                    <div className={assetCardLayout === 'grid' ? 'flex flex-col gap-2' : 'flex gap-3'}>
+                      <div
+                        className={`relative rounded-md overflow-hidden bg-black border border-[var(--vr-border)] shrink-0 flex items-center justify-center text-[var(--vr-text-muted)] ${
+                          assetCardLayout === 'grid' ? 'aspect-video w-full' : 'w-20 h-14'
+                        }`}
+                      >
                         {node.data?.imageUrl ? (
                           <img
                             src={node.data.imageUrl as string}
@@ -3011,7 +3298,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       onContextMenu={(event) =>
                         openContextMenu(event, {
                           kind: 'preview',
-                          nodeId: activePreviewNode?.id,
+                          nodeId: focusedPreviewNode?.id || activePreviewNode?.id,
                         })
                       }
                     >
@@ -3023,10 +3310,14 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       <button
                         type="button"
                         onClick={() => {
-                          if (previewTime >= previewDuration) setPreviewTime(0);
+                          if (focusedPreviewNode) {
+                            if (previewTime >= previewDuration) setPreviewTime(0);
+                          } else if (timelinePreviewTime >= timelineMetrics.totalDuration) {
+                            setTimelinePreviewTime(0);
+                          }
                           setPreviewPlaying((prev) => !prev);
                         }}
-                        disabled={!activePreviewNode || status === 'rendering'}
+                        disabled={timelineNodes.length === 0 || status === 'rendering'}
                         className="w-9 h-9 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
                         title={
                           previewPlaying
@@ -3050,13 +3341,27 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                           min={0}
                           max={Math.max(0.1, previewDuration)}
                           step={0.05}
-                          value={Math.min(previewTime, previewDuration)}
-                          valueLabel={`${formatSeconds(previewTime)} / ${formatSeconds(previewDuration)}`}
-                          disabled={!activePreviewNode || status === 'rendering'}
+                          value={
+                            focusedPreviewNode
+                              ? Math.min(previewTime, previewDuration)
+                              : Math.min(timelinePreviewTime, previewDuration)
+                          }
+                          valueLabel={`${
+                            focusedPreviewNode
+                              ? formatSeconds(previewTime)
+                              : formatSeconds(timelinePreviewTime)
+                          } / ${formatSeconds(previewDuration)}`}
+                          disabled={timelineNodes.length === 0 || status === 'rendering'}
                           hideLabel
                           onChange={(nextValue) => {
                             setPreviewPlaying(false);
-                            setPreviewTime(Math.max(0, nextValue || 0));
+                            const safeValue = Math.max(0, nextValue || 0);
+                            if (focusedTimelineMetric) {
+                              setPreviewTime(safeValue);
+                              setTimelinePreviewTime(focusedTimelineMetric.start + safeValue / speed);
+                              return;
+                            }
+                            setTimelinePreviewTime(safeValue);
                           }}
                         />
                       </div>
@@ -3411,7 +3716,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               <button
                 type="button"
                 onClick={() => seekTimelineTime(0)}
-                disabled={!activePreviewNode || status === 'rendering'}
+                disabled={timelineNodes.length === 0 || status === 'rendering'}
                 className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
                 title={isZh ? '跳到开头' : 'Jump to start'}
                 aria-label={isZh ? '跳到时间线开头' : 'Jump to timeline start'}
@@ -3426,7 +3731,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   }
                   setPreviewPlaying((prev) => !prev);
                 }}
-                disabled={!activePreviewNode || status === 'rendering'}
+                disabled={timelineNodes.length === 0 || status === 'rendering'}
                 className="h-8 w-8 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
                 title={
                   previewPlaying
@@ -3443,7 +3748,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               <button
                 type="button"
                 onClick={() => seekTimelineTime(timelineMetrics.totalDuration)}
-                disabled={!activePreviewNode || status === 'rendering'}
+                disabled={timelineNodes.length === 0 || status === 'rendering'}
                 className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
                 title={isZh ? '跳到结尾' : 'Jump to end'}
                 aria-label={isZh ? '跳到时间线结尾' : 'Jump to timeline end'}
@@ -3549,6 +3854,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   </div>
                 </div>
                 <div
+                  ref={timelineScrubSurfaceRef}
                   className="relative h-8 cursor-ew-resize rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)]"
                   style={{ width: timelineMetrics.width }}
                   onPointerDown={handleTimelineScrubStart}
@@ -3588,11 +3894,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                   style={{ left: TIMELINE_LABEL_WIDTH + 12 + timelinePlayheadLeft }}
                 >
                   <div className="h-full w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-md bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white shadow-sm whitespace-nowrap">
-                    {timelineScaleMode === 'frames'
-                      ? `${activeTimelineFrame}f`
-                      : formatSeconds(activeTimelineTime)}
-                  </div>
                 </div>
                 <div className="space-y-0">
                   <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center">
@@ -3613,7 +3914,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                     );
                     const trackMetrics = trackNodes
                       .map((node) => timelineMetricById.get(node.id))
-                      .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
+                      .filter(Boolean) as TimelineSegmentMetric[];
                     return (
                       <div
                         key={trackId}
@@ -3641,6 +3942,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                           onContextMenu={(event) =>
                             openContextMenu(event, { kind: 'empty', trackId, trackKind: 'video' })
                           }
+                          onClick={() => setFocusedPreviewId('')}
                           onDragOver={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -3678,7 +3980,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                                 onDrop={(event) =>
                                   handleTimelineDrop(event, node.id, trackId, 'video')
                                 }
-                                onClick={() => setActivePreviewId(node.id)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  focusTimelineSegment(node.id);
+                                }}
                                 onContextMenu={(event) =>
                                   openContextMenu(event, {
                                     kind: 'timeline',
@@ -3687,7 +3992,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                                     trackKind: 'video',
                                   })
                                 }
-                                className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border p-2 cursor-grab active:cursor-grabbing transition-colors ${enabled ? 'border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)]' : 'border-[var(--vr-video-track-border)] bg-[var(--vr-panel)] opacity-60'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
+                                className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border p-2 cursor-grab active:cursor-grabbing transition-colors ${enabled ? 'border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)]' : 'border-[var(--vr-video-track-border)] bg-[var(--vr-panel)] opacity-60'} ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
                                 style={{
                                   left: segmentLayout.left,
                                   width: segmentLayout.width,
@@ -3756,11 +4061,32 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                       </div>
                     );
                   })}
-                  <div className="py-1">
+                  <div className="relative h-4">
                     <div
-                      className="h-0.5 rounded-full bg-[var(--vr-border-strong)]"
+                      className="pointer-events-none absolute left-0 top-1/2 z-30 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-border-strong)]"
                       style={{ width: TIMELINE_LABEL_WIDTH + 12 + timelineMetrics.width }}
                     />
+                    <div
+                      className="absolute top-1/2 z-40 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none"
+                      style={{ left: TIMELINE_LABEL_WIDTH + 12 + timelinePlayheadLeft }}
+                      onPointerDown={handleTimelinePlayheadGrabStart}
+                      onPointerMove={handleTimelinePlayheadGrabMove}
+                      onPointerUp={handleTimelineScrubEnd}
+                      onPointerCancel={handleTimelineScrubEnd}
+                      title={isZh ? '拖动调整播放条' : 'Drag to adjust playhead'}
+                    >
+                      <div className="relative rounded-md bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white shadow-sm whitespace-nowrap">
+                        <span
+                          className="pointer-events-none absolute left-0 right-0 top-1/2 z-10 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-border-strong)]"
+                          aria-hidden="true"
+                        />
+                        <span className="relative z-20">
+                          {timelineScaleMode === 'frames'
+                            ? `${activeTimelineFrame}f`
+                            : formatSeconds(activeTimelineTime)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   {audioTrackIds.map((trackId, trackIndex) => {
                     const trackNodes = timelineNodes.filter(
@@ -3768,7 +4094,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                     );
                     const trackMetrics = trackNodes
                       .map((node) => timelineMetricById.get(node.id))
-                      .filter(Boolean) as NonNullable<typeof activeTimelineMetric>[];
+                      .filter(Boolean) as TimelineSegmentMetric[];
                     return (
                       <div
                         key={trackId}
@@ -3796,6 +4122,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                           onContextMenu={(event) =>
                             openContextMenu(event, { kind: 'empty', trackId, trackKind: 'audio' })
                           }
+                          onClick={() => setFocusedPreviewId('')}
                           onDragOver={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -3842,7 +4169,11 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
                                     trackKind: 'audio',
                                   })
                                 }
-                                className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border px-3 text-left transition-colors ${selectedIds.has(node.id) ? 'border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)]' : 'border-[var(--vr-audio-track-border)] bg-[var(--vr-panel)] opacity-55'} ${activePreviewNode?.id === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  focusTimelineSegment(node.id);
+                                }}
+                                className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border px-3 text-left transition-colors ${selectedIds.has(node.id) ? 'border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)]' : 'border-[var(--vr-audio-track-border)] bg-[var(--vr-panel)] opacity-55'} ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
                                 style={{
                                   left: segmentLayout.left,
                                   width: segmentLayout.width,

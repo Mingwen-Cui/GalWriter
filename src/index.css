@@ -908,6 +908,24 @@ input[type='range']::-moz-range-track {
   background-clip: padding-box;
 }
 
+.video-render-preview-stage {
+  container-type: size;
+}
+
+.video-render-preview-frame {
+  aspect-ratio: 16 / 9;
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  max-width: 100%;
+  max-height: 100%;
+}
+
+@supports not (width: 100cqw) {
+  .video-render-preview-frame {
+    width: auto;
+    height: 100%;
+  }
+}
+
 .video-render-range {
   --range-progress: 0%;
   height: 22px;
