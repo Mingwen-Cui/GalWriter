@@ -6,6 +6,7 @@ landingpage/
 public/downloads/
 examples/
 scripts/
+api/
 
 # Tauri/Rust generated output
 src-tauri/gen/

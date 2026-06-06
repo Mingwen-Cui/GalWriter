@@ -66,6 +66,7 @@ export type AssetRegionOption = {
 
 export type TimelineHistoryState = {
   timelineIds: string[];
+  timelineSourceById: Record<string, string>;
   selectedIds: string[];
   videoTrackIds: string[];
   audioTrackIds: string[];

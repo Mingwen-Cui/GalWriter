@@ -32,9 +32,10 @@ import {
   getDefaultRenderDir,
   saveRenderedFrames,
   saveRenderedVideo,
+  saveRenderedWebZip,
 } from './export/tauriRenderAdapter';
 import { useWebExportSettings } from './export/useWebExportSettings';
-import { exportInteractiveWebZip } from '../web/webExport';
+import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../web/webExport';
 import { WebWorkspace } from '../web/WebWorkspace';
 import { RenderContextMenu } from './panels/RenderContextMenu';
 import { RenderHeader } from './panels/RenderHeader';
@@ -128,6 +129,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
     orderedNodes.map((node) => node.id),
   );
+  const [timelineSourceById, setTimelineSourceById] = useState<Record<string, string>>({});
   const [videoTrackIds, setVideoTrackIds] = useState<string[]>(() => ['video-1']);
   const [audioTrackIds, setAudioTrackIds] = useState<string[]>(() => ['audio-1']);
   const [videoTrackByNodeId, setVideoTrackByNodeId] = useState<Record<string, string>>(() =>
@@ -149,6 +151,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [frameRate, setFrameRate] = useState(30);
   const [encoder, setEncoder] = useState('libx264');
   const [outputDir, setOutputDir] = useState('');
+  const [webOutputDir, setWebOutputDir] = useState('');
   const [renderStyle, setRenderStyle] = useState<RenderStyle>({
     titleFontSize: 56,
     bodyFontSize: 38,
@@ -195,6 +198,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [contextMenu, setContextMenu] = useState<RenderContextMenuState | null>(null);
   const [error, setError] = useState('');
   const [outputDirError, setOutputDirError] = useState('');
+  const [webOutputDirError, setWebOutputDirError] = useState('');
   const [savedPath, setSavedPath] = useState('');
   const [audioMessage, setAudioMessage] = useState('');
   const [audioBusy, setAudioBusy] = useState(false);
@@ -233,18 +237,37 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
   const previewDrawIdRef = useRef(0);
   const uploadedObjectUrlsRef = useRef<Set<string>>(new Set());
+  const timelineClipCounterRef = useRef(0);
 
   const allAssetNodes = useMemo(
     () => [...uploadedAssetNodes, ...orderedNodes],
     [orderedNodes, uploadedAssetNodes],
   );
-  const nodeById = useMemo(
+  const assetNodeById = useMemo(
     () => new Map(allAssetNodes.map((node) => [node.id, node])),
     [allAssetNodes],
   );
+  const makeTimelineClipInstanceId = (sourceId: string) => {
+    timelineClipCounterRef.current += 1;
+    return `${sourceId}::clip-${Date.now()}-${timelineClipCounterRef.current}`;
+  };
   const timelineNodes = useMemo(
-    () => timelineIds.map((id) => nodeById.get(id)).filter(Boolean) as FlowNode[],
-    [nodeById, timelineIds],
+    () =>
+      timelineIds
+        .map((id) => {
+          const sourceNode = assetNodeById.get(timelineSourceById[id] || id);
+          return sourceNode ? ({ ...sourceNode, id } as FlowNode) : null;
+        })
+        .filter(Boolean) as FlowNode[],
+    [assetNodeById, timelineIds, timelineSourceById],
+  );
+  const timelineNodeById = useMemo(
+    () => new Map(timelineNodes.map((node) => [node.id, node])),
+    [timelineNodes],
+  );
+  const nodeById = useMemo(
+    () => new Map([...assetNodeById, ...timelineNodeById]),
+    [assetNodeById, timelineNodeById],
   );
   const selectedNodes = useMemo(
     () => timelineNodes.filter((node) => selectedIds.has(node.id)),
@@ -352,6 +375,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const captureTimelineState = (): TimelineHistoryState =>
     captureTimelineHistoryState({
       timelineIds,
+      timelineSourceById,
       selectedIds,
       videoTrackIds,
       audioTrackIds,
@@ -364,6 +388,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const restoreTimelineState = (snapshot: TimelineHistoryState) => {
     restoreTimelineHistoryState(snapshot, {
       setTimelineIds,
+      setTimelineSourceById,
       setSelectedIds,
       setVideoTrackIds,
       setAudioTrackIds,
@@ -416,6 +441,33 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           : isZh
             ? '选择保存位置失败。'
             : 'Failed to choose save location.',
+      );
+    }
+  };
+
+  const chooseWebOutputDir = async () => {
+    if (!isTauriRuntime()) {
+      setWebOutputDirError(
+        isZh ? '选择文件夹仅在桌面端可用。' : 'Folder picking is only available in the desktop app.',
+      );
+      return;
+    }
+
+    try {
+      setWebOutputDirError('');
+      const result = await chooseRenderOutputDir(webOutputDir);
+      if (result?.path) {
+        setWebOutputDir(result.path);
+        setWebOutputDirError('');
+        setError('');
+      }
+    } catch (err) {
+      setWebOutputDirError(
+        err instanceof Error
+          ? err.message
+          : isZh
+            ? '选择网页导出位置失败。'
+            : 'Failed to choose web export location.',
       );
     }
   };
@@ -1069,30 +1121,52 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   React.useEffect(() => {
     const validIds = new Set(allAssetNodes.map((node) => node.id));
     setTimelineIds((prev) => {
-      const kept = prev.filter((id) => validIds.has(id));
-      const missing = orderedNodes.map((node) => node.id).filter((id) => !kept.includes(id));
-      return [...kept, ...missing];
+      const kept = prev.filter((id) => validIds.has(timelineSourceById[id] || id));
+      const sourceIdsOnTimeline = new Set(kept.map((id) => timelineSourceById[id] || id));
+      const missing = orderedNodes
+        .map((node) => node.id)
+        .filter((id) => !sourceIdsOnTimeline.has(id));
+      const next = [...kept, ...missing];
+      return next.length === prev.length && next.every((id, index) => id === prev[index])
+        ? prev
+        : next;
     });
-    setSelectedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
-    setActivePreviewId((prev) => (prev && validIds.has(prev) ? prev : allAssetNodes[0]?.id || ''));
+    setTimelineSourceById((prev) =>
+      {
+        const next = Object.fromEntries(
+          Object.entries(prev).filter(([, sourceId]) => validIds.has(sourceId)),
+        );
+        return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+      },
+    );
+    setSelectedIds((prev) =>
+      new Set([...prev].filter((id) => validIds.has(timelineSourceById[id] || id))),
+    );
+    setActivePreviewId((prev) =>
+      prev && validIds.has(timelineSourceById[prev] || prev) ? prev : allAssetNodes[0]?.id || '',
+    );
     setTimelineStartById((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([id]) => validIds.has(id))),
+      Object.fromEntries(
+        Object.entries(prev).filter(([id]) => validIds.has(timelineSourceById[id] || id)),
+      ),
     );
     setVideoTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      orderedNodes.forEach((node) => {
-        next[node.id] = videoTrackIds.includes(prev[node.id]) ? prev[node.id] : videoTrackIds[0];
+      timelineIds.forEach((id) => {
+        if (!validIds.has(timelineSourceById[id] || id)) return;
+        next[id] = videoTrackIds.includes(prev[id]) ? prev[id] : videoTrackIds[0];
       });
       return next;
     });
     setAudioTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      orderedNodes.forEach((node) => {
-        next[node.id] = audioTrackIds.includes(prev[node.id]) ? prev[node.id] : audioTrackIds[0];
+      timelineIds.forEach((id) => {
+        if (!validIds.has(timelineSourceById[id] || id)) return;
+        next[id] = audioTrackIds.includes(prev[id]) ? prev[id] : audioTrackIds[0];
       });
       return next;
     });
-  }, [allAssetNodes, orderedNodes, videoTrackIds, audioTrackIds]);
+  }, [allAssetNodes, orderedNodes, videoTrackIds, audioTrackIds, timelineIds, timelineSourceById]);
 
   React.useEffect(() => {
     const objectUrls = uploadedObjectUrlsRef.current;
@@ -1228,27 +1302,29 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     trackId?: string,
     startTime?: number,
   ) => {
-    if (!nodeById.has(id)) return;
+    if (!assetNodeById.has(id)) return;
+    const timelineId = makeTimelineClipInstanceId(id);
     closeContextMenu();
     pushTimelineHistory();
-    setTimelineIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setTimelineIds((prev) => [...prev, timelineId]);
+    setTimelineSourceById((prev) => ({ ...prev, [timelineId]: id }));
     if (trackKind === 'video' && trackId) {
-      setVideoTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+      setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
       assignAudioTrackForVideoPlacement(
-        id,
-        Math.max(0, startTime ?? timelineStartById[id] ?? timelineMetricById.get(id)?.start ?? 0),
-        timelineMetricById.get(id)?.duration || Math.max(0.25, defaultSeconds / speed),
+        timelineId,
+        Math.max(0, startTime ?? 0),
+        Math.max(0.25, defaultSeconds / speed),
         trackId,
       );
     }
     if (trackKind === 'audio' && trackId) {
-      setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
+      setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
     }
     if (typeof startTime === 'number') {
-      setTimelineStartById((prev) => ({ ...prev, [id]: Math.max(0, startTime) }));
+      setTimelineStartById((prev) => ({ ...prev, [timelineId]: Math.max(0, startTime) }));
     }
-    setSelectedIds((prev) => new Set(prev).add(id));
-    setActivePreviewId(id);
+    setSelectedIds((prev) => new Set(prev).add(timelineId));
+    setActivePreviewId(timelineId);
   };
 
   const reorderTimelineNode = (
@@ -1274,6 +1350,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => prev.filter((item) => item !== id));
+    setTimelineSourceById((prev) => {
+      const { [id]: _removed, ...next } = prev;
+      return next;
+    });
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(id);
@@ -1424,9 +1504,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   };
 
   const addNearestAssetToTimeline = (trackKind: 'video' | 'audio' = 'video') => {
-    const missingNode = visibleAssetNodes.find((node) => !timelineIds.includes(node.id));
-    if (!missingNode) return;
-    addNodeToTimeline(missingNode.id, trackKind);
+    const node = visibleAssetNodes[0];
+    if (!node) return;
+    addNodeToTimeline(node.id, trackKind);
   };
 
   const handleAssetDragStart = (
@@ -1437,6 +1517,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   ) => {
     event.stopPropagation();
     event.dataTransfer.setData('application/x-galwriter-node', id);
+    event.dataTransfer.setData(
+      'application/x-galwriter-drag-origin',
+      trackKind ? 'timeline' : 'asset',
+    );
     if (trackKind) event.dataTransfer.setData('application/x-galwriter-track-kind', trackKind);
     event.dataTransfer.setData(
       'application/x-galwriter-drag-offset-seconds',
@@ -1458,6 +1542,9 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       event.dataTransfer.getData('application/x-galwriter-node') ||
       event.dataTransfer.getData('text/plain');
     if (!draggedId) return;
+    const dragOrigin = event.dataTransfer.getData('application/x-galwriter-drag-origin');
+    const isTimelineClip = dragOrigin === 'timeline' && timelineIds.includes(draggedId);
+    if (!isTimelineClip && !assetNodeById.has(draggedId)) return;
     const droppedTrackKind =
       trackKind ||
       (event.dataTransfer.getData('application/x-galwriter-track-kind') as 'video' | 'audio') ||
@@ -1471,40 +1558,45 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         Number.parseFloat(
           event.dataTransfer.getData('application/x-galwriter-drag-offset-seconds'),
         ) || 0;
-      const duration =
-        timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed);
+      const timelineId = isTimelineClip ? draggedId : makeTimelineClipInstanceId(draggedId);
+      const duration = isTimelineClip
+        ? timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed)
+        : Math.max(0.25, defaultSeconds / speed);
       const droppedTime =
         (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
         dragOffsetSeconds;
       const nextStart = findNonOverlappingTrackStart(
-        draggedId,
+        timelineId,
         droppedTime,
         duration,
         droppedTrackKind,
         trackId,
       );
-      const shouldPreservePlayhead = draggedId === activePreviewId;
+      const shouldPreservePlayhead = timelineId === activePreviewId;
       const preservedTimelineTime = activeTimelineTime;
 
       pushTimelineHistory();
-      setTimelineIds((prev) => (prev.includes(draggedId) ? prev : [...prev, draggedId]));
-      if (droppedTrackKind === 'video') {
-        setVideoTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
-        assignAudioTrackForVideoPlacement(draggedId, nextStart, duration, trackId);
-      } else {
-        setAudioTrackByNodeId((prev) => ({ ...prev, [draggedId]: trackId }));
+      setTimelineIds((prev) => (prev.includes(timelineId) ? prev : [...prev, timelineId]));
+      if (!isTimelineClip) {
+        setTimelineSourceById((prev) => ({ ...prev, [timelineId]: draggedId }));
       }
-      setTimelineStartById((prev) => ({ ...prev, [draggedId]: nextStart }));
+      if (droppedTrackKind === 'video') {
+        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
+        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, trackId);
+      } else {
+        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
+      }
+      setTimelineStartById((prev) => ({ ...prev, [timelineId]: nextStart }));
       if (shouldPreservePlayhead) {
         preservePreviewTimeOnNodeChangeRef.current = true;
         setPreviewTime(clamp((preservedTimelineTime - nextStart) * speed, 0, duration * speed));
       }
-      setSelectedIds((prev) => new Set(prev).add(draggedId));
-      if (!activePreviewId) setActivePreviewId(draggedId);
+      setSelectedIds((prev) => new Set(prev).add(timelineId));
+      if (!activePreviewId || !isTimelineClip) setActivePreviewId(timelineId);
       return;
     }
 
-    if (targetId && timelineIds.includes(draggedId)) {
+    if (targetId && isTimelineClip) {
       reorderTimelineNode(
         draggedId,
         targetId,
@@ -2018,7 +2110,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setProgress(isZh ? '正在生成网页 ZIP...' : 'Generating web ZIP...');
 
     try {
-      await exportInteractiveWebZip(storyNodes, edges, {
+      const webExportOptions = {
         projectName: exportTitle,
         language,
         style: {
@@ -2027,11 +2119,26 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           choiceTextColor: webChoiceTextColor,
         },
         settings: webSettings,
-      });
+      };
+
+      if (isTauriRuntime()) {
+        const blob = await buildInteractiveWebZipBlob(storyNodes, edges, webExportOptions);
+        setProgressValue(70);
+        setProgress(isZh ? '正在保存网页 ZIP...' : 'Saving web ZIP...');
+        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+        const result = await saveRenderedWebZip({
+          fileName: `${exportTitle}-web`,
+          bytes,
+          outputDir: webOutputDir,
+        });
+        setSavedPath(result.path);
+      } else {
+        await exportInteractiveWebZip(storyNodes, edges, webExportOptions);
+        setSavedPath(`${exportTitle}-web.zip`);
+      }
       setStatus('done');
       setProgressValue(100);
       setProgress(isZh ? '网页 ZIP 已导出' : 'Web ZIP exported');
-      setSavedPath(`${exportTitle}-web.zip`);
     } catch (exportError: any) {
       console.error('Web export failed:', exportError);
       setStatus('error');
@@ -2211,7 +2318,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     menu: RenderContextMenuTarget,
     node?: FlowNode,
   ): RenderContextMenuSection[] => {
-    const isTimelineNode = !!node && timelineIds.includes(node.id);
+    const isTimelineNode =
+      !!node && (menu.kind === 'timeline' || menu.kind === 'audio') && timelineIds.includes(node.id);
     const canMutate = status !== 'rendering';
 
     if (!node) {
@@ -2222,15 +2330,13 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
               label: isZh ? '插入最近素材到视频轨' : 'Insert next asset to video track',
               icon: <ListPlus className="w-4 h-4" />,
               onSelect: () => addNearestAssetToTimeline('video'),
-              disabled:
-                !canMutate || visibleAssetNodes.every((item) => timelineIds.includes(item.id)),
+              disabled: !canMutate || visibleAssetNodes.length === 0,
             },
             {
               label: isZh ? '插入最近素材到音频轨' : 'Insert next asset to audio track',
               icon: <Mic className="w-4 h-4" />,
               onSelect: () => addNearestAssetToTimeline('audio'),
-              disabled:
-                !canMutate || visibleAssetNodes.every((item) => timelineIds.includes(item.id)),
+              disabled: !canMutate || visibleAssetNodes.length === 0,
             },
           ],
         },
@@ -2678,7 +2784,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             error={error}
             progressValue={progressValue}
             savedPath={savedPath}
+            outputDir={webOutputDir}
+            outputDirError={webOutputDirError}
             setWebProjectName={setWebProjectName}
+            setOutputDir={setWebOutputDir}
+            setOutputDirError={setWebOutputDirError}
+            chooseOutputDir={chooseWebOutputDir}
             updateWebSettings={updateWebSettings}
             updateWebChoiceTextColor={updateWebChoiceTextColor}
             updateWebChoiceColor={updateWebChoiceColor}

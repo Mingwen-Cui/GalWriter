@@ -1,5 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { Play, Settings } from 'lucide-react';
+import { FolderOpen, Play, Settings } from 'lucide-react';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl, RangeControl } from '../video/controls/RenderControls';
@@ -22,7 +22,12 @@ type WebWorkspaceProps = {
   error: string;
   progressValue: number;
   savedPath: string;
+  outputDir: string;
+  outputDirError: string;
   setWebProjectName: (value: string) => void;
+  setOutputDir: (value: string) => void;
+  setOutputDirError: (value: string) => void;
+  chooseOutputDir: () => void;
   updateWebSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
   updateWebChoiceTextColor: (value: string) => void;
   updateWebChoiceColor: (value: string) => void;
@@ -43,7 +48,12 @@ export function WebWorkspace({
   error,
   progressValue,
   savedPath,
+  outputDir,
+  outputDirError,
   setWebProjectName,
+  setOutputDir,
+  setOutputDirError,
+  chooseOutputDir,
   updateWebSettings,
   updateWebChoiceTextColor,
   updateWebChoiceColor,
@@ -97,6 +107,40 @@ export function WebWorkspace({
               className="h-10 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-sm font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
             />
           </div>
+
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
+              {t('导出位置', '書き出し先', 'Export location')}
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={outputDir}
+                onChange={(event) => {
+                  setOutputDir(event.target.value);
+                  setOutputDirError('');
+                }}
+                placeholder={t('未指定时保存到系统下载目录', '未指定ならダウンロードに保存', 'Defaults to Downloads')}
+                className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
+                  outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={chooseOutputDir}
+                className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                title={t('选择导出文件夹', '書き出しフォルダーを選択', 'Choose export folder')}
+                aria-label={t('选择导出文件夹', '書き出しフォルダーを選択', 'Choose export folder')}
+              >
+                <FolderOpen className="mx-auto h-4 w-4" />
+              </button>
+            </div>
+            {outputDirError && (
+              <span className="block text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                {outputDirError}
+              </span>
+            )}
+          </label>
 
           <WebSegmentedSetting
             title={t('界面排版', 'レイアウト', 'Layout')}

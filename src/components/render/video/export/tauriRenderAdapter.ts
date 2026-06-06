@@ -3,6 +3,7 @@ import type {
   RenderSaveResult,
   SaveRenderedFramesInput,
   SaveRenderedVideoInput,
+  SaveRenderedWebZipInput,
 } from './renderExportTypes';
 
 type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -30,4 +31,9 @@ export const saveRenderedFrames = async (input: SaveRenderedFramesInput) => {
 export const saveRenderedVideo = async (input: SaveRenderedVideoInput) => {
   const invoke = await loadInvoke();
   return invoke<RenderSaveResult>('save_rendered_video', input);
+};
+
+export const saveRenderedWebZip = async (input: SaveRenderedWebZipInput) => {
+  const invoke = await loadInvoke();
+  return invoke<RenderSaveResult>('save_rendered_web_zip', input);
 };

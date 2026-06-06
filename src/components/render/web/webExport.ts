@@ -155,7 +155,9 @@ const WEB_EXPORT_ICONS: Record<string, string> = {
   'app.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0ea5e9"/><path d="M18 16h28a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4Z" fill="#082f49"/><path d="M23 26h18M23 34h13M23 42h20" stroke="#e0f2fe" stroke-width="4" stroke-linecap="round"/></svg>`,
   'arrow-left.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
   'reset.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>`,
-  'settings.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.05.05a2.1 2.1 0 0 1-3 3l-.05-.05a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1.08 1.65V21a2.1 2.1 0 0 1-4.2 0v-.08A1.8 1.8 0 0 0 8.4 19.3a1.8 1.8 0 0 0-2 .36l-.05.05a2.1 2.1 0 1 1-3-3l.05-.05a1.8 1.8 0 0 0 .36-2A1.8 1.8 0 0 0 2.1 13H2a2.1 2.1 0 0 1 0-4.2h.08A1.8 1.8 0 0 0 3.7 7.72a1.8 1.8 0 0 0-.36-2l-.05-.05a2.1 2.1 0 0 1 3-3l.05.05a1.8 1.8 0 0 0 2 .36H8.4A1.8 1.8 0 0 0 9.5 1.42V1.3a2.1 2.1 0 1 1 4.2 0v.08a1.8 1.8 0 0 0 1.08 1.65 1.8 1.8 0 0 0 2-.36l.05-.05a2.1 2.1 0 1 1 3 3l-.05.05a1.8 1.8 0 0 0-.36 2V7.7A1.8 1.8 0 0 0 21.08 8H21a2.1 2.1 0 0 1 0 4.2h-.08A1.8 1.8 0 0 0 19.4 15Z"/></svg>`,
+  'play.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#f8fafc"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.9l10.2-6.8a1 1 0 0 0 0-1.7L9.6 4.3A1 1 0 0 0 8 5.2Z"/></svg>`,
+  'pause.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#f8fafc"><path d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>`,
+  'wand.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5"/><path d="M14 5 3 16l5 5L19 10"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>`,
   'eye.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`,
   'eye-off.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.9 5.3A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.3 3.4"/><path d="M6.6 6.8C3.6 8.8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.7-1.2"/></svg>`,
 };
@@ -218,7 +220,6 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     h1 { display: none; margin: 0; font-size: 15px; letter-spacing: 0; }
     .toolbar { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-    .settings-wrap { position: relative; }
     .tool {
       border: 1px solid rgba(255,255,255,0.16);
       background: rgba(255,255,255,0.08);
@@ -231,66 +232,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       align-items: center;
       justify-content: center;
       gap: 7px;
+      text-decoration: none;
     }
     .tool img { width: 18px; height: 18px; display: block; }
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
-    .settings-menu {
-      position: absolute;
-      right: 0;
-      top: calc(100% + 10px);
-      z-index: 20;
-      width: min(560px, calc(100vw - 24px));
-      max-height: min(72vh, 560px);
-      overflow: auto;
-      padding: 14px;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 16px;
-      background: rgba(8, 11, 18, 0.94);
-      box-shadow: 0 24px 80px rgba(0,0,0,0.42);
-      backdrop-filter: blur(18px);
-    }
-    .settings-menu[hidden] { display: none; }
-    .settings-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .settings-card {
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 12px;
-      background: rgba(255,255,255,0.04);
-      padding: 12px;
-    }
-    .settings-card.wide { grid-column: 1 / -1; }
-    .settings-label {
-      margin: 0 0 8px;
-      color: rgba(248,250,252,0.52);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-    .settings-buttons {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .settings-buttons.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .settings-option {
-      min-height: 34px;
-      border: 0;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.10);
-      color: rgba(248,250,252,0.78);
-      padding: 8px;
-      font-size: 12px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    .settings-option.active {
-      background: #0ea5e9;
-      color: #ffffff;
-    }
     main {
       position: relative;
       min-height: 0;
@@ -491,8 +436,6 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         margin-left: 12px;
         margin-right: 12px;
       }
-      .settings-grid { grid-template-columns: 1fr; }
-      .settings-menu { right: 0; }
     }
   </style>
 </head>
@@ -503,10 +446,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       <div class="toolbar">
         <button class="tool" id="backButton" type="button"></button>
         <button class="tool" id="resetButton" type="button"></button>
-        <div class="settings-wrap">
-          <button class="tool" id="settingsButton" type="button" aria-haspopup="true" aria-expanded="false"><img src="./icons/settings.svg" alt="" /></button>
-          <div class="settings-menu" id="settingsMenu" hidden></div>
-        </div>
+        <button class="tool" id="autoButton" type="button"></button>
+        <a class="tool" id="makeButton" href="https://mingwencui.com/AIwriter/?lang=zh" target="_blank" rel="noopener noreferrer"></a>
       </div>
     </header>
     <main>
@@ -535,72 +476,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
-      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u7f6e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c" }
+      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c" }
       : content.language === "ja"
-        ? { back: "\\u623b\\u308b", reset: "\\u30ea\\u30bb\\u30c3\\u30c8", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093" }
-        : { back: "Back", reset: "Reset", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview" };
-    const menuText = content.language === "zh"
-      ? {
-          layout: "\\u754c\\u9762\\u6392\\u7248",
-          classic: "\\u7ecf\\u5178",
-          immersive: "\\u6c89\\u6d78",
-          choices: "\\u9009\\u9879\\u4f4d\\u7f6e",
-          center: "\\u4e2d\\u95f4",
-          above: "\\u4e0a\\u65b9",
-          below: "\\u4e0b\\u65b9",
-          interaction: "\\u4ea4\\u4e92",
-          typewriter: "\\u6253\\u5b57\\u673a",
-          immediate: "\\u7acb\\u5373\\u663e\\u793a",
-          auto: "\\u81ea\\u52a8\\u7ffb\\u9875",
-          autoOn: "\\u81ea\\u52a8",
-          manual: "\\u624b\\u52a8",
-          display: "\\u663e\\u793a\\u6548\\u679c",
-          blur: "\\u80cc\\u666f\\u865a\\u5316",
-          skipSingle: "\\u9690\\u85cf\\u5355\\u9009",
-          media: "\\u5a92\\u4f53",
-          autoplay: "\\u89c6\\u9891\\u81ea\\u52a8\\u64ad\\u653e"
-        }
-      : content.language === "ja"
-        ? {
-            layout: "\\u30ec\\u30a4\\u30a2\\u30a6\\u30c8",
-            classic: "\\u30af\\u30e9\\u30b7\\u30c3\\u30af",
-            immersive: "\\u6ca1\\u5165",
-            choices: "\\u9078\\u629e\\u80a2\\u306e\\u4f4d\\u7f6e",
-            center: "\\u4e2d\\u592e",
-            above: "\\u4e0a",
-            below: "\\u4e0b",
-            interaction: "\\u30a4\\u30f3\\u30bf\\u30e9\\u30af\\u30b7\\u30e7\\u30f3",
-            typewriter: "\\u30bf\\u30a4\\u30d7\\u30e9\\u30a4\\u30bf\\u30fc",
-            immediate: "\\u5373\\u6642\\u8868\\u793a",
-            auto: "\\u81ea\\u52d5\\u9032\\u884c",
-            autoOn: "\\u30aa\\u30f3",
-            manual: "\\u624b\\u52d5",
-            display: "\\u8868\\u793a\\u52b9\\u679c",
-            blur: "\\u80cc\\u666f\\u307c\\u304b\\u3057",
-            skipSingle: "\\u5358\\u4e00\\u9078\\u629e\\u3092\\u96a0\\u3059",
-            media: "\\u30e1\\u30c7\\u30a3\\u30a2",
-            autoplay: "\\u52d5\\u753b\\u81ea\\u52d5\\u518d\\u751f"
-          }
-      : {
-          layout: "Layout",
-          classic: "Classic",
-          immersive: "Immersive",
-          choices: "Choice Position",
-          center: "Center",
-          above: "Above",
-          below: "Below",
-          interaction: "Interaction",
-          typewriter: "Typewriter",
-          immediate: "Immediate",
-          auto: "Auto Advance",
-          autoOn: "On",
-          manual: "Manual",
-          display: "Display",
-          blur: "Backdrop Blur",
-          skipSingle: "Skip Single",
-          media: "Media",
-          autoplay: "Video Autoplay"
-        };
+        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093" }
+        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview" };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -611,12 +490,14 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const backdropEl = document.getElementById("backdrop");
     const backButton = document.getElementById("backButton");
     const resetButton = document.getElementById("resetButton");
-    const settingsButton = document.getElementById("settingsButton");
-    const settingsMenu = document.getElementById("settingsMenu");
+    const autoButton = document.getElementById("autoButton");
+    const makeButton = document.getElementById("makeButton");
     const zenButton = document.getElementById("zenButton");
     titleEl.textContent = content.title || "GalWriter";
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
+    makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + labels.make + '</span>';
+    updateAutoButton();
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
     backdropEl.classList.toggle("blurred", settings.blurBackground);
     let typewriterTimers = [];
@@ -627,65 +508,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       return (node && node.data && node.data.title) || labels.option;
     }
 
-    function activeClass(condition) {
-      return condition ? " active" : "";
-    }
-
-    function settingButton(label, action, value, active) {
-      return '<button class="settings-option' + activeClass(active) + '" type="button" data-action="' + action + '" data-value="' + value + '">' + label + '</button>';
-    }
-
-    function renderSettingsMenu() {
-      settingsMenu.innerHTML =
-        '<div class="settings-grid">' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.layout + '</div>' +
-            '<div class="settings-buttons">' +
-              settingButton(menuText.classic, "layoutMode", "classic", settings.layoutMode === "classic") +
-              settingButton(menuText.immersive, "layoutMode", "immersive", settings.layoutMode === "immersive") +
-            '</div>' +
-          '</div>' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.choices + '</div>' +
-            '<div class="settings-buttons three">' +
-              settingButton(menuText.center, "choicesPosition", "center", settings.choicesPosition === "center") +
-              settingButton(menuText.above, "choicesPosition", "aboveText", settings.choicesPosition === "aboveText") +
-              settingButton(menuText.below, "choicesPosition", "belowText", settings.choicesPosition === "belowText") +
-            '</div>' +
-          '</div>' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.interaction + '</div>' +
-            '<div class="settings-buttons">' +
-              settingButton(menuText.typewriter, "interactionMode", "typewriter", settings.interactionMode === "typewriter") +
-              settingButton(menuText.immediate, "interactionMode", "immediate", settings.interactionMode === "immediate") +
-            '</div>' +
-          '</div>' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.auto + '</div>' +
-            '<div class="settings-buttons">' +
-              settingButton(menuText.autoOn, "autoAdvance", "true", settings.autoAdvance) +
-              settingButton(menuText.manual, "autoAdvance", "false", !settings.autoAdvance) +
-            '</div>' +
-          '</div>' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.display + '</div>' +
-            '<div class="settings-buttons">' +
-              settingButton(menuText.blur, "blurBackground", String(!settings.blurBackground), settings.blurBackground) +
-              settingButton(menuText.skipSingle, "skipSingleChoicePopup", String(!settings.skipSingleChoicePopup), settings.skipSingleChoicePopup) +
-            '</div>' +
-          '</div>' +
-          '<div class="settings-card">' +
-            '<div class="settings-label">' + menuText.media + '</div>' +
-            settingButton(menuText.autoplay, "videoAutoPlay", String(!settings.videoAutoPlay), settings.videoAutoPlay) +
-          '</div>' +
-        '</div>';
-    }
-
-    function applyRuntimeSettings() {
-      document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
-      backdropEl.classList.toggle("blurred", settings.blurBackground);
-      renderSettingsMenu();
-      render();
+    function updateAutoButton() {
+      autoButton.innerHTML = '<img src="./icons/' + (settings.autoAdvance ? 'pause.svg' : 'play.svg') + '" alt="" /><span>' + (settings.autoAdvance ? labels.autoOn : labels.autoOff) + '</span>';
+      autoButton.setAttribute("aria-pressed", String(settings.autoAdvance));
     }
 
     function outEdges(id) {
@@ -839,42 +664,16 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       currentId = root ? root.id : null;
       render();
     });
+    autoButton.addEventListener("click", () => {
+      settings.autoAdvance = !settings.autoAdvance;
+      updateAutoButton();
+      render();
+    });
     zenButton.addEventListener("click", () => {
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
     });
-    settingsButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const willOpen = settingsMenu.hidden;
-      settingsMenu.hidden = !willOpen;
-      settingsButton.setAttribute("aria-expanded", String(willOpen));
-      if (willOpen) renderSettingsMenu();
-    });
-    settingsMenu.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const button = target.closest("[data-action]");
-      if (!(button instanceof HTMLElement)) return;
-      const action = button.getAttribute("data-action");
-      const value = button.getAttribute("data-value");
-      if (!action || value == null) return;
-      if (action === "autoAdvance" || action === "blurBackground" || action === "skipSingleChoicePopup" || action === "videoAutoPlay") {
-        settings[action] = value === "true";
-      } else {
-        settings[action] = value;
-      }
-      applyRuntimeSettings();
-    });
-    document.addEventListener("click", (event) => {
-      if (settingsMenu.hidden) return;
-      const target = event.target;
-      if (target instanceof Node && settingsMenu.parentElement?.contains(target)) return;
-      settingsMenu.hidden = true;
-      settingsButton.setAttribute("aria-expanded", "false");
-    });
-    renderSettingsMenu();
     render();
   </script>
 </body>
@@ -894,6 +693,21 @@ function escapeHtml(value: string) {
 }
 
 export async function exportInteractiveWebZip(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  options: WebExportOptions,
+) {
+  const blob = await buildInteractiveWebZipBlob(nodes, edges, options);
+  const title = options.projectName?.trim() || 'galwriter-web';
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${safeFilePart(title)}-web.zip`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function buildInteractiveWebZipBlob(
   nodes: FlowNode[],
   edges: FlowEdge[],
   options: WebExportOptions,
@@ -977,11 +791,5 @@ export async function exportInteractiveWebZip(
   );
   zip.folder('images');
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${safeFilePart(title)}-web.zip`;
-  link.click();
-  URL.revokeObjectURL(url);
+  return zip.generateAsync({ type: 'blob' });
 }
