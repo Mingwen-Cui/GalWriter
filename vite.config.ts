@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const arkImageProxy = (): Plugin => ({
   name: 'ark-image-proxy',
@@ -59,16 +59,12 @@ const arkImageProxy = (): Plugin => ({
   },
 });
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
   return {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
     plugins: [arkImageProxy(), react(), tailwindcss()],
     clearScreen: false,
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

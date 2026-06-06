@@ -23,13 +23,13 @@ type VideoTimelinePanelProps = {
   setTimelineSnapEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   timelineWheelMode: TimelineWheelMode;
   setTimelineWheelMode: (value: TimelineWheelMode) => void;
-  timelineViewportRef: React.RefObject<HTMLDivElement>;
+  timelineViewportRef: React.RefObject<HTMLDivElement | null>;
   syncTimelineScrollInfo: () => void;
   handleTimelineDrop: (event: React.DragEvent<HTMLElement>, targetId?: string, trackId?: string, trackKind?: 'video' | 'audio') => void;
   openContextMenu: (event: React.MouseEvent<HTMLElement>, target: any) => void;
   timelineScaleMode: TimelineScaleMode;
   setTimelineScaleMode: (value: TimelineScaleMode) => void;
-  timelineScrubSurfaceRef: React.RefObject<HTMLDivElement>;
+  timelineScrubSurfaceRef: React.RefObject<HTMLDivElement | null>;
   handleTimelineScrubStart: (event: React.PointerEvent<HTMLElement>) => void;
   handleTimelineScrubMove: (event: React.PointerEvent<HTMLElement>) => void;
   handleTimelineScrubEnd: (event: React.PointerEvent<HTMLElement>) => void;

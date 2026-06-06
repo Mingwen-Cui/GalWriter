@@ -1,5 +1,4 @@
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import JSZip from 'jszip';
+import type { Node as FlowNode } from '@xyflow/react';
 import {
   CheckCircle2,
   Clock,
@@ -27,8 +26,14 @@ import type { Language } from '../../../lib/i18n';
 import { generateSpeechAudio, htmlToSpeechText } from '../../../lib/tts';
 import { buildAudioTrack } from './audio/audioTrack';
 import { getAssetRegionOptions, getStoryNodeRegion } from './assets/assetRegions';
-import { animatedTextState } from './canvas/textAnimation';
 import { ResizeHandle, makeTrackId } from './controls/RenderControls';
+import {
+  chooseRenderOutputDir,
+  getDefaultRenderDir,
+  saveRenderedFrames,
+  saveRenderedVideo,
+} from './export/tauriRenderAdapter';
+import { useWebExportSettings } from './export/useWebExportSettings';
 import { exportInteractiveWebZip } from '../web/webExport';
 import { WebWorkspace } from '../web/WebWorkspace';
 import { RenderContextMenu } from './panels/RenderContextMenu';
@@ -37,11 +42,10 @@ import { VideoAssetSidebar } from './panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from './panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from './panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from './panels/VideoTimelinePanel';
+import { drawRenderFrame } from './preview/frameRenderer';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
-  ASSET_CHUNK_SIZE,
-  AUDIO_CHUNK_SIZE,
   DEFAULT_VIDEO_BITRATE,
   ENCODER_OPTIONS,
   EXPORT_FORMAT_OPTIONS,
@@ -61,26 +65,21 @@ import {
   getAudioDuration,
   getSupportedMimeType,
   isTauriRuntime,
-  loadCachedImage,
   loadVideo,
   seekVideo,
   validDuration,
   wait,
 } from './shared/mediaUtils';
 import {
-  drawCoverImage,
   getNodeDisplayTitle,
   getOrderedStoryNodes,
-  normalizeAssetPath,
   stripHtml,
-  wrapText,
 } from './shared/storyNodes';
 import { renderCopy } from './shared/renderCopy';
 import type {
   AssetCardLayout,
   ExportFormat,
   ExportSettingsMode,
-  HighPerfSegmentPayload,
   RenderContextMenuSection,
   RenderContextMenuState,
   RenderContextMenuTarget,
@@ -89,17 +88,14 @@ import type {
   RenderWorkspaceMode,
   RenderedFramePayload,
   SegmentRenderInfo,
-  TauriRenderSaveResult,
-  TauriRenderSessionResult,
   TextAnimation,
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineSegmentMetric,
   TimelineWheelMode,
   VideoRenderModalProps,
-  WebExportSettings,
-  WebHistoryState,
 } from './shared/types';
+import { captureTimelineHistoryState, restoreTimelineHistoryState } from './timeline/timelineHistory';
 import { getTimelineTickSettings } from './timeline/timelineUtils';
 
 export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
@@ -109,19 +105,23 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
   );
-  const [webProjectName, setWebProjectName] = useState(defaultWebProjectName);
-  const [webChoiceColor, setWebChoiceColor] = useState('#0ea5e9');
-  const [webChoiceTextColor, setWebChoiceTextColor] = useState('#ffffff');
-  const [webSettings, setWebSettings] = useState<WebExportSettings>({
-    layoutMode: 'immersive',
-    choicesPosition: 'center',
-    blurBackground: true,
-    skipSingleChoicePopup: true,
-    interactionMode: 'typewriter',
-    typewriterSpeed: 65,
-    autoAdvance: false,
-    videoAutoPlay: false,
-  });
+  const [status, setStatus] = useState<RenderStatus>('idle');
+  const {
+    webProjectName,
+    setWebProjectName,
+    webChoiceColor,
+    webChoiceTextColor,
+    webSettings,
+    webRenderStyle,
+    webPast,
+    webFuture,
+    undoWeb,
+    redoWeb,
+    updateWebSettings,
+    updateWebRenderStyle,
+    updateWebChoiceColor,
+    updateWebChoiceTextColor,
+  } = useWebExportSettings(defaultWebProjectName, status === 'rendering');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(orderedNodes.map((node) => node.id)),
   );
@@ -139,8 +139,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>({});
   const [timelinePast, setTimelinePast] = useState<TimelineHistoryState[]>([]);
   const [timelineFuture, setTimelineFuture] = useState<TimelineHistoryState[]>([]);
-  const [webPast, setWebPast] = useState<WebHistoryState[]>([]);
-  const [webFuture, setWebFuture] = useState<WebHistoryState[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string>(() => orderedNodes[0]?.id || '');
   const [assetRegionFilter, setAssetRegionFilter] = useState('all');
   const [resolutionIndex, setResolutionIndex] = useState(0);
@@ -150,8 +148,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [animationLeadSeconds, setAnimationLeadSeconds] = useState(0);
   const [frameRate, setFrameRate] = useState(30);
   const [encoder, setEncoder] = useState('libx264');
-  const [typewriterEnabled, setTypewriterEnabled] = useState(true);
-  const [zipFile, setZipFile] = useState<File | null>(null);
   const [outputDir, setOutputDir] = useState('');
   const [renderStyle, setRenderStyle] = useState<RenderStyle>({
     titleFontSize: 56,
@@ -162,16 +158,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     titleAnimation: 'none',
     bodyAnimation: 'typewriter',
   });
-  const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>({
-    titleFontSize: 34,
-    bodyFontSize: 18,
-    titleColor: '#ffffff',
-    bodyColor: '#f8fafc',
-    panelColor: '#111827',
-    titleAnimation: 'none',
-    bodyAnimation: 'typewriter',
-  });
-  const [status, setStatus] = useState<RenderStatus>('idle');
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
   const [estimatedDuration, setEstimatedDuration] = useState(0);
@@ -215,7 +201,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [isRecordingVoiceover, setIsRecordingVoiceover] = useState(false);
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const zipInputRef = useRef<HTMLInputElement>(null);
   const assetUploadInputRef = useRef<HTMLInputElement>(null);
   const assetViewportRef = useRef<HTMLDivElement>(null);
   const timelineViewportRef = useRef<HTMLDivElement>(null);
@@ -364,50 +349,34 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     return ticks;
   }, [timelineMetrics.displayDuration, timelineTickSettings.step]);
 
-  const captureTimelineState = (): TimelineHistoryState => ({
-    timelineIds: [...timelineIds],
-    selectedIds: [...selectedIds],
-    videoTrackIds: [...videoTrackIds],
-    audioTrackIds: [...audioTrackIds],
-    videoTrackByNodeId: { ...videoTrackByNodeId },
-    audioTrackByNodeId: { ...audioTrackByNodeId },
-    timelineStartById: { ...timelineStartById },
-    activePreviewId,
-  });
+  const captureTimelineState = (): TimelineHistoryState =>
+    captureTimelineHistoryState({
+      timelineIds,
+      selectedIds,
+      videoTrackIds,
+      audioTrackIds,
+      videoTrackByNodeId,
+      audioTrackByNodeId,
+      timelineStartById,
+      activePreviewId,
+    });
 
   const restoreTimelineState = (snapshot: TimelineHistoryState) => {
-    setTimelineIds(snapshot.timelineIds);
-    setSelectedIds(new Set(snapshot.selectedIds));
-    setVideoTrackIds(snapshot.videoTrackIds);
-    setAudioTrackIds(snapshot.audioTrackIds);
-    setVideoTrackByNodeId(snapshot.videoTrackByNodeId);
-    setAudioTrackByNodeId(snapshot.audioTrackByNodeId);
-    setTimelineStartById(snapshot.timelineStartById || {});
-    setActivePreviewId(snapshot.activePreviewId);
+    restoreTimelineHistoryState(snapshot, {
+      setTimelineIds,
+      setSelectedIds,
+      setVideoTrackIds,
+      setAudioTrackIds,
+      setVideoTrackByNodeId,
+      setAudioTrackByNodeId,
+      setTimelineStartById,
+      setActivePreviewId,
+    });
   };
 
   const pushTimelineHistory = () => {
     setTimelinePast((prev) => [...prev, captureTimelineState()]);
     setTimelineFuture([]);
-  };
-
-  const captureWebState = (): WebHistoryState => ({
-    settings: { ...webSettings },
-    renderStyle: { ...webRenderStyle },
-    choiceColor: webChoiceColor,
-    choiceTextColor: webChoiceTextColor,
-  });
-
-  const restoreWebState = (snapshot: WebHistoryState) => {
-    setWebSettings(snapshot.settings);
-    setWebRenderStyle(snapshot.renderStyle);
-    setWebChoiceColor(snapshot.choiceColor);
-    setWebChoiceTextColor(snapshot.choiceTextColor);
-  };
-
-  const pushWebHistory = () => {
-    setWebPast((prev) => [...prev, captureWebState()]);
-    setWebFuture([]);
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -434,10 +403,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
     try {
       setOutputDirError('');
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<{ path?: string | null }>('choose_render_output_dir', {
-        initialDir: outputDir,
-      });
+      const result = await chooseRenderOutputDir(outputDir);
       if (result?.path) {
         setOutputDir(result.path);
         setOutputDirError('');
@@ -485,22 +451,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setTimelineFuture((prev) => prev.slice(1));
     setTimelinePast((prev) => [...prev, captureTimelineState()]);
     restoreTimelineState(next);
-  };
-
-  const undoWeb = () => {
-    if (webPast.length === 0 || status === 'rendering') return;
-    const previous = webPast[webPast.length - 1];
-    setWebPast((prev) => prev.slice(0, -1));
-    setWebFuture((prev) => [captureWebState(), ...prev]);
-    restoreWebState(previous);
-  };
-
-  const redoWeb = () => {
-    if (webFuture.length === 0 || status === 'rendering') return;
-    const next = webFuture[0];
-    setWebFuture((prev) => prev.slice(1));
-    setWebPast((prev) => [...prev, captureWebState()]);
-    restoreWebState(next);
   };
 
   const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean; preserveFocus?: boolean }) => {
@@ -1233,8 +1183,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     let cancelled = false;
     const loadDefaultDir = async () => {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const result = await invoke<TauriRenderSaveResult>('default_render_dir');
+        const result = await getDefaultRenderDir();
         if (!cancelled) setOutputDir(result.path);
       } catch {
         if (!cancelled) setOutputDir('');
@@ -1665,33 +1614,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setRenderStyle((prev) => ({ ...prev, [key]: value }));
   };
 
-  const updateWebRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
-    if (webRenderStyle[key] === value) return;
-    pushWebHistory();
-    setWebRenderStyle((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const updateWebSettings = <K extends keyof WebExportSettings>(
-    key: K,
-    value: WebExportSettings[K],
-  ) => {
-    if (webSettings[key] === value) return;
-    pushWebHistory();
-    setWebSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const updateWebChoiceColor = (value: string) => {
-    if (webChoiceColor === value) return;
-    pushWebHistory();
-    setWebChoiceColor(value);
-  };
-
-  const updateWebChoiceTextColor = (value: string) => {
-    if (webChoiceTextColor === value) return;
-    pushWebHistory();
-    setWebChoiceTextColor(value);
-  };
-
   const updateProgress = (label: string, current: number, total: number) => {
     const percent = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
     setProgress(`${label} ${percent}%`);
@@ -1746,7 +1668,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     if (!canvas || !ctx)
       throw new Error(isZh ? '预览画布不可用。' : 'Preview canvas is unavailable.');
 
-    const { invoke } = await import('@tauri-apps/api/core');
     canvas.width = resolution.width;
     canvas.height = resolution.height;
 
@@ -1787,13 +1708,13 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
       selectedNodes.length + 1,
       selectedNodes.length + 2,
     );
-    const audioBytes = await buildAudioTrack(audioSegments, speed);
+    const audioBytes = (await buildAudioTrack(audioSegments, speed)) ?? [];
     updateProgress(
       isZh ? '调用 FFmpeg 导出' : 'Exporting with FFmpeg',
       selectedNodes.length + 2,
       selectedNodes.length + 2,
     );
-    const result = await invoke<TauriRenderSaveResult>('save_rendered_frames', {
+    const result = await saveRenderedFrames({
       fileName: `galwriter-render-${Date.now()}`,
       format: exportFormat,
       frames,
@@ -1804,100 +1725,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setSavedPath(result.path);
   };
 
-  const writeZipAssetsToSession = async (
-    zip: JSZip,
-    workDir: string,
-    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
-  ) => {
-    const assetFiles = Object.values(zip.files).filter(
-      (file) => !file.dir && file.name.startsWith('assets/'),
-    );
-    for (let fileIndex = 0; fileIndex < assetFiles.length; fileIndex += 1) {
-      const file = assetFiles[fileIndex];
-      const bytes = new Uint8Array(await file.async('arraybuffer'));
-      for (let offset = 0; offset < bytes.length; offset += ASSET_CHUNK_SIZE) {
-        await invoke('write_render_asset_chunk', {
-          workDir,
-          assetPath: file.name,
-          bytes: Array.from(bytes.slice(offset, offset + ASSET_CHUNK_SIZE)),
-          append: offset > 0,
-        });
-      }
-      updateProgress(
-        isZh ? '写入 ZIP 素材' : 'Writing ZIP assets',
-        fileIndex + 1,
-        assetFiles.length,
-      );
-    }
-  };
-
-  const renderFromZipProject = async () => {
-    if (!zipFile) {
-      throw new Error(
-        isZh ? '请先选择已经保存好的剧本 ZIP。' : 'Please choose a saved project ZIP first.',
-      );
-    }
-
-    const { invoke } = await import('@tauri-apps/api/core');
-    updateProgress(isZh ? '读取 ZIP 工程' : 'Reading ZIP project', 5, 100);
-    const zip = await JSZip.loadAsync(zipFile);
-    const projectJson = zip.file('project.json');
-    if (!projectJson)
-      throw new Error(
-        isZh ? 'ZIP 中没有 project.json。' : 'project.json was not found in the ZIP.',
-      );
-    const projectData = JSON.parse(await projectJson.async('string'));
-    const zipNodes = (projectData.nodes || []) as FlowNode[];
-    const zipEdges = (projectData.edges || []) as FlowEdge[];
-    const orderedZipNodes = getOrderedStoryNodes(zipNodes, zipEdges).filter((node) =>
-      selectedIds.has(node.id),
-    );
-    if (orderedZipNodes.length === 0)
-      throw new Error(
-        isZh ? 'ZIP 工程里没有选中的片段。' : 'No selected segments were found in the ZIP.',
-      );
-
-    const fileName = `galwriter-render-${Date.now()}`;
-    const session = await invoke<TauriRenderSessionResult>('create_render_session', {
-      fileName,
-      outputDir,
-    });
-    await writeZipAssetsToSession(zip, session.workDir, invoke);
-
-    const segments: HighPerfSegmentPayload[] = orderedZipNodes.map((node) => ({
-      title: stripHtml(String(node.data?.title || '')),
-      text: stripHtml(String(node.data?.text || '')),
-      imagePath: normalizeAssetPath(node.data?.imageUrl as string | undefined),
-      videoPath: normalizeAssetPath(node.data?.videoUrl as string | undefined),
-      audioPath: normalizeAssetPath(node.data?.audioUrl as string | undefined),
-    }));
-
-    updateProgress(isZh ? '调用 FFmpeg 高性能渲染' : 'High performance FFmpeg render', 96, 100);
-    const result = await invoke<TauriRenderSaveResult>('finish_high_perf_render', {
-      fileName,
-      format: exportFormat,
-      workDir: session.workDir,
-      segments,
-      width: resolution.width,
-      height: resolution.height,
-      frameRate,
-      speed,
-      defaultSeconds,
-      outputDir,
-      encoder,
-      typewriter: renderStyle.bodyAnimation === 'typewriter',
-      textStyle: {
-        titleFontSize: renderStyle.titleFontSize,
-        bodyFontSize: renderStyle.bodyFontSize,
-        titleColor: renderStyle.titleColor,
-        bodyColor: renderStyle.bodyColor,
-      },
-    });
-    setSavedPath(result.path);
-    setStatus('done');
-    setProgressValue(100);
-    setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
-  };
 
   const drawFrame = async (
     ctx: CanvasRenderingContext2D,
@@ -1909,125 +1736,19 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     duration?: number,
     forceFinalText = false,
   ) => {
-    const title = htmlToSpeechText(String(node.data?.title || ''));
-    const body = htmlToSpeechText(String(node.data?.text || ''));
-    const imageUrl = !media ? (node.data?.imageUrl as string | undefined) : undefined;
-    let image: HTMLImageElement | undefined;
-    let imageFailed = false;
-
-    if (imageUrl) {
-      try {
-        image = await loadCachedImage(imageUrl);
-      } catch {
-        imageFailed = true;
-      }
-    }
-
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, width, height);
-
-    if (media) {
-      drawCoverImage(
-        ctx,
-        media.source,
-        media.width || width,
-        media.height || height,
-        width,
-        height,
-      );
-    } else if (image) {
-      drawCoverImage(
-        ctx,
-        image,
-        image.naturalWidth || width,
-        image.naturalHeight || height,
-        width,
-        height,
-      );
-    } else if (imageFailed) {
-      ctx.fillStyle = '#1f2937';
-      ctx.fillRect(0, 0, width, height);
-    } else {
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(0, 0, width, height);
-    }
-
-    const gradient = ctx.createLinearGradient(0, height * 0.45, 0, height);
-    gradient.addColorStop(0, 'rgba(17, 24, 39, 0)');
-    gradient.addColorStop(1, 'rgba(17, 24, 39, 0.88)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const margin = Math.max(48, width * 0.07);
-    const titleSize = Math.max(18, renderStyle.titleFontSize);
-    const bodySize = Math.max(16, renderStyle.bodyFontSize);
-    const titleLineHeight = Math.round(titleSize * 1.25);
-    const bodyLineHeight = Math.round(bodySize * 1.45);
-    const maxTextWidth = width - margin * 2;
-
-    ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-    const titleLines = wrapText(
+    await drawRenderFrame({
       ctx,
-      title || (isZh ? '未命名片段' : 'Untitled segment'),
-      maxTextWidth,
-    ).slice(0, 2);
-    ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-    const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
-    const textHeight =
-      titleLines.length * titleLineHeight +
-      (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
-      bodyLines.length * bodyLineHeight;
-    let y = height - margin - textHeight;
-
-    ctx.fillStyle = renderStyle.panelColor;
-    ctx.globalAlpha = 0.62;
-    ctx.fillRect(
-      margin * 0.72,
-      y - bodySize * 0.8,
-      width - margin * 1.44,
-      textHeight + bodySize * 1.35,
-    );
-    ctx.globalAlpha = 1;
-
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = 12;
-    ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-    ctx.fillStyle = renderStyle.titleColor;
-    const titleState = animatedTextState(
-      renderStyle.titleAnimation,
-      titleLines,
-      animationLeadSeconds,
+      node,
+      width,
+      height,
+      media,
       elapsed,
       duration,
       forceFinalText,
-    );
-    ctx.save();
-    ctx.globalAlpha = titleState.alpha;
-    titleState.lines.forEach((line) => {
-      ctx.fillText(line, margin, y + titleState.offsetY);
-      y += titleLineHeight;
-    });
-    ctx.restore();
-
-    if (bodyLines.length) y += Math.round(bodySize * 0.6);
-    ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-    ctx.fillStyle = renderStyle.bodyColor;
-    const bodyState = animatedTextState(
-      renderStyle.bodyAnimation,
-      bodyLines,
+      renderStyle,
       animationLeadSeconds,
-      elapsed,
-      duration,
-      forceFinalText,
-    );
-    ctx.save();
-    ctx.globalAlpha = bodyState.alpha;
-    bodyState.lines.forEach((line) => {
-      ctx.fillText(line, margin, y + bodyState.offsetY);
-      y += bodyLineHeight;
+      isZh,
     });
-    ctx.restore();
-    ctx.shadowBlur = 0;
   };
 
   const getTopVisualTimelineSegment = (time: number) => {
@@ -2250,9 +1971,8 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
       if (shouldUseTauriExport) {
         updateProgress(isZh ? '保存视频' : 'Saving video', 90, 100);
-        const { invoke } = await import('@tauri-apps/api/core');
         const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-        const result = await invoke<TauriRenderSaveResult>('save_rendered_video', {
+        const result = await saveRenderedVideo({
           fileName: `galwriter-render-${Date.now()}`,
           format: exportFormat,
           bytes,
@@ -2488,7 +2208,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     return `${defaultSeconds}s`;
   };
   const buildContextMenuSections = (
-    menu: RenderContextMenuState,
+    menu: RenderContextMenuTarget,
     node?: FlowNode,
   ): RenderContextMenuSection[] => {
     const isTimelineNode = !!node && timelineIds.includes(node.id);
@@ -2857,9 +2577,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             outputDirError={outputDirError}
             setOutputDirError={setOutputDirError}
             chooseOutputDir={chooseOutputDir}
-            zipFile={zipFile}
-            setZipFile={setZipFile}
-            zipInputRef={zipInputRef}
             renderStyle={renderStyle}
             updateRenderStyle={updateRenderStyle}
             defaultSeconds={defaultSeconds}
@@ -2868,8 +2585,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
             setSpeed={setSpeed}
             estimatedDuration={estimatedDuration}
             fallbackEstimatedSeconds={fallbackEstimatedSeconds}
-            typewriterEnabled={typewriterEnabled}
-            setTypewriterEnabled={setTypewriterEnabled}
             animationLeadSeconds={animationLeadSeconds}
             setAnimationLeadSeconds={setAnimationLeadSeconds}
             selectedNodes={selectedNodes}

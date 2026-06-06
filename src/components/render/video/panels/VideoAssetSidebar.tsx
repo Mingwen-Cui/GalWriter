@@ -20,8 +20,8 @@ type VideoAssetSidebarProps = {
   assetScrollInfo: { scrollTop: number; scrollHeight: number; clientHeight: number };
   assetThumbTopPercent: number;
   assetThumbHeightPercent: number;
-  assetUploadInputRef: React.RefObject<HTMLInputElement>;
-  assetViewportRef: React.RefObject<HTMLDivElement>;
+  assetUploadInputRef: React.RefObject<HTMLInputElement | null>;
+  assetViewportRef: React.RefObject<HTMLDivElement | null>;
   setAssetCardLayout: (value: AssetCardLayout) => void;
   setAssetRegionFilter: (value: string) => void;
   setActivePreviewId: (value: string) => void;

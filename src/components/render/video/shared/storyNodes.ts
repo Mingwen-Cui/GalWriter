@@ -3,11 +3,6 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { htmlToSpeechText } from '../../../../lib/tts';
 import type { TextAnimation } from './types';
 
-export const normalizeAssetPath = (path?: string) => {
-  if (!path || !path.startsWith('assets/')) return undefined;
-  return path.replace(/\\/g, '/');
-};
-
 export const stripHtml = (html: string) => htmlToSpeechText(html || '');
 
 export const drawCoverImage = (

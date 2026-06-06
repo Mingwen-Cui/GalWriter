@@ -2,7 +2,7 @@ import { FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video } 
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import { ENCODER_OPTIONS, EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS, TEXT_ANIMATION_OPTIONS } from '../shared/constants';
-import { clamp, isTauriRuntime } from '../shared/mediaUtils';
+import { clamp } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
 import type { ExportFormat, ExportSettingsMode, RenderStatus, RenderStyle, TextAnimation } from '../shared/types';
 import { formatSeconds } from '../timeline/timelineUtils';
@@ -27,9 +27,6 @@ type VideoExportSettingsPanelProps = {
   outputDirError: string;
   setOutputDirError: (value: string) => void;
   chooseOutputDir: () => void;
-  zipFile: File | null;
-  setZipFile: (value: File | null) => void;
-  zipInputRef: React.RefObject<HTMLInputElement>;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   defaultSeconds: number;
@@ -38,8 +35,6 @@ type VideoExportSettingsPanelProps = {
   setSpeed: (value: number) => void;
   estimatedDuration: number;
   fallbackEstimatedSeconds: number;
-  typewriterEnabled: boolean;
-  setTypewriterEnabled: (value: boolean) => void;
   animationLeadSeconds: number;
   setAnimationLeadSeconds: (value: number) => void;
   selectedNodes: unknown[];
@@ -49,7 +44,7 @@ type VideoExportSettingsPanelProps = {
   generateAudioFromSelectedText: () => void;
   startVoiceoverRecording: () => void;
   stopVoiceoverRecording: () => void;
-  assetUploadInputRef: React.RefObject<HTMLInputElement>;
+  assetUploadInputRef: React.RefObject<HTMLInputElement | null>;
   progress: string;
   error: string;
   progressValue: number;
@@ -75,9 +70,6 @@ export function VideoExportSettingsPanel({
   outputDirError,
   setOutputDirError,
   chooseOutputDir,
-  zipFile,
-  setZipFile,
-  zipInputRef,
   renderStyle,
   updateRenderStyle,
   defaultSeconds,
@@ -86,8 +78,6 @@ export function VideoExportSettingsPanel({
   setSpeed,
   estimatedDuration,
   fallbackEstimatedSeconds,
-  typewriterEnabled,
-  setTypewriterEnabled,
   animationLeadSeconds,
   setAnimationLeadSeconds,
   selectedNodes,
@@ -144,43 +134,6 @@ export function VideoExportSettingsPanel({
                   </div>
                 </div>
                 <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
-                  {false && isTauriRuntime() && exportFormat !== 'webm' && (
-                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3 space-y-3">
-                      <input
-                        ref={zipInputRef}
-                        type="file"
-                        accept=".zip"
-                        className="hidden"
-                        onChange={(event) => setZipFile(event.target.files?.[0] || null)}
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => zipInputRef.current?.click()}
-                          className="px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-xs font-black text-white hover:border-sky-400"
-                        >
-                          {t('选择已保存 ZIP', '保存済み ZIP を選択', 'Choose saved ZIP')}
-                        </button>
-                        <span className="min-w-0 truncate text-xs font-bold text-slate-400">
-                          {zipFile
-                            ? zipFile.name
-                            : t(
-                                '高性能导出需要先保存并选择剧本 ZIP',
-                                '高性能書き出しには保存済みのプロジェクト ZIP が必要です',
-                                'High performance export needs a saved project ZIP',
-                              )}
-                        </span>
-                      </div>
-                      <label className="flex items-center gap-2 text-xs font-bold text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={typewriterEnabled}
-                          onChange={(e) => setTypewriterEnabled(e.target.checked)}
-                        />
-                        {t('启用文字打字机动画', 'タイプライター文字アニメを有効化', 'Enable typewriter text animation')}
-                      </label>
-                    </div>
-                  )}
                   {exportSettingsMode === 'video' ? (
                   <div className="space-y-4">
                     <div className="space-y-2">

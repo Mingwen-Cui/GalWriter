@@ -425,7 +425,7 @@ export function StoryEditor() {
     };
   }, [tx, ty, tzoom, flowWidth, flowHeight]);
   // 右上角显示的思考过程文字，null 表示不显示
-  const [thinkingContent, setThinkingContent] = useState<string | null>(null);
+  const [, setThinkingContent] = useState<string | null>(null);
   const [generateLength, setGenerateLength] = useState<string>('2-3句话');
   // AI续写操作选择弹窗状态
   const [showAIActionModal, setShowAIActionModal] = useState(false);
@@ -3129,24 +3129,6 @@ ${direction}
           </footer>
         )}
       </div>
-
-      {/* 思考内容右上角浮层：DeepSeek思考模式下短暂显示 */}
-      {false && thinkingContent && (
-        <div
-          className="fixed top-20 right-20 z-[500] max-w-sm w-80 bg-slate-900/95 border border-indigo-500/40 rounded-xl shadow-2xl p-4 backdrop-blur-md animate-in slide-in-from-right-4 duration-300"
-          style={{ maxHeight: '50vh', overflowY: 'auto' }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">
-              {language === 'zh' ? 'AI 思考中...' : 'AI Thinking...'}
-            </span>
-          </div>
-          <p className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap">
-            {thinkingContent}
-          </p>
-        </div>
-      )}
 
       {/* AI 操作选择弹窗 */}
       <AIActionModal

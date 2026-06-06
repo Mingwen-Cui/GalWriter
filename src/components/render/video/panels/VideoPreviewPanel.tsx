@@ -10,7 +10,7 @@ import type { Language } from '../../../../lib/i18n';
 
 type VideoPreviewPanelProps = {
   language: Language;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   activeTimelineFrame: number;
   activeTimelineTime: number;
   resolution: { label: string };

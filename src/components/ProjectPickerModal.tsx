@@ -288,25 +288,6 @@ export function ProjectPickerModal({
                 </div>
                 <CheckSquare2 className="h-4 w-4 shrink-0 text-slate-400" />
               </button>
-              {false && onChooseDefaultSaveLocation && (
-                <button
-                  type="button"
-                  onClick={onChooseDefaultSaveLocation}
-                  className="mt-auto flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
-                  title={defaultProjectSaveDir || (isZh ? '设置默认保存位置' : 'Set default save location')}
-                >
-                  <div className="min-w-0">
-                    <div className="text-base font-black text-slate-900 dark:text-white">
-                      {isZh ? '修改保存位置' : 'Change save location'}
-                    </div>
-                    <div className="mt-1 truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {defaultProjectSaveDir ||
-                        (isZh ? '选择项目 ZIP 的默认保存文件夹' : 'Choose the default folder for project ZIPs')}
-                    </div>
-                  </div>
-                  <FolderOpen className="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" />
-                </button>
-              )}
               <button
                 type="button"
                 onClick={onClose}

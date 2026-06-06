@@ -8,7 +8,7 @@ GalWriter AI is an interactive editor for visual novels, galgames, branching nar
 
 This guide is for users. It explains how to create projects, configure APIs, import API templates, and use AI while writing.
 
-## Language Switch
+## README (Other languages)
 
 - 中文：[README.md](README.md)
 - English (current)：[README.en.md](README.en.md)

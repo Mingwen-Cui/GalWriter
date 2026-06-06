@@ -1,62 +1,4 @@
-import type { Edge, Node } from '@xyflow/react';
-
 import type { CharacterNodeData, SceneImage, SceneNodeData } from '../domain/project';
-
-export function exportPaths(nodes: Node[], edges: Edge[]) {
-  // Find roots (in-degree 0, but must have at least one outgoing edge to be considered a connected root)
-  // 如果没有任何连接（没有入边也没有出边），则忽略该孤立节点
-  const roots = nodes.filter((n) => {
-    const hasIn = edges.some((e) => e.target === n.id);
-    const hasOut = edges.some((e) => e.source === n.id);
-    // 允许有出边无入边的作为根节点；如果是孤立节点(没有入边也没有出边)则忽略
-    return !hasIn && hasOut;
-  });
-
-  if (roots.length === 0) return 'No story found.';
-
-  let out = '';
-  let endingIndex = 1;
-
-  function dfs(currId: string, path: string[], visited: Set<string>) {
-    if (visited.has(currId)) {
-      out += `# Ending ${endingIndex} (Loop Detected)\n\n`;
-      out += path.join('\n\n---\n\n');
-      out += '\n\n========================================\n\n';
-      endingIndex++;
-      return;
-    }
-
-    const node = nodes.find((n) => n.id === currId);
-    if (!node) return;
-
-    path.push(String(node.data.text || ''));
-
-    const newVisited = new Set(visited);
-    newVisited.add(currId);
-
-    const outEdges = edges.filter((e) => e.source === currId);
-    if (outEdges.length === 0) {
-      // Leaf node, write to output
-      out += `# Ending ${endingIndex}\n\n`;
-      out += path.join('\n\n---\n\n');
-      out += '\n\n========================================\n\n';
-      endingIndex++;
-    } else {
-      // For each edge, follow the choice it represents
-      for (const e of outEdges) {
-        const tNode = nodes.find((n) => n.id === e.target);
-        const pathName = tNode?.data.title || 'Next Segment';
-        dfs(e.target, [...path, `> [Player Chose: ${pathName}]`], newVisited);
-      }
-    }
-  }
-
-  for (const root of roots) {
-    dfs(root.id, [], new Set());
-  }
-
-  return out;
-}
 
 /** 将人物设定节点 data 格式化为可导出的 Markdown 纯文本 */
 export function formatCharacterNodeText(data: CharacterNodeData | Record<string, unknown>): string {
@@ -125,12 +67,3 @@ export function formatSceneNodeText(data: SceneNodeData | Record<string, unknown
   return parts.join('\n\n');
 }
 
-export function downloadText(text: string, filename: string) {
-  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}

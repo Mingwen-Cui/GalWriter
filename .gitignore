@@ -3,7 +3,6 @@ build/
 dist/
 coverage/
 landingpage/
-php-backend/
 public/downloads/
 examples/
 scripts/
@@ -27,4 +26,3 @@ pnpm-debug.log*
 
 .DS_Store
 .env*
-.env.example

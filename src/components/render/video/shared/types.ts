@@ -25,14 +25,6 @@ export type VideoRenderModalProps = {
   language: Language;
 };
 
-export type TauriRenderSaveResult = {
-  path: string;
-};
-
-export type TauriRenderSessionResult = {
-  workDir: string;
-};
-
 export type RenderStyle = {
   titleFontSize: number;
   bodyFontSize: number;
@@ -59,15 +51,6 @@ export type SegmentRenderInfo = {
   durationSecs: number;
   audioUrl?: string;
   videoUrl?: string;
-};
-
-export type HighPerfSegmentPayload = {
-  title?: string;
-  text?: string;
-  imagePath?: string;
-  videoPath?: string;
-  audioPath?: string;
-  durationSecs?: number;
 };
 
 export type RenderedFramePayload = {

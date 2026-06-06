@@ -51,39 +51,6 @@ export interface AISceneSettingGenerationParams {
 
 export type AISettingRequest = AISettingGenerationParams | AISceneSettingGenerationParams;
 
-const createAIProxyCaller = async (
-  provider: AiProvider,
-  prompt: string,
-  options: Record<string, unknown>,
-) => {
-  let response: Response;
-
-  try {
-    response = await fetch('./api/proxy.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, prompt, options }),
-    });
-  } catch {
-    throw new Error('无法连接到代理接口，请检查PHP 后端是否已正确部署并运行');
-  }
-
-  let data: { error?: string; content?: string; reasoning?: string };
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(
-      `代理接口返回了无效格式(HTTP ${response.status})。请检查 ./api/proxy.php 是否存在。`,
-    );
-  }
-
-  if (!response.ok || data.error) {
-    throw new Error(data.error || `代理接口请求失败(HTTP ${response.status})`);
-  }
-
-  return data;
-};
-
 const createAnalyzePrompt = ({
   mode,
   combinedText,
@@ -149,98 +116,73 @@ export const createAIClient = (config: AIClientConfig) => {
     }
 
     if (config.provider === 'deepseek') {
-      if (key) {
-        const model = configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
-        const endpoint = configuredUrl
-          ? /\/chat\/completions\/?$/i.test(configuredUrl)
-            ? configuredUrl
-            : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
-          : 'https://api.deepseek.com/chat/completions';
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            stream: false,
-          }),
-        });
+      const model = configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
+      const endpoint = configuredUrl
+        ? /\/chat\/completions\/?$/i.test(configuredUrl)
+          ? configuredUrl
+          : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
+        : 'https://api.deepseek.com/chat/completions';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          stream: false,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error(`DeepSeek API 错误: ${await response.text()}`);
-        }
-
-        const data = await response.json();
-        const choice = data.choices?.[0];
-        return {
-          content: choice?.message?.content || '',
-          reasoning: config.thinkingMode ? choice?.message?.reasoning_content : undefined,
-        };
+      if (!response.ok) {
+        throw new Error(`DeepSeek API 错误: ${await response.text()}`);
       }
 
-      const data = await createAIProxyCaller('deepseek', prompt, {
-        thinkingMode: config.thinkingMode,
-      });
+      const data = await response.json();
+      const choice = data.choices?.[0];
       return {
-        content: data.content || '',
-        reasoning: config.thinkingMode ? data.reasoning : undefined,
+        content: choice?.message?.content || '',
+        reasoning: config.thinkingMode ? choice?.message?.reasoning_content : undefined,
       };
     }
 
     if (config.provider === 'openai' || config.provider === 'custom' || config.provider === 'kimi' || config.provider === 'qwen' || config.provider === 'glm' || config.provider === 'copilot' || config.provider === 'claude') {
-      if (key) {
-        const model = configuredModel || 'gpt-4o';
-        const endpoint = configuredUrl
-          ? /\/chat\/completions\/?$/i.test(configuredUrl)
-            ? configuredUrl
-            : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
-          : 'https://api.openai.com/v1/chat/completions';
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            stream: false,
-          }),
-        });
+      const model = configuredModel || 'gpt-4o';
+      const endpoint = configuredUrl
+        ? /\/chat\/completions\/?$/i.test(configuredUrl)
+          ? configuredUrl
+          : `${configuredUrl.replace(/\/$/, '')}/chat/completions`
+        : 'https://api.openai.com/v1/chat/completions';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          stream: false,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error(`OpenAI API 错误: ${await response.text()}`);
-        }
-
-        const data = await response.json();
-        return { content: data.choices?.[0]?.message?.content || '' };
+      if (!response.ok) {
+        throw new Error(`OpenAI API 错误: ${await response.text()}`);
       }
 
-      const data = await createAIProxyCaller('openai', prompt, {});
-      return { content: data.content || '' };
+      const data = await response.json();
+      return { content: data.choices?.[0]?.message?.content || '' };
     }
 
-    if (key) {
-      const ai = new GoogleGenAI({ apiKey: key });
-      const response = await ai.models.generateContent({
-        model:
-          configuredModel ||
-          (config.thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash'),
-        contents: prompt,
-      });
-      return { content: response.text || '' };
-    }
-
-    const data = await createAIProxyCaller('gemini', prompt, {
-      thinkingMode: config.thinkingMode,
+    const ai = new GoogleGenAI({ apiKey: key });
+    const response = await ai.models.generateContent({
+      model:
+        configuredModel ||
+        (config.thinkingMode ? 'gemini-2.0-flash-thinking-exp' : 'gemini-2.0-flash'),
+      contents: prompt,
     });
-    return {
-      content: data.content || '',
-      reasoning: config.thinkingMode ? data.reasoning : undefined,
-    };
+    return { content: response.text || '' };
   };
 
   const analyze = async (params: AIAnalyzeParams) => {

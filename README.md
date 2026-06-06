@@ -8,9 +8,9 @@ GalWriter AI 是一款面向视觉小说、Galgame、互动叙事和多分支剧
 
 这份文档面向软件使用者，重点说明如何创建项目、配置 API、导入 API 模板，以及如何在创作中调用 AI。
 
-## 语言切换
+## README (Other languages)
 
-- 中文：[README.md](README.md)
+- 中文（当前）：[README.md](README.md)
 - English：[README.en.md](README.en.md)
 - 日本語：[README.ja.md](README.ja.md)
 

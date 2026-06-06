@@ -1,8 +1,6 @@
 import type { ExportFormat, TextAnimation } from './types';
 
 export const DEFAULT_VIDEO_BITRATE = '6000k';
-export const AUDIO_CHUNK_SIZE = 512 * 1024;
-export const ASSET_CHUNK_SIZE = 1024 * 1024;
 
 export const RESOLUTION_OPTIONS = [
   { label: '1920 x 1080', width: 1920, height: 1080 },
