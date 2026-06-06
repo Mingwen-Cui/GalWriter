@@ -90,6 +90,7 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
   const appKey = (config.appKey || config.model || '').trim();
   const appSecret = (config.appSecret || config.apiKey || '').trim();
   const voiceName = config.voice.trim() || 'youxiaoqin';
+  const endpoint = config.apiUrl.trim() || YOUDAO_TTS_ENDPOINT;
 
   if (!appKey) {
     throw new Error('Youdao application ID is missing.');
@@ -118,7 +119,7 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
   if (speed) params.set('speed', speed);
   if (volume) params.set('volume', volume);
 
-  const response = await fetch(YOUDAO_TTS_ENDPOINT, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',

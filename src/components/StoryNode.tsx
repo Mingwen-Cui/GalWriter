@@ -30,6 +30,7 @@ import {
   Type,
   Underline,
   User,
+  Volume2,
 } from 'lucide-react';
 import React, { memo, useCallback, useRef, useState } from 'react';
 
@@ -90,6 +91,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const text = data.text || '';
   const title = data.title || '新节点';
   const shape: StoryCardVisualShape = data.shape || 'square';
@@ -97,6 +99,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const imageUrl = data.imageUrl;
   const videoUrl = data.videoUrl;
   const audioUrl = data.audioUrl;
+  const hasVisualMedia = !!(imageUrl || videoUrl);
+  const plainSpeechText = String(text).replace(/<[^>]*>/g, '').trim();
   const objectFit = data.objectFit || 'cover';
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
@@ -121,7 +125,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : '#f8fafc';
 
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
-  const showRichTextTools = (!imageUrl && !videoUrl && !audioUrl) || data.showTextOverlay;
+  const showRichTextTools = !hasVisualMedia || data.showTextOverlay;
 
   const updateNodeData = useCallback(
     (updates: Partial<StoryNodeData>) => {
@@ -141,6 +145,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       await data.onGenerateImage(id);
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const handleGenerateSpeech = async () => {
+    if (!data.onGenerateSpeech || isGeneratingSpeech || !plainSpeechText) return;
+    setIsGeneratingSpeech(true);
+    try {
+      await data.onGenerateSpeech(id);
+    } finally {
+      setIsGeneratingSpeech(false);
     }
   };
 
@@ -409,6 +423,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   >
                     <Maximize className="w-4 h-4" />
                   </button>
+                  {plainSpeechText && (
+                    <button
+                      onClick={handleGenerateSpeech}
+                      disabled={isGeneratingSpeech}
+                      className={`${iconBtnBase} bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-100`}
+                      title={lang === 'zh' ? '文字转音频' : 'Text to audio'}
+                    >
+                      {isGeneratingSpeech ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Volume2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                 </>
               )}
             </ToolbarRow>
@@ -707,7 +735,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 />
               )}
             </div>
-          ) : audioUrl ? (
+          ) : audioUrl && !showRichTextTools ? (
             <div
               className="w-full flex-1 flex flex-col items-center justify-center nodrag"
               style={{ backgroundColor: nodeBg }}
@@ -728,8 +756,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             </div>
           ) : null}
 
-          {audioUrl && (imageUrl || videoUrl) && (
-            <div className="w-full shrink-0 px-3 py-2 border-t border-[var(--card-border)]/30 bg-[var(--card-bg)]/85 backdrop-blur-sm nodrag">
+          {audioUrl && (imageUrl || videoUrl || showRichTextTools) && (
+            <div className="order-last w-full shrink-0 px-3 py-2 border-t border-[var(--card-border)]/30 bg-[var(--card-bg)]/85 backdrop-blur-sm nodrag">
               {zoom < 0.3 ? (
                 <div className="text-center text-lg opacity-40">Audio</div>
               ) : (

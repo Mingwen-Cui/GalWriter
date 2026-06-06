@@ -46,6 +46,7 @@ import { autosaveService } from '../editor-services/autosaveService';
 import { localPersistenceService } from '../editor-services/localPersistenceService';
 import { createProjectSerializer } from '../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../editor-services/projectThumbnail';
+import { ttsService } from '../editor-services/ttsService';
 import { useAutoSave } from '../editor-services/useAutoSave';
 import { AIActionModal } from '../editor-shell/AIActionModal';
 import { AssistantPanel } from '../editor-shell/AssistantPanel';
@@ -73,6 +74,7 @@ import type {
   StoryTitlePlacement,
   StoryNodeData,
   TextAIProfile,
+  TtsNarrationMode,
   VoiceAIProfile,
 } from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
@@ -410,6 +412,7 @@ export function StoryEditor() {
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
   const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
@@ -561,6 +564,7 @@ export function StoryEditor() {
   const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
+  const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
   const ttsModel = activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
   const ttsVoice = activeVoiceProfile?.voice ?? DEFAULT_TTS_VOICE;
   const ttsProvider = activeVoiceProfile?.provider ?? 'system';
@@ -850,6 +854,7 @@ export function StoryEditor() {
       ttsModel,
       ttsVoice,
       ttsProvider,
+      ttsNarrationMode,
       thinkingMode,
       customAiPromptsEnabled,
       aiPrompts,
@@ -926,6 +931,7 @@ export function StoryEditor() {
       toolbarLayout,
       ttsApiUrl,
       ttsModel,
+      ttsNarrationMode,
       ttsProvider,
       ttsVoice,
     ],
@@ -945,6 +951,7 @@ export function StoryEditor() {
       setStoryTitlePlacement,
       setShowLastSavedTime,
       setGenerateLength,
+      setTtsNarrationMode,
       setImageSize,
       setCustomAiPromptsEnabled,
       setAiPrompts,
@@ -986,6 +993,7 @@ export function StoryEditor() {
       setShowTitles,
       setStoryTitlePlacement,
       setGenerateLength,
+      setTtsNarrationMode,
       setImageSize,
       setCustomAiPromptsEnabled,
       setAiPrompts,
@@ -1148,8 +1156,10 @@ export function StoryEditor() {
     ttsProvider,
     ttsApiKey,
     ttsApiUrl,
+    ttsAppKey,
     ttsModel,
     ttsVoice,
+    ttsNarrationMode,
     nodeClipboard,
     setNodeClipboard,
     setNodes,
@@ -1222,6 +1232,77 @@ export function StoryEditor() {
       });
     },
     [setNodes],
+  );
+
+  const handleGenerateStoryNodeSpeech = useCallback(
+    async (nodeId: string) => {
+      if (ttsLoading) return;
+
+      const node = nodes.find((item) => item.id === nodeId && item.type === 'storyNode');
+      if (!node) return;
+
+      const speechText = ttsService.buildSpeechText(
+        String(node.data.title || ''),
+        String(node.data.text || ''),
+        ttsNarrationMode,
+      );
+      if (!speechText) return;
+
+      setTtsLoading(true);
+      try {
+        showToast(
+          language === 'zh'
+            ? '正在生成文字音频'
+            : language === 'ja'
+              ? '音声を生成中'
+              : 'Generating audio',
+        );
+        const audio = await ttsService.generate({
+          text: speechText,
+          provider: ttsProvider,
+          apiUrl: ttsApiUrl,
+          apiKey: ttsApiKey,
+          appKey: ttsAppKey,
+          appSecret: ttsApiKey,
+          model: ttsModel,
+          voice: ttsVoice,
+        });
+
+        handleUpdateNode(nodeId, {
+          audioUrl: audio.url,
+          ttsGenerated: true,
+        });
+        showToast(
+          language === 'zh'
+            ? '文字音频已生成'
+            : language === 'ja'
+              ? '音声を生成しました'
+              : 'Audio generated',
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('TTS generation failed:', error);
+        alert(
+          `${language === 'zh' ? '文字音频生成失败' : language === 'ja' ? '音声生成に失敗しました' : 'Audio generation failed'}: ${message}`,
+        );
+      } finally {
+        setTtsLoading(false);
+      }
+    },
+    [
+      handleUpdateNode,
+      language,
+      nodes,
+      showToast,
+      ttsApiKey,
+      ttsApiUrl,
+      ttsAppKey,
+      ttsLoading,
+      ttsModel,
+      ttsNarrationMode,
+      ttsProvider,
+      ttsVoice,
+    ],
   );
 
   const {
@@ -2748,6 +2829,7 @@ ${direction}
           onAIGenerate: handleAIButtonClick,
           onAIAnalyze: handleAIAnalyze,
           onGenerateImage: handleGenerateStoryNodeImage,
+          onGenerateSpeech: handleGenerateStoryNodeSpeech,
           onGenerateSettingImage: handleGenerateSettingNodeImage,
           onAddTextToImage: handleAddTextToImage,
           onRemoveTextFromImage: handleRemoveTextFromImage,
@@ -2786,6 +2868,7 @@ ${direction}
     handleAIButtonClick,
     handleAIAnalyze,
     handleGenerateStoryNodeImage,
+    handleGenerateStoryNodeSpeech,
     handleGenerateSettingNodeImage,
     handleAddTextToImage,
     handleRemoveTextFromImage,
@@ -3193,6 +3276,7 @@ ${direction}
             edges={edges}
             onClose={() => setShowVideoRender(false)}
             language={language}
+            workspaceKey={currentProjectId || currentProjectFilePath || saveFileName || projectTitle || 'draft'}
           />
         )}
       </Suspense>
@@ -3240,6 +3324,8 @@ ${direction}
           setMiniMapPosition={setMiniMapPosition}
           showControls={showControls}
           setShowControls={setShowControls}
+          ttsNarrationMode={ttsNarrationMode}
+          setTtsNarrationMode={setTtsNarrationMode}
           savedAIProfiles={savedAIProfiles}
           activeTextProfileId={activeTextProfileId}
           activeImageProfileId={activeImageProfileId}

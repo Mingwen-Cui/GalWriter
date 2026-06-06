@@ -23,6 +23,7 @@ export type VideoRenderModalProps = {
   edges: FlowEdge[];
   onClose: () => void;
   language: Language;
+  workspaceKey?: string;
 };
 
 export type RenderStyle = {
@@ -49,6 +50,7 @@ export type WebExportSettings = {
 export type SegmentRenderInfo = {
   node: FlowNode;
   durationSecs: number;
+  startSecs?: number;
   audioUrl?: string;
   videoUrl?: string;
 };

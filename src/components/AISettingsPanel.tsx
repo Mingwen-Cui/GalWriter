@@ -79,6 +79,11 @@ const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const CUSTOM_MODEL_VALUE = '__custom_model__';
+const YOUDAO_TTS_HELP = {
+  zh: '照着有道后台“查看应用”页面抄就可以：应用ID填到应用ID，应用密钥填到应用密钥。这里不需要去 API Keys 页面找别的 Key。',
+  ja: 'Youdao TTS uses the application ID and application secret from the console.',
+  en: 'Youdao TTS uses the application ID and application secret from the console.',
+};
 
 const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
   {
@@ -789,10 +794,15 @@ export function AISettingsPanel({
       trimmedName && !isLikelyUrlProfileName(trimmedName)
         ? trimmedName
         : buildFallbackProfileName(editorState.kind, language);
-    const payload = {
+  const payload = {
       ...editorState.draft,
       name: finalName,
     } as ProfileSeed;
+
+    if (payload.kind === 'voice' && payload.provider === 'youdao') {
+      payload.model = '';
+      payload.apiUrl = payload.apiUrl?.trim() || DEFAULT_TTS_API_URL;
+    }
 
     if (editorState.mode === 'create') {
       const createdId = await onCreateAIProfile(editorState.kind, payload);
@@ -845,6 +855,8 @@ export function AISettingsPanel({
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
+    const showModelSelect =
+      draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao');
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -911,8 +923,8 @@ export function AISettingsPanel({
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                {renderFieldLabel('Provider')}
+              <div className={showModelSelect ? 'space-y-2' : 'space-y-2 md:col-span-2'}>
+                {renderFieldLabel(language === 'zh' ? '服务商' : 'Provider')}
                 <select
                   value={draft.provider}
                   onChange={(e) => {
@@ -935,45 +947,47 @@ export function AISettingsPanel({
                 </select>
               </div>
 
-              <div className="space-y-2">
-                {renderFieldLabel('Model')}
-                <select
-                  value={currentModelSelectValue}
-                  onChange={(e) => {
-                    if (e.target.value === CUSTOM_MODEL_VALUE) {
-                      if (modelOptions.some((option) => option.value === draft.model)) {
-                        updateDraft({ model: '' });
+              {showModelSelect && (
+                <div className="space-y-2">
+                  {renderFieldLabel(language === 'zh' ? '模型' : 'Model')}
+                  <select
+                    value={currentModelSelectValue}
+                    onChange={(e) => {
+                      if (e.target.value === CUSTOM_MODEL_VALUE) {
+                        if (modelOptions.some((option) => option.value === draft.model)) {
+                          updateDraft({ model: '' });
+                        }
+                        return;
                       }
-                      return;
-                    }
-                    updateDraft({ model: e.target.value });
-                  }}
-                  className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                >
-                  {modelOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                      updateDraft({ model: e.target.value });
+                    }}
+                    className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {modelOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_MODEL_VALUE}>
+                      {language === 'zh' ? '自定义模型' : 'Custom model'}
                     </option>
-                  ))}
-                  <option value={CUSTOM_MODEL_VALUE}>
-                    {language === 'zh' ? '自定义模型' : 'Custom model'}
-                  </option>
-                </select>
-                {currentModelSelectValue === CUSTOM_MODEL_VALUE && (
-                  <input
-                    type="text"
-                    name={`ai-${draft.kind}-custom-model`}
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={draft.model}
-                    onChange={(e) => updateDraft({ model: e.target.value })}
-                    placeholder={
-                      language === 'zh' ? '输入模型型号' : 'Enter a model identifier'
-                    }
-                    className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/60 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] dark:text-slate-100"
-                  />
-                )}
-              </div>
+                  </select>
+                  {currentModelSelectValue === CUSTOM_MODEL_VALUE && (
+                    <input
+                      type="text"
+                      name={`ai-${draft.kind}-custom-model`}
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={draft.model}
+                      onChange={(e) => updateDraft({ model: e.target.value })}
+                      placeholder={
+                        language === 'zh' ? '输入模型型号' : 'Enter a model identifier'
+                      }
+                      className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/60 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] dark:text-slate-100"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {draft.kind === 'text' && (
@@ -1284,8 +1298,33 @@ export function AISettingsPanel({
                   <div className="grid gap-5 md:grid-cols-2">
                     {draft.provider === 'youdao' ? (
                       <>
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100 md:col-span-2">
+                          <p>
+                            {language === 'zh'
+                              ? YOUDAO_TTS_HELP.zh
+                              : language === 'ja'
+                                ? YOUDAO_TTS_HELP.ja
+                                : YOUDAO_TTS_HELP.en}
+                          </p>
+                          {language === 'zh' && (
+                            <div className="mt-3 grid gap-2 text-[11px] md:grid-cols-3">
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">1. 后台应用ID</span>
+                                <span className="text-sky-700 dark:text-sky-200">填到下面“应用ID”</span>
+                              </div>
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">2. 后台应用密钥</span>
+                                <span className="text-sky-700 dark:text-sky-200">填到下面“应用密钥”</span>
+                              </div>
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">3. 接口地址</span>
+                                <span className="text-sky-700 dark:text-sky-200">保持默认即可</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <div className="space-y-2">
-                          {renderFieldLabel('App Key')}
+                          {renderFieldLabel(language === 'zh' ? '应用ID（App Key）' : 'Application ID (App Key)')}
                           <input
                             type="text"
                             name="ai-voice-app-key"
@@ -1293,19 +1332,31 @@ export function AISettingsPanel({
                             spellCheck={false}
                             value={draft.appKey}
                             onChange={(e) => updateDraft({ appKey: e.target.value })}
+                            placeholder={language === 'zh' ? '填有道后台“应用ID”' : 'Youdao application ID'}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
+                          {language === 'zh' && (
+                            <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                              你截图左侧的“应用ID”填这里。它也会被有道文档叫做 appKey。
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel('App Secret')}
+                          {renderFieldLabel(language === 'zh' ? '应用密钥（App Secret）' : 'Application Secret (App Secret)')}
                           <input
                             type="password"
                             name="ai-voice-app-secret"
                             autoComplete="new-password"
                             value={draft.apiKey}
                             onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                            placeholder={language === 'zh' ? '填有道后台“应用密钥”' : 'Youdao application secret'}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
+                          {language === 'zh' && (
+                            <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                              你截图左侧的“应用密钥”填这里。它会隐藏显示，属于密码。
+                            </p>
+                          )}
                         </div>
                       </>
                     ) : (
@@ -1323,7 +1374,7 @@ export function AISettingsPanel({
                     )}
 
                     <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel('API URL')}
+                      {renderFieldLabel(draft.provider === 'youdao' && language === 'zh' ? '接口地址（API URL）' : 'API URL')}
                       <input
                         type="text"
                         name="ai-voice-api-url"
@@ -1331,14 +1382,20 @@ export function AISettingsPanel({
                         spellCheck={false}
                         value={draft.apiUrl}
                         onChange={(e) => updateDraft({ apiUrl: e.target.value })}
+                        placeholder={draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined}
                         className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                       />
+                      {draft.provider === 'youdao' && language === 'zh' && (
+                        <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                          默认地址是有道官方语音合成接口，普通接入不用改。
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  {renderFieldLabel('Voice')}
+                  {renderFieldLabel(draft.provider === 'youdao' && language === 'zh' ? '音色（voiceName）' : 'Voice')}
                   <input
                     type="text"
                     name="ai-voice-name"
@@ -1346,9 +1403,33 @@ export function AISettingsPanel({
                     spellCheck={false}
                     value={draft.voice}
                     onChange={(e) => updateDraft({ voice: e.target.value })}
-                    placeholder={language === 'zh' ? '例如：alloy / youxiaoqin' : language === 'ja' ? '例：alloy / youxiaoqin' : 'For example: alloy / youxiaoqin'}
+                    placeholder={
+                      draft.provider === 'youdao'
+                        ? language === 'zh'
+                          ? '默认 youxiaoqin，可改成有道文档支持的 voiceName'
+                          : 'Default: youxiaoqin'
+                        : language === 'zh'
+                          ? '例如：alloy / youxiaoqin'
+                          : language === 'ja'
+                            ? '例：alloy / youxiaoqin'
+                            : 'For example: alloy / youxiaoqin'
+                    }
                     className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                   />
+                  {draft.provider === 'youdao' && language === 'zh' && (
+                    <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                      不知道选什么就保持 youxiaoqin。需要换声音时，打开
+                      <a
+                        href="https://ai.youdao.com/DOCSIRMA/html/tts/api/yyhc/index.html#section-9"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mx-1 font-black text-[var(--accent)] underline underline-offset-2"
+                      >
+                        有道官方音色列表
+                      </a>
+                      ，把文档里的 voiceName 填到这里。
+                    </p>
+                  )}
                 </div>
               </>
             )}

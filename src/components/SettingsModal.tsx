@@ -23,6 +23,7 @@ import type {
   SavedAIProfile,
   StoryTitlePlacement,
   TextAIProfile,
+  TtsNarrationMode,
   VoiceAIProfile,
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
@@ -71,6 +72,8 @@ interface SettingsModalProps {
   setMiniMapPosition: (position: 'left' | 'right') => void;
   showControls: boolean;
   setShowControls: (val: boolean) => void;
+  ttsNarrationMode: TtsNarrationMode;
+  setTtsNarrationMode: (mode: TtsNarrationMode) => void;
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
@@ -482,6 +485,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setMiniMapPosition,
   showControls,
   setShowControls,
+  ttsNarrationMode,
+  setTtsNarrationMode,
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
@@ -1037,6 +1042,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           key={item.id}
                           onClick={() => setStoryTitlePlacement(item.id as StoryTitlePlacement)}
                           className={compactSegmentButtonClass(storyTitlePlacement === item.id)}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className={settingsRowClass}>
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh'
+                        ? '文字转音频内容'
+                        : language === 'ja'
+                          ? '音声化する内容'
+                          : 'Text-to-audio content'}
+                    </h3>
+                    <div className={segmentedControlClass}>
+                      {[
+                        {
+                          id: 'body',
+                          label:
+                            language === 'zh'
+                              ? '正文'
+                              : language === 'ja'
+                                ? '本文'
+                                : 'Body',
+                        },
+                        {
+                          id: 'title',
+                          label:
+                            language === 'zh'
+                              ? '标题'
+                              : language === 'ja'
+                                ? 'タイトル'
+                                : 'Title',
+                        },
+                        {
+                          id: 'all',
+                          label:
+                            language === 'zh'
+                              ? '标题+正文'
+                              : language === 'ja'
+                                ? 'タイトル+本文'
+                                : 'Title + Body',
+                        },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setTtsNarrationMode(item.id as TtsNarrationMode)}
+                          className={compactSegmentButtonClass(ttsNarrationMode === item.id)}
                         >
                           {item.label}
                         </button>

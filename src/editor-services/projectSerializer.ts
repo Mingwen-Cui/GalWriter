@@ -196,6 +196,13 @@ const applyProjectSettings = (
     setters.setStoryTitlePlacement('outside-right');
   }
   if (incomingSettings.generateLength) setters.setGenerateLength(incomingSettings.generateLength);
+  if (
+    incomingSettings.ttsNarrationMode === 'body' ||
+    incomingSettings.ttsNarrationMode === 'title' ||
+    incomingSettings.ttsNarrationMode === 'all'
+  ) {
+    setters.setTtsNarrationMode(incomingSettings.ttsNarrationMode);
+  }
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
   const shouldUseCustomPrompts =
     Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;

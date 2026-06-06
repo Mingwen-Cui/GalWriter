@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { TtsProvider } from '../../editor-state/editorConfig';
+import type { TtsNarrationMode, TtsProvider } from '../../editor-state/editorConfig';
 import { ttsService } from '../../editor-services/ttsService';
 
 import type { Language } from '../../lib/i18n';
@@ -16,8 +16,10 @@ interface UseSelectionActionsParams {
   ttsProvider: TtsProvider;
   ttsApiKey: string;
   ttsApiUrl: string;
+  ttsAppKey: string;
   ttsModel: string;
   ttsVoice: string;
+  ttsNarrationMode: TtsNarrationMode;
   nodeClipboard: { nodes: Node[]; edges: Edge[] } | null;
   setNodeClipboard: Dispatch<SetStateAction<{ nodes: Node[]; edges: Edge[] } | null>>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
@@ -35,8 +37,10 @@ export const useSelectionActions = ({
   ttsProvider,
   ttsApiKey,
   ttsApiUrl,
+  ttsAppKey,
   ttsModel,
   ttsVoice,
+  ttsNarrationMode,
   nodeClipboard,
   setNodeClipboard,
   setNodes,
@@ -242,9 +246,11 @@ export const useSelectionActions = ({
     try {
       for (let index = 0; index < storyNodes.length; index += 1) {
         const node = storyNodes[index];
-        const titleText = ttsService.htmlToSpeechText(String(node.data.title || ''));
-        const bodyText = ttsService.htmlToSpeechText(String(node.data.text || ''));
-        const speechText = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
+        const speechText = ttsService.buildSpeechText(
+          String(node.data.title || ''),
+          String(node.data.text || ''),
+          ttsNarrationMode,
+        );
         if (!speechText) continue;
 
         showToast(
@@ -260,7 +266,7 @@ export const useSelectionActions = ({
           provider: ttsProvider,
           apiUrl: ttsApiUrl,
           apiKey: ttsApiKey,
-          appKey: ttsModel,
+          appKey: ttsAppKey,
           appSecret: ttsApiKey,
           model: ttsModel,
           voice: ttsVoice,
@@ -306,8 +312,10 @@ export const useSelectionActions = ({
     showToast,
     ttsApiKey,
     ttsApiUrl,
+    ttsAppKey,
     ttsLoading,
     ttsModel,
+    ttsNarrationMode,
     ttsProvider,
     ttsVoice,
   ]);

@@ -193,11 +193,30 @@ curl https://api.openai.com/v1/images/generations \
 语音 AI 用于把文本转换成语音。你可以选择系统语音，也可以配置在线语音服务。
 
 - **系统语音**：使用桌面端内置朗读能力，不需要 API Key。
-- **有道语音**：填写 App Key 和 App Secret。
+- **有道语音**：按有道后台“查看应用”页面填写。后台的“应用ID”填到软件里的“应用ID（App Key）”，后台的“应用密钥”填到软件里的“应用密钥（App Secret）”。
 - **OpenAI 语音**：填写 API Key、API URL、Model 和 Voice。
 - **豆包 / Gemini / 自定义语音**：按服务商要求填写 API URL、API Key、Model 和 Voice。
 
 Voice 是声音名称，例如 `alloy`、`Kore` 或服务商提供的中文音色 ID。
+
+### 有道语音小白教程
+
+1. 在有道智云控制台打开 **业务指南 / 应用总览 / 查看应用**。
+2. 确认这个应用的 **已选服务** 包含 **语音合成**。如果没有，需要在有道后台给应用开通语音合成服务。
+3. 在软件里打开 **设置 / AI 配置 / 语音 AI / 新建配置**。
+4. **服务商** 选择 **有道**。
+5. **应用ID（App Key）**：填有道后台显示的 **应用ID**。注意，它不是 API Keys 页面里的 Key。
+6. **应用密钥（App Secret）**：填有道后台显示的 **应用密钥**。这是密码，软件会隐藏显示。
+7. **接口地址（API URL）**：普通使用保持默认 `https://openapi.youdao.com/ttsapi`。
+8. **音色（voiceName）**：不知道填什么就保留 `youxiaoqin`。需要换声音时，查看 [有道官方音色列表](https://ai.youdao.com/DOCSIRMA/html/tts/api/yyhc/index.html#section-9)，把文档里的 `voiceName` 填到软件里。
+9. 点击 **保存**，回到语音 AI 配置列表后，确认这条配置被选中启用。
+
+常见混淆：
+
+- 有道文档里的 `appKey` = 有道后台的 **应用ID** = 软件里的 **应用ID（App Key）**。
+- 有道文档里的 `appSecret` = 有道后台的 **应用密钥** = 软件里的 **应用密钥（App Secret）**。
+- `API URL` 是接口地址，不是密钥；有道默认地址通常不用改。
+- `voiceName` 是声音名字，不是模型名；默认 `youxiaoqin` 可以先用来测试。更多音色看 [有道官方音色列表](https://ai.youdao.com/DOCSIRMA/html/tts/api/yyhc/index.html#section-9)。
 
 ## 如何确认 API 已经生效
 

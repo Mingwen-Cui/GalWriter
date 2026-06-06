@@ -1,5 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import { Clock, Magnet, MoveHorizontal, MoveVertical, Music, Pause, Play, Plus, Trash2, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 import { ResizeHandle } from '../controls/RenderControls';
 import { PANEL_SIZE_LIMITS, TIMELINE_LABEL_WIDTH } from '../shared/constants';
@@ -50,6 +51,7 @@ type VideoTimelinePanelProps = {
   removeVideoTrack: (trackId: string) => void;
   removeAudioTrack: (trackId: string) => void;
   removeTimelineNode: (id: string) => void;
+  onBoxSelectTimelineNodes: (ids: string[], additive: boolean) => void;
   handleAssetDragStart: (event: React.DragEvent<HTMLElement>, id: string, kind?: 'video' | 'audio', offsetSeconds?: number) => void;
   focusTimelineSegment: (nodeId: string) => void;
   segmentTitle: (node: FlowNode) => string;
@@ -111,6 +113,7 @@ export function VideoTimelinePanel({
   removeVideoTrack,
   removeAudioTrack,
   removeTimelineNode,
+  onBoxSelectTimelineNodes,
   handleAssetDragStart,
   focusTimelineSegment,
   segmentTitle,
@@ -130,11 +133,126 @@ export function VideoTimelinePanel({
   handleTimelineScaleHandleEnd,
 }: VideoTimelinePanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const selectionDragRef = useRef<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    additive: boolean;
+    pointerId: number;
+    button: number;
+  } | null>(null);
+  const suppressNextContextMenuRef = useRef(false);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  const getSelectionRect = (box: { startX: number; startY: number; currentX: number; currentY: number }) => ({
+    left: Math.min(box.startX, box.currentX),
+    top: Math.min(box.startY, box.currentY),
+    right: Math.max(box.startX, box.currentX),
+    bottom: Math.max(box.startY, box.currentY),
+  });
+
+  const selectClipsInBox = (box: {
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    additive: boolean;
+  }) => {
+    const rect = getSelectionRect(box);
+    const ids = Array.from(
+      timelineViewportRef.current?.querySelectorAll<HTMLElement>('[data-timeline-clip-id]') || [],
+    )
+      .filter((element) => {
+        const clipRect = element.getBoundingClientRect();
+        return (
+          clipRect.left <= rect.right &&
+          clipRect.right >= rect.left &&
+          clipRect.top <= rect.bottom &&
+          clipRect.bottom >= rect.top
+        );
+      })
+      .map((element) => element.dataset.timelineClipId)
+      .filter((id): id is string => Boolean(id));
+
+    onBoxSelectTimelineNodes(Array.from(new Set(ids)), box.additive);
+  };
+
+  const handleBoxSelectPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (status === 'rendering' || event.button !== 2) return;
+    const target = event.target as HTMLElement;
+    if (
+      target.closest('button,input,select,textarea,[draggable="true"],[data-timeline-no-box-select]')
+    ) {
+      return;
+    }
+    event.preventDefault();
+    const box = {
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      additive: event.shiftKey || event.ctrlKey || event.metaKey,
+      pointerId: event.pointerId,
+      button: event.button,
+    };
+    selectionDragRef.current = box;
+    setSelectionBox(box);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleBoxSelectPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = selectionDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const next = { ...drag, currentX: event.clientX, currentY: event.clientY };
+    selectionDragRef.current = next;
+    setSelectionBox(next);
+  };
+
+  const handleBoxSelectPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = selectionDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    selectionDragRef.current = null;
+    setSelectionBox(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const width = Math.abs(drag.currentX - drag.startX);
+    const height = Math.abs(drag.currentY - drag.startY);
+    if (drag.button === 2 && (width >= 5 || height >= 5)) {
+      suppressNextContextMenuRef.current = true;
+    }
+    if (width < 5 && height < 5) return;
+    selectClipsInBox(drag);
+  };
+
+  const handleTimelinePanelContextMenu = (event: React.MouseEvent<HTMLElement>) => {
+    if (suppressNextContextMenuRef.current) {
+      suppressNextContextMenuRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    openContextMenu(event, { kind: 'empty' });
+  };
+
+  const suppressBoxSelectContextMenu = (event: React.MouseEvent<HTMLElement>) => {
+    if (!suppressNextContextMenuRef.current) return;
+    suppressNextContextMenuRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
             <section
               className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]"
-              onContextMenu={(event) => openContextMenu(event, { kind: 'empty' })}
+              onContextMenuCapture={suppressBoxSelectContextMenu}
+              onContextMenu={handleTimelinePanelContextMenu}
             >
               <div className="absolute inset-x-0 top-0">
                 <ResizeHandle
@@ -312,7 +430,13 @@ export function VideoTimelinePanel({
                       />
                     </div>
                   </div>
-                  <div className="relative">
+                  <div
+                    className="relative"
+                    onPointerDown={handleBoxSelectPointerDown}
+                    onPointerMove={handleBoxSelectPointerMove}
+                    onPointerUp={handleBoxSelectPointerEnd}
+                    onPointerCancel={handleBoxSelectPointerEnd}
+                  >
                     <div
                       className="pointer-events-none absolute bottom-0 top-0 z-20"
                       style={{ left: TIMELINE_LABEL_WIDTH + 12 + timelinePlayheadLeft }}
@@ -334,7 +458,9 @@ export function VideoTimelinePanel({
                       {[...videoTrackIds].reverse().map((trackId) => {
                         const trackIndex = videoTrackIds.indexOf(trackId);
                         const trackNodes = timelineNodes.filter(
-                          (node) => (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+                          (node) =>
+                            (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId &&
+                            Boolean(node.data?.videoUrl || node.data?.imageUrl || segmentText(node)),
                         );
                         const trackMetrics = trackNodes
                           .map((node) => timelineMetricById.get(node.id))
@@ -388,6 +514,7 @@ export function VideoTimelinePanel({
                                 );
                                 return (
                                   <div
+                                    data-timeline-clip-id={node.id}
                                     key={`${trackId}-${node.id}`}
                                     draggable
                                     onDragStart={(event) =>
@@ -496,6 +623,7 @@ export function VideoTimelinePanel({
                         />
                         <div
                           className="absolute top-1/2 z-40 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none"
+                          data-timeline-no-box-select
                           style={{ left: TIMELINE_LABEL_WIDTH + 12 + timelinePlayheadLeft }}
                           onPointerDown={handleTimelinePlayheadGrabStart}
                           onPointerMove={handleTimelinePlayheadGrabMove}
@@ -518,7 +646,9 @@ export function VideoTimelinePanel({
                       </div>
                       {audioTrackIds.map((trackId, trackIndex) => {
                         const trackNodes = timelineNodes.filter(
-                          (node) => (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+                          (node) =>
+                            (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId &&
+                            Boolean(node.data?.audioUrl || node.data?.videoUrl),
                         );
                         const trackMetrics = trackNodes
                           .map((node) => timelineMetricById.get(node.id))
@@ -572,6 +702,7 @@ export function VideoTimelinePanel({
                                 );
                                 return (
                                   <button
+                                    data-timeline-clip-id={node.id}
                                     key={`${trackId}-${node.id}-audio`}
                                     type="button"
                                     draggable
@@ -693,6 +824,17 @@ export function VideoTimelinePanel({
                   </div>
                 </div>
               </div>
+              {selectionBox && (
+                <div
+                  className="pointer-events-none fixed z-[9999] rounded border border-[var(--vr-accent)] bg-[var(--vr-accent)]/15 shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset]"
+                  style={{
+                    left: getSelectionRect(selectionBox).left,
+                    top: getSelectionRect(selectionBox).top,
+                    width: getSelectionRect(selectionBox).right - getSelectionRect(selectionBox).left,
+                    height: getSelectionRect(selectionBox).bottom - getSelectionRect(selectionBox).top,
+                  }}
+                />
+              )}
             </section>
   );
 }

@@ -99,9 +99,97 @@ import type {
 import { captureTimelineHistoryState, restoreTimelineHistoryState } from './timeline/timelineHistory';
 import { getTimelineTickSettings } from './timeline/timelineUtils';
 
-export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRenderModalProps) {
+const DEFAULT_RENDER_STYLE: RenderStyle = {
+  titleFontSize: 56,
+  bodyFontSize: 38,
+  titleColor: '#ffffff',
+  bodyColor: '#f8fafc',
+  panelColor: '#111827',
+  titleAnimation: 'none',
+  bodyAnimation: 'typewriter',
+};
+
+type PersistedRenderWorkspaceState = {
+  workspaceMode?: RenderWorkspaceMode;
+  selectedIds?: string[];
+  timelineIds?: string[];
+  timelineSourceById?: Record<string, string>;
+  videoTrackIds?: string[];
+  audioTrackIds?: string[];
+  videoTrackByNodeId?: Record<string, string>;
+  audioTrackByNodeId?: Record<string, string>;
+  timelineStartById?: Record<string, number>;
+  timelinePast?: TimelineHistoryState[];
+  timelineFuture?: TimelineHistoryState[];
+  activePreviewId?: string;
+  assetRegionFilter?: string;
+  resolutionIndex?: number;
+  exportFormat?: ExportFormat;
+  speed?: number;
+  defaultSeconds?: number;
+  animationLeadSeconds?: number;
+  frameRate?: number;
+  encoder?: string;
+  outputDir?: string;
+  webOutputDir?: string;
+  renderStyle?: Partial<RenderStyle>;
+  assetPanelWidth?: number;
+  assetCardLayout?: AssetCardLayout;
+  assetCardScale?: number;
+  exportPanelWidth?: number;
+  exportSettingsMode?: ExportSettingsMode;
+  timelineHeight?: number;
+  timelineScaleMode?: TimelineScaleMode;
+  timelineWheelMode?: TimelineWheelMode;
+  timelineSnapEnabled?: boolean;
+  timelinePixelsPerSecond?: number;
+  timelineDisplayDuration?: number;
+  timelinePreviewTime?: number;
+  savedAt?: number;
+};
+
+const renderWorkspaceStorageKey = (workspaceKey?: string) =>
+  `galwriter-video-render-workspace:v1:${workspaceKey || 'draft'}`;
+
+const readRenderWorkspaceState = (workspaceKey?: string): PersistedRenderWorkspaceState | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(renderWorkspaceStorageKey(workspaceKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedRenderWorkspaceState;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const clampPersistedNumber = (value: unknown, fallback: number, min: number, max: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : fallback;
+
+const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
+  value === 'video' || value === 'web';
+
+const isExportFormat = (value: unknown): value is ExportFormat =>
+  value === 'webm' || value === 'mp4' || value === 'mkv';
+
+const isAssetCardLayout = (value: unknown): value is AssetCardLayout =>
+  value === 'row' || value === 'grid';
+
+const isExportSettingsMode = (value: unknown): value is ExportSettingsMode =>
+  value === 'video' || value === 'audio';
+
+const isTimelineScaleMode = (value: unknown): value is TimelineScaleMode =>
+  value === 'seconds' || value === 'frames';
+
+const isTimelineWheelMode = (value: unknown): value is TimelineWheelMode =>
+  value === 'horizontal' || value === 'vertical';
+
+export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
-  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
+  const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
+  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(() =>
+    isRenderWorkspaceMode(persistedWorkspace?.workspaceMode) ? persistedWorkspace.workspaceMode : 'video',
+  );
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
@@ -124,42 +212,80 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     updateWebChoiceTextColor,
   } = useWebExportSettings(defaultWebProjectName, status === 'rendering');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(orderedNodes.map((node) => node.id)),
+    () =>
+      new Set(
+        Array.isArray(persistedWorkspace?.selectedIds) && persistedWorkspace.selectedIds.length > 0
+          ? persistedWorkspace.selectedIds
+          : orderedNodes.map((node) => node.id),
+      ),
   );
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
-    orderedNodes.map((node) => node.id),
+    Array.isArray(persistedWorkspace?.timelineIds) && persistedWorkspace.timelineIds.length > 0
+      ? persistedWorkspace.timelineIds
+      : orderedNodes.map((node) => node.id),
   );
-  const [timelineSourceById, setTimelineSourceById] = useState<Record<string, string>>({});
-  const [videoTrackIds, setVideoTrackIds] = useState<string[]>(() => ['video-1']);
-  const [audioTrackIds, setAudioTrackIds] = useState<string[]>(() => ['audio-1']);
+  const [timelineSourceById, setTimelineSourceById] = useState<Record<string, string>>(
+    () => persistedWorkspace?.timelineSourceById || {},
+  );
+  const [videoTrackIds, setVideoTrackIds] = useState<string[]>(() =>
+    Array.isArray(persistedWorkspace?.videoTrackIds) && persistedWorkspace.videoTrackIds.length > 0
+      ? persistedWorkspace.videoTrackIds
+      : ['video-1'],
+  );
+  const [audioTrackIds, setAudioTrackIds] = useState<string[]>(() =>
+    Array.isArray(persistedWorkspace?.audioTrackIds) && persistedWorkspace.audioTrackIds.length > 0
+      ? persistedWorkspace.audioTrackIds
+      : ['audio-1'],
+  );
   const [videoTrackByNodeId, setVideoTrackByNodeId] = useState<Record<string, string>>(() =>
+    persistedWorkspace?.videoTrackByNodeId ||
     Object.fromEntries(orderedNodes.map((node) => [node.id, 'video-1'])),
   );
   const [audioTrackByNodeId, setAudioTrackByNodeId] = useState<Record<string, string>>(() =>
+    persistedWorkspace?.audioTrackByNodeId ||
     Object.fromEntries(orderedNodes.map((node) => [node.id, 'audio-1'])),
   );
-  const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>({});
-  const [timelinePast, setTimelinePast] = useState<TimelineHistoryState[]>([]);
-  const [timelineFuture, setTimelineFuture] = useState<TimelineHistoryState[]>([]);
-  const [activePreviewId, setActivePreviewId] = useState<string>(() => orderedNodes[0]?.id || '');
-  const [assetRegionFilter, setAssetRegionFilter] = useState('all');
-  const [resolutionIndex, setResolutionIndex] = useState(0);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('mp4');
-  const [speed, setSpeed] = useState(1);
-  const [defaultSeconds, setDefaultSeconds] = useState(4);
-  const [animationLeadSeconds, setAnimationLeadSeconds] = useState(0);
-  const [frameRate, setFrameRate] = useState(30);
-  const [encoder, setEncoder] = useState('libx264');
-  const [outputDir, setOutputDir] = useState('');
-  const [webOutputDir, setWebOutputDir] = useState('');
+  const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>(
+    () => persistedWorkspace?.timelineStartById || {},
+  );
+  const [timelinePast, setTimelinePast] = useState<TimelineHistoryState[]>(
+    () => persistedWorkspace?.timelinePast || [],
+  );
+  const [timelineFuture, setTimelineFuture] = useState<TimelineHistoryState[]>(
+    () => persistedWorkspace?.timelineFuture || [],
+  );
+  const [activePreviewId, setActivePreviewId] = useState<string>(
+    () => persistedWorkspace?.activePreviewId || orderedNodes[0]?.id || '',
+  );
+  const [assetRegionFilter, setAssetRegionFilter] = useState(
+    () => persistedWorkspace?.assetRegionFilter || 'all',
+  );
+  const [resolutionIndex, setResolutionIndex] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.resolutionIndex, 0, 0, RESOLUTION_OPTIONS.length - 1),
+  );
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() =>
+    isExportFormat(persistedWorkspace?.exportFormat) ? persistedWorkspace.exportFormat : 'mp4',
+  );
+  const [speed, setSpeed] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.speed, 1, 0.25, 3),
+  );
+  const [defaultSeconds, setDefaultSeconds] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.defaultSeconds, 4, 1, 60),
+  );
+  const [animationLeadSeconds, setAnimationLeadSeconds] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.animationLeadSeconds, 0, 0, 10),
+  );
+  const [frameRate, setFrameRate] = useState(() =>
+    FRAME_RATE_OPTIONS.includes(persistedWorkspace?.frameRate || 0)
+      ? persistedWorkspace!.frameRate!
+      : 30,
+  );
+  const [encoder, setEncoder] = useState(() => persistedWorkspace?.encoder || 'libx264');
+  const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
+  const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
   const [renderStyle, setRenderStyle] = useState<RenderStyle>({
-    titleFontSize: 56,
-    bodyFontSize: 38,
-    titleColor: '#ffffff',
-    bodyColor: '#f8fafc',
-    panelColor: '#111827',
-    titleAnimation: 'none',
-    bodyAnimation: 'typewriter',
+    ...DEFAULT_RENDER_STYLE,
+    ...persistedWorkspace?.renderStyle,
   });
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
@@ -167,23 +293,77 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const [previewTime, setPreviewTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
   const [previewPlaying, setPreviewPlaying] = useState(false);
-  const [assetPanelWidth, setAssetPanelWidth] = useState(320);
-  const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>('row');
-  const [assetCardScale, setAssetCardScale] = useState(1);
-  const [exportPanelWidth, setExportPanelWidth] = useState(380);
-  const [exportSettingsMode, setExportSettingsMode] = useState<ExportSettingsMode>('video');
-  const [timelineHeight, setTimelineHeight] = useState(250);
-  const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>('seconds');
-  const [timelineWheelMode, setTimelineWheelMode] = useState<TimelineWheelMode>('horizontal');
-  const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(true);
-  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(
-    TIMELINE_PIXELS_PER_SECOND,
+  const [assetPanelWidth, setAssetPanelWidth] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.assetPanelWidth,
+      320,
+      PANEL_SIZE_LIMITS.asset.min,
+      PANEL_SIZE_LIMITS.asset.max,
+    ),
   );
-  const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(60);
+  const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>(() =>
+    isAssetCardLayout(persistedWorkspace?.assetCardLayout) ? persistedWorkspace.assetCardLayout : 'row',
+  );
+  const [assetCardScale, setAssetCardScale] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.assetCardScale,
+      1,
+      ASSET_CARD_MIN_SCALE,
+      ASSET_CARD_MAX_SCALE,
+    ),
+  );
+  const [exportPanelWidth, setExportPanelWidth] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.exportPanelWidth,
+      380,
+      PANEL_SIZE_LIMITS.export.min,
+      PANEL_SIZE_LIMITS.export.max,
+    ),
+  );
+  const [exportSettingsMode, setExportSettingsMode] = useState<ExportSettingsMode>(() =>
+    isExportSettingsMode(persistedWorkspace?.exportSettingsMode)
+      ? persistedWorkspace.exportSettingsMode
+      : 'video',
+  );
+  const [timelineHeight, setTimelineHeight] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.timelineHeight,
+      250,
+      PANEL_SIZE_LIMITS.timeline.min,
+      PANEL_SIZE_LIMITS.timeline.max,
+    ),
+  );
+  const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>(() =>
+    isTimelineScaleMode(persistedWorkspace?.timelineScaleMode)
+      ? persistedWorkspace.timelineScaleMode
+      : 'seconds',
+  );
+  const [timelineWheelMode, setTimelineWheelMode] = useState<TimelineWheelMode>(() =>
+    isTimelineWheelMode(persistedWorkspace?.timelineWheelMode)
+      ? persistedWorkspace.timelineWheelMode
+      : 'horizontal',
+  );
+  const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(
+    () => persistedWorkspace?.timelineSnapEnabled ?? true,
+  );
+  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(
+    () =>
+      clampPersistedNumber(
+        persistedWorkspace?.timelinePixelsPerSecond,
+        TIMELINE_PIXELS_PER_SECOND,
+        TIMELINE_MIN_PIXELS_PER_SECOND,
+        TIMELINE_MAX_PIXELS_PER_SECOND,
+      ),
+  );
+  const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.timelineDisplayDuration, 60, 5, 3600),
+  );
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
   const [uploadedAssetNodes, setUploadedAssetNodes] = useState<FlowNode[]>([]);
   const [focusedPreviewId, setFocusedPreviewId] = useState('');
-  const [timelinePreviewTime, setTimelinePreviewTime] = useState(0);
+  const [timelinePreviewTime, setTimelinePreviewTime] = useState(() =>
+    clampPersistedNumber(persistedWorkspace?.timelinePreviewTime, 0, 0, 3600),
+  );
   const [timelineScrollInfo, setTimelineScrollInfo] = useState({
     scrollLeft: 0,
     scrollWidth: 1,
@@ -235,6 +415,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   } | null>(null);
   const preservePreviewTimeOnNodeChangeRef = useRef(false);
   const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
+  const previewAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
   const previewDrawIdRef = useRef(0);
   const uploadedObjectUrlsRef = useRef<Set<string>>(new Set());
   const timelineClipCounterRef = useRef(0);
@@ -350,8 +531,24 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   const activeTimelineTime = focusedTimelineMetric
     ? clamp(focusedTimelineMetric.start + previewTime / speed, 0, timelineMetrics.totalDuration)
     : clamp(timelinePreviewTime, 0, timelineMetrics.totalDuration);
+  const activeAudioSegments = useMemo(
+    () =>
+      timelineMetrics.segments
+        .filter((segment) => selectedIds.has(segment.node.id))
+        .filter((segment) => segment.node.data?.audioUrl || segment.node.data?.videoUrl),
+    [selectedIds, timelineMetrics.segments],
+  );
+  const getSegmentAudioSources = (node: FlowNode) =>
+    [
+      { kind: 'card-audio', url: node.data?.audioUrl as string | undefined },
+      { kind: 'video-audio', url: node.data?.videoUrl as string | undefined },
+    ].filter((source): source is { kind: string; url: string } => Boolean(source.url));
   const activeTimelineFrame = Math.floor(activeTimelineTime * frameRate);
   const timelinePlayheadLeft = activeTimelineTime * timelineMetrics.pixelsPerSecond;
+  const isVisualTimelineNode = (node?: FlowNode | null) =>
+    Boolean(node?.data?.videoUrl || node?.data?.imageUrl || stripHtml(String(node?.data?.text || '')).trim());
+  const isAudioOnlyNode = (node?: FlowNode | null) =>
+    Boolean(node?.data?.audioUrl) && !isVisualTimelineNode(node);
   const timelineTickSettings = getTimelineTickSettings(
     timelineMetrics.pixelsPerSecond,
     timelineScaleMode,
@@ -1181,6 +1378,90 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
   }, []);
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const snapshot: PersistedRenderWorkspaceState = {
+      workspaceMode,
+      selectedIds: [...selectedIds],
+      timelineIds,
+      timelineSourceById,
+      videoTrackIds,
+      audioTrackIds,
+      videoTrackByNodeId,
+      audioTrackByNodeId,
+      timelineStartById,
+      timelinePast: timelinePast.slice(-50),
+      timelineFuture: timelineFuture.slice(0, 50),
+      activePreviewId,
+      assetRegionFilter,
+      resolutionIndex,
+      exportFormat,
+      speed,
+      defaultSeconds,
+      animationLeadSeconds,
+      frameRate,
+      encoder,
+      outputDir,
+      webOutputDir,
+      renderStyle,
+      assetPanelWidth,
+      assetCardLayout,
+      assetCardScale,
+      exportPanelWidth,
+      exportSettingsMode,
+      timelineHeight,
+      timelineScaleMode,
+      timelineWheelMode,
+      timelineSnapEnabled,
+      timelinePixelsPerSecond,
+      timelineDisplayDuration,
+      timelinePreviewTime,
+      savedAt: Date.now(),
+    };
+    try {
+      window.localStorage.setItem(renderWorkspaceStorageKey(workspaceKey), JSON.stringify(snapshot));
+    } catch {
+      // Ignore storage quota/private-mode failures; the render workspace still works in-memory.
+    }
+  }, [
+    activePreviewId,
+    animationLeadSeconds,
+    assetCardLayout,
+    assetCardScale,
+    assetPanelWidth,
+    assetRegionFilter,
+    audioTrackByNodeId,
+    audioTrackIds,
+    defaultSeconds,
+    encoder,
+    exportFormat,
+    exportPanelWidth,
+    exportSettingsMode,
+    frameRate,
+    outputDir,
+    renderStyle,
+    resolutionIndex,
+    selectedIds,
+    speed,
+    timelineDisplayDuration,
+    timelineHeight,
+    timelineIds,
+    timelineFuture,
+    timelinePast,
+    timelinePixelsPerSecond,
+    timelinePreviewTime,
+    timelineScaleMode,
+    timelineSnapEnabled,
+    timelineSourceById,
+    timelineStartById,
+    timelineWheelMode,
+    videoTrackByNodeId,
+    videoTrackIds,
+    webOutputDir,
+    workspaceKey,
+    workspaceMode,
+  ]);
+
+  React.useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(document.fullscreenElement === modalRootRef.current);
     };
@@ -1475,6 +1756,24 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setSelectedIds(new Set());
   };
 
+  const boxSelectTimelineNodes = (ids: string[], additive: boolean) => {
+    closeContextMenu();
+    pushTimelineHistory();
+    setFocusedPreviewId('');
+    setPreviewPlaying(false);
+    setSelectedIds((prev) => {
+      if (!additive) return new Set(ids);
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+    if (ids[0]) {
+      setActivePreviewId(ids[0]);
+      const metric = timelineMetricById.get(ids[0]);
+      if (metric) setTimelinePreviewTime(metric.start);
+    }
+  };
+
   const focusTimelineSegment = (nodeId: string) => {
     const metric = timelineMetricById.get(nodeId);
     if (!metric) return;
@@ -1545,11 +1844,23 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     const dragOrigin = event.dataTransfer.getData('application/x-galwriter-drag-origin');
     const isTimelineClip = dragOrigin === 'timeline' && timelineIds.includes(draggedId);
     if (!isTimelineClip && !assetNodeById.has(draggedId)) return;
-    const droppedTrackKind =
+    let droppedTrackKind =
       trackKind ||
       (event.dataTransfer.getData('application/x-galwriter-track-kind') as 'video' | 'audio') ||
       'video';
-    if (trackId) {
+    let droppedTrackId = trackId;
+    const draggedSourceNode = isTimelineClip
+      ? timelineNodeById.get(draggedId)
+      : assetNodeById.get(draggedId);
+    if (!isTimelineClip && isAudioOnlyNode(draggedSourceNode)) {
+      droppedTrackKind = 'audio';
+      if (trackKind === 'video' && trackId) {
+        droppedTrackId = audioTrackIds[videoTrackIds.indexOf(trackId)] || audioTrackIds[0];
+      } else {
+        droppedTrackId = trackId || audioTrackIds[0];
+      }
+    }
+    if (droppedTrackId) {
       const trackElement = (event.currentTarget as HTMLElement).closest(
         '[data-render-track-kind]',
       ) as HTMLElement | null;
@@ -1570,7 +1881,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         droppedTime,
         duration,
         droppedTrackKind,
-        trackId,
+        droppedTrackId,
       );
       const shouldPreservePlayhead = timelineId === activePreviewId;
       const preservedTimelineTime = activeTimelineTime;
@@ -1581,10 +1892,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         setTimelineSourceById((prev) => ({ ...prev, [timelineId]: draggedId }));
       }
       if (droppedTrackKind === 'video') {
-        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
-        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, trackId);
+        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: droppedTrackId }));
+        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, droppedTrackId);
       } else {
-        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
+        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: droppedTrackId }));
       }
       setTimelineStartById((prev) => ({ ...prev, [timelineId]: nextStart }));
       if (shouldPreservePlayhead) {
@@ -1604,7 +1915,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           ? 'after'
           : 'before',
       );
-    } else addNodeToTimeline(draggedId, droppedTrackKind, trackId);
+    } else addNodeToTimeline(draggedId, droppedTrackKind, droppedTrackId);
   };
 
   const handleTimelineWheel = (event: WheelEvent) => {
@@ -1712,6 +2023,113 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     setProgressValue(percent);
   };
 
+  const stopPreviewAudio = () => {
+    previewAudioRefs.current.forEach((audio) => audio.pause());
+    previewAudioRefs.current.clear();
+  };
+
+  const syncPreviewAudioSegments = async (
+    segments: { key: string; audioUrl: string; localTime: number }[],
+    shouldPlay: boolean,
+  ) => {
+    if (status === 'rendering' || segments.length === 0) {
+      stopPreviewAudio();
+      return;
+    }
+
+    const desiredKeys = new Set(segments.map((segment) => segment.key));
+    previewAudioRefs.current.forEach((audio, key) => {
+      if (desiredKeys.has(key)) return;
+      audio.pause();
+      previewAudioRefs.current.delete(key);
+    });
+
+    for (const segment of segments) {
+      let audio = previewAudioRefs.current.get(segment.key);
+      if (!audio || audio.src !== segment.audioUrl) {
+        audio?.pause();
+        audio = new Audio(segment.audioUrl);
+        audio.crossOrigin = 'anonymous';
+        previewAudioRefs.current.set(segment.key, audio);
+      }
+
+      audio.playbackRate = speed;
+      const targetTime = Math.max(0, segment.localTime);
+      const nextTime = Number.isFinite(audio.duration)
+        ? Math.min(Math.max(0, audio.duration - 0.05), targetTime)
+        : targetTime;
+      if (!shouldPlay || audio.paused || Math.abs(audio.currentTime - nextTime) > 0.35) {
+        audio.currentTime = nextTime;
+      }
+
+      if (shouldPlay) {
+        await audio.play().catch(() => undefined);
+      } else {
+        audio.pause();
+      }
+    }
+  };
+
+  const syncPreviewAudio = async (
+    audioUrl: string | undefined,
+    localTime: number,
+    shouldPlay: boolean,
+  ) => {
+    await syncPreviewAudioSegments(
+      audioUrl ? [{ key: 'focused', audioUrl, localTime }] : [],
+      shouldPlay,
+    );
+  };
+
+  const connectTimelineAudio = async (
+    audioContext: AudioContext,
+    audioDestination: MediaStreamAudioDestinationNode,
+    renderStartSeconds: number,
+    renderDurationSeconds: number,
+  ) => {
+    const activeSources: {
+      element: HTMLAudioElement;
+      source: MediaElementAudioSourceNode;
+      timeoutId: number;
+    }[] = [];
+
+    for (const segment of activeAudioSegments) {
+      const sources = getSegmentAudioSources(segment.node);
+      if (sources.length === 0) continue;
+
+      const clipStart = Math.max(segment.start, renderStartSeconds);
+      const clipEnd = Math.min(segment.end, renderStartSeconds + renderDurationSeconds);
+      if (clipEnd <= clipStart) continue;
+
+      const localOffset = Math.max(0, (clipStart - segment.start) * speed);
+      const startDelayMs = Math.max(0, (clipStart - renderStartSeconds) * 1000);
+      const playDurationMs = Math.max(0, (clipEnd - clipStart) * 1000);
+      sources.forEach((clipSource) => {
+        const audio = new Audio(clipSource.url);
+        audio.crossOrigin = 'anonymous';
+        audio.playbackRate = speed;
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(audioDestination);
+        source.connect(audioContext.destination);
+
+        const timeoutId = window.setTimeout(() => {
+          audio.currentTime = localOffset;
+          void audio.play().catch(() => undefined);
+          window.setTimeout(() => audio.pause(), playDurationMs);
+        }, startDelayMs);
+        activeSources.push({ element: audio, source, timeoutId });
+      });
+    }
+
+    return () => {
+      activeSources.forEach(({ element, source, timeoutId }) => {
+        window.clearTimeout(timeoutId);
+        element.pause();
+        source.disconnect();
+      });
+    };
+  };
+
   const getNodeMediaDuration = async (node: FlowNode) => {
     const videoUrl = node.data?.videoUrl as string | undefined;
     const audioUrl = node.data?.audioUrl as string | undefined;
@@ -1764,7 +2182,6 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     canvas.height = resolution.height;
 
     const frames: RenderedFramePayload[] = [];
-    const audioSegments: SegmentRenderInfo[] = [];
     for (let index = 0; index < selectedNodes.length; index += 1) {
       const node = selectedNodes[index];
       const durationSecs = await getNodeRenderDuration(node);
@@ -1787,13 +2204,18 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         bytes: await canvasToPngBytes(canvas),
         durationSecs,
       });
-      audioSegments.push({
-        node,
-        durationSecs,
-        audioUrl: node.data?.audioUrl as string | undefined,
-        videoUrl: node.data?.videoUrl as string | undefined,
-      });
     }
+
+    const audioSegments: SegmentRenderInfo[] = activeAudioSegments
+      .filter((segment) => selectedIds.has(segment.node.id))
+      .flatMap((segment) =>
+        getSegmentAudioSources(segment.node).map((source) => ({
+          node: segment.node,
+          startSecs: segment.start,
+          durationSecs: segment.duration,
+          audioUrl: source.url,
+        })),
+      );
 
     updateProgress(
       isZh ? '合成音频轨' : 'Mixing audio track',
@@ -1968,6 +2390,11 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
 
       recorder.start(250);
 
+      const shouldRenderTimelineAudio = activeAudioSegments.length > 0;
+      const stopTimelineAudio = shouldRenderTimelineAudio
+        ? await connectTimelineAudio(audioContext, audioDestination, 0, timelineMetrics.totalDuration)
+        : undefined;
+
       for (let index = 0; index < selectedNodes.length; index += 1) {
         const node = selectedNodes[index];
         setProgress(`${index + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
@@ -1976,15 +2403,18 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         const audioUrl = node.data?.audioUrl as string | undefined;
         if (videoUrl) {
           const video = await loadVideo(videoUrl);
-          video.muted = false;
+          video.muted = shouldRenderTimelineAudio;
           video.playbackRate = speed;
-          const videoSource = audioContext.createMediaElementSource(video);
-          videoSource.connect(audioDestination);
-          videoSource.connect(audioContext.destination);
+          let videoSource: MediaElementAudioSourceNode | undefined;
+          if (!shouldRenderTimelineAudio) {
+            videoSource = audioContext.createMediaElementSource(video);
+            videoSource.connect(audioDestination);
+            videoSource.connect(audioContext.destination);
+          }
           let linkedAudio: HTMLAudioElement | undefined;
           let linkedAudioSource: MediaElementAudioSourceNode | undefined;
           const audioDuration = audioUrl ? await getAudioDuration(audioUrl) : 0;
-          if (audioUrl) {
+          if (audioUrl && !shouldRenderTimelineAudio) {
             linkedAudio = new Audio(audioUrl);
             linkedAudio.crossOrigin = 'anonymous';
             linkedAudio.playbackRate = speed;
@@ -2018,7 +2448,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           }
           video.pause();
           linkedAudio?.pause();
-          videoSource.disconnect();
+          videoSource?.disconnect();
           linkedAudioSource?.disconnect();
           continue;
         }
@@ -2027,7 +2457,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         let audioSource: MediaElementAudioSourceNode | undefined;
         let durationMs = Math.max(500, (defaultSeconds / speed) * 1000);
 
-        if (audioUrl) {
+        if (audioUrl && !shouldRenderTimelineAudio) {
           audio = new Audio(audioUrl);
           audio.crossOrigin = 'anonymous';
           audio.playbackRate = speed;
@@ -2057,6 +2487,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
         if (audioSource) audioSource.disconnect();
       }
 
+      stopTimelineAudio?.();
       recorder.stop();
       const blob = await finished;
       audioContext.close();
@@ -2248,6 +2679,49 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
     animationLeadSeconds,
     status,
   ]);
+
+  React.useEffect(() => {
+    if (status === 'rendering') {
+      stopPreviewAudio();
+      return;
+    }
+
+    if (focusedPreviewNode) {
+      void syncPreviewAudioSegments(
+        getSegmentAudioSources(focusedPreviewNode).map((source) => ({
+          key: `focused-${source.kind}`,
+          audioUrl: source.url,
+          localTime: previewTime,
+        })),
+        previewPlaying,
+      );
+      return;
+    }
+
+    const overlappingSegments = activeAudioSegments
+      .filter((metric) => activeTimelineTime >= metric.start && activeTimelineTime < metric.end)
+      .flatMap((metric) =>
+        getSegmentAudioSources(metric.node).map((source) => ({
+          key: `${metric.node.id}-${source.kind}`,
+          audioUrl: source.url,
+          localTime: (activeTimelineTime - metric.start) * speed,
+        })),
+      );
+    void syncPreviewAudioSegments(
+      overlappingSegments,
+      previewPlaying,
+    );
+  }, [
+    activeAudioSegments,
+    activeTimelineTime,
+    focusedPreviewNode,
+    previewPlaying,
+    previewTime,
+    speed,
+    status,
+  ]);
+
+  React.useEffect(() => () => stopPreviewAudio(), []);
 
   React.useEffect(() => {
     if (!previewPlaying || status === 'rendering') return;
@@ -2750,6 +3224,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language }: VideoRende
           removeVideoTrack={removeVideoTrack}
           removeAudioTrack={removeAudioTrack}
           removeTimelineNode={removeTimelineNode}
+          onBoxSelectTimelineNodes={boxSelectTimelineNodes}
           handleAssetDragStart={handleAssetDragStart}
           focusTimelineSegment={focusTimelineSegment}
           segmentTitle={segmentTitle}

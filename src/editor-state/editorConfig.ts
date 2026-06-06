@@ -19,6 +19,7 @@ export type {
   ScrollMode,
   SelectionMenuLayout,
   StoryTitlePlacement,
+  TtsNarrationMode,
   ToolbarLayout,
   TtsProvider,
 } from '../domain/project';

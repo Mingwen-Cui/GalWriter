@@ -2,7 +2,13 @@ import type { SegmentRenderInfo } from '../shared/types';
 import { encodeWav, fetchArrayBuffer } from '../shared/mediaUtils';
 
 export const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: number) => {
-  const totalDuration = segments.reduce((sum, segment) => sum + segment.durationSecs, 0);
+  const hasExplicitStart = segments.some((segment) => segment.startSecs !== undefined);
+  const totalDuration = hasExplicitStart
+    ? Math.max(
+        0,
+        ...segments.map((segment) => (segment.startSecs || 0) + segment.durationSecs),
+      )
+    : segments.reduce((sum, segment) => sum + segment.durationSecs, 0);
   if (totalDuration <= 0) return undefined;
 
   const sampleRate = 48000;
@@ -20,7 +26,8 @@ export const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: numb
         source.buffer = decoded;
         source.playbackRate.value = speed;
         source.connect(context.destination);
-        source.start(cursor, 0, Math.min(decoded.duration, segment.durationSecs * speed));
+        const startAt = segment.startSecs ?? cursor;
+        source.start(startAt, 0, Math.min(decoded.duration, segment.durationSecs * speed));
         hasAudio = true;
       } catch (error) {
         console.warn('Could not decode render audio track:', error);

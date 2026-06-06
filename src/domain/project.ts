@@ -22,6 +22,7 @@ export type SelectionMenuLayout = 'horizontal' | 'vertical';
 export type EditorTheme = 'light' | 'dark';
 export type BubbleStyle = 'glass' | 'flat';
 export type StoryTitlePlacement = 'inside' | 'outside-left' | 'outside-right';
+export type TtsNarrationMode = 'body' | 'title' | 'all';
 export type MiniMapPosition = 'left' | 'right';
 export type TtsProvider =
   | 'system'
@@ -205,6 +206,7 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsModel: string;
   ttsVoice: string;
   ttsProvider: TtsProvider;
+  ttsNarrationMode: TtsNarrationMode;
   thinkingMode: boolean;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
@@ -234,6 +236,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setStoryTitlePlacement: Dispatch<SetStateAction<StoryTitlePlacement>>;
   setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
+  setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
@@ -290,6 +293,7 @@ export interface EditorNodeCallbacks {
   onAIGenerate?: (id: string, action?: AIActionType) => void;
   onAIAnalyze?: (id: string, mode?: string) => Promise<void> | void;
   onGenerateImage?: (id: string) => Promise<void> | void;
+  onGenerateSpeech?: (id: string) => Promise<void> | void;
   onGenerateSettingImage?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
   onAddTextToImage?: (id: string) => void;
   onRemoveTextFromImage?: (id: string) => void;

@@ -319,7 +319,8 @@ export const useCanvasInteractions = ({
               style: {
                 ...current.style,
                 height:
-                  (current.measured?.height || (current.style?.height as number) || 200) + 200,
+                  (current.measured?.height || (current.style?.height as number) || 200) +
+                  (sourceHasVisual ? 200 : 56),
               },
             };
           }),
