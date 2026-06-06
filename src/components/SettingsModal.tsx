@@ -26,7 +26,7 @@ import type {
   VoiceAIProfile,
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
-import { getTauriInvoke } from '../lib/tauriRuntime';
+import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { LocalProjectSummary } from '../lib/db';
 
 interface SettingsModalProps {
@@ -200,7 +200,7 @@ const settingsText = {
     enableOverlay: '启用遮罩',
     disableOverlay: '关闭遮罩',
     multimediaSettings: '多媒体设置',
-    qqPersonal: 'QQ 号（个人）',
+    qqPersonal: 'QQ群',
     visitAuthorWebsite: '访问作者的网站',
     helpUsageNotice: '帮助和使用须知',
     aboutProductTitle: '交互式 AI 小说创作工具',
@@ -298,7 +298,7 @@ const settingsText = {
     enableOverlay: 'Enabled',
     disableOverlay: 'Disabled',
     multimediaSettings: 'Multimedia Settings',
-    qqPersonal: 'QQ (Personal)',
+    qqPersonal: 'QQ Group',
     visitAuthorWebsite: 'Visit Author Website',
     helpUsageNotice: 'Help & Usage Notice',
     aboutProductTitle: 'Interactive AI Fiction Creation Tool',
@@ -398,7 +398,7 @@ const settingsText = {
     enableOverlay: 'オーバーレイを表示',
     disableOverlay: 'オーバーレイを非表示',
     multimediaSettings: 'マルチメディア設定',
-    qqPersonal: 'QQ（個人）',
+    qqPersonal: 'QQグループ',
     visitAuthorWebsite: '開発者のウェブサイトを訪問',
     helpUsageNotice: 'ヘルプと利用規約',
     aboutProductTitle: 'インタラクティブAI小説執筆ツール',
@@ -552,6 +552,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const t = translations[language];
   const s = settingsText[language];
+  const isDesktopApp = isTauriRuntime();
   const applyProjectCountLabel =
     language === 'zh'
       ? `应用到 ${selectedApplyProjectIds.length} 个项目`
@@ -1529,8 +1530,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {[
                         {
                           id: 'qq',
-                          label: 'QQ 号(个人)',
-                          value: '1836902091',
+                          label: s.qqPersonal,
+                          value: '721397187',
                           icon: <MessageCircle className="w-5 h-5" />,
                           color: 'blue',
                           copied: qqCopied,
@@ -1576,7 +1577,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         href="https://mingwencui.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="col-span-2 flex items-center justify-center gap-2 px-6 py-4 bg-[var(--accent)] text-white rounded-xl text-sm font-black shadow-xl transition-all hover:shadow-2xl hover:-translate-y-0.5 active:scale-95"
+                        className="col-span-1 flex min-h-14 items-center justify-center gap-2 px-4 py-4 bg-[var(--accent)] text-white rounded-xl text-sm font-black shadow-xl transition-all hover:shadow-2xl hover:-translate-y-0.5 active:scale-95"
                       >
                         <ExternalLink className="w-4 h-4" />
                         <span>{s.visitAuthorWebsite}</span>
@@ -1584,7 +1585,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setAboutPage('help')}
-                        className="col-span-2 flex items-center justify-center gap-2 px-6 py-4 bg-[var(--card-bg)] text-[var(--text-primary)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black shadow-sm transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:-translate-y-0.5 active:scale-95"
+                        className="col-span-1 flex min-h-14 items-center justify-center gap-2 px-4 py-4 bg-[var(--card-bg)] text-[var(--text-primary)] border-2 border-[var(--card-border)] rounded-xl text-sm font-black shadow-sm transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:-translate-y-0.5 active:scale-95"
                       >
                         <HelpCircle className="w-4 h-4" />
                         <span>{s.helpUsageNotice}</span>
@@ -1619,49 +1620,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
 
-                  <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <header className="flex items-center gap-3 mb-5">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {s.desktopCloseButton}
-                      </h3>
-                    </header>
-                    <div className="flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]">
-                      <button
-                        type="button"
-                        onClick={() => setCloseButtonBehavior('minimize')}
-                        className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'minimize' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                      >
-                        {s.minimizeToTray}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCloseButtonBehavior('quit')}
-                        className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'quit' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                      >
-                        {s.quitApp}
-                      </button>
-                    </div>
-                    <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)] font-medium">
-                      {s.desktopCloseDesc}
-                    </p>
-                  </section>
+                  {isDesktopApp && (
+                    <>
+                      <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <header className="flex items-center gap-3 mb-5">
+                          <h3 className="text-base font-black text-[var(--text-primary)]">
+                            {s.desktopCloseButton}
+                          </h3>
+                        </header>
+                        <div className="flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]">
+                          <button
+                            type="button"
+                            onClick={() => setCloseButtonBehavior('minimize')}
+                            className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'minimize' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                          >
+                            {s.minimizeToTray}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCloseButtonBehavior('quit')}
+                            className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${closeButtonBehavior === 'quit' ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] border border-[var(--card-border)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                          >
+                            {s.quitApp}
+                          </button>
+                        </div>
+                        <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)] font-medium">
+                          {s.desktopCloseDesc}
+                        </p>
+                      </section>
 
-                  <section className="pt-4 border-t border-rose-500/20">
-                    <button
-                      type="button"
-                      onClick={forceQuitApp}
-                      className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-rose-600 text-white text-sm font-black shadow-lg transition-all hover:bg-rose-700 hover:shadow-xl active:scale-95"
-                      title={s.forceQuitTitle}
-                    >
-                      <X className="w-4 h-4" />
-                      <span>
-                        {s.forceCloseApp}
-                      </span>
-                    </button>
-                    <p className="mt-3 text-center text-[10px] leading-relaxed font-bold text-rose-500/80">
-                      {s.forceCloseDesc}
-                    </p>
-                  </section>
+                      <section className="pt-4 border-t border-rose-500/20">
+                        <button
+                          type="button"
+                          onClick={forceQuitApp}
+                          className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-rose-600 text-white text-sm font-black shadow-lg transition-all hover:bg-rose-700 hover:shadow-xl active:scale-95"
+                          title={s.forceQuitTitle}
+                        >
+                          <X className="w-4 h-4" />
+                          <span>
+                            {s.forceCloseApp}
+                          </span>
+                        </button>
+                        <p className="mt-3 text-center text-[10px] leading-relaxed font-bold text-rose-500/80">
+                          {s.forceCloseDesc}
+                        </p>
+                      </section>
+                    </>
+                  )}
                 </div>
               )}
 
