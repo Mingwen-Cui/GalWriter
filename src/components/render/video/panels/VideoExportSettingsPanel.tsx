@@ -37,7 +37,7 @@ type VideoExportSettingsPanelProps = {
   fallbackEstimatedSeconds: number;
   animationLeadSeconds: number;
   setAnimationLeadSeconds: (value: number) => void;
-  selectedNodes: unknown[];
+  selectedSpeechNodeCount: number;
   audioBusy: boolean;
   audioMessage: string;
   isRecordingVoiceover: boolean;
@@ -80,7 +80,7 @@ export function VideoExportSettingsPanel({
   fallbackEstimatedSeconds,
   animationLeadSeconds,
   setAnimationLeadSeconds,
-  selectedNodes,
+  selectedSpeechNodeCount,
   audioBusy,
   audioMessage,
   isRecordingVoiceover,
@@ -432,15 +432,15 @@ export function VideoExportSettingsPanel({
                         <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 space-y-3">
                           <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
                             {t(
-                              `将当前选中的 ${selectedNodes.length} 个片段文字生成音频素材。`,
-                              `選択中の ${selectedNodes.length} 個のセグメントから音声素材を作成します。`,
-                              `Create an audio asset from ${selectedNodes.length} selected segment(s).`,
+                              `将当前选中的 ${selectedSpeechNodeCount} 个非视频片段文字生成音频素材。`,
+                              `選択中の ${selectedSpeechNodeCount} 個の非動画セグメントから音声素材を作成します。`,
+                              `Create an audio asset from ${selectedSpeechNodeCount} selected non-video segment(s).`,
                             )}
                           </p>
                           <button
                             type="button"
                             onClick={generateAudioFromSelectedText}
-                            disabled={audioBusy || selectedNodes.length === 0}
+                            disabled={audioBusy || selectedSpeechNodeCount === 0}
                             className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white transition-colors hover:bg-[var(--vr-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {audioBusy ? (

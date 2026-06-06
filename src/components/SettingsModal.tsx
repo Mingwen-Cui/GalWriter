@@ -42,6 +42,10 @@ interface SettingsModalProps {
   setCloseButtonBehavior: (behavior: 'minimize' | 'quit') => void;
   bubbleStyle: 'glass' | 'flat';
   setBubbleStyle: (style: 'glass' | 'flat') => void;
+  opaqueAssistantMessagesInGlass: boolean;
+  setOpaqueAssistantMessagesInGlass: (value: boolean) => void;
+  opaqueFooterInGlass: boolean;
+  setOpaqueFooterInGlass: (value: boolean) => void;
   canvasBg: string;
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
@@ -78,6 +82,8 @@ interface SettingsModalProps {
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
   activeVoiceProfileId: string | null;
+  settingsAttentionTarget?: 'text' | 'image' | 'voice' | null;
+  onAcknowledgeSettingsAttention?: () => void;
   projectSummaries: LocalProjectSummary[];
   currentProjectId: string | null;
   onCreateAIProfile: (
@@ -146,6 +152,8 @@ const settingsText = {
     selectionMenu: '框选菜单',
     show: '显示',
     hide: '隐藏',
+    on: '开启',
+    off: '关闭',
     shownInToolbar: '工具栏显示',
     hiddenInToolbar: '工具栏隐藏',
     applyCurrentSettingsTitle: '应用当前设置到其他项目',
@@ -161,6 +169,9 @@ const settingsText = {
     copied: '已复制！',
     clickToCopy: '点击复制',
     toolbarBubbleStyle: '工具栏气泡质感',
+    glassReadability: '玻璃可读性',
+    opaqueAssistantMessagesInGlass: 'AI 助手对话不透明',
+    opaqueFooterInGlass: '底部状态栏不透明',
     glass: '玻璃',
     flat: '扁平',
     bgColorsDesc: '点击颜色块可自定义颜色，这些颜色会显示在画布右侧的快速切换栏中。',
@@ -243,6 +254,8 @@ const settingsText = {
     selectionMenu: 'Selection Menu',
     show: 'Show',
     hide: 'Hide',
+    on: 'On',
+    off: 'Off',
     shownInToolbar: 'Shown in toolbar',
     hiddenInToolbar: 'Hidden in toolbar',
     applyCurrentSettingsTitle: 'Apply current settings to other projects',
@@ -259,6 +272,9 @@ const settingsText = {
     copied: 'Copied!',
     clickToCopy: 'Click to Copy',
     toolbarBubbleStyle: 'Toolbar Bubble Style',
+    glassReadability: 'Glass Readability',
+    opaqueAssistantMessagesInGlass: 'Opaque AI assistant messages',
+    opaqueFooterInGlass: 'Opaque bottom footer',
     glass: 'Glass',
     flat: 'Flat',
     bgColorsDesc: 'Click color blocks to customize. These will appear in the quick switcher.',
@@ -343,6 +359,8 @@ const settingsText = {
     selectionMenu: '選択メニュー',
     show: '表示',
     hide: '非表示',
+    on: 'オン',
+    off: 'オフ',
     shownInToolbar: 'ツールバーに表示',
     hiddenInToolbar: 'ツールバーで非表示',
     applyCurrentSettingsTitle: '現在の設定を他のプロジェクトに適用',
@@ -359,6 +377,9 @@ const settingsText = {
     copied: 'コピーしました！',
     clickToCopy: 'クリックしてコピー',
     toolbarBubbleStyle: 'ツールバーのバブルスタイル',
+    glassReadability: 'ガラス表示の可読性',
+    opaqueAssistantMessagesInGlass: 'AIアシスタント会話を不透明にする',
+    opaqueFooterInGlass: '下部フッターを不透明にする',
     glass: 'ガラス',
     flat: 'フラット',
     bgColorsDesc: '色をクリックするとカスタマイズできます。これらの色はキャンバス右側のクイック切り替えバーに表示されます。',
@@ -455,6 +476,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setCloseButtonBehavior,
   bubbleStyle,
   setBubbleStyle,
+  opaqueAssistantMessagesInGlass,
+  setOpaqueAssistantMessagesInGlass,
+  opaqueFooterInGlass,
+  setOpaqueFooterInGlass,
   canvasBg,
   setCanvasBg,
   presetColors,
@@ -491,6 +516,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeTextProfileId,
   activeImageProfileId,
   activeVoiceProfileId,
+  settingsAttentionTarget,
+  onAcknowledgeSettingsAttention,
   projectSummaries,
   currentProjectId,
   onCreateAIProfile,
@@ -545,6 +572,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
   const [selectedApplyProjectIds, setSelectedApplyProjectIds] = useState<string[]>([]);
+  React.useEffect(() => {
+    if (showSettings && settingsAttentionTarget) {
+      setActiveSettingsTab('ai');
+    }
+  }, [showSettings, settingsAttentionTarget]);
   const forceQuitApp = async () => {
     try {
       const invoke = await getTauriInvoke();
@@ -677,6 +709,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
                       activeSettingsTab === tab.id
                         ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] scale-[1.02] border border-[var(--card-border)]'
+                        : tab.id === 'ai' && settingsAttentionTarget
+                          ? 'text-rose-600 bg-rose-500/10 ring-2 ring-rose-400/30'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)]/50'
                     }`}
                   >
@@ -690,7 +724,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {tab.icon}
                     </span>
                     {tab.label}
-                    {tab.id === 'ai' && missingTextApiKey && (
+                    {tab.id === 'ai' && (missingTextApiKey || settingsAttentionTarget) && (
                       <span className="absolute right-3.5 top-3 h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
                     )}
                   </button>
@@ -802,6 +836,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   </section>
+
+                  {bubbleStyle === 'glass' && (
+                    <section className="space-y-2">
+                      <header className="flex items-center gap-3">
+                        <h3 className="text-base font-black text-[var(--text-primary)]">
+                          {s.glassReadability}
+                        </h3>
+                      </header>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-0">
+                        {[
+                          {
+                            id: 'opaqueAssistantMessagesInGlass',
+                            label: s.opaqueAssistantMessagesInGlass,
+                            value: opaqueAssistantMessagesInGlass,
+                            setter: setOpaqueAssistantMessagesInGlass,
+                          },
+                          {
+                            id: 'opaqueFooterInGlass',
+                            label: s.opaqueFooterInGlass,
+                            value: opaqueFooterInGlass,
+                            setter: setOpaqueFooterInGlass,
+                          },
+                        ].map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between py-2.5 border-b border-[var(--header-border)] last:border-0 group"
+                          >
+                            <span className="text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                              {item.label}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => item.setter(!item.value)}
+                              className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                              aria-pressed={item.value}
+                              aria-label={item.label}
+                            >
+                              <div
+                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
+                              />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>
@@ -1556,6 +1636,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   activeImageProfileId={activeImageProfileId}
                   activeVoiceProfileId={activeVoiceProfileId}
                   missingTextApiKey={missingTextApiKey}
+                  settingsAttentionTarget={settingsAttentionTarget}
+                  onAcknowledgeSettingsAttention={onAcknowledgeSettingsAttention}
                   onCreateAIProfile={onCreateAIProfile}
                   onUpdateAIProfile={onUpdateAIProfile}
                   onSelectAIProfile={onSelectAIProfile}

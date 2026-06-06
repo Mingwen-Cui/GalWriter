@@ -32,6 +32,7 @@ import {
   DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
   DEFAULT_STABLE_DIFFUSION_SAMPLER,
   DEFAULT_STABLE_DIFFUSION_STEPS,
+  isLocalStableDiffusionProvider,
 } from '../editor-features/media/imageGeneration';
 import { useMediaActions } from '../editor-features/media/useMediaActions';
 import { useNodeActions } from '../editor-features/node-actions/useNodeActions';
@@ -407,6 +408,9 @@ export function StoryEditor() {
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [showSettings, setShowSettings] = useState(false);
   const [settingsAttention, setSettingsAttention] = useState(false);
+  const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
+    'text' | 'image' | 'voice' | null
+  >(null);
   const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
   const [activeTextProfileId, setActiveTextProfileId] = useState<string | null>(null);
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
@@ -416,6 +420,8 @@ export function StoryEditor() {
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
+  const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
+  const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
   const [tx, ty, tzoom] = useStore((s) => s.transform);
   const flowWidth = useStore((s) => s.width);
@@ -617,8 +623,14 @@ export function StoryEditor() {
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const createCurrentProjectThumbnail = useCallback(
-    () => Promise.resolve(createProjectThumbnail(nodes, edges, canvasBg)),
-    [canvasBg, edges, nodes],
+    () =>
+      Promise.resolve(
+        createProjectThumbnail(nodes, edges, canvasBg, {
+          showTitles,
+          storyTitlePlacement,
+        }),
+      ),
+    [canvasBg, edges, nodes, showTitles, storyTitlePlacement],
   );
   const [toast, setToast] = useState<{
     message: string;
@@ -830,7 +842,38 @@ export function StoryEditor() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
   const missingTextApiKey = didHydrateLocalState && activeTextProfile?.provider !== 'ollama' && !activeTextProfile?.apiKey.trim();
+  const missingImageApiKey =
+    didHydrateLocalState &&
+    (!activeImageProfile ||
+      (!isLocalStableDiffusionProvider(activeImageProfile.provider) &&
+        !activeImageProfile.apiKey.trim()));
+  const missingVoiceApiKey =
+    didHydrateLocalState &&
+    (!activeVoiceProfile ||
+      (activeVoiceProfile.provider === 'youdao'
+        ? !(activeVoiceProfile.appKey || activeVoiceProfile.model || '').trim() ||
+          !activeVoiceProfile.apiKey.trim()
+        : activeVoiceProfile.provider !== 'system' && !activeVoiceProfile.apiKey.trim()));
   const importModeRef = useRef<'replace' | 'new'>('replace');
+  const requestSettingsAttention = useCallback((target: 'text' | 'image' | 'voice') => {
+    setSettingsAttentionTarget(target);
+    setSettingsAttention(false);
+    window.setTimeout(() => setSettingsAttention(true), 0);
+    window.setTimeout(() => setSettingsAttention(false), 1800);
+  }, []);
+  const acknowledgeSettingsAttention = useCallback(() => {
+    setSettingsAttentionTarget(null);
+    setSettingsAttention(false);
+  }, []);
+  React.useEffect(() => {
+    if (
+      (settingsAttentionTarget === 'text' && !missingTextApiKey) ||
+      (settingsAttentionTarget === 'image' && !missingImageApiKey) ||
+      (settingsAttentionTarget === 'voice' && !missingVoiceApiKey)
+    ) {
+      setSettingsAttentionTarget(null);
+    }
+  }, [missingImageApiKey, missingTextApiKey, missingVoiceApiKey, settingsAttentionTarget]);
 
   const editorProjectSettings = useMemo(
     () => ({
@@ -840,6 +883,8 @@ export function StoryEditor() {
       showNodeActions,
       showStats,
       saveAssistantConversations,
+      opaqueAssistantMessagesInGlass,
+      opaqueFooterInGlass,
       presetColors,
       showPresetColors,
       showTitles,
@@ -893,6 +938,8 @@ export function StoryEditor() {
       customAiPromptsEnabled,
       edgeStyle,
       generateLength,
+      opaqueAssistantMessagesInGlass,
+      opaqueFooterInGlass,
       imageApiUrl,
       imageModel,
       imageSize,
@@ -945,6 +992,8 @@ export function StoryEditor() {
       setShowNodeActions,
       setShowStats,
       setSaveAssistantConversations,
+      setOpaqueAssistantMessagesInGlass,
+      setOpaqueFooterInGlass,
       setPresetColors,
       setShowPresetColors,
       setShowTitles,
@@ -988,6 +1037,8 @@ export function StoryEditor() {
       setShowNodeActions,
       setShowStats,
       setSaveAssistantConversations,
+      setOpaqueAssistantMessagesInGlass,
+      setOpaqueFooterInGlass,
       setPresetColors,
       setShowPresetColors,
       setShowTitles,
@@ -1247,6 +1298,22 @@ export function StoryEditor() {
         ttsNarrationMode,
       );
       if (!speechText) return;
+      const missingVoiceApiConfig =
+        !activeVoiceProfile ||
+        (ttsProvider === 'youdao'
+          ? !ttsAppKey.trim() || !ttsApiKey.trim()
+          : ttsProvider !== 'system' && !ttsApiKey.trim());
+      if (missingVoiceApiConfig) {
+        requestSettingsAttention('voice');
+        showToast(
+          language === 'zh'
+            ? '请先在设置 > AI 配置 > 语音 AI 中连接语音 API'
+            : language === 'ja'
+              ? '設定 > AI設定 > Voice AI で音声APIを接続してください'
+              : 'Connect a Voice AI API in Settings > AI Settings > Voice AI first',
+        );
+        return;
+      }
 
       setTtsLoading(true);
       try {
@@ -1293,6 +1360,8 @@ export function StoryEditor() {
       handleUpdateNode,
       language,
       nodes,
+      activeVoiceProfile,
+      requestSettingsAttention,
       showToast,
       ttsApiKey,
       ttsApiUrl,
@@ -1354,6 +1423,16 @@ export function StoryEditor() {
     setImageSize,
     setNodes,
     showToast,
+    onMissingImageApiKeyRequest: () => {
+      requestSettingsAttention('image');
+      showToast(
+        language === 'zh'
+          ? '请先在设置 > AI 配置 > 图片 AI 中连接图片 API'
+          : language === 'ja'
+            ? '設定 > AI設定 > Image AI で画像APIを接続してください'
+            : 'Connect an Image AI API in Settings > AI Settings > Image AI first',
+      );
+    },
   });
 
   const handleAddConnectedNode = useCallback(
@@ -1890,10 +1969,13 @@ export function StoryEditor() {
     createAssistantCards,
     hasTextApiKey: !missingTextApiKey,
     onMissingTextApiKeyRequest: () => {
-      setSettingsAttention(true);
-      window.setTimeout(() => setSettingsAttention(false), 1800);
+      requestSettingsAttention('text');
     },
   });
+  const miniMapOverlayStyle =
+    !isMobile && bubbleStyle === 'glass' && assistantOpen && miniMapPosition === 'right'
+      ? { right: assistantPanelWidth + 16 }
+      : undefined;
 
   const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
     useProjectSerialization({
@@ -2330,6 +2412,10 @@ export function StoryEditor() {
               project.projectData.nodes as Node[],
               project.projectData.edges as Edge[],
               project.projectData.settings?.canvasBg,
+              {
+                showTitles: project.projectData.settings?.showTitles,
+                storyTitlePlacement: project.projectData.settings?.storyTitlePlacement,
+              },
             ),
           defaultSaveDir: defaultProjectSaveDir,
         });
@@ -2383,6 +2469,10 @@ export function StoryEditor() {
                     project.projectData.nodes as Node[],
                     project.projectData.edges as Edge[],
                     project.projectData.settings?.canvasBg,
+                    {
+                      showTitles: project.projectData.settings?.showTitles,
+                      storyTitlePlacement: project.projectData.settings?.storyTitlePlacement,
+                    },
                   ),
               };
             }),
@@ -2819,6 +2909,7 @@ ${direction}
         selectable: !n.data?.locked,
         data: {
           ...n.data,
+          canvasBg,
           showTitles,
           storyTitlePlacement,
           isAILoading: aiLoadingNodeId === n.id,
@@ -2859,6 +2950,7 @@ ${direction}
     // 防止闭包过期导致这些引用读到旧值
   }, [
     nodes,
+    canvasBg,
     showTitles,
     storyTitlePlacement,
     aiLoadingNodeId,
@@ -2917,7 +3009,7 @@ ${direction}
 
   return (
     <div
-      className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'} ${showProjectHome ? 'pointer-events-auto' : ''}`}
+      className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'} ${opaqueAssistantMessagesInGlass ? 'glass-opaque-assistant-messages' : ''} ${opaqueFooterInGlass ? 'glass-opaque-footer' : ''} ${showProjectHome ? 'pointer-events-auto' : ''}`}
       style={{ backgroundColor: canvasBg }}
     >
       <style>{`
@@ -3012,6 +3104,7 @@ ${direction}
             historyFutureLength={history.future.length}
             missingTextApiKey={missingTextApiKey}
             settingsAttention={settingsAttention}
+            settingsAttentionTarget={settingsAttentionTarget}
             setAssistantOpen={setAssistantOpen}
             setRightToolbarCollapsed={setRightToolbarCollapsed}
             setShowSettings={setShowSettings}
@@ -3093,6 +3186,7 @@ ${direction}
               {showMiniMap && (
                 <div
                   className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
+                  style={miniMapOverlayStyle}
                 >
                   <MiniMap
                     pannable={true}
@@ -3130,6 +3224,7 @@ ${direction}
               {!showMiniMap && showControls && (
                 <div
                   className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] h-8 w-40 bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300`}
+                  style={miniMapOverlayStyle}
                 >
                   <Controls
                     showInteractive={false}
@@ -3277,6 +3372,15 @@ ${direction}
             onClose={() => setShowVideoRender(false)}
             language={language}
             workspaceKey={currentProjectId || currentProjectFilePath || saveFileName || projectTitle || 'draft'}
+            voiceTtsConfig={{
+              provider: ttsProvider,
+              apiUrl: ttsApiUrl,
+              apiKey: ttsApiKey,
+              appKey: ttsAppKey,
+              appSecret: ttsApiKey,
+              model: ttsModel,
+              voice: ttsVoice,
+            }}
           />
         )}
       </Suspense>
@@ -3294,6 +3398,10 @@ ${direction}
           setCloseButtonBehavior={setCloseButtonBehavior}
           bubbleStyle={bubbleStyle}
           setBubbleStyle={setBubbleStyle}
+          opaqueAssistantMessagesInGlass={opaqueAssistantMessagesInGlass}
+          setOpaqueAssistantMessagesInGlass={setOpaqueAssistantMessagesInGlass}
+          opaqueFooterInGlass={opaqueFooterInGlass}
+          setOpaqueFooterInGlass={setOpaqueFooterInGlass}
           canvasBg={canvasBg}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}
@@ -3330,6 +3438,8 @@ ${direction}
           activeTextProfileId={activeTextProfileId}
           activeImageProfileId={activeImageProfileId}
           activeVoiceProfileId={activeVoiceProfileId}
+          settingsAttentionTarget={settingsAttentionTarget}
+          onAcknowledgeSettingsAttention={acknowledgeSettingsAttention}
           projectSummaries={projectSummaries}
           currentProjectId={currentProjectId}
           onCreateAIProfile={handleCreateAIProfile}

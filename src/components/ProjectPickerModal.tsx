@@ -43,6 +43,62 @@ const formatUpdatedAt = (timestamp: number, language: Language) =>
     minute: '2-digit',
   });
 
+const stripExternalTextFromSvgDataUrl = (dataUrl?: string | null) => {
+  if (!dataUrl?.startsWith('data:image/svg+xml')) return dataUrl || '';
+
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return dataUrl;
+
+  try {
+    const prefix = dataUrl.slice(0, commaIndex + 1);
+    const encodedSvg = dataUrl.slice(commaIndex + 1);
+    const svg = decodeURIComponent(encodedSvg);
+    const rects = Array.from(svg.matchAll(/<rect\b[^>]*>/gi))
+      .map((match) => {
+        const tag = match[0];
+        const readAttr = (name: string) => {
+          const attr = tag.match(new RegExp(`${name}="([^"]+)"`, 'i'))?.[1];
+          if (!attr) return null;
+          const parsed = Number.parseFloat(attr);
+          return Number.isFinite(parsed) ? parsed : null;
+        };
+        const x = readAttr('x') ?? 0;
+        const y = readAttr('y') ?? 0;
+        const width = readAttr('width');
+        const height = readAttr('height');
+        if (width === null || height === null) return null;
+        return { x, y, width, height };
+      })
+      .filter((rect): rect is { x: number; y: number; width: number; height: number } =>
+        Boolean(rect),
+      );
+
+    const nextSvg = svg.replace(/<text\b[^>]*>[\s\S]*?<\/text>/gi, (textTag) => {
+      const readAttr = (name: string) => {
+        const attr = textTag.match(new RegExp(`${name}="([^"]+)"`, 'i'))?.[1];
+        if (!attr) return null;
+        const parsed = Number.parseFloat(attr);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+      const x = readAttr('x');
+      const y = readAttr('y');
+      if (x === null || y === null) return '';
+      const isInsideCard = rects.some(
+        (rect) =>
+          x >= rect.x &&
+          x <= rect.x + rect.width &&
+          y >= rect.y &&
+          y <= rect.y + rect.height,
+      );
+      return isInsideCard ? textTag : '';
+    });
+
+    return `${prefix}${encodeURIComponent(nextSvg)}`;
+  } catch {
+    return dataUrl;
+  }
+};
+
 export function ProjectPickerModal({
   visible,
   language,
@@ -197,6 +253,9 @@ export function ProjectPickerModal({
       y: event.clientY,
     });
   };
+
+  const getProjectThumbnail = (project: LocalProjectSummary) =>
+    stripExternalTextFromSvgDataUrl(project.thumbnailDataUrl);
 
   return (
     <div className="fixed inset-0 z-[350] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -444,7 +503,7 @@ export function ProjectPickerModal({
                           <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
                             {project.thumbnailDataUrl ? (
                               <img
-                                src={project.thumbnailDataUrl}
+                                src={getProjectThumbnail(project)}
                                 alt=""
                                 className="h-full w-full object-cover"
                                 draggable={false}
@@ -542,7 +601,7 @@ export function ProjectPickerModal({
           }}
         >
           <img
-            src={hoverPreview.project.thumbnailDataUrl}
+            src={getProjectThumbnail(hoverPreview.project)}
             alt=""
             className="aspect-[16/10] w-full rounded-lg object-cover"
             draggable={false}

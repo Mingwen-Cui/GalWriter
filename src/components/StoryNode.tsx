@@ -4,8 +4,10 @@ import {
   NodeResizer,
   NodeToolbar,
   Position,
+  useReactFlow,
   useStore,
   useStoreApi,
+  useUpdateNodeInternals,
   useViewport,
 } from '@xyflow/react';
 import {
@@ -32,7 +34,7 @@ import {
   User,
   Volume2,
 } from 'lucide-react';
-import React, { memo, useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type {
   SceneFlowNode,
@@ -53,15 +55,33 @@ const SHAPES: StoryCardVisualShape[] = [
   'hexagon',
 ];
 const CARD_RADIUS = '12px';
+const TITLE_HEIGHT = 36;
+
+const getNumericSize = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^-?\d+(\.\d+)?px$/.test(trimmed) || /^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const parsed = Number.parseFloat(trimmed);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+  }
+
+  return undefined;
+};
 
 const isLightColor = (color: string) => {
   const hex = color.replace('#', '');
-  if (hex.length !== 3 && hex.length !== 6) return false;
+  if (hex.length !== 3 && hex.length !== 6 && hex.length !== 8) return false;
   const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.substring(0, 2), 16);
   const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.substring(2, 4), 16);
   const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.substring(4, 6), 16);
   return r * 0.299 + g * 0.587 + b * 0.114 > 150; // 稍微放宽阈值以适应更多充满活力的颜色
 };
+
+const getReadableTextColor = (backgroundColor: string) =>
+  isLightColor(backgroundColor) ? '#1e293b' : '#f8fafc';
 
 // --- Helper Components & Styles for NodeToolbar ---
 const ToolbarRow = ({
@@ -114,6 +134,75 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const isRoot = data.isRoot === true;
   const { zoom } = useViewport();
   const storeApi = useStoreApi();
+  const { setNodes } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(
+    null,
+  );
+
+  const outsideTitleBackground = useStore(
+    useCallback(
+      (state) => {
+        const canvasBg =
+          typeof data.canvasBg === 'string' && data.canvasBg.trim() ? data.canvasBg : '#F9FAFB';
+        const selfNode = state.nodes.find((node) => node.id === id);
+        if (!selfNode) return canvasBg;
+
+        const selfInternal = state.nodeLookup?.get?.(id);
+        const selfPosition = selfInternal?.internals?.positionAbsolute ?? selfNode.position;
+        const selfWidth =
+          selfInternal?.measured?.width ??
+          selfNode.measured?.width ??
+          getNumericSize(selfNode.style?.width) ??
+          300;
+        const titlePoint = {
+          x:
+            storyTitlePlacement === 'outside-left'
+              ? selfPosition.x + 1
+              : selfPosition.x + selfWidth - 1,
+          y: selfPosition.y - TITLE_HEIGHT / 2,
+        };
+
+        let matchedColor = canvasBg;
+        let matchedZ = Number.NEGATIVE_INFINITY;
+
+        state.nodes.forEach((node) => {
+          if (node.id === id || (node.type !== 'backgroundNode' && node.type !== 'groupNode')) {
+            return;
+          }
+
+          const internal = state.nodeLookup?.get?.(node.id);
+          const position = internal?.internals?.positionAbsolute ?? node.position;
+          const width =
+            internal?.measured?.width ?? node.measured?.width ?? getNumericSize(node.style?.width);
+          const height =
+            internal?.measured?.height ??
+            node.measured?.height ??
+            getNumericSize(node.style?.height);
+
+          if (!width || !height) return;
+
+          const contains =
+            titlePoint.x >= position.x &&
+            titlePoint.x <= position.x + width &&
+            titlePoint.y >= position.y &&
+            titlePoint.y <= position.y + height;
+
+          if (!contains) return;
+
+          const zIndex = getNumericSize(node.style?.zIndex) ?? 0;
+          if (zIndex < matchedZ) return;
+
+          const candidateColor = typeof node.data?.color === 'string' ? node.data.color : '';
+          matchedColor = candidateColor || matchedColor;
+          matchedZ = zIndex;
+        });
+
+        return matchedColor;
+      },
+      [data.canvasBg, id, storyTitlePlacement],
+    ),
+  );
 
   const isDefaultColor = color === '#ffffff';
   // 使用 CSS 变量实现主题感知，这样切换主题时无需 React 重绘即可瞬间响应
@@ -133,6 +222,63 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     },
     [data, id],
   );
+
+  const syncImageNodeHeight = useCallback(
+    (dimensions: { width: number; height: number } | null) => {
+      if (!imageUrl || data.showTextOverlay || !dimensions?.width || !dimensions?.height) return;
+
+      setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id !== id) return node;
+
+          const currentWidth =
+            getNumericSize(node.style?.width) ??
+            getNumericSize((node as any).width) ??
+            getNumericSize((node as any).measured?.width) ??
+            300;
+          const currentHeight =
+            getNumericSize(node.style?.height) ??
+            getNumericSize((node as any).height) ??
+            getNumericSize((node as any).measured?.height) ??
+            200;
+          const imageHeight = (dimensions.height / dimensions.width) * currentWidth;
+          const targetHeight = Math.max(
+            50,
+            Math.ceil(imageHeight + (showTitleInside ? TITLE_HEIGHT : 0)),
+          );
+          const titleHeightAdded = showTitleInside;
+
+          if (
+            Math.abs(currentHeight - targetHeight) < 1 &&
+            node.data?.titleHeightAdded === titleHeightAdded
+          ) {
+            return node;
+          }
+
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              height: targetHeight,
+            },
+            data: {
+              ...node.data,
+              titleHeightAdded,
+            },
+          };
+        }),
+      );
+
+      requestAnimationFrame(() => {
+        updateNodeInternals(id);
+      });
+    },
+    [data.showTextOverlay, id, imageUrl, setNodes, showTitleInside, updateNodeInternals],
+  );
+
+  useLayoutEffect(() => {
+    syncImageNodeHeight(imageDimensions);
+  }, [imageDimensions, syncImageNodeHeight]);
 
   const handleTextChange = (newHtml: string) => {
     updateNodeData({ text: newHtml });
@@ -666,8 +812,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             storyTitlePlacement === 'outside-left' ? 'left-0 text-left' : 'right-0 text-right'
           }`}
           style={{
-            color: nodeText,
-            textShadow: isDefaultColor ? '0 1px 2px rgba(15, 23, 42, 0.18)' : undefined,
+            color: getReadableTextColor(outsideTitleBackground),
+            textShadow: isLightColor(outsideTitleBackground)
+              ? '0 1px 2px rgba(255, 255, 255, 0.35)'
+              : '0 1px 2px rgba(15, 23, 42, 0.55)',
           }}
           placeholder="标题..."
         />
@@ -712,6 +860,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               src={imageUrl}
               className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} object-cover pointer-events-none`}
               style={{ objectFit }}
+              onLoad={(event) => {
+                const image = event.currentTarget;
+                setImageDimensions({
+                  width: image.naturalWidth || image.width,
+                  height: image.naturalHeight || image.height,
+                });
+              }}
               alt="node"
               loading="lazy"
             />

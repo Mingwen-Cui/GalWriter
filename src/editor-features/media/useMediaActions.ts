@@ -36,6 +36,7 @@ interface UseMediaActionsParams {
   setImageSize: Dispatch<SetStateAction<string>>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
   showToast: (message: string) => void;
+  onMissingImageApiKeyRequest?: () => void;
 }
 
 const TITLE_HEIGHT = 36;
@@ -93,6 +94,7 @@ export const useMediaActions = ({
   setImageSize,
   setNodes,
   showToast,
+  onMissingImageApiKeyRequest,
 }: UseMediaActionsParams) => {
   const stableDiffusionOptions = useMemo(
     () => ({
@@ -177,6 +179,7 @@ export const useMediaActions = ({
   const requestGeneratedImage = useCallback(
     async (prompt: string) => {
       if (!isLocalStableDiffusion && !imageApiKey.trim()) {
+        onMissingImageApiKeyRequest?.();
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
@@ -290,6 +293,7 @@ export const useMediaActions = ({
       stableDiffusionOptions,
       isLocalStableDiffusion,
       language,
+      onMissingImageApiKeyRequest,
       setImageSize,
     ],
   );
@@ -452,6 +456,7 @@ export const useMediaActions = ({
         return;
       }
       if (!isLocalStableDiffusion && !imageApiKey.trim()) {
+        onMissingImageApiKeyRequest?.();
         alert(
           language === 'zh'
             ? '请先在设置中填写图片生成 API 密钥。'
@@ -653,6 +658,7 @@ export const useMediaActions = ({
       isLocalStableDiffusion,
       language,
       nodes,
+      onMissingImageApiKeyRequest,
       setImageSize,
       setNodes,
       showTitles,

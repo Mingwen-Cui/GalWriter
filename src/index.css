@@ -626,6 +626,102 @@ body,
   color: #ddd6fe !important;
 }
 
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-user {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-ai,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-loading {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-thought {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4338ca !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-glass-action,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-task-tab,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-quick-actions,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-bottom-glass-action,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-icon-button {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-glass-action,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-task-tab,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-quick-actions,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-bottom-glass-action,
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-icon-button {
+  background: #ffffff !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box textarea {
+  color: #0f172a !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-send-button {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+.bubble-glass-mode.glass-opaque-assistant-messages .assistant-send-button:disabled {
+  background: #4f46e5 !important;
+  opacity: 0.5;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-user {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-ai,
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-loading {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-message-thought {
+  background: #312e81 !important;
+  border-color: #4338ca !important;
+  color: #eef2ff !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-glass-action,
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-task-tab,
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-quick-actions,
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-bottom-glass-action,
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-icon-button {
+  background: #1e293b !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box textarea {
+  color: #f8fafc !important;
+}
+
 [data-theme='dark'] .bubble-glass-mode .toolbar-bubble-surface:hover {
   border-color: rgba(255, 255, 255, 0.18) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24) !important;
@@ -676,6 +772,26 @@ body,
 
 [data-theme='dark'] .bubble-glass-mode .editor-footer::before {
   background: rgba(15, 15, 18, 0.58);
+}
+
+.bubble-glass-mode.glass-opaque-footer .editor-footer {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -1px 10px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #475569 !important;
+}
+
+.bubble-glass-mode.glass-opaque-footer .editor-footer::before {
+  display: none;
+}
+
+[data-theme='dark'] .bubble-glass-mode.glass-opaque-footer .editor-footer {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 -1px 12px rgba(0, 0, 0, 0.36) !important;
+  color: #e2e8f0 !important;
 }
 
 /* NOTE: minimap/controls 容器在玻璃模式下需额外向上偏移 footer 高度（h-8 = 2rem），

@@ -184,7 +184,14 @@ const isTimelineScaleMode = (value: unknown): value is TimelineScaleMode =>
 const isTimelineWheelMode = (value: unknown): value is TimelineWheelMode =>
   value === 'horizontal' || value === 'vertical';
 
-export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey }: VideoRenderModalProps) {
+export function VideoRenderModal({
+  nodes,
+  edges,
+  onClose,
+  language,
+  workspaceKey,
+  voiceTtsConfig,
+}: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
   const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(() =>
@@ -454,6 +461,14 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     () => timelineNodes.filter((node) => selectedIds.has(node.id)),
     [timelineNodes, selectedIds],
   );
+  const getSpeechTextForNode = (node: FlowNode) => {
+    const title = htmlToSpeechText(String(node.data?.title || ''));
+    const body = htmlToSpeechText(String(node.data?.text || ''));
+    return [title, body].filter(Boolean).join('\n').trim();
+  };
+  const canGenerateSpeechFromNode = (node: FlowNode) =>
+    !node.data?.videoUrl && Boolean(getSpeechTextForNode(node));
+  const selectedSpeechNodes = selectedNodes.filter(canGenerateSpeechFromNode);
   const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || allAssetNodes[0];
   const focusedPreviewNode = focusedPreviewId ? nodeById.get(focusedPreviewId) : undefined;
   const resolution = RESOLUTION_OPTIONS[resolutionIndex] || RESOLUTION_OPTIONS[0];
@@ -480,6 +495,12 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
   }, [orderedNodes, nodes]);
   const visibleAssetNodes = useMemo(() => {
     if (assetRegionFilter === 'all') return allAssetNodes;
+    if (assetRegionFilter === 'media:image')
+      return allAssetNodes.filter((node) => Boolean(node.data?.imageUrl));
+    if (assetRegionFilter === 'media:video')
+      return allAssetNodes.filter((node) => Boolean(node.data?.videoUrl));
+    if (assetRegionFilter === 'media:audio')
+      return allAssetNodes.filter((node) => Boolean(node.data?.audioUrl));
     if (assetRegionFilter === 'outside')
       return [
         ...uploadedAssetNodes,
@@ -801,6 +822,31 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     });
   };
 
+  const getAudioDropTrackId = (
+    nodeId: string,
+    start: number,
+    duration: number,
+    preferredTrackId?: string,
+  ) => {
+    if (preferredTrackId) {
+      if (hasAudioTrackSpace(nodeId, start, duration, preferredTrackId)) {
+        setAudioTrackIds((prev) =>
+          prev.includes(preferredTrackId) ? prev : [...prev, preferredTrackId],
+        );
+        return preferredTrackId;
+      }
+    } else {
+      const availableTrackId = audioTrackIds.find((candidateTrackId) =>
+        hasAudioTrackSpace(nodeId, start, duration, candidateTrackId),
+      );
+      if (availableTrackId) return availableTrackId;
+    }
+
+    const nextTrackId = makeTrackId('audio');
+    setAudioTrackIds((prev) => (prev.includes(nextTrackId) ? prev : [...prev, nextTrackId]));
+    return nextTrackId;
+  };
+
   const assignAudioTrackForVideoPlacement = (
     nodeId: string,
     start: number,
@@ -1117,35 +1163,45 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     setError('');
   };
 
-  const selectedSpeechText = () =>
-    selectedNodes
+  const selectedSpeechText = (speechNodes = selectedSpeechNodes) =>
+    speechNodes
       .map((node, index) => {
-        const title = htmlToSpeechText(String(node.data?.title || ''));
-        const body = htmlToSpeechText(String(node.data?.text || ''));
-        const text = [title, body].filter(Boolean).join('\n');
+        const text = getSpeechTextForNode(node);
         return text ? `${index + 1}. ${text}` : '';
       })
       .filter(Boolean)
       .join('\n\n')
       .trim();
 
-  const generateAudioFromSelectedText = async () => {
+  const generateAudioFromSelectedText = async (speechNodes = selectedSpeechNodes) => {
     if (audioBusy) return;
-    const speechText = selectedSpeechText();
+    const speechText = selectedSpeechText(speechNodes);
     if (!speechText) {
-      setAudioMessage(isZh ? '选中的片段没有可朗读文字。' : 'Selected segments have no readable text.');
+      setAudioMessage(
+        isZh
+          ? '选中的非视频片段没有可朗读文字。'
+          : 'Selected non-video segments have no readable text.',
+      );
       return;
     }
+    closeContextMenu();
     setAudioBusy(true);
-    setAudioMessage(isZh ? '正在生成语音...' : 'Generating speech...');
+    setAudioMessage(
+      isZh
+        ? `正在为 ${speechNodes.length} 个片段生成语音...`
+        : `Generating speech for ${speechNodes.length} segment(s)...`,
+    );
     try {
-      const audio = await generateSpeechAudio(speechText, {
-        provider: 'system',
-        apiUrl: '',
-        apiKey: '',
-        model: '',
-        voice: '',
-      });
+      const audio = await generateSpeechAudio(
+        speechText,
+        voiceTtsConfig || {
+          provider: 'system',
+          apiUrl: '',
+          apiKey: '',
+          model: '',
+          voice: '',
+        },
+      );
       addAudioAssetFromBlob(
         audio.blob,
         isZh ? `剧本文字配音 ${new Date().toLocaleTimeString()}` : `Script voiceover ${new Date().toLocaleTimeString()}`,
@@ -1583,23 +1639,40 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     trackId?: string,
     startTime?: number,
   ) => {
-    if (!assetNodeById.has(id)) return;
+    const sourceNode = assetNodeById.get(id);
+    if (!sourceNode) return;
+    const normalizedTrackKind = isAudioOnlyNode(sourceNode) ? 'audio' : trackKind;
+    const normalizedTrackId =
+      normalizedTrackKind === 'audio'
+        ? (trackKind === 'video' && trackId
+            ? audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio')
+            : trackId) ||
+          audioTrackIds[0] ||
+          'audio-1'
+        : trackId;
     const timelineId = makeTimelineClipInstanceId(id);
     closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => [...prev, timelineId]);
     setTimelineSourceById((prev) => ({ ...prev, [timelineId]: id }));
-    if (trackKind === 'video' && trackId) {
-      setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
+    if (normalizedTrackKind === 'video' && normalizedTrackId) {
+      setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: normalizedTrackId }));
       assignAudioTrackForVideoPlacement(
         timelineId,
         Math.max(0, startTime ?? 0),
         Math.max(0.25, defaultSeconds / speed),
-        trackId,
+        normalizedTrackId,
       );
     }
-    if (trackKind === 'audio' && trackId) {
-      setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: trackId }));
+    if (normalizedTrackKind === 'audio' && normalizedTrackId) {
+      setAudioTrackIds((prev) =>
+        prev.includes(normalizedTrackId) ? prev : [...prev, normalizedTrackId],
+      );
+      setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: normalizedTrackId }));
+      setVideoTrackByNodeId((prev) => {
+        const { [timelineId]: _removed, ...next } = prev;
+        return next;
+      });
     }
     if (typeof startTime === 'number') {
       setTimelineStartById((prev) => ({ ...prev, [timelineId]: Math.max(0, startTime) }));
@@ -1852,15 +1925,16 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     const draggedSourceNode = isTimelineClip
       ? timelineNodeById.get(draggedId)
       : assetNodeById.get(draggedId);
-    if (!isTimelineClip && isAudioOnlyNode(draggedSourceNode)) {
+    const draggingAudioOnly = isAudioOnlyNode(draggedSourceNode);
+    if (draggingAudioOnly) {
       droppedTrackKind = 'audio';
       if (trackKind === 'video' && trackId) {
-        droppedTrackId = audioTrackIds[videoTrackIds.indexOf(trackId)] || audioTrackIds[0];
+        droppedTrackId = audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio');
       } else {
         droppedTrackId = trackId || audioTrackIds[0];
       }
     }
-    if (droppedTrackId) {
+    if (draggingAudioOnly || droppedTrackId) {
       const trackElement = (event.currentTarget as HTMLElement).closest(
         '[data-render-track-kind]',
       ) as HTMLElement | null;
@@ -1876,13 +1950,21 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
       const droppedTime =
         (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
         dragOffsetSeconds;
-      const nextStart = findNonOverlappingTrackStart(
-        timelineId,
-        droppedTime,
-        duration,
-        droppedTrackKind,
-        droppedTrackId,
-      );
+      const placementTrackId = droppedTrackId || audioTrackIds[0] || makeTrackId('audio');
+      const nextStart = draggingAudioOnly
+        ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
+        : findNonOverlappingTrackStart(
+            timelineId,
+            droppedTime,
+            duration,
+            droppedTrackKind,
+            placementTrackId,
+          );
+      if (droppedTrackKind === 'audio') {
+        droppedTrackId = getAudioDropTrackId(timelineId, nextStart, duration, droppedTrackId);
+      } else {
+        droppedTrackId = placementTrackId;
+      }
       const shouldPreservePlayhead = timelineId === activePreviewId;
       const preservedTimelineTime = activeTimelineTime;
 
@@ -1896,6 +1978,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
         assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, droppedTrackId);
       } else {
         setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: droppedTrackId }));
+        setVideoTrackByNodeId((prev) => {
+          const { [timelineId]: _removed, ...next } = prev;
+          return next;
+        });
       }
       setTimelineStartById((prev) => ({ ...prev, [timelineId]: nextStart }));
       if (shouldPreservePlayhead) {
@@ -2788,6 +2874,17 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     if (node.data?.audioUrl) return isZh ? '按音频时长' : 'Audio length';
     return `${defaultSeconds}s`;
   };
+  const getSpeechNodesForContextMenu = (menu: RenderContextMenuTarget, node?: FlowNode) => {
+    const explicitSelection = (menu.selectedNodeIds || [])
+      .map((id) => timelineNodeById.get(id))
+      .filter((item): item is FlowNode => Boolean(item));
+    if (explicitSelection.length > 0) return explicitSelection.filter(canGenerateSpeechFromNode);
+
+    if (node && selectedIds.has(node.id)) return selectedSpeechNodes;
+    if (node && canGenerateSpeechFromNode(node)) return [node];
+    return selectedSpeechNodes;
+  };
+
   const buildContextMenuSections = (
     menu: RenderContextMenuTarget,
     node?: FlowNode,
@@ -2795,11 +2892,20 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
     const isTimelineNode =
       !!node && (menu.kind === 'timeline' || menu.kind === 'audio') && timelineIds.includes(node.id);
     const canMutate = status !== 'rendering';
+    const speechNodesForMenu = getSpeechNodesForContextMenu(menu, node);
 
     if (!node) {
       return [
         {
           items: [
+            {
+              label: isZh
+                ? `将选中的 ${speechNodesForMenu.length} 个片段文字生成音频`
+                : `Generate speech for ${speechNodesForMenu.length} selected segment(s)`,
+              icon: <Mic className="w-4 h-4" />,
+              onSelect: () => generateAudioFromSelectedText(speechNodesForMenu),
+              disabled: !canMutate || audioBusy || speechNodesForMenu.length === 0,
+            },
             {
               label: isZh ? '插入最近素材到视频轨' : 'Insert next asset to video track',
               icon: <ListPlus className="w-4 h-4" />,
@@ -2923,9 +3029,10 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
             disabled: true,
           },
           {
-            label: isZh ? '重新生成配音' : 'Regenerate voice',
+            label: isZh ? '文字转音频' : 'Text to audio',
             icon: <Mic className="w-4 h-4" />,
-            disabled: true,
+            onSelect: () => generateAudioFromSelectedText(speechNodesForMenu),
+            disabled: !canMutate || audioBusy || speechNodesForMenu.length === 0,
           },
           {
             label: isZh ? '编辑剧情内容' : 'Edit story content',
@@ -3167,7 +3274,7 @@ export function VideoRenderModal({ nodes, edges, onClose, language, workspaceKey
             fallbackEstimatedSeconds={fallbackEstimatedSeconds}
             animationLeadSeconds={animationLeadSeconds}
             setAnimationLeadSeconds={setAnimationLeadSeconds}
-            selectedNodes={selectedNodes}
+            selectedSpeechNodeCount={selectedSpeechNodes.length}
             audioBusy={audioBusy}
             audioMessage={audioMessage}
             isRecordingVoiceover={isRecordingVoiceover}

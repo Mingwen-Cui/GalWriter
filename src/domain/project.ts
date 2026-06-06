@@ -192,6 +192,8 @@ export interface ProjectSettings extends PlaytestSettings {
   showNodeActions: boolean;
   showStats: boolean;
   saveAssistantConversations: boolean;
+  opaqueAssistantMessagesInGlass: boolean;
+  opaqueFooterInGlass: boolean;
   presetColors: string[];
   showPresetColors: boolean;
   showTitles: boolean;
@@ -230,6 +232,8 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
+  setOpaqueAssistantMessagesInGlass: Dispatch<SetStateAction<boolean>>;
+  setOpaqueFooterInGlass: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowPresetColors: Dispatch<SetStateAction<boolean>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
@@ -309,6 +313,7 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   locked?: boolean;
   language?: Language;
   theme?: EditorTheme;
+  canvasBg?: string;
   showTitles?: boolean;
   storyTitlePlacement?: StoryTitlePlacement;
   showNodeActions?: boolean;

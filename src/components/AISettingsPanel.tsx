@@ -598,6 +598,8 @@ interface AISettingsPanelProps {
   activeImageProfileId: string | null;
   activeVoiceProfileId: string | null;
   missingTextApiKey: boolean;
+  settingsAttentionTarget?: ProfileKind | null;
+  onAcknowledgeSettingsAttention?: () => void;
   onCreateAIProfile: (
     kind: ProfileKind,
     initialProfile?: ProfileSeed,
@@ -620,6 +622,8 @@ export function AISettingsPanel({
   activeImageProfileId,
   activeVoiceProfileId,
   missingTextApiKey,
+  settingsAttentionTarget,
+  onAcknowledgeSettingsAttention,
   onCreateAIProfile,
   onUpdateAIProfile,
   onSelectAIProfile,
@@ -1492,7 +1496,11 @@ export function AISettingsPanel({
               <div className="grid gap-5">
                 {sections.map((section) => {
                   const meta = getProfileKindMeta(section.kind, language);
-                  const showMissingApiHint = section.kind === 'text' && missingTextApiKey;
+                  const showMissingApiHint =
+                    (section.kind === 'text' && missingTextApiKey) ||
+                    section.kind === settingsAttentionTarget;
+                  const canAcknowledgeMissingApiHint =
+                    section.kind === settingsAttentionTarget && Boolean(onAcknowledgeSettingsAttention);
                   const profileCountLabel =
                     language === 'zh'
                       ? `${section.profiles.length} 个配置`
@@ -1502,18 +1510,30 @@ export function AISettingsPanel({
                   return (
                     <div
                       key={section.kind}
-                      className="overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)]/90 shadow-sm"
+                      className={`overflow-hidden rounded-lg border bg-[var(--card-bg)]/90 shadow-sm ${
+                        showMissingApiHint
+                          ? 'border-rose-400 ring-2 ring-rose-400/30'
+                          : 'border-[var(--card-border)]'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-4 border-b border-[var(--header-border)] px-5 py-4">
                         <div className="flex min-w-0 items-start gap-3">
                           <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${meta.accent}`}
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${
+                              showMissingApiHint
+                                ? 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300'
+                                : meta.accent
+                            }`}
                           >
                             <meta.icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="text-base font-black text-[var(--text-primary)]">
+                              <h4
+                                className={`text-base font-black ${
+                                  showMissingApiHint ? 'text-rose-600 dark:text-rose-300' : 'text-[var(--text-primary)]'
+                                }`}
+                              >
                                 {meta.title}
                               </h4>
                               {showMissingApiHint && (
@@ -1528,6 +1548,17 @@ export function AISettingsPanel({
                             </p>
                           </div>
                         </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {canAcknowledgeMissingApiHint && (
+                            <button
+                              type="button"
+                              onClick={onAcknowledgeSettingsAttention}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              {language === 'zh' ? '我已知晓' : language === 'ja' ? '了解しました' : 'Got it'}
+                            </button>
+                          )}
                         <button
                           type="button"
                           onClick={() => openCreate(section.kind)}
@@ -1536,6 +1567,7 @@ export function AISettingsPanel({
                           <Plus className="h-3.5 w-3.5" />
                           {language === 'zh' ? '新建配置' : language === 'ja' ? '新規設定' : 'New Profile'}
                         </button>
+                        </div>
                       </div>
 
                       <div className="max-h-[260px] overflow-y-auto px-4 py-3 custom-scrollbar">

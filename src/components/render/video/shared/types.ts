@@ -2,6 +2,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import type { TTSConfig } from '../../../../lib/tts';
 
 export type RenderStatus = 'idle' | 'rendering' | 'done' | 'error';
 export type ExportFormat = 'webm' | 'mp4' | 'mkv';
@@ -24,6 +25,7 @@ export type VideoRenderModalProps = {
   onClose: () => void;
   language: Language;
   workspaceKey?: string;
+  voiceTtsConfig?: TTSConfig;
 };
 
 export type RenderStyle = {
@@ -63,7 +65,7 @@ export type RenderedFramePayload = {
 export type AssetRegionOption = {
   id: string;
   label: string;
-  type: 'all' | 'outside' | 'dynamicGroup' | 'background';
+  type: 'all' | 'outside' | 'mediaImage' | 'mediaVideo' | 'mediaAudio' | 'dynamicGroup' | 'background';
 };
 
 export type TimelineHistoryState = {
@@ -88,6 +90,7 @@ export type WebHistoryState = {
 export type RenderContextMenuTarget = {
   kind: 'asset' | 'timeline' | 'audio' | 'preview' | 'empty';
   nodeId?: string;
+  selectedNodeIds?: string[];
   trackId?: string;
   trackKind?: 'video' | 'audio';
 };

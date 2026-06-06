@@ -5,6 +5,11 @@ const THUMBNAIL_HEIGHT = 300;
 const THUMBNAIL_PADDING = 0.18;
 const DEFAULT_BACKGROUND = '#f8fafc';
 
+type ProjectThumbnailOptions = {
+  showTitles?: boolean;
+  storyTitlePlacement?: 'inside' | 'outside-left' | 'outside-right' | 'outside';
+};
+
 const escapeXml = (value: string) =>
   value
     .replace(/&/g, '&amp;')
@@ -117,18 +122,29 @@ const getNodeCenter = (
   };
 };
 
-const getNodeTitle = (node: Node) => {
-  const data = node.data ?? {};
-  const title = data.title ?? data.characterName ?? data.sceneName ?? '';
-  return typeof title === 'string' ? title.trim() : '';
-};
-
 const getNodeFill = (node: Node) => {
   const dataColor = node.data?.color;
   if (typeof dataColor === 'string' && dataColor.trim()) return dataColor;
   const styleBackground = node.style?.background;
   if (typeof styleBackground === 'string' && styleBackground.trim()) return styleBackground;
   return node.type === 'backgroundNode' ? '#e2e8f0' : '#ffffff';
+};
+
+const stripHtml = (value: string) => value.replace(/<[^>]*>/g, '').trim();
+
+const getNodeLabel = (node: Node, options: ProjectThumbnailOptions) => {
+  const data = node.data ?? {};
+  const storyTitlePlacement =
+    options.storyTitlePlacement === 'outside' ? 'outside-right' : options.storyTitlePlacement;
+  const showInsideStoryTitle = options.showTitles !== false && storyTitlePlacement !== 'outside-left' && storyTitlePlacement !== 'outside-right';
+
+  if (node.type === 'storyNode') {
+    const source = showInsideStoryTitle ? data.title : data.text;
+    return typeof source === 'string' ? stripHtml(source).slice(0, 22) : '';
+  }
+
+  const label = data.title ?? data.characterName ?? data.sceneName ?? data.content ?? '';
+  return typeof label === 'string' ? stripHtml(label).slice(0, 22) : '';
 };
 
 const createEmptyThumbnail = (backgroundColor?: string | null) => {
@@ -144,6 +160,7 @@ export const createProjectThumbnail = (
   nodes: Node[],
   edges: Edge[] = [],
   backgroundColor?: string | null,
+  options: ProjectThumbnailOptions = {},
 ) => {
   const visibleNodes = nodes.filter((node) => node.type !== 'backgroundNode');
   if (visibleNodes.length === 0) return createEmptyThumbnail(backgroundColor);
@@ -180,10 +197,10 @@ export const createProjectThumbnail = (
       const width = Math.max(18, size.width * viewport.zoom);
       const height = Math.max(14, size.height * viewport.zoom);
       const isBackground = node.type === 'backgroundNode';
-      const title = escapeXml(getNodeTitle(node).slice(0, 22));
+      const label = escapeXml(getNodeLabel(node, options));
       const text =
-        title && width > 64 && height > 34
-          ? `<text x="${(x + 10).toFixed(1)}" y="${(y + 22).toFixed(1)}" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#334155">${title}</text>`
+        label && width > 64 && height > 34
+          ? `<text x="${(x + 10).toFixed(1)}" y="${(y + 22).toFixed(1)}" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#334155">${label}</text>`
           : '';
 
       return `<g opacity="${isBackground ? '0.34' : '0.96'}">

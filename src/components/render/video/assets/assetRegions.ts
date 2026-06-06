@@ -55,6 +55,9 @@ export const getAssetRegionOptions = (nodes: FlowNode[], isZh: boolean): AssetRe
 
   return [
     { id: 'all', label: isZh ? '全部素材' : 'All assets', type: 'all' },
+    { id: 'media:image', label: isZh ? '图片素材' : 'Image assets', type: 'mediaImage' },
+    { id: 'media:video', label: isZh ? '视频素材' : 'Video assets', type: 'mediaVideo' },
+    { id: 'media:audio', label: isZh ? '音频素材' : 'Audio assets', type: 'mediaAudio' },
     { id: 'outside', label: isZh ? '画布外/未归组' : 'Outside regions', type: 'outside' },
     ...regionOptions,
   ];

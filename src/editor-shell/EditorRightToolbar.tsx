@@ -21,6 +21,7 @@ interface EditorRightToolbarProps {
   historyFutureLength: number;
   missingTextApiKey: boolean;
   settingsAttention: boolean;
+  settingsAttentionTarget?: 'text' | 'image' | 'voice' | null;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setRightToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
@@ -52,6 +53,7 @@ export function EditorRightToolbar({
   historyFutureLength,
   missingTextApiKey,
   settingsAttention,
+  settingsAttentionTarget,
   setAssistantOpen,
   setRightToolbarCollapsed,
   setShowSettings,
@@ -147,7 +149,7 @@ export function EditorRightToolbar({
             title={t.settings}
           >
             <Settings className="h-5 w-5" />
-            {missingTextApiKey && (
+            {(missingTextApiKey || settingsAttentionTarget) && (
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
             )}
           </button>

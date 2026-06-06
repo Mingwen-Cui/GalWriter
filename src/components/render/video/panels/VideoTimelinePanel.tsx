@@ -180,7 +180,9 @@ export function VideoTimelinePanel({
       .map((element) => element.dataset.timelineClipId)
       .filter((id): id is string => Boolean(id));
 
-    onBoxSelectTimelineNodes(Array.from(new Set(ids)), box.additive);
+    const selectedBoxIds = Array.from(new Set(ids));
+    onBoxSelectTimelineNodes(selectedBoxIds, box.additive);
+    return selectedBoxIds;
   };
 
   const handleBoxSelectPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -228,7 +230,13 @@ export function VideoTimelinePanel({
       suppressNextContextMenuRef.current = true;
     }
     if (width < 5 && height < 5) return;
-    selectClipsInBox(drag);
+    const ids = selectClipsInBox(drag);
+    if (drag.button === 2 && ids.length > 0) {
+      openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
+        kind: 'empty',
+        selectedNodeIds: ids,
+      });
+    }
   };
 
   const handleTimelinePanelContextMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -460,7 +468,13 @@ export function VideoTimelinePanel({
                         const trackNodes = timelineNodes.filter(
                           (node) =>
                             (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId &&
-                            Boolean(node.data?.videoUrl || node.data?.imageUrl || segmentText(node)),
+                            Boolean(node.data?.videoUrl || node.data?.imageUrl || segmentText(node)) &&
+                            !(
+                              node.data?.audioUrl &&
+                              !node.data?.videoUrl &&
+                              !node.data?.imageUrl &&
+                              !segmentText(node)
+                            ),
                         );
                         const trackMetrics = trackNodes
                           .map((node) => timelineMetricById.get(node.id))
