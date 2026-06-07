@@ -63,6 +63,7 @@ export default defineConfig(() => {
   return {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
+    assetsInclude: ['**/*.lottie'],
     plugins: [arkImageProxy(), react(), tailwindcss()],
     clearScreen: false,
     resolve: {

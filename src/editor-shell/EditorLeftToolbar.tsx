@@ -1,3 +1,4 @@
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
   BookOpen,
   Calculator,
@@ -13,8 +14,16 @@ import {
   Undo2,
   UserCircle2,
 } from 'lucide-react';
-import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { useState } from 'react';
+import type {
+  ChangeEvent,
+  Dispatch,
+  MouseEvent as ReactMouseEvent,
+  MutableRefObject,
+  SetStateAction,
+} from 'react';
 
+import characterCardAnimation from '../animation/character card.lottie';
 import type { Language } from '../lib/i18n';
 
 interface EditorLeftToolbarProps {
@@ -72,12 +81,30 @@ export function EditorLeftToolbar({
   unhideAllNodes,
   t,
 }: EditorLeftToolbarProps) {
+  const [showCharacterCardGuide, setShowCharacterCardGuide] = useState(false);
+  const [characterCardGuidePosition, setCharacterCardGuidePosition] = useState({
+    left: 0,
+    top: 0,
+  });
+
+  const showCharacterCardHoverGuide = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nextTop = Math.min(Math.max(rect.top + rect.height / 2 - 250, 16), window.innerHeight - 516);
+
+    setCharacterCardGuidePosition({
+      left: rect.right + 16,
+      top: nextTop,
+    });
+    setShowCharacterCardGuide(true);
+  };
+
   return (
-    <div
+    <>
+      <div
       className={`toolbar-bubble-surface glass-toolbar absolute ${
         isMobile ? 'left-4 top-20' : 'left-6 top-20'
-      } z-20 flex w-[52px] flex-col overflow-hidden rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
-        toolbarCollapsed ? 'h-[52px]' : ''
+      } z-20 flex w-[52px] flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
+        toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
       }`}
     >
       <button
@@ -115,7 +142,7 @@ export function EditorLeftToolbar({
           </button>
 
           <button
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewTextNode}
             title={t.toolText}
           >
@@ -125,9 +152,19 @@ export function EditorLeftToolbar({
           <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 
           <button
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewCharacterNode}
-            title={language === 'zh' ? '添加人物卡片' : language === 'ja' ? '人物カードを追加' : 'Add Character Card'}
+            onMouseEnter={showCharacterCardHoverGuide}
+            onMouseLeave={() => setShowCharacterCardGuide(false)}
+            onFocus={showCharacterCardHoverGuide}
+            onBlur={() => setShowCharacterCardGuide(false)}
+            aria-label={
+              language === 'zh'
+                ? '添加人物卡片'
+                : language === 'ja'
+                  ? '人物カードを追加'
+                  : 'Add Character Card'
+            }
           >
             <UserCircle2 strokeWidth={2.5} className="h-5 w-5" />
           </button>
@@ -217,17 +254,38 @@ export function EditorLeftToolbar({
         multiple
       />
 
-      {hasHiddenNodes && (
-        <div className="mt-2 flex flex-col items-center border-t border-slate-100 pt-2 dark:border-slate-800">
-          <button
-            className="animate-pulse rounded-xl bg-indigo-50 p-2.5 text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
-            onClick={unhideAllNodes}
-            title={t.unhideAll}
-          >
-            <Eye className="h-5 w-5" />
-          </button>
+        {hasHiddenNodes && (
+          <div className="mt-2 flex flex-col items-center border-t border-slate-100 pt-2 dark:border-slate-800">
+            <button
+              className="animate-pulse rounded-xl bg-indigo-50 p-2.5 text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
+              onClick={unhideAllNodes}
+              title={t.unhideAll}
+            >
+              <Eye className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showCharacterCardGuide && (
+        <div
+          className="pointer-events-none fixed z-[9999] overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--card-bg)] shadow-2xl"
+          style={{
+            left: `${characterCardGuidePosition.left}px`,
+            top: `${characterCardGuidePosition.top}px`,
+            width: '500px',
+            height: '600px',
+          }}
+        >
+          <DotLottieReact
+            src={characterCardAnimation}
+            loop
+            autoplay
+            className="h-full w-full"
+            aria-hidden="true"
+          />
         </div>
       )}
-    </div>
+    </>
   );
 }
