@@ -1,4 +1,4 @@
-import {
+﻿import {
   Background,
   BackgroundVariant,
   ConnectionMode,
@@ -108,6 +108,18 @@ const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const DEFAULT_TEXT_MODEL = 'deepseek-chat';
 type CloseButtonBehavior = 'minimize' | 'quit';
 const APP_TITLE = '交互式剧本编辑器';
+// NOTE: 网页托管模式下使用固定 ID 的 hosted profile，永远注入，用户不可编辑
+const WEB_HOSTED_PROFILE_ID = '__web_hosted_proxy__';
+const WEB_HOSTED_PROFILE: TextAIProfile = {
+  id: WEB_HOSTED_PROFILE_ID,
+  name: '网站托管代理',
+  kind: 'text',
+  provider: 'hosted',
+  apiKey: '',
+  apiUrl: '',
+  model: 'deepseek',
+  thinkingMode: false,
+};
 const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 type PendingProjectAction =
@@ -201,16 +213,33 @@ const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 
-const buildDefaultTextProfile = (): TextAIProfile => ({
-  id: buildProfileId(),
-  name: 'DeepSeek 文本',
-  kind: 'text',
-  provider: 'deepseek',
-  apiKey: '',
-  apiUrl: 'https://api.deepseek.com',
-  model: DEFAULT_TEXT_MODEL,
-  thinkingMode: false,
-});
+const buildDefaultTextProfile = (): TextAIProfile => {
+  // NOTE: 网页托管环境下默认 hosted 代理；Tauri 桌面端不预设任何配置，保持空白让用户自行填写
+  const isWeb = !isTauriRuntime();
+  if (isWeb) {
+    return {
+      id: buildProfileId(),
+      name: '网站托管代理',
+      kind: 'text',
+      provider: 'hosted',
+      apiKey: '',
+      apiUrl: '',
+      model: 'deepseek',
+      thinkingMode: false,
+    };
+  }
+  // Tauri 桌面端：返回空配置，name/provider 全空，等用户自己选
+  return {
+    id: buildProfileId(),
+    name: '',
+    kind: 'text',
+    provider: 'deepseek',
+    apiKey: '',
+    apiUrl: '',
+    model: '',
+    thinkingMode: false,
+  };
+};
 
 const buildDefaultImageProfile = (): ImageAIProfile => ({
   id: buildProfileId(),
@@ -842,7 +871,8 @@ export function StoryEditor() {
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
-  const missingTextApiKey = didHydrateLocalState && activeTextProfile?.provider !== 'ollama' && !activeTextProfile?.apiKey.trim();
+  // NOTE: ollama 和 hosted 均不需要用户填写 API Key，故不触发警告
+  const missingTextApiKey = didHydrateLocalState && activeTextProfile?.provider !== 'ollama' && activeTextProfile?.provider !== 'hosted' && !activeTextProfile?.apiKey.trim();
   const missingImageApiKey =
     didHydrateLocalState &&
     (!activeImageProfile ||

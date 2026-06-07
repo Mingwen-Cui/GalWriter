@@ -81,9 +81,47 @@ export const createAIClient = (config: AIClientConfig) => {
     const configuredModel = config.model.trim();
     const configuredUrl = config.apiUrl.trim();
 
-    if (!key && config.provider !== 'ollama') {
-      throw new Error('请先点击右侧工具栏的设置按钮，在“AI 接口配置”里添加 API Key。');
+    // NOTE: hosted 模式由服务端代理持有密钥，ollama 本地无需 key，其余均需用户填写
+    if (!key && config.provider !== 'ollama' && config.provider !== 'hosted') {
+      throw new Error('请先点击右侧工具栏的设置按钮，在"AI 接口配置"里添加 API Key。');
     }
+
+    if (config.provider === 'hosted') {
+      const proxyUrl = configuredUrl || '/api/proxy.php';
+      const backendProvider = configuredModel || 'deepseek';
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: backendProvider,
+          prompt,
+          options: { thinkingMode: config.thinkingMode },
+        }),
+      });
+
+      // NOTE: 先读取原始文本，再手动解析 JSON
+      // 若服务器返回 HTML（如 404 页面或 PHP 未启用），给出清晰的错误提示
+      const rawText = await response.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        const preview = rawText.slice(0, 120).replace(/\n/g, ' ');
+        throw new Error(
+          `服务端代理返回了非 JSON 响应，请确认 /api/proxy.php 已正确部署且服务器支持 PHP。\n` +
+          `服务器响应状态：${response.status}，内容预览：${preview}`,
+        );
+      }
+
+      if (!response.ok || data['error']) {
+        throw new Error(String(data['error']) || `服务端代理错误 (${response.status})`);
+      }
+      return {
+        content: String(data['content'] ?? ''),
+        reasoning: data['reasoning'] != null ? String(data['reasoning']) : undefined,
+      };
+    }
+
 
     if (config.provider === 'ollama') {
       const model = configuredModel || 'gemma4';

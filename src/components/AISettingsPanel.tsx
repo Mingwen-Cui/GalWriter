@@ -5,6 +5,7 @@ import {
   Feather,
   ImageIcon,
   Lightbulb,
+  Lock,
   MessageCircle,
   PanelTopDashed,
   PenLine,
@@ -40,6 +41,8 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import { Language, translations } from '../lib/i18n';
+import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
+import { isTauriRuntime } from '../lib/tauriRuntime';
 
 type ProfileKind = 'text' | 'image' | 'voice';
 type ProfileDraft = TextAIProfile | ImageAIProfile | VoiceAIProfile;
@@ -139,6 +142,14 @@ const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
     label: 'Ollama',
     apiUrl: 'http://localhost:11434/api',
     model: 'gemma4',
+  },
+  {
+    // NOTE: hosted 模式 - 网站托管时通过服务端 PHP 代理调用 AI，无需用户填写 API Key
+    // apiUrl 留空则使用默认路径 /api/proxy.php；model 字段用于指定后端 AI 提供商
+    value: 'hosted',
+    label: '🌐 网站托管代理',
+    apiUrl: '',
+    model: 'gemini',
   },
   {
     value: 'custom',
@@ -313,6 +324,10 @@ const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'qwen2.5', label: 'qwen2.5' },
     { value: 'mistral', label: 'mistral' },
   ],
+  // NOTE: hosted 模式固定使用 DeepSeek，由服务端持有密钥
+  hosted: [
+    { value: 'deepseek', label: 'DeepSeek' },
+  ],
 };
 
 const IMAGE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
@@ -442,16 +457,20 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
 
 const isLikelyUrlProfileName = (name: string) => /^https?:\/\//i.test(name.trim());
 
-const buildDefaultTextDraft = (): TextAIProfile => ({
-  id: 'draft-text',
-  name: '',
-  kind: 'text',
-  provider: 'deepseek',
-  apiKey: '',
-  apiUrl: 'https://api.deepseek.com',
-  model: 'deepseek-chat',
-  thinkingMode: false,
-});
+// NOTE: 网页托管环境下新建草稿默认 hosted+DeepSeek；Tauri 桌面端保持空白让用户自选
+const buildDefaultTextDraft = (): TextAIProfile => {
+  const isWeb = !isTauriRuntime();
+  return {
+    id: 'draft-text',
+    name: '',
+    kind: 'text',
+    provider: isWeb ? 'hosted' : 'deepseek',
+    apiKey: '',
+    apiUrl: '',
+    model: isWeb ? 'deepseek' : '',
+    thinkingMode: false,
+  };
+};
 
 const buildDefaultImageDraft = (): ImageAIProfile => ({
   id: 'draft-image',
@@ -746,6 +765,8 @@ export function AISettingsPanel({
   };
 
   const openEdit = (profile: SavedAIProfile) => {
+    // NOTE: 虚拟托管代理配置不允许编辑，直接拦截
+    if (profile.id === HOSTED_PROXY_PROFILE_ID) return;
     setImageTemplateImportStatus('idle');
     setEditorState({
       mode: 'edit',
@@ -859,6 +880,8 @@ export function AISettingsPanel({
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
+    // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
+    const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
     const showModelSelect =
       draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao');
 
@@ -953,7 +976,11 @@ export function AISettingsPanel({
 
               {showModelSelect && (
                 <div className="space-y-2">
-                  {renderFieldLabel(language === 'zh' ? '模型' : 'Model')}
+                  {renderFieldLabel(
+                    isHosted
+                      ? language === 'zh' ? '后端 AI 提供商' : 'Backend AI Provider'
+                      : language === 'zh' ? '模型' : 'Model'
+                  )}
                   <select
                     value={currentModelSelectValue}
                     onChange={(e) => {
@@ -972,9 +999,11 @@ export function AISettingsPanel({
                         {option.label}
                       </option>
                     ))}
-                    <option value={CUSTOM_MODEL_VALUE}>
-                      {language === 'zh' ? '自定义模型' : 'Custom model'}
-                    </option>
+                    {!isHosted && (
+                      <option value={CUSTOM_MODEL_VALUE}>
+                        {language === 'zh' ? '自定义模型' : 'Custom model'}
+                      </option>
+                    )}
                   </select>
                   {currentModelSelectValue === CUSTOM_MODEL_VALUE && (
                     <input
@@ -996,37 +1025,55 @@ export function AISettingsPanel({
 
             {draft.kind === 'text' && (
               <>
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className={`grid gap-5 ${isHosted ? '' : 'md:grid-cols-2'}`}>
+                  {/* NOTE: hosted 模式下不需要填写 API Key，服务端已持有密钥 */}
+                  {isHosted ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                      <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                        ✅ {language === 'zh' ? '无需填写 API Key' : 'No API Key required'}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        {language === 'zh'
+                          ? 'AI 请求将通过网站服务端代理转发，密钥由网站管理员统一持有。每人每天可免费使用 30 次 AI 对话。'
+                          : 'AI requests are proxied through the server. The API key is managed by the site admin. Each user gets 30 free AI calls per day.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {renderFieldLabel(
+                        isLocalStableDiffusion || isOllama
+                          ? language === 'zh'
+                            ? 'API Key（可选）'
+                            : 'API Key (Optional)'
+                          : 'API Key'
+                      )}
+                      <input
+                        type="password"
+                        name={`ai-${draft.kind}-api-key`}
+                        autoComplete="new-password"
+                        value={draft.apiKey}
+                        onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                        placeholder={
+                          isLocalStableDiffusion
+                            ? language === 'zh'
+                              ? '本地 WebUI 通常可以留空'
+                              : 'Usually empty for local WebUI'
+                            : isOllama
+                              ? language === 'zh'
+                                ? 'Ollama 本地服务通常可以留空'
+                                : 'Usually empty for local Ollama'
+                              : undefined
+                        }
+                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {renderFieldLabel(
-                      isLocalStableDiffusion || isOllama
-                        ? language === 'zh'
-                          ? 'API Key（可选）'
-                          : 'API Key (Optional)'
-                        : 'API Key'
+                      isHosted
+                        ? language === 'zh' ? '代理地址（可选）' : 'Proxy URL (Optional)'
+                        : 'API URL'
                     )}
-                    <input
-                      type="password"
-                      name={`ai-${draft.kind}-api-key`}
-                      autoComplete="new-password"
-                      value={draft.apiKey}
-                      onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                      placeholder={
-                        isLocalStableDiffusion
-                          ? language === 'zh'
-                            ? '本地 WebUI 通常可以留空'
-                            : 'Usually empty for local WebUI'
-                          : isOllama
-                            ? language === 'zh'
-                              ? 'Ollama 本地服务通常可以留空'
-                              : 'Usually empty for local Ollama'
-                            : undefined
-                      }
-                      className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    {renderFieldLabel('API URL')}
                     <input
                       type="text"
                       name="ai-text-api-url"
@@ -1034,6 +1081,13 @@ export function AISettingsPanel({
                       spellCheck={false}
                       value={draft.apiUrl}
                       onChange={(e) => updateDraft({ apiUrl: e.target.value })}
+                      placeholder={
+                        isHosted
+                          ? language === 'zh'
+                            ? '留空使用默认 /api/proxy.php'
+                            : 'Leave empty for default /api/proxy.php'
+                          : undefined
+                      }
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                     />
                   </div>
@@ -1495,18 +1549,23 @@ export function AISettingsPanel({
 
               <div className="grid gap-5">
                 {sections.map((section) => {
+                  // NOTE: 网页托管环境下，在文本 AI 列表顶部注入只读虚拟代理配置
+                  const isWeb = !isTauriRuntime();
+                  const virtualProfiles: SavedAIProfile[] =
+                    isWeb && section.kind === 'text' ? [HOSTED_PROXY_PROFILE] : [];
                   const meta = getProfileKindMeta(section.kind, language);
                   const showMissingApiHint =
                     (section.kind === 'text' && missingTextApiKey) ||
                     section.kind === settingsAttentionTarget;
                   const canAcknowledgeMissingApiHint =
                     section.kind === settingsAttentionTarget && Boolean(onAcknowledgeSettingsAttention);
+                  const totalCount = virtualProfiles.length + section.profiles.length;
                   const profileCountLabel =
                     language === 'zh'
-                      ? `${section.profiles.length} 个配置`
+                      ? `${totalCount} 个配置`
                       : language === 'ja'
-                        ? `${section.profiles.length} 個の設定`
-                        : `${section.profiles.length} profile${section.profiles.length === 1 ? '' : 's'}`;
+                        ? `${totalCount} 個の設定`
+                        : `${totalCount} profile${totalCount === 1 ? '' : 's'}`;
                   return (
                     <div
                       key={section.kind}
@@ -1571,7 +1630,8 @@ export function AISettingsPanel({
                       </div>
 
                       <div className="max-h-[260px] overflow-y-auto px-4 py-3 custom-scrollbar">
-                        {section.profiles.length === 0 ? (
+                        {/* NOTE: 只有在虚拟配置和用户配置都为空时才显示空状态提示 */}
+                        {virtualProfiles.length + section.profiles.length === 0 ? (
                           <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
                               {language === 'zh' ? '还没有保存的配置' : language === 'ja' ? '保存された設定はまだありません' : 'No saved profiles yet'}
@@ -1586,8 +1646,10 @@ export function AISettingsPanel({
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {section.profiles.map((profile) => {
+                            {[...virtualProfiles, ...section.profiles].map((profile) => {
                               const isActive = profile.id === section.activeId;
+                              // NOTE: 虚拟托管代理配置为只读，不允许编辑
+                              const isReadOnly = profile.id === HOSTED_PROXY_PROFILE_ID;
                               return (
                                 <button
                                   key={profile.id}
@@ -1623,16 +1685,24 @@ export function AISettingsPanel({
                                           {language === 'zh' ? '正在使用' : language === 'ja' ? '使用中' : 'Active'}
                                         </span>
                                       )}
-                                      <span
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          openEdit(profile);
-                                        }}
-                                        className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                        {language === 'zh' ? '编辑' : language === 'ja' ? '編集' : 'Edit'}
-                                      </span>
+                                      {isReadOnly ? (
+                                        // NOTE: 只读配置仅显示锁图标，不提供编辑入口
+                                        <span className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-muted)] opacity-60">
+                                          <Lock className="h-3 w-3" />
+                                          {language === 'zh' ? '托管锁定' : language === 'ja' ? 'ロック済み' : 'Locked'}
+                                        </span>
+                                      ) : (
+                                        <span
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            openEdit(profile);
+                                          }}
+                                          className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                          {language === 'zh' ? '编辑' : language === 'ja' ? '編集' : 'Edit'}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </button>
