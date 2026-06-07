@@ -19,7 +19,6 @@ import {
   Image as ImageIcon,
   Loader2,
   MapPin,
-  Package,
   Plus,
   RotateCw,
   Settings2,
@@ -628,7 +627,6 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                   {data.showItems && (
                     <div className={DETAIL_FIELD_CLASS}>
                       <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0 flex items-center gap-1">
-                        <Package className="w-3 h-3" />
                         {lang === 'zh' ? '场景物品' : 'Scene Items'}
                       </label>
                       <textarea
