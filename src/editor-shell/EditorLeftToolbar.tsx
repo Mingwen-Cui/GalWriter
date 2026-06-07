@@ -14,11 +14,11 @@ import {
   Undo2,
   UserCircle2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ChangeEvent,
   Dispatch,
-  MouseEvent as ReactMouseEvent,
   MutableRefObject,
   SetStateAction,
 } from 'react';
@@ -81,22 +81,57 @@ export function EditorLeftToolbar({
   unhideAllNodes,
   t,
 }: EditorLeftToolbarProps) {
+  const guideWidth = 500;
+  const guideVisibleHeight = 600;
+  const guideAnimationHeight = 650;
+  const guideHoverDelayMs = 600;
+  const guideDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shouldRenderCharacterCardGuide, setShouldRenderCharacterCardGuide] = useState(false);
   const [showCharacterCardGuide, setShowCharacterCardGuide] = useState(false);
   const [characterCardGuidePosition, setCharacterCardGuidePosition] = useState({
     left: 0,
     top: 0,
   });
 
-  const showCharacterCardHoverGuide = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const nextTop = Math.min(Math.max(rect.top + rect.height / 2 - 250, 16), window.innerHeight - 516);
+  const showCharacterCardHoverGuide = (button: HTMLButtonElement) => {
+    const rect = button.getBoundingClientRect();
+    const nextLeft = Math.min(Math.max(rect.right + 16, 16), window.innerWidth - guideWidth - 16);
+    const nextTop = Math.min(
+      Math.max(rect.top + rect.height / 2 - guideVisibleHeight / 2, 16),
+      window.innerHeight - guideVisibleHeight - 16,
+    );
 
     setCharacterCardGuidePosition({
-      left: rect.right + 16,
+      left: nextLeft,
       top: nextTop,
     });
-    setShowCharacterCardGuide(true);
+    setShouldRenderCharacterCardGuide(true);
+    setShowCharacterCardGuide(false);
+
+    if (guideDelayTimerRef.current) {
+      clearTimeout(guideDelayTimerRef.current);
+    }
+    guideDelayTimerRef.current = setTimeout(() => {
+      setShowCharacterCardGuide(true);
+    }, guideHoverDelayMs);
   };
+
+  const hideCharacterCardHoverGuide = () => {
+    if (guideDelayTimerRef.current) {
+      clearTimeout(guideDelayTimerRef.current);
+      guideDelayTimerRef.current = null;
+    }
+    setShowCharacterCardGuide(false);
+    setShouldRenderCharacterCardGuide(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (guideDelayTimerRef.current) {
+        clearTimeout(guideDelayTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <>
@@ -154,10 +189,10 @@ export function EditorLeftToolbar({
           <button
             className="relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewCharacterNode}
-            onMouseEnter={showCharacterCardHoverGuide}
-            onMouseLeave={() => setShowCharacterCardGuide(false)}
-            onFocus={showCharacterCardHoverGuide}
-            onBlur={() => setShowCharacterCardGuide(false)}
+            onMouseEnter={(event) => showCharacterCardHoverGuide(event.currentTarget)}
+            onMouseLeave={hideCharacterCardHoverGuide}
+            onFocus={(event) => showCharacterCardHoverGuide(event.currentTarget)}
+            onBlur={hideCharacterCardHoverGuide}
             aria-label={
               language === 'zh'
                 ? '添加人物卡片'
@@ -267,25 +302,38 @@ export function EditorLeftToolbar({
         )}
       </div>
 
-      {showCharacterCardGuide && (
-        <div
-          className="pointer-events-none fixed z-[9999] overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--card-bg)] shadow-2xl"
-          style={{
-            left: `${characterCardGuidePosition.left}px`,
-            top: `${characterCardGuidePosition.top}px`,
-            width: '500px',
-            height: '600px',
-          }}
-        >
-          <DotLottieReact
-            src={characterCardAnimation}
-            loop
-            autoplay
-            className="h-full w-full"
-            aria-hidden="true"
-          />
-        </div>
-      )}
+      {shouldRenderCharacterCardGuide &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className={`pointer-events-none fixed z-[9999] overflow-hidden rounded-xl border border-white/30 bg-white/20 shadow-2xl backdrop-blur-xl transition-opacity duration-150 ${
+              showCharacterCardGuide ? 'opacity-100' : 'opacity-0'
+            }`}
+            data-testid="character-card-guide-lottie"
+            style={{
+              left: `${characterCardGuidePosition.left}px`,
+              top: `${characterCardGuidePosition.top}px`,
+              width: `${guideWidth}px`,
+              height: `${guideVisibleHeight}px`,
+            }}
+          >
+            <DotLottieReact
+              src={characterCardAnimation}
+              loop
+              autoplay
+              width={guideWidth}
+              height={guideAnimationHeight}
+              className="block max-w-none"
+              renderConfig={{ autoResize: false }}
+              style={{
+                width: `${guideWidth}px`,
+                height: `${guideAnimationHeight}px`,
+              }}
+              aria-hidden="true"
+            />
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
