@@ -58,6 +58,11 @@ type AssistantHistorySnapshot = {
   input: string;
 };
 
+export type AssistantCardPlacementResult = {
+  count: number;
+  position?: { x: number; y: number; zoom?: number };
+};
+
 const createAssistantWelcomeMessage = (language: Language): AssistantMessage => ({
   id: uuidv4(),
   role: 'assistant',
@@ -98,7 +103,10 @@ interface UseAssistantPanelParams {
   selectedAssistantTargetNodes: Node[];
   nodes: Node[];
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
-  createAssistantCards: (cards: AssistantCardDraft[], mode?: 'append' | 'fill-selected') => number;
+  createAssistantCards: (
+    cards: AssistantCardDraft[],
+    mode?: 'append' | 'fill-selected',
+  ) => AssistantCardPlacementResult;
   hasTextApiKey: boolean;
   onMissingTextApiKeyRequest?: () => void;
 }
@@ -654,13 +662,17 @@ ${canvasContext || '无'}`;
         const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
         const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
-        const placedCount = shouldPlaceCards ? createAssistantCards(cards, mode) : 0;
-        const actionText = placedCount > 0 ? `\n\n已在画布上处理 ${placedCount} 张卡片。` : '';
+        const placement = shouldPlaceCards
+          ? createAssistantCards(cards, mode)
+          : { count: 0 };
+        const actionText =
+          placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
 
         const assistantMessage: AssistantMessage = {
           id: uuidv4(),
           role: 'assistant',
           content: `${parsed.reply || raw}${actionText}`,
+          cardPosition: placement.position,
         };
         setAssistantMessages((messages) => [...messages, assistantMessage]);
       } catch (error: any) {

@@ -64,6 +64,7 @@ interface AssistantPanelProps {
   handleAssistantRedo: () => void;
   canAssistantUndo: boolean;
   canAssistantRedo: boolean;
+  onAssistantMessagePositionClick: (position: { x: number; y: number; zoom?: number }) => void;
   showStats: boolean;
   language: Language;
 }
@@ -100,6 +101,7 @@ export function AssistantPanel({
   handleAssistantRedo,
   canAssistantUndo,
   canAssistantRedo,
+  onAssistantMessagePositionClick,
   showStats,
   language,
 }: AssistantPanelProps) {
@@ -419,6 +421,17 @@ export function AssistantPanel({
                 }`}
               >
                 {message.content}
+                {message.role === 'assistant' && message.cardPosition && (
+                  <button
+                    type="button"
+                    onClick={() => onAssistantMessagePositionClick(message.cardPosition!)}
+                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                    title={language === 'zh' ? '跳转到生成卡片的位置' : language === 'ja' ? '生成したカードの位置へ移動' : 'Jump to generated card position'}
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    {language === 'zh' ? '位置' : language === 'ja' ? '位置' : 'Position'}
+                  </button>
+                )}
               </div>
             </div>
           ),

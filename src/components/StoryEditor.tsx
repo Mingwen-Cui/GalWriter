@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { useAIActions } from '../editor-features/ai/useAIActions';
 import {
+  type AssistantCardPlacementResult,
   type AssistantCardDraft,
   useAssistantPanel,
 } from '../editor-features/assistant/useAssistantPanel';
@@ -618,7 +619,7 @@ export function StoryEditor() {
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+  const { screenToFlowPosition, getIntersectingNodes, setCenter } = useReactFlow();
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -1646,7 +1647,10 @@ export function StoryEditor() {
   );
 
   const createAssistantCards = useCallback(
-    (cards: AssistantCardDraft[], mode: 'append' | 'fill-selected' = 'append') => {
+    (
+      cards: AssistantCardDraft[],
+      mode: 'append' | 'fill-selected' = 'append',
+    ): AssistantCardPlacementResult => {
       const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
       const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
         if (card.type === 'character' || card.type === 'scene' || card.type === 'story')
@@ -1714,7 +1718,7 @@ export function StoryEditor() {
           return card.text || card.title;
         });
 
-      if (validCards.length === 0) return 0;
+      if (validCards.length === 0) return { count: 0 };
 
       const selectedFillTargets = nodes.filter(
         (n) =>
@@ -1800,38 +1804,33 @@ export function StoryEditor() {
       }
 
       const remainingCards = validCards.filter((_, index) => !usedDraftIndexes.has(index));
-      if (remainingCards.length === 0) return filledCount;
+      if (remainingCards.length === 0) return { count: filledCount };
 
       const selectedStories = nodes.filter((n) => n.selected && n.type === 'storyNode');
-      const selectedTargets =
-        selectedFillTargets.length > 0 ? selectedFillTargets : selectedStories;
-      const anchorNodes =
-        selectedTargets.length > 0
-          ? selectedTargets
-          : nodes.filter(
-              (n) => n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode',
-            );
       const center = getCenterPosition();
       const sourceNode = selectedStories[0] || null;
-      const sourceWidth = sourceNode
-        ? sourceNode.measured?.width || (sourceNode.style?.width as number) || 300
-        : 300;
-      const baseX = sourceNode ? sourceNode.position.x + sourceWidth / 2 - 150 : center.x - 150;
-      const baseY = anchorNodes.length
-        ? Math.max(
-            ...anchorNodes.map(
-              (n) => n.position.y + (n.measured?.height || (n.style?.height as number) || 220),
-            ),
-          ) + 120
-        : center.y - 100;
+      const cardLayouts = remainingCards.map((card) => ({
+        width: card.type === 'story' ? 300 : 280,
+        height: card.type === 'story' ? 200 : 420,
+        gapAfter: card.type === 'story' ? 80 : 0,
+      }));
+      const totalHeight = cardLayouts.reduce(
+        (height, layout, index) =>
+          height + layout.height + (index < cardLayouts.length - 1 ? layout.gapAfter : 0),
+        0,
+      );
+      let currentY = center.y - totalHeight / 2;
 
       const newNodes: Node[] = remainingCards.map((card, index) => {
         const id = uuidv4();
+        const layout = cardLayouts[index];
+        const position = { x: center.x - layout.width / 2, y: currentY };
+        currentY += layout.height + layout.gapAfter;
         if (card.type === 'character') {
           return {
             id,
             type: 'characterNode',
-            position: { x: baseX, y: baseY + index * 420 },
+            position,
             selected: index === 0,
             style: { width: 280, height: 420, minHeight: 420 },
             data: {
@@ -1857,7 +1856,7 @@ export function StoryEditor() {
           return {
             id,
             type: 'sceneNode',
-            position: { x: baseX, y: baseY + index * 420 },
+            position,
             selected: index === 0,
             style: { width: 280, height: 420, minHeight: 420 },
             data: {
@@ -1880,7 +1879,7 @@ export function StoryEditor() {
         return {
           id,
           type: 'storyNode',
-          position: { x: baseX, y: baseY + index * 280 },
+          position,
           selected: index === 0,
           style: { width: 300, height: 200 },
           data: {
@@ -1918,9 +1917,22 @@ export function StoryEditor() {
 
       setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
-      return filledCount + remainingCards.length;
+      return {
+        count: filledCount + remainingCards.length,
+        position: { x: center.x, y: center.y, zoom: tzoom },
+      };
     },
-    [nodes, setNodes, setEdges, getCenterPosition, language],
+    [nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
+  );
+
+  const handleAssistantMessagePositionClick = useCallback(
+    (position: { x: number; y: number; zoom?: number }) => {
+      void setCenter(position.x, position.y, {
+        zoom: position.zoom ?? tzoom,
+        duration: 450,
+      });
+    },
+    [setCenter, tzoom],
   );
 
   const {
@@ -3288,6 +3300,7 @@ ${direction}
           handleAssistantRedo={handleAssistantRedo}
           canAssistantUndo={canAssistantUndo}
           canAssistantRedo={canAssistantRedo}
+          onAssistantMessagePositionClick={handleAssistantMessagePositionClick}
           showStats={showStats}
           language={language}
         />

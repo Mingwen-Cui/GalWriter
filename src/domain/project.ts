@@ -76,6 +76,7 @@ export type AssistantMessage = {
   role: 'user' | 'assistant' | 'thought';
   content: string;
   collapsed?: boolean;
+  cardPosition?: { x: number; y: number; zoom?: number };
 };
 
 export type AssistantTask = {
