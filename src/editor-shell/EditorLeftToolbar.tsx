@@ -24,7 +24,15 @@ import type {
 } from 'react';
 
 import characterCardAnimation from '../animation/character card.lottie';
+import sceneSettingCardAnimation from '../animation/scence setting card.lottie';
 import type { Language } from '../lib/i18n';
+
+type HoverGuideKind = 'character' | 'scene';
+
+const hoverGuideAnimations: Record<HoverGuideKind, string> = {
+  character: characterCardAnimation,
+  scene: sceneSettingCardAnimation,
+};
 
 interface EditorLeftToolbarProps {
   isMobile: boolean;
@@ -86,14 +94,15 @@ export function EditorLeftToolbar({
   const guideAnimationHeight = 650;
   const guideHoverDelayMs = 600;
   const guideDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [shouldRenderCharacterCardGuide, setShouldRenderCharacterCardGuide] = useState(false);
-  const [showCharacterCardGuide, setShowCharacterCardGuide] = useState(false);
-  const [characterCardGuidePosition, setCharacterCardGuidePosition] = useState({
+  const [activeHoverGuide, setActiveHoverGuide] = useState<HoverGuideKind | null>(null);
+  const [shouldRenderHoverGuide, setShouldRenderHoverGuide] = useState(false);
+  const [showHoverGuide, setShowHoverGuide] = useState(false);
+  const [hoverGuidePosition, setHoverGuidePosition] = useState({
     left: 0,
     top: 0,
   });
 
-  const showCharacterCardHoverGuide = (button: HTMLButtonElement) => {
+  const showCardHoverGuide = (kind: HoverGuideKind, button: HTMLButtonElement) => {
     const rect = button.getBoundingClientRect();
     const nextLeft = Math.min(Math.max(rect.right + 16, 16), window.innerWidth - guideWidth - 16);
     const nextTop = Math.min(
@@ -101,28 +110,30 @@ export function EditorLeftToolbar({
       window.innerHeight - guideVisibleHeight - 16,
     );
 
-    setCharacterCardGuidePosition({
+    setHoverGuidePosition({
       left: nextLeft,
       top: nextTop,
     });
-    setShouldRenderCharacterCardGuide(true);
-    setShowCharacterCardGuide(false);
+    setActiveHoverGuide(kind);
+    setShouldRenderHoverGuide(true);
+    setShowHoverGuide(false);
 
     if (guideDelayTimerRef.current) {
       clearTimeout(guideDelayTimerRef.current);
     }
     guideDelayTimerRef.current = setTimeout(() => {
-      setShowCharacterCardGuide(true);
+      setShowHoverGuide(true);
     }, guideHoverDelayMs);
   };
 
-  const hideCharacterCardHoverGuide = () => {
+  const hideCardHoverGuide = () => {
     if (guideDelayTimerRef.current) {
       clearTimeout(guideDelayTimerRef.current);
       guideDelayTimerRef.current = null;
     }
-    setShowCharacterCardGuide(false);
-    setShouldRenderCharacterCardGuide(false);
+    setShowHoverGuide(false);
+    setShouldRenderHoverGuide(false);
+    setActiveHoverGuide(null);
   };
 
   useEffect(() => {
@@ -189,10 +200,10 @@ export function EditorLeftToolbar({
           <button
             className="relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewCharacterNode}
-            onMouseEnter={(event) => showCharacterCardHoverGuide(event.currentTarget)}
-            onMouseLeave={hideCharacterCardHoverGuide}
-            onFocus={(event) => showCharacterCardHoverGuide(event.currentTarget)}
-            onBlur={hideCharacterCardHoverGuide}
+            onMouseEnter={(event) => showCardHoverGuide('character', event.currentTarget)}
+            onMouseLeave={hideCardHoverGuide}
+            onFocus={(event) => showCardHoverGuide('character', event.currentTarget)}
+            onBlur={hideCardHoverGuide}
             aria-label={
               language === 'zh'
                 ? '添加人物卡片'
@@ -207,6 +218,10 @@ export function EditorLeftToolbar({
           <button
             className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={addNewSceneNode}
+            onMouseEnter={(event) => showCardHoverGuide('scene', event.currentTarget)}
+            onMouseLeave={hideCardHoverGuide}
+            onFocus={(event) => showCardHoverGuide('scene', event.currentTarget)}
+            onBlur={hideCardHoverGuide}
             title={t.toolScene}
           >
             <MapPin strokeWidth={2.5} className="h-5 w-5" />
@@ -302,23 +317,24 @@ export function EditorLeftToolbar({
         )}
       </div>
 
-      {shouldRenderCharacterCardGuide &&
+      {shouldRenderHoverGuide &&
+        activeHoverGuide &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
             className={`pointer-events-none fixed z-[9999] overflow-hidden rounded-xl border border-white/30 bg-white/20 shadow-2xl backdrop-blur-xl transition-opacity duration-150 ${
-              showCharacterCardGuide ? 'opacity-100' : 'opacity-0'
+              showHoverGuide ? 'opacity-100' : 'opacity-0'
             }`}
-            data-testid="character-card-guide-lottie"
+            data-testid={`${activeHoverGuide}-card-guide-lottie`}
             style={{
-              left: `${characterCardGuidePosition.left}px`,
-              top: `${characterCardGuidePosition.top}px`,
+              left: `${hoverGuidePosition.left}px`,
+              top: `${hoverGuidePosition.top}px`,
               width: `${guideWidth}px`,
               height: `${guideVisibleHeight}px`,
             }}
           >
             <DotLottieReact
-              src={characterCardAnimation}
+              src={hoverGuideAnimations[activeHoverGuide]}
               loop
               autoplay
               width={guideWidth}
