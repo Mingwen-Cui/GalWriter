@@ -30,6 +30,16 @@ struct RenderSaveResult {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FfmpegStatus {
+  available: bool,
+  path: String,
+  source: String,
+  version: Option<String>,
+  message: Option<String>,
+}
+
+#[derive(serde::Serialize)]
 struct ProjectSaveResult {
   path: Option<String>,
 }
@@ -582,13 +592,13 @@ fn apply_container_args(command: &mut Command, format: &str) {
   }
 }
 
-fn find_ffmpeg(app: &AppHandle) -> PathBuf {
+fn resolve_ffmpeg_path(app: &AppHandle) -> (PathBuf, String) {
   if let Ok(resource_dir) = app.path().resource_dir() {
     let bundled = resource_dir
       .join("binaries")
       .join(if cfg!(target_os = "windows") { "ffmpeg.exe" } else { "ffmpeg" });
     if bundled.exists() {
-      return bundled;
+      return (bundled, "bundled".to_string());
     }
   }
 
@@ -596,12 +606,52 @@ fn find_ffmpeg(app: &AppHandle) -> PathBuf {
     if let Some(dir) = exe.parent() {
       let local = dir.join(if cfg!(target_os = "windows") { "ffmpeg.exe" } else { "ffmpeg" });
       if local.exists() {
-        return local;
+        return (local, "app-directory".to_string());
       }
     }
   }
 
-  PathBuf::from("ffmpeg")
+  (PathBuf::from("ffmpeg"), "system-path".to_string())
+}
+
+fn find_ffmpeg(app: &AppHandle) -> PathBuf {
+  resolve_ffmpeg_path(app).0
+}
+
+#[tauri::command]
+fn check_ffmpeg_available(app: AppHandle) -> FfmpegStatus {
+  let (ffmpeg, source) = resolve_ffmpeg_path(&app);
+  let path = ffmpeg.to_string_lossy().to_string();
+  match Command::new(&ffmpeg).arg("-version").output() {
+    Ok(output) if output.status.success() => {
+      let stdout = String::from_utf8_lossy(&output.stdout);
+      let version = stdout.lines().next().map(|line| line.to_string());
+      FfmpegStatus {
+        available: true,
+        path,
+        source,
+        version,
+        message: None,
+      }
+    }
+    Ok(output) => {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      FfmpegStatus {
+        available: false,
+        path,
+        source,
+        version: None,
+        message: Some(format!("FFmpeg exists but failed to run: {stderr}")),
+      }
+    }
+    Err(err) => FfmpegStatus {
+      available: false,
+      path,
+      source,
+      version: None,
+      message: Some(format!("FFmpeg was not found or could not be started: {err}")),
+    },
+  }
 }
 
 #[tauri::command]
@@ -1387,6 +1437,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
       choose_render_output_dir,
+      check_ffmpeg_available,
       choose_project_default_save_dir,
       save_project_zip,
       synthesize_system_speech,

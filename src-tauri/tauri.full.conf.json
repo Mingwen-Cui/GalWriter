@@ -1,0 +1,13 @@
+{
+  "productName": "GalWriter AI",
+  "build": {
+    "beforeBuildCommand": "npm run build && node build-scripts/check-ffmpeg-binary.mjs"
+  },
+  "bundle": {
+    "resources": [
+      "binaries/ffmpeg.exe"
+    ],
+    "shortDescription": "多结局AI剧本生成器（完整版，内置视频导出组件）",
+    "longDescription": "由AI驱动多结局剧本创作工具。完整版内置 FFmpeg，可直接导出 MP4、MOV、MKV 等视频格式。"
+  }
+}

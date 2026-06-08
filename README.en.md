@@ -49,9 +49,18 @@ Download the latest build from [Releases](https://github.com/Mingwen-Cui/GalWrit
 
 The desktop app is recommended for serious writing, local project management, full file access, and video export.
 
+| Installer | Recommended for | Video export |
+| --------- | --------------- | ------------ |
+| `GalWriter-Setup.exe` | Recommended for most users. Larger download, but works out of the box. | Bundles a slim FFmpeg build and directly exports WebM, MP4, MOV, and MKV. |
+| `GalWriter-Setup-Lite.exe` | For users who care about download size and already have FFmpeg installed. | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg. |
+| `GalWriter-AI-v1.2.5-windows-x64.exe` | For users who want a no-install, double-click executable. | Single-file portable Lite build; non-WebM export requires system FFmpeg. |
+| `GalWriter-AI-v1.2.5-windows-x64-portable-full.zip` | For users who want no installation but still need bundled FFmpeg. | Extract the zip and keep `ffmpeg.exe` next to the app executable. |
+
+Release builds only bundle `ffmpeg.exe` in the Full installer. They do not include `ffprobe.exe`, documentation, presets, or other unrelated FFmpeg files.
+
 ### Web Version
 
-The web version is intended for demos and quick trials. Due to browser limitations, direct video export on the web only supports **WebM**. For **MP4 / MOV / MKV** and other common formats, use the desktop app, which exports through bundled FFmpeg.
+The web version is intended for demos and quick trials. Due to browser limitations, direct video export on the web only supports **WebM**. For **MP4 / MOV / MKV** and other common formats, use the desktop app; the Full installer is recommended because it bundles FFmpeg.
 
 ## Quick Start
 
@@ -82,12 +91,13 @@ Data principles:
 
 ## Video Export Strategy
 
-| Environment | Direct export formats | Notes                                                                 |
-| ----------- | --------------------- | --------------------------------------------------------------------- |
-| Web Demo    | WebM                  | Uses browser-native recording for the most reliable web workflow.     |
-| Desktop App | WebM, MP4, MOV, MKV   | Uses bundled FFmpeg. Users do not need to install command-line tools. |
+| Environment      | Direct export formats | Notes                                                                          |
+| ---------------- | --------------------- | ------------------------------------------------------------------------------ |
+| Web Demo         | WebM                  | Uses browser-native recording for the most reliable web workflow.              |
+| Desktop App Full | WebM, MP4, MOV, MKV   | Bundles a slim FFmpeg build and is recommended for most users.                 |
+| Desktop App Lite | WebM, MP4, MOV, MKV   | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg.     |
 
-When a web user selects MP4, MOV, or MKV, GalWriter AI shows an in-app prompt and points them to the desktop release page.
+When a web user selects MP4, MOV, or MKV, GalWriter AI shows an in-app prompt and points them to the desktop release page. If the Lite app or local runtime cannot find FFmpeg, the app also shows an in-app prompt to download the Full app or switch to WebM.
 
 ## Development
 
@@ -128,8 +138,14 @@ npm run build
 ### Package the desktop app
 
 ```bash
-npm run tauri build
+npm run tauri:check:ffmpeg
+npm run tauri:build:full
+npm run tauri:build:lite
+npm run tauri:build:portable
+npm run tauri:build:portable:full
 ```
+
+The Full build checks for `src-tauri/binaries/ffmpeg.exe` and copies the installer to `release/GalWriter-Setup.exe`. The Lite build excludes FFmpeg and outputs `release/GalWriter-Setup-Lite.exe`. The portable Lite build outputs `release/GalWriter-AI-v1.2.5-windows-x64.exe`; the portable Full build outputs a zip that includes `ffmpeg.exe`.
 
 ## Tech Stack
 
@@ -137,7 +153,7 @@ npm run tauri build
 - **Desktop**: Tauri 2, Rust
 - **Local storage**: IndexedDB / native app data
 - **Exports**: ZIP, web export, video export
-- **Video**: browser MediaRecorder, bundled FFmpeg on desktop
+- **Video**: browser MediaRecorder, desktop FFmpeg detection, and Full/Lite packaging
 
 ## Project Structure
 
@@ -151,6 +167,7 @@ npm run tauri build
 ├── src-tauri/                   # Tauri + Rust desktop layer
 │   ├── binaries/                # bundled FFmpeg for desktop export
 │   └── src/                     # Tauri commands and local file handling
+├── build-scripts/               # FFmpeg checks and Full/Lite installer helpers
 ├── public/                      # public static assets
 └── dist/                        # web build output
 ```
@@ -174,14 +191,14 @@ No. AI profiles are stored only on the current device, and API keys are not incl
 <details>
 <summary><strong>Why does the web version not export MP4 or MOV directly?</strong></summary>
 
-Browser-native video recording does not provide reliable MP4/MOV support across platforms. GalWriter AI only promises WebM on the web. The desktop app uses bundled FFmpeg to export MP4, MOV, MKV, and WebM.
+Browser-native video recording does not provide reliable MP4/MOV support across platforms. GalWriter AI only promises WebM on the web. The Full desktop app uses bundled FFmpeg to export MP4, MOV, MKV, and WebM; the Lite app needs system FFmpeg for those common formats.
 
 </details>
 
 <details>
 <summary><strong>Do I need to install FFmpeg?</strong></summary>
 
-No. The desktop app bundles FFmpeg, so users can export videos without installing command-line tools.
+If you download `GalWriter-Setup.exe` Full, no. Users can export directly. If you download `GalWriter-Setup-Lite.exe`, MP4 / MOV / MKV export requires FFmpeg to already be installed on the computer; otherwise the app will suggest downloading the Full build or exporting WebM.
 
 </details>
 
