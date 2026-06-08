@@ -131,7 +131,7 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
   if (!response.ok || contentType.includes('application/json')) {
     throw new Error(
       (await normalizeYoudaoError(response)) ||
-        `Youdao TTS request failed with HTTP ${response.status}`,
+      `Youdao TTS request failed with HTTP ${response.status}`,
     );
   }
 
@@ -149,7 +149,7 @@ const generateSystemSpeechAudio = async (input: string) => {
     (tauriCore as any).default?.invoke ||
     (window as any).__TAURI__?.core?.invoke;
   if (!invoke) {
-    throw new Error('System voice is only available in the GalWriter desktop app.');
+    throw new Error('System voice is only available in the GalWriter App.');
   }
   const bytes = (await invoke('synthesize_system_speech', { text: input })) as number[];
   const blob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });

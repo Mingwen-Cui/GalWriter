@@ -1349,7 +1349,7 @@ export function AISettingsPanel({
                         ? '系统语音使用桌面端内置朗读能力，不需要联网或填写 API Key。'
                         : language === 'ja'
                           ? 'システム音声はデスクトップ内蔵のスピーチエンジンを使用するため、インターネット接続やAPIキーの入力は不要です。'
-                          : 'System voice uses the desktop app built-in speech engine and does not require an API key.'}
+                          : 'System voice uses the app built-in speech engine and does not require an API key.'}
                     </p>
                   </div>
                 ) : (

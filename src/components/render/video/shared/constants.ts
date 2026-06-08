@@ -57,6 +57,12 @@ export const EXPORT_FORMAT_OPTIONS: {
     mimeCandidates: [],
   },
   {
+    label: 'MOV',
+    value: 'mov',
+    directRecording: false,
+    mimeCandidates: [],
+  },
+  {
     label: 'MKV',
     value: 'mkv',
     directRecording: false,

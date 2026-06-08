@@ -5,7 +5,7 @@ import type { Language } from '../../../../lib/i18n';
 import type { TTSConfig } from '../../../../lib/tts';
 
 export type RenderStatus = 'idle' | 'rendering' | 'done' | 'error';
-export type ExportFormat = 'webm' | 'mp4' | 'mkv';
+export type ExportFormat = 'webm' | 'mp4' | 'mov' | 'mkv';
 export type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 export type TimelineScaleMode = 'seconds' | 'frames';
 export type TimelineWheelMode = 'vertical' | 'horizontal';

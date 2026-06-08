@@ -4,6 +4,7 @@ import {
   Clock,
   ClipboardCopy,
   Copy,
+  Download,
   Eye,
   Film,
   FileDown,
@@ -19,6 +20,7 @@ import {
   Trash2,
   UserRound,
   Video,
+  X,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 
@@ -109,6 +111,17 @@ const DEFAULT_RENDER_STYLE: RenderStyle = {
   bodyAnimation: 'typewriter',
 };
 
+const DESKTOP_RELEASE_URL = 'https://github.com/Mingwen-Cui/GalWriter/releases';
+
+type RenderNoticeModalState = {
+  title: string;
+  description: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  onPrimary: () => void;
+  onSecondary?: () => void;
+};
+
 type PersistedRenderWorkspaceState = {
   workspaceMode?: RenderWorkspaceMode;
   selectedIds?: string[];
@@ -170,7 +183,62 @@ const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
   value === 'video' || value === 'web';
 
 const isExportFormat = (value: unknown): value is ExportFormat =>
-  value === 'webm' || value === 'mp4' || value === 'mkv';
+  value === 'webm' || value === 'mp4' || value === 'mov' || value === 'mkv';
+
+function VideoNoticeModal({
+  notice,
+  onClose,
+}: {
+  notice: RenderNoticeModalState | null;
+  onClose: () => void;
+}) {
+  if (!notice) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[28px] border border-[var(--vr-border)] bg-[var(--vr-surface)] p-7 shadow-[0_32px_90px_rgba(15,23,42,0.34)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--vr-accent-soft)] text-[var(--vr-accent)]">
+              <Download className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-[var(--vr-text)]">{notice.title}</h3>
+              <p className="mt-1 text-sm leading-6 text-[var(--vr-text-soft)]">
+                {notice.description}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-7 flex gap-3">
+          <button
+            type="button"
+            onClick={notice.onSecondary ?? onClose}
+            className="flex-1 rounded-2xl border border-[var(--vr-border)] px-4 py-3 text-sm font-bold text-[var(--vr-text-soft)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
+          >
+            {notice.secondaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={notice.onPrimary}
+            className="flex-1 rounded-2xl bg-[var(--vr-accent)] px-4 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)] transition-colors hover:brightness-110"
+          >
+            {notice.primaryLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const isAssetCardLayout = (value: unknown): value is AssetCardLayout =>
   value === 'row' || value === 'grid';
@@ -202,6 +270,8 @@ export function VideoRenderModal({
     [orderedNodes],
   );
   const [status, setStatus] = useState<RenderStatus>('idle');
+  const isDesktopApp = isTauriRuntime();
+  const [noticeModal, setNoticeModal] = useState<RenderNoticeModalState | null>(null);
   const {
     webProjectName,
     setWebProjectName,
@@ -639,7 +709,7 @@ export function VideoRenderModal({
   const chooseOutputDir = async () => {
     if (!isTauriRuntime()) {
       setOutputDirError(
-        isZh ? '选择文件夹仅在桌面端可用。' : 'Folder picking is only available in the desktop app.',
+        isZh ? '选择文件夹仅在APP端可用。' : 'Folder picking is only available in the app.',
       );
       return;
     }
@@ -666,7 +736,7 @@ export function VideoRenderModal({
   const chooseWebOutputDir = async () => {
     if (!isTauriRuntime()) {
       setWebOutputDirError(
-        isZh ? '选择文件夹仅在桌面端可用。' : 'Folder picking is only available in the desktop app.',
+        isZh ? '选择文件夹仅在APP端可用。' : 'Folder picking is only available in the app.',
       );
       return;
     }
@@ -1384,13 +1454,12 @@ export function VideoRenderModal({
         ? prev
         : next;
     });
-    setTimelineSourceById((prev) =>
-      {
-        const next = Object.fromEntries(
-          Object.entries(prev).filter(([, sourceId]) => validIds.has(sourceId)),
-        );
-        return Object.keys(next).length === Object.keys(prev).length ? prev : next;
-      },
+    setTimelineSourceById((prev) => {
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([, sourceId]) => validIds.has(sourceId)),
+      );
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    },
     );
     setSelectedIds((prev) =>
       new Set([...prev].filter((id) => validIds.has(timelineSourceById[id] || id))),
@@ -1645,10 +1714,10 @@ export function VideoRenderModal({
     const normalizedTrackId =
       normalizedTrackKind === 'audio'
         ? (trackKind === 'video' && trackId
-            ? audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio')
-            : trackId) ||
-          audioTrackIds[0] ||
-          'audio-1'
+          ? audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio')
+          : trackId) ||
+        audioTrackIds[0] ||
+        'audio-1'
         : trackId;
     const timelineId = makeTimelineClipInstanceId(id);
     closeContextMenu();
@@ -1954,17 +2023,18 @@ export function VideoRenderModal({
       const nextStart = draggingAudioOnly
         ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
         : findNonOverlappingTrackStart(
-            timelineId,
-            droppedTime,
-            duration,
-            droppedTrackKind,
-            placementTrackId,
-          );
+          timelineId,
+          droppedTime,
+          duration,
+          droppedTrackKind,
+          placementTrackId,
+        );
       if (droppedTrackKind === 'audio') {
         droppedTrackId = getAudioDropTrackId(timelineId, nextStart, duration, droppedTrackId);
       } else {
         droppedTrackId = placementTrackId;
       }
+      const resolvedTrackId = droppedTrackId || placementTrackId;
       const shouldPreservePlayhead = timelineId === activePreviewId;
       const preservedTimelineTime = activeTimelineTime;
 
@@ -1974,12 +2044,13 @@ export function VideoRenderModal({
         setTimelineSourceById((prev) => ({ ...prev, [timelineId]: draggedId }));
       }
       if (droppedTrackKind === 'video') {
-        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: droppedTrackId }));
-        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, droppedTrackId);
+        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: resolvedTrackId }));
+        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, resolvedTrackId);
       } else {
-        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: droppedTrackId }));
+        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: resolvedTrackId }));
         setVideoTrackByNodeId((prev) => {
-          const { [timelineId]: _removed, ...next } = prev;
+          const next = { ...prev };
+          delete next[timelineId];
           return next;
         });
       }
@@ -2425,13 +2496,34 @@ export function VideoRenderModal({
       return;
     }
 
-    const shouldUseTauriExport = isTauriRuntime();
+    const shouldUseTauriExport = isDesktopApp;
     if (!shouldUseTauriExport && exportFormat !== 'webm') {
-      window.alert(
-        isZh
-          ? `${exportFormat.toUpperCase()} 网页端只能直接导出 WebM。`
-          : `${exportFormat.toUpperCase()} web export can only save WebM directly.`,
-      );
+      setNoticeModal({
+        title: isZh
+          ? `${exportFormat.toUpperCase()} 需要APP端`
+          : language === 'ja'
+            ? `${exportFormat.toUpperCase()} はデスクトップ版が必要です`
+            : `${exportFormat.toUpperCase()} needs the app`,
+        description: isZh
+          ? '网页 Demo 只直接导出 WebM。MP4、MOV、MKV 等格式会使用APP端内置 FFmpeg 导出。'
+          : language === 'ja'
+            ? 'Web デモは WebM のみ直接書き出せます。MP4、MOV、MKV などはデスクトップ版の内蔵 FFmpeg で書き出します。'
+            : 'The web demo exports WebM directly. MP4, MOV, MKV, and other formats use the app with bundled FFmpeg.',
+        primaryLabel: isZh
+          ? '下载APP端'
+          : language === 'ja'
+            ? 'デスクトップ版をダウンロード'
+            : 'Download App',
+        secondaryLabel: isZh ? '继续使用 WebM' : language === 'ja' ? 'WebM を使う' : 'Use WebM',
+        onPrimary: () => {
+          window.open(DESKTOP_RELEASE_URL, '_blank', 'noopener,noreferrer');
+          setNoticeModal(null);
+        },
+        onSecondary: () => {
+          setExportFormat('webm');
+          setNoticeModal(null);
+        },
+      });
       return;
     }
 
@@ -2958,17 +3050,17 @@ export function VideoRenderModal({
     const trackItems =
       menu.trackKind === 'audio'
         ? audioTrackIds.map((trackId, index) => ({
-            label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
-            icon: <Music className="w-4 h-4" />,
-            onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
-            disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
-          }))
+          label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
+          icon: <Music className="w-4 h-4" />,
+          onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
+          disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+        }))
         : videoTrackIds.map((trackId, index) => ({
-            label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
-            icon: <Video className="w-4 h-4" />,
-            onSelect: () => assignNodeTrack(node.id, 'video', trackId),
-            disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
-          }));
+          label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
+          icon: <Video className="w-4 h-4" />,
+          onSelect: () => assignNodeTrack(node.id, 'video', trackId),
+          disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+        }));
 
     return [
       {
@@ -3100,10 +3192,10 @@ export function VideoRenderModal({
   const timelineThumbLeftPercent =
     timelineScrollInfo.scrollWidth > 0
       ? clamp(
-          (timelineScrollInfo.scrollLeft / timelineScrollInfo.scrollWidth) * 100,
-          0,
-          100 - timelineThumbWidthPercent,
-        )
+        (timelineScrollInfo.scrollLeft / timelineScrollInfo.scrollWidth) * 100,
+        0,
+        100 - timelineThumbWidthPercent,
+      )
       : 0;
   const assetThumbHeightPercent =
     assetScrollInfo.scrollHeight > 0
@@ -3112,10 +3204,10 @@ export function VideoRenderModal({
   const assetThumbTopPercent =
     assetScrollInfo.scrollHeight > 0
       ? clamp(
-          (assetScrollInfo.scrollTop / assetScrollInfo.scrollHeight) * 100,
-          0,
-          100 - assetThumbHeightPercent,
-        )
+        (assetScrollInfo.scrollTop / assetScrollInfo.scrollHeight) * 100,
+        0,
+        100 - assetThumbHeightPercent,
+      )
       : 0;
 
   return (
@@ -3158,199 +3250,200 @@ export function VideoRenderModal({
         />
 
         {workspaceMode === 'video' ? (
-        <>
-        <main className="min-h-0 flex bg-[var(--vr-bg)]">
-          <VideoAssetSidebar
-            language={language}
-            assetPanelWidth={assetPanelWidth}
-            assetCardLayout={assetCardLayout}
-            assetCardScale={assetCardScale}
-            assetRegionFilter={assetRegionFilter}
-            assetRegionOptions={assetRegionOptions}
-            visibleAssetNodes={visibleAssetNodes}
-            allAssetNodes={allAssetNodes}
-            timelineIds={timelineIds}
-            nodeRegionById={nodeRegionById}
-            activePreviewNode={activePreviewNode}
-            assetScrollInfo={assetScrollInfo}
-            assetThumbTopPercent={assetThumbTopPercent}
-            assetThumbHeightPercent={assetThumbHeightPercent}
-            assetUploadInputRef={assetUploadInputRef}
-            assetViewportRef={assetViewportRef}
-            setAssetCardLayout={setAssetCardLayout}
-            setAssetRegionFilter={setAssetRegionFilter}
-            setActivePreviewId={setActivePreviewId}
-            handleAssetUploadInputChange={handleAssetUploadInputChange}
-            handleAssetFileDragOver={handleAssetFileDragOver}
-            handleAssetFileDrop={handleAssetFileDrop}
-            syncAssetScrollInfo={syncAssetScrollInfo}
-            handleAssetDragStart={handleAssetDragStart}
-            openContextMenu={openContextMenu}
-            addNodeToTimeline={addNodeToTimeline}
-            mediaIcon={mediaIcon}
-            mediaKind={mediaKind}
-            segmentTitle={segmentTitle}
-            segmentText={segmentText}
-            segmentDurationLabel={segmentDurationLabel}
-            handleAssetScrollThumbStart={handleAssetScrollThumbStart}
-            handleAssetScrollThumbMove={handleAssetScrollThumbMove}
-            handleAssetScrollThumbEnd={handleAssetScrollThumbEnd}
-            handleAssetScaleHandleStart={handleAssetScaleHandleStart}
-            handleAssetScaleHandleMove={handleAssetScaleHandleMove}
-            handleAssetScaleHandleEnd={handleAssetScaleHandleEnd}
-          />
+          <>
+            <main className="min-h-0 flex bg-[var(--vr-bg)]">
+              <VideoAssetSidebar
+                language={language}
+                assetPanelWidth={assetPanelWidth}
+                assetCardLayout={assetCardLayout}
+                assetCardScale={assetCardScale}
+                assetRegionFilter={assetRegionFilter}
+                assetRegionOptions={assetRegionOptions}
+                visibleAssetNodes={visibleAssetNodes}
+                allAssetNodes={allAssetNodes}
+                timelineIds={timelineIds}
+                nodeRegionById={nodeRegionById}
+                activePreviewNode={activePreviewNode}
+                assetScrollInfo={assetScrollInfo}
+                assetThumbTopPercent={assetThumbTopPercent}
+                assetThumbHeightPercent={assetThumbHeightPercent}
+                assetUploadInputRef={assetUploadInputRef}
+                assetViewportRef={assetViewportRef}
+                setAssetCardLayout={setAssetCardLayout}
+                setAssetRegionFilter={setAssetRegionFilter}
+                setActivePreviewId={setActivePreviewId}
+                handleAssetUploadInputChange={handleAssetUploadInputChange}
+                handleAssetFileDragOver={handleAssetFileDragOver}
+                handleAssetFileDrop={handleAssetFileDrop}
+                syncAssetScrollInfo={syncAssetScrollInfo}
+                handleAssetDragStart={handleAssetDragStart}
+                openContextMenu={openContextMenu}
+                addNodeToTimeline={addNodeToTimeline}
+                mediaIcon={mediaIcon}
+                mediaKind={mediaKind}
+                segmentTitle={segmentTitle}
+                segmentText={segmentText}
+                segmentDurationLabel={segmentDurationLabel}
+                handleAssetScrollThumbStart={handleAssetScrollThumbStart}
+                handleAssetScrollThumbMove={handleAssetScrollThumbMove}
+                handleAssetScrollThumbEnd={handleAssetScrollThumbEnd}
+                handleAssetScaleHandleStart={handleAssetScaleHandleStart}
+                handleAssetScaleHandleMove={handleAssetScaleHandleMove}
+                handleAssetScaleHandleEnd={handleAssetScaleHandleEnd}
+              />
 
-          <ResizeHandle
-            label={renderCopy(language, '调整素材卡片宽度', '素材カードの幅を調整', 'Resize asset cards')}
-            axis="x"
-            value={assetPanelWidth}
-            min={PANEL_SIZE_LIMITS.asset.min}
-            max={assetPanelMax}
-            onChange={setAssetPanelWidth}
-          />
+              <ResizeHandle
+                label={renderCopy(language, '调整素材卡片宽度', '素材カードの幅を調整', 'Resize asset cards')}
+                axis="x"
+                value={assetPanelWidth}
+                min={PANEL_SIZE_LIMITS.asset.min}
+                max={assetPanelMax}
+                onChange={setAssetPanelWidth}
+              />
 
-          <VideoPreviewPanel
-            language={language}
-            canvasRef={canvasRef}
-            activeTimelineFrame={activeTimelineFrame}
-            activeTimelineTime={activeTimelineTime}
-            resolution={resolution}
-            frameRate={frameRate}
-            timelineScaleMode={timelineScaleMode}
-            focusedPreviewNode={focusedPreviewNode}
-            activePreviewNode={activePreviewNode}
-            focusedTimelineMetric={focusedTimelineMetric}
-            previewPlaying={previewPlaying}
-            previewTime={previewTime}
-            previewDuration={previewDuration}
-            timelinePreviewTime={timelinePreviewTime}
-            timelineNodes={timelineNodes}
-            timelineMetrics={timelineMetrics}
-            status={status}
-            speed={speed}
-            setPreviewPlaying={setPreviewPlaying}
-            setPreviewTime={setPreviewTime}
-            setTimelinePreviewTime={setTimelinePreviewTime}
-            seekTimelineTime={seekTimelineTime}
-            openContextMenu={openContextMenu}
-          />
+              <VideoPreviewPanel
+                language={language}
+                canvasRef={canvasRef}
+                activeTimelineFrame={activeTimelineFrame}
+                activeTimelineTime={activeTimelineTime}
+                resolution={resolution}
+                frameRate={frameRate}
+                timelineScaleMode={timelineScaleMode}
+                focusedPreviewNode={focusedPreviewNode}
+                activePreviewNode={activePreviewNode}
+                focusedTimelineMetric={focusedTimelineMetric}
+                previewPlaying={previewPlaying}
+                previewTime={previewTime}
+                previewDuration={previewDuration}
+                timelinePreviewTime={timelinePreviewTime}
+                timelineNodes={timelineNodes}
+                timelineMetrics={timelineMetrics}
+                status={status}
+                speed={speed}
+                setPreviewPlaying={setPreviewPlaying}
+                setPreviewTime={setPreviewTime}
+                setTimelinePreviewTime={setTimelinePreviewTime}
+                seekTimelineTime={seekTimelineTime}
+                openContextMenu={openContextMenu}
+              />
 
-          <ResizeHandle
-            label={renderCopy(language, '调整导出设置宽度', '書き出し設定の幅を調整', 'Resize export settings')}
-            axis="x"
-            value={exportPanelWidth}
-            min={PANEL_SIZE_LIMITS.export.min}
-            max={exportPanelMax}
-            reverse
-            onChange={setExportPanelWidth}
-          />
+              <ResizeHandle
+                label={renderCopy(language, '调整导出设置宽度', '書き出し設定の幅を調整', 'Resize export settings')}
+                axis="x"
+                value={exportPanelWidth}
+                min={PANEL_SIZE_LIMITS.export.min}
+                max={exportPanelMax}
+                reverse
+                onChange={setExportPanelWidth}
+              />
 
-          <VideoExportSettingsPanel
-            language={language}
-            exportPanelWidth={exportPanelWidth}
-            exportSettingsMode={exportSettingsMode}
-            setExportSettingsMode={setExportSettingsMode}
-            status={status}
-            exportFormat={exportFormat}
-            setExportFormat={setExportFormat}
-            resolutionIndex={resolutionIndex}
-            setResolutionIndex={setResolutionIndex}
-            frameRate={frameRate}
-            setFrameRate={setFrameRate}
-            encoder={encoder}
-            setEncoder={setEncoder}
-            outputDir={outputDir}
-            setOutputDir={setOutputDir}
-            outputDirError={outputDirError}
-            setOutputDirError={setOutputDirError}
-            chooseOutputDir={chooseOutputDir}
-            renderStyle={renderStyle}
-            updateRenderStyle={updateRenderStyle}
-            defaultSeconds={defaultSeconds}
-            setDefaultSeconds={setDefaultSeconds}
-            speed={speed}
-            setSpeed={setSpeed}
-            estimatedDuration={estimatedDuration}
-            fallbackEstimatedSeconds={fallbackEstimatedSeconds}
-            animationLeadSeconds={animationLeadSeconds}
-            setAnimationLeadSeconds={setAnimationLeadSeconds}
-            selectedSpeechNodeCount={selectedSpeechNodes.length}
-            audioBusy={audioBusy}
-            audioMessage={audioMessage}
-            isRecordingVoiceover={isRecordingVoiceover}
-            generateAudioFromSelectedText={generateAudioFromSelectedText}
-            startVoiceoverRecording={startVoiceoverRecording}
-            stopVoiceoverRecording={stopVoiceoverRecording}
-            assetUploadInputRef={assetUploadInputRef}
-            progress={progress}
-            error={error}
-            progressValue={progressValue}
-            savedPath={savedPath}
-          />
-        </main>
+              <VideoExportSettingsPanel
+                language={language}
+                exportPanelWidth={exportPanelWidth}
+                exportSettingsMode={exportSettingsMode}
+                setExportSettingsMode={setExportSettingsMode}
+                status={status}
+                exportFormat={exportFormat}
+                setExportFormat={setExportFormat}
+                resolutionIndex={resolutionIndex}
+                setResolutionIndex={setResolutionIndex}
+                frameRate={frameRate}
+                setFrameRate={setFrameRate}
+                encoder={encoder}
+                setEncoder={setEncoder}
+                outputDir={outputDir}
+                setOutputDir={setOutputDir}
+                outputDirError={outputDirError}
+                setOutputDirError={setOutputDirError}
+                chooseOutputDir={chooseOutputDir}
+                renderStyle={renderStyle}
+                updateRenderStyle={updateRenderStyle}
+                defaultSeconds={defaultSeconds}
+                setDefaultSeconds={setDefaultSeconds}
+                speed={speed}
+                setSpeed={setSpeed}
+                estimatedDuration={estimatedDuration}
+                fallbackEstimatedSeconds={fallbackEstimatedSeconds}
+                animationLeadSeconds={animationLeadSeconds}
+                setAnimationLeadSeconds={setAnimationLeadSeconds}
+                selectedSpeechNodeCount={selectedSpeechNodes.length}
+                audioBusy={audioBusy}
+                audioMessage={audioMessage}
+                isRecordingVoiceover={isRecordingVoiceover}
+                generateAudioFromSelectedText={generateAudioFromSelectedText}
+                startVoiceoverRecording={startVoiceoverRecording}
+                stopVoiceoverRecording={stopVoiceoverRecording}
+                assetUploadInputRef={assetUploadInputRef}
+                progress={progress}
+                error={error}
+                progressValue={progressValue}
+                savedPath={savedPath}
+                isDesktopApp={isDesktopApp}
+              />
+            </main>
 
-        <VideoTimelinePanel
-          language={language}
-          timelineHeight={timelineHeight}
-          timelineMax={timelineMax}
-          setTimelineHeight={setTimelineHeight}
-          status={status}
-          previewPlaying={previewPlaying}
-          setPreviewPlaying={setPreviewPlaying}
-          activeTimelineTime={activeTimelineTime}
-          activeTimelineFrame={activeTimelineFrame}
-          timelineMetrics={timelineMetrics}
-          timelineSnapEnabled={timelineSnapEnabled}
-          setTimelineSnapEnabled={setTimelineSnapEnabled}
-          timelineWheelMode={timelineWheelMode}
-          setTimelineWheelMode={setTimelineWheelMode}
-          timelineViewportRef={timelineViewportRef}
-          syncTimelineScrollInfo={syncTimelineScrollInfo}
-          handleTimelineDrop={handleTimelineDrop}
-          openContextMenu={openContextMenu}
-          timelineScaleMode={timelineScaleMode}
-          setTimelineScaleMode={setTimelineScaleMode}
-          timelineScrubSurfaceRef={timelineScrubSurfaceRef}
-          handleTimelineScrubStart={handleTimelineScrubStart}
-          handleTimelineScrubMove={handleTimelineScrubMove}
-          handleTimelineScrubEnd={handleTimelineScrubEnd}
-          timelineTicks={timelineTicks}
-          frameRate={frameRate}
-          timelineTickSettings={timelineTickSettings}
-          timelinePlayheadLeft={timelinePlayheadLeft}
-          videoTrackIds={videoTrackIds}
-          audioTrackIds={audioTrackIds}
-          videoTrackByNodeId={videoTrackByNodeId}
-          audioTrackByNodeId={audioTrackByNodeId}
-          timelineNodes={timelineNodes}
-          timelineMetricById={timelineMetricById}
-          selectedIds={selectedIds}
-          focusedPreviewId={focusedPreviewId}
-          addVideoTrack={addVideoTrack}
-          addAudioTrack={addAudioTrack}
-          removeVideoTrack={removeVideoTrack}
-          removeAudioTrack={removeAudioTrack}
-          removeTimelineNode={removeTimelineNode}
-          onBoxSelectTimelineNodes={boxSelectTimelineNodes}
-          handleAssetDragStart={handleAssetDragStart}
-          focusTimelineSegment={focusTimelineSegment}
-          segmentTitle={segmentTitle}
-          mediaKind={mediaKind}
-          seekTimelineTime={seekTimelineTime}
-          setFocusedPreviewId={setFocusedPreviewId}
-          segmentText={segmentText}
-          handleTimelinePlayheadGrabStart={handleTimelinePlayheadGrabStart}
-          handleTimelinePlayheadGrabMove={handleTimelinePlayheadGrabMove}
-          timelineThumbLeftPercent={timelineThumbLeftPercent}
-          timelineThumbWidthPercent={timelineThumbWidthPercent}
-          handleTimelineScrollThumbStart={handleTimelineScrollThumbStart}
-          handleTimelineScrollThumbMove={handleTimelineScrollThumbMove}
-          handleTimelineScrollThumbEnd={handleTimelineScrollThumbEnd}
-          handleTimelineScaleHandleStart={handleTimelineScaleHandleStart}
-          handleTimelineScaleHandleMove={handleTimelineScaleHandleMove}
-          handleTimelineScaleHandleEnd={handleTimelineScaleHandleEnd}
-        />
-        </>
+            <VideoTimelinePanel
+              language={language}
+              timelineHeight={timelineHeight}
+              timelineMax={timelineMax}
+              setTimelineHeight={setTimelineHeight}
+              status={status}
+              previewPlaying={previewPlaying}
+              setPreviewPlaying={setPreviewPlaying}
+              activeTimelineTime={activeTimelineTime}
+              activeTimelineFrame={activeTimelineFrame}
+              timelineMetrics={timelineMetrics}
+              timelineSnapEnabled={timelineSnapEnabled}
+              setTimelineSnapEnabled={setTimelineSnapEnabled}
+              timelineWheelMode={timelineWheelMode}
+              setTimelineWheelMode={setTimelineWheelMode}
+              timelineViewportRef={timelineViewportRef}
+              syncTimelineScrollInfo={syncTimelineScrollInfo}
+              handleTimelineDrop={handleTimelineDrop}
+              openContextMenu={openContextMenu}
+              timelineScaleMode={timelineScaleMode}
+              setTimelineScaleMode={setTimelineScaleMode}
+              timelineScrubSurfaceRef={timelineScrubSurfaceRef}
+              handleTimelineScrubStart={handleTimelineScrubStart}
+              handleTimelineScrubMove={handleTimelineScrubMove}
+              handleTimelineScrubEnd={handleTimelineScrubEnd}
+              timelineTicks={timelineTicks}
+              frameRate={frameRate}
+              timelineTickSettings={timelineTickSettings}
+              timelinePlayheadLeft={timelinePlayheadLeft}
+              videoTrackIds={videoTrackIds}
+              audioTrackIds={audioTrackIds}
+              videoTrackByNodeId={videoTrackByNodeId}
+              audioTrackByNodeId={audioTrackByNodeId}
+              timelineNodes={timelineNodes}
+              timelineMetricById={timelineMetricById}
+              selectedIds={selectedIds}
+              focusedPreviewId={focusedPreviewId}
+              addVideoTrack={addVideoTrack}
+              addAudioTrack={addAudioTrack}
+              removeVideoTrack={removeVideoTrack}
+              removeAudioTrack={removeAudioTrack}
+              removeTimelineNode={removeTimelineNode}
+              onBoxSelectTimelineNodes={boxSelectTimelineNodes}
+              handleAssetDragStart={handleAssetDragStart}
+              focusTimelineSegment={focusTimelineSegment}
+              segmentTitle={segmentTitle}
+              mediaKind={mediaKind}
+              seekTimelineTime={seekTimelineTime}
+              setFocusedPreviewId={setFocusedPreviewId}
+              segmentText={segmentText}
+              handleTimelinePlayheadGrabStart={handleTimelinePlayheadGrabStart}
+              handleTimelinePlayheadGrabMove={handleTimelinePlayheadGrabMove}
+              timelineThumbLeftPercent={timelineThumbLeftPercent}
+              timelineThumbWidthPercent={timelineThumbWidthPercent}
+              handleTimelineScrollThumbStart={handleTimelineScrollThumbStart}
+              handleTimelineScrollThumbMove={handleTimelineScrollThumbMove}
+              handleTimelineScrollThumbEnd={handleTimelineScrollThumbEnd}
+              handleTimelineScaleHandleStart={handleTimelineScaleHandleStart}
+              handleTimelineScaleHandleMove={handleTimelineScaleHandleMove}
+              handleTimelineScaleHandleEnd={handleTimelineScaleHandleEnd}
+            />
+          </>
         ) : (
           <WebWorkspace
             nodes={nodes}
@@ -3392,6 +3485,7 @@ export function VideoRenderModal({
           segmentText={segmentText}
         />
       )}
+      <VideoNoticeModal notice={noticeModal} onClose={() => setNoticeModal(null)} />
     </div>
   );
 }

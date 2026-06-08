@@ -30,6 +30,13 @@ import { Language, translations } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { LocalProjectSummary } from '../lib/db';
 
+type AIProfileKind = 'text' | 'image' | 'voice';
+type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type AIProfileUpdates =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<VoiceAIProfile>;
+
 interface SettingsModalProps {
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
@@ -87,14 +94,11 @@ interface SettingsModalProps {
   projectSummaries: LocalProjectSummary[];
   currentProjectId: string | null;
   onCreateAIProfile: (
-    kind: 'text' | 'image' | 'voice',
-    initialProfile?: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>,
+    kind: AIProfileKind,
+    initialProfile?: AIProfileSeed,
   ) => void | string | Promise<void | string>;
-  onUpdateAIProfile: (
-    profileId: string,
-    updates: Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>,
-  ) => void | Promise<void>;
-  onSelectAIProfile: (kind: 'text' | 'image' | 'voice', profileId: string) => void | Promise<void>;
+  onUpdateAIProfile: (profileId: string, updates: AIProfileUpdates) => void | Promise<void>;
+  onSelectAIProfile: (kind: AIProfileKind, profileId: string) => void | Promise<void>;
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
   generateLength: string;
   setGenerateLength: (len: string) => void;
@@ -327,10 +331,10 @@ const settingsText = {
     minimizeToTray: 'Minimize',
     quitApp: 'Quit',
     desktopCloseDesc:
-      'This only affects the packaged Tauri desktop app; browser preview behavior is unchanged.',
+      'This only affects the packaged Tauri app; browser preview behavior is unchanged.',
     forceQuitTitle: 'Force quit app',
     forceCloseApp: 'Force Close GalWriter AI',
-    forceCloseDesc: 'Use this when the window close button only minimizes the desktop app.',
+    forceCloseDesc: 'Use this when the window close button only minimizes the app.',
     backToAbout: 'Back to About & Feedback',
     responsibleUseTitle: 'Use GalWriter AI Responsibly',
     responsibleUseDesc:

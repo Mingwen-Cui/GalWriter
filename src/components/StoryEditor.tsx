@@ -211,6 +211,10 @@ const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type AIProfileUpdates =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<VoiceAIProfile>;
 
 const buildDefaultTextProfile = (): TextAIProfile => {
   // NOTE: 网页托管环境下默认 hosted 代理；Tauri 桌面端不预设任何配置，保持空白让用户自行填写
@@ -693,10 +697,7 @@ export function StoryEditor() {
   );
 
   const handleUpdateAIProfile = useCallback(
-    async (
-      profileId: string,
-      updates: Partial<TextAIProfile & ImageAIProfile & VoiceAIProfile>,
-    ) => {
+    async (profileId: string, updates: AIProfileUpdates) => {
       setSavedAIProfiles((current) =>
         updateProfileList(current, profileId, (profile) => Object.assign({}, profile, updates)),
       );
@@ -2576,7 +2577,7 @@ export function StoryEditor() {
       showToast(
         language === 'zh'
           ? '默认保存位置仅在桌面端可设置'
-          : 'Default save location can only be set in the desktop app',
+          : 'Default save location can only be set in the app',
         'error',
       );
       return;

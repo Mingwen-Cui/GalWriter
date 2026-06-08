@@ -559,6 +559,29 @@ fn validate_bitrate(bitrate: &str) -> Result<String, String> {
   Ok(trimmed.to_string())
 }
 
+fn is_transcoded_video_format(format: &str) -> bool {
+  matches!(format, "mp4" | "mov" | "mkv")
+}
+
+fn is_supported_video_format(format: &str) -> bool {
+  format == "webm" || is_transcoded_video_format(format)
+}
+
+fn apply_container_args(command: &mut Command, format: &str) {
+  match format {
+    "mp4" => {
+      command.arg("-movflags").arg("+faststart").arg("-f").arg("mp4");
+    }
+    "mov" => {
+      command.arg("-f").arg("mov");
+    }
+    "mkv" => {
+      command.arg("-f").arg("matroska");
+    }
+    _ => {}
+  }
+}
+
 fn find_ffmpeg(app: &AppHandle) -> PathBuf {
   if let Ok(resource_dir) = app.path().resource_dir() {
     let bundled = resource_dir
@@ -710,7 +733,7 @@ fn save_rendered_video(
   video_bitrate: Option<String>,
 ) -> Result<RenderSaveResult, String> {
   let format = format.to_lowercase();
-  if !["webm", "mp4", "mkv"].contains(&format.as_str()) {
+  if !is_supported_video_format(&format) {
     return Err("Unsupported video format.".to_string());
   }
 
@@ -764,17 +787,7 @@ fn save_rendered_video(
     .arg("-max_muxing_queue_size")
     .arg("1024");
 
-  if format == "mp4" {
-    command
-      .arg("-movflags")
-      .arg("+faststart")
-      .arg("-f")
-      .arg("mp4");
-  } else {
-    command
-      .arg("-f")
-      .arg("matroska");
-  }
+  apply_container_args(&mut command, &format);
 
   let output = command
     .arg(&output_path)
@@ -904,8 +917,8 @@ fn finish_render_session(
   frame_rate: Option<u32>,
 ) -> Result<RenderSaveResult, String> {
   let format = format.to_lowercase();
-  if !["mp4", "mkv"].contains(&format.as_str()) {
-    return Err("Frame rendering supports MP4 and MKV only.".to_string());
+  if !is_transcoded_video_format(&format) {
+    return Err("Frame rendering supports MP4, MOV, and MKV only.".to_string());
   }
 
   if frame_durations.is_empty() {
@@ -985,17 +998,7 @@ fn finish_render_session(
     .arg("128k")
     .arg("-shortest");
 
-  if format == "mp4" {
-    command
-      .arg("-movflags")
-      .arg("+faststart")
-      .arg("-f")
-      .arg("mp4");
-  } else {
-    command
-      .arg("-f")
-      .arg("matroska");
-  }
+  apply_container_args(&mut command, &format);
 
   let output = command
     .arg(&output_path)
@@ -1035,8 +1038,8 @@ fn finish_high_perf_render(
   text_style: RenderTextStyle,
 ) -> Result<RenderSaveResult, String> {
   let format = format.to_lowercase();
-  if !["mp4", "mkv"].contains(&format.as_str()) {
-    return Err("High performance rendering supports MP4 and MKV only.".to_string());
+  if !is_transcoded_video_format(&format) {
+    return Err("High performance rendering supports MP4, MOV, and MKV only.".to_string());
   }
   if segments.is_empty() {
     return Err("No segments selected.".to_string());
@@ -1233,11 +1236,7 @@ fn finish_high_perf_render(
     .arg(&concat_path)
     .arg("-c")
     .arg("copy");
-  if format == "mp4" {
-    concat_command.arg("-movflags").arg("+faststart").arg("-f").arg("mp4");
-  } else {
-    concat_command.arg("-f").arg("matroska");
-  }
+  apply_container_args(&mut concat_command, &format);
   let output = concat_command
     .arg(&output_path)
     .output()
@@ -1267,8 +1266,8 @@ fn save_rendered_frames(
   video_bitrate: Option<String>,
 ) -> Result<RenderSaveResult, String> {
   let format = format.to_lowercase();
-  if !["mp4", "mkv"].contains(&format.as_str()) {
-    return Err("Frame rendering supports MP4 and MKV only.".to_string());
+  if !is_transcoded_video_format(&format) {
+    return Err("Frame rendering supports MP4, MOV, and MKV only.".to_string());
   }
 
   if frames.is_empty() {
@@ -1357,17 +1356,7 @@ fn save_rendered_frames(
     .arg("128k")
     .arg("-shortest");
 
-  if format == "mp4" {
-    command
-      .arg("-movflags")
-      .arg("+faststart")
-      .arg("-f")
-      .arg("mp4");
-  } else {
-    command
-      .arg("-f")
-      .arg("matroska");
-  }
+  apply_container_args(&mut command, &format);
 
   let output = command
     .arg(&output_path)
