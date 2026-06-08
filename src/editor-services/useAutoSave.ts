@@ -33,11 +33,23 @@ export const useAutoSave = <TProjectData>({
   const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
   const [autoSaveData, setAutoSaveData] = useState<AutoSavePayload | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveRevisionRef = useRef(0);
+
+  const cancelPendingAutoSave = useCallback(() => {
+    autoSaveRevisionRef.current += 1;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!enabled || !projectId) return;
+
+    let cancelled = false;
+
     autosaveService.loadForProject(projectId).then((data) => {
-      if (!data) return;
+      if (cancelled || !data) return;
       if (data.snapshot === lastSavedSnapshotRef.current) {
         void autosaveService.clearForProject(projectId);
         return;
@@ -45,32 +57,62 @@ export const useAutoSave = <TProjectData>({
       setAutoSaveData(data);
       setShowAutoSaveModal(true);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [enabled, lastSavedSnapshotRef, projectId]);
 
   useEffect(() => {
     if (!enabled || !projectId) return;
+
+    cancelPendingAutoSave();
     const currentSnapshot = getProjectSnapshot();
     const isNowDirty = currentSnapshot !== lastSavedSnapshotRef.current;
     setIsDirty(isNowDirty);
 
     if (isNowDirty) {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      const scheduledRevision = autoSaveRevisionRef.current;
       autoSaveTimerRef.current = setTimeout(async () => {
-        await autosaveService.saveForProject(projectId, currentSnapshot);
+        if (scheduledRevision !== autoSaveRevisionRef.current) return;
+
+        const latestSnapshot = getProjectSnapshot();
+        if (latestSnapshot === lastSavedSnapshotRef.current) {
+          await autosaveService.clearForProject(projectId);
+          return;
+        }
+
+        await autosaveService.saveForProject(projectId, latestSnapshot);
       }, 5000);
     }
 
     return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      cancelPendingAutoSave();
     };
-  }, [enabled, getProjectSnapshot, lastSavedSnapshotRef, projectId, setIsDirty]);
+  }, [
+    cancelPendingAutoSave,
+    enabled,
+    getProjectSnapshot,
+    lastSavedSnapshotRef,
+    projectId,
+    setIsDirty,
+  ]);
 
-  const discardAutoSave = useCallback(async () => {
-    if (!projectId) return;
-    await autosaveService.clearForProject(projectId);
+  const clearAutoSave = useCallback(async () => {
+    cancelPendingAutoSave();
     setShowAutoSaveModal(false);
     setAutoSaveData(null);
-  }, [projectId]);
+
+    if (projectId) {
+      await autosaveService.clearForProject(projectId);
+    } else {
+      await autosaveService.clear();
+    }
+  }, [cancelPendingAutoSave, projectId]);
+
+  const discardAutoSave = useCallback(async () => {
+    await clearAutoSave();
+  }, [clearAutoSave]);
 
   const recoverAutoSave = useCallback(async () => {
     if (!autoSaveData) return;
@@ -98,6 +140,6 @@ export const useAutoSave = <TProjectData>({
     setShowAutoSaveModal,
     discardAutoSave,
     recoverAutoSave,
-    clearAutoSave: projectId ? () => autosaveService.clearForProject(projectId) : autosaveService.clear,
+    clearAutoSave,
   };
 };

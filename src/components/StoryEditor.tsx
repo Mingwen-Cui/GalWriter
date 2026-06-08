@@ -44,7 +44,6 @@ import {
 import { SelectionMenu } from '../editor-features/selection-tools/SelectionMenu';
 import { useSelectionActions } from '../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../editor-features/selection-tools/useSelectionMenu';
-import { autosaveService } from '../editor-services/autosaveService';
 import { localPersistenceService } from '../editor-services/localPersistenceService';
 import { createProjectSerializer } from '../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../editor-services/projectThumbnail';
@@ -2241,7 +2240,7 @@ export function StoryEditor() {
       setLastSavedTime(savedAt);
       lastSavedSnapshot.current = JSON.stringify(snapshot);
       setIsDirty(false);
-      await autosaveService.clearForProject(projectId);
+      await clearAutoSave();
       await refreshProjectSummaries();
       showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
       return true;
@@ -2259,6 +2258,7 @@ export function StoryEditor() {
     createCurrentProjectThumbnail,
     getProjectSnapshot,
     language,
+    clearAutoSave,
     projectTitle,
     refreshProjectSummaries,
     saveFileName,
