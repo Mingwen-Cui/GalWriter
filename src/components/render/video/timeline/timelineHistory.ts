@@ -3,6 +3,7 @@ import type { TimelineHistoryState } from '../shared/types';
 type TimelineHistorySource = {
   timelineIds: string[];
   timelineSourceById: Record<string, string>;
+  timelineExcludedSourceIds: Set<string>;
   selectedIds: Set<string>;
   videoTrackIds: string[];
   audioTrackIds: string[];
@@ -15,6 +16,7 @@ type TimelineHistorySource = {
 type TimelineHistoryRestoreHandlers = {
   setTimelineIds: (value: string[]) => void;
   setTimelineSourceById: (value: Record<string, string>) => void;
+  setTimelineExcludedSourceIds: (value: Set<string>) => void;
   setSelectedIds: (value: Set<string>) => void;
   setVideoTrackIds: (value: string[]) => void;
   setAudioTrackIds: (value: string[]) => void;
@@ -27,6 +29,7 @@ type TimelineHistoryRestoreHandlers = {
 export const captureTimelineHistoryState = ({
   timelineIds,
   timelineSourceById,
+  timelineExcludedSourceIds,
   selectedIds,
   videoTrackIds,
   audioTrackIds,
@@ -37,6 +40,7 @@ export const captureTimelineHistoryState = ({
 }: TimelineHistorySource): TimelineHistoryState => ({
   timelineIds: [...timelineIds],
   timelineSourceById: { ...timelineSourceById },
+  timelineExcludedSourceIds: [...timelineExcludedSourceIds],
   selectedIds: [...selectedIds],
   videoTrackIds: [...videoTrackIds],
   audioTrackIds: [...audioTrackIds],
@@ -52,6 +56,7 @@ export const restoreTimelineHistoryState = (
 ) => {
   handlers.setTimelineIds(snapshot.timelineIds);
   handlers.setTimelineSourceById(snapshot.timelineSourceById || {});
+  handlers.setTimelineExcludedSourceIds(new Set(snapshot.timelineExcludedSourceIds || []));
   handlers.setSelectedIds(new Set(snapshot.selectedIds));
   handlers.setVideoTrackIds(snapshot.videoTrackIds);
   handlers.setAudioTrackIds(snapshot.audioTrackIds);

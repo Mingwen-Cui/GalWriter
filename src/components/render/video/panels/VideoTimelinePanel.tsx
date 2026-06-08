@@ -452,7 +452,10 @@ export function VideoTimelinePanel({
                       <div className="h-full w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]" />
                     </div>
                     <div className="space-y-0">
-                      <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center">
+                      <div
+                        className="grid items-center"
+                        style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
+                      >
                         <button
                           type="button"
                           onClick={addVideoTrack}
@@ -482,13 +485,14 @@ export function VideoTimelinePanel({
                         return (
                           <div
                             key={trackId}
-                            className="relative grid grid-cols-[76px_minmax(0,1fr)] items-center"
+                            className="relative grid items-center"
+                            style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
                           >
                             <div
                               className="pointer-events-none absolute inset-y-0 left-0 z-0 border border-[var(--vr-video-track-border)] bg-[var(--vr-video-track-bg)]"
                               style={{ width: TIMELINE_LABEL_WIDTH + timelineMetrics.width }}
                             />
-                            <div className="relative z-10 flex items-center gap-1 text-[11px] font-black text-sky-600 dark:text-sky-300">
+                            <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-sky-600 dark:text-sky-300">
                               <span className="min-w-0 truncate">
                                 {`${t('视频轨', '動画トラック', 'Video')} ${trackIndex + 1}`}
                               </span>
@@ -670,13 +674,14 @@ export function VideoTimelinePanel({
                         return (
                           <div
                             key={trackId}
-                            className="relative grid grid-cols-[76px_minmax(0,1fr)] items-center"
+                            className="relative grid items-center"
+                            style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
                           >
                             <div
                               className="pointer-events-none absolute inset-y-0 left-0 z-0 border border-[var(--vr-audio-track-border)] bg-[var(--vr-audio-track-bg)]"
                               style={{ width: TIMELINE_LABEL_WIDTH + timelineMetrics.width }}
                             />
-                            <div className="relative z-10 flex items-center gap-1 text-[11px] font-black text-violet-600 dark:text-violet-300">
+                            <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-violet-600 dark:text-violet-300">
                               <span className="min-w-0 truncate">
                                 {`${t('音频轨', '音声トラック', 'Audio')} ${trackIndex + 1}`}
                               </span>
@@ -774,7 +779,10 @@ export function VideoTimelinePanel({
                           </div>
                         );
                       })}
-                      <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center">
+                      <div
+                        className="grid items-center"
+                        style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
+                      >
                         <button
                           type="button"
                           onClick={addAudioTrack}

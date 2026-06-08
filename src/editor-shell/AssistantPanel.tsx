@@ -24,6 +24,7 @@ import type {
   MutableRefObject,
   PointerEvent as ReactPointerEvent,
   SetStateAction,
+  TransitionEvent as ReactTransitionEvent,
 } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -144,7 +145,7 @@ export function AssistantPanel({
     closeAnimationTimerRef.current = window.setTimeout(() => {
       setShouldRender(false);
       closeAnimationTimerRef.current = null;
-    }, 500);
+    }, 550);
 
     return () => {
       if (closeAnimationTimerRef.current) {
@@ -153,6 +154,17 @@ export function AssistantPanel({
       }
     };
   }, [assistantOpen]);
+
+  const handlePanelTransitionEnd = (event: ReactTransitionEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
+    if (!assistantOpen) {
+      if (closeAnimationTimerRef.current) {
+        window.clearTimeout(closeAnimationTimerRef.current);
+        closeAnimationTimerRef.current = null;
+      }
+      setShouldRender(false);
+    }
+  };
 
   const startRenamingTask = (task: AssistantTask) => {
     setEditingTaskId(task.id);
@@ -271,6 +283,7 @@ export function AssistantPanel({
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
       style={isMobile ? undefined : { width: assistantPanelWidth }}
+      onTransitionEnd={handlePanelTransitionEnd}
     >
       {!isMobile && (
         <div

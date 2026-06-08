@@ -3335,22 +3335,21 @@ ${direction}
           showStats={showStats}
           language={language}
         />
-        {!isMobile && showStats && (
-          <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
-            <div className="flex gap-4">
-              <span className="flex items-center gap-1.5">
-                <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}:{' '}
-                {nodes.length}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}:{' '}
-                {edges.length}
-              </span>
-            </div>
-            <div className="opacity-60 font-medium">{footerHint}</div>
-          </footer>
-        )}
       </div>
+
+      {!isMobile && showStats && (
+        <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
+          <div className="flex gap-4">
+            <span className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}
+            </span>
+          </div>
+          <div className="opacity-60 font-medium">{footerHint}</div>
+        </footer>
+      )}
 
       {/* AI 操作选择弹窗 */}
       <AIActionModal

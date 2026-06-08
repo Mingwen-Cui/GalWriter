@@ -127,6 +127,7 @@ type PersistedRenderWorkspaceState = {
   selectedIds?: string[];
   timelineIds?: string[];
   timelineSourceById?: Record<string, string>;
+  timelineExcludedSourceIds?: string[];
   videoTrackIds?: string[];
   audioTrackIds?: string[];
   videoTrackByNodeId?: Record<string, string>;
@@ -303,6 +304,9 @@ export function VideoRenderModal({
   );
   const [timelineSourceById, setTimelineSourceById] = useState<Record<string, string>>(
     () => persistedWorkspace?.timelineSourceById || {},
+  );
+  const [timelineExcludedSourceIds, setTimelineExcludedSourceIds] = useState<Set<string>>(
+    () => new Set(persistedWorkspace?.timelineExcludedSourceIds || []),
   );
   const [videoTrackIds, setVideoTrackIds] = useState<string[]>(() =>
     Array.isArray(persistedWorkspace?.videoTrackIds) && persistedWorkspace.videoTrackIds.length > 0
@@ -664,6 +668,7 @@ export function VideoRenderModal({
     captureTimelineHistoryState({
       timelineIds,
       timelineSourceById,
+      timelineExcludedSourceIds,
       selectedIds,
       videoTrackIds,
       audioTrackIds,
@@ -677,6 +682,7 @@ export function VideoRenderModal({
     restoreTimelineHistoryState(snapshot, {
       setTimelineIds,
       setTimelineSourceById,
+      setTimelineExcludedSourceIds,
       setSelectedIds,
       setVideoTrackIds,
       setAudioTrackIds,
@@ -1443,16 +1449,25 @@ export function VideoRenderModal({
 
   React.useEffect(() => {
     const validIds = new Set(allAssetNodes.map((node) => node.id));
+    const excludedSourceIds = new Set(
+      [...timelineExcludedSourceIds].filter((sourceId) => validIds.has(sourceId)),
+    );
+    const getValidTimelineIds = (ids: string[]) =>
+      ids.filter((id) => validIds.has(timelineSourceById[id] || id));
     setTimelineIds((prev) => {
-      const kept = prev.filter((id) => validIds.has(timelineSourceById[id] || id));
+      const kept = getValidTimelineIds(prev);
       const sourceIdsOnTimeline = new Set(kept.map((id) => timelineSourceById[id] || id));
       const missing = orderedNodes
         .map((node) => node.id)
-        .filter((id) => !sourceIdsOnTimeline.has(id));
+        .filter((id) => !sourceIdsOnTimeline.has(id) && !excludedSourceIds.has(id));
       const next = [...kept, ...missing];
       return next.length === prev.length && next.every((id, index) => id === prev[index])
         ? prev
         : next;
+    });
+    setTimelineExcludedSourceIds((prev) => {
+      const next = new Set([...prev].filter((sourceId) => validIds.has(sourceId)));
+      return next.size === prev.size ? prev : next;
     });
     setTimelineSourceById((prev) => {
       const next = Object.fromEntries(
@@ -1474,21 +1489,27 @@ export function VideoRenderModal({
     );
     setVideoTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      timelineIds.forEach((id) => {
-        if (!validIds.has(timelineSourceById[id] || id)) return;
+      getValidTimelineIds(timelineIds).forEach((id) => {
         next[id] = videoTrackIds.includes(prev[id]) ? prev[id] : videoTrackIds[0];
       });
       return next;
     });
     setAudioTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      timelineIds.forEach((id) => {
-        if (!validIds.has(timelineSourceById[id] || id)) return;
+      getValidTimelineIds(timelineIds).forEach((id) => {
         next[id] = audioTrackIds.includes(prev[id]) ? prev[id] : audioTrackIds[0];
       });
       return next;
     });
-  }, [allAssetNodes, orderedNodes, videoTrackIds, audioTrackIds, timelineIds, timelineSourceById]);
+  }, [
+    allAssetNodes,
+    orderedNodes,
+    videoTrackIds,
+    audioTrackIds,
+    timelineIds,
+    timelineSourceById,
+    timelineExcludedSourceIds,
+  ]);
 
   React.useEffect(() => {
     const objectUrls = uploadedObjectUrlsRef.current;
@@ -1509,6 +1530,7 @@ export function VideoRenderModal({
       selectedIds: [...selectedIds],
       timelineIds,
       timelineSourceById,
+      timelineExcludedSourceIds: [...timelineExcludedSourceIds],
       videoTrackIds,
       audioTrackIds,
       videoTrackByNodeId,
@@ -1570,6 +1592,7 @@ export function VideoRenderModal({
     timelineDisplayDuration,
     timelineHeight,
     timelineIds,
+    timelineExcludedSourceIds,
     timelineFuture,
     timelinePast,
     timelinePixelsPerSecond,
@@ -1722,6 +1745,12 @@ export function VideoRenderModal({
     const timelineId = makeTimelineClipInstanceId(id);
     closeContextMenu();
     pushTimelineHistory();
+    setTimelineExcludedSourceIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     setTimelineIds((prev) => [...prev, timelineId]);
     setTimelineSourceById((prev) => ({ ...prev, [timelineId]: id }));
     if (normalizedTrackKind === 'video' && normalizedTrackId) {
@@ -1770,9 +1799,16 @@ export function VideoRenderModal({
 
   const removeTimelineNode = (id: string) => {
     if (!timelineIds.includes(id)) return;
+    const sourceId = timelineSourceById[id] || id;
+    const hasAnotherInstanceOfSource = timelineIds.some(
+      (timelineId) => timelineId !== id && (timelineSourceById[timelineId] || timelineId) === sourceId,
+    );
     closeContextMenu();
     pushTimelineHistory();
     setTimelineIds((prev) => prev.filter((item) => item !== id));
+    if (!hasAnotherInstanceOfSource) {
+      setTimelineExcludedSourceIds((prev) => new Set(prev).add(sourceId));
+    }
     setTimelineSourceById((prev) => {
       const { [id]: _removed, ...next } = prev;
       return next;
