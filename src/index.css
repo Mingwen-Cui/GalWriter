@@ -236,6 +236,97 @@ body,
   gap: 0.5rem !important;
 }
 
+.bubble-flat-mode .editor-header-bubble {
+  min-height: 56px;
+  padding: 6px 10px !important;
+}
+
+.bubble-flat-mode .header-glass-action {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+}
+
+.bubble-flat-mode .header-glass-action svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.bubble-flat-mode .glass-toolbar {
+  padding: 6px !important;
+  overflow: visible !important;
+  align-items: center !important;
+}
+
+.bubble-flat-mode .glass-toolbar.flex-col {
+  width: 56px !important;
+  min-width: 56px !important;
+}
+
+.bubble-flat-mode .glass-toolbar.flex-row,
+.bubble-flat-mode .glass-toolbar.flex-row-reverse {
+  height: 56px !important;
+  min-height: 56px !important;
+}
+
+.bubble-flat-mode .glass-toolbar.h-\[52px\] {
+  height: 56px !important;
+}
+
+.bubble-flat-mode .glass-toolbar.h-\[104px\] {
+  height: 108px !important;
+}
+
+.bubble-flat-mode .glass-toolbar button:not(.exclude-glass) {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  line-height: 1 !important;
+}
+
+.bubble-flat-mode .glass-toolbar button:not(.exclude-glass) svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.bubble-flat-mode .glass-toolbar .glass-toolbar-ai {
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.24);
+}
+
+.bubble-flat-mode .toolbar-flat-content {
+  align-items: center !important;
+}
+
+.bubble-flat-mode .toolbar-flat-content > .h-px {
+  width: 32px !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+.bubble-flat-mode .glass-toolbar button.exclude-glass {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  flex-shrink: 0;
+}
+
 .bubble-flat-mode .editor-footer {
   position: relative !important;
   inset: auto !important;
