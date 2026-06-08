@@ -125,16 +125,33 @@ export function AssistantPanel({
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeAnimationTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (closeAnimationTimerRef.current) {
+      window.clearTimeout(closeAnimationTimerRef.current);
+      closeAnimationTimerRef.current = null;
+    }
+
     if (assistantOpen) {
       setShouldRender(true);
+      setPanelVisible(false);
       const frame = window.requestAnimationFrame(() => setPanelVisible(true));
       return () => window.cancelAnimationFrame(frame);
     }
 
     setPanelVisible(false);
-    setShouldRender(false);
+    closeAnimationTimerRef.current = window.setTimeout(() => {
+      setShouldRender(false);
+      closeAnimationTimerRef.current = null;
+    }, 500);
+
+    return () => {
+      if (closeAnimationTimerRef.current) {
+        window.clearTimeout(closeAnimationTimerRef.current);
+        closeAnimationTimerRef.current = null;
+      }
+    };
   }, [assistantOpen]);
 
   const startRenamingTask = (task: AssistantTask) => {

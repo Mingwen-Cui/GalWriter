@@ -236,6 +236,28 @@ body,
   gap: 0.5rem !important;
 }
 
+.bubble-flat-mode .editor-footer {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  overflow: visible;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: auto;
+  transform: none;
+  will-change: auto;
+}
+
+.bubble-flat-mode .editor-footer::before {
+  display: none;
+}
+
+[data-theme='dark'] .bubble-flat-mode .editor-footer {
+  background: #000000 !important;
+}
+
 .bubble-glass-mode .assistant-top-actions {
   top: 0 !important;
   gap: 0 !important;
