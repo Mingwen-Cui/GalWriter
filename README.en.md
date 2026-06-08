@@ -1,35 +1,102 @@
-# GalWriter AI User Guide
+<div align="center">
 
-<p align="center">
-  <img src="./public/icon.png" alt="GalWriter AI" width="96" />
-</p>
+# GalWriter AI
 
-GalWriter AI is an interactive editor for visual novels, galgames, branching narratives, and multi-path script writing. It keeps story nodes, character and scene data, AI continuation, image generation, voice narration, live testing, and project export in one creative canvas, which makes it easier to organize complex plots, try out branching ideas quickly, manage assets, and hand work off to later production steps.
+### An AI-powered writing workspace for visual novels, galgames, and branching interactive stories
 
-This guide is for users. It explains how to create projects, configure APIs, import API templates, and use AI while writing.
+[![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
+[![React](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-61dafb.svg)](https://react.dev/)
 
-## README (Other languages)
+<img src="./public/icon.png" alt="GalWriter AI" width="96" />
 
-- 中文：[README.md](README.md)
-- English (current)：[README.en.md](README.en.md)
-- 日本語：[README.ja.md](README.ja.md)
+[中文](README.md) | English | [日本語](README.ja.md)
+
+[Download Desktop App](https://github.com/Mingwen-Cui/GalWriter/releases) · [Development](#development) · [FAQ](#faq)
+
+</div>
+
+## Why GalWriter AI?
+
+Visual novels and branching stories are rarely just text. They involve plot structure, character lore, scene notes, images, voice, testing, exports, and many small production decisions. Plain documents make branching hard to understand, while generic whiteboards usually lack AI writing tools and project persistence.
+
+**GalWriter AI** brings those workflows into one visual editor. You can organize story nodes on a canvas, connect branches, manage characters and scenes, use your own AI providers for writing and media generation, and keep projects locally so you can continue editing later.
+
+## Highlights
+
+- **Visual story canvas**: build story flow with nodes, edges, branches, characters, scenes, conditions, and background regions.
+- **Local project persistence**: recent projects, saved progress, and editor state are stored locally for continued editing.
+- **AI configuration center**: create multiple text, image, and voice AI profiles with Provider, Model, API Key, and API URL.
+- **API keys stay out of exports**: secrets remain on the current device and are never bundled into project ZIP files.
+- **AI writing assistant**: continue, polish, insert, describe scenes, complete dialogue, analyze story context, and chat with reference documents.
+- **Media workflow**: generate images, create voiceover, import assets, preview scenes, and export videos.
+- **Web demo and desktop app**: the web version is great for trying the editor; the desktop app provides the full local export workflow.
+
+## Screenshots
+
+The repository does not currently include full screenshot assets. Recommended future path: `assets/screenshots/`.
+
+| Editor Canvas | AI Settings | Video Export |
+| :-----------: | :---------: | :----------: |
+|  Coming soon  | Coming soon | Coming soon  |
+
+## Download & Installation
+
+### Desktop App
+
+Download the latest build from [Releases](https://github.com/Mingwen-Cui/GalWriter/releases).
+
+The desktop app is recommended for serious writing, local project management, full file access, and video export.
+
+### Web Version
+
+The web version is intended for demos and quick trials. Due to browser limitations, direct video export on the web only supports **WebM**. For **MP4 / MOV / MKV** and other common formats, use the desktop app, which exports through bundled FFmpeg.
 
 ## Quick Start
 
-If this is your first time using GalWriter AI, follow these steps:
+1. Open GalWriter AI.
+2. Create a new project or import an existing one.
+3. Add story, character, scene, background, or condition nodes to the canvas.
+4. Connect nodes to build story routes and branches.
+5. If you need AI features, open **Settings > AI API Configuration** and create text, image, or voice AI profiles.
+6. Save the project. Next time, reopen it from Recent Projects.
+7. Export a project ZIP for backup or handoff, or use the video export workspace when you need a rendered video.
 
-1. Open the app and click **Create Project** on the project home page, or import an existing project.
-2. Add story, character, scene, and background nodes to the canvas, then connect them into branches.
-3. Open **Settings** and configure Text AI, Image AI, or Voice AI. You can skip this step if you do not need AI yet.
-4. When you need content generation, open **AI Assistant**, use AI continuation, or call image and voice features from the corresponding nodes.
-5. Save the project when you are done, then export it for backup or handoff.
+## AI Providers & Local Data
 
-Also:
+GalWriter AI is provider-agnostic. You can connect text, image, and voice models depending on your workflow.
 
-- If you want to understand the layout first, see **Quick Tour of the Interface** below.
-- If you want to configure APIs, jump to **API Setup**, **Text AI API**, **Image AI API Import**, and **Voice AI API**.
+| Type     | Used for                                                | Example Providers                                                         |
+| -------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Text AI  | continuation, polishing, assistant chat, story analysis | DeepSeek, Claude, Gemini, Kimi, Qwen, GLM, OpenAI, custom compatible APIs |
+| Image AI | character, scene, and background generation             | Doubao, Gemini, OpenAI, local Stable Diffusion WebUI, custom APIs         |
+| Voice AI | narration, dubbing, text-to-speech                      | system voice, Youdao, OpenAI, Doubao, custom APIs                         |
 
-## Local Development and Build
+Data principles:
+
+- Project content is saved in the local project library.
+- AI profiles are saved only on the current device.
+- API keys are not included in project exports.
+- AI conversations belong to the current project only.
+
+## Video Export Strategy
+
+| Environment | Direct export formats | Notes                                                                 |
+| ----------- | --------------------- | --------------------------------------------------------------------- |
+| Web Demo    | WebM                  | Uses browser-native recording for the most reliable web workflow.     |
+| Desktop App | WebM, MP4, MOV, MKV   | Uses bundled FFmpeg. Users do not need to install command-line tools. |
+
+When a web user selects MP4, MOV, or MKV, GalWriter AI shows an in-app prompt and points them to the desktop release page.
+
+## Development
+
+### Requirements
+
+- Node.js 18+
+- npm
+- Rust 1.77+
+- Tauri 2 system prerequisites
 
 ### Install dependencies
 
@@ -37,13 +104,13 @@ Also:
 npm install
 ```
 
-### Run the web app locally
+### Run the web dev server
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000` in your browser.
+The default local URL is `http://localhost:3000`.
 
 ### Run the desktop app in development
 
@@ -51,15 +118,12 @@ Then open `http://localhost:3000` in your browser.
 npm run tauri dev
 ```
 
-This starts the frontend dev server and opens the Tauri desktop window.
-
-### Build the web app
+### Type check and build
 
 ```bash
+npm run typecheck
 npm run build
 ```
-
-The build output is written to `dist/`. You can use `npm run preview` to check the static build locally.
 
 ### Package the desktop app
 
@@ -67,243 +131,87 @@ The build output is written to `dist/`. You can use `npm run preview` to check t
 npm run tauri build
 ```
 
-This runs the frontend build first, then generates the desktop installer and platform-specific release artifacts.
+## Tech Stack
 
-### Preview the static build
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, React Flow
+- **Desktop**: Tauri 2, Rust
+- **Local storage**: IndexedDB / native app data
+- **Exports**: ZIP, web export, video export
+- **Video**: browser MediaRecorder, bundled FFmpeg on desktop
 
-```bash
-npm run preview
+## Project Structure
+
+```text
+├── src/                         # React + TypeScript frontend
+│   ├── components/              # editor, nodes, settings, render UI
+│   ├── editor-features/         # editor feature modules
+│   ├── editor-services/         # persistence, serialization, media services
+│   ├── editor-shell/            # top-level modals and editor shell
+│   └── lib/                     # utilities, local DB, runtime adapters
+├── src-tauri/                   # Tauri + Rust desktop layer
+│   ├── binaries/                # bundled FFmpeg for desktop export
+│   └── src/                     # Tauri commands and local file handling
+├── public/                      # public static assets
+└── dist/                        # web build output
 ```
-
-Use this to preview the `dist/` output locally.
-
-To run or package the desktop app, make sure Rust and the Tauri toolchain are installed. If you only want the browser version, Node.js and npm are enough.
-
-## Quick Tour of the Interface
-
-- **Project Home**: create new projects, import existing projects, open recent projects, or batch download/delete projects.
-- **Main Canvas**: place and connect story, character, scene, background, condition, and other node types.
-- **Left Toolbar**: add different kinds of nodes and assets.
-- **Right Toolbar**: open settings, toggle title display, undo/redo, change the canvas background, or open the AI assistant.
-- **AI Assistant Panel**: chat with AI, upload reference documents, and insert or apply generated content to the current project.
-- **Settings Panel**: configure AI providers, canvas appearance, prompt templates, and AI continuation buttons.
-
-## First Time Use
-
-1. Open the app and click **Create Project** on the project home page.
-2. Add story, character, scene, or background nodes on the canvas.
-3. Connect the nodes to build a branching structure.
-4. If you want to use AI, open **Settings** and finish API configuration first.
-5. Save the project and reopen it later from **Recent Projects**.
-
-## API Setup
-
-1. Click **Settings** in the editor's right toolbar.
-2. Find the **AI API Configuration** section.
-3. Choose the type you want to configure:
-   - **Text AI**: for continuation, polishing, analysis, conversation, and the AI assistant.
-   - **Image AI**: for generating character, scene, and background images.
-   - **Voice AI**: for text-to-speech or voice generation.
-4. Click **New Configuration** in the top-right corner of the corresponding section.
-5. Fill in the configuration name, Provider, Model, API Key, and API URL.
-6. Click **Save**.
-7. Go back to the configuration list and click the configuration you just saved to make it active.
-
-AI configurations are stored only on the current device and are not exported with the project. If you switch computers, you need to enter the API configuration again.
-
-## Text AI API
-
-Text AI powers most writing features, including AI continuation, idea generation, rewriting, story insertion, scene description, dialogue completion, and the AI assistant.
-
-Common examples:
-
-| Provider | API URL Example | Model Example |
-| --- | --- | --- |
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` / `deepseek-reasoner` |
-| Gemini | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4.1` |
-| Claude | `https://api.anthropic.com/v1/messages` | `claude-sonnet-4-20250514` |
-| Kimi | `https://api.moonshot.cn/v1` | `kimi-k2.5` |
-| Tongyi Qianwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.6-plus` |
-| GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5` |
-| Custom | Use the endpoint provided by your provider | Use the model name provided by your provider |
-
-Tips:
-
-- **API Key**: paste the key generated in the provider console.
-- **API URL**: use the default value first; if you use a proxy, compatible endpoint, or relay service, change it to the corresponding address.
-- **Model**: you can pick from the dropdown or enter a custom model name manually.
-- **Thinking mode**: suitable for models such as `deepseek-reasoner` that support reasoning output; turn it off for normal chat models.
-
-After saving, the Text AI configuration is used by AI continuation, the AI assistant, and AI summary analysis.
-
-## Image AI API Import
-
-The Image AI configuration page supports importing templates from the clipboard. This is the recommended way, especially if you copy curl, JSON, or official examples from a provider document.
-
-Steps:
-
-1. Copy an image generation example from the provider console or official docs.
-2. The example should preferably include these fields:
-   - `api_key` / `apiKey` / `OPENAI_API_KEY` / `ARK_API_KEY`
-   - `base_url` / `baseURL` / `api_url` / `endpoint`
-   - `model`
-   - `size`
-3. Return to GalWriter AI.
-4. Open **Settings > AI API Configuration > Image AI > New Configuration**.
-5. Choose a Provider, or select **Custom**.
-6. Click **Import Template**.
-7. The app will try to read the clipboard and fill in the API URL, API Key, Model, and size.
-8. Check the result and adjust it manually if needed.
-9. Click **Save**, then select the saved configuration in the Image AI list.
-
-Example template:
-
-```bash
-curl https://api.openai.com/v1/images/generations \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-image-1",
-    "prompt": "a visual novel background",
-    "size": "1024x1024"
-  }'
-```
-
-Or:
-
-```json
-{
-  "api_key": "YOUR_API_KEY",
-  "base_url": "https://api.example.com/v1/images/generations",
-  "model": "example-image-model",
-  "size": "1024x1024"
-}
-```
-
-If import says no usable fields were found, you can fill these in manually:
-
-- **API URL**: the image generation endpoint.
-- **API Key**: the provider key.
-- **Model**: the image model name.
-- **Size**: the output size, such as `1024x1024`.
-
-## Voice AI API
-
-Voice AI turns text into speech. You can use the built-in system voice, or configure an online voice service.
-
-- **System voice**: uses the desktop app's built-in speech capability and does not require an API Key.
-- **Youdao voice**: fill in the App Key and App Secret.
-- **OpenAI voice**: fill in the API Key, API URL, Model, and Voice.
-- **Doubao / Gemini / custom voice**: fill in the API URL, API Key, Model, and Voice according to the provider's requirements.
-
-Voice is the voice name, such as `alloy`, `Kore`, or the Chinese voice ID provided by the service.
-
-## How to Confirm the API Is Working
-
-After you save and select a configuration, test it like this:
-
-- Text AI: select a story node, click AI continuation, or send a test message in the AI Assistant.
-- Image AI: try generating an image from a character, scene, or background feature.
-- Voice AI: trigger voice generation or playback for content that supports narration.
-
-If something fails, check the following first:
-
-- The API Key has no extra spaces.
-- The API URL points to the correct endpoint level.
-- The Model name matches the provider documentation.
-- The correct configuration is selected and active.
-- Your account has enough credit, quota, or model access.
-- Your network can reach the provider.
-
-## Project Management
-
-### Create and open projects
-
-- Click **Create Project** to start from an empty canvas.
-- Click any project card in Recent Projects to open it.
-- Use the buttons on the project card to download, rename, or delete that project.
-
-### Batch project actions
-
-After clicking **Batch Select** on the project home page, you can choose multiple recent projects:
-
-- **Download**: export the selected projects one by one.
-- **Delete**: delete the selected projects in batch; confirmation is required before deletion.
-
-### Import and export
-
-- **Import existing project**: choose a previously exported project file and load it again.
-- **Download / Export project**: exports the project structure and related assets for backup, migration, or handoff.
-
-## Basic Creative Workflow
-
-1. Add story nodes and write the main text, choices, or branch content.
-2. Add character, scene, and background nodes to build your asset and lore library.
-3. Connect nodes with arrows to form the story flow.
-4. Use AI continuation, polishing, or analysis to fill content faster.
-5. Use live testing to check the branching experience from the player's point of view.
-6. Save the project and export it when needed.
-
-## AI Writing Features
-
-After configuring Text AI, you can use:
-
-- **Continue from previous text**: continue writing from existing story content.
-- **Creative branching**: generate multiple possible directions.
-- **Polish and rewrite**: keep the information but improve the wording.
-- **Story insertion**: add bridging content between existing sections.
-- **Scene description**: strengthen atmosphere, environment, and camera feel.
-- **Dialogue completion**: fill in lines based on the character and context.
-- **AI summary analysis node**: connect multiple nodes and summarize plot logic, character state, and context.
-
-You can also adjust the **AI continuation buttons** in Settings to keep only the actions you use most often.
-
-## Custom Prompts
-
-In the Settings panel, you can edit the AI prompt templates. This is useful when:
-
-- you want the AI to follow a fixed writing style,
-- you want the AI to pay more attention to character setup,
-- you want to change the output format for continuation, polishing, or story insertion,
-- or you want to adapt the workflow to your own production pipeline or team rules.
-
-Prompt templates are saved with the current project. Different projects can use different prompts.
 
 ## FAQ
 
-### Why is AI still unavailable after I entered an API Key?
+<details>
+<summary><strong>Where are projects stored?</strong></summary>
 
-Make sure the configuration has been saved and selected in the configuration list. A draft that has not been saved is not active.
+On the web, projects are stored in browser-local storage. In the desktop app, projects are stored in local app data. Project ZIP exports can be used for backup and migration.
 
-### Should the API URL be a base URL or the full endpoint?
+</details>
 
-It depends on the provider. Use the address prefilled by the app first; if you are using a custom or relay service, follow the provider's documentation. Image generation endpoints usually require a more complete image endpoint URL.
+<details>
+<summary><strong>Are API keys included in project exports?</strong></summary>
 
-### Does importing an image API template save clipboard contents?
+No. AI profiles are stored only on the current device, and API keys are not included in project exports.
 
-No. Importing a template only reads the current clipboard text and tries to recognize fields. The result is written into the current configuration form. Only after you click Save will the configuration be stored locally.
+</details>
 
-### Will project export include API Keys?
+<details>
+<summary><strong>Why does the web version not export MP4 or MOV directly?</strong></summary>
 
-No. AI API configurations are stored only on the current device and are not exported with the project, so secrets are kept out of project files.
+Browser-native video recording does not provide reliable MP4/MOV support across platforms. GalWriter AI only promises WebM on the web. The desktop app uses bundled FFmpeg to export MP4, MOV, MKV, and WebM.
 
-### Can I configure multiple APIs?
+</details>
 
-Yes. You can save multiple configurations for text, image, and voice AI. When you want to switch, just click the one you want in the configuration list.
+<details>
+<summary><strong>Do I need to install FFmpeg?</strong></summary>
 
-## Local Stable Diffusion WebUI
+No. The desktop app bundles FFmpeg, so users can export videos without installing command-line tools.
 
-The Image AI Provider can be set to **Local Stable Diffusion WebUI** to connect to a local AUTOMATIC1111 WebUI instance.
+</details>
 
-1. Start Stable Diffusion WebUI with the API enabled, for example by adding `--api` to the startup flags.
-2. If the browser or desktop app reports a CORS block, you can also add `--cors-allow-origins=*`, or allow only the current app address.
-3. In the app, open **Settings > AI API Configuration > Image AI > New Configuration**.
-4. Set the Provider to **Local Stable Diffusion WebUI**.
-5. The API URL is usually `http://127.0.0.1:7860`; you can also use the full endpoint `http://127.0.0.1:7860/sdapi/v1/txt2img`.
-6. The API Key is usually left blank.
-7. You can adjust negative prompts, Steps, CFG Scale, Sampler, Seed, Restore Faces, and Hires Fix.
+<details>
+<summary><strong>Can I configure multiple AI providers?</strong></summary>
 
-This provider calls `POST /sdapi/v1/txt2img` and writes the returned base64 image directly into story cards, character cards, or scene cards.
+Yes. Text, image, and voice AI each support multiple saved profiles. You can switch the active profile from the settings panel.
+
+</details>
+
+## Contributing
+
+Issues and pull requests are welcome. For larger features, please open an issue first to discuss direction and scope.
+
+Before submitting changes, run:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+If your change touches Tauri or Rust:
+
+```bash
+cd src-tauri
+cargo check
+```
+
+## License
 
 Created by Mingwen Cui, Tommy Ren.
+
+Please add a repository license file before public redistribution or commercial use.

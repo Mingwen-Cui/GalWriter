@@ -1,330 +1,217 @@
-# GalWriter AI 使用指南
+<div align="center">
 
-<p align="center">
-  <img src="./public/icon.png" alt="GalWriter AI" width="96" />
-</p>
+# GalWriter AI
 
-GalWriter AI 是一款面向视觉小说、Galgame、互动叙事和多分支剧本创作的软件。它把剧情节点、角色与场景资料、AI 续写、图片生成、语音朗读、实时测试和工程导出放在同一个创作画布里，适合用来整理复杂剧情、快速试写分支、管理素材，并把作品交付给后续制作流程。
+### 面向视觉小说、Galgame 和互动叙事的 AI 剧本创作工作台
 
-这份文档面向软件使用者，重点说明如何创建项目、配置 API、导入 API 模板，以及如何在创作中调用 AI。
+[![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
+[![React](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-61dafb.svg)](https://react.dev/)
 
-## README (Other languages)
+<img src="./public/icon.png" alt="GalWriter AI" width="96" />
 
-- 中文（当前）：[README.md](README.md)
-- English：[README.en.md](README.en.md)
-- 日本語：[README.ja.md](README.ja.md)
+中文 | [English](README.en.md) | [日本語](README.ja.md)
 
-## 使用说明
+[下载桌面版](https://github.com/Mingwen-Cui/GalWriter/releases) · [本地开发](#本地开发) · [常见问题](#常见问题)
 
-如果你是第一次打开 GalWriter AI，可以按下面的流程快速上手：
+</div>
 
-1. 打开软件后，先在项目主页点击 **创建新项目**，或直接导入已有项目。
-2. 在中央画布中添加剧情、角色、场景、背景等节点，并把它们连接成分支结构。
-3. 进入右侧 **设置**，配置文本 AI、图片 AI 或语音 AI；如果暂时不需要 AI，也可以先跳过这一步。
-4. 需要生成内容时，打开 **AI 助手**，使用 AI 续写，或在对应节点上调用图片和语音能力。
-5. 创作完成后保存项目，并通过 **导出** 做备份或交付。
+## 为什么做 GalWriter AI？
 
-另外：
+视觉小说和多分支叙事通常会同时涉及剧情结构、角色设定、场景资料、图片素材、语音、测试和导出。传统文档很难直观看到分支走向，普通白板又缺少 AI 写作和项目管理能力。
 
-- 想了解界面布局，可以看下面的「快速认识界面」。
-- 想配置 API，可以直接跳到「API 配置入口」「文本 AI API 怎么填」「图片 AI API 怎么导入」和「语音 AI API 怎么填」。
+**GalWriter AI** 把这些流程集中到一个可视化编辑器中：你可以在画布上组织剧情节点、连接分支、管理角色与场景，使用自己的 AI 接口续写和生成素材，并把项目保存在本机，方便下次继续编辑。
 
-## 本地开发与构建
+## 核心能力
 
-### 先安装依赖
+- **可视化剧情画布**：用节点和连线组织剧情、分支、角色、场景、条件判断和背景区域。
+- **项目本地持久化**：最近项目、项目进度和编辑状态保存在本机，支持继续上次创作。
+- **AI 接口配置中心**：文本、图片、语音 AI 配置独立保存，可创建多套 Provider / Model / API Key / API URL。
+- **API Key 不进入项目导出**：密钥只存在当前设备本地，不会混入项目 ZIP 或分享文件。
+- **AI 写作助手**：支持续写、润色、插入剧情、场景描写、对话补写、剧情分析和参考文档对话。
+- **多媒体工作流**：支持图片生成、语音生成、素材导入、实时预览和视频导出。
+- **Web Demo 与桌面 App**：Web 端适合快速体验；桌面端提供更完整的本地导出能力。
+
+## 界面预览
+
+当前仓库暂未放置完整截图素材。建议后续在 `assets/screenshots/` 中补充：
+
+| 编辑器画布  | AI 接口设置 |  视频导出   |
+| :---------: | :---------: | :---------: |
+| Coming soon | Coming soon | Coming soon |
+
+## 下载与安装
+
+### 桌面版
+
+从 [Releases](https://github.com/Mingwen-Cui/GalWriter/releases) 下载最新版安装包。
+
+桌面版适合正式创作，推荐给需要本地项目管理、视频导出和完整文件能力的用户。
+
+### Web 版
+
+Web 版适合演示和快速试用。由于浏览器限制，Web 端视频导出只直接支持 **WebM**。如果需要 **MP4 / MOV / MKV** 等常见格式，请使用桌面版，桌面版会使用内置 FFmpeg 完成导出。
+
+## 快速开始
+
+1. 打开 GalWriter AI。
+2. 创建新项目，或导入已有项目。
+3. 在画布上添加剧情、角色、场景、背景或条件节点。
+4. 用连线组织剧情路径和分支结构。
+5. 如需 AI，进入 **设置 > AI 接口配置**，创建文本、图片或语音 AI 配置。
+6. 保存项目。下次打开时可从最近项目继续编辑。
+7. 需要交付或备份时，导出项目 ZIP；需要视频时进入视频导出工作台。
+
+## AI 接口与本地数据
+
+GalWriter AI 不绑定单一 AI 服务商。你可以按需配置常见文本、图片和语音模型。
+
+| 类型    | 用途                           | 示例 Provider                                                         |
+| ------- | ------------------------------ | --------------------------------------------------------------------- |
+| 文本 AI | 续写、润色、助手对话、剧情分析 | DeepSeek、Claude、Gemini、Kimi、通义千问、GLM、OpenAI、自定义兼容接口 |
+| 图片 AI | 角色图、场景图、背景图生成     | 豆包、Gemini、OpenAI、本地 Stable Diffusion WebUI、自定义接口         |
+| 语音 AI | 文本朗读、配音、语音合成       | 系统语音、有道、OpenAI、豆包、自定义接口                              |
+
+数据原则：
+
+- 项目内容保存在本机项目库中。
+- AI 配置保存在当前设备本地。
+- API Key 不会随项目导出。
+- 一个项目中的 AI 对话只保存在该项目中。
+
+## 视频导出策略
+
+| 环境     | 直接导出格式        | 说明                                                |
+| -------- | ------------------- | --------------------------------------------------- |
+| Web Demo | WebM                | 浏览器原生录制更稳定，适合快速预览和轻量导出。      |
+| 桌面 App | WebM、MP4、MOV、MKV | 使用应用内置 FFmpeg，不要求用户自行安装命令行工具。 |
+
+如果用户在 Web 端选择 MP4、MOV 或 MKV，应用会显示内置提示窗口，并引导下载桌面版。
+
+## 本地开发
+
+### 环境要求
+
+- Node.js 18+
+- npm
+- Rust 1.77+
+- Tauri 2 所需系统依赖
+
+### 安装依赖
 
 ```bash
 npm install
 ```
 
-### 本地 Web 运行
+### 启动 Web 开发服务
 
 ```bash
 npm run dev
 ```
 
-启动后在浏览器访问 `http://localhost:3000`。
+默认访问 `http://localhost:3000`。
 
-### 桌面 App 开发运行
+### 启动桌面开发模式
 
 ```bash
 npm run tauri dev
 ```
 
-这个命令会先启动前端开发服务，再打开 Tauri 桌面窗口。
-
-### Web 构建
+### 类型检查与构建
 
 ```bash
+npm run typecheck
 npm run build
 ```
 
-构建结果会输出到 `dist/`，可以配合 `npm run preview` 本地检查静态页面。
-
-### 桌面 App 打包
+### 打包桌面 App
 
 ```bash
 npm run tauri build
 ```
 
-这个命令会先执行前端构建，再生成桌面安装包和平台对应的发布产物。
+## 技术栈
 
-### 静态预览
+- **前端**：React、TypeScript、Vite、Tailwind CSS、React Flow
+- **桌面端**：Tauri 2、Rust
+- **本地存储**：IndexedDB / 本机应用数据
+- **项目导出**：ZIP、Web 导出、视频导出
+- **视频处理**：浏览器 MediaRecorder、桌面端内置 FFmpeg
 
-```bash
-npm run preview
+## 项目结构
+
+```text
+├── src/                         # React + TypeScript 前端
+│   ├── components/              # 编辑器、节点、设置、渲染 UI
+│   ├── editor-features/         # 编辑器功能模块
+│   ├── editor-services/         # 本地持久化、序列化、媒体服务
+│   ├── editor-shell/            # 顶层弹窗与编辑器壳层
+│   └── lib/                     # 工具函数、本地数据库、运行时适配
+├── src-tauri/                   # Tauri + Rust 桌面端
+│   ├── binaries/                # 桌面端内置 FFmpeg
+│   └── src/                     # Tauri commands 与本地文件处理
+├── public/                      # 公共静态资源
+└── dist/                        # Web 构建输出
 ```
-
-用于本地预览 `dist/` 下的 Web 构建结果。
-
-如果需要运行桌面 App 或打包，请确保本机已安装 Rust 工具链和 Tauri 所需环境；如果只是浏览器预览，只需要 Node.js 和 npm。
-
-## 快速认识界面
-
-- **项目主页**：创建新项目、导入已有项目、打开最近项目、批量下载或删除项目。
-- **中央画布**：放置和连接剧情节点、角色节点、场景节点、背景节点、条件节点等内容。
-- **左侧工具栏**：添加不同类型的节点和素材。
-- **右侧工具栏**：打开设置、切换标题显示、撤销/重做、调整画布背景，也可以打开 AI 助手。
-- **AI 助手面板**：与 AI 对话、上传参考文档、把生成内容插入或应用到当前创作。
-- **设置面板**：配置 AI 接口、画布样式、提示词模板、AI 续写按钮等选项。
-
-## 第一次使用
-
-1. 打开软件后，在项目主页点击 **创建新项目**。
-2. 在画布上添加剧情、角色、场景或背景节点。
-3. 连接节点，形成分支结构。
-4. 如需使用 AI，先进入 **设置**，完成 API 配置。
-5. 保存项目后，之后可以在 **最近项目** 中重新打开。
-
-## API 配置入口
-
-1. 在编辑器右侧工具栏点击 **设置** 图标。
-2. 找到 **AI 接口配置** 区域。
-3. 选择要配置的类型：
-   - **文本 AI**：用于续写、润色、分析、对话、AI 助手。
-   - **图片 AI**：用于生成角色、场景、背景等图片。
-   - **语音 AI**：用于文本朗读或语音生成。
-4. 点击对应区域右上角的 **新建配置**。
-5. 填写配置名称、Provider、Model、API Key、API URL。
-6. 点击 **保存**。
-7. 回到配置列表，点击你刚保存的配置，使它成为当前启用配置。
-
-AI 配置只保存在当前设备本机，不会跟随项目文件一起导出。换电脑使用时，需要在新设备上重新填写 API 配置。
-
-## 文本 AI API 怎么填
-
-文本 AI 负责大多数写作功能，包括 AI 续写、创意发散、重写、插入剧情、场景描写、对话补写和 AI 助手。
-
-常见填写方式：
-
-| Provider | API URL 示例 | Model 示例 |
-| --- | --- | --- |
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` / `deepseek-reasoner` |
-| Gemini | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4.1` |
-| Claude | `https://api.anthropic.com/v1/messages` | `claude-sonnet-4-20250514` |
-| Kimi | `https://api.moonshot.cn/v1` | `kimi-k2.5` |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.6-plus` |
-| GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5` |
-| 自定义 | 填服务商提供的接口地址 | 填服务商提供的模型名 |
-
-填写建议：
-
-- **API Key**：粘贴服务商后台生成的密钥。
-- **API URL**：优先使用软件预填地址；如果你使用代理、兼容接口或中转服务，再改成对应地址。
-- **Model**：可以从下拉框选择，也可以选择自定义模型后手动输入。
-- **思考模式**：适合 `deepseek-reasoner` 等支持推理输出的模型；普通聊天模型可以关闭。
-
-保存后，文本 AI 配置会用于 AI 续写弹窗、AI 助手、AI 总汇分析等文本能力。
-
-## 图片 AI API 怎么导入
-
-图片 AI 配置页支持从剪贴板自动导入模板。这是最推荐的方式，尤其适合从服务商文档里复制 curl、JSON 或官方示例。
-
-操作步骤：
-
-1. 在服务商后台或官方文档中复制一段图片生成示例。
-2. 示例里最好包含这些字段：
-   - `api_key` / `apiKey` / `OPENAI_API_KEY` / `ARK_API_KEY`
-   - `base_url` / `baseURL` / `api_url` / `endpoint`
-   - `model`
-   - `size`
-3. 回到 GalWriter AI。
-4. 打开 **设置 > AI 接口配置 > 图片 AI > 新建配置**。
-5. 选择 Provider，或选择 **自定义**。
-6. 点击 **导入模板**。
-7. 软件会尝试从剪贴板识别并填入 API URL、API Key、Model 和尺寸。
-8. 检查填入结果，必要时手动修正。
-9. 点击 **保存**，然后在图片 AI 配置列表中选中它。
-
-可识别的模板示例：
-
-```bash
-curl https://api.openai.com/v1/images/generations \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-image-1",
-    "prompt": "a visual novel background",
-    "size": "1024x1024"
-  }'
-```
-
-或：
-
-```json
-{
-  "api_key": "YOUR_API_KEY",
-  "base_url": "https://api.example.com/v1/images/generations",
-  "model": "example-image-model",
-  "size": "1024x1024"
-}
-```
-
-如果导入后提示没有识别到可用字段，可以手动填写：
-
-- **API URL**：图片生成接口地址。
-- **API Key**：服务商密钥。
-- **Model**：图片模型名称。
-- **Size**：生成尺寸，如 `1024x1024`。
-
-## 语音 AI API 怎么填
-
-语音 AI 用于把文本转换成语音。你可以选择系统语音，也可以配置在线语音服务。
-
-- **系统语音**：使用桌面端内置朗读能力，不需要 API Key。
-- **有道语音**：按有道后台“查看应用”页面填写。后台的“应用ID”填到软件里的“应用ID（App Key）”，后台的“应用密钥”填到软件里的“应用密钥（App Secret）”。
-- **OpenAI 语音**：填写 API Key、API URL、Model 和 Voice。
-- **豆包 / Gemini / 自定义语音**：按服务商要求填写 API URL、API Key、Model 和 Voice。
-
-Voice 是声音名称，例如 `alloy`、`Kore` 或服务商提供的中文音色 ID。
-
-### 有道语音小白教程
-
-1. 在有道智云控制台打开 **业务指南 / 应用总览 / 查看应用**。
-2. 确认这个应用的 **已选服务** 包含 **语音合成**。如果没有，需要在有道后台给应用开通语音合成服务。
-3. 在软件里打开 **设置 / AI 配置 / 语音 AI / 新建配置**。
-4. **服务商** 选择 **有道**。
-5. **应用ID（App Key）**：填有道后台显示的 **应用ID**。注意，它不是 API Keys 页面里的 Key。
-6. **应用密钥（App Secret）**：填有道后台显示的 **应用密钥**。这是密码，软件会隐藏显示。
-7. **接口地址（API URL）**：普通使用保持默认 `https://openapi.youdao.com/ttsapi`。
-8. **音色（voiceName）**：不知道填什么就保留 `youxiaoqin`。需要换声音时，查看 [有道官方音色列表](https://ai.youdao.com/DOCSIRMA/html/tts/api/yyhc/index.html#section-9)，把文档里的 `voiceName` 填到软件里。
-9. 点击 **保存**，回到语音 AI 配置列表后，确认这条配置被选中启用。
-
-常见混淆：
-
-- 有道文档里的 `appKey` = 有道后台的 **应用ID** = 软件里的 **应用ID（App Key）**。
-- 有道文档里的 `appSecret` = 有道后台的 **应用密钥** = 软件里的 **应用密钥（App Secret）**。
-- `API URL` 是接口地址，不是密钥；有道默认地址通常不用改。
-- `voiceName` 是声音名字，不是模型名；默认 `youxiaoqin` 可以先用来测试。更多音色看 [有道官方音色列表](https://ai.youdao.com/DOCSIRMA/html/tts/api/yyhc/index.html#section-9)。
-
-## 如何确认 API 已经生效
-
-配置保存并选中后，可以用下面方式测试：
-
-- 文本 AI：选中一个剧情节点，点击 AI 续写或打开 AI 助手发送一句测试请求。
-- 图片 AI：在角色、场景或背景相关功能中尝试生成一张图片。
-- 语音 AI：在支持朗读的文本内容中触发语音生成或播放。
-
-如果失败，优先检查：
-
-- API Key 是否完整，没有多余空格。
-- API URL 是否填到了正确接口层级。
-- Model 名称是否和服务商文档一致。
-- 当前配置是否已经被选中启用。
-- 服务商账号是否有余额、额度或对应模型权限。
-- 网络环境是否能访问该服务商。
-
-## 项目管理
-
-### 创建与打开项目
-
-- 点击 **创建新项目** 从空白画布开始。
-- 点击最近项目中的任意项目卡片即可打开。
-- 点击项目卡片右侧按钮可以单独下载、重命名或删除。
-
-### 批量操作项目
-
-在项目主页左侧点击 **批量选择** 后，可以选择多个最近项目：
-
-- **下载**：逐个导出选中的项目。
-- **删除**：批量删除选中的项目，删除前会要求确认。
-
-### 导入与导出
-
-- **导入已有项目**：选择之前导出的项目文件，重新载入编辑。
-- **下载 / 导出项目**：会导出项目结构和相关素材，便于备份、迁移或交给后续制作流程。
-
-## 基础创作流程
-
-1. 在画布中添加剧情节点，写入正文、选项或分支内容。
-2. 添加角色、场景、背景节点，建立素材和设定库。
-3. 用箭头连接节点，形成剧情流向。
-4. 使用 AI 续写、润色或分析，快速补完内容。
-5. 用实时测试检查玩家视角下的分支体验。
-6. 保存项目，并在需要时导出。
-
-## AI 写作功能
-
-配置文本 AI 后，可以使用：
-
-- **前文顺延续写**：根据已有剧情继续写下一段。
-- **创意发散**：生成多个剧情发展方向。
-- **极致润色重写**：保留信息，提升文本表现。
-- **剧情插入**：在已有情节之间补充过渡内容。
-- **场景描写**：强化环境、氛围、镜头感。
-- **对话补写**：根据角色和上下文补充台词。
-- **AI 总汇分析节点**：连接多个节点后汇总剧情逻辑、人物状态和上下文。
-
-你也可以在设置中调整 **AI 续写弹窗按钮**，只保留自己常用的写作动作。
-
-## 自定义提示词
-
-在设置面板中可以编辑 AI 提示词模板。适合以下场景：
-
-- 想让 AI 使用固定文风。
-- 想让 AI 更重视角色设定。
-- 想改变续写、润色、插入剧情等功能的输出格式。
-- 想适配自己的制作流程或团队规范。
-
-提示词会跟随当前项目保存。不同项目可以使用不同提示词。
 
 ## 常见问题
 
-### 为什么已经填了 API Key，AI 还是不可用？
+<details>
+<summary><strong>项目会保存在哪里？</strong></summary>
 
-请确认配置已经保存，并且在配置列表中被选中。只填写草稿但没有保存，不会真正启用。
+Web 端项目保存在浏览器本地存储中。桌面端项目保存在应用本地数据中。项目 ZIP 导出可用于备份和迁移。
 
-### API URL 应该填根地址还是完整接口？
+</details>
 
-不同 Provider 不完全一样。优先使用软件自动填入的地址；如果使用自定义或中转服务，按服务商文档填写。图片生成接口通常需要更完整的图片接口地址。
+<details>
+<summary><strong>API Key 会被导出吗？</strong></summary>
 
-### 图片 API 模板导入会保存剪贴板内容吗？
+不会。AI 接口配置只保存在当前设备本地，项目导出不会包含 API Key。
 
-不会。导入模板只是读取当前剪贴板里的文本并尝试识别字段，识别结果填到当前配置表单中。只有点击保存后，配置才会写入本机。
+</details>
 
-### 项目导出会包含 API Key 吗？
+<details>
+<summary><strong>为什么 Web 端不能直接导出 MP4 或 MOV？</strong></summary>
 
-不会。AI 接口配置只保存在当前设备本机，不会随项目导出，避免把密钥混入项目文件。
+浏览器原生视频录制对 MP4/MOV 支持不稳定。GalWriter AI 的 Web 端只承诺 WebM；桌面端使用内置 FFmpeg 导出 MP4、MOV、MKV 和 WebM。
 
-### 可以配置多个 API 吗？
+</details>
 
-可以。文本、图片、语音都可以保存多套配置。需要切换时，在配置列表中点击对应配置即可启用。
+<details>
+<summary><strong>我需要自己安装 FFmpeg 吗？</strong></summary>
 
-## 作者
+不需要。桌面版会内置 FFmpeg，用户点击导出即可使用。
 
-## 本地 Stable Diffusion WebUI
+</details>
 
-图片 AI 的 Provider 可以选择 **本地 Stable Diffusion WebUI**，用于连接本机 AUTOMATIC1111 WebUI。
+<details>
+<summary><strong>可以配置多个 AI Provider 吗？</strong></summary>
 
-1. 启动 Stable Diffusion WebUI 时开启 API，例如在启动参数里加入 `--api`。
-2. 如果浏览器或桌面端提示跨域拦截，可以同时加入 `--cors-allow-origins=*`，或只放行当前应用地址。
-3. 在软件里进入 **设置 > AI 接口配置 > 图片 AI > 新建配置**。
-4. Provider 选择 **本地 Stable Diffusion WebUI**。
-5. API URL 通常填写 `http://127.0.0.1:7860`；也可以填写完整接口 `http://127.0.0.1:7860/sdapi/v1/txt2img`。
-6. API Key 通常留空。
-7. 可以调整负面提示词、Steps、CFG Scale、Sampler、Seed、Restore Faces 和 Hires Fix。
+可以。文本、图片、语音 AI 都支持保存多套配置，并在设置面板中切换当前使用的配置。
 
-该 Provider 会调用 `POST /sdapi/v1/txt2img`，并把 WebUI 返回的 base64 图片直接写回剧情卡片、人物卡片或场景卡片。
+</details>
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。建议在提交较大功能前先开 Issue 讨论设计方向。
+
+提交前请至少运行：
+
+```bash
+npm run typecheck
+npm run build
+```
+
+如果改动涉及 Tauri / Rust：
+
+```bash
+cd src-tauri
+cargo check
+```
+
+## License
 
 Created by Mingwen Cui, Tommy Ren.
+
+Please add a repository license file before public redistribution or commercial use.
