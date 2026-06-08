@@ -3236,10 +3236,10 @@ ${direction}
                     zoomable={true}
                     className="!static !bg-transparent !border-none !m-0"
                     nodeColor={
-                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : 'var(--card-bg)'
+                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'
                     }
                     nodeStrokeColor={
-                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : 'var(--card-border)'
+                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : '#4f46e5'
                     }
                     nodeBorderRadius={6}
                     maskColor={
@@ -3247,7 +3247,9 @@ ${direction}
                         ? theme === 'dark'
                           ? 'rgba(0, 0, 0, 0.3)'
                           : 'rgba(0, 0, 0, 0.08)'
-                        : undefined
+                        : theme === 'dark'
+                          ? 'rgba(84, 185, 251, 0.12)'
+                          : 'rgba(79, 70, 229, 0.08)'
                     }
                     style={{ height: 120, width: 160 }}
                   />

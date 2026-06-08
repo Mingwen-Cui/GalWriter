@@ -327,6 +327,49 @@ body,
   flex-shrink: 0;
 }
 
+.bubble-flat-mode .canvas-bottom-overlay .react-flow__minimap {
+  background:
+    radial-gradient(circle at 24px 24px, rgba(79, 70, 229, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96)) !important;
+  background-size:
+    16px 16px,
+    auto !important;
+}
+
+.bubble-flat-mode .react-flow__minimap-node {
+  fill: #dbeafe !important;
+  fill-opacity: 0.96;
+  stroke: #4f46e5 !important;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
+}
+
+.bubble-flat-mode .react-flow__minimap-mask {
+  fill: rgba(79, 70, 229, 0.08) !important;
+  stroke: rgba(79, 70, 229, 0.45) !important;
+  stroke-width: 1.5;
+}
+
+[data-theme='dark'] .bubble-flat-mode .canvas-bottom-overlay .react-flow__minimap {
+  background:
+    radial-gradient(circle at 24px 24px, rgba(84, 185, 251, 0.1) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.96)) !important;
+  background-size:
+    16px 16px,
+    auto !important;
+}
+
+[data-theme='dark'] .bubble-flat-mode .react-flow__minimap-node {
+  fill: rgba(84, 185, 251, 0.32) !important;
+  stroke: rgba(125, 211, 252, 0.9) !important;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.36));
+}
+
+[data-theme='dark'] .bubble-flat-mode .react-flow__minimap-mask {
+  fill: rgba(84, 185, 251, 0.12) !important;
+  stroke: rgba(125, 211, 252, 0.5) !important;
+}
+
 .bubble-flat-mode .editor-footer {
   position: relative !important;
   inset: auto !important;

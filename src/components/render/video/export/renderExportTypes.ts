@@ -8,6 +8,14 @@ export type RenderSaveResult = {
   path: string;
 };
 
+export type FfmpegStatus = {
+  available: boolean;
+  path: string;
+  source: 'bundled' | 'app-directory' | 'system-path' | string;
+  version?: string | null;
+  message?: string | null;
+};
+
 export type SaveRenderedFramesInput = {
   fileName: string;
   format: ExportFormat;

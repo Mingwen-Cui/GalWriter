@@ -30,6 +30,7 @@ import { buildAudioTrack } from './audio/audioTrack';
 import { getAssetRegionOptions, getStoryNodeRegion } from './assets/assetRegions';
 import { ResizeHandle, makeTrackId } from './controls/RenderControls';
 import {
+  checkFfmpegAvailable,
   chooseRenderOutputDir,
   getDefaultRenderDir,
   saveRenderedFrames,
@@ -2432,6 +2433,43 @@ export function VideoRenderModal({
     setSavedPath(result.path);
   };
 
+  const ensureFfmpegForDesktopTranscode = async () => {
+    if (!isDesktopApp || exportFormat === 'webm') return true;
+
+    const ffmpegStatus = await checkFfmpegAvailable();
+    if (ffmpegStatus.available) return true;
+
+    setNoticeModal({
+      title: isZh
+        ? '未检测到 FFmpeg'
+        : language === 'ja'
+          ? 'FFmpeg が見つかりません'
+          : 'FFmpeg not found',
+      description: isZh
+        ? '当前 App 无法启动 FFmpeg。完整版安装包内置视频导出组件；Lite 版需要用户电脑已安装 FFmpeg。你可以下载完整版，或先改用 WebM 导出。'
+        : language === 'ja'
+          ? '現在のアプリでは FFmpeg を起動できません。通常版には動画書き出しコンポーネントが含まれます。Lite 版では PC 側に FFmpeg が必要です。通常版をダウンロードするか、WebM 書き出しに切り替えてください。'
+          : 'This app could not start FFmpeg. The full installer includes the video export component; the Lite build requires FFmpeg on the user computer. Download the full app, or switch to WebM for now.',
+      primaryLabel: isZh
+        ? '下载完整版'
+        : language === 'ja'
+          ? '通常版をダウンロード'
+          : 'Download Full App',
+      secondaryLabel: isZh ? '改用 WebM' : language === 'ja' ? 'WebM に切り替え' : 'Use WebM',
+      onPrimary: () => {
+        window.open(DESKTOP_RELEASE_URL, '_blank', 'noopener,noreferrer');
+        setNoticeModal(null);
+      },
+      onSecondary: () => {
+        setExportFormat('webm');
+        setNoticeModal(null);
+      },
+    });
+    setStatus('idle');
+    setError(ffmpegStatus.message || '');
+    return false;
+  };
+
 
   const drawFrame = async (
     ctx: CanvasRenderingContext2D,
@@ -2560,6 +2598,10 @@ export function VideoRenderModal({
           setNoticeModal(null);
         },
       });
+      return;
+    }
+
+    if (!(await ensureFfmpegForDesktopTranscode())) {
       return;
     }
 
