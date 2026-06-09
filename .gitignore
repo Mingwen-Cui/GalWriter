@@ -17,6 +17,7 @@ errors_context.txt
 tsc_errors*.txt
 tsc_output.txt
 *.tsbuildinfo
+VIDEO_RENDER_SOLUTION.md
 
 # Logs
 *.log
