@@ -26,14 +26,12 @@ import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { generateSpeechAudio, htmlToSpeechText } from '../../../lib/tts';
-import { buildAudioTrack } from './audio/audioTrack';
+import { buildAudioBuffer, buildAudioTrack } from './audio/audioTrack';
 import { getAssetRegionOptions, getStoryNodeRegion } from './assets/assetRegions';
 import { ResizeHandle, makeTrackId } from './controls/RenderControls';
 import {
-  checkFfmpegAvailable,
   chooseRenderOutputDir,
   getDefaultRenderDir,
-  saveRenderedFrames,
   saveRenderedVideo,
   saveRenderedWebZip,
 } from './export/tauriRenderAdapter';
@@ -64,15 +62,12 @@ import {
   TIMELINE_PIXELS_PER_SECOND,
 } from './shared/constants';
 import {
-  canvasToPngBytes,
   clamp,
   getAudioDuration,
-  getSupportedMimeType,
   isTauriRuntime,
   loadVideo,
   seekVideo,
   validDuration,
-  wait,
 } from './shared/mediaUtils';
 import {
   getNodeDisplayTitle,
@@ -2275,55 +2270,6 @@ export function VideoRenderModal({
     );
   };
 
-  const connectTimelineAudio = async (
-    audioContext: AudioContext,
-    audioDestination: MediaStreamAudioDestinationNode,
-    renderStartSeconds: number,
-    renderDurationSeconds: number,
-  ) => {
-    const activeSources: {
-      element: HTMLAudioElement;
-      source: MediaElementAudioSourceNode;
-      timeoutId: number;
-    }[] = [];
-
-    for (const segment of activeAudioSegments) {
-      const sources = getSegmentAudioSources(segment.node);
-      if (sources.length === 0) continue;
-
-      const clipStart = Math.max(segment.start, renderStartSeconds);
-      const clipEnd = Math.min(segment.end, renderStartSeconds + renderDurationSeconds);
-      if (clipEnd <= clipStart) continue;
-
-      const localOffset = Math.max(0, (clipStart - segment.start) * speed);
-      const startDelayMs = Math.max(0, (clipStart - renderStartSeconds) * 1000);
-      const playDurationMs = Math.max(0, (clipEnd - clipStart) * 1000);
-      sources.forEach((clipSource) => {
-        const audio = new Audio(clipSource.url);
-        audio.crossOrigin = 'anonymous';
-        audio.playbackRate = speed;
-        const source = audioContext.createMediaElementSource(audio);
-        source.connect(audioDestination);
-        source.connect(audioContext.destination);
-
-        const timeoutId = window.setTimeout(() => {
-          audio.currentTime = localOffset;
-          void audio.play().catch(() => undefined);
-          window.setTimeout(() => audio.pause(), playDurationMs);
-        }, startDelayMs);
-        activeSources.push({ element: audio, source, timeoutId });
-      });
-    }
-
-    return () => {
-      activeSources.forEach(({ element, source, timeoutId }) => {
-        window.clearTimeout(timeoutId);
-        element.pause();
-        source.disconnect();
-      });
-    };
-  };
-
   const getNodeMediaDuration = async (node: FlowNode) => {
     const videoUrl = node.data?.videoUrl as string | undefined;
     const audioUrl = node.data?.audioUrl as string | undefined;
@@ -2366,109 +2312,8 @@ export function VideoRenderModal({
     };
   }, [timelineNodes, defaultSeconds]);
 
-  const renderStaticFramesWithFfmpeg = async () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx)
-      throw new Error(isZh ? '预览画布不可用。' : 'Preview canvas is unavailable.');
-
-    canvas.width = resolution.width;
-    canvas.height = resolution.height;
-
-    const frames: RenderedFramePayload[] = [];
-    for (let index = 0; index < selectedNodes.length; index += 1) {
-      const node = selectedNodes[index];
-      const durationSecs = await getNodeRenderDuration(node);
-      updateProgress(
-        isZh ? '生成图片帧' : 'Rendering still frames',
-        index + 1,
-        selectedNodes.length + 2,
-      );
-      await drawFrame(
-        ctx,
-        node,
-        resolution.width,
-        resolution.height,
-        undefined,
-        undefined,
-        undefined,
-        true,
-      );
-      frames.push({
-        bytes: await canvasToPngBytes(canvas),
-        durationSecs,
-      });
-    }
-
-    const audioSegments: SegmentRenderInfo[] = activeAudioSegments
-      .filter((segment) => selectedIds.has(segment.node.id))
-      .flatMap((segment) =>
-        getSegmentAudioSources(segment.node).map((source) => ({
-          node: segment.node,
-          startSecs: segment.start,
-          durationSecs: segment.duration,
-          audioUrl: source.url,
-        })),
-      );
-
-    updateProgress(
-      isZh ? '合成音频轨' : 'Mixing audio track',
-      selectedNodes.length + 1,
-      selectedNodes.length + 2,
-    );
-    const audioBytes = (await buildAudioTrack(audioSegments, speed)) ?? [];
-    updateProgress(
-      isZh ? '调用 FFmpeg 导出' : 'Exporting with FFmpeg',
-      selectedNodes.length + 2,
-      selectedNodes.length + 2,
-    );
-    const result = await saveRenderedFrames({
-      fileName: `galwriter-render-${Date.now()}`,
-      format: exportFormat,
-      frames,
-      audioBytes,
-      outputDir,
-      videoBitrate: DEFAULT_VIDEO_BITRATE,
-    });
-    setSavedPath(result.path);
-  };
-
-  const ensureFfmpegForDesktopTranscode = async () => {
-    if (!isDesktopApp || exportFormat === 'webm') return true;
-
-    const ffmpegStatus = await checkFfmpegAvailable();
-    if (ffmpegStatus.available) return true;
-
-    setNoticeModal({
-      title: isZh
-        ? '未检测到 FFmpeg'
-        : language === 'ja'
-          ? 'FFmpeg が見つかりません'
-          : 'FFmpeg not found',
-      description: isZh
-        ? '当前 App 无法启动 FFmpeg。完整版安装包内置视频导出组件；Lite 版需要用户电脑已安装 FFmpeg。你可以下载完整版，或先改用 WebM 导出。'
-        : language === 'ja'
-          ? '現在のアプリでは FFmpeg を起動できません。通常版には動画書き出しコンポーネントが含まれます。Lite 版では PC 側に FFmpeg が必要です。通常版をダウンロードするか、WebM 書き出しに切り替えてください。'
-          : 'This app could not start FFmpeg. The full installer includes the video export component; the Lite build requires FFmpeg on the user computer. Download the full app, or switch to WebM for now.',
-      primaryLabel: isZh
-        ? '下载完整版'
-        : language === 'ja'
-          ? '通常版をダウンロード'
-          : 'Download Full App',
-      secondaryLabel: isZh ? '改用 WebM' : language === 'ja' ? 'WebM に切り替え' : 'Use WebM',
-      onPrimary: () => {
-        window.open(DESKTOP_RELEASE_URL, '_blank', 'noopener,noreferrer');
-        setNoticeModal(null);
-      },
-      onSecondary: () => {
-        setExportFormat('webm');
-        setNoticeModal(null);
-      },
-    });
-    setStatus('idle');
-    setError(ffmpegStatus.message || '');
-    return false;
-  };
+  // renderStaticFramesWithFfmpeg 和 ensureFfmpegForDesktopTranscode 已移除，
+  // 统一使用 mediabunny 浏览器内编码
 
 
   const drawFrame = async (
@@ -2559,54 +2404,6 @@ export function VideoRenderModal({
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
-    const recordMimeType = getSupportedMimeType('webm');
-    if (!recordMimeType) {
-      setStatus('error');
-      setError(
-        isZh
-          ? '当前环境不支持浏览器录制 WebM，无法生成可转码的源视频。'
-          : 'This environment cannot record WebM, so a transcodable source video cannot be generated.',
-      );
-      return;
-    }
-
-    const shouldUseTauriExport = isDesktopApp;
-    if (!shouldUseTauriExport && exportFormat !== 'webm') {
-      setNoticeModal({
-        title: isZh
-          ? `${exportFormat.toUpperCase()} 需要APP端`
-          : language === 'ja'
-            ? `${exportFormat.toUpperCase()} はデスクトップ版が必要です`
-            : `${exportFormat.toUpperCase()} needs the app`,
-        description: isZh
-          ? '网页 Demo 只直接导出 WebM。MP4、MOV、MKV 等格式会使用APP端内置 FFmpeg 导出。'
-          : language === 'ja'
-            ? 'Web デモは WebM のみ直接書き出せます。MP4、MOV、MKV などはデスクトップ版の内蔵 FFmpeg で書き出します。'
-            : 'The web demo exports WebM directly. MP4, MOV, MKV, and other formats use the app with bundled FFmpeg.',
-        primaryLabel: isZh
-          ? '下载APP端'
-          : language === 'ja'
-            ? 'デスクトップ版をダウンロード'
-            : 'Download App',
-        secondaryLabel: isZh ? '继续使用 WebM' : language === 'ja' ? 'WebM を使う' : 'Use WebM',
-        onPrimary: () => {
-          window.open(DESKTOP_RELEASE_URL, '_blank', 'noopener,noreferrer');
-          setNoticeModal(null);
-        },
-        onSecondary: () => {
-          setExportFormat('webm');
-          setNoticeModal(null);
-        },
-      });
-      return;
-    }
-
-    if (!(await ensureFfmpegForDesktopTranscode())) {
-      return;
-    }
-
-    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
-
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -2617,76 +2414,68 @@ export function VideoRenderModal({
       canvas.width = resolution.width;
       canvas.height = resolution.height;
 
-      if (
-        shouldUseTauriExport &&
-        exportFormat !== 'webm' &&
-        selectedNodes.every((node) => !node.data?.videoUrl)
-      ) {
-        await renderStaticFramesWithFfmpeg();
-        setStatus('done');
-        setProgressValue(100);
-        setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
-        return;
+      // 计算每个节点的渲染时长
+      const nodeDurations: number[] = [];
+      let totalDuration = 0;
+      for (const node of selectedNodes) {
+        const duration = await getNodeRenderDuration(node);
+        nodeDurations.push(duration);
+        totalDuration += duration;
       }
 
-      const videoStream = canvas.captureStream(frameRate);
-      const audioContext = new AudioContext();
-      const audioDestination = audioContext.createMediaStreamDestination();
-      audioDestination.stream.getAudioTracks().forEach((track) => videoStream.addTrack(track));
+      const totalFrames = Math.max(1, Math.ceil(totalDuration * frameRate));
 
-      const chunks: BlobPart[] = [];
-      const recorder = new MediaRecorder(videoStream, { mimeType: recordMimeType });
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
+      // 准备时间线音频
+      const audioSegments: SegmentRenderInfo[] = activeAudioSegments
+        .filter((segment) => selectedIds.has(segment.node.id))
+        .flatMap((segment) =>
+          getSegmentAudioSources(segment.node).map((source) => ({
+            node: segment.node,
+            startSecs: segment.start,
+            durationSecs: segment.duration,
+            audioUrl: source.url,
+          })),
+        );
 
-      const finished = new Promise<Blob>((resolve) => {
-        recorder.onstop = () => resolve(new Blob(chunks, { type: recordMimeType }));
-      });
+      const audioBuffer = await buildAudioBuffer(audioSegments, speed);
 
-      recorder.start(250);
+      // 预加载视频资源
+      const videoCache = new Map<string, HTMLVideoElement>();
+      for (const node of selectedNodes) {
+        const videoUrl = node.data?.videoUrl as string | undefined;
+        if (videoUrl && !videoCache.has(videoUrl)) {
+          videoCache.set(videoUrl, await loadVideo(videoUrl));
+        }
+      }
 
-      const shouldRenderTimelineAudio = activeAudioSegments.length > 0;
-      const stopTimelineAudio = shouldRenderTimelineAudio
-        ? await connectTimelineAudio(audioContext, audioDestination, 0, timelineMetrics.totalDuration)
-        : undefined;
+      // 计算每个节点的起始时间
+      const nodeStartTimes: number[] = [];
+      let acc = 0;
+      for (const d of nodeDurations) {
+        nodeStartTimes.push(acc);
+        acc += d;
+      }
 
-      for (let index = 0; index < selectedNodes.length; index += 1) {
-        const node = selectedNodes[index];
-        setProgress(`${index + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
+      // 逐帧绘制回调
+      const drawFrameAtTimestamp = async (_frameIndex: number, timestamp: number) => {
+        let nodeIndex = selectedNodes.length - 1;
+        for (let i = 0; i < selectedNodes.length; i++) {
+          if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
+            nodeIndex = i;
+            break;
+          }
+        }
+
+        const node = selectedNodes[nodeIndex];
+        const nodeStart = nodeStartTimes[nodeIndex];
+        const nodeDuration = nodeDurations[nodeIndex];
+        const localTime = (timestamp - nodeStart) * speed;
 
         const videoUrl = node.data?.videoUrl as string | undefined;
-        const audioUrl = node.data?.audioUrl as string | undefined;
         if (videoUrl) {
-          const video = await loadVideo(videoUrl);
-          video.muted = shouldRenderTimelineAudio;
-          video.playbackRate = speed;
-          let videoSource: MediaElementAudioSourceNode | undefined;
-          if (!shouldRenderTimelineAudio) {
-            videoSource = audioContext.createMediaElementSource(video);
-            videoSource.connect(audioDestination);
-            videoSource.connect(audioContext.destination);
-          }
-          let linkedAudio: HTMLAudioElement | undefined;
-          let linkedAudioSource: MediaElementAudioSourceNode | undefined;
-          const audioDuration = audioUrl ? await getAudioDuration(audioUrl) : 0;
-          if (audioUrl && !shouldRenderTimelineAudio) {
-            linkedAudio = new Audio(audioUrl);
-            linkedAudio.crossOrigin = 'anonymous';
-            linkedAudio.playbackRate = speed;
-            linkedAudioSource = audioContext.createMediaElementSource(linkedAudio);
-            linkedAudioSource.connect(audioDestination);
-            linkedAudioSource.connect(audioContext.destination);
-          }
-          await video.play();
-          if (linkedAudio) await linkedAudio.play();
-          const renderStart = performance.now();
-          const durationMs =
-            (Math.max(500, Math.max(validDuration(video.duration), audioDuration, defaultSeconds)) /
-              speed) *
-            1000;
-          while (performance.now() - renderStart < durationMs) {
-            const elapsedSecs = (performance.now() - renderStart) / 1000;
+          const video = videoCache.get(videoUrl);
+          if (video) {
+            await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
             await drawFrame(
               ctx,
               node,
@@ -2697,73 +2486,57 @@ export function VideoRenderModal({
                 width: video.videoWidth || resolution.width,
                 height: video.videoHeight || resolution.height,
               },
-              elapsedSecs,
-              durationMs / 1000,
+              localTime,
+              nodeDuration * speed,
             );
-            await wait(1000 / 30);
           }
-          video.pause();
-          linkedAudio?.pause();
-          videoSource?.disconnect();
-          linkedAudioSource?.disconnect();
-          continue;
-        }
-
-        let audio: HTMLAudioElement | undefined;
-        let audioSource: MediaElementAudioSourceNode | undefined;
-        let durationMs = Math.max(500, (defaultSeconds / speed) * 1000);
-
-        if (audioUrl && !shouldRenderTimelineAudio) {
-          audio = new Audio(audioUrl);
-          audio.crossOrigin = 'anonymous';
-          audio.playbackRate = speed;
-          audioSource = audioContext.createMediaElementSource(audio);
-          audioSource.connect(audioDestination);
-          audioSource.connect(audioContext.destination);
-          const duration = await getAudioDuration(audioUrl);
-          durationMs = Math.max(400, ((validDuration(duration) || defaultSeconds) / speed) * 1000);
-          await audio.play();
-        }
-
-        const renderStart = performance.now();
-        while (performance.now() - renderStart < durationMs) {
+        } else {
           await drawFrame(
             ctx,
             node,
             resolution.width,
             resolution.height,
             undefined,
-            (performance.now() - renderStart) / 1000,
-            durationMs / 1000,
+            localTime,
+            nodeDuration * speed,
           );
-          await wait(1000 / frameRate);
         }
 
-        if (audio) audio.pause();
-        if (audioSource) audioSource.disconnect();
-      }
+        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
+      };
 
-      stopTimelineAudio?.();
-      recorder.stop();
-      const blob = await finished;
-      audioContext.close();
+      // 动态导入 mediabunny 编码器
+      const { renderVideoToBuffer } = await import('./export/browserVideoEncoder');
 
-      if (shouldUseTauriExport) {
-        updateProgress(isZh ? '保存视频' : 'Saving video', 90, 100);
-        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+      const bytes = await renderVideoToBuffer({
+        canvas,
+        format: exportFormat,
+        frameRate,
+        totalFrames,
+        drawFrame: drawFrameAtTimestamp,
+        audioBuffer: audioBuffer || undefined,
+        onProgress: (current, total) => {
+          setProgressValue(Math.round((current / total) * 100));
+        },
+      });
+
+      // 保存/下载
+      if (isDesktopApp) {
         const result = await saveRenderedVideo({
           fileName: `galwriter-render-${Date.now()}`,
           format: exportFormat,
-          bytes,
+          bytes: Array.from(bytes),
           outputDir,
           videoBitrate: DEFAULT_VIDEO_BITRATE,
         });
         setSavedPath(result.path);
       } else {
+        const mimeType = exportFormat === 'webm' ? 'video/webm' : 'video/mp4';
+        const blob = new Blob([bytes], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `galwriter-render-${Date.now()}.webm`;
+        link.download = `galwriter-render-${Date.now()}.${exportFormat}`;
         document.body.appendChild(link);
         link.click();
         link.remove();

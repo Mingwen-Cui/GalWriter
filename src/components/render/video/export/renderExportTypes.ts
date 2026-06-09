@@ -1,4 +1,4 @@
-import type { ExportFormat, RenderedFramePayload } from '../shared/types';
+import type { ExportFormat } from '../shared/types';
 
 export type RenderOutputDirectoryResult = {
   path?: string | null;
@@ -6,23 +6,6 @@ export type RenderOutputDirectoryResult = {
 
 export type RenderSaveResult = {
   path: string;
-};
-
-export type FfmpegStatus = {
-  available: boolean;
-  path: string;
-  source: 'bundled' | 'app-directory' | 'system-path' | string;
-  version?: string | null;
-  message?: string | null;
-};
-
-export type SaveRenderedFramesInput = {
-  fileName: string;
-  format: ExportFormat;
-  frames: RenderedFramePayload[];
-  audioBytes: number[];
-  outputDir: string;
-  videoBitrate: string;
 };
 
 export type SaveRenderedVideoInput = {

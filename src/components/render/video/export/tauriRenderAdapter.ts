@@ -1,8 +1,6 @@
 import type {
-  FfmpegStatus,
   RenderOutputDirectoryResult,
   RenderSaveResult,
-  SaveRenderedFramesInput,
   SaveRenderedVideoInput,
   SaveRenderedWebZipInput,
 } from './renderExportTypes';
@@ -22,16 +20,6 @@ export const chooseRenderOutputDir = async (initialDir: string) => {
 export const getDefaultRenderDir = async () => {
   const invoke = await loadInvoke();
   return invoke<RenderSaveResult>('default_render_dir');
-};
-
-export const checkFfmpegAvailable = async () => {
-  const invoke = await loadInvoke();
-  return invoke<FfmpegStatus>('check_ffmpeg_available');
-};
-
-export const saveRenderedFrames = async (input: SaveRenderedFramesInput) => {
-  const invoke = await loadInvoke();
-  return invoke<RenderSaveResult>('save_rendered_frames', input);
 };
 
 export const saveRenderedVideo = async (input: SaveRenderedVideoInput) => {

@@ -30,16 +30,6 @@ struct RenderSaveResult {
 }
 
 #[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FfmpegStatus {
-  available: bool,
-  path: String,
-  source: String,
-  version: Option<String>,
-  message: Option<String>,
-}
-
-#[derive(serde::Serialize)]
 struct ProjectSaveResult {
   path: Option<String>,
 }
@@ -53,13 +43,6 @@ struct ProjectSaveDirResult {
 #[serde(rename_all = "camelCase")]
 struct RenderSessionResult {
   work_dir: String,
-}
-
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RenderedFrame {
-  bytes: Vec<u8>,
-  duration_secs: f64,
 }
 
 #[derive(serde::Deserialize)]
@@ -619,42 +602,6 @@ fn find_ffmpeg(app: &AppHandle) -> PathBuf {
 }
 
 #[tauri::command]
-fn check_ffmpeg_available(app: AppHandle) -> FfmpegStatus {
-  let (ffmpeg, source) = resolve_ffmpeg_path(&app);
-  let path = ffmpeg.to_string_lossy().to_string();
-  match Command::new(&ffmpeg).arg("-version").output() {
-    Ok(output) if output.status.success() => {
-      let stdout = String::from_utf8_lossy(&output.stdout);
-      let version = stdout.lines().next().map(|line| line.to_string());
-      FfmpegStatus {
-        available: true,
-        path,
-        source,
-        version,
-        message: None,
-      }
-    }
-    Ok(output) => {
-      let stderr = String::from_utf8_lossy(&output.stderr);
-      FfmpegStatus {
-        available: false,
-        path,
-        source,
-        version: None,
-        message: Some(format!("FFmpeg exists but failed to run: {stderr}")),
-      }
-    }
-    Err(err) => FfmpegStatus {
-      available: false,
-      path,
-      source,
-      version: None,
-      message: Some(format!("FFmpeg was not found or could not be started: {err}")),
-    },
-  }
-}
-
-#[tauri::command]
 fn default_render_dir() -> Result<RenderSaveResult, String> {
   let dir = downloads_dir();
   fs::create_dir_all(&dir).map_err(|err| format!("Failed to create Downloads directory: {err}"))?;
@@ -775,12 +722,12 @@ fn set_close_button_minimizes(
 
 #[tauri::command]
 fn save_rendered_video(
-  app: AppHandle,
+  _app: AppHandle,
   file_name: String,
   format: String,
   bytes: Vec<u8>,
   output_dir: Option<String>,
-  video_bitrate: Option<String>,
+  _video_bitrate: Option<String>,
 ) -> Result<RenderSaveResult, String> {
   let format = format.to_lowercase();
   if !is_supported_video_format(&format) {
@@ -791,68 +738,11 @@ fn save_rendered_video(
     .filter(|dir| !dir.trim().is_empty())
     .map(PathBuf::from)
     .unwrap_or_else(downloads_dir);
-  fs::create_dir_all(&output_dir).map_err(|err| format!("Failed to create Downloads directory: {err}"))?;
+  fs::create_dir_all(&output_dir).map_err(|err| format!("Failed to create output directory: {err}"))?;
 
   let stem = sanitize_file_name(&file_name);
-  let video_bitrate = validate_bitrate(video_bitrate.as_deref().unwrap_or(""))?;
-
-  if format == "webm" {
-    let output_path = unique_path(&output_dir, &stem, "webm");
-    fs::write(&output_path, bytes).map_err(|err| format!("Failed to save WebM file: {err}"))?;
-    return Ok(RenderSaveResult {
-      path: output_path.to_string_lossy().to_string(),
-    });
-  }
-
-  let temp_input = unique_path(&output_dir, &format!("{stem}-source"), "webm");
-  fs::write(&temp_input, bytes).map_err(|err| format!("Failed to write temporary WebM file: {err}"))?;
-
   let output_path = unique_path(&output_dir, &stem, &format);
-  let ffmpeg = find_ffmpeg(&app);
-
-  let mut command = Command::new(ffmpeg);
-  command
-    .arg("-y")
-    .arg("-i")
-    .arg(&temp_input)
-    .arg("-map")
-    .arg("0:v:0")
-    .arg("-map")
-    .arg("0:a?")
-    .arg("-r")
-    .arg("30")
-    .arg("-c:v")
-    .arg("libx264")
-    .arg("-preset")
-    .arg("veryfast")
-    .arg("-b:v")
-    .arg(&video_bitrate)
-    .arg("-pix_fmt")
-    .arg("yuv420p")
-    .arg("-c:a")
-    .arg("aac")
-    .arg("-b:a")
-    .arg("160k")
-    .arg("-shortest")
-    .arg("-max_muxing_queue_size")
-    .arg("1024");
-
-  apply_container_args(&mut command, &format);
-
-  let output = command
-    .arg(&output_path)
-    .output()
-    .map_err(|err| format!("Failed to start FFmpeg. The bundled ffmpeg.exe may be missing or blocked: {err}"))?;
-
-  if !output.status.success() {
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    return Err(format!(
-      "FFmpeg conversion failed. Source WebM kept at {}. Details: {stderr}",
-      temp_input.to_string_lossy()
-    ));
-  }
-
-  let _ = fs::remove_file(&temp_input);
+  fs::write(&output_path, bytes).map_err(|err| format!("Failed to save video file: {err}"))?;
 
   Ok(RenderSaveResult {
     path: output_path.to_string_lossy().to_string(),
@@ -1305,128 +1195,6 @@ fn finish_high_perf_render(
   })
 }
 
-#[tauri::command]
-fn save_rendered_frames(
-  app: AppHandle,
-  file_name: String,
-  format: String,
-  frames: Vec<RenderedFrame>,
-  audio_bytes: Option<Vec<u8>>,
-  output_dir: Option<String>,
-  video_bitrate: Option<String>,
-) -> Result<RenderSaveResult, String> {
-  let format = format.to_lowercase();
-  if !is_transcoded_video_format(&format) {
-    return Err("Frame rendering supports MP4, MOV, and MKV only.".to_string());
-  }
-
-  if frames.is_empty() {
-    return Err("No frames were rendered.".to_string());
-  }
-
-  let output_dir = output_dir
-    .filter(|dir| !dir.trim().is_empty())
-    .map(PathBuf::from)
-    .unwrap_or_else(downloads_dir);
-  fs::create_dir_all(&output_dir).map_err(|err| format!("Failed to create output directory: {err}"))?;
-
-  let stem = sanitize_file_name(&file_name);
-  let video_bitrate = validate_bitrate(video_bitrate.as_deref().unwrap_or(""))?;
-  let output_path = unique_path(&output_dir, &stem, &format);
-  let work_dir = unique_path(&output_dir, &format!("{stem}-frames"), "tmp");
-  fs::create_dir_all(&work_dir).map_err(|err| format!("Failed to create frame work directory: {err}"))?;
-
-  let mut concat = String::new();
-  for (index, frame) in frames.iter().enumerate() {
-    let frame_path = work_dir.join(format!("frame_{index:05}.png"));
-    fs::write(&frame_path, &frame.bytes).map_err(|err| format!("Failed to write frame {index}: {err}"))?;
-    let duration = frame.duration_secs.max(0.25);
-    concat.push_str(&format!("file '{}'\n", escape_concat_path(&frame_path)));
-    concat.push_str(&format!("duration {:.3}\n", duration));
-  }
-
-  if let Some(last_index) = frames.len().checked_sub(1) {
-    let last_path = work_dir.join(format!("frame_{last_index:05}.png"));
-    concat.push_str(&format!("file '{}'\n", escape_concat_path(&last_path)));
-  }
-
-  let concat_path = work_dir.join("frames.txt");
-  fs::write(&concat_path, concat).map_err(|err| format!("Failed to write frame list: {err}"))?;
-
-  let audio_path = match audio_bytes {
-    Some(bytes) if !bytes.is_empty() => {
-      let path = work_dir.join("audio.wav");
-      fs::write(&path, bytes).map_err(|err| format!("Failed to write audio track: {err}"))?;
-      Some(path)
-    }
-    _ => None,
-  };
-
-  let ffmpeg = find_ffmpeg(&app);
-  let mut command = Command::new(ffmpeg);
-  command
-    .arg("-y")
-    .arg("-f")
-    .arg("concat")
-    .arg("-safe")
-    .arg("0")
-    .arg("-i")
-    .arg(&concat_path);
-
-  if let Some(path) = &audio_path {
-    command
-      .arg("-i")
-      .arg(path);
-  } else {
-    command
-      .arg("-f")
-      .arg("lavfi")
-      .arg("-i")
-      .arg("anullsrc=channel_layout=stereo:sample_rate=48000");
-  }
-
-  command
-    .arg("-map")
-    .arg("0:v:0")
-    .arg("-map")
-    .arg("1:a:0")
-    .arg("-r")
-    .arg("30")
-    .arg("-c:v")
-    .arg("libx264")
-    .arg("-preset")
-    .arg("veryfast")
-    .arg("-b:v")
-    .arg(&video_bitrate)
-    .arg("-pix_fmt")
-    .arg("yuv420p")
-    .arg("-c:a")
-    .arg("aac")
-    .arg("-b:a")
-    .arg("128k")
-    .arg("-shortest");
-
-  apply_container_args(&mut command, &format);
-
-  let output = command
-    .arg(&output_path)
-    .output()
-    .map_err(|err| format!("Failed to start bundled FFmpeg: {err}"))?;
-
-  if !output.status.success() {
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    return Err(format!(
-      "FFmpeg frame rendering failed. Frames kept at {}. Details: {stderr}",
-      work_dir.to_string_lossy()
-    ));
-  }
-
-  let _ = fs::remove_dir_all(&work_dir);
-
-  Ok(RenderSaveResult {
-    path: output_path.to_string_lossy().to_string(),
-  })
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1437,7 +1205,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
       choose_render_output_dir,
-      check_ffmpeg_available,
+      // check_ffmpeg_available,
       choose_project_default_save_dir,
       save_project_zip,
       synthesize_system_speech,
@@ -1445,7 +1213,7 @@ pub fn run() {
       set_close_button_minimizes,
       save_rendered_video,
       save_rendered_web_zip,
-      save_rendered_frames,
+      // save_rendered_frames,
       create_render_session,
       write_render_frame,
       write_render_audio_chunk,

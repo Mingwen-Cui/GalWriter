@@ -1,7 +1,10 @@
 import type { SegmentRenderInfo } from '../shared/types';
 import { encodeWav, fetchArrayBuffer } from '../shared/mediaUtils';
 
-export const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: number) => {
+export const buildAudioBuffer = async (
+  segments: SegmentRenderInfo[],
+  speed: number,
+): Promise<AudioBuffer | undefined> => {
   const hasExplicitStart = segments.some((segment) => segment.startSecs !== undefined);
   const totalDuration = hasExplicitStart
     ? Math.max(
@@ -37,6 +40,11 @@ export const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: numb
   }
 
   if (!hasAudio) return undefined;
-  const rendered = await context.startRendering();
-  return encodeWav(rendered);
+  return context.startRendering();
+};
+
+export const buildAudioTrack = async (segments: SegmentRenderInfo[], speed: number) => {
+  const audioBuffer = await buildAudioBuffer(segments, speed);
+  if (!audioBuffer) return undefined;
+  return encodeWav(audioBuffer);
 };
