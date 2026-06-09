@@ -46,6 +46,13 @@ import { VideoPreviewPanel } from './panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from './panels/VideoTimelinePanel';
 import { drawRenderFrame } from './preview/frameRenderer';
 import {
+  initWebGPU,
+  destroyWebGPU,
+  isWebGPUSupported,
+  getWebGPUCanvas,
+} from './gpu/webgpuRenderer';
+import { drawGPUFrame, clearGPUTextCache } from './gpu/gpuFrameRenderer';
+import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
   DEFAULT_VIDEO_BITRATE,
@@ -155,6 +162,7 @@ type PersistedRenderWorkspaceState = {
   timelinePixelsPerSecond?: number;
   timelineDisplayDuration?: number;
   timelinePreviewTime?: number;
+  useGpuAcceleration?: boolean;
   savedAt?: number;
 };
 
@@ -364,6 +372,9 @@ export function VideoRenderModal({
     ...DEFAULT_RENDER_STYLE,
     ...persistedWorkspace?.renderStyle,
   });
+  const [useGpuAcceleration, setUseGpuAcceleration] = useState(() =>
+    Boolean(persistedWorkspace?.useGpuAcceleration),
+  );
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
   const [estimatedDuration, setEstimatedDuration] = useState(0);
@@ -1558,6 +1569,7 @@ export function VideoRenderModal({
       timelinePixelsPerSecond,
       timelineDisplayDuration,
       timelinePreviewTime,
+      useGpuAcceleration,
       savedAt: Date.now(),
     };
     try {
@@ -1590,6 +1602,7 @@ export function VideoRenderModal({
     timelineIds,
     timelineExcludedSourceIds,
     timelineFuture,
+    useGpuAcceleration,
     timelinePast,
     timelinePixelsPerSecond,
     timelinePreviewTime,
@@ -2400,15 +2413,36 @@ export function VideoRenderModal({
 
   const renderVideo = async () => {
     if (selectedNodes.length === 0 || status === 'rendering') return;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+
+    const canvas2d = canvasRef.current;
+    const ctx2d = canvas2d?.getContext('2d');
+    if (!canvas2d || !ctx2d) return;
 
     setStatus('rendering');
     setError('');
     setSavedPath('');
     setProgressValue(0);
     setProgress(isZh ? '准备渲染 0%' : 'Preparing render 0%');
+
+    // 尝试初始化 GPU（如果用户启用且设备支持）
+    let gpuCanvas: HTMLCanvasElement | null = null;
+    let gpuContext: Awaited<ReturnType<typeof initWebGPU>> | null = null;
+    const shouldTryGpu = useGpuAcceleration && isWebGPUSupported();
+
+    if (shouldTryGpu) {
+      try {
+        gpuContext = await initWebGPU(resolution.width, resolution.height);
+        if (gpuContext) {
+          gpuCanvas = gpuContext.canvas;
+          setProgress(isZh ? 'GPU 加速已启用' : 'GPU acceleration enabled');
+        }
+      } catch (gpuErr) {
+        console.warn('[GPU] 初始化失败，回退到 2D Canvas:', gpuErr);
+      }
+    }
+
+    const useGpu = gpuContext !== null && gpuCanvas !== null;
+    const canvas = useGpu ? gpuCanvas! : canvas2d;
 
     try {
       canvas.width = resolution.width;
@@ -2456,8 +2490,8 @@ export function VideoRenderModal({
         acc += d;
       }
 
-      // 逐帧绘制回调
-      const drawFrameAtTimestamp = async (_frameIndex: number, timestamp: number) => {
+      // 逐帧绘制回调（2D 路径）
+      const drawFrame2D = async (_frameIndex: number, timestamp: number) => {
         let nodeIndex = selectedNodes.length - 1;
         for (let i = 0; i < selectedNodes.length; i++) {
           if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
@@ -2477,7 +2511,7 @@ export function VideoRenderModal({
           if (video) {
             await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
             await drawFrame(
-              ctx,
+              ctx2d,
               node,
               resolution.width,
               resolution.height,
@@ -2492,7 +2526,7 @@ export function VideoRenderModal({
           }
         } else {
           await drawFrame(
-            ctx,
+            ctx2d,
             node,
             resolution.width,
             resolution.height,
@@ -2505,6 +2539,52 @@ export function VideoRenderModal({
         setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
       };
 
+      // 逐帧绘制回调（GPU 路径）
+      const drawFrameGPU = async (_frameIndex: number, timestamp: number) => {
+        if (!gpuContext) return;
+        let nodeIndex = selectedNodes.length - 1;
+        for (let i = 0; i < selectedNodes.length; i++) {
+          if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
+            nodeIndex = i;
+            break;
+          }
+        }
+
+        const node = selectedNodes[nodeIndex];
+        const nodeStart = nodeStartTimes[nodeIndex];
+        const nodeDuration = nodeDurations[nodeIndex];
+        const localTime = (timestamp - nodeStart) * speed;
+
+        const videoUrl = node.data?.videoUrl as string | undefined;
+        let media: { source: CanvasImageSource; width: number; height: number } | undefined;
+        if (videoUrl) {
+          const video = videoCache.get(videoUrl);
+          if (video) {
+            await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
+            media = {
+              source: video,
+              width: video.videoWidth || resolution.width,
+              height: video.videoHeight || resolution.height,
+            };
+          }
+        }
+
+        await drawGPUFrame({
+          gpu: gpuContext,
+          node,
+          width: resolution.width,
+          height: resolution.height,
+          renderStyle,
+          animationLeadSeconds,
+          isZh,
+          media,
+          elapsed: localTime,
+          duration: nodeDuration * speed,
+        });
+
+        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
+      };
+
       // 动态导入 mediabunny 编码器
       const { renderVideoToBuffer } = await import('./export/browserVideoEncoder');
 
@@ -2513,7 +2593,7 @@ export function VideoRenderModal({
         format: exportFormat,
         frameRate,
         totalFrames,
-        drawFrame: drawFrameAtTimestamp,
+        drawFrame: useGpu ? drawFrameGPU : drawFrame2D,
         audioBuffer: audioBuffer || undefined,
         onProgress: (current, total) => {
           setProgressValue(Math.round((current / total) * 100));
@@ -2550,6 +2630,11 @@ export function VideoRenderModal({
       console.error('Video render failed:', renderError);
       setStatus('error');
       setError(renderError?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
+    } finally {
+      if (useGpu) {
+        destroyWebGPU();
+        clearGPUTextCache();
+      }
     }
   };
 
@@ -3230,6 +3315,9 @@ export function VideoRenderModal({
                 progressValue={progressValue}
                 savedPath={savedPath}
                 isDesktopApp={isDesktopApp}
+                useGpuAcceleration={useGpuAcceleration}
+                setUseGpuAcceleration={setUseGpuAcceleration}
+                isWebGPUSupported={isWebGPUSupported()}
               />
             </main>
 

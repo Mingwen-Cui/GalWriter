@@ -1,4 +1,4 @@
-import { FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video } from 'lucide-react';
+import { Cpu, FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video, Zap } from 'lucide-react';
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import { ENCODER_OPTIONS, EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS, TEXT_ANIMATION_OPTIONS } from '../shared/constants';
@@ -50,6 +50,9 @@ type VideoExportSettingsPanelProps = {
   progressValue: number;
   savedPath: string;
   isDesktopApp: boolean;
+  useGpuAcceleration: boolean;
+  setUseGpuAcceleration: (value: boolean) => void;
+  isWebGPUSupported: boolean;
 };
 
 export function VideoExportSettingsPanel({
@@ -94,6 +97,9 @@ export function VideoExportSettingsPanel({
   progressValue,
   savedPath,
   isDesktopApp,
+  useGpuAcceleration,
+  setUseGpuAcceleration,
+  isWebGPUSupported,
 }: VideoExportSettingsPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
 
@@ -400,6 +406,58 @@ export function VideoExportSettingsPanel({
                   />
                 </label>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                {t('渲染加速', 'レンダリング加速', 'Render Acceleration')}
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => setUseGpuAcceleration(false)}
+                  disabled={!isWebGPUSupported}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${!useGpuAcceleration
+                      ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                      : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title={t('使用 2D Canvas 渲染（最稳定）', '2D Canvas レンダリング（最も安定）', '2D Canvas rendering (most stable)')}
+                >
+                  <Cpu className="h-3.5 w-3.5" />
+                  2D Canvas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => isWebGPUSupported && setUseGpuAcceleration(true)}
+                  disabled={!isWebGPUSupported}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${useGpuAcceleration
+                      ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                      : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title={
+                    isWebGPUSupported
+                      ? t('使用 WebGPU 加速渲染（实验性）', 'WebGPU 加速レンダリング（実験的）', 'WebGPU accelerated rendering (experimental)')
+                      : t('当前浏览器不支持 WebGPU', 'このブラウザは WebGPU をサポートしていません', 'WebGPU is not supported in this browser')
+                  }
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  GPU
+                  {!isWebGPUSupported && (
+                    <span className="ml-0.5 text-[9px] opacity-70">
+                      {t('(不支持)', '(未対応)', '(Unsupported)')}
+                    </span>
+                  )}
+                </button>
+              </div>
+              {isWebGPUSupported && (
+                <p className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                  {t(
+                    'GPU 加速为实验性功能。如遇问题请切回 2D Canvas。',
+                    'GPU 加速は実験的機能です。問題がある場合は 2D Canvas に切り替えてください。',
+                    'GPU acceleration is experimental. Switch back to 2D Canvas if you encounter issues.',
+                  )}
+                </p>
+              )}
             </div>
 
             <label className="space-y-1.5">
