@@ -18,15 +18,20 @@ export async function renderVideoToBuffer(
   const {
     Output,
     Mp4OutputFormat,
-    WebMOutputFormat,
+    MovOutputFormat,
+    MkvOutputFormat,
     BufferTarget,
     CanvasSource,
     AudioBufferSource,
     QUALITY_HIGH,
   } = await import('mediabunny');
 
-  const isWebmLike = options.format === 'webm' || options.format === 'mkv';
-  const outputFormat = isWebmLike ? new WebMOutputFormat() : new Mp4OutputFormat();
+  const outputFormat =
+    options.format === 'mov'
+      ? new MovOutputFormat()
+      : options.format === 'mkv'
+        ? new MkvOutputFormat()
+        : new Mp4OutputFormat();
 
   const target = new BufferTarget();
   const output = new Output({ format: outputFormat, target });

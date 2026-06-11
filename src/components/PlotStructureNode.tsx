@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import type { Language } from '../lib/i18n';
 import {
   buildRegionStoryItems,
   formatRegionStoryForPrompt,
@@ -31,6 +32,8 @@ export type PlotStructureGenerateParams = {
 };
 
 export function PlotStructureNode({ id, data, selected }: NodeProps) {
+  const lang = (data.language as Language) || 'zh';
+  const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [cardCount, setCardCount] = useState(Number(data.cardCount) || 3);
   const [detailLevel, setDetailLevel] = useState<DetailLevel>(
     (data.detailLevel as DetailLevel) || 'standard',
@@ -144,7 +147,13 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
 
   const handleGenerate = async () => {
     if (!detectedRegion) {
-      alert('请先将此卡片放入背景区域或动态包裹内部');
+      alert(
+        tr(
+          '请先将此卡片放入背景区域或动态包裹内部',
+          'このカードを背景エリアまたは動的グループ内に配置してください',
+          'Place this card inside a background area or dynamic group first',
+        ),
+      );
       return;
     }
 
@@ -152,17 +161,29 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
       regionStoryNodes.length > 0 ? regionStoryNodes : availableStoryNodes;
 
     if (storyNodesForGenerate.length === 0) {
-      alert('区域内未找到可识别的剧情卡片，也没有可复用的上一次识别内容');
+      alert(
+        tr(
+          '区域内未找到可识别的剧情卡片，也没有可复用的上一次识别内容',
+          'エリア内に認識可能なストーリーカードがなく、再利用できる前回の内容もありません',
+          'No recognizable story cards or reusable previous content were found in this area',
+        ),
+      );
       return;
     }
 
     if (!direction.trim()) {
-      alert('请填写后续发展走向');
+      alert(tr('请填写后续发展走向', '今後の展開を入力してください', 'Describe the desired story direction'));
       return;
     }
 
     if (typeof data.onPlotStructureGenerate !== 'function') {
-      alert('生成功能未就绪，请刷新页面后重试');
+      alert(
+        tr(
+          '生成功能未就绪，请刷新页面后重试',
+          '生成機能の準備ができていません。ページを再読み込みしてください',
+          'Generation is not ready. Refresh the page and try again',
+        ),
+      );
       return;
     }
 
@@ -208,9 +229,9 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
   };
 
   const detailOptions: { value: DetailLevel; label: string }[] = [
-    { value: 'brief', label: '简略' },
-    { value: 'standard', label: '标准' },
-    { value: 'detailed', label: '详细' },
+    { value: 'brief', label: tr('简略', '簡潔', 'Brief') },
+    { value: 'standard', label: tr('标准', '標準', 'Standard') },
+    { value: 'detailed', label: tr('详细', '詳細', 'Detailed') },
   ];
 
   return (
@@ -223,7 +244,11 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-yellow-500" />
           <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
-            剧情结构设计
+            {lang === 'zh'
+              ? '剧情结构设计'
+              : lang === 'ja'
+                ? 'ストーリー構成設計'
+                : 'Story Structure Design'}
           </span>
         </div>
 
@@ -255,26 +280,42 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
               <Layers className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <div className="flex flex-col">
                 <span className="font-black">
-                  已检测到{detectedRegion.type === 'background' ? '背景区域' : '动态包裹'}：
+                  {tr('已检测到', '検出済み：', 'Detected ')}
+                  {detectedRegion.type === 'background'
+                    ? tr('背景区域', '背景エリア', 'background area')
+                    : tr('动态包裹', '動的グループ', 'dynamic group')}
+                  {lang === 'zh' ? '：' : ': '}
                   {detectedRegion.title}
                 </span>
 
                 <span className="opacity-80">
                   {isUsingCachedStory
-                    ? `当前区域暂无卡片，将复用上一次识别的 ${availableStoryNodes.length} 张内容`
-                    : `已识别 ${detectedCount} 张卡片及其顺序`}
+                    ? tr(
+                        `当前区域暂无卡片，将复用上一次识别的 ${availableStoryNodes.length} 张内容`,
+                        `現在のエリアにカードがないため、前回認識した ${availableStoryNodes.length} 件を再利用します`,
+                        `No cards are currently in this area; reusing ${availableStoryNodes.length} previously detected item${availableStoryNodes.length === 1 ? '' : 's'}`,
+                      )
+                    : tr(
+                        `已识别 ${detectedCount} 张卡片及其顺序`,
+                        `${detectedCount} 枚のカードと順序を認識しました`,
+                        `Detected ${detectedCount} card${detectedCount === 1 ? '' : 's'} and their order`,
+                      )}
                 </span>
               </div>
             </div>
           ) : (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-[10px] text-amber-700">
-              请将此卡片拖入背景区域或动态包裹内部，以识别区域内剧情。
+              {tr(
+                '请将此卡片拖入背景区域或动态包裹内部，以识别区域内剧情。',
+                'エリア内のストーリーを認識するには、このカードを背景エリアまたは動的グループ内へ移動してください。',
+                'Move this card into a background area or dynamic group to detect its story content.',
+              )}
             </div>
           )}
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-              新增卡片数量
+              {tr('新增卡片数量', '追加カード数', 'New cards')}
             </label>
             <input
               type="number"
@@ -288,7 +329,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
 
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-              剧情详细程度
+              {tr('剧情详细程度', 'ストーリーの詳細度', 'Detail level')}
             </label>
 
             <div className="grid grid-cols-3 gap-1 bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--card-border)]">
@@ -310,12 +351,16 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-              后续发展走向
+              {tr('后续发展走向', '今後の展開', 'Story direction')}
             </label>
             <textarea
               value={direction}
               onChange={(event) => setDirection(event.target.value)}
-              placeholder="描述希望后续剧情如何发展，例如：主角发现真相后与反派对峙..."
+              placeholder={tr(
+                '描述希望后续剧情如何发展，例如：主角发现真相后与反派对峙...',
+                '今後の展開を入力してください。例：主人公が真相を知り、敵と対峙する...',
+                'Describe the desired continuation, e.g. the protagonist discovers the truth and confronts the villain...',
+              )}
               rows={3}
               className="w-full bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-yellow-500 transition-all resize-none"
             />
@@ -324,7 +369,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                已识别内容预览
+                {tr('已识别内容预览', '認識した内容のプレビュー', 'Detected content preview')}
               </span>
 
               <button
@@ -332,7 +377,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
                 className="text-[10px] font-bold text-yellow-600 hover:text-yellow-700 flex items-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" />
-                刷新
+                {tr('刷新', '更新', 'Refresh')}
               </button>
             </div>
 
@@ -350,7 +395,9 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
                   ),
                 )
               ) : (
-                <span className="text-[var(--text-muted)]">暂无内容</span>
+                <span className="text-[var(--text-muted)]">
+                  {tr('暂无内容', '内容がありません', 'No content')}
+                </span>
               )}
             </div>
           </div>
@@ -363,12 +410,12 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
             {isGenerating ? (
               <>
                 <Loader2 className="w-3 h-3 animate-spin" />
-                生成中...
+                {tr('生成中...', '生成中...', 'Generating...')}
               </>
             ) : (
               <>
                 <Play className="w-3 h-3 fill-current" />
-                一键生成后续故事
+                {tr('一键生成后续故事', '続きを一括生成', 'Generate continuation')}
               </>
             )}
           </button>

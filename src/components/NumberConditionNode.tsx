@@ -9,9 +9,12 @@ import {
 import { ArrowUpDown, Calculator, ChevronDown, ChevronRight, Plus, Trash2, X } from 'lucide-react';
 import React, { memo, useEffect, useState } from 'react';
 
+import type { Language } from '../lib/i18n';
 import { NumberInput } from './NumberInput';
 
 export function NumberConditionNode({ id, data, selected }: NodeProps) {
+  const lang = (data.language as Language) || 'zh';
+  const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [sum, setSum] = useState(0);
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
   const isMinimized = !!data.isMinimized;
@@ -148,20 +151,26 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
         <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <Calculator className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold text-[var(--text-primary)]">数值判断</span>
+            <span className="text-xs font-bold text-[var(--text-primary)]">
+              {lang === 'zh' ? '数值判断' : lang === 'ja' ? '数値判定' : 'Number Condition'}
+            </span>
           </div>
           <div className="flex gap-1">
             <button
               onClick={() => updateNodeData({ isReversed: !isReversed })}
               className={`px-1.5 py-1 rounded transition-colors flex items-center justify-center ${isReversed ? 'text-amber-400 bg-amber-500/20 hover:bg-amber-500/30' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)]'}`}
-              title="反转输出节点位置"
+              title={tr('反转输出节点位置', '出力位置を反転', 'Reverse output positions')}
             >
               <ArrowUpDown className="w-3 h-3" />
             </button>
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
-              title={isMinimized ? '展开' : '最小化'}
+              title={
+                isMinimized
+                  ? tr('展开', '展開', 'Expand')
+                  : tr('最小化', '最小化', 'Minimize')
+              }
             >
               {isMinimized ? (
                 <ChevronRight className="w-3 h-3" />
@@ -172,7 +181,7 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
             <button
               onClick={() => (data.onDelete as Function)(id)}
               className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
-              title="删除卡片"
+              title={tr('删除卡片', 'カードを削除', 'Delete card')}
             >
               <Trash2 className="w-3 h-3" />
             </button>
@@ -182,13 +191,15 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
         {!isMinimized && (
           <div className="p-4 flex flex-col gap-4 text-[var(--text-secondary)]">
             <div className="flex justify-between items-center bg-[var(--app-bg)] p-2 rounded-lg border border-[var(--card-border)]">
-              <span className="text-xs font-medium text-[var(--text-muted)]">前置节点累计值</span>
+              <span className="text-xs font-medium text-[var(--text-muted)]">
+                {tr('前置节点累计值', '前段ノードの合計値', 'Upstream total')}
+              </span>
               <span className="text-sm font-bold text-amber-500">{sum}</span>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium text-[var(--text-muted)]">
-                判断阈值 (设定数字)
+                {tr('判断阈值（设定数字）', '判定しきい値', 'Condition threshold')}
               </label>
               <NumberInput
                 value={threshold}
@@ -204,14 +215,16 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
                     className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${greaterStyles.bg} ${greaterStyles.border}`}
                   >
                     <span className={`text-xs font-bold ${greaterStyles.text}`}>
-                      累计 &gt; {threshold} (大于)
+                      {tr('累计', '合計', 'Total')} &gt; {threshold}{' '}
+                      {tr('（大于）', '（より大きい）', '(greater)')}
                     </span>
                   </div>
                   <div
                     className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${lessEqualStyles.bg} ${lessEqualStyles.border}`}
                   >
                     <span className={`text-xs font-bold ${lessEqualStyles.text}`}>
-                      累计 ≤ {threshold} (小于等于)
+                      {tr('累计', '合計', 'Total')} ≤ {threshold}{' '}
+                      {tr('（小于等于）', '（以下）', '(less or equal)')}
                     </span>
                   </div>
                 </>
@@ -221,14 +234,16 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
                     className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${lessEqualStyles.bg} ${lessEqualStyles.border}`}
                   >
                     <span className={`text-xs font-bold ${lessEqualStyles.text}`}>
-                      累计 ≤ {threshold} (小于等于)
+                      {tr('累计', '合計', 'Total')} ≤ {threshold}{' '}
+                      {tr('（小于等于）', '（以下）', '(less or equal)')}
                     </span>
                   </div>
                   <div
                     className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${greaterStyles.bg} ${greaterStyles.border}`}
                   >
                     <span className={`text-xs font-bold ${greaterStyles.text}`}>
-                      累计 &gt; {threshold} (大于)
+                      {tr('累计', '合計', 'Total')} &gt; {threshold}{' '}
+                      {tr('（大于）', '（より大きい）', '(greater)')}
                     </span>
                   </div>
                 </>
@@ -247,7 +262,7 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
                       <span
                         className={`text-[10px] font-bold ${isInRange(range) ? 'text-amber-400' : 'text-[var(--text-muted)]'}`}
                       >
-                        范围限制 {index + 1}
+                        {tr('范围限制', '範囲条件', 'Range')} {index + 1}
                       </span>
                       <button
                         onClick={() => removeRange(range.id)}
@@ -281,7 +296,7 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
               className="w-full py-1.5 border-2 border-dashed border-[var(--card-border)] hover:border-amber-500 text-[var(--text-muted)] hover:text-amber-500 rounded-lg text-[10px] font-bold transition-colors flex items-center justify-center gap-1"
             >
               <Plus className="w-3 h-3" />
-              添加范围输出
+              {tr('添加范围输出', '範囲出力を追加', 'Add range output')}
             </button>
           </div>
         )}

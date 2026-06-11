@@ -1,6 +1,3 @@
-import type { ExportFormat } from './types';
-import { EXPORT_FORMAT_OPTIONS } from './constants';
-
 export const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -12,13 +9,6 @@ export const isTauriRuntime = () => {
     __TAURI_INTERNALS__?: unknown;
   };
   return !!runtimeWindow.__TAURI__ || !!runtimeWindow.__TAURI_INTERNALS__;
-};
-
-export const getSupportedMimeType = (format: ExportFormat) => {
-  const option =
-    EXPORT_FORMAT_OPTIONS.find((item) => item.value === format) || EXPORT_FORMAT_OPTIONS[0];
-  if (!option.directRecording) return '';
-  return option.mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || '';
 };
 
 export const imageLoadCache = new Map<string, Promise<HTMLImageElement>>();

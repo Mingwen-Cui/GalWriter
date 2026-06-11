@@ -438,7 +438,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-blue-800" />
               <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
-                {lang === 'zh' ? '场景设定' : 'Scene Setting'}
+                {lang === 'zh' ? '场景设定' : lang === 'ja' ? 'シーン設定' : 'Scene Setting'}
               </span>
             </div>
             <div className="flex gap-1 items-center">
@@ -526,10 +526,14 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                     {isGlobal
                       ? lang === 'zh'
                         ? '全局设定生效中'
-                        : 'Global setting active'
+                        : lang === 'ja'
+                          ? 'グローバル設定が有効'
+                          : 'Global setting active'
                       : lang === 'zh'
                         ? '需连线生效'
-                        : 'Connect to activate'}
+                        : lang === 'ja'
+                          ? '接続すると有効'
+                          : 'Connect to activate'}
                   </div>
                 </div>
                 <button

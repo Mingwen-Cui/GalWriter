@@ -21,6 +21,7 @@ import {
 import React, { memo, useEffect, useState } from 'react';
 
 import type { AIFlowNode, AINodeData } from '../domain/project';
+import type { Language } from '../lib/i18n';
 
 /**
  * AI 情节分析卡片组件
@@ -28,6 +29,7 @@ import type { AIFlowNode, AINodeData } from '../domain/project';
  * 同时支持鼠标拉拽调整宽高
  */
 export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
+  const lang = (data.language as Language) || 'zh';
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
@@ -40,7 +42,15 @@ export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
   const setIsMinimized = (minimized: boolean) => {
     data.onUpdate?.(id, { isMinimized: minimized });
   };
-  const title = data.title ?? 'AI 剧情分析';
+  const defaultTitles = ['AI 剧情分析', 'AI Story Analysis', 'AI ストーリー分析'];
+  const title =
+    !data.title || defaultTitles.includes(data.title)
+      ? lang === 'zh'
+        ? defaultTitles[0]
+        : lang === 'ja'
+          ? defaultTitles[2]
+          : defaultTitles[1]
+      : data.title;
   const result = data.result ?? '';
 
   const storeApi = useStoreApi();
@@ -116,25 +126,25 @@ export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
   const ANALYSIS_MODES = [
     {
       id: 'summary',
-      label: '汇总分析',
+      label: lang === 'zh' ? '汇总分析' : lang === 'ja' ? '要約分析' : 'Summary',
       icon: <Sparkles className="w-3 h-3" />,
       color: 'bg-indigo-500',
     },
     {
       id: 'structure',
-      label: '剧情结构',
+      label: lang === 'zh' ? '剧情结构' : lang === 'ja' ? 'ストーリー構成' : 'Structure',
       icon: <ChevronRight className="w-3 h-3" />,
       color: 'bg-emerald-500',
     },
     {
       id: 'suggestions',
-      label: '构思建议',
+      label: lang === 'zh' ? '构思建议' : lang === 'ja' ? '構想の提案' : 'Ideas',
       icon: <Lightbulb className="w-3 h-3" />,
       color: 'bg-amber-500',
     },
     {
       id: 'direction',
-      label: '写作方向',
+      label: lang === 'zh' ? '写作方向' : lang === 'ja' ? '執筆方針' : 'Direction',
       icon: <MoveRight className="w-3 h-3" />,
       color: 'bg-rose-500',
     },

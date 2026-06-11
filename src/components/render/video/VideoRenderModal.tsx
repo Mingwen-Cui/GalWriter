@@ -188,7 +188,7 @@ const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
   value === 'video' || value === 'web';
 
 const isExportFormat = (value: unknown): value is ExportFormat =>
-  value === 'webm' || value === 'mp4' || value === 'mov' || value === 'mkv';
+  value === 'mp4' || value === 'mov' || value === 'mkv';
 
 function VideoNoticeModal({
   notice,
@@ -636,9 +636,8 @@ export function VideoRenderModal({
   const activeAudioSegments = useMemo(
     () =>
       timelineMetrics.segments
-        .filter((segment) => selectedIds.has(segment.node.id))
         .filter((segment) => segment.node.data?.audioUrl || segment.node.data?.videoUrl),
-    [selectedIds, timelineMetrics.segments],
+    [timelineMetrics.segments],
   );
   const getSegmentAudioSources = (node: FlowNode) =>
     [
@@ -2461,7 +2460,6 @@ export function VideoRenderModal({
 
       // 准备时间线音频
       const audioSegments: SegmentRenderInfo[] = activeAudioSegments
-        .filter((segment) => selectedIds.has(segment.node.id))
         .flatMap((segment) =>
           getSegmentAudioSources(segment.node).map((source) => ({
             node: segment.node,
@@ -2471,7 +2469,7 @@ export function VideoRenderModal({
           })),
         );
 
-      const audioBuffer = await buildAudioBuffer(audioSegments, speed);
+      const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
 
       // 预加载视频资源
       const videoCache = new Map<string, HTMLVideoElement>();
@@ -2611,7 +2609,12 @@ export function VideoRenderModal({
         });
         setSavedPath(result.path);
       } else {
-        const mimeType = exportFormat === 'webm' ? 'video/webm' : 'video/mp4';
+        const mimeType =
+          exportFormat === 'mov'
+            ? 'video/quicktime'
+            : exportFormat === 'mkv'
+              ? 'video/x-matroska'
+              : 'video/mp4';
         const blob = new Blob([bytes], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -3314,7 +3317,6 @@ export function VideoRenderModal({
                 error={error}
                 progressValue={progressValue}
                 savedPath={savedPath}
-                isDesktopApp={isDesktopApp}
                 useGpuAcceleration={useGpuAcceleration}
                 setUseGpuAcceleration={setUseGpuAcceleration}
                 isWebGPUSupported={isWebGPUSupported()}

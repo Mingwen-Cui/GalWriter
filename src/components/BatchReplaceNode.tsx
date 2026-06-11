@@ -488,6 +488,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
   const storeApi = useStoreApi();
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
+  const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
 
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
   const isMinimized = !!data.isMinimized;
@@ -620,14 +621,20 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
 
   const handleExecute = () => {
     if (!findText) {
-      alert(lang === 'zh' ? '请输入查找内容' : 'Please enter text to find');
+      alert(tr('请输入查找内容', '検索する文字列を入力してください', 'Please enter text to find'));
       return;
     }
 
     const targetNodes = getTargetNodes();
 
     if (targetNodes.length === 0) {
-      alert(lang === 'zh' ? '范围内未找到可替换的剧情卡片' : 'No story cards found in scope');
+      alert(
+        tr(
+          '范围内未找到可替换的剧情卡片',
+          '範囲内に置換可能なストーリーカードがありません',
+          'No story cards found in scope',
+        ),
+      );
       return;
     }
 
@@ -736,7 +743,11 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
         <div className="flex items-center gap-2">
           <Replace className="w-4 h-4 text-teal-500" />
           <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
-            批量替换工具
+            {lang === 'zh'
+              ? '批量替换工具'
+              : lang === 'ja'
+                ? '一括置換ツール'
+                : 'Batch Replace Tool'}
           </span>
         </div>
 
@@ -768,11 +779,19 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
               <Layers className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <div className="flex flex-col">
                 <span className="font-black">
-                  已检测到{detectedRegion.type === 'background' ? '背景区域' : '动态包裹'}：
+                  {tr('已检测到', '検出済み：', 'Detected ')}
+                  {detectedRegion.type === 'background'
+                    ? tr('背景区域', '背景エリア', 'background area')
+                    : tr('动态包裹', '動的グループ', 'dynamic group')}
+                  {lang === 'zh' ? '：' : ': '}
                   {detectedRegion.title}
                 </span>
                 <span className="opacity-80">
-                  选择“区域内”时，只会作用于该区域内部的剧情卡片；范围按钮不会锁定。
+                  {tr(
+                    '选择“区域内”时，只会作用于该区域内部的剧情卡片；范围按钮不会锁定。',
+                    '「エリア内」を選ぶと、このエリア内のストーリーカードだけが対象になります。範囲ボタンは固定されません。',
+                    'Area scope affects only story cards inside this region; the scope buttons remain editable.',
+                  )}
                 </span>
               </div>
             </div>
@@ -782,14 +801,20 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
           <div className="relative group/result flex justify-between items-center bg-[var(--app-bg)] p-2.5 rounded-lg border border-[var(--card-border)] shadow-inner transition-all overflow-hidden">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                最新操作结果
+                {tr('最新操作结果', '最新の操作結果', 'Latest result')}
               </span>
               <span
                 className={`text-xs font-black ${
                   lastResult ? 'text-teal-600' : 'text-[var(--text-muted)]'
                 }`}
               >
-                {lastResult ? `已替换 ${lastResult.count} 处` : '等待任务...'}
+                {lastResult
+                  ? tr(
+                      `已替换 ${lastResult.count} 处`,
+                      `${lastResult.count} 件を置換しました`,
+                      `Replaced ${lastResult.count} occurrence${lastResult.count === 1 ? '' : 's'}`,
+                    )
+                  : tr('等待任务...', '待機中...', 'Waiting...')}
               </span>
             </div>
 
@@ -799,7 +824,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 className="absolute inset-y-0 right-0 px-3 bg-teal-600 text-white flex items-center gap-1.5 translate-x-full group-hover/result:translate-x-0 transition-transform duration-300 shadow-[-4px_0_10px_rgba(0,0,0,0.1)]"
               >
                 <Undo2 className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold">撤销</span>
+                <span className="text-[10px] font-bold">{tr('撤销', '元に戻す', 'Undo')}</span>
               </button>
             )}
           </div>
@@ -810,7 +835,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex items-center gap-1.5 uppercase tracking-wider">
                 <Search className="w-3 h-3 text-teal-500" />
-                查找内容
+                {tr('查找内容', '検索文字列', 'Find')}
               </label>
 
               <div className="flex gap-2">
@@ -819,7 +844,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                     type="text"
                     value={findText}
                     onChange={(event) => setFindText(event.target.value)}
-                    placeholder="查找..."
+                    placeholder={tr('查找...', '検索...', 'Find...')}
                     className="w-full bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-teal-500 transition-all pr-8"
                   />
 
@@ -837,7 +862,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 <button
                   onClick={handleSwap}
                   className="w-[36px] h-[36px] shrink-0 bg-[var(--card-bg)] border-2 border-[var(--card-border)] text-teal-500 rounded-lg shadow-sm hover:border-teal-500 hover:text-teal-600 transition-all flex items-center justify-center active:bg-teal-50"
-                  title="交换内容"
+                  title={tr('交换内容', '検索と置換を入れ替える', 'Swap find and replace')}
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 transition-transform duration-500 ${
@@ -852,7 +877,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex items-center gap-1.5 uppercase tracking-wider">
                 <Type className="w-3 h-3 text-teal-500" />
-                替换为
+                {tr('替换为', '置換後', 'Replace with')}
               </label>
 
               <div className="relative group/input">
@@ -860,7 +885,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                   type="text"
                   value={replaceText}
                   onChange={(event) => setReplaceText(event.target.value)}
-                  placeholder="替换为..."
+                  placeholder={tr('替换为...', '置換後...', 'Replace with...')}
                   className="w-full bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-teal-500 transition-all pr-8"
                 />
 
@@ -888,7 +913,9 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
               }`}
             >
               <Highlighter className="w-3.5 h-3.5" />
-              {isHighlighting ? '取消标红' : '标出文本'}
+              {isHighlighting
+                ? tr('取消标红', '強調を解除', 'Clear highlight')
+                : tr('标出文本', '文字列を強調', 'Highlight matches')}
             </button>
 
             <button
@@ -896,14 +923,14 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
               className="flex-[1.5] py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-black text-[10px] flex items-center justify-center gap-1.5 shadow-md shadow-teal-600/20 active:scale-95 transition-all"
             >
               <Play className="w-3 h-3 fill-current" />
-              执行替换
+              {tr('执行替换', '置換を実行', 'Replace')}
             </button>
           </div>
 
           {/* Scope Controls */}
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest px-1">
-              范围控制
+              {tr('范围控制', '対象範囲', 'Scope')}
             </label>
 
             <div className="grid grid-cols-3 gap-1 bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--card-border)]">
@@ -917,7 +944,11 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  {nextScope === 'group' ? '区域内' : nextScope === 'selected' ? '选中' : '全局'}
+                  {nextScope === 'group'
+                    ? tr('区域内', 'エリア内', 'Area')
+                    : nextScope === 'selected'
+                      ? tr('选中', '選択中', 'Selected')
+                      : tr('全局', '全体', 'All')}
                 </button>
               ))}
             </div>
@@ -930,7 +961,9 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
           <div className="flex items-center gap-1.5 min-w-0">
             <Replace className="w-3 h-3 text-teal-500 shrink-0" />
             <span className="text-[10px] text-teal-600 font-bold opacity-80 truncate">
-              {findText ? `查找: ${findText}` : '准备就绪'}
+              {findText
+                ? `${tr('查找', '検索', 'Find')}: ${findText}`
+                : tr('准备就绪', '準備完了', 'Ready')}
             </span>
           </div>
 

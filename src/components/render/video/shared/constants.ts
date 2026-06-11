@@ -41,31 +41,17 @@ export const TEXT_ANIMATION_OPTIONS: { value: TextAnimation; zh: string; ja: str
 export const EXPORT_FORMAT_OPTIONS: {
   label: string;
   value: ExportFormat;
-  directRecording: boolean;
-  mimeCandidates: string[];
 }[] = [
-  {
-    label: 'WebM',
-    value: 'webm',
-    directRecording: true,
-    mimeCandidates: ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'],
-  },
   {
     label: 'MP4',
     value: 'mp4',
-    directRecording: false,
-    mimeCandidates: [],
   },
   {
     label: 'MOV',
     value: 'mov',
-    directRecording: false,
-    mimeCandidates: [],
   },
   {
     label: 'MKV',
     value: 'mkv',
-    directRecording: false,
-    mimeCandidates: [],
   },
 ];

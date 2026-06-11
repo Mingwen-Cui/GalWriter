@@ -3,8 +3,11 @@ import { ChevronDown, ChevronRight, Copy, FileText, RefreshCw, Trash2 } from 'lu
 import React, { memo, useEffect, useState } from 'react';
 
 import { formatCharacterNodeText, formatSceneNodeText } from '../lib/export';
+import type { Language } from '../lib/i18n';
 
 export function SummaryNode({ id, data, selected }: NodeProps) {
+  const lang = (data.language as Language) || 'zh';
+  const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [content, setContent] = useState('');
   const [copying, setCopying] = useState(false);
   const [useNumbers, setUseNumbers] = useState(true);
@@ -129,7 +132,9 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
       if (useNumbers) headerParts.push(`${idx + 1}.`);
 
       if (n!.type === 'characterNode') {
-        const charName = (n!.data?.characterName as string) || '未命名角色';
+        const charName =
+          (n!.data?.characterName as string) ||
+          tr('未命名角色', '名前未設定のキャラクター', 'Unnamed Character');
         if (includeTitles) headerParts.push(charName);
         const header = headerParts.length > 0 ? `### ${headerParts.join(' ')}\n` : '';
         const body = formatCharacterNodeText(n!.data as Record<string, unknown>);
@@ -137,7 +142,8 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
       }
 
       if (n!.type === 'sceneNode') {
-        const sceneName = (n!.data?.sceneName as string) || '未命名场景';
+        const sceneName =
+          (n!.data?.sceneName as string) || tr('未命名场景', '名前未設定のシーン', 'Unnamed Scene');
         if (includeTitles) headerParts.push(sceneName);
         const header = headerParts.length > 0 ? `### ${headerParts.join(' ')}\n` : '';
         const body = formatSceneNodeText(n!.data as Record<string, unknown>);
@@ -150,7 +156,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = typeof text === 'string' ? text : '';
       const formattedText = (tempDiv.textContent || '').trim();
-      if (includeTitles) headerParts.push(title || `卡片`);
+      if (includeTitles) headerParts.push(title || tr('卡片', 'カード', 'Card'));
 
       const header = headerParts.length > 0 ? `### ${headerParts.join(' ')}\n` : '';
 
@@ -200,7 +206,11 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     if (!content)
       return (
         <div className="text-[var(--text-muted)] text-sm text-center py-8 select-none">
-          点击上方转化按钮，获取连接卡片的文字内容。
+          {tr(
+            '点击上方转化按钮，获取连接卡片的文字内容。',
+            '上の変換ボタンを押すと、接続されたカードのテキストを取得できます。',
+            'Click Convert above to collect text from connected cards.',
+          )}
         </div>
       );
 
@@ -243,28 +253,38 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
         <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-500" />
-            <span className="text-xs font-bold text-[var(--text-primary)]">文本导出</span>
+            <span className="text-xs font-bold text-[var(--text-primary)]">
+              {lang === 'zh' ? '文本导出' : lang === 'ja' ? 'テキスト書き出し' : 'Text Export'}
+            </span>
           </div>
           <div className="flex gap-1">
             <button
               onClick={handleConvert}
               className="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-[10px] font-bold transition-colors flex items-center gap-1 shadow-sm"
-              title="将连接的卡片转换为纯文本"
+              title={tr(
+                '将连接的卡片转换为纯文本',
+                '接続されたカードをプレーンテキストに変換',
+                'Convert connected cards to plain text',
+              )}
             >
               <RefreshCw className="w-3 h-3" />
-              转化
+              {tr('转化', '変換', 'Convert')}
             </button>
             <button
               onClick={handleCopy}
               className={`px-2.5 py-1.5 rounded text-[10px] font-bold transition-colors flex items-center gap-1 shadow-sm border ${copying ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-[var(--app-bg)] border-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--header-border)]'}`}
             >
               <Copy className="w-3 h-3" />
-              {copying ? '已复制' : '复制'}
+              {copying ? tr('已复制', 'コピー済み', 'Copied') : tr('复制', 'コピー', 'Copy')}
             </button>
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
-              title={isMinimized ? '展开' : '最小化'}
+              title={
+                isMinimized
+                  ? tr('展开', '展開', 'Expand')
+                  : tr('最小化', '最小化', 'Minimize')
+              }
             >
               {isMinimized ? (
                 <ChevronRight className="w-3 h-3" />
@@ -275,7 +295,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
             <button
               onClick={handleDelete}
               className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
-              title="删除卡片"
+              title={tr('删除卡片', 'カードを削除', 'Delete card')}
             >
               <Trash2 className="w-3 h-3" />
             </button>
@@ -296,7 +316,9 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                   }}
                   className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
                 />
-                <span className="font-medium">数字编号</span>
+                <span className="font-medium">
+                  {tr('数字编号', '番号を付ける', 'Number items')}
+                </span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
                 <input
@@ -308,7 +330,9 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                   }}
                   className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
                 />
-                <span className="font-medium">使用箭头(→)连接</span>
+                <span className="font-medium">
+                  {tr('使用箭头(→)连接', '矢印(→)で接続', 'Join with arrows (→)')}
+                </span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
                 <input
@@ -317,7 +341,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                   onChange={(e) => setIncludeTitles(e.target.checked)}
                   className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
                 />
-                <span className="font-medium">包含标题</span>
+                <span className="font-medium">{tr('包含标题', 'タイトルを含める', 'Include titles')}</span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
                 <input
@@ -326,7 +350,9 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                   onChange={(e) => setTraceToRoot(e.target.checked)}
                   className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
                 />
-                <span className="font-medium">追溯至开头</span>
+                <span className="font-medium">
+                  {tr('追溯至开头', '開始まで遡る', 'Trace to beginning')}
+                </span>
               </label>
             </div>
 

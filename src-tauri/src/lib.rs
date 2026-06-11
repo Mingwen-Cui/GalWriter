@@ -557,7 +557,7 @@ fn is_transcoded_video_format(format: &str) -> bool {
 }
 
 fn is_supported_video_format(format: &str) -> bool {
-  format == "webm" || is_transcoded_video_format(format)
+  is_transcoded_video_format(format)
 }
 
 fn apply_container_args(command: &mut Command, format: &str) {

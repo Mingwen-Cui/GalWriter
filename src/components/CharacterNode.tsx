@@ -455,7 +455,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           <div className="flex items-center gap-2">
             <UserCircle2 className="w-4 h-4 text-purple-500" />
             <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
-              人物设定
+              {lang === 'zh' ? '人物设定' : lang === 'ja' ? 'キャラクター設定' : 'Character Setting'}
             </span>
           </div>
           <div className="flex gap-1 items-center">
@@ -525,7 +525,17 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                 />
                 <div className="text-[10px] text-purple-500 font-medium flex items-center gap-1 mt-1">
                   <Settings2 className="w-3 h-3" />
-                  {isGlobal ? '全局设定生效中' : '需连线生效'}
+                  {isGlobal
+                    ? lang === 'zh'
+                      ? '全局设定生效中'
+                      : lang === 'ja'
+                        ? 'グローバル設定が有効'
+                        : 'Global setting active'
+                    : lang === 'zh'
+                      ? '需连线生效'
+                      : lang === 'ja'
+                        ? '接続すると有効'
+                        : 'Connect to activate'}
                 </div>
               </div>
               <button

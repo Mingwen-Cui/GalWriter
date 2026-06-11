@@ -80,6 +80,7 @@ import type {
 } from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { Language, translations } from '../lib/i18n';
+import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
 import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
@@ -107,18 +108,6 @@ const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const DEFAULT_TEXT_MODEL = 'deepseek-chat';
 type CloseButtonBehavior = 'minimize' | 'quit';
 const APP_TITLE = '交互式剧本编辑器';
-// NOTE: 网页托管模式下使用固定 ID 的 hosted profile，永远注入，用户不可编辑
-const WEB_HOSTED_PROFILE_ID = '__web_hosted_proxy__';
-const WEB_HOSTED_PROFILE: TextAIProfile = {
-  id: WEB_HOSTED_PROFILE_ID,
-  name: '网站托管代理',
-  kind: 'text',
-  provider: 'hosted',
-  apiKey: '',
-  apiUrl: '',
-  model: 'deepseek',
-  thinkingMode: false,
-};
 const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 type PendingProjectAction =
@@ -217,21 +206,7 @@ type AIProfileUpdates =
   | Partial<VoiceAIProfile>;
 
 const buildDefaultTextProfile = (): TextAIProfile => {
-  // NOTE: 网页托管环境下默认 hosted 代理；Tauri 桌面端不预设任何配置，保持空白让用户自行填写
-  const isWeb = !isTauriRuntime();
-  if (isWeb) {
-    return {
-      id: buildProfileId(),
-      name: '网站托管代理',
-      kind: 'text',
-      provider: 'hosted',
-      apiKey: '',
-      apiUrl: '',
-      model: 'deepseek',
-      thinkingMode: false,
-    };
-  }
-  // Tauri 桌面端：返回空配置，name/provider 全空，等用户自己选
+  // User-created profiles remain independent from the web-only hosted proxy.
   return {
     id: buildProfileId(),
     name: '',
@@ -559,14 +534,18 @@ export function StoryEditor() {
   const isSavingProjectRef = useRef(false);
   const lastSavedSnapshot = useRef<string>('');
 
-  const activeTextProfile = useMemo(
-    () =>
+  const activeTextProfile = useMemo(() => {
+    if (!isTauriRuntime() && activeTextProfileId === HOSTED_PROXY_PROFILE_ID) {
+      return HOSTED_PROXY_PROFILE;
+    }
+
+    return (
       savedAIProfiles.find(
         (profile): profile is TextAIProfile =>
           profile.kind === 'text' && profile.id === activeTextProfileId,
-      ) ?? null,
-    [activeTextProfileId, savedAIProfiles],
-  );
+      ) ?? null
+    );
+  }, [activeTextProfileId, savedAIProfiles]);
   const activeImageProfile = useMemo(
     () =>
       savedAIProfiles.find(
@@ -613,7 +592,8 @@ export function StoryEditor() {
 
   const getExportedAIProfiles = useCallback((): ProjectAIProfilesExport | null => {
     const profiles = [activeTextProfile, activeImageProfile, activeVoiceProfile].filter(
-      (profile): profile is SavedAIProfile => Boolean(profile),
+      (profile): profile is SavedAIProfile =>
+        Boolean(profile) && profile?.id !== HOSTED_PROXY_PROFILE_ID,
     );
 
     if (profiles.length === 0) return null;
@@ -698,6 +678,7 @@ export function StoryEditor() {
 
   const handleUpdateAIProfile = useCallback(
     async (profileId: string, updates: AIProfileUpdates) => {
+      if (profileId === HOSTED_PROXY_PROFILE_ID) return;
       setSavedAIProfiles((current) =>
         updateProfileList(current, profileId, (profile) => Object.assign({}, profile, updates)),
       );
@@ -716,6 +697,7 @@ export function StoryEditor() {
 
   const handleDeleteAIProfile = useCallback(
     async (profileId: string) => {
+      if (profileId === HOSTED_PROXY_PROFILE_ID) return;
       setSavedAIProfiles((current) => {
         const nextProfiles = current.filter((profile) => profile.id !== profileId);
         if (activeTextProfileId === profileId) {
@@ -872,7 +854,11 @@ export function StoryEditor() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
   // NOTE: ollama 和 hosted 均不需要用户填写 API Key，故不触发警告
-  const missingTextApiKey = didHydrateLocalState && activeTextProfile?.provider !== 'ollama' && activeTextProfile?.provider !== 'hosted' && !activeTextProfile?.apiKey.trim();
+  const missingTextApiKey =
+    didHydrateLocalState &&
+    activeTextProfile?.provider !== 'ollama' &&
+    activeTextProfile?.provider !== 'hosted' &&
+    !activeTextProfile?.apiKey.trim();
   const missingImageApiKey =
     didHydrateLocalState &&
     (!activeImageProfile ||
@@ -1131,7 +1117,8 @@ export function StoryEditor() {
 
     void localPersistenceService.saveAIProfiles({
       profiles: savedAIProfiles,
-      activeTextProfileId,
+      activeTextProfileId:
+        activeTextProfileId === HOSTED_PROXY_PROFILE_ID ? null : activeTextProfileId,
       activeImageProfileId,
       activeVoiceProfileId,
     });
@@ -2617,7 +2604,9 @@ export function StoryEditor() {
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
 
         setSavedAIProfiles(savedProfilesState.profiles);
-        setActiveTextProfileId(savedProfilesState.activeTextProfileId);
+        setActiveTextProfileId(
+          isTauriRuntime() ? savedProfilesState.activeTextProfileId : HOSTED_PROXY_PROFILE_ID,
+        );
         setActiveImageProfileId(savedProfilesState.activeImageProfileId);
         setActiveVoiceProfileId(savedProfilesState.activeVoiceProfileId);
 

@@ -1,4 +1,4 @@
-import { Cpu, FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video, Zap } from 'lucide-react';
+import { FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video } from 'lucide-react';
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import { ENCODER_OPTIONS, EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS, TEXT_ANIMATION_OPTIONS } from '../shared/constants';
@@ -49,7 +49,6 @@ type VideoExportSettingsPanelProps = {
   error: string;
   progressValue: number;
   savedPath: string;
-  isDesktopApp: boolean;
   useGpuAcceleration: boolean;
   setUseGpuAcceleration: (value: boolean) => void;
   isWebGPUSupported: boolean;
@@ -96,7 +95,6 @@ export function VideoExportSettingsPanel({
   error,
   progressValue,
   savedPath,
-  isDesktopApp,
   useGpuAcceleration,
   setUseGpuAcceleration,
   isWebGPUSupported,
@@ -142,7 +140,7 @@ export function VideoExportSettingsPanel({
       </div>
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('视频参数', '動画パラメータ', 'Video')}
@@ -192,21 +190,9 @@ export function VideoExportSettingsPanel({
                     {EXPORT_FORMAT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
-                        {!isDesktopApp && option.value !== 'webm'
-                          ? ` ${t('桌面版', 'デスクトップ版', 'Desktop')}`
-                          : ''}
                       </option>
                     ))}
                   </select>
-                  {!isDesktopApp && exportFormat !== 'webm' && (
-                    <span className="block text-[10px] font-bold leading-4 text-amber-500">
-                      {t(
-                        '该格式需要APP端内置 FFmpeg，网页端只能导出 WebM。',
-                        'この形式はデスクトップ版の内蔵 FFmpeg が必要です。Web 版は WebM のみ直接書き出せます。',
-                        'This format needs the app with bundled FFmpeg. Web can only export WebM.',
-                      )}
-                    </span>
-                  )}
                 </label>
               </div>
             </div>
@@ -408,11 +394,11 @@ export function VideoExportSettingsPanel({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+            <div className="-order-2 flex items-center gap-3">
+              <div className="shrink-0 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('渲染加速', 'レンダリング加速', 'Render Acceleration')}
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2.5">
                 <button
                   type="button"
                   onClick={() => setUseGpuAcceleration(false)}
@@ -423,7 +409,6 @@ export function VideoExportSettingsPanel({
                     } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={t('使用 2D Canvas 渲染（最稳定）', '2D Canvas レンダリング（最も安定）', '2D Canvas rendering (most stable)')}
                 >
-                  <Cpu className="h-3.5 w-3.5" />
                   2D Canvas
                 </button>
                 <button
@@ -440,7 +425,6 @@ export function VideoExportSettingsPanel({
                       : t('当前浏览器不支持 WebGPU', 'このブラウザは WebGPU をサポートしていません', 'WebGPU is not supported in this browser')
                   }
                 >
-                  <Zap className="h-3.5 w-3.5" />
                   GPU
                   {!isWebGPUSupported && (
                     <span className="ml-0.5 text-[9px] opacity-70">
@@ -449,48 +433,41 @@ export function VideoExportSettingsPanel({
                   )}
                 </button>
               </div>
-              {isWebGPUSupported && (
-                <p className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
-                  {t(
-                    'GPU 加速为实验性功能。如遇问题请切回 2D Canvas。',
-                    'GPU 加速は実験的機能です。問題がある場合は 2D Canvas に切り替えてください。',
-                    'GPU acceleration is experimental. Switch back to 2D Canvas if you encounter issues.',
-                  )}
-                </p>
-              )}
             </div>
 
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
+            <label className="-order-1 flex items-start gap-3">
+              <span className="mt-2.5 shrink-0 text-[11px] font-black text-[var(--vr-text-soft)]">
                 {t('保存位置', '保存先', 'Save location')}
               </span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={outputDir}
-                  onChange={(e) => {
-                    setOutputDir(e.target.value);
-                    setOutputDirError('');
-                  }}
-                  placeholder={t('默认保存到系统下载目录', '未指定ならダウンロードへ保存', 'Defaults to Downloads')}
-                  className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
-                    }`}
-                />
-                <button
-                  type="button"
-                  onClick={chooseOutputDir}
-                  className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                  title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                  aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                >
-                  <FolderOpen className="mx-auto h-4 w-4" />
-                </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={outputDir}
+                    onChange={(e) => {
+                      setOutputDir(e.target.value);
+                      setOutputDirError('');
+                    }}
+                    placeholder={t('默认保存到系统下载目录', '未指定ならダウンロードへ保存', 'Defaults to Downloads')}
+                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={chooseOutputDir}
+                    className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                  >
+                    <FolderOpen className="mx-auto h-4 w-4" />
+                  </button>
+                </div>
+                {outputDirError && (
+                  <span className="mt-1 block text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                    {outputDirError}
+                  </span>
+                )}
               </div>
-              {outputDirError && (
-                <span className="block text-[11px] font-bold text-rose-500 dark:text-rose-400">
-                  {outputDirError}
-                </span>
-              )}
             </label>
           </div>
         ) : (
