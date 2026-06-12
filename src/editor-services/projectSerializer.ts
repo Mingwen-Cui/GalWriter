@@ -212,6 +212,14 @@ const applyProjectSettings = (
   } else {
     setters.setCharacterImageMode('three-view');
   }
+  if (
+    incomingSettings.sceneImageMode === 'storyboard-16:9' ||
+    incomingSettings.sceneImageMode === 'follow-api'
+  ) {
+    setters.setSceneImageMode(incomingSettings.sceneImageMode);
+  } else {
+    setters.setSceneImageMode('storyboard-16:9');
+  }
   const shouldUseCustomPrompts =
     Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;
   setters.setCustomAiPromptsEnabled(shouldUseCustomPrompts);

@@ -133,6 +133,7 @@ export interface ApiKeySettings {
 
 export type AIProfileKind = 'text' | 'image' | 'voice';
 export type CharacterImageMode = 'three-view' | 'transparent-sprite';
+export type SceneImageMode = 'storyboard-16:9' | 'follow-api';
 
 export interface TextAIProfile {
   id: string;
@@ -213,6 +214,7 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsNarrationMode: TtsNarrationMode;
   thinkingMode: boolean;
   characterImageMode: CharacterImageMode;
+  sceneImageMode: SceneImageMode;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
   aiButtonsConfig: AIButtonsConfig;
@@ -247,6 +249,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;
   setCharacterImageMode: Dispatch<SetStateAction<CharacterImageMode>>;
+  setSceneImageMode: Dispatch<SetStateAction<SceneImageMode>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;

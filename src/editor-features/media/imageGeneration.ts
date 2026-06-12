@@ -554,3 +554,43 @@ export const ensureTransparentImageBackground = async (imageUrl: string) => {
   context.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
 };
+
+export const ensureImageAspectRatio = async (imageUrl: string, targetRatio: number) => {
+  const bitmap = await loadImageSource(imageUrl);
+  const sourceRatio = bitmap.width / bitmap.height;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = bitmap.width;
+  let sourceHeight = bitmap.height;
+
+  if (sourceRatio > targetRatio) {
+    sourceWidth = Math.round(bitmap.height * targetRatio);
+    sourceX = Math.round((bitmap.width - sourceWidth) / 2);
+  } else if (sourceRatio < targetRatio) {
+    sourceHeight = Math.round(bitmap.width / targetRatio);
+    sourceY = Math.round((bitmap.height - sourceHeight) / 2);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    bitmap.close();
+    throw new Error('Canvas is unavailable.');
+  }
+
+  context.drawImage(
+    bitmap,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+  bitmap.close();
+  return canvas.toDataURL('image/png');
+};

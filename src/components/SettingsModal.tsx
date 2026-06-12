@@ -22,6 +22,7 @@ import type {
   CharacterImageMode,
   ImageAIProfile,
   SavedAIProfile,
+  SceneImageMode,
   StoryTitlePlacement,
   TextAIProfile,
   TtsNarrationMode,
@@ -104,6 +105,8 @@ interface SettingsModalProps {
   setGenerateLength: (len: string) => void;
   characterImageMode: CharacterImageMode;
   setCharacterImageMode: (mode: CharacterImageMode) => void;
+  sceneImageMode: SceneImageMode;
+  setSceneImageMode: (mode: SceneImageMode) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -548,6 +551,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setGenerateLength,
   characterImageMode,
   setCharacterImageMode,
+  sceneImageMode,
+  setSceneImageMode,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -1652,6 +1657,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onDeleteAIProfile={onDeleteAIProfile}
                   characterImageMode={characterImageMode}
                   setCharacterImageMode={setCharacterImageMode}
+                  sceneImageMode={sceneImageMode}
+                  setSceneImageMode={setSceneImageMode}
                   customAiPromptsEnabled={customAiPromptsEnabled}
                   setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
                   aiPrompts={aiPrompts}

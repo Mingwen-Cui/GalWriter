@@ -3,11 +3,12 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { CharacterImageMode } from '../../domain/project';
+import type { CharacterImageMode, SceneImageMode } from '../../domain/project';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import {
   buildImageGenerationRequest,
   buildReferencePrompt,
+  ensureImageAspectRatio,
   ensureTransparentImageBackground,
   getConnectedImageReferences,
   isLocalStableDiffusionProvider,
@@ -35,6 +36,7 @@ interface UseMediaActionsParams {
   imageHrScale?: number;
   imageDenoisingStrength?: number;
   characterImageMode: CharacterImageMode;
+  sceneImageMode: SceneImageMode;
   showTitles: boolean;
   setImageSize: Dispatch<SetStateAction<string>>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
@@ -94,6 +96,7 @@ export const useMediaActions = ({
   imageHrScale,
   imageDenoisingStrength,
   characterImageMode,
+  sceneImageMode,
   showTitles,
   setImageSize,
   setNodes,
@@ -181,7 +184,15 @@ export const useMediaActions = ({
   );
 
   const requestGeneratedImage = useCallback(
-    async (prompt: string, transparentBackground = false) => {
+    async (
+      prompt: string,
+      options: {
+        transparentBackground?: boolean;
+        sizeOverride?: string;
+        aspectRatio?: number;
+      } = {},
+    ) => {
+      const { transparentBackground = false, sizeOverride, aspectRatio } = options;
       if (!isLocalStableDiffusion && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
         alert(
@@ -197,7 +208,7 @@ export const useMediaActions = ({
       const imageRequest = buildImageGenerationRequest(
         imageApiUrl,
         imageModel,
-        imageSize,
+        sizeOverride || imageSize,
         prompt,
         imageApiKey,
         imageProvider,
@@ -248,6 +259,10 @@ export const useMediaActions = ({
           /InvalidParameter|size|pixels/i.test(errText) &&
           'size' in imageRequest.body &&
           imageRequest.body.size !== '2048x2048';
+        const shouldRetryConfiguredSize =
+          Boolean(sizeOverride) &&
+          !imageRequest.usesSeedream &&
+          /InvalidParameter|size|width|height|dimension|resolution/i.test(errText);
 
         if (shouldRetrySeedreamSize) {
           response = await fetch(activeImageRequestUrl, {
@@ -260,8 +275,29 @@ export const useMediaActions = ({
           });
 
           if (response.ok) {
-            setImageSize('2048x2048');
+            if (!sizeOverride) setImageSize('2048x2048');
           } else {
+            const retryErrText = await response.text();
+            throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+          }
+        } else if (shouldRetryConfiguredSize) {
+          const fallbackRequest = buildImageGenerationRequest(
+            imageApiUrl,
+            imageModel,
+            imageSize,
+            prompt,
+            imageApiKey,
+            imageProvider,
+            stableDiffusionOptions,
+            [],
+            transparentBackground,
+          );
+          response = await fetch(fallbackRequest.url, {
+            method: 'POST',
+            headers: imageRequestHeaders,
+            body: JSON.stringify(fallbackRequest.body),
+          });
+          if (!response.ok) {
             const retryErrText = await response.text();
             throw new Error(retryErrText || errText || `HTTP ${response.status}`);
           }
@@ -289,20 +325,39 @@ export const useMediaActions = ({
         );
       }
 
-      if (!transparentBackground) return imageSrc as string;
+      let processedImageSrc = imageSrc as string;
 
-      try {
-        return await ensureTransparentImageBackground(imageSrc);
-      } catch (error) {
-        console.error('Transparent background processing failed:', error);
-        throw new Error(
-          language === 'zh'
-            ? '图片已生成，但无法转换为透明背景。请确认图片地址允许读取，或改用支持透明 PNG 的图片模型。'
-            : language === 'ja'
-              ? '画像は生成されましたが、透過背景に変換できませんでした。'
-              : 'The image was generated, but it could not be converted to a transparent background.',
-        );
+      if (transparentBackground) {
+        try {
+          processedImageSrc = await ensureTransparentImageBackground(processedImageSrc);
+        } catch (error) {
+          console.error('Transparent background processing failed:', error);
+          throw new Error(
+            language === 'zh'
+              ? '图片已生成，但无法转换为透明背景。请确认图片地址允许读取，或改用支持透明 PNG 的图片模型。'
+              : language === 'ja'
+                ? '画像は生成されましたが、透過背景に変換できませんでした。'
+                : 'The image was generated, but it could not be converted to a transparent background.',
+          );
+        }
       }
+
+      if (aspectRatio) {
+        try {
+          processedImageSrc = await ensureImageAspectRatio(processedImageSrc, aspectRatio);
+        } catch (error) {
+          console.error('Scene aspect ratio processing failed:', error);
+          throw new Error(
+            language === 'zh'
+              ? '场景图片已生成，但无法转换为指定比例。请确认图片地址允许读取。'
+              : language === 'ja'
+                ? 'シーン画像は生成されましたが、指定比率に変換できませんでした。'
+                : 'The scene image was generated, but it could not be converted to the requested ratio.',
+          );
+        }
+      }
+
+      return processedImageSrc;
     },
     [
       imageApiKey,
@@ -360,12 +415,17 @@ export const useMediaActions = ({
             ? characterImageMode === 'transparent-sprite'
               ? `Create a polished visual novel character sprite as a single full-body character, facing mostly forward, with the entire figure visible from head to toe. Use a transparent background with a clean alpha channel. If native alpha transparency is unavailable, use a perfectly uniform pure white (#FFFFFF) background so it can be removed cleanly. No scenery, no floor, no backdrop, no cast shadow, no text labels, no UI, no frame, and no additional characters. Preserve the character design described below:\n\n${basePrompt}`
               : `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
-            : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
+            : sceneImageMode === 'storyboard-16:9'
+              ? `Create a polished cinematic visual novel storyboard frame in a wide 16:9 landscape composition. Focus on the environment, spatial layout, camera framing, mood, props, lighting, and color palette. Compose important subjects so they remain visible after a centered 16:9 crop. No text labels, no UI. Scene setting:\n\n${basePrompt}`
+              : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
 
-        const imageSrc = await requestGeneratedImage(
-          prompt,
-          type === 'character' && characterImageMode === 'transparent-sprite',
-        );
+        const forceSceneStoryboard = type === 'scene' && sceneImageMode === 'storyboard-16:9';
+        const imageSrc = await requestGeneratedImage(prompt, {
+          transparentBackground:
+            type === 'character' && characterImageMode === 'transparent-sprite',
+          sizeOverride: forceSceneStoryboard ? '1920x1080' : undefined,
+          aspectRatio: forceSceneStoryboard ? 16 / 9 : undefined,
+        });
         if (!imageSrc) return;
 
         setNodes((nds) =>
@@ -465,7 +525,15 @@ export const useMediaActions = ({
         );
       }
     },
-    [characterImageMode, language, nodes, requestGeneratedImage, setNodes, showToast],
+    [
+      characterImageMode,
+      language,
+      nodes,
+      requestGeneratedImage,
+      sceneImageMode,
+      setNodes,
+      showToast,
+    ],
   );
 
   const handleGenerateStoryNodeImage = useCallback(

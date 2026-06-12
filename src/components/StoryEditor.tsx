@@ -73,6 +73,7 @@ import type {
   SavedAIProfile,
   CharacterNodeData,
   SceneNodeData,
+  SceneImageMode,
   StoryTitlePlacement,
   StoryNodeData,
   TextAIProfile,
@@ -425,6 +426,7 @@ export function StoryEditor() {
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
   const [characterImageMode, setCharacterImageMode] =
     useState<CharacterImageMode>('three-view');
+  const [sceneImageMode, setSceneImageMode] = useState<SceneImageMode>('storyboard-16:9');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
@@ -920,6 +922,7 @@ export function StoryEditor() {
       ttsNarrationMode,
       thinkingMode,
       characterImageMode,
+      sceneImageMode,
       customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
@@ -956,6 +959,7 @@ export function StoryEditor() {
       bubbleStyle,
       canvasBg,
       characterImageMode,
+      sceneImageMode,
       customAiPromptsEnabled,
       edgeStyle,
       generateLength,
@@ -1025,6 +1029,7 @@ export function StoryEditor() {
       setTtsNarrationMode,
       setImageSize,
       setCharacterImageMode,
+      setSceneImageMode,
       setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
@@ -1473,6 +1478,7 @@ export function StoryEditor() {
     imageHrScale,
     imageDenoisingStrength,
     characterImageMode,
+    sceneImageMode,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
     setNodes,
@@ -3579,6 +3585,8 @@ ${direction}
           setGenerateLength={setGenerateLength}
           characterImageMode={characterImageMode}
           setCharacterImageMode={setCharacterImageMode}
+          sceneImageMode={sceneImageMode}
+          setSceneImageMode={setSceneImageMode}
           customAiPromptsEnabled={customAiPromptsEnabled}
           setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}

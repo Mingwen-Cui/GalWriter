@@ -400,6 +400,19 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     }
   };
 
+  const handleDownloadCoverImage = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!coverImageUrl) return;
+
+    const safeName = getSafeDownloadName(
+      `${name || (lang === 'zh' ? '场景' : lang === 'ja' ? 'シーン' : 'scene')}-场景图`,
+    );
+    await downloadImageUrl(
+      coverImageUrl,
+      `${safeName}.${getImageExtension(coverImageUrl)}`,
+    );
+  };
+
   const handleDownloadSceneImage = async (
     event: React.MouseEvent<HTMLButtonElement>,
     image: SceneImage,
@@ -494,7 +507,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
           {!isMinimized && (
             <div className="flex flex-col nodrag flex-1 min-h-min">
               <div className="flex items-center gap-3 p-3 border-b border-[var(--card-border)] bg-blue-50/10 dark:bg-blue-950/20 shrink-0">
-                <label className="relative cursor-pointer group/cover shrink-0">
+                <div className="relative group/cover shrink-0">
                   <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-blue-300 dark:border-blue-800 bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
                     {coverImageUrl ? (
                       <img src={coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
@@ -502,16 +515,32 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                       <MapPin className="w-6 h-6 text-blue-700" />
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity">
-                    <Upload className="w-4 h-4 text-white" />
+                  <div className="absolute inset-0 overflow-hidden rounded-lg bg-black/50 opacity-0 transition-opacity group-hover/cover:opacity-100">
+                    <div className="flex h-full items-stretch">
+                      <label
+                        className="flex flex-1 cursor-pointer items-center justify-center border-r border-white/30 text-white transition-colors hover:bg-white/20"
+                        title={lang === 'zh' ? '上传场景图片' : 'Upload scene image'}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleImageUpload(e, undefined, true)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleDownloadCoverImage}
+                        disabled={!coverImageUrl}
+                        className="flex flex-1 items-center justify-center text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-35"
+                        title={lang === 'zh' ? '下载场景图片' : 'Download scene image'}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleImageUpload(e, undefined, true)}
-                  />
-                </label>
+                </div>
 
                 <div className="flex-1 min-w-0">
                   <input

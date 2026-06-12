@@ -10,6 +10,7 @@ export type {
   EditorTheme,
   ImportedProjectSettings,
   MiniMapPosition,
+  SceneImageMode,
   PlaytestChoicesPosition,
   PlaytestLayoutMode,
   PlaytestSettings,
