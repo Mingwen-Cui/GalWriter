@@ -291,7 +291,13 @@ export function AssistantPanel({
           onPointerMove={handleAssistantResizePointerMove}
           onPointerUp={handleAssistantResizePointerUp}
           className="absolute bottom-0 left-0 top-0 z-20 w-2 -translate-x-1 cursor-ew-resize bg-transparent hover:bg-indigo-400/20"
-          title={language === 'zh' ? '拖拽调整 AI 助手宽度' : language === 'ja' ? 'ドラッグしてAIアシスタントの幅を調整' : 'Drag to resize AI assistant'}
+          title={
+            language === 'zh'
+              ? '拖拽调整 AI 助手宽度'
+              : language === 'ja'
+                ? 'ドラッグしてAIアシスタントの幅を調整'
+                : 'Drag to resize AI assistant'
+          }
         />
       )}
       <div className="assistant-panel-header shrink-0 border-b border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
@@ -300,7 +306,9 @@ export function AssistantPanel({
             onClick={handleNewAssistantTask}
             disabled={assistantLoading}
             className="assistant-glass-action assistant-glass-action-new flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-            title={language === 'zh' ? '新对话' : language === 'ja' ? '新しい会話' : 'New conversation'}
+            title={
+              language === 'zh' ? '新对话' : language === 'ja' ? '新しい会話' : 'New conversation'
+            }
           >
             <PlusCircle className="h-3.5 w-3.5" />
             {language === 'zh' ? '新对话' : language === 'ja' ? '新しい会話' : 'New conversation'}
@@ -309,7 +317,13 @@ export function AssistantPanel({
             onClick={handleAssistantUndo}
             disabled={!canAssistantUndo || assistantLoading}
             className="assistant-glass-action assistant-glass-action-undo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
-            title={language === 'zh' ? '撤回最近一次助手对话文本' : language === 'ja' ? '最後のアシスタントの会話を元に戻す' : 'Undo assistant conversation text'}
+            title={
+              language === 'zh'
+                ? '撤回最近一次助手对话文本'
+                : language === 'ja'
+                  ? '最後のアシスタントの会話を元に戻す'
+                  : 'Undo assistant conversation text'
+            }
           >
             <Undo2 className="h-4 w-4" />
           </button>
@@ -317,14 +331,26 @@ export function AssistantPanel({
             onClick={handleAssistantRedo}
             disabled={!canAssistantRedo || assistantLoading}
             className="assistant-glass-action assistant-glass-action-redo flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 disabled:opacity-40 dark:hover:text-indigo-300"
-            title={language === 'zh' ? '恢复撤回的助手对话文本' : language === 'ja' ? '元に戻したアシスタントの会話をやり直す' : 'Redo assistant conversation text'}
+            title={
+              language === 'zh'
+                ? '恢复撤回的助手对话文本'
+                : language === 'ja'
+                  ? '元に戻したアシスタントの会話をやり直す'
+                  : 'Redo assistant conversation text'
+            }
           >
             <Redo2 className="h-4 w-4" />
           </button>
           <button
             onClick={() => setAssistantOpen(false)}
             className="assistant-glass-action assistant-glass-action-close flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-white"
-            title={language === 'zh' ? '关闭 AI 助手' : language === 'ja' ? 'AIアシスタントを闭じる' : 'Close AI Assistant'}
+            title={
+              language === 'zh'
+                ? '关闭 AI 助手'
+                : language === 'ja'
+                  ? 'AIアシスタントを闭じる'
+                  : 'Close AI Assistant'
+            }
           >
             <X className="h-4 w-4" />
           </button>
@@ -388,7 +414,13 @@ export function AssistantPanel({
                   type="button"
                   onClick={() => handleCloseAssistantTask(task.id)}
                   className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-rose-500 dark:hover:text-rose-300"
-                  title={language === 'zh' ? '关闭对话' : language === 'ja' ? '会話を閉じる' : 'Close conversation'}
+                  title={
+                    language === 'zh'
+                      ? '关闭对话'
+                      : language === 'ja'
+                        ? '会話を閉じる'
+                        : 'Close conversation'
+                  }
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -456,7 +488,13 @@ export function AssistantPanel({
                     type="button"
                     onClick={() => onAssistantMessagePositionClick(message.cardPosition!)}
                     className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                    title={language === 'zh' ? '跳转到生成卡片的位置' : language === 'ja' ? '生成したカードの位置へ移動' : 'Jump to generated card position'}
+                    title={
+                      language === 'zh'
+                        ? '跳转到生成卡片的位置'
+                        : language === 'ja'
+                          ? '生成したカードの位置へ移動'
+                          : 'Jump to generated card position'
+                    }
                   >
                     <MapPin className="h-3.5 w-3.5" />
                     {language === 'zh' ? '位置' : language === 'ja' ? '位置' : 'Position'}
@@ -498,14 +536,22 @@ export function AssistantPanel({
             onClick={() => documentInputRef.current?.click()}
             disabled={assistantLoading || assistantDocumentLoading}
             className="hidden"
-            title={language === 'zh' ? '上传 PDF 或 Word 文档作为参考' : language === 'ja' ? 'PDFまたはWordドキュメントを参考としてアップロード' : 'Upload PDF or Word reference documents'}
+            title={
+              language === 'zh'
+                ? '上传 PDF 或 Word 文档作为参考'
+                : language === 'ja'
+                  ? 'PDFまたはWordドキュメントを参考としてアップロード'
+                  : 'Upload PDF or Word reference documents'
+            }
           >
             {assistantDocumentLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <UploadCloud className="h-3.5 w-3.5" />
             )}
-            <span>{language === 'zh' ? '参考文档' : language === 'ja' ? '参考ドキュメント' : 'Docs'}</span>
+            <span>
+              {language === 'zh' ? '参考文档' : language === 'ja' ? '参考ドキュメント' : 'Docs'}
+            </span>
           </button>
           {assistantDocuments.length > 0 && (
             <div className="custom-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
@@ -521,7 +567,13 @@ export function AssistantPanel({
                     href={document.objectUrl}
                     download={document.name}
                     className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600"
-                    title={language === 'zh' ? '下载文档' : language === 'ja' ? 'ドキュメントをダウンロード' : 'Download document'}
+                    title={
+                      language === 'zh'
+                        ? '下载文档'
+                        : language === 'ja'
+                          ? 'ドキュメントをダウンロード'
+                          : 'Download document'
+                    }
                   >
                     <Download className="h-3 w-3" />
                   </a>
@@ -529,7 +581,13 @@ export function AssistantPanel({
                     type="button"
                     onClick={() => handleRemoveAssistantDocument(document.id)}
                     className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-rose-500"
-                    title={language === 'zh' ? '移除文档' : language === 'ja' ? 'ドキュメントを削除' : 'Remove document'}
+                    title={
+                      language === 'zh'
+                        ? '移除文档'
+                        : language === 'ja'
+                          ? 'ドキュメントを削除'
+                          : 'Remove document'
+                    }
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -547,7 +605,9 @@ export function AssistantPanel({
             className="assistant-bottom-glass-action assistant-bottom-action-suggest flex items-center justify-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900/20 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
-            <ChevronDown className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
+            />
           </button>
           <div className="relative flex-1">
             <button
@@ -558,7 +618,9 @@ export function AssistantPanel({
               className="assistant-bottom-glass-action assistant-bottom-action-generate flex w-full items-center justify-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
             >
               {language === 'zh' ? '生成卡片' : language === 'ja' ? 'カード生成' : 'Generate cards'}
-              <ChevronDown className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`}
+              />
             </button>
           </div>
           <button
@@ -583,7 +645,13 @@ export function AssistantPanel({
             onClick={() => setDocumentUploadOpen(true)}
             disabled={assistantLoading || assistantDocumentLoading}
             className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
-            title={language === 'zh' ? '上传参考文件' : language === 'ja' ? '参考ファイルをアップロード' : 'Upload reference files'}
+            title={
+              language === 'zh'
+                ? '上传参考文件'
+                : language === 'ja'
+                  ? '参考ファイルをアップロード'
+                  : 'Upload reference files'
+            }
           >
             {assistantDocumentLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -639,49 +707,85 @@ export function AssistantPanel({
       </div>
       {cardGenerateOpen &&
         createPortal(
-        <div
-          className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
-          style={{
-            left: cardGenerateMenuPosition.left,
-            top: cardGenerateMenuPosition.top,
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => applyAssistantTemplate(language === 'zh' ? '根据选中的卡片，生成并布置_张后续剧情卡片。' : language === 'ja' ? '選択したカードに基づいて、_枚のその後のストーリーカードを生成して配置してください。' : 'Generate and place _ following story cards based on the selected cards.')}
-            disabled={assistantLoading}
-            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+          <div
+            className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+            style={{
+              left: cardGenerateMenuPosition.left,
+              top: cardGenerateMenuPosition.top,
+            }}
           >
-            <PlusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              {language === 'zh'
-                ? '生成并布置_张后续剧情卡片'
-                : language === 'ja'
-                  ? '後続のストーリーカードを_枚生成して配置'
-                  : 'Generate _ following story cards'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyAssistantTemplate(language === 'zh' ? '给我生成一个_的人物卡片' : language === 'ja' ? '_のキャラクターカードを1枚生成してください' : 'Generate a character card for _')}
-            disabled={assistantLoading}
-            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
-          >
-            <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{language === 'zh' ? '给我生成一个_的人物卡片' : language === 'ja' ? '_のキャラクターカードを生成' : 'Generate a character card for _'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyAssistantTemplate(language === 'zh' ? '给我生成一个_的地点卡片' : language === 'ja' ? '_の場所カードを1枚生成してください' : 'Generate a location card for _')}
-            disabled={assistantLoading}
-            className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
-          >
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{language === 'zh' ? '给我生成一个_的地点卡片' : language === 'ja' ? '_の場所カードを生成' : 'Generate a location card for _'}</span>
-          </button>
-        </div>,
-        document.body,
-      )}
+            <button
+              type="button"
+              onClick={() =>
+                applyAssistantTemplate(
+                  language === 'zh'
+                    ? '根据选中的卡片，生成并布置_张后续剧情卡片。'
+                    : language === 'ja'
+                      ? '選択したカードに基づいて、_枚のその後のストーリーカードを生成して配置してください。'
+                      : 'Generate and place _ following story cards based on the selected cards.',
+                )
+              }
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <PlusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {language === 'zh'
+                  ? '生成并布置_张后续剧情卡片'
+                  : language === 'ja'
+                    ? '後続のストーリーカードを_枚生成して配置'
+                    : 'Generate _ following story cards'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                applyAssistantTemplate(
+                  language === 'zh'
+                    ? '给我生成一个_的人物卡片'
+                    : language === 'ja'
+                      ? '_のキャラクターカードを1枚生成してください'
+                      : 'Generate a character card for _',
+                )
+              }
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {language === 'zh'
+                  ? '给我生成一个_的人物卡片'
+                  : language === 'ja'
+                    ? '_のキャラクターカードを生成'
+                    : 'Generate a character card for _'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                applyAssistantTemplate(
+                  language === 'zh'
+                    ? '给我生成一个_的地点卡片'
+                    : language === 'ja'
+                      ? '_の場所カードを1枚生成してください'
+                      : 'Generate a location card for _',
+                )
+              }
+              disabled={assistantLoading}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
+            >
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {language === 'zh'
+                  ? '给我生成一个_的地点卡片'
+                  : language === 'ja'
+                    ? '_の場所カードを生成'
+                    : 'Generate a location card for _'}
+              </span>
+            </button>
+          </div>,
+          document.body,
+        )}
       {suggestMenuOpen &&
         createPortal(
           <div
@@ -707,7 +811,13 @@ export function AssistantPanel({
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
             >
               <SearchCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{language === 'zh' ? '合理性建议' : language === 'ja' ? '妥当性のアドバイス' : 'Logic Suggestions'}</span>
+              <span>
+                {language === 'zh'
+                  ? '合理性建议'
+                  : language === 'ja'
+                    ? '妥当性のアドバイス'
+                    : 'Logic Suggestions'}
+              </span>
             </button>
             <button
               type="button"
@@ -725,7 +835,13 @@ export function AssistantPanel({
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
             >
               <PencilLine className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{language === 'zh' ? '修改建议' : language === 'ja' ? '修正のアドバイス' : 'Revision Suggestions'}</span>
+              <span>
+                {language === 'zh'
+                  ? '修改建议'
+                  : language === 'ja'
+                    ? '修正のアドバイス'
+                    : 'Revision Suggestions'}
+              </span>
             </button>
             <button
               type="button"
@@ -743,7 +859,13 @@ export function AssistantPanel({
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
             >
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{language === 'zh' ? '后续写作建议' : language === 'ja' ? 'その後の執筆アドバイス' : 'Writing Suggestions'}</span>
+              <span>
+                {language === 'zh'
+                  ? '后续写作建议'
+                  : language === 'ja'
+                    ? 'その後の執筆アドバイス'
+                    : 'Writing Suggestions'}
+              </span>
             </button>
           </div>,
           document.body,
@@ -754,7 +876,11 @@ export function AssistantPanel({
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-black text-slate-800 dark:text-white">
-                  {language === 'zh' ? '上传参考文件' : language === 'ja' ? '参考ファイルをアップロード' : 'Upload reference files'}
+                  {language === 'zh'
+                    ? '上传参考文件'
+                    : language === 'ja'
+                      ? '参考ファイルをアップロード'
+                      : 'Upload reference files'}
                 </div>
                 <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   {language === 'zh'
@@ -808,7 +934,11 @@ export function AssistantPanel({
                 <UploadCloud className="mb-3 h-8 w-8" />
               )}
               <div className="text-sm font-black">
-                {language === 'zh' ? '拖拽文件到这里，或点击上传' : language === 'ja' ? 'ファイルをここにドラッグするか、クリックしてアップロード' : 'Drop files here, or click to upload'}
+                {language === 'zh'
+                  ? '拖拽文件到这里，或点击上传'
+                  : language === 'ja'
+                    ? 'ファイルをここにドラッグするか、クリックしてアップロード'
+                    : 'Drop files here, or click to upload'}
               </div>
               <div className="mt-2 max-w-xs text-xs leading-relaxed opacity-80">
                 {language === 'zh'

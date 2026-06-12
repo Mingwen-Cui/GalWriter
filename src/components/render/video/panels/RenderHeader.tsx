@@ -1,5 +1,15 @@
 import type { Node as FlowNode } from '@xyflow/react';
-import { Download, FileText, Film, Loader2, Maximize2, Minimize2, Redo2, Undo2, X } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Film,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Redo2,
+  Undo2,
+  X,
+} from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
 import { renderCopy } from '../shared/renderCopy';
@@ -90,7 +100,11 @@ export function RenderHeader({
                   : t('切换到网页导出', 'Web書き出しに切り替え', 'Switch to web export')
               }
             >
-              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+              {mode === 'video' ? (
+                <Film className="h-3.5 w-3.5" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
               {mode === 'video' ? t('视频', '動画', 'Video') : t('网页', 'Web', 'Web')}
             </button>
           ))}
@@ -101,10 +115,22 @@ export function RenderHeader({
         type="button"
         onClick={toggleFullscreen}
         className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-        title={isFullscreen ? t('退出全屏', '全画面を終了', 'Exit fullscreen') : t('全屏', '全画面', 'Fullscreen')}
-        aria-label={isFullscreen ? t('退出全屏', '全画面を終了', 'Exit fullscreen') : t('全屏', '全画面', 'Fullscreen')}
+        title={
+          isFullscreen
+            ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
+            : t('全屏', '全画面', 'Fullscreen')
+        }
+        aria-label={
+          isFullscreen
+            ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
+            : t('全屏', '全画面', 'Fullscreen')
+        }
       >
-        {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
+        {isFullscreen ? (
+          <Minimize2 className="mx-auto h-4 w-4" />
+        ) : (
+          <Maximize2 className="mx-auto h-4 w-4" />
+        )}
       </button>
 
       <div className="flex items-center gap-2">
@@ -115,7 +141,11 @@ export function RenderHeader({
               onClick={undoTimeline}
               disabled={timelinePast.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t('撤销视频渲染操作', '動画書き出し操作を元に戻す', 'Undo render workspace change')}
+              title={t(
+                '撤销视频渲染操作',
+                '動画書き出し操作を元に戻す',
+                'Undo render workspace change',
+              )}
             >
               <Undo2 className="h-4 w-4" />
             </button>
@@ -124,7 +154,11 @@ export function RenderHeader({
               onClick={redoTimeline}
               disabled={timelineFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t('重做视频渲染操作', '動画書き出し操作をやり直す', 'Redo render workspace change')}
+              title={t(
+                '重做视频渲染操作',
+                '動画書き出し操作をやり直す',
+                'Redo render workspace change',
+              )}
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -158,12 +192,21 @@ export function RenderHeader({
           disabled={
             isRendering ||
             (workspaceMode === 'video' && selectedNodes.length === 0) ||
-            (workspaceMode === 'web' && nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
+            (workspaceMode === 'web' &&
+              nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
           }
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
-          title={workspaceMode === 'web' ? t('导出网页 ZIP', 'Web ZIPを書き出し', 'Export Web ZIP') : t('一键导出视频', '動画を書き出し', 'Export Video')}
+          title={
+            workspaceMode === 'web'
+              ? t('导出网页 ZIP', 'Web ZIPを書き出し', 'Export Web ZIP')
+              : t('一键导出视频', '動画を書き出し', 'Export Video')
+          }
         >
-          {isRendering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {isRendering ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
           <span className="hidden sm:inline">
             {isRendering
               ? t('渲染中...', '書き出し中...', 'Rendering...')

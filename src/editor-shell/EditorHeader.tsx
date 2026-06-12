@@ -139,7 +139,8 @@ export function EditorHeader({
     setIsEditingProjectName(false);
   };
 
-  const defaultProjectName = language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
+  const defaultProjectName =
+    language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
   return (
     <div className="pointer-events-none absolute left-4 top-3 z-30 md:left-6">
@@ -264,7 +265,13 @@ export function EditorHeader({
               type="button"
               onClick={handleExportProject}
               className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              title={language === 'zh' ? '导出 ZIP 备份文件' : language === 'ja' ? 'ZIPバックアップファイルをエクスポート' : 'Export ZIP backup file'}
+              title={
+                language === 'zh'
+                  ? '导出 ZIP 备份文件'
+                  : language === 'ja'
+                    ? 'ZIPバックアップファイルをエクスポート'
+                    : 'Export ZIP backup file'
+              }
             >
               <Download className="h-4 w-4" />
             </button>
@@ -272,7 +279,13 @@ export function EditorHeader({
             <button
               onClick={openProjectHome}
               className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              title={language === 'zh' ? '项目列表' : language === 'ja' ? 'プロジェクト一覧' : 'Project home'}
+              title={
+                language === 'zh'
+                  ? '项目列表'
+                  : language === 'ja'
+                    ? 'プロジェクト一覧'
+                    : 'Project home'
+              }
             >
               <FolderOpen className="h-4 w-4" />
             </button>
@@ -288,7 +301,13 @@ export function EditorHeader({
               <button
                 onClick={() => setShowVideoRender(true)}
                 className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
-                title={language === 'zh' ? '导出为视频' : language === 'ja' ? '動画としてエクスポート' : 'Export Video'}
+                title={
+                  language === 'zh'
+                    ? '导出为视频'
+                    : language === 'ja'
+                      ? '動画としてエクスポート'
+                      : 'Export Video'
+                }
               >
                 <Film className="h-4 w-4" />
               </button>
@@ -312,7 +331,9 @@ export function EditorHeader({
                 ? 'bg-indigo-600 text-white'
                 : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
-            title={language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
+            title={
+              language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'
+            }
           >
             <Sparkles className="h-4 w-4" />
           </button>

@@ -281,9 +281,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
               title={
-                isMinimized
-                  ? tr('展开', '展開', 'Expand')
-                  : tr('最小化', '最小化', 'Minimize')
+                isMinimized ? tr('展开', '展開', 'Expand') : tr('最小化', '最小化', 'Minimize')
               }
             >
               {isMinimized ? (
@@ -341,7 +339,9 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                   onChange={(e) => setIncludeTitles(e.target.checked)}
                   className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
                 />
-                <span className="font-medium">{tr('包含标题', 'タイトルを含める', 'Include titles')}</span>
+                <span className="font-medium">
+                  {tr('包含标题', 'タイトルを含める', 'Include titles')}
+                </span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
                 <input

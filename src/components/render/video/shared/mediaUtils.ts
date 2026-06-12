@@ -1,6 +1,7 @@
 export const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+export const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 export const isTauriRuntime = () => {
   if (typeof window === 'undefined') return false;

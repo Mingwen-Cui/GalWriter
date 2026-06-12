@@ -47,10 +47,7 @@ export type WebGPUContext = {
 
 let cachedContext: WebGPUContext | null = null;
 
-export async function initWebGPU(
-  width: number,
-  height: number,
-): Promise<WebGPUContext | null> {
+export async function initWebGPU(width: number, height: number): Promise<WebGPUContext | null> {
   if (cachedContext && cachedContext.width === width && cachedContext.height === height) {
     return cachedContext;
   }
@@ -181,14 +178,16 @@ export async function importVideoFrameToTexture(
   const texture = gpu.device.createTexture({
     size: [width, height],
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
-  gpu.device.queue.copyExternalImageToTexture(
-    { source: source as HTMLVideoElement },
-    { texture },
-    [width, height],
-  );
+  gpu.device.queue.copyExternalImageToTexture({ source: source as HTMLVideoElement }, { texture }, [
+    width,
+    height,
+  ]);
 
   return texture;
 }
@@ -203,7 +202,10 @@ export function importCanvasToTexture(
   const texture = gpu.device.createTexture({
     size: [width, height],
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   gpu.device.queue.copyExternalImageToTexture(
@@ -225,15 +227,18 @@ export function renderCompositeFrame(
   const canvasTexture = gpu.context.getCurrentTexture();
 
   // 创建纯黑背景（当没有视频时）
-  const dummyBgTexture = textTexture && !bgTexture
-    ? createColorTexture(gpu, [0.067, 0.086, 0.149, 1.0]) // #111827
-    : bgTexture;
+  const dummyBgTexture =
+    textTexture && !bgTexture
+      ? createColorTexture(gpu, [0.067, 0.086, 0.149, 1.0]) // #111827
+      : bgTexture;
 
   const effectiveBg = dummyBgTexture || bgTexture;
   if (!effectiveBg) return;
 
   const bgView = effectiveBg.createView();
-  const textView = textTexture ? textTexture.createView() : createColorTexture(gpu, [0, 0, 0, 0]).createView();
+  const textView = textTexture
+    ? textTexture.createView()
+    : createColorTexture(gpu, [0, 0, 0, 0]).createView();
 
   const bindGroup = gpu.device.createBindGroup({
     layout: gpu.bindGroupLayout,
@@ -282,12 +287,7 @@ function createColorTexture(
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
 
-  gpu.device.queue.writeTexture(
-    { texture },
-    data,
-    { bytesPerRow: 4 * size },
-    [size, size],
-  );
+  gpu.device.queue.writeTexture({ texture }, data, { bytesPerRow: 4 * size }, [size, size]);
 
   return texture;
 }

@@ -36,7 +36,18 @@ export interface LocalAppSettings {
 }
 
 export type LocalApiKeySettings = ApiKeySettings &
-  Pick<ProjectSettings, 'aiProvider' | 'imageApiUrl' | 'imageModel' | 'imageSize' | 'ttsApiUrl' | 'ttsModel' | 'ttsVoice' | 'ttsProvider' | 'thinkingMode'>;
+  Pick<
+    ProjectSettings,
+    | 'aiProvider'
+    | 'imageApiUrl'
+    | 'imageModel'
+    | 'imageSize'
+    | 'ttsApiUrl'
+    | 'ttsModel'
+    | 'ttsVoice'
+    | 'ttsProvider'
+    | 'thinkingMode'
+  >;
 
 export interface LocalAIProfilesState {
   profiles: SavedAIProfile[];
@@ -166,7 +177,8 @@ const normalizeProfileName = (name: string | undefined, fallback: string) => {
   return trimmed || fallback;
 };
 
-const isLikelyUrlProfileName = (name: string | undefined) => /^https?:\/\//i.test((name || '').trim());
+const isLikelyUrlProfileName = (name: string | undefined) =>
+  /^https?:\/\//i.test((name || '').trim());
 
 const buildProfileNameFallback = (profile: SavedAIProfile) => {
   if (profile.kind === 'text') return `${profile.provider || 'Text'} Text`;
@@ -464,7 +476,9 @@ export const getMostRecentLocalProject = async (): Promise<LocalProjectRecord | 
   return {
     id: cursor.value.id,
     projectName: cursor.value.projectName,
-    snapshot: JSON.parse(reviveSnapshotMedia(cursor.value.snapshot, cursor.value.media)) as StoryProject,
+    snapshot: JSON.parse(
+      reviveSnapshotMedia(cursor.value.snapshot, cursor.value.media),
+    ) as StoryProject,
     updatedAt: cursor.value.updatedAt,
     thumbnailDataUrl: cursor.value.thumbnailDataUrl ?? null,
   };
@@ -565,7 +579,9 @@ export const getApiSettings = async (): Promise<LocalApiKeySettings | null> => {
   return (await db.get('apiSettings', 'current')) ?? null;
 };
 
-export const saveAIProfiles = async (state: LocalAIProfilesState): Promise<LocalAIProfilesState> => {
+export const saveAIProfiles = async (
+  state: LocalAIProfilesState,
+): Promise<LocalAIProfilesState> => {
   const db = await getDB();
   const normalized = normalizeAIProfilesState(state);
   await db.put('aiProfiles', normalized, AI_PROFILES_KEY);

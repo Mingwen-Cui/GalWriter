@@ -156,7 +156,15 @@ export type ResizeHandleProps = {
   reverse?: boolean;
 };
 
-export function ResizeHandle({ label, axis, value, min, max, onChange, reverse }: ResizeHandleProps) {
+export function ResizeHandle({
+  label,
+  axis,
+  value,
+  min,
+  max,
+  onChange,
+  reverse,
+}: ResizeHandleProps) {
   const dragRef = useRef<{ startPosition: number; startValue: number } | null>(null);
   const isHorizontal = axis === 'x';
 

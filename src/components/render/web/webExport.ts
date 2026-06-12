@@ -48,6 +48,19 @@ type WebExportNode = {
     objectFit?: string;
     showTextOverlay?: boolean;
     isRoot?: boolean;
+    presentation?: {
+      characters: {
+        sourceNodeId: string;
+        position: 'left' | 'right' | 'center';
+        offsetX: number;
+        offsetY: number;
+        scale: number;
+        flipX: boolean;
+        layer: number;
+        imageUrl?: string;
+        name?: string;
+      }[];
+    };
   };
 };
 
@@ -314,6 +327,22 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       object-fit: cover;
     }
     .media.empty { color: rgba(248,250,252,0.42); font-weight: 700; }
+    .characters-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      overflow: hidden;
+    }
+    .character-img {
+      position: absolute;
+      max-height: 92%;
+      max-width: 72%;
+      width: auto;
+      object-fit: contain;
+      object-position: bottom;
+      transform-origin: center center;
+    }
     .dialogue {
       border-top: 1px solid rgba(255,255,255,0.14);
       height: auto;
@@ -521,11 +550,92 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       return content.edges.filter((edge) => edge.source === id);
     }
 
+    let isTransitioning = false;
+
+    function getPresentationTransform(type, isExit) {
+      if (type === 'slideLeft') {
+        return 'translateX(' + (isExit ? '-100%' : '-100vw') + ')';
+      }
+      if (type === 'slideRight') {
+        return 'translateX(' + (isExit ? '100%' : '100vw') + ')';
+      }
+      if (type === 'slideUp') {
+        return 'translateY(' + (isExit ? '-100%' : '-100vh') + ')';
+      }
+      if (type === 'slideDown') {
+        return 'translateY(' + (isExit ? '100%' : '100vh') + ')';
+      }
+      return '';
+    }
+
     function goTo(id) {
+      if (isTransitioning) return;
       if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
-      if (currentId) history.push(currentId);
-      currentId = id;
-      render();
+      
+      const node = nodeById.get(currentId);
+      let exitDuration = 0;
+      
+      if (node && node.data) {
+        const data = node.data;
+        const sceneExit = data.presentation && data.presentation.scene && data.presentation.scene.exit;
+        if (sceneExit && sceneExit.type !== 'none') {
+          exitDuration = Math.max(exitDuration, sceneExit.duration || 0);
+        }
+        if (data.presentation && Array.isArray(data.presentation.characters)) {
+          data.presentation.characters.forEach((char) => {
+            if (char.exit && char.exit.type !== 'none') {
+              exitDuration = Math.max(exitDuration, char.exit.duration || 0);
+            }
+          });
+        }
+        
+        if (exitDuration > 0) {
+          isTransitioning = true;
+          
+          const mediaEl = stageEl.querySelector('.media img, .media video');
+          if (mediaEl && sceneExit && sceneExit.type !== 'none') {
+            mediaEl.style.transition = 'opacity ' + sceneExit.duration + 'ms ease-out, transform ' + sceneExit.duration + 'ms ease-out';
+            if (sceneExit.type === 'fade') {
+              mediaEl.style.opacity = '0';
+            } else {
+              const baseScale = (data.presentation.scene && data.presentation.scene.scale) || 1;
+              mediaEl.style.transform = 'scale(' + baseScale + ') ' + getPresentationTransform(sceneExit.type, true);
+            }
+          }
+          
+          if (data.presentation && Array.isArray(data.presentation.characters)) {
+            const charImgs = stageEl.querySelectorAll('.character-img');
+            data.presentation.characters.forEach((char, idx) => {
+              const imgEl = charImgs[idx];
+              if (imgEl && char.exit && char.exit.type !== 'none') {
+                const duration = char.exit.duration || 0;
+                imgEl.style.transition = 'opacity ' + duration + 'ms ease-out, transform ' + duration + 'ms ease-out';
+                if (char.exit.type === 'fade') {
+                  imgEl.style.opacity = '0';
+                } else {
+                  const flipScale = char.flipX ? -1 : 1;
+                  const scale = char.scale || 1;
+                  const transformMotion = getPresentationTransform(char.exit.type, true);
+                  imgEl.style.transform = 'translate(-50%, 0) ' + transformMotion + ' scale(' + scale + ') scaleX(' + flipScale + ')';
+                }
+              }
+            });
+          }
+        }
+      }
+      
+      if (exitDuration > 0) {
+        setTimeout(() => {
+          isTransitioning = false;
+          if (currentId) history.push(currentId);
+          currentId = id;
+          render();
+        }, exitDuration);
+      } else {
+        if (currentId) history.push(currentId);
+        currentId = id;
+        render();
+      }
     }
 
     function animationClass(animation) {
@@ -624,14 +734,67 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const choicePosition = settings.choicesPosition || "belowText";
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
+
+      // 场景入场及基础样式计算
+      const sceneEnter = data.presentation && data.presentation.scene && data.presentation.scene.enter;
+      const hasSceneEnter = sceneEnter && sceneEnter.type !== "none";
+      const sceneDuration = hasSceneEnter ? (sceneEnter.duration || 0) : 0;
+      const sceneCrop = data.presentation && data.presentation.scene && data.presentation.scene.cropMode;
+      const sceneScale = data.presentation && data.presentation.scene && data.presentation.scene.scale || 1;
+      const sceneOffsetX = data.presentation && data.presentation.scene && data.presentation.scene.offsetX || 0;
+      const sceneOffsetY = data.presentation && data.presentation.scene && data.presentation.scene.offsetY || 0;
+      const sceneObjectFit = sceneCrop === 'contain' ? 'contain' : sceneCrop === 'stretch' ? 'fill' : 'cover';
+      const finalCrop = settings.layoutMode === 'immersive' ? 'cover' : (sceneCrop ? sceneObjectFit : 'contain');
+      
+      const initSceneOpacity = (hasSceneEnter && sceneEnter.type === 'fade') ? 0 : 1;
+      const initSceneTransform = 'scale(' + sceneScale + ') ' + (hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : '');
+      const initSceneStyle = 
+        'object-fit: ' + finalCrop + '; ' +
+        'object-position: ' + (50 + sceneOffsetX) + '% ' + (50 + sceneOffsetY) + '%; ' +
+        'opacity: ' + initSceneOpacity + '; ' +
+        'transform: ' + initSceneTransform + '; ' +
+        'transition: opacity ' + sceneDuration + 'ms ease-out, transform ' + sceneDuration + 'ms ease-out;';
+
       const media = image
-        ? '<img src="' + escapeAttr(image) + '" alt="" />'
+        ? '<img src="' + escapeAttr(image) + '" alt="" style="' + initSceneStyle + '" />'
         : video
-          ? '<video src="' + escapeAttr(video) + '" controls playsinline ' + (settings.videoAutoPlay ? 'autoplay muted ' : '') + '></video>'
+          ? '<video src="' + escapeAttr(video) + '" controls playsinline style="' + initSceneStyle + '" ' + (settings.videoAutoPlay ? 'autoplay muted ' : '') + '></video>'
           : labels.noStory;
+
+      let charactersHtml = "";
+      if (data.presentation && Array.isArray(data.presentation.characters)) {
+        charactersHtml = '<div class="characters-layer">' +
+          data.presentation.characters.map((char) => {
+            const charEnter = char.enter;
+            const hasCharEnter = charEnter && charEnter.type !== "none";
+            const charDuration = hasCharEnter ? (charEnter.duration || 0) : 0;
+            
+            const basePosition = char.position === "left" ? 24 : char.position === "right" ? 76 : 50;
+            const left = "calc(" + basePosition + "% + " + (char.offsetX / 10) + "%)";
+            const bottom = (char.offsetY / 10) + "%";
+            const zIndex = Math.min(20, Math.max(1, char.layer || 1));
+            const flipScale = char.flipX ? -1 : 1;
+            const scale = char.scale || 1;
+            
+            const initCharOpacity = (hasCharEnter && charEnter.type === 'fade') ? 0 : 1;
+            const initCharTransform = 'translate(-50%, 0) ' + (hasCharEnter ? getPresentationTransform(charEnter.type, false) : '') + ' scale(' + scale + ') scaleX(' + flipScale + ')';
+            
+            return '<img class="character-img" src="' + escapeAttr(char.imageUrl) + '" alt="' + escapeAttr(char.name || "") + '" ' +
+              'style="' +
+                'left: ' + left + '; ' +
+                'bottom: ' + bottom + '; ' +
+                'z-index: ' + zIndex + '; ' +
+                'opacity: ' + initCharOpacity + '; ' +
+                'transform: ' + initCharTransform + '; ' +
+                'transition: opacity ' + charDuration + 'ms ease-out, transform ' + charDuration + 'ms ease-out;' +
+              '" />';
+          }).join("") +
+          "</div>";
+      }
+
       backdropEl.style.backgroundImage = image ? 'url("' + image.replace(/"/g, '\\"') + '")' : "";
       stageEl.innerHTML =
-        '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + '</div>' +
+        '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + charactersHtml + '</div>' +
         '<div class="dialogue">' +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>' +
@@ -640,6 +803,28 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
+
+      // 在下一个渲染帧中触发入场动画过渡到正常状态
+      setTimeout(() => {
+        const mediaEl = stageEl.querySelector('.media img, .media video');
+        if (mediaEl) {
+          mediaEl.style.opacity = '1';
+          mediaEl.style.transform = 'scale(' + sceneScale + ')';
+        }
+        
+        if (data.presentation && Array.isArray(data.presentation.characters)) {
+          const charImgs = stageEl.querySelectorAll('.character-img');
+          data.presentation.characters.forEach((char, idx) => {
+            const imgEl = charImgs[idx];
+            if (imgEl) {
+              imgEl.style.opacity = '1';
+              const flipScale = char.flipX ? -1 : 1;
+              const scale = char.scale || 1;
+              imgEl.style.transform = 'translate(-50%, 0) scale(' + scale + ') scaleX(' + flipScale + ')';
+            }
+          });
+        }
+      }, 50);
       stageEl.querySelector(".text")?.addEventListener("click", continueFromText);
       stageEl.querySelector(".media")?.addEventListener("click", continueFromText);
       const hideChoicesDuringTypewriter = settings.autoAdvance && settings.interactionMode === "typewriter";
@@ -752,16 +937,53 @@ export async function buildInteractiveWebZipBlob(
       `${titleText}-image`,
       assetMap,
     );
+
+    let webPresentation: any = undefined;
+    const rawPresentation = node.data?.presentation as any;
+    if (rawPresentation && Array.isArray(rawPresentation.characters)) {
+      const packedChars = [];
+      for (const charConfig of rawPresentation.characters) {
+        const charNode = nodes.find((n) => n.id === charConfig.sourceNodeId);
+        if (charNode && charNode.type === 'characterNode') {
+          const charData = charNode.data as any;
+          const outfit = charConfig.outfitId
+            ? charData.outfits?.find((item: any) => item.id === charConfig.outfitId)
+            : charData.outfits?.find((item: any) => item.imageUrl);
+          const rawCharImgUrl = outfit?.imageUrl || charData.avatarUrl;
+          const charName = charData.characterName || charData.name || '';
+
+          if (typeof rawCharImgUrl === 'string' && rawCharImgUrl.trim()) {
+            const packedCharImgUrl = await addImageAsset(
+              zip,
+              rawCharImgUrl,
+              `${charName || 'character'}-avatar`,
+              assetMap,
+            );
+            packedChars.push({
+              sourceNodeId: charConfig.sourceNodeId,
+              position: charConfig.position || 'center',
+              offsetX: Number(charConfig.offsetX) || 0,
+              offsetY: Number(charConfig.offsetY) || 0,
+              scale: Number(charConfig.scale) ?? 1,
+              flipX: Boolean(charConfig.flipX),
+              layer: Number(charConfig.layer) ?? 1,
+              imageUrl: packedCharImgUrl,
+              name: charName,
+            });
+          }
+        }
+      }
+      webPresentation = {
+        characters: packedChars,
+      };
+    }
+
     webNodes.push({
       id: node.id,
       type: node.type,
       data: {
         title: titleText,
-        text: filterMentionTags(
-          nodeText(node),
-          settings.hideCharacterTags,
-          settings.hideSceneTags,
-        ),
+        text: filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags),
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,
         imageUrl,
         videoUrl: typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
@@ -770,6 +992,7 @@ export async function buildInteractiveWebZipBlob(
         showTextOverlay:
           typeof node.data?.showTextOverlay === 'boolean' ? node.data.showTextOverlay : undefined,
         isRoot: Boolean(node.data?.isRoot),
+        presentation: webPresentation,
       },
     });
   }

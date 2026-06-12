@@ -28,7 +28,10 @@ type WebWorkspaceProps = {
   setOutputDir: (value: string) => void;
   setOutputDirError: (value: string) => void;
   chooseOutputDir: () => void;
-  updateWebSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
+  updateWebSettings: <K extends keyof WebExportSettings>(
+    key: K,
+    value: WebExportSettings[K],
+  ) => void;
   updateWebChoiceTextColor: (value: string) => void;
   updateWebChoiceColor: (value: string) => void;
   updateWebRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
@@ -120,7 +123,11 @@ export function WebWorkspace({
                   setOutputDir(event.target.value);
                   setOutputDirError('');
                 }}
-                placeholder={t('未指定时保存到系统下载目录', '未指定ならダウンロードに保存', 'Defaults to Downloads')}
+                placeholder={t(
+                  '未指定时保存到系统下载目录',
+                  '未指定ならダウンロードに保存',
+                  'Defaults to Downloads',
+                )}
                 className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
                   outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
                 }`}
@@ -193,22 +200,24 @@ export function WebWorkspace({
               {t('剧情文本交互策略', '本文インタラクション', 'Text Interaction')}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {(['typewriter', 'immediate'] as WebExportSettings['interactionMode'][]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => updateWebSettings('interactionMode', mode)}
-                  className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
-                    webSettings.interactionMode === mode
-                      ? 'bg-[var(--vr-accent)] text-white'
-                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
-                  }`}
-                >
-                  {mode === 'typewriter'
-                    ? t('打字机效果', 'タイプライター', 'Typewriter')
-                    : t('立即显示', '即時表示', 'Immediate')}
-                </button>
-              ))}
+              {(['typewriter', 'immediate'] as WebExportSettings['interactionMode'][]).map(
+                (mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => updateWebSettings('interactionMode', mode)}
+                    className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
+                      webSettings.interactionMode === mode
+                        ? 'bg-[var(--vr-accent)] text-white'
+                        : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                    }`}
+                  >
+                    {mode === 'typewriter'
+                      ? t('打字机效果', 'タイプライター', 'Typewriter')
+                      : t('立即显示', '即時表示', 'Immediate')}
+                  </button>
+                ),
+              )}
             </div>
             <label className="block rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
               <RangeControl

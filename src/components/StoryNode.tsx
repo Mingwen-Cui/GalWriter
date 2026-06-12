@@ -21,12 +21,14 @@ import {
   Image as ImageIcon,
   Italic,
   Layers,
+  List,
   Loader2,
   MapPin,
   Maximize,
   Palette,
   Play,
   Plus,
+  Save,
   ScanSearch,
   Sparkles,
   StepForward,
@@ -40,8 +42,8 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import { createPortal } from 'react-dom';
 
 import type {
-  CharacterPresentation,
   CharacterNodeData,
+  CharacterPresentation,
   PresentationAnimation,
   PresentationMotion,
   SceneFlowNode,
@@ -53,10 +55,10 @@ import type {
 import { Language, translations } from '../lib/i18n';
 import {
   clampCharacterLayer,
-  createCharacterPresentation,
-  createScenePresentation,
   copyCharacterPresentationSettings,
   copyScenePresentationSettings,
+  createCharacterPresentation,
+  createScenePresentation,
   getCharacterStagePosition,
   getPresentationTransform,
   hasCharacterPresentationClipboard,
@@ -192,9 +194,7 @@ function DraggableNumberInput({
         }}
         className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
       />
-      {unit && (
-        <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>
-      )}
+      {unit && <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>}
     </div>
   );
 }
@@ -233,11 +233,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const mediaStyle: React.CSSProperties =
     objectFit === 'playtest'
       ? {
-          objectFit: 'contain',
-          objectPosition: `${50 + mediaOffsetX}% ${50 + mediaOffsetY}%`,
-          transform: `scale(${mediaScale})`,
-          transformOrigin: 'center',
-        }
+        objectFit: 'contain',
+        objectPosition: `${50 + mediaOffsetX}% ${50 + mediaOffsetY}%`,
+        transform: `scale(${mediaScale})`,
+        transformOrigin: 'center',
+      }
       : { objectFit };
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
@@ -249,9 +249,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const showTitleInside = showTitles && storyTitlePlacement === 'inside';
   const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
   const presentationStageTop = showTitleInside ? TITLE_HEIGHT : 0;
-  const presentationStageHeight = showTitleInside
-    ? `calc(52% - ${TITLE_HEIGHT * 0.52}px)`
-    : '52%';
+  const presentationStageHeight = showTitleInside ? `calc(52% - ${TITLE_HEIGHT * 0.52}px)` : '52%';
   const isRoot = data.isRoot === true;
   const { zoom } = useViewport();
   const storeApi = useStoreApi();
@@ -281,6 +279,227 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     value: CharacterPresentation | ScenePresentation;
   } | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
+
+  // NOTE: 演出设置模板接口定义
+  interface CharacterTemplate {
+    id: string;
+    name: string;
+    settings: {
+      position: 'left' | 'center' | 'right' | 'custom';
+      offsetX: number;
+      offsetY: number;
+      scale: number;
+      flipX: boolean;
+      layer: number;
+      enter: PresentationMotion;
+      exit: PresentationMotion;
+    };
+  }
+
+  interface SceneTemplate {
+    id: string;
+    name: string;
+    settings: {
+      cropMode: 'cover' | 'contain' | 'stretch';
+      scale: number;
+      offsetX: number;
+      offsetY: number;
+      enter: PresentationMotion;
+      exit: PresentationMotion;
+    };
+  }
+
+  const [characterTemplates, setCharacterTemplates] = useState<CharacterTemplate[]>(() => {
+    try {
+      const stored = localStorage.getItem('galwriter-char-templates');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [sceneTemplates, setSceneTemplates] = useState<SceneTemplate[]>(() => {
+    try {
+      const stored = localStorage.getItem('galwriter-scene-templates');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse scene templates:', error);
+      return [];
+    }
+  });
+
+  const [showCharacterTemplateList, setShowCharacterTemplateList] = useState(false);
+  const [showSceneTemplateList, setShowSceneTemplateList] = useState(false);
+
+  // NOTE: 新建角色模板处理
+  const handleCreateCharacterTemplate = (config: CharacterPresentation) => {
+    const {
+      sourceNodeId: _sourceNodeId,
+      linkedByEdge: _linkedByEdge,
+      outfitId: _outfitId,
+      ...settings
+    } = config;
+    let currentTemplates: CharacterTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-char-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse character templates:', error);
+    }
+    const newTemplate: CharacterTemplate = {
+      id: Date.now().toString(),
+      name: `${presentationMenu?.name || '角色'}-模板-${currentTemplates.length + 1}`,
+      settings,
+    };
+    const nextTemplates = [...currentTemplates, newTemplate];
+    setCharacterTemplates(nextTemplates);
+    localStorage.setItem('galwriter-char-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+    setShowCharacterTemplateList(true);
+  };
+
+  // NOTE: 新建场景模板处理
+  const handleCreateSceneTemplate = (config: ScenePresentation) => {
+    const {
+      sourceNodeId: _sourceNodeId,
+      linkedByEdge: _linkedByEdge,
+      imageId: _imageId,
+      previousImageUrl: _previousImageUrl,
+      previousShowTextOverlay: _previousShowTextOverlay,
+      ...settings
+    } = config;
+    let currentTemplates: SceneTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-scene-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse scene templates:', error);
+    }
+    const newTemplate: SceneTemplate = {
+      id: Date.now().toString(),
+      name: `${presentationMenu?.name || '场景'}-模板-${currentTemplates.length + 1}`,
+      settings,
+    };
+    const nextTemplates = [...currentTemplates, newTemplate];
+    setSceneTemplates(nextTemplates);
+    localStorage.setItem('galwriter-scene-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+    setShowSceneTemplateList(true);
+  };
+
+  // NOTE: 重命名角色模板
+  const handleRenameCharacterTemplate = (tplId: string, newName: string) => {
+    let currentTemplates: CharacterTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-char-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse character templates:', error);
+    }
+    const nextTemplates = currentTemplates.map((t) =>
+      t.id === tplId ? { ...t, name: newName } : t,
+    );
+    setCharacterTemplates(nextTemplates);
+    localStorage.setItem('galwriter-char-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+  };
+
+  // NOTE: 重命名场景模板
+  const handleRenameSceneTemplate = (tplId: string, newName: string) => {
+    let currentTemplates: SceneTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-scene-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse scene templates:', error);
+    }
+    const nextTemplates = currentTemplates.map((t) =>
+      t.id === tplId ? { ...t, name: newName } : t,
+    );
+    setSceneTemplates(nextTemplates);
+    localStorage.setItem('galwriter-scene-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+  };
+
+  // NOTE: 删除角色模板
+  const handleDeleteCharacterTemplate = (tplId: string) => {
+    let currentTemplates: CharacterTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-char-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse character templates:', error);
+    }
+    const nextTemplates = currentTemplates.filter((t) => t.id !== tplId);
+    setCharacterTemplates(nextTemplates);
+    localStorage.setItem('galwriter-char-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+  };
+
+  // NOTE: 删除场景模板
+  const handleDeleteSceneTemplate = (tplId: string) => {
+    let currentTemplates: SceneTemplate[] = [];
+    try {
+      const stored = localStorage.getItem('galwriter-scene-templates');
+      currentTemplates = stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to parse scene templates:', error);
+    }
+    const nextTemplates = currentTemplates.filter((t) => t.id !== tplId);
+    setSceneTemplates(nextTemplates);
+    localStorage.setItem('galwriter-scene-templates', JSON.stringify(nextTemplates));
+    window.dispatchEvent(new Event('galwriter-templates-changed'));
+  };
+
+  // NOTE: 应用角色模板
+  const handleApplyCharacterTemplate = (tpl: CharacterTemplate) => {
+    if (!presentationMenu) return;
+    updateCharacterPresentation(
+      presentationMenu.sourceNodeId,
+      (current) => ({
+        ...current,
+        ...structuredClone(tpl.settings),
+      }),
+      'enter',
+    );
+  };
+
+  // NOTE: 应用场景模板
+  const handleApplySceneTemplate = (tpl: SceneTemplate) => {
+    if (!presentationMenu) return;
+    updateScenePresentation(
+      presentationMenu.sourceNodeId,
+      (current) => ({
+        ...current,
+        ...structuredClone(tpl.settings),
+      }),
+      'enter',
+    );
+  };
+
+  // NOTE: 监听模板数据同步事件以同步全局跨卡片模板列表
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const storedChar = localStorage.getItem('galwriter-char-templates');
+        setCharacterTemplates(storedChar ? JSON.parse(storedChar) : []);
+      } catch (error) {
+        console.error('Failed to sync character templates:', error);
+      }
+      try {
+        const storedScene = localStorage.getItem('galwriter-scene-templates');
+        setSceneTemplates(storedScene ? JSON.parse(storedScene) : []);
+      } catch (error) {
+        console.error('Failed to sync scene templates:', error);
+      }
+    };
+    window.addEventListener('galwriter-templates-changed', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('galwriter-templates-changed', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   const outsideTitleBackground = useStore(
     useCallback(
@@ -372,11 +591,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     }
 
     const cropMode =
-      mode === 'contain' || mode === 'playtest'
-        ? 'contain'
-        : mode === 'fill'
-          ? 'stretch'
-          : 'cover';
+      mode === 'contain' || mode === 'playtest' ? 'contain' : mode === 'fill' ? 'stretch' : 'cover';
     updateNodeData({
       objectFit: mode,
       presentation: {
@@ -601,12 +816,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           showTextOverlay: true,
           presentation: {
             ...presentation,
-            scene: createScenePresentation(
-              sourceNode.id,
-              imageUrl,
-              false,
-              data.showTextOverlay,
-            ),
+            scene: createScenePresentation(sourceNode.id, imageUrl, false, data.showTextOverlay),
           },
         });
       }
@@ -616,10 +826,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         updateNodeData({
           presentation: {
             ...presentation,
-            characters: [
-              ...presentation.characters,
-              createCharacterPresentation(sourceNode.id),
-            ],
+            characters: [...presentation.characters, createCharacterPresentation(sourceNode.id)],
           },
         });
       }
@@ -816,18 +1023,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             };
           })
           .filter(Boolean) as {
-          config: CharacterPresentation;
-          imageUrl: string;
-          name: string;
-        }[],
+            config: CharacterPresentation;
+            imageUrl: string;
+            name: string;
+          }[],
       [storyPresentation.characters],
     ),
   );
 
-  const isPreviewAnimatedState = (
-    kind: 'character' | 'scene',
-    sourceNodeId: string,
-  ) => {
+  const isPreviewAnimatedState = (kind: 'character' | 'scene', sourceNodeId: string) => {
     if (
       !presentationPreview ||
       presentationPreview.kind !== kind ||
@@ -1052,7 +1256,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
                   <Separator />
 
-                  <ToolGroup>
+                  <ToolGroup className="gap-1 flex-wrap">
                     <button
                       onClick={() => updateMediaDisplayMode('contain')}
                       className={`${textBtnBase} ${objectFit === 'contain' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
@@ -1077,12 +1281,56 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     >
                       {lang === 'zh' ? '测试剧本' : 'Playtest'}
                     </button>
+                    {/* NOTE: 当媒体显示模式为测试剧本时，直接在其右侧展示缩放比例滑动条与 X/Y 坐标偏移量，以优化界面紧凑感并方便在一行内集中操作。 */}
+                    {objectFit === 'playtest' && (
+                      <div className="flex items-center gap-1.5 ml-1 border-l border-[var(--toolbar-border)]/40 pl-2">
+                        <span className="text-[9px] font-bold text-[var(--text-muted)] shrink-0">
+                          {lang === 'zh' ? '缩放' : 'Scale'} {Math.round(activeMediaScale * 100)}%
+                        </span>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.05"
+                          value={activeMediaScale}
+                          onChange={(event) =>
+                            updateMediaTransform({ mediaScale: Number(event.target.value) })
+                          }
+                          className="w-16 shrink-0 h-1 accent-indigo-500"
+                        />
+                        <div className="flex items-center gap-1">
+                          <label className="flex items-center gap-0.5 text-[9px] font-bold text-[var(--text-muted)] shrink-0">
+                            X
+                            <input
+                              type="number"
+                              value={activeMediaOffsetX}
+                              onChange={(event) =>
+                                updateMediaTransform({ mediaOffsetX: Number(event.target.value) })
+                              }
+                              className="w-10 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5 text-center text-[9px]"
+                            />
+                          </label>
+                          <label className="flex items-center gap-0.5 text-[9px] font-bold text-[var(--text-muted)] shrink-0">
+                            Y
+                            <input
+                              type="number"
+                              value={activeMediaOffsetY}
+                              onChange={(event) =>
+                                updateMediaTransform({ mediaOffsetY: Number(event.target.value) })
+                              }
+                              className="w-10 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5 text-center text-[9px]"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
                   </ToolGroup>
 
                   <Separator />
 
                   <ToolGroup>
-                    {imageUrl && (
+                    {/* NOTE: 当卡片中渲染了场景演出的照片背景时，隐藏下载图片、提取媒体以及隐藏/移除文字的按钮，以防止在此类演出状态下误操作原始媒体。 */}
+                    {imageUrl && !hasScenePresentationImage && (
                       <button
                         onClick={handleDownloadImage}
                         className={`${iconBtnBase} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
@@ -1100,7 +1348,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         <Type className="w-4 h-4" />
                       </button>
                     )}
-                    {data.showTextOverlay && text.replace(/<[^>]*>/g, '').trim() !== '' && (
+                    {data.showTextOverlay && text.replace(/<[^>]*>/g, '').trim() !== '' && !hasScenePresentationImage && (
                       <button
                         onClick={() => data.onExtractMedia?.(id)}
                         className={`${iconBtnBase} bg-amber-50 text-amber-600 hover:bg-amber-100 ml-0.5`}
@@ -1109,7 +1357,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         <Layers className="w-4 h-4" />
                       </button>
                     )}
-                    {data.showTextOverlay && (
+                    {data.showTextOverlay && !hasScenePresentationImage && (
                       <button
                         onClick={() => data.onRemoveTextFromImage?.(id)}
                         className={`${iconBtnBase} bg-rose-50 text-rose-600 hover:bg-rose-100 ml-0.5`}
@@ -1120,51 +1368,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     )}
                   </ToolGroup>
                 </ToolbarRow>
-                {objectFit === 'playtest' && (
-                  <ToolbarRow className="flex-wrap">
-                    <ToolGroup className="min-w-32 flex-1">
-                      <span className="text-[9px] font-bold text-[var(--text-muted)]">
-                        {lang === 'zh' ? '缩放' : 'Scale'}{' '}
-                        {Math.round(activeMediaScale * 100)}%
-                      </span>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="2"
-                        step="0.05"
-                        value={activeMediaScale}
-                        onChange={(event) =>
-                          updateMediaTransform({ mediaScale: Number(event.target.value) })
-                        }
-                        className="w-24"
-                      />
-                    </ToolGroup>
-                    <ToolGroup>
-                      <label className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-muted)]">
-                        X
-                        <input
-                          type="number"
-                          value={activeMediaOffsetX}
-                          onChange={(event) =>
-                            updateMediaTransform({ mediaOffsetX: Number(event.target.value) })
-                          }
-                          className="w-14 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5"
-                        />
-                      </label>
-                      <label className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-muted)]">
-                        Y
-                        <input
-                          type="number"
-                          value={activeMediaOffsetY}
-                          onChange={(event) =>
-                            updateMediaTransform({ mediaOffsetY: Number(event.target.value) })
-                          }
-                          className="w-14 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5"
-                        />
-                      </label>
-                    </ToolGroup>
-                  </ToolbarRow>
-                )}
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
@@ -1264,9 +1467,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           value={title}
           onChange={(e) => updateNodeData({ title: e.target.value })}
           onFocus={(e) => e.target.select()}
-          className={`nodrag absolute -top-7 z-20 h-6 w-40 max-w-full border-0 bg-transparent px-0 text-[11px] font-bold uppercase tracking-widest shadow-none outline-none cursor-text ${
-            storyTitlePlacement === 'outside-left' ? 'left-0 text-left' : 'right-0 text-right'
-          }`}
+          className={`nodrag absolute -top-7 z-20 h-6 w-40 max-w-full border-0 bg-transparent px-0 text-[11px] font-bold uppercase tracking-widest shadow-none outline-none cursor-text ${storyTitlePlacement === 'outside-left' ? 'left-0 text-left' : 'right-0 text-right'
+            }`}
           style={{
             color: getReadableTextColor(outsideTitleBackground),
             textShadow: isLightColor(outsideTitleBackground)
@@ -1305,37 +1507,32 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   : storyPresentation.scene?.cropMode === 'stretch'
                     ? 'fill'
                     : 'cover',
-              objectPosition: `${50 + (storyPresentation.scene?.offsetX || 0)}% ${
-                50 + (storyPresentation.scene?.offsetY || 0)
-              }%`,
-              transform: `scale(${storyPresentation.scene?.scale || 1}) ${
-                storyPresentation.scene &&
-                isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId)
+              objectPosition: `${50 + (storyPresentation.scene?.offsetX || 0)}% ${50 + (storyPresentation.scene?.offsetY || 0)
+                }%`,
+              transform: `scale(${storyPresentation.scene?.scale || 1}) ${storyPresentation.scene &&
+                  isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId)
                   ? getPresentationTransform(
-                      storyPresentation.scene[
-                        presentationPreview?.phase === 'exit' ? 'exit' : 'enter'
-                      ].type,
-                      presentationPreview?.phase === 'exit',
-                    )
+                    storyPresentation.scene[
+                      presentationPreview?.phase === 'exit' ? 'exit' : 'enter'
+                    ].type,
+                    presentationPreview?.phase === 'exit',
+                  )
                   : ''
-              }`,
+                }`,
               opacity:
                 storyPresentation.scene &&
-                isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId) &&
-                storyPresentation.scene[
-                  presentationPreview?.phase === 'exit' ? 'exit' : 'enter'
-                ].type === 'fade'
+                  isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId) &&
+                  storyPresentation.scene[presentationPreview?.phase === 'exit' ? 'exit' : 'enter']
+                    .type === 'fade'
                   ? 0
                   : 1,
               transition:
                 storyPresentation.scene &&
-                presentationPreview?.kind === 'scene' &&
-                presentationPreview.sourceNodeId === storyPresentation.scene.sourceNodeId
-                  ? `transform ${
-                      storyPresentation.scene[presentationPreview.phase].duration
-                    }ms ease, opacity ${
-                      storyPresentation.scene[presentationPreview.phase].duration
-                    }ms ease`
+                  presentationPreview?.kind === 'scene' &&
+                  presentationPreview.sourceNodeId === storyPresentation.scene.sourceNodeId
+                  ? `transform ${storyPresentation.scene[presentationPreview.phase].duration
+                  }ms ease, opacity ${storyPresentation.scene[presentationPreview.phase].duration
+                  }ms ease`
                   : undefined,
             }}
             alt=""
@@ -1363,13 +1560,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   zIndex: clampCharacterLayer(config.layer),
                   opacity: animated && motion.type === 'fade' ? 0 : 1,
                   translate: '-50% 0',
-                  transform: `${
-                    animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
-                  } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                  transform: `${animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
+                    } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
                   transformOrigin: 'center center',
-                  transition: previewMatches && motion.type !== 'none' && motion.duration > 0
-                    ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
-                    : undefined,
+                  transition:
+                    previewMatches && motion.type !== 'none' && motion.duration > 0
+                      ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                      : undefined,
                 }}
               />
             );
@@ -1463,11 +1660,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
           {showRichTextTools && (
             <div
-              className={`relative z-10 w-full flex-1 flex flex-col items-center justify-center ${dynamicPaddingClasses()} ${
-                imageUrl && !hasScenePresentationImage || videoUrl
+              className={`relative z-10 w-full flex-1 flex flex-col items-center justify-center ${dynamicPaddingClasses()} ${(imageUrl && !hasScenePresentationImage) || videoUrl
                   ? 'border-t border-[var(--card-border)]/30'
                   : ''
-              }`}
+                }`}
               style={{
                 backgroundColor: hasScenePresentationImage
                   ? isDefaultColor
@@ -1602,21 +1798,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     );
                   }
                 }}
-                className={`absolute right-3 top-3 rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${
-                  presentationResetUndo?.kind === presentationMenu.kind &&
-                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                className={`absolute right-3 top-3 rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${presentationResetUndo?.kind === presentationMenu.kind &&
+                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
                     : 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white'
-                }`}
+                  }`}
                 title={
                   presentationResetUndo?.kind === presentationMenu.kind &&
-                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
                     ? '还原清零前的演出设置'
                     : '恢复默认演出设置'
                 }
               >
                 {presentationResetUndo?.kind === presentationMenu.kind &&
-                presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
                   ? '还原'
                   : '清零'}
               </button>
@@ -1627,24 +1822,25 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
               {presentationMenu.kind === 'character'
                 ? (() => {
-                    const presentation = getPresentation();
-                    const current =
-                      presentation.characters.find(
-                        (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
-                      ) || createCharacterPresentation(presentationMenu.sourceNodeId);
-                    return (
-                      <div className="space-y-3 text-xs">
-                        <div className="grid grid-cols-2 gap-2">
+                  const presentation = getPresentation();
+                  const current =
+                    presentation.characters.find(
+                      (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
+                    ) || createCharacterPresentation(presentationMenu.sourceNodeId);
+                  return (
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => {
                               copyCharacterPresentationSettings(current);
                               setPresentationClipboardVersion((version) => version + 1);
                             }}
-                            className="flex items-center justify-center gap-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold hover:border-indigo-500 hover:text-indigo-500"
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors flex items-center justify-center"
+                            title="复制设置"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                            复制设置
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
@@ -1655,165 +1851,266 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 pasteCharacterPresentationSettings,
                               )
                             }
-                            className="flex items-center justify-center gap-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold hover:border-indigo-500 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[var(--text-secondary)] disabled:hover:bg-transparent flex items-center justify-center"
+                            title="粘贴设置"
                           >
-                            <ClipboardPaste className="h-3.5 w-3.5" />
-                            粘贴设置
+                            <ClipboardPaste className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="w-px h-4 bg-[var(--card-border)]/40 shrink-0" />
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() =>
-                              replayPresentation(
-                                'character',
-                                presentationMenu.sourceNodeId,
-                                'enter',
-                              )
-                            }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            onClick={() => handleCreateCharacterTemplate(current)}
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors flex items-center justify-center"
+                            title="新建模板"
                           >
-                            预览入场
+                            <Save className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() =>
-                              replayPresentation(
-                                'character',
-                                presentationMenu.sourceNodeId,
-                                'exit',
-                              )
+                              setShowCharacterTemplateList(!showCharacterTemplateList)
                             }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${showCharacterTemplateList ? 'text-indigo-500 bg-indigo-500/10' : 'text-[var(--text-secondary)] hover:text-indigo-500 hover:bg-indigo-500/10'}`}
+                            title="模板列表"
                           >
-                            预览出场
+                            <List className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="flex w-full gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
+                      </div>
+                      {showCharacterTemplateList && (
+                        <div className="mt-2 border border-[var(--card-border)]/40 rounded-lg bg-[var(--app-bg)]/50 p-2 space-y-1.5 max-h-48 overflow-y-auto">
+                          <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex justify-between items-center">
+                            <span>已存人物模板</span>
+                            {characterTemplates.length === 0 && (
+                              <span className="font-normal">暂无模板</span>
+                            )}
+                          </div>
+                          {characterTemplates.map((tpl) => (
+                            <div
+                              key={tpl.id}
+                              className="flex items-center justify-between gap-1.5 bg-[var(--card-bg)] p-1.5 rounded border border-[var(--card-border)]/30 hover:border-indigo-500/30 transition-colors"
+                            >
+                              <input
+                                type="text"
+                                value={tpl.name}
+                                onChange={(e) =>
+                                  handleRenameCharacterTemplate(tpl.id, e.target.value)
+                                }
+                                className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-[var(--text-primary)] outline-none border-b border-transparent focus:border-indigo-500/50 pb-0.5 px-0.5"
+                                placeholder="模板名称"
+                              />
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplyCharacterTemplate(tpl)}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-colors"
+                                  title="应用模板"
+                                >
+                                  使用
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCharacterTemplate(tpl.id)}
+                                  className="p-1 rounded text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                  title="删除模板"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            replayPresentation(
+                              'character',
+                              presentationMenu.sourceNodeId,
+                              'enter',
+                            )
+                          }
+                          className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                        >
+                          预览入场
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            replayPresentation('character', presentationMenu.sourceNodeId, 'exit')
+                          }
+                          className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                        >
+                          预览出场
+                        </button>
+                      </div>
+                      <div className="flex w-full gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCharacterPresentation(
+                              presentationMenu.sourceNodeId,
+                              (item) => ({
                                 ...item,
                                 position: 'left',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.position === 'left'
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                              }),
+                            )
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.position === 'left'
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
                             }`}
-                          >
-                            左边
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
+                        >
+                          左边
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCharacterPresentation(
+                              presentationMenu.sourceNodeId,
+                              (item) => ({
                                 ...item,
                                 position: 'center',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.position === 'center'
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                              }),
+                            )
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.position === 'center'
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
                             }`}
-                          >
-                            中间
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
+                        >
+                          中间
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCharacterPresentation(
+                              presentationMenu.sourceNodeId,
+                              (item) => ({
                                 ...item,
                                 position: 'right',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.position === 'right'
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                              }),
+                            )
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.position === 'right'
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
                             }`}
-                          >
-                            右边
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label>
-                            <span className="mb-1 block font-bold">水平偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetX}
-                              onChange={(value) =>
-                                updateCharacterPresentation(
-                                  presentationMenu.sourceNodeId,
-                                  (item) => ({ ...item, offsetX: value }),
-                                )
-                              }
-                            />
-                          </label>
-                          <label>
-                            <span className="mb-1 block font-bold">垂直偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetY}
-                              onChange={(value) =>
-                                updateCharacterPresentation(
-                                  presentationMenu.sourceNodeId,
-                                  (item) => ({ ...item, offsetY: value }),
-                                )
-                              }
-                            />
-                          </label>
-                        </div>
-                        {presentation.characters.length > 1 && (
-                          <label className="flex items-center gap-2">
-                            <span className="shrink-0 font-bold">Z轴</span>
-                            <div className="w-20">
-                              <DraggableNumberInput
-                                value={clampCharacterLayer(current.layer)}
-                                min={1}
-                                max={20}
-                                unit={null}
-                                onChange={(value) =>
-                                  updateCharacterPresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      layer: clampCharacterLayer(value),
-                                    }),
-                                  )
-                                }
-                              />
-                            </div>
-                          </label>
-                        )}
-                        <label className="block">
-                          <span className="mb-1 block font-bold">
-                            缩放：{Math.round(current.scale * 100)}%
-                          </span>
-                          <input
-                            type="range"
-                            min="0.4"
-                            max="2"
-                            step="0.05"
-                            value={current.scale}
-                            onChange={(event) =>
-                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                scale: Number(event.target.value),
-                              }))
+                        >
+                          右边
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          <span className="mb-1 block font-bold">水平偏移</span>
+                          <DraggableNumberInput
+                            value={current.offsetX}
+                            onChange={(value) =>
+                              updateCharacterPresentation(
+                                presentationMenu.sourceNodeId,
+                                (item) => ({ ...item, offsetX: value }),
+                              )
                             }
-                            className="w-full"
                           />
                         </label>
-                        {(['enter', 'exit'] as const).map((phase) => (
-                          <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
-                            <label>
-                              <span className="mb-1 block font-bold">
-                                {phase === 'enter' ? '入场动画' : '出场动画'}
-                              </span>
-                              <select
-                                value={current[phase].type}
+                        <label>
+                          <span className="mb-1 block font-bold">垂直偏移</span>
+                          <DraggableNumberInput
+                            value={current.offsetY}
+                            onChange={(value) =>
+                              updateCharacterPresentation(
+                                presentationMenu.sourceNodeId,
+                                (item) => ({ ...item, offsetY: value }),
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      {presentation.characters.length > 1 && (
+                        <label className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">Z轴</span>
+                          <div className="w-20">
+                            <DraggableNumberInput
+                              value={clampCharacterLayer(current.layer)}
+                              min={1}
+                              max={20}
+                              unit={null}
+                              onChange={(value) =>
+                                updateCharacterPresentation(
+                                  presentationMenu.sourceNodeId,
+                                  (item) => ({
+                                    ...item,
+                                    layer: clampCharacterLayer(value),
+                                  }),
+                                )
+                              }
+                            />
+                          </div>
+                        </label>
+                      )}
+                      <label className="block">
+                        <span className="mb-1 block font-bold">
+                          缩放：{Math.round(current.scale * 100)}%
+                        </span>
+                        <input
+                          type="range"
+                          min="0.4"
+                          max="2"
+                          step="0.05"
+                          value={current.scale}
+                          onChange={(event) =>
+                            updateCharacterPresentation(
+                              presentationMenu.sourceNodeId,
+                              (item) => ({
+                                ...item,
+                                scale: Number(event.target.value),
+                              }),
+                            )
+                          }
+                          className="w-full"
+                        />
+                      </label>
+                      {(['enter', 'exit'] as const).map((phase) => (
+                        <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
+                          <label>
+                            <span className="mb-1 block font-bold">
+                              {phase === 'enter' ? '入场动画' : '出场动画'}
+                            </span>
+                            <select
+                              value={current[phase].type}
+                              onChange={(event) =>
+                                updateCharacterPresentation(
+                                  presentationMenu.sourceNodeId,
+                                  (item) => ({
+                                    ...item,
+                                    [phase]: {
+                                      ...item[phase],
+                                      type: event.target.value as PresentationAnimation,
+                                    },
+                                  }),
+                                  phase,
+                                )
+                              }
+                              className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
+                            >
+                              {ANIMATION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span className="mb-1 block font-bold">时长</span>
+                            <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+                              <input
+                                type="number"
+                                min="0"
+                                step="100"
+                                value={current[phase].duration}
                                 onChange={(event) =>
                                   updateCharacterPresentation(
                                     presentationMenu.sourceNodeId,
@@ -1821,73 +2118,44 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                       ...item,
                                       [phase]: {
                                         ...item[phase],
-                                        type: event.target.value as PresentationAnimation,
+                                        duration: Number(event.target.value),
                                       },
                                     }),
                                     phase,
                                   )
                                 }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              >
-                                {ANIMATION_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              <span className="mb-1 block font-bold">时长</span>
-                              <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="100"
-                                  value={current[phase].duration}
-                                  onChange={(event) =>
-                                    updateCharacterPresentation(
-                                      presentationMenu.sourceNodeId,
-                                      (item) => ({
-                                        ...item,
-                                        [phase]: {
-                                          ...item[phase],
-                                          duration: Number(event.target.value),
-                                        },
-                                      }),
-                                      phase,
-                                    )
-                                  }
-                                  className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
-                                />
-                                <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
-                                  MS
-                                </span>
-                              </div>
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()
+                                className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+                              />
+                              <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
+                                MS
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
                 : (() => {
-                    const presentation = getPresentation();
-                    const current =
-                      presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
-                        ? presentation.scene
-                        : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
-                    return (
-                      <div className="space-y-3 text-xs">
-                        <div className="grid grid-cols-2 gap-2">
+                  const presentation = getPresentation();
+                  const current =
+                    presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
+                      ? presentation.scene
+                      : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
+                  return (
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => {
                               copyScenePresentationSettings(current);
                               setPresentationClipboardVersion((version) => version + 1);
                             }}
-                            className="flex items-center justify-center gap-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold hover:border-blue-500 hover:text-blue-500"
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
+                            title="复制设置"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                            复制设置
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
@@ -1898,135 +2166,226 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 pasteScenePresentationSettings,
                               )
                             }
-                            className="flex items-center justify-center gap-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold hover:border-blue-500 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[var(--text-secondary)] disabled:hover:bg-transparent flex items-center justify-center"
+                            title="粘贴设置"
                           >
-                            <ClipboardPaste className="h-3.5 w-3.5" />
-                            粘贴设置
+                            <ClipboardPaste className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="w-px h-4 bg-[var(--card-border)]/40 shrink-0" />
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
-                            }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            onClick={() => handleCreateSceneTemplate(current)}
+                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
+                            title="新建模板"
                           >
-                            预览入场
+                            <Save className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
-                            }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            onClick={() => setShowSceneTemplateList(!showSceneTemplateList)}
+                            className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${showSceneTemplateList ? 'text-blue-500 bg-blue-500/10' : 'text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10'}`}
+                            title="模板列表"
                           >
-                            预览出场
-                          </button>
-                        </div>
-                        <div className="flex w-full gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'cover',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'cover'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            覆盖裁切
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'contain',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'contain'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            完整显示
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'stretch',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'stretch'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            拉伸填充
+                            <List className="h-4 w-4" />
                           </button>
                         </div>
-                        <label className="block">
-                          <span className="mb-1 block font-bold">
-                            缩放：{Math.round(current.scale * 100)}%
-                          </span>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2"
-                            step="0.05"
-                            value={current.scale}
-                            onChange={(event) =>
+                      </div>
+                      {showSceneTemplateList && (
+                        <div className="mt-2 border border-[var(--card-border)]/40 rounded-lg bg-[var(--app-bg)]/50 p-2 space-y-1.5 max-h-48 overflow-y-auto">
+                          <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex justify-between items-center">
+                            <span>已存场景模板</span>
+                            {sceneTemplates.length === 0 && (
+                              <span className="font-normal">暂无模板</span>
+                            )}
+                          </div>
+                          {sceneTemplates.map((tpl) => (
+                            <div
+                              key={tpl.id}
+                              className="flex items-center justify-between gap-1.5 bg-[var(--card-bg)] p-1.5 rounded border border-[var(--card-border)]/30 hover:border-blue-500/30 transition-colors"
+                            >
+                              <input
+                                type="text"
+                                value={tpl.name}
+                                onChange={(e) =>
+                                  handleRenameSceneTemplate(tpl.id, e.target.value)
+                                }
+                                className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-[var(--text-primary)] outline-none border-b border-transparent focus:border-blue-500/50 pb-0.5 px-0.5"
+                                placeholder="模板名称"
+                              />
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplySceneTemplate(tpl)}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
+                                  title="应用模板"
+                                >
+                                  使用
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSceneTemplate(tpl.id)}
+                                  className="p-1 rounded text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                  title="删除模板"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
+                          }
+                          className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                        >
+                          预览入场
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
+                          }
+                          className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                        >
+                          预览出场
+                        </button>
+                      </div>
+                      <div className="flex w-full gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                              ...item,
+                              cropMode: 'cover',
+                            }))
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.cropMode === 'cover'
+                              ? 'border-blue-500 bg-blue-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
+                        >
+                          覆盖裁切
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                              ...item,
+                              cropMode: 'contain',
+                            }))
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.cropMode === 'contain'
+                              ? 'border-blue-500 bg-blue-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
+                        >
+                          完整显示
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                              ...item,
+                              cropMode: 'stretch',
+                            }))
+                          }
+                          className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${current.cropMode === 'stretch'
+                              ? 'border-blue-500 bg-blue-500 text-white'
+                              : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
+                        >
+                          拉伸填充
+                        </button>
+                      </div>
+                      <label className="block">
+                        <span className="mb-1 block font-bold">
+                          缩放：{Math.round(current.scale * 100)}%
+                        </span>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.05"
+                          value={current.scale}
+                          onChange={(event) =>
+                            updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                              ...item,
+                              scale: Number(event.target.value),
+                            }))
+                          }
+                          className="w-full"
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          <span className="mb-1 block font-bold">水平偏移</span>
+                          <DraggableNumberInput
+                            value={current.offsetX}
+                            onChange={(value) =>
                               updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
                                 ...item,
-                                scale: Number(event.target.value),
+                                offsetX: value,
                               }))
                             }
-                            className="w-full"
                           />
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          <span className="mb-1 block font-bold">垂直偏移</span>
+                          <DraggableNumberInput
+                            value={current.offsetY}
+                            onChange={(value) =>
+                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                                ...item,
+                                offsetY: value,
+                              }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      {(['enter', 'exit'] as const).map((phase) => (
+                        <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
                           <label>
-                            <span className="mb-1 block font-bold">水平偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetX}
-                              onChange={(value) =>
-                                updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                  ...item,
-                                  offsetX: value,
-                                }))
+                            <span className="mb-1 block font-bold">
+                              {phase === 'enter' ? '入场动画' : '出场动画'}
+                            </span>
+                            <select
+                              value={current[phase].type}
+                              onChange={(event) =>
+                                updateScenePresentation(
+                                  presentationMenu.sourceNodeId,
+                                  (item) => ({
+                                    ...item,
+                                    [phase]: {
+                                      ...item[phase],
+                                      type: event.target.value as PresentationAnimation,
+                                    },
+                                  }),
+                                  phase,
+                                )
                               }
-                            />
+                              className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
+                            >
+                              {ANIMATION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label>
-                            <span className="mb-1 block font-bold">垂直偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetY}
-                              onChange={(value) =>
-                                updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                  ...item,
-                                  offsetY: value,
-                                }))
-                              }
-                            />
-                          </label>
-                        </div>
-                        {(['enter', 'exit'] as const).map((phase) => (
-                          <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
-                            <label>
-                              <span className="mb-1 block font-bold">
-                                {phase === 'enter' ? '入场动画' : '出场动画'}
-                              </span>
-                              <select
-                                value={current[phase].type}
+                            <span className="mb-1 block font-bold">时长</span>
+                            <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+                              <input
+                                type="number"
+                                min="0"
+                                step="100"
+                                value={current[phase].duration}
                                 onChange={(event) =>
                                   updateScenePresentation(
                                     presentationMenu.sourceNodeId,
@@ -2034,54 +2393,24 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                       ...item,
                                       [phase]: {
                                         ...item[phase],
-                                        type: event.target.value as PresentationAnimation,
+                                        duration: Number(event.target.value),
                                       },
                                     }),
                                     phase,
                                   )
                                 }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              >
-                                {ANIMATION_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              <span className="mb-1 block font-bold">时长</span>
-                              <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="100"
-                                  value={current[phase].duration}
-                                  onChange={(event) =>
-                                    updateScenePresentation(
-                                      presentationMenu.sourceNodeId,
-                                      (item) => ({
-                                        ...item,
-                                        [phase]: {
-                                          ...item[phase],
-                                          duration: Number(event.target.value),
-                                        },
-                                      }),
-                                      phase,
-                                    )
-                                  }
-                                  className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
-                                />
-                                <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
-                                  MS
-                                </span>
-                              </div>
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                                className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+                              />
+                              <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
+                                MS
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
             </div>
           </div>,
           document.body,

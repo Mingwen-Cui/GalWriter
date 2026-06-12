@@ -1,10 +1,22 @@
 import { FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video } from 'lucide-react';
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
-import { ENCODER_OPTIONS, EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS, TEXT_ANIMATION_OPTIONS } from '../shared/constants';
+import {
+  ENCODER_OPTIONS,
+  EXPORT_FORMAT_OPTIONS,
+  FRAME_RATE_OPTIONS,
+  RESOLUTION_OPTIONS,
+  TEXT_ANIMATION_OPTIONS,
+} from '../shared/constants';
 import { clamp } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
-import type { ExportFormat, ExportSettingsMode, RenderStatus, RenderStyle, TextAnimation } from '../shared/types';
+import type {
+  ExportFormat,
+  ExportSettingsMode,
+  RenderStatus,
+  RenderStyle,
+  TextAnimation,
+} from '../shared/types';
 import { formatSeconds } from '../timeline/timelineUtils';
 import type { Language } from '../../../../lib/i18n';
 
@@ -125,10 +137,11 @@ export function VideoExportSettingsPanel({
               key={mode}
               type="button"
               onClick={() => setExportSettingsMode(mode)}
-              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${exportSettingsMode === mode
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
+                exportSettingsMode === mode
                   ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                   : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                }`}
+              }`}
               title={
                 mode === 'video'
                   ? t('切换到导出设置', '書き出し設定を表示', 'Show export settings')
@@ -215,13 +228,11 @@ export function VideoExportSettingsPanel({
                     {t('字号', 'サイズ', 'Size')}
                   </span>
                   <DragSizeControl
-                    label={
-                      t(
-                        '拖动调整标题字号，单击输入精确数字',
-                        'ドラッグでタイトルサイズを調整、クリックで数値入力',
-                        'Drag to adjust title size, click to type an exact value',
-                      )
-                    }
+                    label={t(
+                      '拖动调整标题字号，单击输入精确数字',
+                      'ドラッグでタイトルサイズを調整、クリックで数値入力',
+                      'Drag to adjust title size, click to type an exact value',
+                    )}
                     value={renderStyle.titleFontSize}
                     min={18}
                     max={120}
@@ -271,13 +282,11 @@ export function VideoExportSettingsPanel({
                     {t('字号', 'サイズ', 'Size')}
                   </span>
                   <DragSizeControl
-                    label={
-                      t(
-                        '拖动调整正文字号，单击输入精确数字',
-                        'ドラッグで本文サイズを調整、クリックで数値入力',
-                        'Drag to adjust body size, click to type an exact value',
-                      )
-                    }
+                    label={t(
+                      '拖动调整正文字号，单击输入精确数字',
+                      'ドラッグで本文サイズを調整、クリックで数値入力',
+                      'Drag to adjust body size, click to type an exact value',
+                    )}
                     value={renderStyle.bodyFontSize}
                     min={16}
                     max={96}
@@ -348,9 +357,7 @@ export function VideoExportSettingsPanel({
                     max="30"
                     step="1"
                     value={defaultSeconds}
-                    onChange={(e) =>
-                      setDefaultSeconds(clamp(Number(e.target.value) || 4, 1, 30))
-                    }
+                    onChange={(e) => setDefaultSeconds(clamp(Number(e.target.value) || 4, 1, 30))}
                     className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
                   />
                 </label>
@@ -411,11 +418,16 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => setUseGpuAcceleration(false)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${!useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
+                    !useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title={t('使用 2D Canvas 渲染（最稳定）', '2D Canvas レンダリング（最も安定）', '2D Canvas rendering (most stable)')}
+                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title={t(
+                    '使用 2D Canvas 渲染（最稳定）',
+                    '2D Canvas レンダリング（最も安定）',
+                    '2D Canvas rendering (most stable)',
+                  )}
                 >
                   2D Canvas
                 </button>
@@ -423,14 +435,23 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => isWebGPUSupported && setUseGpuAcceleration(true)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
+                    useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={
                     isWebGPUSupported
-                      ? t('使用 WebGPU 加速渲染（实验性）', 'WebGPU 加速レンダリング（実験的）', 'WebGPU accelerated rendering (experimental)')
-                      : t('当前浏览器不支持 WebGPU', 'このブラウザは WebGPU をサポートしていません', 'WebGPU is not supported in this browser')
+                      ? t(
+                          '使用 WebGPU 加速渲染（实验性）',
+                          'WebGPU 加速レンダリング（実験的）',
+                          'WebGPU accelerated rendering (experimental)',
+                        )
+                      : t(
+                          '当前浏览器不支持 WebGPU',
+                          'このブラウザは WebGPU をサポートしていません',
+                          'WebGPU is not supported in this browser',
+                        )
                   }
                 >
                   GPU
@@ -486,9 +507,14 @@ export function VideoExportSettingsPanel({
                       setOutputDir(e.target.value);
                       setOutputDirError('');
                     }}
-                    placeholder={t('默认保存到系统下载目录', '未指定ならダウンロードへ保存', 'Defaults to Downloads')}
-                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
-                      }`}
+                    placeholder={t(
+                      '默认保存到系统下载目录',
+                      '未指定ならダウンロードへ保存',
+                      'Defaults to Downloads',
+                    )}
+                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
+                      outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -549,15 +575,18 @@ export function VideoExportSettingsPanel({
                   className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-xs font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
                 >
                   <FolderOpen className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{t('上传音频', '音声をアップロード', 'Upload audio')}</span>
+                  <span className="truncate">
+                    {t('上传音频', '音声をアップロード', 'Upload audio')}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
-                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${isRecordingVoiceover
+                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${
+                    isRecordingVoiceover
                       ? 'bg-rose-500 text-white hover:bg-rose-600'
                       : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
-                    }`}
+                  }`}
                 >
                   <Mic className="h-4 w-4 shrink-0" />
                   <span className="truncate">

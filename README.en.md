@@ -49,12 +49,12 @@ Download the latest build from [Releases](https://github.com/Mingwen-Cui/GalWrit
 
 The desktop app is recommended for serious writing, local project management, full file access, and video export.
 
-| Installer | Recommended for | Video export |
-| --------- | --------------- | ------------ |
-| `GalWriter-Setup.exe` | Recommended for most users. Larger download, but works out of the box. | Bundles a slim FFmpeg build and directly exports WebM, MP4, MOV, and MKV. |
-| `GalWriter-Setup-Lite.exe` | For users who care about download size and already have FFmpeg installed. | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg. |
-| `GalWriter-AI-v1.2.5-windows-x64.exe` | For users who want a no-install, double-click executable. | Single-file portable Lite build; non-WebM export requires system FFmpeg. |
-| `GalWriter-AI-v1.2.5-windows-x64-portable-full.zip` | For users who want no installation but still need bundled FFmpeg. | Extract the zip and keep `ffmpeg.exe` next to the app executable. |
+| Installer                                           | Recommended for                                                           | Video export                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `GalWriter-Setup.exe`                               | Recommended for most users. Larger download, but works out of the box.    | Bundles a slim FFmpeg build and directly exports WebM, MP4, MOV, and MKV.  |
+| `GalWriter-Setup-Lite.exe`                          | For users who care about download size and already have FFmpeg installed. | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg. |
+| `GalWriter-AI-v1.2.5-windows-x64.exe`               | For users who want a no-install, double-click executable.                 | Single-file portable Lite build; non-WebM export requires system FFmpeg.   |
+| `GalWriter-AI-v1.2.5-windows-x64-portable-full.zip` | For users who want no installation but still need bundled FFmpeg.         | Extract the zip and keep `ffmpeg.exe` next to the app executable.          |
 
 Release builds only bundle `ffmpeg.exe` in the Full installer. They do not include `ffprobe.exe`, documentation, presets, or other unrelated FFmpeg files.
 
@@ -91,11 +91,11 @@ Data principles:
 
 ## Video Export Strategy
 
-| Environment      | Direct export formats | Notes                                                                          |
-| ---------------- | --------------------- | ------------------------------------------------------------------------------ |
-| Web Demo         | WebM                  | Uses browser-native recording for the most reliable web workflow.              |
-| Desktop App Full | WebM, MP4, MOV, MKV   | Bundles a slim FFmpeg build and is recommended for most users.                 |
-| Desktop App Lite | WebM, MP4, MOV, MKV   | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg.     |
+| Environment      | Direct export formats | Notes                                                                      |
+| ---------------- | --------------------- | -------------------------------------------------------------------------- |
+| Web Demo         | WebM                  | Uses browser-native recording for the most reliable web workflow.          |
+| Desktop App Full | WebM, MP4, MOV, MKV   | Bundles a slim FFmpeg build and is recommended for most users.             |
+| Desktop App Lite | WebM, MP4, MOV, MKV   | Does not bundle FFmpeg. WebM works; MP4 / MOV / MKV require system FFmpeg. |
 
 When a web user selects MP4, MOV, or MKV, GalWriter AI shows an in-app prompt and points them to the desktop release page. If the Lite app or local runtime cannot find FFmpeg, the app also shows an in-app prompt to download the Full app or switch to WebM.
 

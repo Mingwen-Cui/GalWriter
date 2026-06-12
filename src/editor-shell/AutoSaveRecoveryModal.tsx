@@ -25,7 +25,11 @@ export function AutoSaveRecoveryModal({
           <FileArchive className="h-8 w-8" />
         </div>
         <h3 className="mb-2 text-xl font-black text-slate-800 dark:text-slate-100">
-          {language === 'zh' ? '发现未保存的进度' : language === 'ja' ? '未保存の下書きが見つかりました' : 'Unsaved Progress Found'}
+          {language === 'zh'
+            ? '发现未保存的进度'
+            : language === 'ja'
+              ? '未保存の下書きが見つかりました'
+              : 'Unsaved Progress Found'}
         </h3>
         <p className="mb-8 text-center text-sm leading-relaxed text-slate-500 dark:text-slate-400">
           {language === 'zh'

@@ -353,20 +353,14 @@ export const buildImageGenerationRequest = (
       body: {
         prompt,
         negative_prompt: stableDiffusionOptions.negativePrompt?.trim() || '',
-        steps: clampNumber(
-          stableDiffusionOptions.steps,
-          DEFAULT_STABLE_DIFFUSION_STEPS,
-          1,
-          150,
-        ),
+        steps: clampNumber(stableDiffusionOptions.steps, DEFAULT_STABLE_DIFFUSION_STEPS, 1, 150),
         cfg_scale: clampNumber(
           stableDiffusionOptions.cfgScale,
           DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
           1,
           30,
         ),
-        sampler_name:
-          stableDiffusionOptions.sampler?.trim() || DEFAULT_STABLE_DIFFUSION_SAMPLER,
+        sampler_name: stableDiffusionOptions.sampler?.trim() || DEFAULT_STABLE_DIFFUSION_SAMPLER,
         seed: clampNumber(stableDiffusionOptions.seed, -1, -1, 2147483647),
         width: dimensions.width,
         height: dimensions.height,
@@ -452,9 +446,7 @@ const colorDistance = (
   background: readonly [number, number, number],
 ) =>
   Math.sqrt(
-    (red - background[0]) ** 2 +
-      (green - background[1]) ** 2 +
-      (blue - background[2]) ** 2,
+    (red - background[0]) ** 2 + (green - background[1]) ** 2 + (blue - background[2]) ** 2,
   );
 
 export const ensureTransparentImageBackground = async (imageUrl: string) => {
@@ -490,15 +482,10 @@ export const ensureTransparentImageBackground = async (imageUrl: string) => {
     (canvas.height * canvas.width - 1) * 4,
   ];
   const background = cornerOffsets
-    .map(
-      (offset) =>
-        [pixels[offset], pixels[offset + 1], pixels[offset + 2]] as const,
-    )
-    .reduce(
-      (sum, color) =>
-        [sum[0] + color[0], sum[1] + color[1], sum[2] + color[2]] as const,
-      [0, 0, 0] as const,
-    )
+    .map((offset) => [pixels[offset], pixels[offset + 1], pixels[offset + 2]] as const)
+    .reduce((sum, color) => [sum[0] + color[0], sum[1] + color[1], sum[2] + color[2]] as const, [
+      0, 0, 0,
+    ] as const)
     .map((value) => value / cornerOffsets.length) as [number, number, number];
 
   const width = canvas.width;

@@ -96,7 +96,9 @@ export function EditorRightToolbar({
             ? 'glass-toolbar-active bg-indigo-600 text-white shadow-sm'
             : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
         } flex items-center justify-center`}
-        title={language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
+        title={
+          language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'
+        }
       >
         <Sparkles className="h-5 w-5" />
       </button>
@@ -104,7 +106,11 @@ export function EditorRightToolbar({
       <button
         onClick={() => setRightToolbarCollapsed((value) => !value)}
         className={`flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 transition-all duration-300 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-white ${
-          bubbleStyle === 'flat' ? 'm-0' : toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto' : 'mx-auto'
+          bubbleStyle === 'flat'
+            ? 'm-0'
+            : toolbarLayout === 'horizontal'
+              ? 'mx-1.5 my-auto'
+              : 'mx-auto'
         }`}
         title={
           rightToolbarCollapsed
@@ -186,25 +192,25 @@ export function EditorRightToolbar({
             <>
               <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 
-          <div
-            className={`flex items-center gap-2 py-1 ${
-              toolbarLayout === 'horizontal' ? 'mx-1.5 flex-row' : 'my-1.5 flex-col'
-            }`}
-          >
-            {presetColors.map((color, index) => (
-              <button
-                key={index}
-                onClick={() => setCanvasBg(color)}
-                className={`exclude-glass h-6 w-6 rounded-full border border-slate-200 transition-all hover:scale-110 dark:border-slate-700 ${
-                  canvasBg === color
-                    ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900'
-                    : ''
+              <div
+                className={`flex items-center gap-2 py-1 ${
+                  toolbarLayout === 'horizontal' ? 'mx-1.5 flex-row' : 'my-1.5 flex-col'
                 }`}
-                style={{ backgroundColor: color }}
-                title={`${language === 'zh' ? '背景颜色' : language === 'ja' ? '背景色' : 'BG Color'} ${index + 1}`}
-              />
-            ))}
-          </div>
+              >
+                {presetColors.map((color, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCanvasBg(color)}
+                    className={`exclude-glass h-6 w-6 rounded-full border border-slate-200 transition-all hover:scale-110 dark:border-slate-700 ${
+                      canvasBg === color
+                        ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900'
+                        : ''
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={`${language === 'zh' ? '背景颜色' : language === 'ja' ? '背景色' : 'BG Color'} ${index + 1}`}
+                  />
+                ))}
+              </div>
             </>
           )}
         </div>

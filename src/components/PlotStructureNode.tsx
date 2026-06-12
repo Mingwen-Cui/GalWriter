@@ -172,7 +172,13 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
     }
 
     if (!direction.trim()) {
-      alert(tr('请填写后续发展走向', '今後の展開を入力してください', 'Describe the desired story direction'));
+      alert(
+        tr(
+          '请填写后续发展走向',
+          '今後の展開を入力してください',
+          'Describe the desired story direction',
+        ),
+      );
       return;
     }
 

@@ -12,6 +12,17 @@ import {
   stripHtml,
   webAnimationStyle,
 } from '../video/shared/storyNodes';
+import {
+  clampCharacterLayer,
+  getCharacterStagePosition,
+  normalizeStoryPresentation,
+  getPresentationTransform,
+} from '../../../lib/presentation';
+import type {
+  CharacterNodeData,
+  CharacterPresentation,
+  StoryPresentation,
+} from '../../../domain/project';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -58,6 +69,15 @@ export function WebPlaytestPreview({
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
+  const [presentationVisible, setPresentationVisible] = useState(false);
+  const [presentationExiting, setPresentationExiting] = useState(false);
+
+  React.useEffect(() => {
+    setPresentationExiting(false);
+    setPresentationVisible(false);
+    const frame = requestAnimationFrame(() => setPresentationVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [currentNodeId]);
 
   React.useEffect(() => {
     if (!root) {
@@ -80,6 +100,33 @@ export function WebPlaytestPreview({
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
   const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
+  const presentation = normalizeStoryPresentation(
+    currentNode?.data?.presentation as StoryPresentation | undefined,
+  );
+  const presentedCharacters = useMemo(() => {
+    if (!presentation.characters) return [];
+    return presentation.characters
+      .map((config) => {
+        const source = nodes.find((node) => node.id === config.sourceNodeId);
+        if (!source || source.type !== 'characterNode') return null;
+        const characterData = source.data as CharacterNodeData;
+        const outfit = config.outfitId
+          ? characterData.outfits?.find((item) => item.id === config.outfitId)
+          : characterData.outfits?.find((item) => item.imageUrl);
+        const imageUrl = outfit?.imageUrl || characterData.avatarUrl;
+        if (!imageUrl) return null;
+        return { config, data: characterData, imageUrl };
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          config: CharacterPresentation;
+          data: CharacterNodeData;
+          imageUrl: string;
+        } => Boolean(item),
+      );
+  }, [presentation.characters, nodes]);
   const text = filterMentionTags(
     getNodeDisplayText(currentNode),
     settings.hideCharacterTags,
@@ -92,8 +139,18 @@ export function WebPlaytestPreview({
   const canClickContinue = outEdges.length <= 1;
 
   const goTo = (targetId: string) => {
-    if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
-    setCurrentNodeId(targetId);
+    if (presentationExiting) return;
+    const exitDuration = Math.max(
+      presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
+      ...presentation.characters.map((char) =>
+        char.exit.type === 'none' ? 0 : char.exit.duration || 0,
+      ),
+    );
+    setPresentationExiting(true);
+    window.setTimeout(() => {
+      if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
+      setCurrentNodeId(targetId);
+    }, exitDuration);
   };
 
   React.useEffect(() => {
@@ -314,6 +371,36 @@ export function WebPlaytestPreview({
     );
   }
 
+  const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
+  const sceneAnimationActive = presentationExiting || !presentationVisible;
+  const sceneObjectFit =
+    presentation.scene?.cropMode === 'contain'
+      ? 'contain'
+      : presentation.scene?.cropMode === 'stretch'
+        ? 'fill'
+        : 'cover';
+  const finalObjectFit =
+    settings.layoutMode === 'immersive'
+      ? 'cover'
+      : presentation.scene?.cropMode
+        ? sceneObjectFit
+        : 'contain';
+  const sceneStyle: React.CSSProperties = {
+    objectFit: finalObjectFit as any,
+    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
+      50 + (presentation.scene?.offsetY || 0)
+    }%`,
+    opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
+    transform: `scale(${presentation.scene?.scale || 1}) ${
+      sceneAnimationActive && sceneMotion
+        ? getPresentationTransform(sceneMotion.type, presentationExiting)
+        : ''
+    }`,
+    transitionProperty: 'opacity, transform',
+    transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
+    transitionTimingFunction: 'ease-out',
+  };
+
   return (
     <div
       ref={previewRootRef}
@@ -341,19 +428,13 @@ export function WebPlaytestPreview({
           className={settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 p-4'}
         >
           <div
-            className={`flex h-full min-h-0 items-center justify-center overflow-hidden ${
+            className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
               settings.layoutMode === 'immersive' ? 'rounded-none' : 'rounded-lg bg-black/35'
             }`}
             onClick={continueFromText}
           >
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt=""
-                className={`h-full w-full ${
-                  settings.layoutMode === 'immersive' ? 'object-cover' : 'object-contain'
-                }`}
-              />
+              <img src={imageUrl} alt="" className="h-full w-full" style={sceneStyle} />
             ) : videoUrl ? (
               <video
                 src={videoUrl}
@@ -361,9 +442,8 @@ export function WebPlaytestPreview({
                 playsInline
                 autoPlay={settings.videoAutoPlay}
                 muted={settings.videoAutoPlay}
-                className={`h-full w-full ${
-                  settings.layoutMode === 'immersive' ? 'object-cover' : 'object-contain'
-                }`}
+                className="h-full w-full"
+                style={sceneStyle}
               />
             ) : (
               <div className="px-6 text-center text-sm font-bold text-white/45">
@@ -372,6 +452,37 @@ export function WebPlaytestPreview({
                   '現在のノードに画像または動画がありません',
                   'This node has no image or video',
                 )}
+              </div>
+            )}
+            {presentedCharacters.length > 0 && (
+              <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+                {presentedCharacters.map(({ config, data, imageUrl }) => {
+                  const motion = presentationExiting ? config.exit : config.enter;
+                  const animationActive = presentationExiting || !presentationVisible;
+                  const animationTransform =
+                    animationActive && motion
+                      ? getPresentationTransform(motion.type, presentationExiting)
+                      : '';
+                  return (
+                    <img
+                      key={config.sourceNodeId}
+                      src={imageUrl}
+                      alt={data.characterName}
+                      className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                      style={{
+                        ...getCharacterStagePosition(config),
+                        zIndex: clampCharacterLayer(config.layer),
+                        opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+                        translate: '-50% 0',
+                        transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                        transformOrigin: 'center center',
+                        transitionProperty: 'opacity, transform',
+                        transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                        transitionTimingFunction: 'ease-out',
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

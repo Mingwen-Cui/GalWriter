@@ -84,7 +84,12 @@ export const useCanvasDnD = ({
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};
-        let title = language === 'zh' ? '导入文件' : language === 'ja' ? 'ファイルをインポート' : 'Import File';
+        let title =
+          language === 'zh'
+            ? '导入文件'
+            : language === 'ja'
+              ? 'ファイルをインポート'
+              : 'Import File';
 
         const { width, height } = await getMediaDimensions(url, file.type);
         let displayWidth = 400;
@@ -97,13 +102,28 @@ export const useCanvasDnD = ({
 
         if (file.type.startsWith('image/')) {
           mediaData = { imageUrl: url };
-          title = language === 'zh' ? '导入图片' : language === 'ja' ? '画像をインポート' : 'Import Image';
+          title =
+            language === 'zh'
+              ? '导入图片'
+              : language === 'ja'
+                ? '画像をインポート'
+                : 'Import Image';
         } else if (file.type.startsWith('video/')) {
           mediaData = { videoUrl: url };
-          title = language === 'zh' ? '导入视频' : language === 'ja' ? '動画をインポート' : 'Import Video';
+          title =
+            language === 'zh'
+              ? '导入视频'
+              : language === 'ja'
+                ? '動画をインポート'
+                : 'Import Video';
         } else if (file.type.startsWith('audio/')) {
           mediaData = { audioUrl: url };
-          title = language === 'zh' ? '导入音频' : language === 'ja' ? '音声ファイルをインポート' : 'Import Audio';
+          title =
+            language === 'zh'
+              ? '导入音频'
+              : language === 'ja'
+                ? '音声ファイルをインポート'
+                : 'Import Audio';
           displayWidth = 300;
           displayHeight = 150;
         }

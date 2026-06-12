@@ -66,4 +66,3 @@ export function formatSceneNodeText(data: SceneNodeData | Record<string, unknown
   if (parts.length === 0) return '（暂无设定内容）';
   return parts.join('\n\n');
 }
-

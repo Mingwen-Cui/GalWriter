@@ -70,15 +70,15 @@ type EditorState = {
 };
 type DeleteState =
   | {
-    mode: 'draft';
-    name: string;
-  }
+      mode: 'draft';
+      name: string;
+    }
   | {
-    mode: 'saved';
-    kind: ProfileKind;
-    profileId: string;
-    name: string;
-  };
+      mode: 'saved';
+      kind: ProfileKind;
+      profileId: string;
+      name: string;
+    };
 
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
@@ -319,9 +319,7 @@ const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'mistral', label: 'mistral' },
   ],
   // NOTE: hosted 模式固定使用 DeepSeek，由服务端持有密钥
-  hosted: [
-    { value: 'deepseek', label: 'DeepSeek' },
-  ],
+  hosted: [{ value: 'deepseek', label: 'DeepSeek' }],
 };
 
 const IMAGE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
@@ -379,7 +377,12 @@ const IMAGE_SIZE_PRESETS = [
   { value: '1024x1536', zh: '2:3 竖图', ja: '2:3 縦画像', en: '2:3 Portrait' },
   { value: '1536x1024', zh: '3:2 横图', ja: '3:2 横画像', en: '3:2 Landscape' },
   { value: '1792x1024', zh: '16:9 DALL-E', ja: '16:9 DALL-E', en: '16:9 DALL-E' },
-  { value: '512x512', zh: 'SD 1:1 快速预览', ja: 'SD 1:1 クイックプレビュー', en: 'SD 1:1 quick preview' },
+  {
+    value: '512x512',
+    zh: 'SD 1:1 快速预览',
+    ja: 'SD 1:1 クイックプレビュー',
+    en: 'SD 1:1 quick preview',
+  },
   { value: '768x512', zh: 'SD 3:2 横图', ja: 'SD 3:2 横画像', en: 'SD 3:2 landscape' },
   { value: '512x768', zh: 'SD 2:3 竖图', ja: 'SD 2:3 縦画像', en: 'SD 2:3 portrait' },
   { value: '768x768', zh: 'SD 1:1 高清', ja: 'SD 1:1 高精細', en: 'SD 1:1 high detail' },
@@ -541,16 +544,16 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     const sdDefaults =
       provider === LOCAL_STABLE_DIFFUSION_PROVIDER
         ? {
-          negativePrompt: draft.negativePrompt ?? '',
-          steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
-          cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
-          sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
-          seed: draft.seed ?? -1,
-          restoreFaces: draft.restoreFaces ?? false,
-          enableHr: draft.enableHr ?? false,
-          hrScale: draft.hrScale ?? 2,
-          denoisingStrength: draft.denoisingStrength ?? 0.7,
-        }
+            negativePrompt: draft.negativePrompt ?? '',
+            steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
+            cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+            sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
+            seed: draft.seed ?? -1,
+            restoreFaces: draft.restoreFaces ?? false,
+            enableHr: draft.enableHr ?? false,
+            hrScale: draft.hrScale ?? 2,
+            denoisingStrength: draft.denoisingStrength ?? 0.7,
+          }
         : {};
     return {
       ...draft,
@@ -585,7 +588,8 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
   if (kind === 'image') {
     return {
       title: language === 'zh' ? '图片 AI' : 'Image AI',
-      subtitle: language === 'zh' ? '角色、场景、背景生成' : 'Character, scene, background generation',
+      subtitle:
+        language === 'zh' ? '角色、场景、背景生成' : 'Character, scene, background generation',
       icon: ImageIcon,
       accent:
         'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300',
@@ -819,7 +823,7 @@ export function AISettingsPanel({
       trimmedName && !isLikelyUrlProfileName(trimmedName)
         ? trimmedName
         : buildFallbackProfileName(editorState.kind, language);
-  const payload = {
+    const payload = {
       ...editorState.draft,
       name: finalName,
     } as ProfileSeed;
@@ -855,9 +859,7 @@ export function AISettingsPanel({
 
     await onDeleteAIProfile(deleteState.profileId);
     setDeleteState(null);
-    setEditorState((current) =>
-      current?.profileId === deleteState.profileId ? null : current,
-    );
+    setEditorState((current) => (current?.profileId === deleteState.profileId ? null : current));
     setImageTemplateImportStatus('idle');
   };
 
@@ -978,8 +980,12 @@ export function AISettingsPanel({
                 <div className="space-y-2">
                   {renderFieldLabel(
                     isHosted
-                      ? language === 'zh' ? '后端 AI 提供商' : 'Backend AI Provider'
-                      : language === 'zh' ? '模型' : 'Model'
+                      ? language === 'zh'
+                        ? '后端 AI 提供商'
+                        : 'Backend AI Provider'
+                      : language === 'zh'
+                        ? '模型'
+                        : 'Model',
                   )}
                   <select
                     value={currentModelSelectValue}
@@ -1013,9 +1019,7 @@ export function AISettingsPanel({
                       spellCheck={false}
                       value={draft.model}
                       onChange={(e) => updateDraft({ model: e.target.value })}
-                      placeholder={
-                        language === 'zh' ? '输入模型型号' : 'Enter a model identifier'
-                      }
+                      placeholder={language === 'zh' ? '输入模型型号' : 'Enter a model identifier'}
                       className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/60 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] dark:text-slate-100"
                     />
                   )}
@@ -1045,7 +1049,7 @@ export function AISettingsPanel({
                           ? language === 'zh'
                             ? 'API Key（可选）'
                             : 'API Key (Optional)'
-                          : 'API Key'
+                          : 'API Key',
                       )}
                       <input
                         type="password"
@@ -1071,8 +1075,10 @@ export function AISettingsPanel({
                   <div className="space-y-2">
                     {renderFieldLabel(
                       isHosted
-                        ? language === 'zh' ? '代理地址（可选）' : 'Proxy URL (Optional)'
-                        : 'API URL'
+                        ? language === 'zh'
+                          ? '代理地址（可选）'
+                          : 'Proxy URL (Optional)'
+                        : 'API URL',
                     )}
                     <input
                       type="text"
@@ -1105,14 +1111,16 @@ export function AISettingsPanel({
                   <button
                     type="button"
                     onClick={() => updateDraft({ thinkingMode: !draft.thinkingMode })}
-                    className={`relative h-7 w-14 rounded-full transition-all ${draft.thinkingMode
-                      ? 'bg-[var(--accent)]'
-                      : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                      }`}
+                    className={`relative h-7 w-14 rounded-full transition-all ${
+                      draft.thinkingMode
+                        ? 'bg-[var(--accent)]'
+                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${draft.thinkingMode ? 'left-8' : 'left-1'
-                        }`}
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                        draft.thinkingMode ? 'left-8' : 'left-1'
+                      }`}
                     />
                   </button>
                 </div>
@@ -1143,10 +1151,11 @@ export function AISettingsPanel({
                   </div>
                   {imageTemplateImportStatus !== 'idle' && (
                     <p
-                      className={`text-xs font-bold ${imageTemplateImportStatus === 'success'
-                        ? 'text-emerald-500'
-                        : 'text-amber-500'
-                        }`}
+                      className={`text-xs font-bold ${
+                        imageTemplateImportStatus === 'success'
+                          ? 'text-emerald-500'
+                          : 'text-amber-500'
+                      }`}
                     >
                       {imageTemplateImportStatus === 'success'
                         ? language === 'zh'
@@ -1249,7 +1258,9 @@ export function AISettingsPanel({
                           min={1}
                           max={30}
                           step={0.5}
-                          value={(draft as ImageAIProfile).cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE}
+                          value={
+                            (draft as ImageAIProfile).cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE
+                          }
                           onChange={(e) => updateDraft({ cfgScale: Number(e.target.value) })}
                           className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                         />
@@ -1259,7 +1270,9 @@ export function AISettingsPanel({
                         {renderFieldLabel('Sampler')}
                         <input
                           type="text"
-                          value={(draft as ImageAIProfile).sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER}
+                          value={
+                            (draft as ImageAIProfile).sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER
+                          }
                           onChange={(e) => updateDraft({ sampler: e.target.value })}
                           placeholder={DEFAULT_STABLE_DIFFUSION_SAMPLER}
                           className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1342,7 +1355,11 @@ export function AISettingsPanel({
                 {draft.provider === 'system' ? (
                   <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4">
                     <p className="text-sm font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? '系统语音' : language === 'ja' ? 'システム音声' : 'System voice'}
+                      {language === 'zh'
+                        ? '系统语音'
+                        : language === 'ja'
+                          ? 'システム音声'
+                          : 'System voice'}
                     </p>
                     <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
                       {language === 'zh'
@@ -1367,22 +1384,34 @@ export function AISettingsPanel({
                           {language === 'zh' && (
                             <div className="mt-3 grid gap-2 text-[11px] md:grid-cols-3">
                               <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
-                                <span className="block font-black text-sky-950 dark:text-sky-50">1. 后台应用ID</span>
-                                <span className="text-sky-700 dark:text-sky-200">填到下面“应用ID”</span>
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  1. 后台应用ID
+                                </span>
+                                <span className="text-sky-700 dark:text-sky-200">
+                                  填到下面“应用ID”
+                                </span>
                               </div>
                               <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
-                                <span className="block font-black text-sky-950 dark:text-sky-50">2. 后台应用密钥</span>
-                                <span className="text-sky-700 dark:text-sky-200">填到下面“应用密钥”</span>
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  2. 后台应用密钥
+                                </span>
+                                <span className="text-sky-700 dark:text-sky-200">
+                                  填到下面“应用密钥”
+                                </span>
                               </div>
                               <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
-                                <span className="block font-black text-sky-950 dark:text-sky-50">3. 接口地址</span>
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  3. 接口地址
+                                </span>
                                 <span className="text-sky-700 dark:text-sky-200">保持默认即可</span>
                               </div>
                             </div>
                           )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel(language === 'zh' ? '应用ID（App Key）' : 'Application ID (App Key)')}
+                          {renderFieldLabel(
+                            language === 'zh' ? '应用ID（App Key）' : 'Application ID (App Key)',
+                          )}
                           <input
                             type="text"
                             name="ai-voice-app-key"
@@ -1390,7 +1419,9 @@ export function AISettingsPanel({
                             spellCheck={false}
                             value={draft.appKey}
                             onChange={(e) => updateDraft({ appKey: e.target.value })}
-                            placeholder={language === 'zh' ? '填有道后台“应用ID”' : 'Youdao application ID'}
+                            placeholder={
+                              language === 'zh' ? '填有道后台“应用ID”' : 'Youdao application ID'
+                            }
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
                           {language === 'zh' && (
@@ -1400,14 +1431,22 @@ export function AISettingsPanel({
                           )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel(language === 'zh' ? '应用密钥（App Secret）' : 'Application Secret (App Secret)')}
+                          {renderFieldLabel(
+                            language === 'zh'
+                              ? '应用密钥（App Secret）'
+                              : 'Application Secret (App Secret)',
+                          )}
                           <input
                             type="password"
                             name="ai-voice-app-secret"
                             autoComplete="new-password"
                             value={draft.apiKey}
                             onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                            placeholder={language === 'zh' ? '填有道后台“应用密钥”' : 'Youdao application secret'}
+                            placeholder={
+                              language === 'zh'
+                                ? '填有道后台“应用密钥”'
+                                : 'Youdao application secret'
+                            }
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
                           {language === 'zh' && (
@@ -1432,7 +1471,11 @@ export function AISettingsPanel({
                     )}
 
                     <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel(draft.provider === 'youdao' && language === 'zh' ? '接口地址（API URL）' : 'API URL')}
+                      {renderFieldLabel(
+                        draft.provider === 'youdao' && language === 'zh'
+                          ? '接口地址（API URL）'
+                          : 'API URL',
+                      )}
                       <input
                         type="text"
                         name="ai-voice-api-url"
@@ -1453,7 +1496,11 @@ export function AISettingsPanel({
                 )}
 
                 <div className="space-y-2">
-                  {renderFieldLabel(draft.provider === 'youdao' && language === 'zh' ? '音色（voiceName）' : 'Voice')}
+                  {renderFieldLabel(
+                    draft.provider === 'youdao' && language === 'zh'
+                      ? '音色（voiceName）'
+                      : 'Voice',
+                  )}
                   <input
                     type="text"
                     name="ai-voice-name"
@@ -1508,15 +1555,20 @@ export function AISettingsPanel({
                   mode: editorState.mode === 'create' ? 'draft' : 'saved',
                   ...(editorState.mode === 'create'
                     ? {
-                      name: draft.name.trim() || (language === 'zh' ? '未保存配置' : language === 'ja' ? '未保存の設定' : 'Unsaved profile'),
-                    }
+                        name:
+                          draft.name.trim() ||
+                          (language === 'zh'
+                            ? '未保存配置'
+                            : language === 'ja'
+                              ? '未保存の設定'
+                              : 'Unsaved profile'),
+                      }
                     : {
-                      kind: editorState.kind,
-                      profileId: editorState.profileId || '',
-                      name:
-                        draft.name.trim() ||
-                        buildFallbackProfileName(editorState.kind, language),
-                    }),
+                        kind: editorState.kind,
+                        profileId: editorState.profileId || '',
+                        name:
+                          draft.name.trim() || buildFallbackProfileName(editorState.kind, language),
+                      }),
                 } as DeleteState)
               }
               className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 text-sm font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-[0.99] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
@@ -1541,7 +1593,11 @@ export function AISettingsPanel({
                 <div className="flex items-center gap-3">
                   <div>
                     <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh' ? 'AI 接口配置' : language === 'ja' ? 'AIプロバイダー設定' : 'AI Provider Profiles'}
+                      {language === 'zh'
+                        ? 'AI 接口配置'
+                        : language === 'ja'
+                          ? 'AIプロバイダー設定'
+                          : 'AI Provider Profiles'}
                     </h3>
                   </div>
                 </div>
@@ -1558,7 +1614,8 @@ export function AISettingsPanel({
                     (section.kind === 'text' && missingTextApiKey) ||
                     section.kind === settingsAttentionTarget;
                   const canAcknowledgeMissingApiHint =
-                    section.kind === settingsAttentionTarget && Boolean(onAcknowledgeSettingsAttention);
+                    section.kind === settingsAttentionTarget &&
+                    Boolean(onAcknowledgeSettingsAttention);
                   const totalCount = virtualProfiles.length + section.profiles.length;
                   const profileCountLabel =
                     language === 'zh'
@@ -1590,7 +1647,9 @@ export function AISettingsPanel({
                             <div className="flex flex-wrap items-center gap-2">
                               <h4
                                 className={`text-base font-black ${
-                                  showMissingApiHint ? 'text-rose-600 dark:text-rose-300' : 'text-[var(--text-primary)]'
+                                  showMissingApiHint
+                                    ? 'text-rose-600 dark:text-rose-300'
+                                    : 'text-[var(--text-primary)]'
                                 }`}
                               >
                                 {meta.title}
@@ -1598,7 +1657,9 @@ export function AISettingsPanel({
                               {showMissingApiHint && (
                                 <span className="h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
                               )}
-                              <span className={`rounded px-2 py-0.5 text-[10px] font-black ${meta.badge}`}>
+                              <span
+                                className={`rounded px-2 py-0.5 text-[10px] font-black ${meta.badge}`}
+                              >
                                 {profileCountLabel}
                               </span>
                             </div>
@@ -1615,17 +1676,25 @@ export function AISettingsPanel({
                               className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              {language === 'zh' ? '我已知晓' : language === 'ja' ? '了解しました' : 'Got it'}
+                              {language === 'zh'
+                                ? '我已知晓'
+                                : language === 'ja'
+                                  ? '了解しました'
+                                  : 'Got it'}
                             </button>
                           )}
-                        <button
-                          type="button"
-                          onClick={() => openCreate(section.kind)}
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          {language === 'zh' ? '新建配置' : language === 'ja' ? '新規設定' : 'New Profile'}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => openCreate(section.kind)}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {language === 'zh'
+                              ? '新建配置'
+                              : language === 'ja'
+                                ? '新規設定'
+                                : 'New Profile'}
+                          </button>
                         </div>
                       </div>
 
@@ -1634,7 +1703,11 @@ export function AISettingsPanel({
                         {virtualProfiles.length + section.profiles.length === 0 ? (
                           <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
-                              {language === 'zh' ? '还没有保存的配置' : language === 'ja' ? '保存された設定はまだありません' : 'No saved profiles yet'}
+                              {language === 'zh'
+                                ? '还没有保存的配置'
+                                : language === 'ja'
+                                  ? '保存された設定はまだありません'
+                                  : 'No saved profiles yet'}
                             </p>
                             <p className="mt-2 text-xs font-medium leading-relaxed text-[var(--text-muted)]">
                               {language === 'zh'
@@ -1657,17 +1730,19 @@ export function AISettingsPanel({
                                   onClick={() => {
                                     void onSelectAIProfile(section.kind, profile.id);
                                   }}
-                                  className={`w-full rounded-md border px-3.5 py-3 text-left transition-all ${isActive
-                                    ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm ring-1 ring-[var(--accent)]/15'
-                                    : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35 hover:bg-[var(--app-bg)]/55'
-                                    }`}
+                                  className={`w-full rounded-md border px-3.5 py-3 text-left transition-all ${
+                                    isActive
+                                      ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm ring-1 ring-[var(--accent)]/15'
+                                      : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35 hover:bg-[var(--app-bg)]/55'
+                                  }`}
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2.5">
                                         <span
-                                          className={`h-2 w-2 rounded-full ${isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
-                                            }`}
+                                          className={`h-2 w-2 rounded-full ${
+                                            isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
+                                          }`}
                                         />
                                         <p className="truncate text-sm font-black text-[var(--text-primary)]">
                                           {profile.name}
@@ -1693,14 +1768,22 @@ export function AISettingsPanel({
                                     <div className="flex shrink-0 items-center gap-2">
                                       {isActive && (
                                         <span className="rounded bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
-                                          {language === 'zh' ? '正在使用' : language === 'ja' ? '使用中' : 'Active'}
+                                          {language === 'zh'
+                                            ? '正在使用'
+                                            : language === 'ja'
+                                              ? '使用中'
+                                              : 'Active'}
                                         </span>
                                       )}
                                       {isReadOnly ? (
                                         // NOTE: 只读配置仅显示锁图标，不提供编辑入口
                                         <span className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-muted)] opacity-60">
                                           <Lock className="h-3 w-3" />
-                                          {language === 'zh' ? '托管锁定' : language === 'ja' ? 'ロック済み' : 'Locked'}
+                                          {language === 'zh'
+                                            ? '托管锁定'
+                                            : language === 'ja'
+                                              ? 'ロック済み'
+                                              : 'Locked'}
                                         </span>
                                       ) : (
                                         <span
@@ -1711,7 +1794,11 @@ export function AISettingsPanel({
                                           className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                         >
                                           <Pencil className="h-3 w-3" />
-                                          {language === 'zh' ? '编辑' : language === 'ja' ? '編集' : 'Edit'}
+                                          {language === 'zh'
+                                            ? '编辑'
+                                            : language === 'ja'
+                                              ? '編集'
+                                              : 'Edit'}
                                         </span>
                                       )}
                                     </div>
@@ -1732,7 +1819,11 @@ export function AISettingsPanel({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? 'AI 续写弹窗按钮' : language === 'ja' ? 'AI執筆アクションボタン' : 'AI Action Buttons'}
+                    {language === 'zh'
+                      ? 'AI 续写弹窗按钮'
+                      : language === 'ja'
+                        ? 'AI執筆アクションボタン'
+                        : 'AI Action Buttons'}
                   </h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
                     {language === 'zh'
@@ -1746,7 +1837,11 @@ export function AISettingsPanel({
                   onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
                   className="shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
-                  {language === 'zh' ? '全部恢复' : language === 'ja' ? 'すべてリセット' : 'Reset All'}
+                  {language === 'zh'
+                    ? '全部恢复'
+                    : language === 'ja'
+                      ? 'すべてリセット'
+                      : 'Reset All'}
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1755,32 +1850,62 @@ export function AISettingsPanel({
                     {
                       key: 'continue' as const,
                       Icon: PenLine,
-                      label: language === 'zh' ? '根据前文续写' : language === 'ja' ? '文脈から執筆' : 'Continue from context',
+                      label:
+                        language === 'zh'
+                          ? '根据前文续写'
+                          : language === 'ja'
+                            ? '文脈から執筆'
+                            : 'Continue from context',
                     },
                     {
                       key: 'creative' as const,
                       Icon: Lightbulb,
-                      label: language === 'zh' ? '提供不同创意' : language === 'ja' ? '異なるアイデア' : 'Creative alternatives',
+                      label:
+                        language === 'zh'
+                          ? '提供不同创意'
+                          : language === 'ja'
+                            ? '異なるアイデア'
+                            : 'Creative alternatives',
                     },
                     {
                       key: 'rewrite' as const,
                       Icon: RefreshCw,
-                      label: language === 'zh' ? '改写当前内容' : language === 'ja' ? '選択範囲を書き換え' : 'Rewrite current content',
+                      label:
+                        language === 'zh'
+                          ? '改写当前内容'
+                          : language === 'ja'
+                            ? '選択範囲を書き換え'
+                            : 'Rewrite current content',
                     },
                     {
                       key: 'interpolate' as const,
                       Icon: PanelTopDashed,
-                      label: language === 'zh' ? '补充中间内容' : language === 'ja' ? '中間の内容を補完' : 'Fill in the gap',
+                      label:
+                        language === 'zh'
+                          ? '补充中间内容'
+                          : language === 'ja'
+                            ? '中間の内容を補完'
+                            : 'Fill in the gap',
                     },
                     {
                       key: 'scene_only' as const,
                       Icon: Feather,
-                      label: language === 'zh' ? '仅增加场景描写' : language === 'ja' ? '描写を増やす' : 'Scene description only',
+                      label:
+                        language === 'zh'
+                          ? '仅增加场景描写'
+                          : language === 'ja'
+                            ? '描写を増やす'
+                            : 'Scene description only',
                     },
                     {
                       key: 'dialogue_only' as const,
                       Icon: MessageCircle,
-                      label: language === 'zh' ? '仅增加对话' : language === 'ja' ? '会話を増やす' : 'Dialogue only',
+                      label:
+                        language === 'zh'
+                          ? '仅增加对话'
+                          : language === 'ja'
+                            ? '会話を増やす'
+                            : 'Dialogue only',
                     },
                   ] as const
                 ).map((item) => (
@@ -1792,32 +1917,36 @@ export function AISettingsPanel({
                         [item.key]: !aiButtonsConfig[item.key],
                       })
                     }
-                    className={`group flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${aiButtonsConfig[item.key]
-                      ? 'border-[var(--accent)]/45 bg-[var(--accent)]/5 shadow-sm'
-                      : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-70 hover:opacity-100'
-                      }`}
+                    className={`group flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
+                      aiButtonsConfig[item.key]
+                        ? 'border-[var(--accent)]/45 bg-[var(--accent)]/5 shadow-sm'
+                        : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-70 hover:opacity-100'
+                    }`}
                   >
                     <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${aiButtonsConfig[item.key]
-                        ? 'bg-[var(--accent)] text-white'
-                        : 'bg-[var(--card-bg)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
-                        }`}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                        aiButtonsConfig[item.key]
+                          ? 'bg-[var(--accent)] text-white'
+                          : 'bg-[var(--card-bg)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+                      }`}
                     >
                       <item.Icon className="h-4 w-4" />
                     </span>
                     <span
-                      className={`flex-1 text-sm font-semibold ${aiButtonsConfig[item.key]
-                        ? 'text-[var(--text-primary)]'
-                        : 'text-[var(--text-muted)]'
-                        }`}
+                      className={`flex-1 text-sm font-semibold ${
+                        aiButtonsConfig[item.key]
+                          ? 'text-[var(--text-primary)]'
+                          : 'text-[var(--text-muted)]'
+                      }`}
                     >
                       {item.label}
                     </span>
                     <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${aiButtonsConfig[item.key]
-                        ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                        : 'border-[var(--header-border)] bg-[var(--card-bg)] text-transparent'
-                        }`}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${
+                        aiButtonsConfig[item.key]
+                          ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                          : 'border-[var(--header-border)] bg-[var(--card-bg)] text-transparent'
+                      }`}
                     >
                       <Check className="h-3.5 w-3.5" />
                     </div>
@@ -1848,11 +1977,7 @@ export function AISettingsPanel({
                   {
                     value: 'three-view' as const,
                     title:
-                      language === 'zh'
-                        ? '三视图'
-                        : language === 'ja'
-                          ? '三面図'
-                          : 'Three-view',
+                      language === 'zh' ? '三视图' : language === 'ja' ? '三面図' : 'Three-view',
                     description:
                       language === 'zh'
                         ? '在一张图中生成正面、侧面和背面设定图。'
@@ -2000,7 +2125,11 @@ export function AISettingsPanel({
               <div className="mb-2 flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh' ? '自定义 AI 提示词' : language === 'ja' ? 'カスタムAIプロンプト' : 'Custom AI Prompts'}
+                    {language === 'zh'
+                      ? '自定义 AI 提示词'
+                      : language === 'ja'
+                        ? 'カスタムAIプロンプト'
+                        : 'Custom AI Prompts'}
                   </h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
                     {language === 'zh'
@@ -2015,14 +2144,16 @@ export function AISettingsPanel({
                   className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                 >
                   <div
-                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${customAiPromptsEnabled
-                      ? 'bg-[var(--accent)] shadow-lg'
-                      : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                      }`}
+                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
+                      customAiPromptsEnabled
+                        ? 'bg-[var(--accent)] shadow-lg'
+                        : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${customAiPromptsEnabled ? 'left-6' : 'left-1'
-                        }`}
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                        customAiPromptsEnabled ? 'left-6' : 'left-1'
+                      }`}
                     />
                   </div>
                 </button>
@@ -2116,10 +2247,21 @@ export function AISettingsPanel({
                           {isModified && (
                             <button
                               onClick={() => setAiPrompts({ ...aiPrompts, [key]: defaultValue })}
-                              title={language === 'zh' ? '恢复默认' : language === 'ja' ? 'デフォルトに戻す' : 'Restore Default'}
+                              title={
+                                language === 'zh'
+                                  ? '恢复默认'
+                                  : language === 'ja'
+                                    ? 'デフォルトに戻す'
+                                    : 'Restore Default'
+                              }
                               className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600 transition-all hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
                             >
-                              ↺ {language === 'zh' ? '恢复初始' : language === 'ja' ? '元に戻す' : 'Restore'}
+                              ↺{' '}
+                              {language === 'zh'
+                                ? '恢复初始'
+                                : language === 'ja'
+                                  ? '元に戻す'
+                                  : 'Restore'}
                             </button>
                           )}
                         </div>

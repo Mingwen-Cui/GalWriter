@@ -39,11 +39,7 @@ export const drawRenderFrame = async ({
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const body = htmlToSpeechText(
-    filterMentionTags(
-      String(node.data?.text || ''),
-      hideCharacterTags,
-      hideSceneTags,
-    ),
+    filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
   );
   await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
 

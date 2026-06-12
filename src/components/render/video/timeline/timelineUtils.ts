@@ -56,7 +56,11 @@ export const getTimelineTickSettings = (
   };
 };
 
-export const getTimelineSegmentLayout = (start: number, duration: number, pixelsPerSecond: number) => {
+export const getTimelineSegmentLayout = (
+  start: number,
+  duration: number,
+  pixelsPerSecond: number,
+) => {
   return {
     left: start * pixelsPerSecond,
     width: Math.max(0, duration * pixelsPerSecond),

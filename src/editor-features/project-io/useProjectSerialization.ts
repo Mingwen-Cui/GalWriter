@@ -117,7 +117,10 @@ export const useProjectSerialization = ({
   }, [createSnapshotData]);
 
   const applyProjectData = useCallback(
-    async (projectData: ProjectSnapshotData, options?: { zip?: JSZip | null; markSaved?: boolean }) => {
+    async (
+      projectData: ProjectSnapshotData,
+      options?: { zip?: JSZip | null; markSaved?: boolean },
+    ) => {
       const restoredProject = await projectSerializer.applyImportedProject(
         {
           projectData,
@@ -148,70 +151,75 @@ export const useProjectSerialization = ({
     ],
   );
 
-  const confirmExportZIP = useCallback(async (options?: { includeApiProfiles?: boolean }) => {
-    try {
-      const projectData = createSnapshotData();
-      if (options?.includeApiProfiles) {
-        const exportedAIProfiles = getExportedAIProfiles?.();
-        if (exportedAIProfiles?.profiles.length) {
-          projectData.exportedAIProfiles = exportedAIProfiles;
+  const confirmExportZIP = useCallback(
+    async (options?: { includeApiProfiles?: boolean }) => {
+      try {
+        const projectData = createSnapshotData();
+        if (options?.includeApiProfiles) {
+          const exportedAIProfiles = getExportedAIProfiles?.();
+          if (exportedAIProfiles?.profiles.length) {
+            projectData.exportedAIProfiles = exportedAIProfiles;
+          }
         }
-      }
-      const thumbnailDataUrl = await getProjectThumbnailDataUrl?.();
-      const exportedProject = await projectSerializer.exportZip({
-        projectData,
-        fileName: saveFileName,
-        filePath: currentProjectFilePath,
-        thumbnailDataUrl,
-        defaultSaveDir: defaultProjectSaveDir,
-      });
+        const thumbnailDataUrl = await getProjectThumbnailDataUrl?.();
+        const exportedProject = await projectSerializer.exportZip({
+          projectData,
+          fileName: saveFileName,
+          filePath: currentProjectFilePath,
+          thumbnailDataUrl,
+          defaultSaveDir: defaultProjectSaveDir,
+        });
 
-      if (exportedProject.canceled) return;
+        if (exportedProject.canceled) return;
 
-      if (exportedProject.filePath) {
-        await onProjectFilePathSaved?.(exportedProject.filePath);
-      }
+        if (exportedProject.filePath) {
+          await onProjectFilePathSaved?.(exportedProject.filePath);
+        }
 
-      lastSavedSnapshotRef.current = JSON.stringify(exportedProject.projectData);
-      setIsDirty(false);
-      setShowSaveNameModal(false);
-      if (currentProjectId) {
-        await autosaveService.clearForProject(currentProjectId);
+        lastSavedSnapshotRef.current = JSON.stringify(exportedProject.projectData);
+        setIsDirty(false);
+        setShowSaveNameModal(false);
+        if (currentProjectId) {
+          await autosaveService.clearForProject(currentProjectId);
+        }
+        showToast(
+          settings.language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP',
+        );
+        const savedLocation = exportedProject.filePath
+          ? exportedProject.filePath
+          : settings.language === 'zh'
+            ? '浏览器下载文件夹'
+            : 'your browser downloads folder';
+        showToast(
+          settings.language === 'zh'
+            ? `ZIP 备份已导出到：${savedLocation}`
+            : `ZIP backup exported to: ${savedLocation}`,
+        );
+      } catch (error) {
+        console.error('Export failed:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        window.alert(
+          settings.language === 'zh' ? `导出失败: ${message}` : `Export failed: ${message}`,
+        );
       }
-      showToast(settings.language === 'zh' ? '剧本工程已保存为 ZIP 文件' : 'Project saved as ZIP');
-      const savedLocation = exportedProject.filePath
-        ? exportedProject.filePath
-        : settings.language === 'zh'
-          ? '浏览器下载文件夹'
-          : 'your browser downloads folder';
-      showToast(
-        settings.language === 'zh'
-          ? `ZIP 备份已导出到：${savedLocation}`
-          : `ZIP backup exported to: ${savedLocation}`,
-      );
-    } catch (error) {
-      console.error('Export failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      window.alert(
-        settings.language === 'zh' ? `导出失败: ${message}` : `Export failed: ${message}`,
-      );
-    }
-  }, [
-    createSnapshotData,
-    currentProjectId,
-    currentProjectFilePath,
-    defaultProjectSaveDir,
-    getExportedAIProfiles,
-    getProjectThumbnailDataUrl,
-    lastSavedSnapshotRef,
-    onProjectFilePathSaved,
-    projectSerializer,
-    saveFileName,
-    setIsDirty,
-    setShowSaveNameModal,
-    settings.language,
-    showToast,
-  ]);
+    },
+    [
+      createSnapshotData,
+      currentProjectId,
+      currentProjectFilePath,
+      defaultProjectSaveDir,
+      getExportedAIProfiles,
+      getProjectThumbnailDataUrl,
+      lastSavedSnapshotRef,
+      onProjectFilePathSaved,
+      projectSerializer,
+      saveFileName,
+      setIsDirty,
+      setShowSaveNameModal,
+      settings.language,
+      showToast,
+    ],
+  );
 
   const handleImportZIP = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +228,12 @@ export const useProjectSerialization = ({
 
       try {
         const importedEntries = await projectSerializer.importProjectEntries(file);
-        for (const { projectData, suggestedProjectName, zip, thumbnailDataUrl } of importedEntries) {
+        for (const {
+          projectData,
+          suggestedProjectName,
+          zip,
+          thumbnailDataUrl,
+        } of importedEntries) {
           if (!projectData.nodes || !projectData.edges) continue;
           const handled = await onImportedProject?.({
             projectData,
@@ -241,12 +254,7 @@ export const useProjectSerialization = ({
 
       event.target.value = '';
     },
-    [
-      applyProjectData,
-      currentProjectId,
-      onImportedProject,
-      projectSerializer,
-    ],
+    [applyProjectData, currentProjectId, onImportedProject, projectSerializer],
   );
 
   return {

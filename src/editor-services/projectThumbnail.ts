@@ -11,14 +11,9 @@ type ProjectThumbnailOptions = {
 };
 
 const escapeXml = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const toSvgDataUrl = (svg: string) =>
-  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+const toSvgDataUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const normalizeColor = (color?: string | null) => {
   const normalized = color?.trim();
@@ -104,10 +99,8 @@ const createThumbnailNodeLookup = (nodes: Node[]) => {
   );
 };
 
-const getNodeAbsolutePosition = (
-  node: Node,
-  nodeLookup: Map<string, ThumbnailInternalNode>,
-) => nodeLookup.get(node.id)?.internals.positionAbsolute ?? getNodePositionWithOrigin(node);
+const getNodeAbsolutePosition = (node: Node, nodeLookup: Map<string, ThumbnailInternalNode>) =>
+  nodeLookup.get(node.id)?.internals.positionAbsolute ?? getNodePositionWithOrigin(node);
 
 const getNodeCenter = (
   node: Node,
@@ -136,7 +129,10 @@ const getNodeLabel = (node: Node, options: ProjectThumbnailOptions) => {
   const data = node.data ?? {};
   const storyTitlePlacement =
     options.storyTitlePlacement === 'outside' ? 'outside-right' : options.storyTitlePlacement;
-  const showInsideStoryTitle = options.showTitles !== false && storyTitlePlacement !== 'outside-left' && storyTitlePlacement !== 'outside-right';
+  const showInsideStoryTitle =
+    options.showTitles !== false &&
+    storyTitlePlacement !== 'outside-left' &&
+    storyTitlePlacement !== 'outside-right';
 
   if (node.type === 'storyNode') {
     const source = showInsideStoryTitle ? data.title : data.text;

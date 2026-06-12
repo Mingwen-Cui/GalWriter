@@ -6,10 +6,7 @@ import type {
   PresentationMotion,
   StoryPresentation,
 } from '../../../../domain/project';
-import {
-  clampCharacterLayer,
-  normalizeStoryPresentation,
-} from '../../../../lib/presentation';
+import { clampCharacterLayer, normalizeStoryPresentation } from '../../../../lib/presentation';
 import { clamp, loadCachedImage } from './mediaUtils';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
@@ -53,7 +50,13 @@ const activeMotionState = (
     return motionState(enter, elapsed / enterSeconds, false, width, height);
   }
   if (exit.type !== 'none' && exitSeconds > 0 && elapsed > duration - exitSeconds) {
-    return motionState(exit, (elapsed - (duration - exitSeconds)) / exitSeconds, true, width, height);
+    return motionState(
+      exit,
+      (elapsed - (duration - exitSeconds)) / exitSeconds,
+      true,
+      width,
+      height,
+    );
   }
   return { x: 0, y: 0, scale: 1, alpha: 1 };
 };
@@ -184,22 +187,12 @@ export const drawPresentationVisuals = async ({
       const baseX = config.position === 'left' ? 0.24 : config.position === 'right' ? 0.76 : 0.5;
       const centerX = width * (baseX + config.offsetX / 1000);
       const bottom = height * (config.offsetY / 1000);
-      const state = activeMotionState(
-        config.enter,
-        config.exit,
-        elapsed,
-        duration,
-        width,
-        height,
-      );
+      const state = activeMotionState(config.enter, config.exit, elapsed, duration, width, height);
 
       ctx.save();
       ctx.globalAlpha = state.alpha;
       ctx.translate(centerX + state.x, height - bottom + state.y);
-      ctx.scale(
-        config.scale * state.scale * (config.flipX ? -1 : 1),
-        config.scale * state.scale,
-      );
+      ctx.scale(config.scale * state.scale * (config.flipX ? -1 : 1), config.scale * state.scale);
       ctx.drawImage(image, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
       ctx.restore();
     });

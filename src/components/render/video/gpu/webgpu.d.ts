@@ -233,7 +233,12 @@ declare global {
     setPipeline(pipeline: GPURenderPipeline): void;
     setBindGroup(index: number, bindGroup: GPUBindGroup, dynamicOffsets?: number[]): void;
     setVertexBuffer(slot: number, buffer: GPUBuffer, offset?: number, size?: number): void;
-    draw(vertexCount: number, instanceCount?: number, firstVertex?: number, firstInstance?: number): void;
+    draw(
+      vertexCount: number,
+      instanceCount?: number,
+      firstVertex?: number,
+      firstInstance?: number,
+    ): void;
     end(): void;
   }
 
@@ -247,11 +252,7 @@ declare global {
     resource: GPUBindingResource;
   }
 
-  type GPUBindingResource =
-    | GPUSampler
-    | GPUTextureView
-    | GPUBufferBinding
-    | GPUExternalTexture;
+  type GPUBindingResource = GPUSampler | GPUTextureView | GPUBufferBinding | GPUExternalTexture;
 
   interface GPUBufferBinding {
     buffer: GPUBuffer;

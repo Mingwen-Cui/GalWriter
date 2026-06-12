@@ -114,7 +114,7 @@ export const createAIClient = (config: AIClientConfig) => {
               `本地开发请在“设置 → AI 配置 → 文本 AI”中选择并配置自己的模型；` +
               `网站部署请启用 PHP 后端并确认该接口返回 JSON。\n`
             : `服务端代理返回了非 JSON 响应，请确认 /api/proxy.php 已正确部署且服务器支持 PHP。\n`) +
-          `服务器响应状态：${response.status}，内容预览：${preview}`,
+            `服务器响应状态：${response.status}，内容预览：${preview}`,
         );
       }
 
@@ -126,7 +126,6 @@ export const createAIClient = (config: AIClientConfig) => {
         reasoning: data['reasoning'] != null ? String(data['reasoning']) : undefined,
       };
     }
-
 
     if (config.provider === 'ollama') {
       const model = configuredModel || 'gemma4';
@@ -159,7 +158,8 @@ export const createAIClient = (config: AIClientConfig) => {
     }
 
     if (config.provider === 'deepseek') {
-      const model = configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
+      const model =
+        configuredModel || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
       const endpoint = configuredUrl
         ? /\/chat\/completions\/?$/i.test(configuredUrl)
           ? configuredUrl
@@ -190,7 +190,15 @@ export const createAIClient = (config: AIClientConfig) => {
       };
     }
 
-    if (config.provider === 'openai' || config.provider === 'custom' || config.provider === 'kimi' || config.provider === 'qwen' || config.provider === 'glm' || config.provider === 'copilot' || config.provider === 'claude') {
+    if (
+      config.provider === 'openai' ||
+      config.provider === 'custom' ||
+      config.provider === 'kimi' ||
+      config.provider === 'qwen' ||
+      config.provider === 'glm' ||
+      config.provider === 'copilot' ||
+      config.provider === 'claude'
+    ) {
       const model = configuredModel || 'gpt-4o';
       const endpoint = configuredUrl
         ? /\/chat\/completions\/?$/i.test(configuredUrl)

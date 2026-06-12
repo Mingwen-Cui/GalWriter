@@ -178,11 +178,7 @@ export async function drawGPUFrame({
   const nodeId = node.id;
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const body = htmlToSpeechText(
-    filterMentionTags(
-      String(node.data?.text || ''),
-      hideCharacterTags,
-      hideSceneTags,
-    ),
+    filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
   );
 
   // 1. 准备背景纹理
@@ -202,13 +198,24 @@ export async function drawGPUFrame({
   let textCanvas = textTextureCache.get(cacheKey)?.canvas;
 
   // 如果动画需要逐帧变化（elapsed 变化），不使用缓存
-  const needsAnimation = !forceFinalText && elapsed !== undefined && duration !== undefined &&
+  const needsAnimation =
+    !forceFinalText &&
+    elapsed !== undefined &&
+    duration !== undefined &&
     (renderStyle.titleAnimation !== 'none' || renderStyle.bodyAnimation !== 'none');
 
   if (needsAnimation || !textCanvas) {
     textCanvas = createTextLayerCanvas(
-      width, height, title, body, renderStyle,
-      animationLeadSeconds, elapsed, duration, forceFinalText, isZh,
+      width,
+      height,
+      title,
+      body,
+      renderStyle,
+      animationLeadSeconds,
+      elapsed,
+      duration,
+      forceFinalText,
+      isZh,
     );
     if (!needsAnimation) {
       textTextureCache.set(cacheKey, { canvas: textCanvas });

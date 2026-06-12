@@ -49,12 +49,12 @@
 
 桌面版适合正式创作，推荐给需要本地项目管理、视频导出和完整文件能力的用户。
 
-| 安装包 | 推荐对象 | 视频导出 |
-| ------ | -------- | -------- |
-| `GalWriter-Setup.exe` | 推荐大多数用户下载。安装包更大，但开箱即用。 | 内置精简 FFmpeg，可直接导出 WebM、MP4、MOV、MKV。 |
-| `GalWriter-Setup-Lite.exe` | 推荐在意下载体积、且电脑已安装 FFmpeg 的用户。 | 不内置 FFmpeg；WebM 可用，MP4 / MOV / MKV 需要系统已有 FFmpeg。 |
-| `GalWriter-AI-v1.2.5-windows-x64.exe` | 不想安装、只想双击运行的用户。 | 单文件便携 Lite 版；非 WebM 视频导出需要系统已有 FFmpeg。 |
-| `GalWriter-AI-v1.2.5-windows-x64-portable-full.zip` | 不想安装、但需要内置 FFmpeg 的用户。 | 解压后双击 exe；请保留同目录下的 `ffmpeg.exe`。 |
+| 安装包                                              | 推荐对象                                       | 视频导出                                                        |
+| --------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------- |
+| `GalWriter-Setup.exe`                               | 推荐大多数用户下载。安装包更大，但开箱即用。   | 内置精简 FFmpeg，可直接导出 WebM、MP4、MOV、MKV。               |
+| `GalWriter-Setup-Lite.exe`                          | 推荐在意下载体积、且电脑已安装 FFmpeg 的用户。 | 不内置 FFmpeg；WebM 可用，MP4 / MOV / MKV 需要系统已有 FFmpeg。 |
+| `GalWriter-AI-v1.2.5-windows-x64.exe`               | 不想安装、只想双击运行的用户。                 | 单文件便携 Lite 版；非 WebM 视频导出需要系统已有 FFmpeg。       |
+| `GalWriter-AI-v1.2.5-windows-x64-portable-full.zip` | 不想安装、但需要内置 FFmpeg 的用户。           | 解压后双击 exe；请保留同目录下的 `ffmpeg.exe`。                 |
 
 Release 构建只会随 Full 版携带 `ffmpeg.exe`，不会打包 `ffprobe.exe`、文档、presets 等无关文件。
 
@@ -91,10 +91,10 @@ GalWriter AI 不绑定单一 AI 服务商。你可以按需配置常见文本、
 
 ## 视频导出策略
 
-| 环境          | 直接导出格式        | 说明                                                             |
-| ------------- | ------------------- | ---------------------------------------------------------------- |
-| Web Demo      | WebM                | 浏览器原生录制更稳定，适合快速预览和轻量导出。                   |
-| 桌面 App Full | WebM、MP4、MOV、MKV | 内置精简 FFmpeg，推荐大多数用户下载。                            |
+| 环境          | 直接导出格式        | 说明                                                            |
+| ------------- | ------------------- | --------------------------------------------------------------- |
+| Web Demo      | WebM                | 浏览器原生录制更稳定，适合快速预览和轻量导出。                  |
+| 桌面 App Full | WebM、MP4、MOV、MKV | 内置精简 FFmpeg，推荐大多数用户下载。                           |
 | 桌面 App Lite | WebM、MP4、MOV、MKV | 不内置 FFmpeg；WebM 不受影响，MP4 / MOV / MKV 需要系统 FFmpeg。 |
 
 如果用户在 Web 端选择 MP4、MOV 或 MKV，应用会显示内置提示窗口，并引导下载桌面版。如果 Lite 版或本机运行环境检测不到 FFmpeg，应用也会用内置窗口提示用户下载 Full 版或改用 WebM。

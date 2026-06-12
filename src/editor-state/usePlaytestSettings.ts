@@ -100,14 +100,8 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     );
     window.localStorage.setItem('playtest-dim-background', String(playTestDimBackground));
     window.localStorage.setItem('playtest-auto-advance', String(playTestAutoAdvance));
-    window.localStorage.setItem(
-      'playtest-auto-advance-delay',
-      String(playTestAutoAdvanceDelay),
-    );
-    window.localStorage.setItem(
-      'playtest-hide-character-tags',
-      String(playTestHideCharacterTags),
-    );
+    window.localStorage.setItem('playtest-auto-advance-delay', String(playTestAutoAdvanceDelay));
+    window.localStorage.setItem('playtest-hide-character-tags', String(playTestHideCharacterTags));
     window.localStorage.setItem('playtest-hide-scene-tags', String(playTestHideSceneTags));
   }, [
     playTestAutoAdvance,

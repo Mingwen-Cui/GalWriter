@@ -465,7 +465,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           <div className="flex items-center gap-2">
             <UserCircle2 className="w-4 h-4 text-purple-500" />
             <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight">
-              {lang === 'zh' ? '人物设定' : lang === 'ja' ? 'キャラクター設定' : 'Character Setting'}
+              {lang === 'zh'
+                ? '人物设定'
+                : lang === 'ja'
+                  ? 'キャラクター設定'
+                  : 'Character Setting'}
             </span>
           </div>
           <div className="flex gap-1 items-center">

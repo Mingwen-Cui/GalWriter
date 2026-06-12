@@ -67,7 +67,14 @@ export type RenderedFramePayload = {
 export type AssetRegionOption = {
   id: string;
   label: string;
-  type: 'all' | 'outside' | 'mediaImage' | 'mediaVideo' | 'mediaAudio' | 'dynamicGroup' | 'background';
+  type:
+    | 'all'
+    | 'outside'
+    | 'mediaImage'
+    | 'mediaVideo'
+    | 'mediaAudio'
+    | 'dynamicGroup'
+    | 'background';
 };
 
 export type TimelineHistoryState = {

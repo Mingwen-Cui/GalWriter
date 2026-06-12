@@ -343,8 +343,7 @@ export const translations = {
     save: 'ローカルに保存',
     import: 'プロジェクトをインポート',
     unsaved: '未保存',
-    dirtyWarning:
-      '未保存の変更があります。本当に終了しますか？先に保存することをお勧めします。',
+    dirtyWarning: '未保存の変更があります。本当に終了しますか？先に保存することをお勧めします。',
 
     // Toolbar
     tools: 'ツール',
@@ -359,8 +358,7 @@ export const translations = {
     toolText: 'カスタムテキストラベルを追加 (サイズ/色/太字)',
     toolBatchReplace:
       '矢印の線を右クリックして削除します。矢印の線をダブルクリックして反転します。',
-    toolPlotStructure:
-      'プロット構造設計カードを追加 (背景/グループ内にストーリーの続きを自动生成)',
+    toolPlotStructure: 'プロット構造設計カードを追加 (背景/グループ内にストーリーの続きを自动生成)',
     toolScene: 'シーン設定カードを追加',
     fit: 'フィット',
     crop: '切り抜き',
@@ -370,8 +368,7 @@ export const translations = {
     // Footer
     nodes: 'ノード',
     paths: 'パス',
-    footerHint:
-      '矢印を右クリックして削除。背景カードのロックアイコンをクリックしてロック/解除。',
+    footerHint: '矢印を右クリックして削除。背景カードのロックアイコンをクリックしてロック/解除。',
 
     // AI Actions
     aiAssistant: 'AI執筆アシスタント',
@@ -451,9 +448,11 @@ export const translations = {
 
     // Guide
     guideTestTitle: 'テストと保存',
-    guideTestDesc: 'ZIPプロジェクトを保存するか、プレイテストモードに入ってインタラクティブな効果をプレビューします。',
+    guideTestDesc:
+      'ZIPプロジェクトを保存するか、プレイテストモードに入ってインタラクティブな効果をプレビューします。',
     guideToolTitle: 'ノードとツール',
-    guideToolDesc: 'ドラッグまたはクリックしてノードを追加します。AIノードを使用してプロットロジックを要約します。',
+    guideToolDesc:
+      'ドラッグまたはクリックしてノードを追加します。AIノードを使用してプロットロジックを要約します。',
     guideCanvasDesc: '空白部分をダブルクリックしてノードを素早く追加',
     guideStoryTitle: 'ストーリーエディタ',
     guideStart: '執筆を開始',

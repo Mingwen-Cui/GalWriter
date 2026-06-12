@@ -102,7 +102,10 @@ import type {
   TimelineWheelMode,
   VideoRenderModalProps,
 } from './shared/types';
-import { captureTimelineHistoryState, restoreTimelineHistoryState } from './timeline/timelineHistory';
+import {
+  captureTimelineHistoryState,
+  restoreTimelineHistoryState,
+} from './timeline/timelineHistory';
 import { getTimelineTickSettings } from './timeline/timelineUtils';
 
 const DEFAULT_RENDER_STYLE: RenderStyle = {
@@ -271,7 +274,9 @@ export function VideoRenderModal({
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
   const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(() =>
-    isRenderWorkspaceMode(persistedWorkspace?.workspaceMode) ? persistedWorkspace.workspaceMode : 'video',
+    isRenderWorkspaceMode(persistedWorkspace?.workspaceMode)
+      ? persistedWorkspace.workspaceMode
+      : 'video',
   );
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
@@ -325,13 +330,15 @@ export function VideoRenderModal({
       ? persistedWorkspace.audioTrackIds
       : ['audio-1'],
   );
-  const [videoTrackByNodeId, setVideoTrackByNodeId] = useState<Record<string, string>>(() =>
-    persistedWorkspace?.videoTrackByNodeId ||
-    Object.fromEntries(orderedNodes.map((node) => [node.id, 'video-1'])),
+  const [videoTrackByNodeId, setVideoTrackByNodeId] = useState<Record<string, string>>(
+    () =>
+      persistedWorkspace?.videoTrackByNodeId ||
+      Object.fromEntries(orderedNodes.map((node) => [node.id, 'video-1'])),
   );
-  const [audioTrackByNodeId, setAudioTrackByNodeId] = useState<Record<string, string>>(() =>
-    persistedWorkspace?.audioTrackByNodeId ||
-    Object.fromEntries(orderedNodes.map((node) => [node.id, 'audio-1'])),
+  const [audioTrackByNodeId, setAudioTrackByNodeId] = useState<Record<string, string>>(
+    () =>
+      persistedWorkspace?.audioTrackByNodeId ||
+      Object.fromEntries(orderedNodes.map((node) => [node.id, 'audio-1'])),
   );
   const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>(
     () => persistedWorkspace?.timelineStartById || {},
@@ -399,7 +406,9 @@ export function VideoRenderModal({
     ),
   );
   const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>(() =>
-    isAssetCardLayout(persistedWorkspace?.assetCardLayout) ? persistedWorkspace.assetCardLayout : 'row',
+    isAssetCardLayout(persistedWorkspace?.assetCardLayout)
+      ? persistedWorkspace.assetCardLayout
+      : 'row',
   );
   const [assetCardScale, setAssetCardScale] = useState(() =>
     clampPersistedNumber(
@@ -443,14 +452,13 @@ export function VideoRenderModal({
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(
     () => persistedWorkspace?.timelineSnapEnabled ?? true,
   );
-  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(
-    () =>
-      clampPersistedNumber(
-        persistedWorkspace?.timelinePixelsPerSecond,
-        TIMELINE_PIXELS_PER_SECOND,
-        TIMELINE_MIN_PIXELS_PER_SECOND,
-        TIMELINE_MAX_PIXELS_PER_SECOND,
-      ),
+  const [timelinePixelsPerSecond, setTimelinePixelsPerSecond] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.timelinePixelsPerSecond,
+      TIMELINE_PIXELS_PER_SECOND,
+      TIMELINE_MIN_PIXELS_PER_SECOND,
+      TIMELINE_MAX_PIXELS_PER_SECOND,
+    ),
   );
   const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.timelineDisplayDuration, 60, 5, 3600),
@@ -644,8 +652,9 @@ export function VideoRenderModal({
     : clamp(timelinePreviewTime, 0, timelineMetrics.totalDuration);
   const activeAudioSegments = useMemo(
     () =>
-      timelineMetrics.segments
-        .filter((segment) => segment.node.data?.audioUrl || segment.node.data?.videoUrl),
+      timelineMetrics.segments.filter(
+        (segment) => segment.node.data?.audioUrl || segment.node.data?.videoUrl,
+      ),
     [timelineMetrics.segments],
   );
   const getSegmentAudioSources = (node: FlowNode) =>
@@ -656,7 +665,11 @@ export function VideoRenderModal({
   const activeTimelineFrame = Math.floor(activeTimelineTime * frameRate);
   const timelinePlayheadLeft = activeTimelineTime * timelineMetrics.pixelsPerSecond;
   const isVisualTimelineNode = (node?: FlowNode | null) =>
-    Boolean(node?.data?.videoUrl || node?.data?.imageUrl || stripHtml(String(node?.data?.text || '')).trim());
+    Boolean(
+      node?.data?.videoUrl ||
+      node?.data?.imageUrl ||
+      stripHtml(String(node?.data?.text || '')).trim(),
+    );
   const isAudioOnlyNode = (node?: FlowNode | null) =>
     Boolean(node?.data?.audioUrl) && !isVisualTimelineNode(node);
   const timelineTickSettings = getTimelineTickSettings(
@@ -814,13 +827,20 @@ export function VideoRenderModal({
     restoreTimelineState(next);
   };
 
-  const seekTimelineTime = (time: number, options?: { keepPlaying?: boolean; preserveFocus?: boolean }) => {
+  const seekTimelineTime = (
+    time: number,
+    options?: { keepPlaying?: boolean; preserveFocus?: boolean },
+  ) => {
     const nextTime = clamp(time, 0, timelineMetrics.totalDuration);
     if (!options?.preserveFocus) setFocusedPreviewId('');
     setTimelinePreviewTime(nextTime);
     if (options?.preserveFocus && focusedTimelineMetric) {
       setPreviewTime(
-        clamp((nextTime - focusedTimelineMetric.start) * speed, 0, focusedTimelineMetric.duration * speed),
+        clamp(
+          (nextTime - focusedTimelineMetric.start) * speed,
+          0,
+          focusedTimelineMetric.duration * speed,
+        ),
       );
     }
     if (!options?.keepPlaying) setPreviewPlaying(false);
@@ -899,12 +919,7 @@ export function VideoRenderModal({
     return nextStart;
   };
 
-  const hasAudioTrackSpace = (
-    nodeId: string,
-    start: number,
-    duration: number,
-    trackId: string,
-  ) => {
+  const hasAudioTrackSpace = (nodeId: string, start: number, duration: number, trackId: string) => {
     return !timelineMetrics.segments.some((segment) => {
       if (segment.node.id === nodeId) return false;
       const segmentTrackId = audioTrackByNodeId[segment.node.id] || audioTrackIds[0];
@@ -946,11 +961,7 @@ export function VideoRenderModal({
   ) => {
     const currentAudioTrackId = audioTrackByNodeId[nodeId] || audioTrackIds[0];
     const matchingAudioTrackId = audioTrackIds[videoTrackIds.indexOf(videoTrackId)];
-    const candidateTrackIds = [
-      matchingAudioTrackId,
-      currentAudioTrackId,
-      ...audioTrackIds,
-    ].filter(
+    const candidateTrackIds = [matchingAudioTrackId, currentAudioTrackId, ...audioTrackIds].filter(
       (trackId, index, list): trackId is string => !!trackId && list.indexOf(trackId) === index,
     );
     const availableTrackId = candidateTrackIds.find((candidateTrackId) =>
@@ -1250,7 +1261,11 @@ export function VideoRenderModal({
     setAssetRegionFilter('all');
     setActivePreviewId(node.id);
     setAudioTrackByNodeId((prev) => ({ ...prev, [node.id]: audioTrackIds[0] || 'audio-1' }));
-    setAudioMessage(isZh ? '音频已添加到素材栏，可拖到音频轨。' : 'Audio added to assets. Drag it to an audio track.');
+    setAudioMessage(
+      isZh
+        ? '音频已添加到素材栏，可拖到音频轨。'
+        : 'Audio added to assets. Drag it to an audio track.',
+    );
     setError('');
   };
 
@@ -1295,7 +1310,9 @@ export function VideoRenderModal({
       );
       addAudioAssetFromBlob(
         audio.blob,
-        isZh ? `剧本文字配音 ${new Date().toLocaleTimeString()}` : `Script voiceover ${new Date().toLocaleTimeString()}`,
+        isZh
+          ? `剧本文字配音 ${new Date().toLocaleTimeString()}`
+          : `Script voiceover ${new Date().toLocaleTimeString()}`,
         true,
       );
     } catch (speechError) {
@@ -1337,13 +1354,17 @@ export function VideoRenderModal({
         if (blob.size > 0) {
           addAudioAssetFromBlob(
             blob,
-            isZh ? `用户配音 ${new Date().toLocaleTimeString()}` : `Voiceover ${new Date().toLocaleTimeString()}`,
+            isZh
+              ? `用户配音 ${new Date().toLocaleTimeString()}`
+              : `Voiceover ${new Date().toLocaleTimeString()}`,
           );
         }
       };
       recorder.start();
       setIsRecordingVoiceover(true);
-      setAudioMessage(isZh ? '正在录音，点击停止生成音频素材。' : 'Recording. Stop to create an audio asset.');
+      setAudioMessage(
+        isZh ? '正在录音，点击停止生成音频素材。' : 'Recording. Stop to create an audio asset.',
+      );
     } catch (recordError) {
       setIsRecordingVoiceover(false);
       setAudioMessage(
@@ -1489,10 +1510,9 @@ export function VideoRenderModal({
         Object.entries(prev).filter(([, sourceId]) => validIds.has(sourceId)),
       );
       return Object.keys(next).length === Object.keys(prev).length ? prev : next;
-    },
-    );
-    setSelectedIds((prev) =>
-      new Set([...prev].filter((id) => validIds.has(timelineSourceById[id] || id))),
+    });
+    setSelectedIds(
+      (prev) => new Set([...prev].filter((id) => validIds.has(timelineSourceById[id] || id))),
     );
     setActivePreviewId((prev) =>
       prev && validIds.has(timelineSourceById[prev] || prev) ? prev : allAssetNodes[0]?.id || '',
@@ -1583,7 +1603,10 @@ export function VideoRenderModal({
       savedAt: Date.now(),
     };
     try {
-      window.localStorage.setItem(renderWorkspaceStorageKey(workspaceKey), JSON.stringify(snapshot));
+      window.localStorage.setItem(
+        renderWorkspaceStorageKey(workspaceKey),
+        JSON.stringify(snapshot),
+      );
     } catch {
       // Ignore storage quota/private-mode failures; the render workspace still works in-memory.
     }
@@ -1758,10 +1781,10 @@ export function VideoRenderModal({
     const normalizedTrackId =
       normalizedTrackKind === 'audio'
         ? (trackKind === 'video' && trackId
-          ? audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio')
-          : trackId) ||
-        audioTrackIds[0] ||
-        'audio-1'
+            ? audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio')
+            : trackId) ||
+          audioTrackIds[0] ||
+          'audio-1'
         : trackId;
     const timelineId = makeTimelineClipInstanceId(id);
     closeContextMenu();
@@ -1822,7 +1845,8 @@ export function VideoRenderModal({
     if (!timelineIds.includes(id)) return;
     const sourceId = timelineSourceById[id] || id;
     const hasAnotherInstanceOfSource = timelineIds.some(
-      (timelineId) => timelineId !== id && (timelineSourceById[timelineId] || timelineId) === sourceId,
+      (timelineId) =>
+        timelineId !== id && (timelineSourceById[timelineId] || timelineId) === sourceId,
     );
     closeContextMenu();
     pushTimelineHistory();
@@ -2080,12 +2104,12 @@ export function VideoRenderModal({
       const nextStart = draggingAudioOnly
         ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
         : findNonOverlappingTrackStart(
-          timelineId,
-          droppedTime,
-          duration,
-          droppedTrackKind,
-          placementTrackId,
-        );
+            timelineId,
+            droppedTime,
+            duration,
+            droppedTrackKind,
+            placementTrackId,
+          );
       if (droppedTrackKind === 'audio') {
         droppedTrackId = getAudioDropTrackId(timelineId, nextStart, duration, droppedTrackId);
       } else {
@@ -2340,7 +2364,6 @@ export function VideoRenderModal({
   // renderStaticFramesWithFfmpeg 和 ensureFfmpegForDesktopTranscode 已移除，
   // 统一使用 mediabunny 浏览器内编码
 
-
   const drawFrame = async (
     ctx: CanvasRenderingContext2D,
     node: FlowNode,
@@ -2423,7 +2446,15 @@ export function VideoRenderModal({
       return;
     }
 
-    await drawFrame(ctx, segment.node, width, height, undefined, localTime, segment.duration * speed);
+    await drawFrame(
+      ctx,
+      segment.node,
+      width,
+      height,
+      undefined,
+      localTime,
+      segment.duration * speed,
+    );
   };
 
   const renderVideo = async () => {
@@ -2475,15 +2506,14 @@ export function VideoRenderModal({
       const totalFrames = Math.max(1, Math.ceil(totalDuration * frameRate));
 
       // 准备时间线音频
-      const audioSegments: SegmentRenderInfo[] = activeAudioSegments
-        .flatMap((segment) =>
-          getSegmentAudioSources(segment.node).map((source) => ({
-            node: segment.node,
-            startSecs: segment.start,
-            durationSecs: segment.duration,
-            audioUrl: source.url,
-          })),
-        );
+      const audioSegments: SegmentRenderInfo[] = activeAudioSegments.flatMap((segment) =>
+        getSegmentAudioSources(segment.node).map((source) => ({
+          node: segment.node,
+          startSecs: segment.start,
+          durationSecs: segment.duration,
+          audioUrl: source.url,
+        })),
+      );
 
       const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
 
@@ -2843,10 +2873,7 @@ export function VideoRenderModal({
           localTime: (activeTimelineTime - metric.start) * speed,
         })),
       );
-    void syncPreviewAudioSegments(
-      overlappingSegments,
-      previewPlaying,
-    );
+    void syncPreviewAudioSegments(overlappingSegments, previewPlaying);
   }, [
     activeAudioSegments,
     activeTimelineTime,
@@ -2918,11 +2945,7 @@ export function VideoRenderModal({
     String(node.data?.title || (isZh ? '未命名片段' : 'Untitled segment'));
   const segmentText = (node: FlowNode) =>
     stripHtml(
-      filterMentionTags(
-        String(node.data?.text || ''),
-        hideCharacterTags,
-        hideSceneTags,
-      ),
+      filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
     ).trim();
   const segmentDurationLabel = (node: FlowNode) => {
     if (node.data?.videoUrl && node.data?.audioUrl)
@@ -2947,7 +2970,9 @@ export function VideoRenderModal({
     node?: FlowNode,
   ): RenderContextMenuSection[] => {
     const isTimelineNode =
-      !!node && (menu.kind === 'timeline' || menu.kind === 'audio') && timelineIds.includes(node.id);
+      !!node &&
+      (menu.kind === 'timeline' || menu.kind === 'audio') &&
+      timelineIds.includes(node.id);
     const canMutate = status !== 'rendering';
     const speechNodesForMenu = getSpeechNodesForContextMenu(menu, node);
 
@@ -3015,17 +3040,17 @@ export function VideoRenderModal({
     const trackItems =
       menu.trackKind === 'audio'
         ? audioTrackIds.map((trackId, index) => ({
-          label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
-          icon: <Music className="w-4 h-4" />,
-          onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
-          disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
-        }))
+            label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
+            icon: <Music className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
+            disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+          }))
         : videoTrackIds.map((trackId, index) => ({
-          label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
-          icon: <Video className="w-4 h-4" />,
-          onSelect: () => assignNodeTrack(node.id, 'video', trackId),
-          disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
-        }));
+            label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
+            icon: <Video className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'video', trackId),
+            disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+          }));
 
     return [
       {
@@ -3157,10 +3182,10 @@ export function VideoRenderModal({
   const timelineThumbLeftPercent =
     timelineScrollInfo.scrollWidth > 0
       ? clamp(
-        (timelineScrollInfo.scrollLeft / timelineScrollInfo.scrollWidth) * 100,
-        0,
-        100 - timelineThumbWidthPercent,
-      )
+          (timelineScrollInfo.scrollLeft / timelineScrollInfo.scrollWidth) * 100,
+          0,
+          100 - timelineThumbWidthPercent,
+        )
       : 0;
   const assetThumbHeightPercent =
     assetScrollInfo.scrollHeight > 0
@@ -3169,10 +3194,10 @@ export function VideoRenderModal({
   const assetThumbTopPercent =
     assetScrollInfo.scrollHeight > 0
       ? clamp(
-        (assetScrollInfo.scrollTop / assetScrollInfo.scrollHeight) * 100,
-        0,
-        100 - assetThumbHeightPercent,
-      )
+          (assetScrollInfo.scrollTop / assetScrollInfo.scrollHeight) * 100,
+          0,
+          100 - assetThumbHeightPercent,
+        )
       : 0;
 
   return (
@@ -3258,7 +3283,12 @@ export function VideoRenderModal({
               />
 
               <ResizeHandle
-                label={renderCopy(language, '调整素材卡片宽度', '素材カードの幅を調整', 'Resize asset cards')}
+                label={renderCopy(
+                  language,
+                  '调整素材卡片宽度',
+                  '素材カードの幅を調整',
+                  'Resize asset cards',
+                )}
                 axis="x"
                 value={assetPanelWidth}
                 min={PANEL_SIZE_LIMITS.asset.min}
@@ -3293,7 +3323,12 @@ export function VideoRenderModal({
               />
 
               <ResizeHandle
-                label={renderCopy(language, '调整导出设置宽度', '書き出し設定の幅を調整', 'Resize export settings')}
+                label={renderCopy(
+                  language,
+                  '调整导出设置宽度',
+                  '書き出し設定の幅を調整',
+                  'Resize export settings',
+                )}
                 axis="x"
                 value={exportPanelWidth}
                 min={PANEL_SIZE_LIMITS.export.min}
@@ -3447,7 +3482,12 @@ export function VideoRenderModal({
         <RenderContextMenu
           contextMenu={contextMenu}
           nodeById={nodeById}
-          timelineMenuLabel={renderCopy(language, '时间线菜单', 'タイムラインメニュー', 'Timeline menu')}
+          timelineMenuLabel={renderCopy(
+            language,
+            '时间线菜单',
+            'タイムラインメニュー',
+            'Timeline menu',
+          )}
           buildContextMenuSections={buildContextMenuSections}
           mediaIcon={mediaIcon}
           mediaKind={mediaKind}

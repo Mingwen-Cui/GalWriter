@@ -15,9 +15,7 @@ export const filterMentionTags = (
 
   const document = new DOMParser().parseFromString(html, 'text/html');
   if (hideCharacterTags) {
-    document
-      .querySelectorAll('[data-mention-kind="character"]')
-      .forEach((node) => node.remove());
+    document.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
   }
   if (hideSceneTags) {
     document.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());

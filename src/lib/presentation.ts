@@ -62,8 +62,7 @@ export const normalizeStoryPresentation = (
 });
 
 export const getCharacterStagePosition = (config: CharacterPresentation) => {
-  const basePosition =
-    config.position === 'left' ? 24 : config.position === 'right' ? 76 : 50;
+  const basePosition = config.position === 'left' ? 24 : config.position === 'right' ? 76 : 50;
   return {
     left: `calc(${basePosition}% + ${config.offsetX / 10}%)`,
     bottom: `${config.offsetY / 10}%`,
@@ -76,19 +75,19 @@ type CharacterPresentationSettings = Omit<
 >;
 type ScenePresentationSettings = Omit<
   ScenePresentation,
-  | 'sourceNodeId'
-  | 'linkedByEdge'
-  | 'imageId'
-  | 'previousImageUrl'
-  | 'previousShowTextOverlay'
+  'sourceNodeId' | 'linkedByEdge' | 'imageId' | 'previousImageUrl' | 'previousShowTextOverlay'
 >;
 
 let characterPresentationClipboard: CharacterPresentationSettings | null = null;
 let scenePresentationClipboard: ScenePresentationSettings | null = null;
 
 export const copyCharacterPresentationSettings = (config: CharacterPresentation) => {
-  const { sourceNodeId: _sourceNodeId, linkedByEdge: _linkedByEdge, outfitId: _outfitId, ...settings } =
-    config;
+  const {
+    sourceNodeId: _sourceNodeId,
+    linkedByEdge: _linkedByEdge,
+    outfitId: _outfitId,
+    ...settings
+  } = config;
   characterPresentationClipboard = structuredClone(settings);
 };
 
@@ -99,8 +98,7 @@ export const pasteCharacterPresentationSettings = (
     ? { ...current, ...structuredClone(characterPresentationClipboard) }
     : current;
 
-export const hasCharacterPresentationClipboard = () =>
-  characterPresentationClipboard !== null;
+export const hasCharacterPresentationClipboard = () => characterPresentationClipboard !== null;
 
 export const copyScenePresentationSettings = (config: ScenePresentation) => {
   const {
@@ -114,17 +112,14 @@ export const copyScenePresentationSettings = (config: ScenePresentation) => {
   scenePresentationClipboard = structuredClone(settings);
 };
 
-export const pasteScenePresentationSettings = (
-  current: ScenePresentation,
-): ScenePresentation =>
-  scenePresentationClipboard ? { ...current, ...structuredClone(scenePresentationClipboard) } : current;
+export const pasteScenePresentationSettings = (current: ScenePresentation): ScenePresentation =>
+  scenePresentationClipboard
+    ? { ...current, ...structuredClone(scenePresentationClipboard) }
+    : current;
 
 export const hasScenePresentationClipboard = () => scenePresentationClipboard !== null;
 
-export const getPresentationTransform = (
-  animation: PresentationAnimation,
-  exiting: boolean,
-) => {
+export const getPresentationTransform = (animation: PresentationAnimation, exiting: boolean) => {
   const distance = exiting ? 120 : 100;
   if (animation === 'slide-left') return `translateX(${exiting ? -distance : distance}%)`;
   if (animation === 'slide-right') return `translateX(${exiting ? distance : -distance}%)`;

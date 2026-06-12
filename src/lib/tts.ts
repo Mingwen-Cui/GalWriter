@@ -131,7 +131,7 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
   if (!response.ok || contentType.includes('application/json')) {
     throw new Error(
       (await normalizeYoudaoError(response)) ||
-      `Youdao TTS request failed with HTTP ${response.status}`,
+        `Youdao TTS request failed with HTTP ${response.status}`,
     );
   }
 

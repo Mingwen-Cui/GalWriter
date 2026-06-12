@@ -31,7 +31,12 @@ export const ENCODER_OPTIONS = [
   { label: 'AMD AMF', value: 'h264_amf' },
 ];
 
-export const TEXT_ANIMATION_OPTIONS: { value: TextAnimation; zh: string; ja: string; en: string }[] = [
+export const TEXT_ANIMATION_OPTIONS: {
+  value: TextAnimation;
+  zh: string;
+  ja: string;
+  en: string;
+}[] = [
   { value: 'none', zh: '无', ja: 'なし', en: 'None' },
   { value: 'fade', zh: '淡入', ja: 'フェード', en: 'Fade' },
   { value: 'slideUp', zh: '上滑', ja: '上へスライド', en: 'Rise' },

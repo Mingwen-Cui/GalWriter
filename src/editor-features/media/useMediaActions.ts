@@ -522,9 +522,7 @@ export const useMediaActions = ({
                   ? '前のシーン画像'
                   : 'Previous Scene Image';
             const nextImages =
-              previousCoverImageUrl &&
-              previousCoverImageUrl !== imageSrc &&
-              !hasArchivedCover
+              previousCoverImageUrl && previousCoverImageUrl !== imageSrc && !hasArchivedCover
                 ? [
                     {
                       id: uuidv4(),
@@ -555,19 +553,20 @@ export const useMediaActions = ({
                 ? '透明背景の立ち絵を生成しました'
                 : 'Transparent character sprite generated',
           );
-        } else showToast(
-          type === 'character'
-            ? language === 'zh'
-              ? '人物三视图已生成'
-              : language === 'ja'
-                ? 'キャラクター三面図が生成されました'
-                : 'Character three-view generated'
-            : language === 'zh'
-              ? '场景图片已生成'
-              : language === 'ja'
-                ? 'シーン画像が生成されました'
-                : 'Scene image generated',
-        );
+        } else
+          showToast(
+            type === 'character'
+              ? language === 'zh'
+                ? '人物三视图已生成'
+                : language === 'ja'
+                  ? 'キャラクター三面図が生成されました'
+                  : 'Character three-view generated'
+              : language === 'zh'
+                ? '场景图片已生成'
+                : language === 'ja'
+                  ? 'シーン画像が生成されました'
+                  : 'Scene image generated',
+          );
       } catch (error: any) {
         console.error('Setting image generation failed:', error);
         alert(
@@ -663,8 +662,8 @@ export const useMediaActions = ({
           const fallbackArkProxyUrl =
             typeof window !== 'undefined' &&
             /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):3000$/i.test(window.location.origin)
-            ? '/api/ark-image'
-            : 'http://127.0.0.1:3000/api/ark-image';
+              ? '/api/ark-image'
+              : 'http://127.0.0.1:3000/api/ark-image';
           const canRetryArkProxy =
             imageRequest.usesSeedream &&
             imageRequest.url !== fallbackArkProxyUrl &&
@@ -766,11 +765,7 @@ export const useMediaActions = ({
             data: {
               id: extractedId,
               title:
-                language === 'zh'
-                  ? '旧图片'
-                  : language === 'ja'
-                    ? '以前の画像'
-                    : 'Previous Image',
+                language === 'zh' ? '旧图片' : language === 'ja' ? '以前の画像' : 'Previous Image',
               shape: 'square',
               color: '#ffffff',
               text: '',

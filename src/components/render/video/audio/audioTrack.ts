@@ -8,13 +8,9 @@ export const buildAudioBuffer = async (
 ): Promise<AudioBuffer | undefined> => {
   const hasExplicitStart = segments.some((segment) => segment.startSecs !== undefined);
   const contentDuration = hasExplicitStart
-    ? Math.max(
-        0,
-        ...segments.map((segment) => (segment.startSecs || 0) + segment.durationSecs),
-      )
+    ? Math.max(0, ...segments.map((segment) => (segment.startSecs || 0) + segment.durationSecs))
     : segments.reduce((sum, segment) => sum + segment.durationSecs, 0);
-  const totalDuration =
-    targetDuration && targetDuration > 0 ? targetDuration : contentDuration;
+  const totalDuration = targetDuration && targetDuration > 0 ? targetDuration : contentDuration;
   if (totalDuration <= 0) return undefined;
 
   const sampleRate = 48000;

@@ -869,12 +869,19 @@ body,
   border-color: #334155 !important;
 }
 
-[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-bottom-glass-action,
-[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-icon-button {
+[data-theme='dark']
+  .bubble-glass-mode.glass-opaque-assistant-messages
+  .assistant-bottom-glass-action,
+[data-theme='dark']
+  .bubble-glass-mode.glass-opaque-assistant-messages
+  .assistant-input-icon-button {
   background: #1e293b !important;
 }
 
-[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box textarea {
+[data-theme='dark']
+  .bubble-glass-mode.glass-opaque-assistant-messages
+  .assistant-input-box
+  textarea {
   color: #f8fafc !important;
 }
 

@@ -78,12 +78,7 @@ const createInitialAssistantTask = (language: Language): AssistantTask => {
   const now = Date.now();
   return {
     id: uuidv4(),
-    title:
-      language === 'zh'
-        ? '对话 1'
-        : language === 'ja'
-          ? '対話 1'
-          : 'Conversation 1',
+    title: language === 'zh' ? '对话 1' : language === 'ja' ? '対話 1' : 'Conversation 1',
     createdAt: now,
     updatedAt: now,
     messages: [createAssistantWelcomeMessage(language)],
@@ -174,11 +169,15 @@ export const useAssistantPanel = ({
   const [assistantDocuments, setAssistantDocuments] = useState<AssistantDocument[]>([]);
   const [assistantDocumentLoading, setAssistantDocumentLoading] = useState(false);
   const initialAssistantTaskRef = useRef(createInitialAssistantTask(language));
-  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(initialAssistantTaskRef.current.id);
+  const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(
+    initialAssistantTaskRef.current.id,
+  );
   const [assistantTasks, setAssistantTasks] = useState<AssistantTask[]>(() => [
     initialAssistantTaskRef.current,
   ]);
-  const [assistantTaskPendingCloseId, setAssistantTaskPendingCloseId] = useState<string | null>(null);
+  const [assistantTaskPendingCloseId, setAssistantTaskPendingCloseId] = useState<string | null>(
+    null,
+  );
   const assistantMessagesRef = useRef<HTMLDivElement>(null);
   const assistantThoughtTimerRef = useRef<number | null>(null);
   const assistantTasksRef = useRef<AssistantTask[]>([]);
@@ -271,8 +270,10 @@ export const useAssistantPanel = ({
     setAssistantHistoryVersion((version) => version + 1);
   }, [assistantLoading, createAssistantHistorySnapshot, restoreAssistantHistorySnapshot]);
 
-  const canAssistantUndo = assistantHistoryVersion >= 0 && assistantHistoryPastRef.current.length > 0;
-  const canAssistantRedo = assistantHistoryVersion >= 0 && assistantHistoryFutureRef.current.length > 0;
+  const canAssistantUndo =
+    assistantHistoryVersion >= 0 && assistantHistoryPastRef.current.length > 0;
+  const canAssistantRedo =
+    assistantHistoryVersion >= 0 && assistantHistoryFutureRef.current.length > 0;
 
   const setAssistantMessages = useCallback(
     (updater: SetStateAction<AssistantMessage[]>) => {
@@ -336,8 +337,7 @@ export const useAssistantPanel = ({
         assistantThoughtTimerRef.current = null;
       }
 
-      const nextTasks =
-        tasks && tasks.length > 0 ? tasks : [createInitialAssistantTask(language)];
+      const nextTasks = tasks && tasks.length > 0 ? tasks : [createInitialAssistantTask(language)];
       const nextActiveTaskId =
         activeTaskId && nextTasks.some((task) => task.id === activeTaskId)
           ? activeTaskId
@@ -370,9 +370,7 @@ export const useAssistantPanel = ({
           selectedFiles.map((file) => readAssistantDocument(file)),
         );
         setAssistantDocuments((currentDocuments) => {
-          const documentMap = new Map(
-            currentDocuments.map((document) => [document.id, document]),
-          );
+          const documentMap = new Map(currentDocuments.map((document) => [document.id, document]));
           documents.forEach((document) => documentMap.set(document.id, document));
           return Array.from(documentMap.values()).slice(-5);
         });
@@ -424,7 +422,9 @@ export const useAssistantPanel = ({
 
     setAssistantTasks((tasks) =>
       tasks.map((task) =>
-        task.id === taskId ? { ...task, title: nextTitle.slice(0, 36), updatedAt: Date.now() } : task,
+        task.id === taskId
+          ? { ...task, title: nextTitle.slice(0, 36), updatedAt: Date.now() }
+          : task,
       ),
     );
   }, []);
@@ -444,12 +444,7 @@ export const useAssistantPanel = ({
           return [
             {
               id,
-              title:
-                language === 'zh'
-                  ? '对话 1'
-                  : language === 'ja'
-                    ? '対話 1'
-                    : 'Conversation 1',
+              title: language === 'zh' ? '对话 1' : language === 'ja' ? '対話 1' : 'Conversation 1',
               createdAt: now,
               updatedAt: now,
               messages: [createAssistantWelcomeMessage(language)],
@@ -662,9 +657,7 @@ ${canvasContext || '无'}`;
         const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
         const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
-        const placement = shouldPlaceCards
-          ? createAssistantCards(cards, mode)
-          : { count: 0 };
+        const placement = shouldPlaceCards ? createAssistantCards(cards, mode) : { count: 0 };
         const actionText =
           placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
 
@@ -731,8 +724,7 @@ ${canvasContext || '无'}`;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang =
-      language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : 'en-US';
+    recognition.lang = language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => setAssistantListening(true);

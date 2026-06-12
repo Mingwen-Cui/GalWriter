@@ -399,10 +399,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     const safeName = getSafeDownloadName(
       `${name || (lang === 'zh' ? '场景' : lang === 'ja' ? 'シーン' : 'scene')}-场景图`,
     );
-    await downloadImageUrl(
-      coverImageUrl,
-      `${safeName}.${getImageExtension(coverImageUrl)}`,
-    );
+    await downloadImageUrl(coverImageUrl, `${safeName}.${getImageExtension(coverImageUrl)}`);
   };
 
   const handleDownloadSceneImage = async (

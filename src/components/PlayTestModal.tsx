@@ -261,7 +261,9 @@ export function PlayTestModal({
     const container = document.createElement('div');
     container.innerHTML = rawTextHtml;
     if (hideCharacterTags) {
-      container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
+      container
+        .querySelectorAll('[data-mention-kind="character"]')
+        .forEach((node) => node.remove());
     }
     if (hideSceneTags) {
       container.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
@@ -838,9 +840,7 @@ export function PlayTestModal({
   };
 
   const hasMedia = !!(sceneImageUrl || currentNode?.data.videoUrl || presentedCharacters.length);
-  const sceneMotion = presentationExiting
-    ? presentation.scene?.exit
-    : presentation.scene?.enter;
+  const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive = presentationExiting || !presentationVisible;
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'

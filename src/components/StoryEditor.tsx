@@ -3941,8 +3941,7 @@ ${direction}
             const zenImageUrl =
               (typeof presentationScene?.data.coverImageUrl === 'string'
                 ? presentationScene.data.coverImageUrl
-                : undefined) ||
-              (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : '');
+                : undefined) || (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : '');
             return (
               <ZenEditor
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}
