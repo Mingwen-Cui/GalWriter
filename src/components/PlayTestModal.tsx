@@ -17,7 +17,18 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
+import type {
+  CharacterNodeData,
+  CharacterPresentation,
+  SceneNodeData,
+  StoryPresentation,
+} from '../domain/project';
 import { Language, translations } from '../lib/i18n';
+import {
+  getCharacterStagePosition,
+  getPresentationTransform,
+  normalizeStoryPresentation,
+} from '../lib/presentation';
 
 // Helper: HTML-Aware Safe Slicing for Typewriter Effect
 function sliceHtmlByTextLength(
@@ -181,6 +192,8 @@ export function PlayTestModal({
   const [displayedHtml, setDisplayedHtml] = useState('');
   const [animationCompleted, setAnimationCompleted] = useState(interactionMode === 'immediate');
   const [timeLeft, setTimeLeft] = useState(0);
+  const [presentationVisible, setPresentationVisible] = useState(false);
+  const [presentationExiting, setPresentationExiting] = useState(false);
   const typewriterTimerRef = useRef<any>(null);
   const timedTimerRef = useRef<any>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -202,21 +215,66 @@ export function PlayTestModal({
   );
 
   const currentNode = nodes.find((n) => n.id === currentNodeId);
+  const presentation = normalizeStoryPresentation(
+    currentNode?.data.presentation as StoryPresentation | undefined,
+  );
+  const sceneSource = presentation.scene
+    ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
+    : null;
+  const sceneImageUrl =
+    (sceneSource?.data as SceneNodeData | undefined)?.coverImageUrl ||
+    (currentNode?.data.imageUrl as string | undefined);
+  const presentedCharacters = presentation.characters
+    .map((config) => {
+      const source = nodes.find((node) => node.id === config.sourceNodeId);
+      if (!source || source.type !== 'characterNode') return null;
+      const characterData = source.data as CharacterNodeData;
+      const outfit = config.outfitId
+        ? characterData.outfits?.find((item) => item.id === config.outfitId)
+        : characterData.outfits?.find((item) => item.imageUrl);
+      const imageUrl = outfit?.imageUrl || characterData.avatarUrl;
+      if (!imageUrl) return null;
+      return { config, data: characterData, imageUrl };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        config: CharacterPresentation;
+        data: CharacterNodeData;
+        imageUrl: string;
+      } => Boolean(item),
+    );
   const textHtml =
     currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
   const outEdges = edges.filter((e) => e.source === currentNodeId);
   const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
   const advanceToTarget = React.useCallback(
     (targetId: string) => {
+      if (presentationExiting) return;
       if (autoAdvanceTimerRef.current) {
         clearTimeout(autoAdvanceTimerRef.current);
         autoAdvanceTimerRef.current = null;
       }
-      setHistory((prev) => [...prev, currentNodeId || '']);
-      navigateToNode(targetId);
+      const exitDuration = Math.max(
+        presentation.scene?.exit.duration || 0,
+        ...presentation.characters.map((character) => character.exit.duration || 0),
+      );
+      setPresentationExiting(true);
+      window.setTimeout(() => {
+        setHistory((prev) => [...prev, currentNodeId || '']);
+        navigateToNode(targetId);
+      }, exitDuration);
     },
-    [currentNodeId, navigateToNode],
+    [currentNodeId, navigateToNode, presentation, presentationExiting],
   );
+
+  useEffect(() => {
+    setPresentationExiting(false);
+    setPresentationVisible(false);
+    const frame = requestAnimationFrame(() => setPresentationVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [currentNodeId]);
 
   // 触发打字机或延时逻辑
   useEffect(() => {
@@ -756,7 +814,70 @@ export function PlayTestModal({
     }
   };
 
-  const hasMedia = !!(currentNode?.data.imageUrl || currentNode?.data.videoUrl);
+  const hasMedia = !!(sceneImageUrl || currentNode?.data.videoUrl || presentedCharacters.length);
+  const sceneMotion = presentationExiting
+    ? presentation.scene?.exit
+    : presentation.scene?.enter;
+  const sceneAnimationActive = presentationExiting || !presentationVisible;
+  const sceneObjectFit =
+    presentation.scene?.cropMode === 'contain'
+      ? 'contain'
+      : presentation.scene?.cropMode === 'stretch'
+        ? 'fill'
+        : 'cover';
+  const sceneStyle: React.CSSProperties = {
+    objectFit: sceneObjectFit,
+    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
+      50 + (presentation.scene?.offsetY || 0)
+    }%`,
+    opacity:
+      sceneAnimationActive && sceneMotion && sceneMotion.type !== 'none' ? 0 : 1,
+    transform: `scale(${presentation.scene?.scale || 1}) ${
+      sceneAnimationActive && sceneMotion
+        ? getPresentationTransform(sceneMotion.type, presentationExiting)
+        : ''
+    }`,
+    transitionProperty: 'opacity, transform',
+    transitionDuration: `${sceneMotion?.duration || 0}ms`,
+    transitionTimingFunction: 'ease-out',
+  };
+
+  const renderPresentedCharacters = (constrainToClassicStage = false) => (
+    <div
+      className={`absolute inset-y-0 z-10 overflow-hidden pointer-events-none ${
+        constrainToClassicStage
+          ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2'
+          : 'left-0 right-0'
+      }`}
+    >
+      {presentedCharacters.map(({ config, data, imageUrl }) => {
+        const motion = presentationExiting ? config.exit : config.enter;
+        const animationActive = presentationExiting || !presentationVisible;
+        const animationTransform =
+          animationActive && motion
+            ? getPresentationTransform(motion.type, presentationExiting)
+            : '';
+        return (
+          <img
+            key={config.sourceNodeId}
+            src={imageUrl}
+            alt={data.characterName}
+            className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+            style={{
+              ...getCharacterStagePosition(config),
+              zIndex: config.layer,
+              opacity: animationActive && motion.type !== 'none' ? 0 : 1,
+              transform: `translateX(-50%) scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${animationTransform}`,
+              transformOrigin: 'bottom center',
+              transitionProperty: 'opacity, transform',
+              transitionDuration: `${motion.duration}ms`,
+              transitionTimingFunction: 'ease-out',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
 
   return (
     <div
@@ -1350,10 +1471,11 @@ export function PlayTestModal({
             <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
               {/* 1. 全景大图/视频背景 */}
               <div className="absolute inset-0 z-0 overflow-hidden w-full h-full select-none pointer-events-none">
-                {currentNode?.data.imageUrl ? (
+                {sceneImageUrl ? (
                   <img
-                    src={currentNode.data.imageUrl as string}
-                    className="w-full h-full object-cover transition-all duration-1000"
+                    src={sceneImageUrl}
+                    className="w-full h-full"
+                    style={sceneStyle}
                     alt="Scene Background"
                   />
                 ) : currentNode?.data.videoUrl ? (
@@ -1373,6 +1495,7 @@ export function PlayTestModal({
                   />
                 )}
               </div>
+              {renderPresentedCharacters()}
 
               {/* 2. 悬浮的选项与对话框 */}
               <div
@@ -1461,9 +1584,9 @@ export function PlayTestModal({
                 >
                   {/* Ambient Background Layer */}
                   <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">
-                    {currentNode?.data.imageUrl ? (
+                    {sceneImageUrl ? (
                       <img
-                        src={currentNode.data.imageUrl as string}
+                        src={sceneImageUrl}
                         className="w-full h-full object-cover blur-[60px] opacity-20 scale-125"
                         alt=""
                       />
@@ -1476,13 +1599,14 @@ export function PlayTestModal({
 
                   {/* Media Wrapper */}
                   <div className="relative z-10 w-full h-full flex items-center justify-center animate-in zoom-in-95 duration-500">
-                    {currentNode?.data.imageUrl && (
+                    {sceneImageUrl && (
                       <img
-                        src={currentNode.data.imageUrl as string}
+                        src={sceneImageUrl}
                         alt="Scene"
-                        className="max-h-full max-w-full object-contain rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10 transition-transform duration-500 hover:scale-[1.01]"
+                        className="h-full w-full rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10"
                         style={{
                           maxWidth: 'min(100%, 1200px)',
+                          ...sceneStyle,
                           boxShadow: isDarkMode
                             ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
                             : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
@@ -1509,6 +1633,7 @@ export function PlayTestModal({
                       />
                     )}
                   </div>
+                  {renderPresentedCharacters(true)}
 
                   {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
                   {choicesPosition === 'center' &&

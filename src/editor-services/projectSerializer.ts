@@ -210,7 +210,7 @@ const applyProjectSettings = (
   ) {
     setters.setCharacterImageMode(incomingSettings.characterImageMode);
   } else {
-    setters.setCharacterImageMode('three-view');
+    setters.setCharacterImageMode('transparent-sprite');
   }
   if (
     incomingSettings.sceneImageMode === 'storyboard-16:9' ||

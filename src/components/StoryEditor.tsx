@@ -84,6 +84,11 @@ import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { Language, translations } from '../lib/i18n';
 import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
 import {
+  createCharacterPresentation,
+  createScenePresentation,
+  normalizeStoryPresentation,
+} from '../lib/presentation';
+import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
   parseGeneratedPlotCards,
@@ -425,7 +430,7 @@ export function StoryEditor() {
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
   const [characterImageMode, setCharacterImageMode] =
-    useState<CharacterImageMode>('three-view');
+    useState<CharacterImageMode>('transparent-sprite');
   const [sceneImageMode, setSceneImageMode] = useState<SceneImageMode>('storyboard-16:9');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
@@ -1179,6 +1184,107 @@ export function StoryEditor() {
       }
     }, 800);
   }, [nodes, edges]);
+
+  React.useEffect(() => {
+    setNodes((currentNodes) => {
+      const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
+      let changed = false;
+
+      const nextNodes = currentNodes.map((node) => {
+        if (node.type !== 'storyNode') return node;
+
+        const connectedNodes = edges
+          .filter((edge) => edge.source === node.id || edge.target === node.id)
+          .map((edge) => nodeById.get(edge.source === node.id ? edge.target : edge.source))
+          .filter((connected): connected is Node => Boolean(connected));
+        const connectedScene = connectedNodes.find(
+          (connected) =>
+            connected.type === 'sceneNode' &&
+            typeof connected.data.coverImageUrl === 'string' &&
+            connected.data.coverImageUrl,
+        );
+        const connectedCharacters = connectedNodes.filter(
+          (connected) => connected.type === 'characterNode',
+        );
+        const presentation = normalizeStoryPresentation(node.data.presentation as any);
+        let nextScene = presentation.scene;
+        let nextImageUrl = node.data.imageUrl as string | undefined;
+        let nextShowTextOverlay = node.data.showTextOverlay as boolean | undefined;
+
+        if (connectedScene) {
+          const previousImageUrl =
+            nextScene?.linkedByEdge && nextScene.previousImageUrl !== undefined
+              ? nextScene.previousImageUrl
+              : nextImageUrl;
+          nextScene = {
+            ...(nextScene?.sourceNodeId === connectedScene.id
+              ? nextScene
+              : createScenePresentation(
+                  connectedScene.id,
+                  previousImageUrl,
+                  true,
+                  nextShowTextOverlay,
+                )),
+            sourceNodeId: connectedScene.id,
+            linkedByEdge: true,
+            previousImageUrl,
+            previousShowTextOverlay:
+              nextScene?.linkedByEdge && nextScene.previousShowTextOverlay !== undefined
+                ? nextScene.previousShowTextOverlay
+                : nextShowTextOverlay,
+          };
+          nextImageUrl = connectedScene.data.coverImageUrl as string;
+          nextShowTextOverlay = true;
+        } else if (nextScene?.linkedByEdge) {
+          nextImageUrl = nextScene.previousImageUrl;
+          nextShowTextOverlay = nextScene.previousShowTextOverlay;
+          nextScene = undefined;
+        }
+
+        const connectedCharacterIds = new Set(connectedCharacters.map((character) => character.id));
+        const nextCharacters = presentation.characters
+          .filter(
+            (character) =>
+              !character.linkedByEdge || connectedCharacterIds.has(character.sourceNodeId),
+          )
+          .map((character) =>
+            connectedCharacterIds.has(character.sourceNodeId)
+              ? { ...character, linkedByEdge: true }
+              : character,
+          );
+        connectedCharacters.forEach((character) => {
+          if (!nextCharacters.some((item) => item.sourceNodeId === character.id)) {
+            nextCharacters.push(createCharacterPresentation(character.id, true));
+          }
+        });
+
+        const nextPresentation = {
+          scene: nextScene,
+          characters: nextCharacters,
+        };
+        if (
+          nextImageUrl === node.data.imageUrl &&
+          nextShowTextOverlay === node.data.showTextOverlay &&
+          JSON.stringify(nextPresentation) === JSON.stringify(presentation)
+        ) {
+          return node;
+        }
+
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            imageUrl: nextImageUrl,
+            showTextOverlay: nextShowTextOverlay,
+            presentation: nextPresentation,
+          },
+        };
+      });
+
+      return changed ? nextNodes : currentNodes;
+    });
+  }, [edges, nodes, setNodes]);
 
   // 页面关闭/刷新前的提醒
   React.useEffect(() => {
@@ -3752,6 +3858,7 @@ ${direction}
         {zenModeNodeId &&
           (() => {
             const node = nodes.find((n) => n.id === zenModeNodeId);
+            const zenPresentation = normalizeStoryPresentation(node?.data.presentation as any);
             const characterTags = node
               ? nodes
                   .filter(
@@ -3769,7 +3876,22 @@ ${direction}
                     );
                     return isGlobal || isConnected;
                   })
-                  .map((n) => ({ id: n.id, name: String(n.data.characterName).trim() }))
+                  .map((n) => {
+                    const config = zenPresentation.characters.find(
+                      (item) => item.sourceNodeId === n.id,
+                    );
+                    const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
+                    const outfit = config?.outfitId
+                      ? outfits.find((item: any) => item.id === config.outfitId)
+                      : outfits.find((item: any) => item.imageUrl);
+                    return {
+                      id: n.id,
+                      name: String(n.data.characterName).trim(),
+                      imageUrl:
+                        (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
+                        (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
+                    };
+                  })
               : [];
             const sceneTags = node
               ? nodes
@@ -3790,17 +3912,29 @@ ${direction}
                   })
                   .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
               : [];
+            const presentationScene = zenPresentation.scene
+              ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
+              : undefined;
+            const zenImageUrl =
+              (typeof presentationScene?.data.coverImageUrl === 'string'
+                ? presentationScene.data.coverImageUrl
+                : undefined) ||
+              (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : '');
             return (
               <ZenEditor
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}
-                imageUrl={typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : ''}
+                imageUrl={zenImageUrl}
                 videoUrl={typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : ''}
                 characterTags={characterTags}
                 sceneTags={sceneTags}
+                presentation={zenPresentation}
                 isAILoading={aiLoadingNodeId === zenModeNodeId}
                 onAIGenerate={() => handleAIButtonClick(zenModeNodeId)}
                 onGenerateImage={() => handleGenerateStoryNodeImage(zenModeNodeId)}
                 onChange={(val) => handleUpdateNode(zenModeNodeId, { text: val })}
+                onPresentationChange={(presentation) =>
+                  handleUpdateNode(zenModeNodeId, { presentation })
+                }
                 onClose={() => setZenModeNodeId(null)}
               />
             );

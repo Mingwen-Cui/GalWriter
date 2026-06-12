@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { CharacterImageMode, SceneImageMode } from '../../domain/project';
+import type { CharacterImageMode, CharacterNodeData, SceneImageMode } from '../../domain/project';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import {
   buildImageGenerationRequest,
@@ -49,6 +49,29 @@ const TITLE_HEIGHT = 36;
 const stripHtml = (html: string) => {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
   return (doc.body.textContent || '').trim();
+};
+
+const formatCharacterSpritePromptText = (
+  data: CharacterNodeData | Record<string, unknown>,
+): string => {
+  const sections: string[] = [];
+  const addSection = (label: string, value: unknown) => {
+    const text = typeof value === 'string' ? value.trim() : '';
+    if (text) sections.push(`${label}:\n${text}`);
+  };
+  const usesSplitFields =
+    !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
+
+  if (usesSplitFields) {
+    if (data.showPersonality) addSection('Personality', data.personality);
+    if (data.showFeatures) addSection('Appearance and distinctive features', data.features);
+    if (data.showBackground) addSection('Background', data.background);
+    if (data.showOther) addSection('Other requirements', data.other);
+  } else {
+    addSection('Character description', data.traits);
+  }
+
+  return sections.join('\n\n').trim();
 };
 
 const applyNodeDataAndStyleUpdate = (
@@ -190,9 +213,23 @@ export const useMediaActions = ({
         transparentBackground?: boolean;
         sizeOverride?: string;
         aspectRatio?: number;
+        negativePromptOverride?: string;
       } = {},
     ) => {
-      const { transparentBackground = false, sizeOverride, aspectRatio } = options;
+      const {
+        transparentBackground = false,
+        sizeOverride,
+        aspectRatio,
+        negativePromptOverride,
+      } = options;
+      const requestStableDiffusionOptions = negativePromptOverride
+        ? {
+            ...stableDiffusionOptions,
+            negativePrompt: [stableDiffusionOptions.negativePrompt, negativePromptOverride]
+              .filter(Boolean)
+              .join(', '),
+          }
+        : stableDiffusionOptions;
       if (!isLocalStableDiffusion && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
         alert(
@@ -212,7 +249,7 @@ export const useMediaActions = ({
         prompt,
         imageApiKey,
         imageProvider,
-        stableDiffusionOptions,
+        requestStableDiffusionOptions,
         [],
         transparentBackground,
       );
@@ -288,7 +325,7 @@ export const useMediaActions = ({
             prompt,
             imageApiKey,
             imageProvider,
-            stableDiffusionOptions,
+            requestStableDiffusionOptions,
             [],
             transparentBackground,
           );
@@ -395,7 +432,9 @@ export const useMediaActions = ({
                   : 'Unnamed Scene');
         const bodyText =
           type === 'character'
-            ? formatCharacterNodeText(node.data as Record<string, unknown>)
+            ? characterImageMode === 'transparent-sprite'
+              ? formatCharacterSpritePromptText(node.data as Record<string, unknown>)
+              : formatCharacterNodeText(node.data as Record<string, unknown>)
             : formatSceneNodeText(node.data as Record<string, unknown>);
         const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
 
@@ -413,7 +452,7 @@ export const useMediaActions = ({
         const prompt =
           type === 'character'
             ? characterImageMode === 'transparent-sprite'
-              ? `Create a polished visual novel character sprite as a single full-body character, facing mostly forward, with the entire figure visible from head to toe. Use a transparent background with a clean alpha channel. If native alpha transparency is unavailable, use a perfectly uniform pure white (#FFFFFF) background so it can be removed cleanly. No scenery, no floor, no backdrop, no cast shadow, no text labels, no UI, no frame, and no additional characters. Preserve the character design described below:\n\n${basePrompt}`
+              ? `Create exactly ONE polished visual novel character sprite: one single front-facing full-body depiction of one character, with the entire figure visible from head to toe. This is NOT a character sheet and NOT a turnaround. Do not generate side views, back views, multiple poses, duplicate figures, panels, or comparison layouts. Use a transparent background with a clean alpha channel. If native alpha transparency is unavailable, use a perfectly uniform pure white (#FFFFFF) background so it can be removed cleanly. No scenery, floor, backdrop, cast shadow, text, labels, UI, or frame. Preserve the character design described below:\n\n${basePrompt}`
               : `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
             : sceneImageMode === 'storyboard-16:9'
               ? `Create a polished cinematic visual novel storyboard frame in a wide 16:9 landscape composition. Focus on the environment, spatial layout, camera framing, mood, props, lighting, and color palette. Compose important subjects so they remain visible after a centered 16:9 crop. No text labels, no UI. Scene setting:\n\n${basePrompt}`
@@ -423,6 +462,10 @@ export const useMediaActions = ({
         const imageSrc = await requestGeneratedImage(prompt, {
           transparentBackground:
             type === 'character' && characterImageMode === 'transparent-sprite',
+          negativePromptOverride:
+            type === 'character' && characterImageMode === 'transparent-sprite'
+              ? 'character sheet, turnaround, three views, multiple views, side view, back view, multiple poses, duplicate character, split panel, collage, contact sheet'
+              : undefined,
           sizeOverride: forceSceneStoryboard ? '1920x1080' : undefined,
           aspectRatio: forceSceneStoryboard ? 16 / 9 : undefined,
         });
@@ -454,7 +497,7 @@ export const useMediaActions = ({
               const nextOutfits = hasGeneratedOutfit
                 ? currentOutfits.map((outfit) =>
                     outfit.id === generatedOutfitId
-                      ? { ...outfit, name: outfit.name || generatedOutfitName, imageUrl: imageSrc }
+                      ? { ...outfit, name: generatedOutfitName, imageUrl: imageSrc }
                       : outfit,
                   )
                 : [
@@ -505,7 +548,15 @@ export const useMediaActions = ({
           }),
         );
 
-        showToast(
+        if (type === 'character' && characterImageMode === 'transparent-sprite') {
+          showToast(
+            language === 'zh'
+              ? '人物透明背景立绘已生成'
+              : language === 'ja'
+                ? '透明背景の立ち絵を生成しました'
+                : 'Transparent character sprite generated',
+          );
+        } else showToast(
           type === 'character'
             ? language === 'zh'
               ? '人物三视图已生成'

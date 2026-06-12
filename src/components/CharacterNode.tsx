@@ -434,7 +434,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     event.stopPropagation();
     if (!outfit.imageUrl) return;
 
-    const fallbackLabel = lang === 'zh' ? '三视图' : 'three-view';
+    const fallbackLabel = lang === 'zh' ? '人物图片' : 'character-image';
     const safeName = getSafeDownloadName(
       `${name || (lang === 'zh' ? '角色' : 'character')}-${outfit.name || fallbackLabel}`,
     );
@@ -717,7 +717,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             <div className="p-3 flex flex-col gap-2 relative shrink-0 min-h-[100px] rounded-b-xl border-t border-[var(--card-border)] bg-[var(--card-bg)]">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-[var(--text-secondary)] ml-1">
-                  三视图 / 不同穿着
+                  人物图片 / 不同穿着
                 </label>
                 <button
                   onClick={addOutfit}
@@ -730,7 +730,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
               {outfits.length === 0 ? (
                 <div className="text-[10px] text-[var(--text-muted)] text-center py-2 bg-[var(--app-bg)] rounded-lg border border-dashed border-[var(--card-border)]">
-                  暂无三视图，点击右上角 + 添加
+                  暂无人物图片，点击右上角 + 添加
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -774,7 +774,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         <button
                           onClick={(event) => handleDownloadOutfitImage(event, outfit)}
                           className="opacity-0 group-hover/outfit:opacity-100 p-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded transition-opacity"
-                          title={lang === 'zh' ? '下载三视图' : 'Download three-view'}
+                          title={lang === 'zh' ? '下载人物图片' : 'Download character image'}
                         >
                           <Download className="w-3 h-3" />
                         </button>

@@ -294,6 +294,53 @@ export type SceneImage = {
   isPanorama?: boolean;
 };
 
+export type PresentationAnimation =
+  | 'none'
+  | 'fade'
+  | 'slide-left'
+  | 'slide-right'
+  | 'slide-up'
+  | 'slide-down'
+  | 'zoom';
+
+export interface PresentationMotion {
+  type: PresentationAnimation;
+  duration: number;
+}
+
+export interface CharacterPresentation {
+  sourceNodeId: string;
+  linkedByEdge?: boolean;
+  outfitId?: string;
+  position: 'left' | 'center' | 'right' | 'custom';
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  flipX: boolean;
+  layer: number;
+  enter: PresentationMotion;
+  exit: PresentationMotion;
+}
+
+export interface ScenePresentation {
+  sourceNodeId: string;
+  linkedByEdge?: boolean;
+  imageId?: string;
+  cropMode: 'cover' | 'contain' | 'stretch';
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  enter: PresentationMotion;
+  exit: PresentationMotion;
+  previousImageUrl?: string;
+  previousShowTextOverlay?: boolean;
+}
+
+export interface StoryPresentation {
+  scene?: ScenePresentation;
+  characters: CharacterPresentation[];
+}
+
 export type HullPoint = {
   x: number;
   y: number;
@@ -347,6 +394,7 @@ export interface StoryNodeData extends BaseEditorNodeData {
   isRoot?: boolean;
   nodeValue?: number;
   skip?: boolean;
+  presentation?: StoryPresentation;
 }
 
 export interface CharacterNodeData extends BaseEditorNodeData {

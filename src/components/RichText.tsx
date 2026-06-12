@@ -54,9 +54,21 @@ export const RichText = forwardRef<
     style?: React.CSSProperties;
     pasteAsPlainText?: boolean;
     autoFocus?: boolean;
+    onMentionContextMenu?: (
+      event: React.MouseEvent<HTMLSpanElement>,
+      mention: { kind: 'character' | 'scene'; name: string },
+    ) => void;
   }
 >(function RichText(
-  { value, onChange, className, style, pasteAsPlainText = false, autoFocus = false },
+  {
+    value,
+    onChange,
+    className,
+    style,
+    pasteAsPlainText = false,
+    autoFocus = false,
+    onMentionContextMenu,
+  },
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -175,6 +187,28 @@ export const RichText = forwardRef<
     deleteMention(mention);
   };
 
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
+    const kind = target.dataset.mentionKind;
+    const name = target.dataset.mentionName;
+    if ((kind !== 'character' && kind !== 'scene') || !name || !onMentionContextMenu) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
+  };
+
+  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
+    const kind = target.dataset.mentionKind;
+    const name = target.dataset.mentionName;
+    if ((kind !== 'character' && kind !== 'scene') || !name || !onMentionContextMenu) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
+  };
+
   return (
     <div
       ref={editorRef}
@@ -183,6 +217,8 @@ export const RichText = forwardRef<
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       onDrop={handleDrop}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
       onDragOver={(e) => e.preventDefault()}
       // "nodrag" and "nowheel" prevents react-flow from hijacking selection/scroll
       className={`nodrag nopan outline-none ${className}`}
