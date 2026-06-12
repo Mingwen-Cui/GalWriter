@@ -61,7 +61,9 @@ export const useSelectionActions = ({
     setNodeClipboard({ nodes: selectedNodes, edges: selectedEdges });
     showToast(
       language === 'zh'
-        ? `已复制${selectedNodes.length} 个节点`
+        ? selectedNodes.length === 1
+          ? '已复制节点'
+          : `已复制 ${selectedNodes.length} 个节点`
         : language === 'ja'
           ? `${selectedNodes.length} 個のノードをコピーしました`
           : `${selectedNodes.length} nodes copied`,

@@ -144,14 +144,6 @@ const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
     model: 'gemma4',
   },
   {
-    // NOTE: hosted 模式 - 网站托管时通过服务端 PHP 代理调用 AI，无需用户填写 API Key
-    // apiUrl 留空则使用默认路径 /api/proxy.php；model 字段用于指定后端 AI 提供商
-    value: 'hosted',
-    label: '🌐 网站托管代理',
-    apiUrl: '',
-    model: 'gemini',
-  },
-  {
     value: 'custom',
     label: '自定义',
     apiUrl: '',
@@ -457,17 +449,15 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
 
 const isLikelyUrlProfileName = (name: string) => /^https?:\/\//i.test(name.trim());
 
-// NOTE: 网页托管环境下新建草稿默认 hosted+DeepSeek；Tauri 桌面端保持空白让用户自选
 const buildDefaultTextDraft = (): TextAIProfile => {
-  const isWeb = !isTauriRuntime();
   return {
     id: 'draft-text',
     name: '',
     kind: 'text',
-    provider: isWeb ? 'hosted' : 'deepseek',
+    provider: 'deepseek',
     apiKey: '',
     apiUrl: '',
-    model: isWeb ? 'deepseek' : '',
+    model: 'deepseek-chat',
     thinkingMode: false,
   };
 };
@@ -1673,10 +1663,21 @@ export function AISettingsPanel({
                                           {profile.name}
                                         </p>
                                       </div>
-                                      <p className="mt-1 truncate pl-4.5 text-[11px] font-medium text-[var(--text-muted)]">
-                                        {(profile.provider || 'custom').toUpperCase()}
-                                        {' / '}
-                                        {profile.model || (language === 'zh' ? '未指定模型' : language === 'ja' ? '未指定モデル' : 'No model selected')}
+                                      <p
+                                        className={`mt-1 pl-4.5 text-[11px] font-medium text-[var(--text-muted)] ${
+                                          isReadOnly ? 'leading-5' : 'truncate'
+                                        }`}
+                                      >
+                                        {isReadOnly
+                                          ? 'AI请求将通过网站服务端代理转发。每人每天可免费使用 30 次 AI 对话。'
+                                          : `${(profile.provider || 'custom').toUpperCase()} / ${
+                                              profile.model ||
+                                              (language === 'zh'
+                                                ? '未指定模型'
+                                                : language === 'ja'
+                                                  ? '未指定モデル'
+                                                  : 'No model selected')
+                                            }`}
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">

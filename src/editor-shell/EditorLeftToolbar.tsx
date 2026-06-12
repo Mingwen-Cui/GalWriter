@@ -14,17 +14,27 @@ import {
   Undo2,
   UserCircle2,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import characterCardAnimation from '../animation/character card.lottie';
+import numberConditionAnimation from '../animation/math.lottie';
+import batchReplaceAnimation from '../animation/patch place.lottie';
 import plotStructureAnimation from '../animation/plot structure.lottie';
 import sceneSettingCardAnimation from '../animation/scence setting card.lottie';
 import textSummaryAnimation from '../animation/test summary.lottie';
 import type { Language } from '../lib/i18n';
 
-type HoverGuideKind = 'character' | 'scene' | 'plotStructure' | 'textSummary';
+type HoverGuideKind =
+  | 'character'
+  | 'scene'
+  | 'plotStructure'
+  | 'textSummary'
+  | 'batchReplace'
+  | 'numberCondition';
+
+const GUIDE_VIEWPORT_MARGIN = 16;
 
 const hoverGuideAnimations: Record<
   HoverGuideKind,
@@ -32,32 +42,37 @@ const hoverGuideAnimations: Record<
     src: string;
     width: number;
     animationHeight: number;
-    visibleHeight: number;
   }
 > = {
   character: {
     src: characterCardAnimation,
     width: 500,
     animationHeight: 650,
-    visibleHeight: 600,
   },
   scene: {
     src: sceneSettingCardAnimation,
     width: 500,
     animationHeight: 650,
-    visibleHeight: 600,
   },
   plotStructure: {
     src: plotStructureAnimation,
     width: 650,
     animationHeight: 700,
-    visibleHeight: 650,
   },
   textSummary: {
     src: textSummaryAnimation,
     width: 700,
     animationHeight: 650,
-    visibleHeight: 600,
+  },
+  batchReplace: {
+    src: batchReplaceAnimation,
+    width: 650,
+    animationHeight: 650,
+  },
+  numberCondition: {
+    src: numberConditionAnimation,
+    width: 650,
+    animationHeight: 800,
   },
 };
 
@@ -118,6 +133,8 @@ export function EditorLeftToolbar({
 }: EditorLeftToolbarProps) {
   const guideHoverDelayMs = 600;
   const guideDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guideRequestIdRef = useRef(0);
+  const guideAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [activeHoverGuide, setActiveHoverGuide] = useState<HoverGuideKind | null>(null);
   const [shouldRenderHoverGuide, setShouldRenderHoverGuide] = useState(false);
   const [showHoverGuide, setShowHoverGuide] = useState(false);
@@ -126,19 +143,32 @@ export function EditorLeftToolbar({
     top: 0,
   });
 
-  const showCardHoverGuide = (kind: HoverGuideKind, button: HTMLButtonElement) => {
-    const rect = button.getBoundingClientRect();
-    const { width, visibleHeight } = hoverGuideAnimations[kind];
-    const nextLeft = Math.min(Math.max(rect.right + 16, 16), window.innerWidth - width - 16);
-    const nextTop = Math.min(
-      Math.max(rect.top + rect.height / 2 - visibleHeight / 2, 16),
-      window.innerHeight - visibleHeight - 16,
-    );
+  const updateHoverGuidePosition = useCallback(
+    (kind: HoverGuideKind, button: HTMLButtonElement) => {
+      const rect = button.getBoundingClientRect();
+      const { width } = hoverGuideAnimations[kind];
+      const maxLeft = Math.max(
+        GUIDE_VIEWPORT_MARGIN,
+        window.innerWidth - width - GUIDE_VIEWPORT_MARGIN,
+      );
+      const nextLeft = Math.min(
+        Math.max(rect.right + GUIDE_VIEWPORT_MARGIN, GUIDE_VIEWPORT_MARGIN),
+        maxLeft,
+      );
 
-    setHoverGuidePosition({
-      left: nextLeft,
-      top: nextTop,
-    });
+      setHoverGuidePosition({
+        left: nextLeft,
+        top: GUIDE_VIEWPORT_MARGIN,
+      });
+    },
+    [],
+  );
+
+  const showCardHoverGuide = (kind: HoverGuideKind, button: HTMLButtonElement) => {
+    const requestId = guideRequestIdRef.current + 1;
+    guideRequestIdRef.current = requestId;
+    guideAnchorRef.current = button;
+    updateHoverGuidePosition(kind, button);
     setActiveHoverGuide(kind);
     setShouldRenderHoverGuide(true);
     setShowHoverGuide(false);
@@ -147,11 +177,16 @@ export function EditorLeftToolbar({
       clearTimeout(guideDelayTimerRef.current);
     }
     guideDelayTimerRef.current = setTimeout(() => {
-      setShowHoverGuide(true);
+      if (guideRequestIdRef.current === requestId && guideAnchorRef.current === button) {
+        setShowHoverGuide(true);
+      }
     }, guideHoverDelayMs);
   };
 
-  const hideCardHoverGuide = () => {
+  const hideCardHoverGuide = (button: HTMLButtonElement) => {
+    if (guideAnchorRef.current !== button) return;
+
+    guideRequestIdRef.current += 1;
     if (guideDelayTimerRef.current) {
       clearTimeout(guideDelayTimerRef.current);
       guideDelayTimerRef.current = null;
@@ -159,7 +194,21 @@ export function EditorLeftToolbar({
     setShowHoverGuide(false);
     setShouldRenderHoverGuide(false);
     setActiveHoverGuide(null);
+    guideAnchorRef.current = null;
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (activeHoverGuide && guideAnchorRef.current) {
+        updateHoverGuidePosition(activeHoverGuide, guideAnchorRef.current);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [activeHoverGuide, updateHoverGuidePosition]);
 
   useEffect(() => {
     return () => {
@@ -170,6 +219,29 @@ export function EditorLeftToolbar({
   }, []);
 
   const activeHoverGuideConfig = activeHoverGuide ? hoverGuideAnimations[activeHoverGuide] : null;
+  const hoverGuideText: Record<HoverGuideKind, string> = {
+    character:
+      language === 'zh'
+        ? '添加人物设定卡片'
+        : language === 'ja'
+          ? '人物設定カードを追加'
+          : 'Add Character Card',
+    scene: t.toolScene,
+    plotStructure: t.toolPlotStructure,
+    textSummary:
+      language === 'zh'
+        ? '文本转换/汇总'
+        : language === 'ja'
+          ? 'テキスト変換/要約'
+          : 'Text Summary',
+    batchReplace: t.toolBatchReplace,
+    numberCondition:
+      language === 'zh'
+        ? '数字判断卡片'
+        : language === 'ja'
+          ? '数値判定カード'
+          : 'Number Condition',
+  };
 
   return (
     <>
@@ -228,16 +300,10 @@ export function EditorLeftToolbar({
               className="relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewCharacterNode}
               onMouseEnter={(event) => showCardHoverGuide('character', event.currentTarget)}
-              onMouseLeave={hideCardHoverGuide}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('character', event.currentTarget)}
-              onBlur={hideCardHoverGuide}
-              aria-label={
-                language === 'zh'
-                  ? '添加人物卡片'
-                  : language === 'ja'
-                    ? '人物カードを追加'
-                    : 'Add Character Card'
-              }
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.character}
             >
               <UserCircle2 strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -246,10 +312,10 @@ export function EditorLeftToolbar({
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewSceneNode}
               onMouseEnter={(event) => showCardHoverGuide('scene', event.currentTarget)}
-              onMouseLeave={hideCardHoverGuide}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('scene', event.currentTarget)}
-              onBlur={hideCardHoverGuide}
-              title={t.toolScene}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.scene}
             >
               <MapPin strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -258,10 +324,10 @@ export function EditorLeftToolbar({
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewPlotStructureNode}
               onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-              onMouseLeave={hideCardHoverGuide}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-              onBlur={hideCardHoverGuide}
-              title={t.toolPlotStructure}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.plotStructure}
             >
               <BookOpen strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -272,16 +338,10 @@ export function EditorLeftToolbar({
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewSummaryNode}
               onMouseEnter={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
-              onMouseLeave={hideCardHoverGuide}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
-              onBlur={hideCardHoverGuide}
-              title={
-                language === 'zh'
-                  ? '文本转换/汇总'
-                  : language === 'ja'
-                    ? 'テキスト変換/要約'
-                    : 'Text Summary'
-              }
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.textSummary}
             >
               <FileText strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -289,7 +349,11 @@ export function EditorLeftToolbar({
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewBatchReplaceNode}
-              title={t.toolBatchReplace}
+              onMouseEnter={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+              onFocus={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.batchReplace}
             >
               <Replace strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -297,13 +361,11 @@ export function EditorLeftToolbar({
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={addNewNumberConditionNode}
-              title={
-                language === 'zh'
-                  ? '数字判断卡片'
-                  : language === 'ja'
-                    ? '数値判定カード'
-                    : 'Number Condition'
-              }
+              onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+              onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.numberCondition}
             >
               <Calculator strokeWidth={2.5} className="h-5 w-5" />
             </button>
@@ -370,6 +432,7 @@ export function EditorLeftToolbar({
         typeof document !== 'undefined' &&
         createPortal(
           <div
+            key={activeHoverGuide}
             className={`pointer-events-none fixed z-[9999] overflow-hidden rounded-xl border border-white/30 bg-white/20 shadow-2xl backdrop-blur-xl transition-opacity duration-150 ${
               showHoverGuide ? 'opacity-100' : 'opacity-0'
             }`}
@@ -378,23 +441,34 @@ export function EditorLeftToolbar({
               left: `${hoverGuidePosition.left}px`,
               top: `${hoverGuidePosition.top}px`,
               width: `${activeHoverGuideConfig.width}px`,
-              height: `${activeHoverGuideConfig.visibleHeight}px`,
+              height: `${activeHoverGuideConfig.animationHeight}px`,
             }}
           >
-            <DotLottieReact
-              src={activeHoverGuideConfig.src}
-              loop
-              autoplay
-              width={activeHoverGuideConfig.width}
-              height={activeHoverGuideConfig.animationHeight}
-              className="block max-w-none"
-              renderConfig={{ autoResize: false }}
+            <div
+              className="absolute inset-x-0 top-0 overflow-hidden"
               style={{
-                width: `${activeHoverGuideConfig.width}px`,
-                height: `${activeHoverGuideConfig.animationHeight}px`,
+                height: `${activeHoverGuideConfig.animationHeight - 50}px`,
               }}
-              aria-hidden="true"
-            />
+            >
+              <DotLottieReact
+                key={`${activeHoverGuide}-${activeHoverGuideConfig.src}`}
+                src={activeHoverGuideConfig.src}
+                loop
+                autoplay
+                width={activeHoverGuideConfig.width}
+                height={activeHoverGuideConfig.animationHeight}
+                className="block max-w-none"
+                renderConfig={{ autoResize: false }}
+                style={{
+                  width: `${activeHoverGuideConfig.width}px`,
+                  height: `${activeHoverGuideConfig.animationHeight}px`,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 z-10 flex h-[50px] items-center justify-center border-t border-slate-200 bg-white px-5 text-center text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+              {hoverGuideText[activeHoverGuide]}
+            </div>
           </div>,
           document.body,
         )}

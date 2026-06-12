@@ -6,8 +6,18 @@ import {
   useStoreApi,
   useUpdateNodeInternals,
 } from '@xyflow/react';
-import { ArrowUpDown, Calculator, ChevronDown, ChevronRight, Plus, Trash2, X } from 'lucide-react';
-import React, { memo, useEffect, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowUpDown,
+  Calculator,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
+import React, { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { Language } from '../lib/i18n';
 import { NumberInput } from './NumberInput';
@@ -16,6 +26,14 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
   const lang = (data.language as Language) || 'zh';
   const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [sum, setSum] = useState(0);
+  const [pendingFocusRangeId, setPendingFocusRangeId] = useState<string | null>(null);
+  const [draggingRangeId, setDraggingRangeId] = useState<string | null>(null);
+  const [rangeHandleTops, setRangeHandleTops] = useState<Record<string, number>>({});
+  const [conditionHandleTops, setConditionHandleTops] = useState<Record<string, number>>({});
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const greaterConditionRef = useRef<HTMLDivElement>(null);
+  const lessConditionRef = useRef<HTMLDivElement>(null);
+  const rangeRowRefs = useRef(new Map<string, HTMLDivElement>());
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
   const isMinimized = !!data.isMinimized;
 
@@ -54,11 +72,34 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
   };
 
   const addRange = () => {
-    const newRanges = [...ranges, { id: Math.random().toString(36).substr(2, 9), min: 0, max: 10 }];
+    const id = Math.random().toString(36).substr(2, 9);
+    const lastMax = ranges.reduce((max, range) => Math.max(max, range.max), -1);
+    const min = lastMax >= 0 ? lastMax + 1 : 0;
+    const newRanges = [...ranges, { id, min, max: min + 10 }];
     updateNodeData({ ranges: newRanges });
+    setPendingFocusRangeId(id);
   };
 
   const removeRange = (rangeId: string) => {
+    const sourceHandle = `out-range-${rangeId}`;
+    const hasConnection = storeApi
+      .getState()
+      .edges.some((edge) => edge.source === id && edge.sourceHandle === sourceHandle);
+    if (
+      hasConnection &&
+      !window.confirm(
+        tr(
+          '删除这个范围分支后，对应连线也会被移除。确定删除吗？',
+          'この範囲分岐を削除すると、接続も削除されます。削除しますか？',
+          'Deleting this range branch will also remove its connection. Continue?',
+        ),
+      )
+    ) {
+      return;
+    }
+    if (hasConnection && typeof data.onDeleteOutputEdges === 'function') {
+      (data.onDeleteOutputEdges as Function)(id, sourceHandle);
+    }
     const newRanges = ranges.filter((r) => r.id !== rangeId);
     updateNodeData({ ranges: newRanges });
   };
@@ -67,6 +108,80 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
     const newRanges = ranges.map((r) => (r.id === rangeId ? { ...r, ...updates } : r));
     updateNodeData({ ranges: newRanges });
   };
+
+  const moveRange = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    const draggedIndex = ranges.findIndex((range) => range.id === draggedId);
+    const targetIndex = ranges.findIndex((range) => range.id === targetId);
+    if (draggedIndex < 0 || targetIndex < 0) return;
+    const nextRanges = [...ranges];
+    const [draggedRange] = nextRanges.splice(draggedIndex, 1);
+    nextRanges.splice(targetIndex, 0, draggedRange);
+    updateNodeData({ ranges: nextRanges });
+  };
+
+  useEffect(() => {
+    if (!pendingFocusRangeId) return;
+    const frame = requestAnimationFrame(() => {
+      const row = rangeRowRefs.current.get(pendingFocusRangeId);
+      row?.querySelector<HTMLInputElement>('input[data-range-min]')?.focus();
+      setPendingFocusRangeId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingFocusRangeId, ranges.length]);
+
+  useLayoutEffect(() => {
+    if (isMinimized || !nodeRef.current) return;
+
+    const getElementCenterTop = (element: HTMLElement) => {
+      let top = element.offsetHeight / 2;
+      let current: HTMLElement | null = element;
+      while (current && current !== nodeRef.current) {
+        top += current.offsetTop;
+        current = current.offsetParent as HTMLElement | null;
+      }
+      return top;
+    };
+
+    const updateHandlePositions = () => {
+      if (!nodeRef.current) return;
+      const nextTops: Record<string, number> = {};
+      ranges.forEach((range) => {
+        const row = rangeRowRefs.current.get(range.id);
+        if (!row) return;
+        nextTops[range.id] = getElementCenterTop(row);
+      });
+      setRangeHandleTops((current) => {
+        const unchanged =
+          Object.keys(nextTops).length === Object.keys(current).length &&
+          Object.entries(nextTops).every(
+            ([rangeId, top]) => Math.abs((current[rangeId] ?? -1000) - top) < 0.5,
+          );
+        return unchanged ? current : nextTops;
+      });
+      const nextConditionTops = {
+        greater: greaterConditionRef.current
+          ? getElementCenterTop(greaterConditionRef.current)
+          : 195,
+        less: lessConditionRef.current ? getElementCenterTop(lessConditionRef.current) : 235,
+      };
+      setConditionHandleTops((current) => {
+        const unchanged = Object.entries(nextConditionTops).every(
+          ([condition, top]) => Math.abs((current[condition] ?? -1000) - top) < 0.5,
+        );
+        return unchanged ? current : nextConditionTops;
+      });
+      updateNodeInternals(id);
+    };
+
+    updateHandlePositions();
+    const observer = new ResizeObserver(updateHandlePositions);
+    observer.observe(nodeRef.current);
+    if (greaterConditionRef.current) observer.observe(greaterConditionRef.current);
+    if (lessConditionRef.current) observer.observe(lessConditionRef.current);
+    rangeRowRefs.current.forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  }, [id, isMinimized, ranges, updateNodeInternals]);
 
   // NOTE: 用精确选择器订阅"所有祖先节点的 nodeValue 之和"这个原始数字。
   // React Flow 内部用 Object.is 比较选择器返回值，只有数字真正变化才重渲染，
@@ -98,52 +213,56 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
     setSum(computedSum);
   }, [computedSum]);
 
-  const isGreater = sum > threshold;
   const isInRange = (r: { min: number; max: number }) => sum >= r.min && sum <= r.max;
+  const matchedRangeId = ranges.find((range) => range.min <= range.max && isInRange(range))?.id;
 
-  // NOTE: 根据用户需求定义的视觉样式逻辑：
-  // 1. 如果结果为绿色（isGreater 为 true），两个端口都变成绿色
-  // 2. 如果结果为蓝色（!isGreater 为 true），另一个端口变成红色
-  const greaterStyles = isGreater
-    ? {
-        bg: 'bg-emerald-500/10',
-        border: 'border-emerald-500',
-        text: 'text-emerald-400',
-        handle: 'bg-emerald-400 ring-emerald-500/50',
-      }
-    : {
-        bg: 'bg-red-500/10',
-        border: 'border-red-500',
-        text: 'text-red-400',
-        handle: 'bg-red-400 ring-red-500/50',
-      };
+  const hasInput = useStore((state) => state.edges.some((edge) => edge.target === id));
+  const hasMatchedThreshold = sum === threshold;
+  const isGreaterVisualActive = hasInput && sum >= threshold;
+  const isLessVisualActive = hasInput && (hasMatchedThreshold || sum < threshold);
+  const getConditionBoxClasses = (isActive: boolean) =>
+    isActive
+      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
+      : 'border-zinc-400/60 bg-[var(--app-bg)]/55 text-[var(--text-primary)]';
 
-  const lessEqualStyles = isGreater
-    ? {
-        bg: 'bg-emerald-500/10',
-        border: 'border-emerald-500',
-        text: 'text-emerald-400',
-        handle: 'bg-emerald-400 ring-emerald-500/50',
-      }
-    : {
-        bg: 'bg-blue-500/10',
-        border: 'border-blue-500',
-        text: 'text-blue-400',
-        handle: 'bg-blue-400 ring-blue-500/50',
-      };
-
-  // NOTE: 使用 getState() 读取当前边连接状态，避免订阅整个 edges 数组
-  const hasInput = storeApi.getState().edges.some((e) => e.target === id);
   const inputRingClasses = hasInput
     ? ''
-    : 'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-amber-500/50';
+    : 'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-zinc-400/60';
+  const hasGreaterOutput = useStore((state) =>
+    state.edges.some((edge) => edge.source === id && edge.sourceHandle === 'out-greater'),
+  );
+  const hasLessEqualOutput = useStore((state) =>
+    state.edges.some((edge) => edge.source === id && edge.sourceHandle === 'out-less-equal'),
+  );
+  const connectedRangeHandles = useStore((state) =>
+    state.edges
+      .filter(
+        (edge) =>
+          edge.source === id &&
+          typeof edge.sourceHandle === 'string' &&
+          edge.sourceHandle.startsWith('out-range-'),
+      )
+      .map((edge) => edge.sourceHandle)
+      .sort()
+      .join('|'),
+  );
+  const activeOutputRingClasses =
+    'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-emerald-500';
+  const idleOutputRingClasses =
+    'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-zinc-400/60';
+  const invalidOutputRingClasses = 'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-red-500';
+  const warningOutputRingClasses =
+    'ring-2 ring-offset-2 ring-offset-[var(--card-bg)] ring-orange-400';
+  const outputHandleClasses =
+    'w-3 h-3 !bg-black border-2 border-[var(--card-bg)] rounded-full transition-[ring,transform,opacity] -right-1.5';
   const handleClasses =
-    'w-3 h-3 bg-amber-300 border-2 border-[var(--card-bg)] rounded-full transition-[transform,background-color] hover:scale-150 hover:bg-amber-500 shadow-sm';
+    'w-3 h-3 !bg-black border-2 border-[var(--card-bg)] rounded-full transition-transform hover:scale-150 shadow-sm';
   const inputHandleClasses = `${handleClasses} ${inputRingClasses}`;
 
   return (
     <div
-      className={`w-[250px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all ${selected ? 'border-amber-500 shadow-amber-500/20' : 'border-[var(--card-border)]'} flex flex-col relative group`}
+      ref={nodeRef}
+      className={`w-[300px] bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all ${selected ? 'border-amber-500 shadow-amber-500/20' : 'border-[var(--card-border)]'} flex flex-col relative group`}
     >
       {/* 内部包装器用于实现 overflow-hidden 效果 */}
       <div className="flex flex-col w-full h-full rounded-xl overflow-hidden">
@@ -167,9 +286,7 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
               onClick={() => setIsMinimized(!isMinimized)}
               className="px-1.5 py-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] rounded transition-colors flex items-center justify-center"
               title={
-                isMinimized
-                  ? tr('展开', '展開', 'Expand')
-                  : tr('最小化', '最小化', 'Minimize')
+                isMinimized ? tr('展开', '展開', 'Expand') : tr('最小化', '最小化', 'Minimize')
               }
             >
               {isMinimized ? (
@@ -212,91 +329,184 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
               {!isReversed ? (
                 <>
                   <div
-                    className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${greaterStyles.bg} ${greaterStyles.border}`}
+                    ref={greaterConditionRef}
+                    className={`flex justify-between items-center p-2 rounded-lg border transition-colors ${getConditionBoxClasses(isGreaterVisualActive)}`}
                   >
-                    <span className={`text-xs font-bold ${greaterStyles.text}`}>
-                      {tr('累计', '合計', 'Total')} &gt; {threshold}{' '}
-                      {tr('（大于）', '（より大きい）', '(greater)')}
+                    <span className="text-xs font-bold">
+                      {tr('累计', '合計', 'Total')} ≥ {threshold}{' '}
+                      {tr('（大于等于）', '（以上）', '(greater or equal)')}
                     </span>
                   </div>
                   <div
-                    className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${lessEqualStyles.bg} ${lessEqualStyles.border}`}
+                    ref={lessConditionRef}
+                    className={`flex justify-between items-center p-2 rounded-lg border transition-colors ${getConditionBoxClasses(isLessVisualActive)}`}
                   >
-                    <span className={`text-xs font-bold ${lessEqualStyles.text}`}>
-                      {tr('累计', '合計', 'Total')} ≤ {threshold}{' '}
-                      {tr('（小于等于）', '（以下）', '(less or equal)')}
+                    <span className="text-xs font-bold">
+                      {tr('累计', '合計', 'Total')} &lt; {threshold}{' '}
+                      {tr('（小于）', '（未満）', '(less)')}
                     </span>
                   </div>
                 </>
               ) : (
                 <>
                   <div
-                    className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${lessEqualStyles.bg} ${lessEqualStyles.border}`}
+                    ref={lessConditionRef}
+                    className={`flex justify-between items-center p-2 rounded-lg border transition-colors ${getConditionBoxClasses(isLessVisualActive)}`}
                   >
-                    <span className={`text-xs font-bold ${lessEqualStyles.text}`}>
-                      {tr('累计', '合計', 'Total')} ≤ {threshold}{' '}
-                      {tr('（小于等于）', '（以下）', '(less or equal)')}
+                    <span className="text-xs font-bold">
+                      {tr('累计', '合計', 'Total')} &lt; {threshold}{' '}
+                      {tr('（小于）', '（未満）', '(less)')}
                     </span>
                   </div>
                   <div
-                    className={`flex justify-between items-center p-2 rounded-lg border-2 transition-colors ${greaterStyles.bg} ${greaterStyles.border}`}
+                    ref={greaterConditionRef}
+                    className={`flex justify-between items-center p-2 rounded-lg border transition-colors ${getConditionBoxClasses(isGreaterVisualActive)}`}
                   >
-                    <span className={`text-xs font-bold ${greaterStyles.text}`}>
-                      {tr('累计', '合計', 'Total')} &gt; {threshold}{' '}
-                      {tr('（大于）', '（より大きい）', '(greater)')}
+                    <span className="text-xs font-bold">
+                      {tr('累计', '合計', 'Total')} ≥ {threshold}{' '}
+                      {tr('（大于等于）', '（以上）', '(greater or equal)')}
                     </span>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Ranges Section */}
+            {/* Custom range branches */}
             {ranges.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {ranges.map((range, index) => (
-                  <div
-                    key={range.id}
-                    className={`flex flex-col gap-2 p-2 rounded-lg border-2 transition-colors ${isInRange(range) ? 'bg-amber-500/10 border-amber-500' : 'bg-[var(--card-bg)] border-[var(--card-border)]'}`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span
-                        className={`text-[10px] font-bold ${isInRange(range) ? 'text-amber-400' : 'text-[var(--text-muted)]'}`}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2 px-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    {tr('自定义范围', 'カスタム範囲', 'Custom ranges')}
+                  </span>
+                  <div className="h-px flex-1 bg-[var(--card-border)]" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  {ranges.map((range, index) => {
+                    const isInvalid = range.min > range.max;
+                    const overlapIndex = ranges.findIndex(
+                      (other, otherIndex) =>
+                        otherIndex !== index &&
+                        other.min <= other.max &&
+                        !isInvalid &&
+                        range.min <= other.max &&
+                        range.max >= other.min,
+                    );
+                    const isOverlapping = overlapIndex >= 0;
+                    const rowStateClasses = isInvalid
+                      ? 'border-red-500/70 bg-red-500/5'
+                      : isOverlapping
+                        ? 'border-orange-400/70 bg-orange-500/5'
+                        : hasInput && matchedRangeId === range.id
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : 'border-zinc-400/60 bg-[var(--app-bg)]/55';
+
+                    return (
+                      <div
+                        key={range.id}
+                        ref={(element) => {
+                          if (element) rangeRowRefs.current.set(range.id, element);
+                          else rangeRowRefs.current.delete(range.id);
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const draggedId =
+                            event.dataTransfer.getData('text/range-id') || draggingRangeId;
+                          if (draggedId) moveRange(draggedId, range.id);
+                          setDraggingRangeId(null);
+                        }}
+                        className={`group/range animate-in fade-in slide-in-from-top-1 duration-200 rounded-lg border px-2 py-2 transition-[border-color,background-color,opacity] ${rowStateClasses} ${draggingRangeId === range.id ? 'opacity-45' : ''}`}
                       >
-                        {tr('范围限制', '範囲条件', 'Range')} {index + 1}
-                      </span>
-                      <button
-                        onClick={() => removeRange(range.id)}
-                        className="text-[var(--text-muted)] hover:text-red-400 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <NumberInput
-                        value={range.min}
-                        onChange={(val) => updateRange(range.id, { min: val })}
-                        className="flex-1"
-                        accentColor="amber"
-                      />
-                      <span className="text-[var(--text-muted)] font-bold">~</span>
-                      <NumberInput
-                        value={range.max}
-                        onChange={(val) => updateRange(range.id, { max: val })}
-                        className="flex-1"
-                        accentColor="amber"
-                      />
-                    </div>
-                  </div>
-                ))}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/range-id', range.id);
+                              setDraggingRangeId(range.id);
+                            }}
+                            onDragEnd={() => setDraggingRangeId(null)}
+                            className="nodrag nopan -ml-1 cursor-grab rounded p-1 text-[var(--text-muted)] opacity-45 transition-opacity hover:bg-[var(--card-bg)] hover:opacity-100 active:cursor-grabbing"
+                            title={tr('拖动排序', 'ドラッグして並べ替え', 'Drag to reorder')}
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
+                            {tr('累计值在', '合計値が', 'Total from')}
+                          </span>
+                          <input
+                            data-range-min
+                            type="number"
+                            value={range.min}
+                            onChange={(event) =>
+                              updateRange(range.id, { min: Number(event.target.value) })
+                            }
+                            aria-label={tr('范围起始值', '範囲の開始値', 'Range start')}
+                            className="nodrag nopan w-12 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-1 py-1 text-center text-xs font-bold text-[var(--text-primary)] outline-none transition-colors hover:border-amber-500/60 focus:border-amber-500"
+                          />
+                          <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+                            {tr('至', 'から', 'to')}
+                          </span>
+                          <input
+                            type="number"
+                            value={range.max}
+                            onChange={(event) =>
+                              updateRange(range.id, { max: Number(event.target.value) })
+                            }
+                            aria-label={tr('范围结束值', '範囲の終了値', 'Range end')}
+                            className="nodrag nopan w-12 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-1 py-1 text-center text-xs font-bold text-[var(--text-primary)] outline-none transition-colors hover:border-amber-500/60 focus:border-amber-500"
+                          />
+                          <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
+                            {tr('之间', 'の間', '')}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeRange(range.id)}
+                            className="nodrag nopan ml-auto rounded p-1 text-[var(--text-muted)] opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover/range:opacity-100 focus:opacity-100"
+                            title={tr('删除范围分支', '範囲分岐を削除', 'Delete range branch')}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {(isInvalid || isOverlapping) && (
+                          <div
+                            className={`mt-1.5 flex items-center gap-1 pl-7 text-[10px] ${isInvalid ? 'text-red-400' : 'text-orange-400'}`}
+                          >
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span>
+                              {isInvalid
+                                ? tr(
+                                    '起始值不能大于结束值',
+                                    '開始値は終了値以下にしてください',
+                                    'Start cannot be greater than end',
+                                  )
+                                : tr(
+                                    `与范围 ${overlapIndex + 1} 重叠`,
+                                    `範囲 ${overlapIndex + 1} と重複しています`,
+                                    `Overlaps range ${overlapIndex + 1}`,
+                                  )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             <button
               onClick={addRange}
-              className="w-full py-1.5 border-2 border-dashed border-[var(--card-border)] hover:border-amber-500 text-[var(--text-muted)] hover:text-amber-500 rounded-lg text-[10px] font-bold transition-colors flex items-center justify-center gap-1"
+              className="nodrag nopan w-full py-2 border border-dashed border-[var(--card-border)] hover:border-amber-500/80 hover:bg-amber-500/5 text-[var(--text-muted)] hover:text-amber-500 rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5"
             >
-              <Plus className="w-3 h-3" />
-              {tr('添加范围输出', '範囲出力を追加', 'Add range output')}
+              <Plus className="w-3.5 h-3.5" />
+              {tr('添加范围分支', '範囲分岐を追加', 'Add range branch')}
             </button>
           </div>
         )}
@@ -318,59 +528,96 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
       />
 
       {/* 两组输出源 (右侧对应不同条件) */}
+      {!isMinimized && (
+        <span
+          aria-hidden
+          style={{ top: `${conditionHandleTops.greater ?? (isReversed ? 235 : 195)}px` }}
+          className="pointer-events-none absolute right-0 h-px w-4 -translate-y-1/2 bg-[var(--text-muted)] opacity-50 !z-40"
+        />
+      )}
       <Handle
         type="source"
         position={Position.Right}
         id="out-greater"
-        style={{ top: isMinimized ? '20px' : isReversed ? '235px' : '195px' }}
-        className={`w-3 h-3 border-2 border-[var(--card-bg)] rounded-full transition-[background-color,ring,transform] -right-1.5 ${greaterStyles.handle} ring-2 ring-offset-2 ring-offset-[var(--card-bg)] !z-50`}
+        style={{
+          top: isMinimized
+            ? '20px'
+            : `${conditionHandleTops.greater ?? (isReversed ? 235 : 195)}px`,
+        }}
+        className={`${outputHandleClasses} ${
+          hasGreaterOutput
+            ? ''
+            : isGreaterVisualActive
+              ? activeOutputRingClasses
+              : idleOutputRingClasses
+        } !z-50`}
       />
+
       {!isMinimized && (
         <span
-          className={`absolute right-3 text-[9px] font-bold pointer-events-none transition-colors ${greaterStyles.text} !z-40`}
-          style={{ top: isReversed ? '229px' : '189px' }}
-        >
-          &gt;
-        </span>
+          aria-hidden
+          style={{ top: `${conditionHandleTops.less ?? (isReversed ? 195 : 235)}px` }}
+          className="pointer-events-none absolute right-0 h-px w-4 -translate-y-1/2 bg-[var(--text-muted)] opacity-50 !z-40"
+        />
       )}
-
       <Handle
         type="source"
         position={Position.Right}
         id="out-less-equal"
-        style={{ top: isMinimized ? '20px' : isReversed ? '195px' : '235px' }}
-        className={`w-3 h-3 border-2 border-[var(--card-bg)] rounded-full transition-[background-color,ring,transform] -right-1.5 ${lessEqualStyles.handle} ring-2 ring-offset-2 ring-offset-[var(--card-bg)] !z-50`}
+        style={{
+          top: isMinimized ? '20px' : `${conditionHandleTops.less ?? (isReversed ? 195 : 235)}px`,
+        }}
+        className={`${outputHandleClasses} ${
+          hasLessEqualOutput
+            ? ''
+            : isLessVisualActive
+              ? activeOutputRingClasses
+              : idleOutputRingClasses
+        } !z-50`}
       />
-      {!isMinimized && (
-        <span
-          className={`absolute right-3 text-[9px] font-bold pointer-events-none transition-colors ${lessEqualStyles.text} !z-40`}
-          style={{ top: isReversed ? '189px' : '229px' }}
-        >
-          ≤
-        </span>
-      )}
 
       {/* 动态范围输出源 */}
       {ranges.map((range, index) => {
-        const isActive = isInRange(range);
-        const topPos = 282 + index * 74;
+        const isValid = range.min <= range.max;
+        const isActive = hasInput && isValid && matchedRangeId === range.id;
+        const isOverlapping = ranges.some(
+          (other) =>
+            other.id !== range.id &&
+            other.min <= other.max &&
+            isValid &&
+            range.min <= other.max &&
+            range.max >= other.min,
+        );
+        const sourceHandle = `out-range-${range.id}`;
+        const isConnected = connectedRangeHandles.split('|').includes(sourceHandle);
+        const topPos = rangeHandleTops[range.id] ?? 330 + index * 64;
         return (
           <React.Fragment key={range.id}>
+            {!isMinimized && (
+              <span
+                aria-hidden
+                style={{ top: `${topPos}px` }}
+                className="pointer-events-none absolute right-0 h-px w-4 -translate-y-1/2 bg-[var(--text-muted)] opacity-50 !z-40"
+              />
+            )}
             <Handle
               type="source"
               position={Position.Right}
-              id={`out-range-${range.id}`}
+              id={sourceHandle}
+              isConnectable={isValid}
               style={{ top: isMinimized ? '20px' : `${topPos}px` }}
-              className={`w-3 h-3 border-2 border-[var(--card-bg)] rounded-full transition-[background-color,ring,transform] -right-1.5 ${isActive ? 'bg-amber-400 ring-2 ring-amber-500/50 ring-offset-2 ring-offset-[var(--card-bg)]' : 'bg-[var(--text-muted)]'} !z-50`}
+              className={`${outputHandleClasses} ${!isValid ? 'opacity-40' : ''} ${
+                isConnected
+                  ? ''
+                  : !isValid
+                    ? invalidOutputRingClasses
+                    : isOverlapping
+                      ? warningOutputRingClasses
+                      : isActive
+                        ? activeOutputRingClasses
+                        : idleOutputRingClasses
+              } !z-50`}
             />
-            {!isMinimized && (
-              <span
-                className="absolute right-3 text-[9px] font-bold text-[var(--text-muted)] pointer-events-none !z-40"
-                style={{ top: `${topPos - 6}px` }}
-              >
-                R{index + 1}
-              </span>
-            )}
           </React.Fragment>
         );
       })}

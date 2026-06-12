@@ -129,7 +129,7 @@ export const useNodeActions = ({
       id: newId,
       type: 'batchReplaceNode',
       position: { x: center.x - 160, y: center.y - 100 },
-      data: { id: newId },
+      data: { id: newId, scope: 'all' },
     };
     setNodes((currentNodes) => [...currentNodes, newNode]);
   }, [getCenterPosition, setNodes]);
@@ -156,11 +156,7 @@ export const useNodeActions = ({
       data: {
         id: newId,
         characterName:
-          language === 'zh'
-            ? '新角色'
-            : language === 'ja'
-              ? '新キャラクター'
-              : 'New Character',
+          language === 'zh' ? '新角色' : language === 'ja' ? '新キャラクター' : 'New Character',
         traits: '',
       },
     };
@@ -176,12 +172,7 @@ export const useNodeActions = ({
       position: { x: center.x - 140, y: center.y - 150 },
       data: {
         id: newId,
-        sceneName:
-          language === 'zh'
-            ? '新场景'
-            : language === 'ja'
-              ? '新シーン'
-              : 'New Scene',
+        sceneName: language === 'zh' ? '新场景' : language === 'ja' ? '新シーン' : 'New Scene',
         description: '',
       },
     };
@@ -202,8 +193,7 @@ export const useNodeActions = ({
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};
-        let title =
-          language === 'zh' ? '媒体' : language === 'ja' ? 'メディア' : 'Media';
+        let title = language === 'zh' ? '媒体' : language === 'ja' ? 'メディア' : 'Media';
 
         const { width, height } = await getMediaDimensions(url, file.type);
         let displayWidth = 400;
@@ -216,16 +206,13 @@ export const useNodeActions = ({
 
         if (file.type.startsWith('image/')) {
           mediaData = { imageUrl: url };
-          title =
-            language === 'zh' ? '图片' : language === 'ja' ? '画像' : 'Image';
+          title = language === 'zh' ? '图片' : language === 'ja' ? '画像' : 'Image';
         } else if (file.type.startsWith('video/')) {
           mediaData = { videoUrl: url };
-          title =
-            language === 'zh' ? '视频' : language === 'ja' ? '動画' : 'Video';
+          title = language === 'zh' ? '视频' : language === 'ja' ? '動画' : 'Video';
         } else if (file.type.startsWith('audio/')) {
           mediaData = { audioUrl: url };
-          title =
-            language === 'zh' ? '音频' : language === 'ja' ? '音声' : 'Audio';
+          title = language === 'zh' ? '音频' : language === 'ja' ? '音声' : 'Audio';
           displayWidth = 300;
           displayHeight = 150;
         }

@@ -120,7 +120,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const videoUrl = data.videoUrl;
   const audioUrl = data.audioUrl;
   const hasVisualMedia = !!(imageUrl || videoUrl);
-  const plainSpeechText = String(text).replace(/<[^>]*>/g, '').trim();
+  const plainSpeechText = String(text)
+    .replace(/<[^>]*>/g, '')
+    .trim();
   const objectFit = data.objectFit || 'cover';
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
@@ -403,8 +405,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         const chars: { id: string; name: string }[] = [];
         for (const n of state.nodes) {
           if (n.type !== 'characterNode') continue;
-          const name =
-            typeof n.data?.characterName === 'string' ? n.data.characterName.trim() : '';
+          const name = typeof n.data?.characterName === 'string' ? n.data.characterName.trim() : '';
           if (!name) continue;
           const isGlobal = n.data?.isGlobal !== false;
           const isConnected = state.edges.some(
@@ -747,7 +748,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 <button
                   onClick={() => data.onHighlightStoryline?.(id)}
                   className={`${iconBtnBase} ${data.isHighlighted ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)] hover:bg-rose-600 hover:text-white' : ''}`}
-                  title={data.isHighlighted ? t.hideStoryline : t.showStoryline}
+                  title={t.showStoryline}
                 >
                   <GitFork className={`w-4 h-4 ${data.isHighlighted ? 'animate-pulse' : ''}`} />
                 </button>
@@ -900,12 +901,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               ) : (
                 <>
                   <div className="text-4xl mb-2">🎵</div>
-                  <audio
-                    src={audioUrl}
-                    controls
-                    preload="none"
-                    className="w-[80%]"
-                  />
+                  <audio src={audioUrl} controls preload="none" className="w-[80%]" />
                 </>
               )}
             </div>

@@ -10,7 +10,6 @@ import {
   Search,
   Trash2,
   Type,
-  Undo2,
   X,
 } from 'lucide-react';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -472,16 +471,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
   const [replaceText, setReplaceText] = useState<string>(
     typeof data.replaceText === 'string' ? data.replaceText : '',
   );
-  const [scope, setScope] = useState<'selected' | 'all' | 'group'>(
-    data.scope === 'selected' || data.scope === 'all' || data.scope === 'group'
-      ? data.scope
-      : 'group',
-  );
-  const [lastResult, setLastResult] = useState<{
-    count: number;
-    time: string;
-    history: { id: string; text: string }[];
-  } | null>(null);
+  const [scope, setScope] = useState<'all' | 'group'>(data.scope === 'group' ? 'group' : 'all');
   const [isHighlighting, setIsHighlighting] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
 
@@ -499,7 +489,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
 
   /**
    * 只在“刚进入一个区域”时自动切到区域内。
-   * 不锁定范围按钮：用户之后仍然可以手动切到“选中 / 全局”。
+   * 不锁定范围按钮：用户之后仍然可以手动切到“全局”。
    */
   const lastAutoRegionIdRef = useRef<string | null>(null);
 
@@ -541,7 +531,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
     }
   };
 
-  const handleScopeChange = (nextScope: 'selected' | 'all' | 'group') => {
+  const handleScopeChange = (nextScope: 'all' | 'group') => {
     setScope(nextScope);
     updateNodeData({ scope: nextScope });
   };
@@ -554,10 +544,6 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
 
     if (scope === 'all') {
       targetNodes = nodes.filter((node: any) => isStoryNode(node));
-    } else if (scope === 'selected') {
-      targetNodes = nodes.filter(
-        (node: any) => node.selected && isStoryNode(node) && node.id !== id,
-      );
     } else {
       const activeRegion = findContainingRegion(state, id);
 
@@ -620,6 +606,10 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
   };
 
   const handleExecute = () => {
+    if (scope === 'group' && !detectedRegion) {
+      return;
+    }
+
     if (!findText) {
       alert(tr('请输入查找内容', '検索する文字列を入力してください', 'Please enter text to find'));
       return;
@@ -638,17 +628,10 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
       return;
     }
 
-    let totalCount = 0;
-    const history: { id: string; text: string }[] = [];
-
     targetNodes.forEach((node) => {
       const text = node.data.text || '';
 
       if (typeof text === 'string' && text.includes(findText)) {
-        const matches = text.split(findText).length - 1;
-        totalCount += matches;
-        history.push({ id: node.id, text });
-
         const newText = text.replaceAll(findText, replaceText);
 
         if (data.onUpdate) {
@@ -657,28 +640,7 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
       }
     });
 
-    setLastResult({
-      count: totalCount,
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      history,
-    });
-
     updateNodeData({ findText, replaceText, scope });
-  };
-
-  const handleUndo = () => {
-    if (!lastResult || !lastResult.history.length) return;
-
-    lastResult.history.forEach((item) => {
-      if (data.onUpdate) {
-        (data.onUpdate as Function)(item.id, { text: item.text });
-      }
-    });
-
-    setLastResult(null);
   };
 
   const toggleHighlight = () => {
@@ -731,6 +693,8 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
       (data.onDelete as Function)(id);
     }
   };
+
+  const isAreaScopeUnavailable = scope === 'group' && !detectedRegion;
 
   return (
     <div
@@ -796,38 +760,6 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
               </div>
             </div>
           )}
-
-          {/* Result Info Area with Undo on Hover */}
-          <div className="relative group/result flex justify-between items-center bg-[var(--app-bg)] p-2.5 rounded-lg border border-[var(--card-border)] shadow-inner transition-all overflow-hidden">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                {tr('最新操作结果', '最新の操作結果', 'Latest result')}
-              </span>
-              <span
-                className={`text-xs font-black ${
-                  lastResult ? 'text-teal-600' : 'text-[var(--text-muted)]'
-                }`}
-              >
-                {lastResult
-                  ? tr(
-                      `已替换 ${lastResult.count} 处`,
-                      `${lastResult.count} 件を置換しました`,
-                      `Replaced ${lastResult.count} occurrence${lastResult.count === 1 ? '' : 's'}`,
-                    )
-                  : tr('等待任务...', '待機中...', 'Waiting...')}
-              </span>
-            </div>
-
-            {lastResult && (
-              <button
-                onClick={handleUndo}
-                className="absolute inset-y-0 right-0 px-3 bg-teal-600 text-white flex items-center gap-1.5 translate-x-full group-hover/result:translate-x-0 transition-transform duration-300 shadow-[-4px_0_10px_rgba(0,0,0,0.1)]"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold">{tr('撤销', '元に戻す', 'Undo')}</span>
-              </button>
-            )}
-          </div>
 
           {/* Inputs Section */}
           <div className="flex flex-col gap-4">
@@ -920,7 +852,8 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
 
             <button
               onClick={handleExecute}
-              className="flex-[1.5] py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-black text-[10px] flex items-center justify-center gap-1.5 shadow-md shadow-teal-600/20 active:scale-95 transition-all"
+              disabled={isAreaScopeUnavailable}
+              className="flex-[1.5] py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-black text-[10px] flex items-center justify-center gap-1.5 shadow-md shadow-teal-600/20 active:scale-95 transition-all disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none disabled:hover:bg-slate-400 disabled:active:scale-100"
             >
               <Play className="w-3 h-3 fill-current" />
               {tr('执行替换', '置換を実行', 'Replace')}
@@ -933,8 +866,8 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
               {tr('范围控制', '対象範囲', 'Scope')}
             </label>
 
-            <div className="grid grid-cols-3 gap-1 bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--card-border)]">
-              {(['group', 'selected', 'all'] as const).map((nextScope) => (
+            <div className="grid grid-cols-2 gap-1 bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--card-border)]">
+              {(['all', 'group'] as const).map((nextScope) => (
                 <button
                   key={nextScope}
                   onClick={() => handleScopeChange(nextScope)}
@@ -944,14 +877,25 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  {nextScope === 'group'
-                    ? tr('区域内', 'エリア内', 'Area')
-                    : nextScope === 'selected'
-                      ? tr('选中', '選択中', 'Selected')
-                      : tr('全局', '全体', 'All')}
+                  {nextScope === 'all'
+                    ? tr('全局', '全体', 'All')
+                    : tr('区域内', 'エリア内', 'Area')}
                 </button>
               ))}
             </div>
+
+            {isAreaScopeUnavailable && (
+              <div className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">
+                <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {tr(
+                    '请将此工具卡片拖入需要处理的背景区域或动态包裹内，之后才能执行替换。',
+                    'このツールカードを対象の背景エリアまたは動的グループ内へ移動すると、置換を実行できます。',
+                    'Drag this tool card into the target background area or dynamic group before running replace.',
+                  )}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -966,12 +910,6 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
                 : tr('准备就绪', '準備完了', 'Ready')}
             </span>
           </div>
-
-          {lastResult && (
-            <span className="text-[9px] bg-teal-500 text-white px-1.5 rounded-full font-black">
-              {lastResult.count}
-            </span>
-          )}
         </div>
       )}
     </div>

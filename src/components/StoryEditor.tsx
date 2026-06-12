@@ -200,10 +200,7 @@ const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
-type AIProfileUpdates =
-  | Partial<TextAIProfile>
-  | Partial<ImageAIProfile>
-  | Partial<VoiceAIProfile>;
+type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 
 const buildDefaultTextProfile = (): TextAIProfile => {
   // User-created profiles remain independent from the web-only hosted proxy.
@@ -1141,6 +1138,15 @@ export function StoryEditor() {
     [setEdges, setNodes],
   );
 
+  const handleDeleteNodeOutputEdges = useCallback(
+    (nodeId: string, sourceHandle: string) => {
+      setEdges((currentEdges) =>
+        currentEdges.filter((edge) => edge.source !== nodeId || edge.sourceHandle !== sourceHandle),
+      );
+    },
+    [setEdges],
+  );
+
   React.useEffect(() => {
     if (isUndoRedoAction.current) {
       isUndoRedoAction.current = false;
@@ -1240,18 +1246,37 @@ export function StoryEditor() {
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (
-        activeTag === 'input' ||
-        activeTag === 'textarea' ||
-        (document.activeElement as HTMLElement)?.isContentEditable
-      ) {
-        return;
-      }
-
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
       const key = e.key.toLowerCase();
+      const activeElement = document.activeElement;
+      const activeTag = document.activeElement?.tagName.toLowerCase();
+      const hasInputSelection =
+        (activeElement instanceof HTMLInputElement ||
+          activeElement instanceof HTMLTextAreaElement) &&
+        activeElement.selectionStart !== null &&
+        activeElement.selectionEnd !== null &&
+        activeElement.selectionStart !== activeElement.selectionEnd;
+      const hasDocumentSelection = Boolean(window.getSelection()?.toString());
+
+      if (modifier && key === 'c' && (hasInputSelection || hasDocumentSelection)) {
+        showToast(
+          language === 'zh'
+            ? '已复制文本'
+            : language === 'ja'
+              ? 'テキストをコピーしました'
+              : 'Text copied',
+        );
+        return;
+      }
+
+      if (
+        activeTag === 'input' ||
+        activeTag === 'textarea' ||
+        (activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
 
       if (modifier && key === 'z') {
         e.preventDefault();
@@ -1274,7 +1299,7 @@ export function StoryEditor() {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, handleCopy, handlePaste, deleteSelected]);
+  }, [undo, redo, handleCopy, handlePaste, deleteSelected, language, showToast]);
 
   const handleUpdateNode = useCallback(
     (id: string, data: any) => {
@@ -1593,15 +1618,69 @@ export function StoryEditor() {
 
       const pathNodes = new Set<string>();
       const pathEdges = new Set<string>();
+      const nodeById = new Map(nodes.map((node) => [node.id, node]));
+      const incomingEdgesByTarget = new Map<string, typeof edges>();
+      const outgoingEdgesBySource = new Map<string, typeof edges>();
+
+      edges.forEach((edge) => {
+        const incoming = incomingEdgesByTarget.get(edge.target) || [];
+        incoming.push(edge);
+        incomingEdgesByTarget.set(edge.target, incoming);
+
+        const outgoing = outgoingEdgesBySource.get(edge.source) || [];
+        outgoing.push(edge);
+        outgoingEdgesBySource.set(edge.source, outgoing);
+      });
+
+      const getUpstreamTotal = (conditionNodeId: string) => {
+        const ancestorIds = new Set<string>();
+        const queue = [conditionNodeId];
+
+        while (queue.length > 0) {
+          const currentId = queue.shift()!;
+          (incomingEdgesByTarget.get(currentId) || []).forEach((edge) => {
+            if (!ancestorIds.has(edge.source)) {
+              ancestorIds.add(edge.source);
+              queue.push(edge.source);
+            }
+          });
+        }
+
+        let total = 0;
+        ancestorIds.forEach((ancestorId) => {
+          const value = nodeById.get(ancestorId)?.data.nodeValue;
+          if (typeof value === 'number') total += value;
+        });
+        return total;
+      };
+
+      const getTraceableOutgoingEdges = (currentId: string) => {
+        const outgoingEdges = outgoingEdgesBySource.get(currentId) || [];
+        const currentNode = nodeById.get(currentId);
+        if (currentNode?.type !== 'numberConditionNode') return outgoingEdges;
+
+        const total = getUpstreamTotal(currentId);
+        const ranges =
+          (currentNode.data.ranges as { id: string; min: number; max: number }[]) || [];
+        const matchedRange = ranges.find(
+          (range) => range.min <= range.max && total >= range.min && total <= range.max,
+        );
+        const threshold = (currentNode.data.threshold as number) || 0;
+        const sourceHandle = matchedRange
+          ? `out-range-${matchedRange.id}`
+          : total > threshold
+            ? 'out-greater'
+            : 'out-less-equal';
+
+        return outgoingEdges.filter((edge) => edge.sourceHandle === sourceHandle);
+      };
 
       const traceUp = (id: string) => {
         if (pathNodes.has(id)) return;
         pathNodes.add(id);
-        edges.forEach((e) => {
-          if (e.target === id) {
-            pathEdges.add(e.id);
-            traceUp(e.source);
-          }
+        (incomingEdgesByTarget.get(id) || []).forEach((edge) => {
+          pathEdges.add(edge.id);
+          traceUp(edge.source);
         });
       };
 
@@ -1616,12 +1695,10 @@ export function StoryEditor() {
           visited.add(currentId);
           pathNodes.add(currentId);
 
-          edges.forEach((e) => {
-            if (e.source === currentId) {
-              pathEdges.add(e.id);
-              if (!visited.has(e.target)) {
-                queue.push(e.target);
-              }
+          getTraceableOutgoingEdges(currentId).forEach((edge) => {
+            pathEdges.add(edge.id);
+            if (!visited.has(edge.target)) {
+              queue.push(edge.target);
             }
           });
         }
@@ -2948,6 +3025,7 @@ ${direction}
           onUpdate: handleUpdateNode,
           onAddNode: handleAddConnectedNode,
           onDelete: handleDeleteNode,
+          onDeleteOutputEdges: handleDeleteNodeOutputEdges,
           onZenMode: setZenModeNodeId,
           onAIGenerate: handleAIButtonClick,
           onAIAnalyze: handleAIAnalyze,
@@ -2989,6 +3067,7 @@ ${direction}
     handleUpdateNode,
     handleAddConnectedNode,
     handleDeleteNode,
+    handleDeleteNodeOutputEdges,
     handleAIButtonClick,
     handleAIAnalyze,
     handleGenerateStoryNodeImage,
@@ -3224,9 +3303,7 @@ ${direction}
                     pannable={true}
                     zoomable={true}
                     className="!static !bg-transparent !border-none !m-0"
-                    nodeColor={
-                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'
-                    }
+                    nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'}
                     nodeStrokeColor={
                       bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : '#4f46e5'
                     }
@@ -3405,7 +3482,9 @@ ${direction}
             edges={edges}
             onClose={() => setShowVideoRender(false)}
             language={language}
-            workspaceKey={currentProjectId || currentProjectFilePath || saveFileName || projectTitle || 'draft'}
+            workspaceKey={
+              currentProjectId || currentProjectFilePath || saveFileName || projectTitle || 'draft'
+            }
             voiceTtsConfig={{
               provider: ttsProvider,
               apiUrl: ttsApiUrl,
