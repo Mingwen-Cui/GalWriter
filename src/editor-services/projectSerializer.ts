@@ -307,6 +307,12 @@ const applyProjectSettings = (
   if (incomingSettings.playTestAutoAdvanceDelay !== undefined) {
     setters.setPlayTestAutoAdvanceDelay(incomingSettings.playTestAutoAdvanceDelay);
   }
+  if (incomingSettings.playTestHideCharacterTags !== undefined) {
+    setters.setPlayTestHideCharacterTags(incomingSettings.playTestHideCharacterTags);
+  }
+  if (incomingSettings.playTestHideSceneTags !== undefined) {
+    setters.setPlayTestHideSceneTags(incomingSettings.playTestHideSceneTags);
+  }
 };
 
 const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>

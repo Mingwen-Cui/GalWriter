@@ -47,6 +47,8 @@ export type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
 };
 
 export type SegmentRenderInfo = {

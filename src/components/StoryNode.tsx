@@ -43,6 +43,7 @@ import type {
   CharacterPresentation,
   CharacterNodeData,
   PresentationAnimation,
+  PresentationMotion,
   SceneFlowNode,
   ScenePresentation,
   StoryCardVisualShape,
@@ -51,6 +52,7 @@ import type {
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
 import {
+  clampCharacterLayer,
   createCharacterPresentation,
   createScenePresentation,
   copyCharacterPresentationSettings,
@@ -127,58 +129,73 @@ const btnBase =
 const iconBtnBase = `${btnBase} w-7 p-1.5`;
 const textBtnBase = `${btnBase} px-2 text-xs font-medium`;
 const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
-  { value: 'none', label: '无动画' },
-  { value: 'fade', label: '淡入淡出' },
-  { value: 'slide-left', label: '向左滑动' },
-  { value: 'slide-right', label: '向右滑动' },
-  { value: 'slide-up', label: '向上滑动' },
-  { value: 'slide-down', label: '向下滑动' },
-  { value: 'zoom', label: '缩放' },
+  { value: 'none', label: '· 无动画' },
+  { value: 'fade', label: '◇ 淡入淡出' },
+  { value: 'slide-left', label: '← 向左滑动' },
+  { value: 'slide-right', label: '→ 向右滑动' },
+  { value: 'slide-up', label: '↑ 向上滑动' },
+  { value: 'slide-down', label: '↓ 向下滑动' },
+  { value: 'zoom', label: '↕ 缩放' },
 ];
 
 function DraggableNumberInput({
   value,
   onChange,
+  min,
+  max,
+  unit = 'PX',
 }: {
   value: number;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  unit?: string | null;
 }) {
   const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const commitValue = (nextValue: number) =>
+    onChange(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, nextValue)));
 
   return (
-    <input
-      type="number"
-      value={value}
-      title="可直接输入，或按住鼠标左右拖动调整"
-      onChange={(event) => onChange(Number(event.target.value))}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        dragRef.current = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startValue: value,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const drag = dragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        const delta = Math.round((event.clientX - drag.startX) / 4);
-        if (delta !== 0) {
-          event.preventDefault();
-          onChange(drag.startValue + delta);
-        }
-      }}
-      onPointerUp={(event) => {
-        if (dragRef.current?.pointerId !== event.pointerId) return;
-        dragRef.current = null;
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-      onPointerCancel={() => {
-        dragRef.current = null;
-      }}
-      className="w-full cursor-ew-resize rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-    />
+    <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        title="可直接输入，或按住鼠标左右拖动调整"
+        onChange={(event) => commitValue(Number(event.target.value))}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          dragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startValue: value,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          const delta = Math.round((event.clientX - drag.startX) / 4);
+          if (delta !== 0) {
+            event.preventDefault();
+            commitValue(drag.startValue + delta);
+          }
+        }}
+        onPointerUp={(event) => {
+          if (dragRef.current?.pointerId !== event.pointerId) return;
+          dragRef.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null;
+        }}
+        className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+      />
+      {unit && (
+        <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>
+      )}
+    </div>
   );
 }
 
@@ -200,7 +217,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
-  const objectFit = data.objectFit || 'cover';
+  const objectFit =
+    data.objectFit ||
+    (storyPresentation.scene?.cropMode === 'contain'
+      ? 'contain'
+      : storyPresentation.scene?.cropMode === 'stretch'
+        ? 'fill'
+        : 'cover');
+  const mediaScale = typeof data.mediaScale === 'number' ? data.mediaScale : 1;
+  const mediaOffsetX = typeof data.mediaOffsetX === 'number' ? data.mediaOffsetX : 0;
+  const mediaOffsetY = typeof data.mediaOffsetY === 'number' ? data.mediaOffsetY : 0;
+  const activeMediaScale = storyPresentation.scene?.scale ?? mediaScale;
+  const activeMediaOffsetX = storyPresentation.scene?.offsetX ?? mediaOffsetX;
+  const activeMediaOffsetY = storyPresentation.scene?.offsetY ?? mediaOffsetY;
+  const mediaStyle: React.CSSProperties =
+    objectFit === 'playtest'
+      ? {
+          objectFit: 'contain',
+          objectPosition: `${50 + mediaOffsetX}% ${50 + mediaOffsetY}%`,
+          transform: `scale(${mediaScale})`,
+          transformOrigin: 'center',
+        }
+      : { objectFit };
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
   const showTitles = data.showTitles !== false;
@@ -210,6 +248,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : data.storyTitlePlacement) ?? 'inside';
   const showTitleInside = showTitles && storyTitlePlacement === 'inside';
   const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
+  const presentationStageTop = showTitleInside ? TITLE_HEIGHT : 0;
+  const presentationStageHeight = showTitleInside
+    ? `calc(52% - ${TITLE_HEIGHT * 0.52}px)`
+    : '52%';
   const isRoot = data.isRoot === true;
   const { zoom } = useViewport();
   const storeApi = useStoreApi();
@@ -232,6 +274,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     phase: 'enter' | 'exit';
     active: boolean;
     nonce: number;
+  } | null>(null);
+  const [presentationResetUndo, setPresentationResetUndo] = useState<{
+    kind: 'character' | 'scene';
+    sourceNodeId: string;
+    value: CharacterPresentation | ScenePresentation;
   } | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
 
@@ -317,6 +364,52 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     },
     [data, id],
   );
+
+  const updateMediaDisplayMode = (mode: StoryNodeData['objectFit']) => {
+    if (!storyPresentation.scene) {
+      updateNodeData({ objectFit: mode });
+      return;
+    }
+
+    const cropMode =
+      mode === 'contain' || mode === 'playtest'
+        ? 'contain'
+        : mode === 'fill'
+          ? 'stretch'
+          : 'cover';
+    updateNodeData({
+      objectFit: mode,
+      presentation: {
+        ...storyPresentation,
+        scene: {
+          ...storyPresentation.scene,
+          cropMode,
+        },
+      },
+    });
+  };
+
+  const updateMediaTransform = (
+    updates: Partial<Pick<StoryNodeData, 'mediaScale' | 'mediaOffsetX' | 'mediaOffsetY'>>,
+  ) => {
+    if (!storyPresentation.scene) {
+      updateNodeData(updates);
+      return;
+    }
+
+    updateNodeData({
+      ...updates,
+      presentation: {
+        ...storyPresentation,
+        scene: {
+          ...storyPresentation.scene,
+          ...(updates.mediaScale !== undefined ? { scale: updates.mediaScale } : {}),
+          ...(updates.mediaOffsetX !== undefined ? { offsetX: updates.mediaOffsetX } : {}),
+          ...(updates.mediaOffsetY !== undefined ? { offsetY: updates.mediaOffsetY } : {}),
+        },
+      },
+    });
+  };
 
   const syncImageNodeHeight = useCallback(
     (dimensions: { width: number; height: number } | null) => {
@@ -407,8 +500,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     kind: 'character' | 'scene',
     sourceNodeId: string,
     phase: 'enter' | 'exit' = 'enter',
+    motionOverride?: PresentationMotion,
   ) => {
     if (previewFrameRef.current !== null) cancelAnimationFrame(previewFrameRef.current);
+    const presentation = getPresentation();
+    const motion =
+      motionOverride ||
+      (kind === 'character'
+        ? presentation.characters.find((item) => item.sourceNodeId === sourceNodeId)?.[phase]
+        : presentation.scene?.sourceNodeId === sourceNodeId
+          ? presentation.scene[phase]
+          : undefined);
+    if (!motion || motion.type === 'none' || motion.duration <= 0) {
+      setPresentationPreview(null);
+      previewFrameRef.current = null;
+      return;
+    }
     setPresentationPreview({
       kind,
       sourceNodeId,
@@ -432,40 +539,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     sourceNodeId: string,
     updater: (current: CharacterPresentation) => CharacterPresentation,
     previewPhase: 'enter' | 'exit' = 'enter',
+    preserveResetUndo = false,
   ) => {
     const presentation = getPresentation();
     const current =
       presentation.characters.find((item) => item.sourceNodeId === sourceNodeId) ||
       createCharacterPresentation(sourceNodeId);
+    const next = updater(current);
     updateNodeData({
       presentation: {
         ...presentation,
         characters: [
           ...presentation.characters.filter((item) => item.sourceNodeId !== sourceNodeId),
-          updater(current),
+          next,
         ],
       },
     });
-    replayPresentation('character', sourceNodeId, previewPhase);
+    if (!preserveResetUndo) setPresentationResetUndo(null);
+    replayPresentation('character', sourceNodeId, previewPhase, next[previewPhase]);
   };
 
   const updateScenePresentation = (
     sourceNodeId: string,
     updater: (current: ScenePresentation) => ScenePresentation,
     previewPhase: 'enter' | 'exit' = 'enter',
+    preserveResetUndo = false,
   ) => {
     const presentation = getPresentation();
     const current =
       presentation.scene?.sourceNodeId === sourceNodeId
         ? presentation.scene
         : createScenePresentation(sourceNodeId, imageUrl);
+    const next = updater(current);
     updateNodeData({
       presentation: {
         ...presentation,
-        scene: updater(current),
+        scene: next,
       },
     });
-    replayPresentation('scene', sourceNodeId, previewPhase);
+    if (!preserveResetUndo) setPresentationResetUndo(null);
+    replayPresentation('scene', sourceNodeId, previewPhase, next[previewPhase]);
   };
 
   const handleMentionContextMenu = (
@@ -752,7 +865,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       {/* Floating Toolbar for styles & actions */}
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
         <div style={{ transform: `scale(${zoom * 0.6})`, transformOrigin: 'bottom center' }}>
-          <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate">
+          <div
+            className="toolbar-bubble-surface nodrag nopan nowheel bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerMove={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
+          >
             {/* 第一行：颜色、形状、文字工具、视图 - 完全扁平化以实现平均散开分布 */}
             <ToolbarRow className="w-full justify-between gap-0">
               {/* 预设颜色按钮 */}
@@ -881,8 +999,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     <button
                       key={char.id}
                       type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onDoubleClick={(event) => event.preventDefault()}
+                      onDragStart={(event) => event.preventDefault()}
                       onClick={() => insertCharacterMention(char.name)}
-                      className={`${textBtnBase} bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-400 border border-indigo-500/20`}
+                      className={`${textBtnBase} select-none bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-400 border border-indigo-500/20`}
                       title={`插入 @${char.name}`}
                     >
                       @{char.name}
@@ -905,8 +1026,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     <button
                       key={scene.id}
                       type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onDoubleClick={(event) => event.preventDefault()}
+                      onDragStart={(event) => event.preventDefault()}
                       onClick={() => insertSceneMention(scene.name)}
-                      className={`${textBtnBase} bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
+                      className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
                       title={`插入 @${scene.name}`}
                     >
                       @{scene.name}
@@ -930,22 +1054,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
                   <ToolGroup>
                     <button
-                      onClick={() => updateNodeData({ objectFit: 'contain' })}
+                      onClick={() => updateMediaDisplayMode('contain')}
                       className={`${textBtnBase} ${objectFit === 'contain' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
                     >
                       {t.fit}
                     </button>
                     <button
-                      onClick={() => updateNodeData({ objectFit: 'cover' })}
+                      onClick={() => updateMediaDisplayMode('cover')}
                       className={`${textBtnBase} ${objectFit === 'cover' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
                     >
                       {t.crop}
                     </button>
                     <button
-                      onClick={() => updateNodeData({ objectFit: 'fill' })}
+                      onClick={() => updateMediaDisplayMode('fill')}
                       className={`${textBtnBase} ${objectFit === 'fill' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
                     >
                       {t.fill}
+                    </button>
+                    <button
+                      onClick={() => updateMediaDisplayMode('playtest')}
+                      className={`${textBtnBase} ${objectFit === 'playtest' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
+                    >
+                      {lang === 'zh' ? '测试剧本' : 'Playtest'}
                     </button>
                   </ToolGroup>
 
@@ -990,6 +1120,51 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     )}
                   </ToolGroup>
                 </ToolbarRow>
+                {objectFit === 'playtest' && (
+                  <ToolbarRow className="flex-wrap">
+                    <ToolGroup className="min-w-32 flex-1">
+                      <span className="text-[9px] font-bold text-[var(--text-muted)]">
+                        {lang === 'zh' ? '缩放' : 'Scale'}{' '}
+                        {Math.round(activeMediaScale * 100)}%
+                      </span>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.05"
+                        value={activeMediaScale}
+                        onChange={(event) =>
+                          updateMediaTransform({ mediaScale: Number(event.target.value) })
+                        }
+                        className="w-24"
+                      />
+                    </ToolGroup>
+                    <ToolGroup>
+                      <label className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-muted)]">
+                        X
+                        <input
+                          type="number"
+                          value={activeMediaOffsetX}
+                          onChange={(event) =>
+                            updateMediaTransform({ mediaOffsetX: Number(event.target.value) })
+                          }
+                          className="w-14 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5"
+                        />
+                      </label>
+                      <label className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-muted)]">
+                        Y
+                        <input
+                          type="number"
+                          value={activeMediaOffsetY}
+                          onChange={(event) =>
+                            updateMediaTransform({ mediaOffsetY: Number(event.target.value) })
+                          }
+                          className="w-14 rounded border border-[var(--toolbar-border)] bg-[var(--app-bg)] px-1 py-0.5"
+                        />
+                      </label>
+                    </ToolGroup>
+                  </ToolbarRow>
+                )}
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
@@ -1115,9 +1290,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <img
             key={`scene-preview-${presentationPreview?.nonce || 0}`}
             src={imageUrl}
-            className="absolute inset-0 z-0 h-full w-full pointer-events-none"
+            className="absolute left-0 right-0 z-0 w-full pointer-events-none"
             style={{
-              height: presentedCharacters.length > 0 || hasScenePresentationImage ? '52%' : '100%',
+              top: presentationStageTop,
+              height:
+                presentedCharacters.length > 0 || hasScenePresentationImage
+                  ? presentationStageHeight
+                  : showTitleInside
+                    ? `calc(100% - ${TITLE_HEIGHT}px)`
+                    : '100%',
               objectFit:
                 storyPresentation.scene?.cropMode === 'contain'
                   ? 'contain'
@@ -1143,9 +1324,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId) &&
                 storyPresentation.scene[
                   presentationPreview?.phase === 'exit' ? 'exit' : 'enter'
-                ].type !== 'none'
+                ].type === 'fade'
                   ? 0
-                  : 0.42,
+                  : 1,
               transition:
                 storyPresentation.scene &&
                 presentationPreview?.kind === 'scene' &&
@@ -1161,8 +1342,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
         )}
         <div
-          className="absolute left-0 right-0 top-0 z-[15] overflow-hidden pointer-events-none"
-          style={{ height: '52%' }}
+          className="absolute left-0 right-0 z-[15] overflow-hidden pointer-events-none"
+          style={{ top: presentationStageTop, height: presentationStageHeight }}
         >
           {presentedCharacters.map(({ config, imageUrl: characterImageUrl, name }) => {
             const previewMatches =
@@ -1179,13 +1360,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 className="absolute max-h-[92%] max-w-[72%] object-contain object-bottom"
                 style={{
                   ...getCharacterStagePosition(config),
-                  zIndex: config.layer,
-                  opacity: animated && motion.type !== 'none' ? 0 : 1,
-                  transform: `translateX(-50%) scale(${config.scale}) scaleX(${
-                    config.flipX ? -1 : 1
-                  }) ${animated ? getPresentationTransform(motion.type, phase === 'exit') : ''}`,
-                  transformOrigin: 'bottom center',
-                  transition: previewMatches
+                  zIndex: clampCharacterLayer(config.layer),
+                  opacity: animated && motion.type === 'fade' ? 0 : 1,
+                  translate: '-50% 0',
+                  transform: `${
+                    animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
+                  } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                  transformOrigin: 'center center',
+                  transition: previewMatches && motion.type !== 'none' && motion.duration > 0
                     ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
                     : undefined,
                 }}
@@ -1222,7 +1404,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             <img
               src={imageUrl}
               className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} object-cover pointer-events-none`}
-              style={{ objectFit }}
+              style={mediaStyle}
               onLoad={(event) => {
                 const image = event.currentTarget;
                 setImageDimensions({
@@ -1249,7 +1431,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
                   className="w-full h-full object-cover nodrag"
-                  style={{ objectFit }}
+                  style={mediaStyle}
                 />
               )}
             </div>
@@ -1351,7 +1533,41 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               <button
                 type="button"
                 onClick={() => {
+                  const canRestore =
+                    presentationResetUndo?.kind === presentationMenu.kind &&
+                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId;
+                  if (canRestore) {
+                    if (presentationMenu.kind === 'character') {
+                      const previous = presentationResetUndo.value as CharacterPresentation;
+                      updateCharacterPresentation(
+                        presentationMenu.sourceNodeId,
+                        () => previous,
+                        'enter',
+                        true,
+                      );
+                    } else {
+                      const previous = presentationResetUndo.value as ScenePresentation;
+                      updateScenePresentation(
+                        presentationMenu.sourceNodeId,
+                        () => previous,
+                        'enter',
+                        true,
+                      );
+                    }
+                    setPresentationResetUndo(null);
+                    return;
+                  }
+
                   if (presentationMenu.kind === 'character') {
+                    const current =
+                      getPresentation().characters.find(
+                        (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
+                      ) || createCharacterPresentation(presentationMenu.sourceNodeId);
+                    setPresentationResetUndo({
+                      kind: 'character',
+                      sourceNodeId: presentationMenu.sourceNodeId,
+                      value: structuredClone(current),
+                    });
                     updateCharacterPresentation(
                       presentationMenu.sourceNodeId,
                       (current) => ({
@@ -1359,8 +1575,19 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         linkedByEdge: current.linkedByEdge,
                         outfitId: current.outfitId,
                       }),
+                      'enter',
+                      true,
                     );
                   } else {
+                    const current =
+                      getPresentation().scene?.sourceNodeId === presentationMenu.sourceNodeId
+                        ? getPresentation().scene!
+                        : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
+                    setPresentationResetUndo({
+                      kind: 'scene',
+                      sourceNodeId: presentationMenu.sourceNodeId,
+                      value: structuredClone(current),
+                    });
                     updateScenePresentation(
                       presentationMenu.sourceNodeId,
                       (current) => ({
@@ -1370,13 +1597,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         previousImageUrl: current.previousImageUrl,
                         previousShowTextOverlay: current.previousShowTextOverlay,
                       }),
+                      'enter',
+                      true,
                     );
                   }
                 }}
-                className="absolute right-3 top-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] font-bold text-amber-600 hover:bg-amber-500 hover:text-white"
-                title="恢复默认演出设置"
+                className={`absolute right-3 top-3 rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${
+                  presentationResetUndo?.kind === presentationMenu.kind &&
+                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                    : 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white'
+                }`}
+                title={
+                  presentationResetUndo?.kind === presentationMenu.kind &&
+                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                    ? '还原清零前的演出设置'
+                    : '恢复默认演出设置'
+                }
               >
-                清零
+                {presentationResetUndo?.kind === presentationMenu.kind &&
+                presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                  ? '还原'
+                  : '清零'}
               </button>
               <div className="mb-3 pr-12 text-sm font-black">
                 {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
@@ -1429,7 +1671,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 'enter',
                               )
                             }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 hover:bg-blue-500 hover:text-white"
+                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
                           >
                             预览入场
                           </button>
@@ -1442,29 +1684,61 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 'exit',
                               )
                             }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 hover:bg-rose-500 hover:text-white"
+                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
                           >
                             预览出场
                           </button>
                         </div>
-                        <label className="block">
-                          <span className="mb-1 block font-bold">站位</span>
-                          <select
-                            value={current.position}
-                            onChange={(event) =>
+                        <div className="flex w-full gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
                               updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
                                 ...item,
-                                position: event.target.value as CharacterPresentation['position'],
+                                position: 'left',
                               }))
                             }
-                            className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.position === 'left'
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                            }`}
                           >
-                            <option value="left">左侧</option>
-                            <option value="center">中央</option>
-                            <option value="right">右侧</option>
-                            <option value="custom">自定义</option>
-                          </select>
-                        </label>
+                            左边
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
+                                ...item,
+                                position: 'center',
+                              }))
+                            }
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.position === 'center'
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                            }`}
+                          >
+                            中间
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateCharacterPresentation(presentationMenu.sourceNodeId, (item) => ({
+                                ...item,
+                                position: 'right',
+                              }))
+                            }
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.position === 'right'
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                            }`}
+                          >
+                            右边
+                          </button>
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
                           <label>
                             <span className="mb-1 block font-bold">水平偏移</span>
@@ -1491,6 +1765,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             />
                           </label>
                         </div>
+                        {presentation.characters.length > 1 && (
+                          <label className="flex items-center gap-2">
+                            <span className="shrink-0 font-bold">Z轴</span>
+                            <div className="w-20">
+                              <DraggableNumberInput
+                                value={clampCharacterLayer(current.layer)}
+                                min={1}
+                                max={20}
+                                unit={null}
+                                onChange={(value) =>
+                                  updateCharacterPresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({
+                                      ...item,
+                                      layer: clampCharacterLayer(value),
+                                    }),
+                                  )
+                                }
+                              />
+                            </div>
+                          </label>
+                        )}
                         <label className="block">
                           <span className="mb-1 block font-bold">
                             缩放：{Math.round(current.scale * 100)}%
@@ -1541,27 +1837,32 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               </select>
                             </label>
                             <label>
-                              <span className="mb-1 block font-bold">时长(ms)</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="100"
-                                value={current[phase].duration}
-                                onChange={(event) =>
-                                  updateCharacterPresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      [phase]: {
-                                        ...item[phase],
-                                        duration: Number(event.target.value),
-                                      },
-                                    }),
-                                    phase,
-                                  )
-                                }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              />
+                              <span className="mb-1 block font-bold">时长</span>
+                              <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="100"
+                                  value={current[phase].duration}
+                                  onChange={(event) =>
+                                    updateCharacterPresentation(
+                                      presentationMenu.sourceNodeId,
+                                      (item) => ({
+                                        ...item,
+                                        [phase]: {
+                                          ...item[phase],
+                                          duration: Number(event.target.value),
+                                        },
+                                      }),
+                                      phase,
+                                    )
+                                  }
+                                  className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+                                />
+                                <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
+                                  MS
+                                </span>
+                              </div>
                             </label>
                           </div>
                         ))}
@@ -1609,7 +1910,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             onClick={() =>
                               replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
                             }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 hover:bg-blue-500 hover:text-white"
+                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
                           >
                             预览入场
                           </button>
@@ -1618,28 +1919,61 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             onClick={() =>
                               replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
                             }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 hover:bg-rose-500 hover:text-white"
+                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
                           >
                             预览出场
                           </button>
                         </div>
-                        <label className="block">
-                          <span className="mb-1 block font-bold">裁切方式</span>
-                          <select
-                            value={current.cropMode}
-                            onChange={(event) =>
+                        <div className="flex w-full gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
                               updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
                                 ...item,
-                                cropMode: event.target.value as ScenePresentation['cropMode'],
+                                cropMode: 'cover',
                               }))
                             }
-                            className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.cropMode === 'cover'
+                                ? 'border-blue-500 bg-blue-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
                           >
-                            <option value="cover">覆盖裁切</option>
-                            <option value="contain">完整显示</option>
-                            <option value="stretch">拉伸填充</option>
-                          </select>
-                        </label>
+                            覆盖裁切
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                                ...item,
+                                cropMode: 'contain',
+                              }))
+                            }
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.cropMode === 'contain'
+                                ? 'border-blue-500 bg-blue-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
+                          >
+                            完整显示
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                                ...item,
+                                cropMode: 'stretch',
+                              }))
+                            }
+                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                              current.cropMode === 'stretch'
+                                ? 'border-blue-500 bg-blue-500 text-white'
+                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                            }`}
+                          >
+                            拉伸填充
+                          </button>
+                        </div>
                         <label className="block">
                           <span className="mb-1 block font-bold">
                             缩放：{Math.round(current.scale * 100)}%
@@ -1716,27 +2050,32 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               </select>
                             </label>
                             <label>
-                              <span className="mb-1 block font-bold">时长(ms)</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="100"
-                                value={current[phase].duration}
-                                onChange={(event) =>
-                                  updateScenePresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      [phase]: {
-                                        ...item[phase],
-                                        duration: Number(event.target.value),
-                                      },
-                                    }),
-                                    phase,
-                                  )
-                                }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              />
+                              <span className="mb-1 block font-bold">时长</span>
+                              <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="100"
+                                  value={current[phase].duration}
+                                  onChange={(event) =>
+                                    updateScenePresentation(
+                                      presentationMenu.sourceNodeId,
+                                      (item) => ({
+                                        ...item,
+                                        [phase]: {
+                                          ...item[phase],
+                                          duration: Number(event.target.value),
+                                        },
+                                      }),
+                                      phase,
+                                    )
+                                  }
+                                  className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+                                />
+                                <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
+                                  MS
+                                </span>
+                              </div>
                             </label>
                           </div>
                         ))}

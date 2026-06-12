@@ -5,6 +5,26 @@ import type { TextAnimation } from './types';
 
 export const stripHtml = (html: string) => htmlToSpeechText(html || '');
 
+export const filterMentionTags = (
+  html: string,
+  hideCharacterTags: boolean,
+  hideSceneTags: boolean,
+) => {
+  if ((!hideCharacterTags && !hideSceneTags) || !html) return html;
+  if (typeof DOMParser === 'undefined') return html;
+
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  if (hideCharacterTags) {
+    document
+      .querySelectorAll('[data-mention-kind="character"]')
+      .forEach((node) => node.remove());
+  }
+  if (hideSceneTags) {
+    document.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
+  }
+  return document.body.innerHTML;
+};
+
 export const drawCoverImage = (
   ctx: CanvasRenderingContext2D,
   image: CanvasImageSource,

@@ -11,6 +11,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   typewriterSpeed: 65,
   autoAdvance: false,
   videoAutoPlay: false,
+  hideCharacterTags: true,
+  hideSceneTags: true,
 };
 
 const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {

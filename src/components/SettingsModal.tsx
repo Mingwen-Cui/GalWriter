@@ -144,6 +144,10 @@ interface SettingsModalProps {
   setPlayTestAutoAdvance: (val: boolean) => void;
   playTestAutoAdvanceDelay: number;
   setPlayTestAutoAdvanceDelay: (val: number) => void;
+  playTestHideCharacterTags: boolean;
+  setPlayTestHideCharacterTags: (val: boolean) => void;
+  playTestHideSceneTags: boolean;
+  setPlayTestHideSceneTags: (val: boolean) => void;
   onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
 }
 
@@ -590,6 +594,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestAutoAdvance,
   playTestAutoAdvanceDelay,
   setPlayTestAutoAdvanceDelay,
+  playTestHideCharacterTags,
+  setPlayTestHideCharacterTags,
+  playTestHideSceneTags,
+  setPlayTestHideSceneTags,
   onApplySettingsToOtherProjects,
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<
@@ -1634,6 +1642,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       >
                         <div
                           className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className={settingsRowTitleClass}>
+                      {language === 'zh'
+                        ? '标签显示'
+                        : language === 'ja'
+                          ? 'タグ表示'
+                          : 'Tag Display'}
+                    </h3>
+                    <div className={settingsRowClass}>
+                      <h3 className={settingsRowTitleClass}>
+                        {language === 'zh'
+                          ? '隐藏人物标签'
+                          : language === 'ja'
+                            ? 'キャラクタータグを非表示'
+                            : 'Hide character tags'}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setPlayTestHideCharacterTags(!playTestHideCharacterTags)}
+                        className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideCharacterTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideCharacterTags ? 'left-6' : 'left-1'}`}
+                        />
+                      </button>
+                    </div>
+                    <div className={settingsRowClass}>
+                      <h3 className={settingsRowTitleClass}>
+                        {language === 'zh'
+                          ? '隐藏场景标签'
+                          : language === 'ja'
+                            ? 'シーンタグを非表示'
+                            : 'Hide scene tags'}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setPlayTestHideSceneTags(!playTestHideSceneTags)}
+                        className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideSceneTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideSceneTags ? 'left-6' : 'left-1'}`}
                         />
                       </button>
                     </div>

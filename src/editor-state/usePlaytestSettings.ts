@@ -76,6 +76,12 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
   const [playTestAutoAdvanceDelay, setPlayTestAutoAdvanceDelay] = useState(() =>
     getStoredNumber('playtest-auto-advance-delay', 2),
   );
+  const [playTestHideCharacterTags, setPlayTestHideCharacterTags] = useState(() =>
+    getStoredBoolean('playtest-hide-character-tags', true),
+  );
+  const [playTestHideSceneTags, setPlayTestHideSceneTags] = useState(() =>
+    getStoredBoolean('playtest-hide-scene-tags', true),
+  );
 
   useEffect(() => {
     window.localStorage.setItem('playtest-dark-mode', String(playTestDarkMode));
@@ -98,9 +104,16 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
       'playtest-auto-advance-delay',
       String(playTestAutoAdvanceDelay),
     );
+    window.localStorage.setItem(
+      'playtest-hide-character-tags',
+      String(playTestHideCharacterTags),
+    );
+    window.localStorage.setItem('playtest-hide-scene-tags', String(playTestHideSceneTags));
   }, [
     playTestAutoAdvance,
     playTestAutoAdvanceDelay,
+    playTestHideCharacterTags,
+    playTestHideSceneTags,
     playTestBlurBackground,
     playTestBlurText,
     playTestChoiceDelay,
@@ -144,5 +157,9 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     setPlayTestAutoAdvance,
     playTestAutoAdvanceDelay,
     setPlayTestAutoAdvanceDelay,
+    playTestHideCharacterTags,
+    setPlayTestHideCharacterTags,
+    playTestHideSceneTags,
+    setPlayTestHideSceneTags,
   };
 };

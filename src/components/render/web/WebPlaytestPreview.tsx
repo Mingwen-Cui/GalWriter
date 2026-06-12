@@ -8,6 +8,7 @@ import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 import {
   getNodeDisplayText,
   getNodeDisplayTitle,
+  filterMentionTags,
   stripHtml,
   webAnimationStyle,
 } from '../video/shared/storyNodes';
@@ -79,7 +80,11 @@ export function WebPlaytestPreview({
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
   const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
-  const text = getNodeDisplayText(currentNode);
+  const text = filterMentionTags(
+    getNodeDisplayText(currentNode),
+    settings.hideCharacterTags,
+    settings.hideSceneTags,
+  );
   const shouldHideCenteredSingleChoice =
     settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices =

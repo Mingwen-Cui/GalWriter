@@ -1,6 +1,8 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
+import { filterMentionTags } from '../video/shared/storyNodes';
+
 type WebExportOptions = {
   projectName?: string;
   language: 'zh' | 'ja' | 'en';
@@ -29,6 +31,8 @@ type WebExportSettings = {
   typewriterSpeed: number;
   autoAdvance: boolean;
   videoAutoPlay: boolean;
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
 };
 
 type WebExportNode = {
@@ -735,6 +739,8 @@ export async function buildInteractiveWebZipBlob(
     typewriterSpeed: options.settings?.typewriterSpeed ?? 65,
     autoAdvance: options.settings?.autoAdvance ?? false,
     videoAutoPlay: options.settings?.videoAutoPlay ?? false,
+    hideCharacterTags: options.settings?.hideCharacterTags ?? true,
+    hideSceneTags: options.settings?.hideSceneTags ?? true,
   };
 
   const webNodes: WebExportNode[] = [];
@@ -751,7 +757,11 @@ export async function buildInteractiveWebZipBlob(
       type: node.type,
       data: {
         title: titleText,
-        text: nodeText(node),
+        text: filterMentionTags(
+          nodeText(node),
+          settings.hideCharacterTags,
+          settings.hideSceneTags,
+        ),
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,
         imageUrl,
         videoUrl: typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,

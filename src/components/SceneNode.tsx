@@ -324,14 +324,6 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     });
   };
 
-  const toggleImagePanorama = (imageId: string) => {
-    updateNodeData({
-      images: images.map((img) =>
-        img.id === imageId ? { ...img, isPanorama: !img.isPanorama } : img,
-      ),
-    });
-  };
-
   const removeImage = (imageId: string) => {
     updateNodeData({
       images: images.filter((img) => img.id !== imageId),
@@ -794,23 +786,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                             placeholder={lang === 'zh' ? '图片名称' : 'Image name'}
                             className="flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none focus:border-b focus:border-blue-700 min-w-0"
                           />
-                          <button
-                            onClick={() => toggleImagePanorama(image.id)}
-                            className={`p-1 rounded transition-colors ${image.isPanorama ? 'text-blue-800 bg-blue-800/15' : 'text-[var(--text-muted)] hover:text-blue-800 hover:bg-blue-800/10'}`}
-                            title={
-                              image.isPanorama
-                                ? lang === 'zh'
-                                  ? '切换为普通图片'
-                                  : 'Switch to normal image'
-                                : lang === 'zh'
-                                  ? '设为360°全景图'
-                                  : 'Set as 360° panorama'
-                            }
-                          >
-                            <RotateCw className="w-3 h-3" />
-                          </button>
                           <label
-                            className="p-1 text-[var(--text-muted)] hover:text-blue-800 hover:bg-blue-800/10 rounded transition-colors cursor-pointer"
+                            className="cursor-pointer rounded p-1 text-[var(--text-muted)] opacity-0 transition-opacity hover:bg-blue-800/10 hover:text-blue-800 group-hover/image:opacity-100"
                             title={lang === 'zh' ? '上传图片' : 'Upload image'}
                           >
                             <Upload className="w-3 h-3" />

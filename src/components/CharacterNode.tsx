@@ -763,13 +763,18 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         placeholder="服装名称"
                         className="flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none focus:border-b focus:border-purple-400 min-w-0"
                       />
-                      <button
-                        onClick={() => removeOutfit(outfit.id)}
-                        className="opacity-0 group-hover/outfit:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
-                        title="删除此穿着"
+                      <label
+                        className="cursor-pointer rounded p-1 text-[var(--text-muted)] opacity-0 transition-opacity hover:bg-purple-500/10 hover:text-purple-500 group-hover/outfit:opacity-100"
+                        title={lang === 'zh' ? '上传人物图片' : 'Upload character image'}
                       >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                        <Upload className="w-3 h-3" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleImageUpload(e, outfit.id)}
+                        />
+                      </label>
                       {outfit.imageUrl && (
                         <button
                           onClick={(event) => handleDownloadOutfitImage(event, outfit)}
@@ -779,6 +784,13 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           <Download className="w-3 h-3" />
                         </button>
                       )}
+                      <button
+                        onClick={() => removeOutfit(outfit.id)}
+                        className="opacity-0 group-hover/outfit:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
+                        title="删除此穿着"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                       {/* Outfit Handles */}
                       <Handle
                         type="source"

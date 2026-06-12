@@ -6,6 +6,15 @@ import type {
   StoryPresentation,
 } from '../domain/project';
 
+export const MIN_CHARACTER_LAYER = 1;
+export const MAX_CHARACTER_LAYER = 20;
+
+export const clampCharacterLayer = (value: number | undefined) =>
+  Math.min(
+    MAX_CHARACTER_LAYER,
+    Math.max(MIN_CHARACTER_LAYER, Number.isFinite(value) ? Math.round(value!) : 1),
+  );
+
 export const createPresentationMotion = (
   type: PresentationAnimation,
   duration = 500,
@@ -22,7 +31,7 @@ export const createCharacterPresentation = (
   offsetY: 0,
   scale: 1,
   flipX: false,
-  layer: 1,
+  layer: MIN_CHARACTER_LAYER,
   enter: createPresentationMotion('slide-left'),
   exit: createPresentationMotion('fade'),
 });
@@ -117,10 +126,10 @@ export const getPresentationTransform = (
   exiting: boolean,
 ) => {
   const distance = exiting ? 120 : 100;
-  if (animation === 'slide-left') return `translateX(-${distance}%)`;
-  if (animation === 'slide-right') return `translateX(${distance}%)`;
-  if (animation === 'slide-up') return `translateY(-${distance}%)`;
-  if (animation === 'slide-down') return `translateY(${distance}%)`;
+  if (animation === 'slide-left') return `translateX(${exiting ? -distance : distance}%)`;
+  if (animation === 'slide-right') return `translateX(${exiting ? distance : -distance}%)`;
+  if (animation === 'slide-up') return `translateY(${exiting ? -distance : distance}%)`;
+  if (animation === 'slide-down') return `translateY(${exiting ? distance : -distance}%)`;
   if (animation === 'zoom') return 'scale(0.82)';
   return 'none';
 };

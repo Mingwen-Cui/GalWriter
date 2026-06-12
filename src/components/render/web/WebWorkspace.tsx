@@ -246,6 +246,26 @@ export function WebWorkspace({
             onChange={(value) => updateWebSettings('videoAutoPlay', value === 'auto')}
           />
 
+          <WebSegmentedSetting
+            title={t('人物标签', 'キャラクタータグ', 'Character Tags')}
+            options={[
+              { value: 'hide', label: t('默认隐藏', '非表示', 'Hidden') },
+              { value: 'show', label: t('显示', '表示', 'Shown') },
+            ]}
+            value={webSettings.hideCharacterTags ? 'hide' : 'show'}
+            onChange={(value) => updateWebSettings('hideCharacterTags', value === 'hide')}
+          />
+
+          <WebSegmentedSetting
+            title={t('场景标签', 'シーンタグ', 'Scene Tags')}
+            options={[
+              { value: 'hide', label: t('默认隐藏', '非表示', 'Hidden') },
+              { value: 'show', label: t('显示', '表示', 'Shown') },
+            ]}
+            value={webSettings.hideSceneTags ? 'hide' : 'show'}
+            onChange={(value) => updateWebSettings('hideSceneTags', value === 'hide')}
+          />
+
           <div className="space-y-2">
             <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
               {t('按钮样式', 'ボタンスタイル', 'Button Style')}

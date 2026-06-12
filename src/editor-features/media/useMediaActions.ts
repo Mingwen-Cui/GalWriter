@@ -476,34 +476,28 @@ export const useMediaActions = ({
             if (current.id !== id) return current;
 
             if (type === 'character') {
-              const generatedOutfitId =
-                (current.data.generatedSettingImageId as string) || uuidv4();
               const currentOutfits = (current.data.outfits as any[]) || [];
-              const generatedOutfitName =
-                characterImageMode === 'transparent-sprite'
-                  ? language === 'zh'
-                    ? 'AI 透明背景立绘'
-                    : language === 'ja'
-                      ? 'AI 透過背景立ち絵'
-                      : 'AI Transparent Sprite'
-                  : language === 'zh'
-                    ? 'AI 三视图'
-                    : language === 'ja'
-                      ? 'AI三面図'
-                      : 'AI Three-view';
-              const hasGeneratedOutfit = currentOutfits.some(
-                (outfit) => outfit.id === generatedOutfitId,
+              const previousAvatarUrl = current.data.avatarUrl as string | undefined;
+              const hasArchivedAvatar = currentOutfits.some(
+                (outfit) => outfit.imageUrl === previousAvatarUrl,
               );
-              const nextOutfits = hasGeneratedOutfit
-                ? currentOutfits.map((outfit) =>
-                    outfit.id === generatedOutfitId
-                      ? { ...outfit, name: generatedOutfitName, imageUrl: imageSrc }
-                      : outfit,
-                  )
-                : [
-                    { id: generatedOutfitId, name: generatedOutfitName, imageUrl: imageSrc },
-                    ...currentOutfits,
-                  ];
+              const archivedAvatarName =
+                language === 'zh'
+                  ? '上一张人物图片'
+                  : language === 'ja'
+                    ? '前のキャラクター画像'
+                    : 'Previous Character Image';
+              const nextOutfits =
+                previousAvatarUrl && previousAvatarUrl !== imageSrc && !hasArchivedAvatar
+                  ? [
+                      {
+                        id: uuidv4(),
+                        name: archivedAvatarName,
+                        imageUrl: previousAvatarUrl,
+                      },
+                      ...currentOutfits,
+                    ]
+                  : currentOutfits;
 
               return {
                 ...current,
@@ -511,30 +505,35 @@ export const useMediaActions = ({
                   ...current.data,
                   avatarUrl: imageSrc,
                   outfits: nextOutfits,
-                  generatedSettingImageId: generatedOutfitId,
+                  generatedSettingImageId: undefined,
                 },
               };
             }
 
-            const generatedImageId = (current.data.generatedSettingImageId as string) || uuidv4();
             const currentImages = (current.data.images as any[]) || [];
-            const generatedImageName =
+            const previousCoverImageUrl = current.data.coverImageUrl as string | undefined;
+            const hasArchivedCover = currentImages.some(
+              (image) => image.imageUrl === previousCoverImageUrl,
+            );
+            const archivedCoverName =
               language === 'zh'
-                ? 'AI 场景图'
+                ? '上一张场景图片'
                 : language === 'ja'
-                  ? 'AIシーン画像'
-                  : 'AI Scene Image';
-            const hasGeneratedImage = currentImages.some((image) => image.id === generatedImageId);
-            const nextImages = hasGeneratedImage
-              ? currentImages.map((image) =>
-                  image.id === generatedImageId
-                    ? { ...image, name: image.name || generatedImageName, imageUrl: imageSrc }
-                    : image,
-                )
-              : [
-                  { id: generatedImageId, name: generatedImageName, imageUrl: imageSrc },
-                  ...currentImages,
-                ];
+                  ? '前のシーン画像'
+                  : 'Previous Scene Image';
+            const nextImages =
+              previousCoverImageUrl &&
+              previousCoverImageUrl !== imageSrc &&
+              !hasArchivedCover
+                ? [
+                    {
+                      id: uuidv4(),
+                      name: archivedCoverName,
+                      imageUrl: previousCoverImageUrl,
+                    },
+                    ...currentImages,
+                  ]
+                : currentImages;
 
             return {
               ...current,
@@ -542,7 +541,7 @@ export const useMediaActions = ({
                 ...current.data,
                 coverImageUrl: imageSrc,
                 images: nextImages,
-                generatedSettingImageId: generatedImageId,
+                generatedSettingImageId: undefined,
               },
             };
           }),

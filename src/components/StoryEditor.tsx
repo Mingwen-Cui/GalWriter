@@ -534,6 +534,10 @@ export function StoryEditor() {
     setPlayTestAutoAdvance,
     playTestAutoAdvanceDelay,
     setPlayTestAutoAdvanceDelay,
+    playTestHideCharacterTags,
+    setPlayTestHideCharacterTags,
+    playTestHideSceneTags,
+    setPlayTestHideSceneTags,
   } = usePlaytestSettings();
 
   const t = translations[language];
@@ -830,7 +834,10 @@ export function StoryEditor() {
         const hasMedia = !!(node.data.imageUrl || node.data.videoUrl || node.data.audioUrl);
         if (!hasMedia) return node;
 
-        const currentHeight = (node.style?.height as number) || 200;
+        const heightValue = node.style?.height ?? node.height ?? node.measured?.height;
+        const parsedHeight =
+          typeof heightValue === 'number' ? heightValue : Number.parseFloat(String(heightValue));
+        const currentHeight = Number.isFinite(parsedHeight) ? parsedHeight : 200;
         const titleAlreadyAdded = node.data.titleHeightAdded === true;
 
         const shouldReserveTitleHeight = showTitles && storyTitlePlacement === 'inside';
@@ -956,6 +963,8 @@ export function StoryEditor() {
       playTestDimBackground,
       playTestAutoAdvance,
       playTestAutoAdvanceDelay,
+      playTestHideCharacterTags,
+      playTestHideSceneTags,
     }),
     [
       aiButtonsConfig,
@@ -988,6 +997,8 @@ export function StoryEditor() {
       playTestSkipSingleChoicePopup,
       playTestAutoAdvance,
       playTestAutoAdvanceDelay,
+      playTestHideCharacterTags,
+      playTestHideSceneTags,
       playTestTypewriterSpeed,
       playTestVideoAutoPlay,
       presetColors,
@@ -1063,6 +1074,8 @@ export function StoryEditor() {
       setPlayTestDimBackground,
       setPlayTestAutoAdvance,
       setPlayTestAutoAdvanceDelay,
+      setPlayTestHideCharacterTags,
+      setPlayTestHideSceneTags,
     }),
     [
       setCanvasBg,
@@ -1107,6 +1120,8 @@ export function StoryEditor() {
       setPlayTestDimBackground,
       setPlayTestAutoAdvance,
       setPlayTestAutoAdvanceDelay,
+      setPlayTestHideCharacterTags,
+      setPlayTestHideSceneTags,
     ],
   );
 
@@ -3596,6 +3611,10 @@ ${direction}
             setAutoAdvance={setPlayTestAutoAdvance}
             autoAdvanceDelay={playTestAutoAdvanceDelay}
             setAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
+            hideCharacterTags={playTestHideCharacterTags}
+            setHideCharacterTags={setPlayTestHideCharacterTags}
+            hideSceneTags={playTestHideSceneTags}
+            setHideSceneTags={setPlayTestHideSceneTags}
           />
         )}
       </Suspense>
@@ -3728,6 +3747,10 @@ ${direction}
           setPlayTestAutoAdvance={setPlayTestAutoAdvance}
           playTestAutoAdvanceDelay={playTestAutoAdvanceDelay}
           setPlayTestAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
+          playTestHideCharacterTags={playTestHideCharacterTags}
+          setPlayTestHideCharacterTags={setPlayTestHideCharacterTags}
+          playTestHideSceneTags={playTestHideSceneTags}
+          setPlayTestHideSceneTags={setPlayTestHideSceneTags}
           onApplySettingsToOtherProjects={handleApplySettingsToOtherProjects}
         />
       </Suspense>

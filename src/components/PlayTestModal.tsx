@@ -25,6 +25,7 @@ import type {
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
 import {
+  clampCharacterLayer,
   getCharacterStagePosition,
   getPresentationTransform,
   normalizeStoryPresentation,
@@ -135,6 +136,10 @@ interface PlayTestProps {
   setAutoAdvance: (val: boolean) => void;
   autoAdvanceDelay: number;
   setAutoAdvanceDelay: (val: number) => void;
+  hideCharacterTags: boolean;
+  setHideCharacterTags: (val: boolean) => void;
+  hideSceneTags: boolean;
+  setHideSceneTags: (val: boolean) => void;
 }
 
 export function PlayTestModal({
@@ -171,6 +176,10 @@ export function PlayTestModal({
   setAutoAdvance,
   autoAdvanceDelay,
   setAutoAdvanceDelay,
+  hideCharacterTags,
+  setHideCharacterTags,
+  hideSceneTags,
+  setHideSceneTags,
 }: PlayTestProps) {
   const t = translations[language];
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
@@ -245,8 +254,20 @@ export function PlayTestModal({
         imageUrl: string;
       } => Boolean(item),
     );
-  const textHtml =
+  const rawTextHtml =
     currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
+  const textHtml = React.useMemo(() => {
+    if ((!hideCharacterTags && !hideSceneTags) || !rawTextHtml) return rawTextHtml;
+    const container = document.createElement('div');
+    container.innerHTML = rawTextHtml;
+    if (hideCharacterTags) {
+      container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
+    }
+    if (hideSceneTags) {
+      container.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
+    }
+    return container.innerHTML;
+  }, [hideCharacterTags, hideSceneTags, rawTextHtml]);
   const outEdges = edges.filter((e) => e.source === currentNodeId);
   const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
   const advanceToTarget = React.useCallback(
@@ -257,8 +278,10 @@ export function PlayTestModal({
         autoAdvanceTimerRef.current = null;
       }
       const exitDuration = Math.max(
-        presentation.scene?.exit.duration || 0,
-        ...presentation.characters.map((character) => character.exit.duration || 0),
+        presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
+        ...presentation.characters.map((character) =>
+          character.exit.type === 'none' ? 0 : character.exit.duration || 0,
+        ),
       );
       setPresentationExiting(true);
       window.setTimeout(() => {
@@ -830,15 +853,14 @@ export function PlayTestModal({
     objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
       50 + (presentation.scene?.offsetY || 0)
     }%`,
-    opacity:
-      sceneAnimationActive && sceneMotion && sceneMotion.type !== 'none' ? 0 : 1,
+    opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
     transform: `scale(${presentation.scene?.scale || 1}) ${
       sceneAnimationActive && sceneMotion
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
         : ''
     }`,
     transitionProperty: 'opacity, transform',
-    transitionDuration: `${sceneMotion?.duration || 0}ms`,
+    transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
 
@@ -865,12 +887,13 @@ export function PlayTestModal({
             className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
             style={{
               ...getCharacterStagePosition(config),
-              zIndex: config.layer,
-              opacity: animationActive && motion.type !== 'none' ? 0 : 1,
-              transform: `translateX(-50%) scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${animationTransform}`,
-              transformOrigin: 'bottom center',
+              zIndex: clampCharacterLayer(config.layer),
+              opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+              translate: '-50% 0',
+              transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+              transformOrigin: 'center center',
               transitionProperty: 'opacity, transform',
-              transitionDuration: `${motion.duration}ms`,
+              transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,
               transitionTimingFunction: 'ease-out',
             }}
           />
@@ -1104,6 +1127,37 @@ export function PlayTestModal({
                           className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${videoAutoPlay ? 'left-6' : 'left-1'}`}
                         />
                       </button>
+                    </div>
+                    <div className="border-t border-white/10 pt-3 space-y-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        {language === 'zh' ? '标签显示' : 'Tag Display'}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">
+                          {language === 'zh' ? '隐藏人物标签' : 'Hide character tags'}
+                        </span>
+                        <button
+                          onClick={() => setHideCharacterTags(!hideCharacterTags)}
+                          className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${hideCharacterTags ? (layoutMode === 'immersive' || isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                        >
+                          <div
+                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${hideCharacterTags ? 'left-6' : 'left-1'}`}
+                          />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">
+                          {language === 'zh' ? '隐藏场景标签' : 'Hide scene tags'}
+                        </span>
+                        <button
+                          onClick={() => setHideSceneTags(!hideSceneTags)}
+                          className={`w-10 h-5 rounded-full transition-colors relative focus:outline-none ${hideSceneTags ? (layoutMode === 'immersive' || isDarkMode ? 'bg-sky-500' : 'bg-indigo-600') : 'bg-slate-600'}`}
+                        >
+                          <div
+                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${hideSceneTags ? 'left-6' : 'left-1'}`}
+                          />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

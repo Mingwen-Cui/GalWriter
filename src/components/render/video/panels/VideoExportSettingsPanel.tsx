@@ -52,6 +52,10 @@ type VideoExportSettingsPanelProps = {
   useGpuAcceleration: boolean;
   setUseGpuAcceleration: (value: boolean) => void;
   isWebGPUSupported: boolean;
+  hideCharacterTags: boolean;
+  setHideCharacterTags: (value: boolean) => void;
+  hideSceneTags: boolean;
+  setHideSceneTags: (value: boolean) => void;
 };
 
 export function VideoExportSettingsPanel({
@@ -98,6 +102,10 @@ export function VideoExportSettingsPanel({
   useGpuAcceleration,
   setUseGpuAcceleration,
   isWebGPUSupported,
+  hideCharacterTags,
+  setHideCharacterTags,
+  hideSceneTags,
+  setHideSceneTags,
 }: VideoExportSettingsPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
 
@@ -431,6 +439,36 @@ export function VideoExportSettingsPanel({
                       {t('(不支持)', '(未対応)', '(Unsupported)')}
                     </span>
                   )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                {t('标签显示', 'タグ表示', 'Tag Display')}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHideCharacterTags(!hideCharacterTags)}
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
+                    hideCharacterTags
+                      ? 'bg-[var(--vr-accent)] text-white'
+                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
+                  }`}
+                >
+                  {t('隐藏人物标签', '人物タグを非表示', 'Hide character tags')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHideSceneTags(!hideSceneTags)}
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
+                    hideSceneTags
+                      ? 'bg-[var(--vr-accent)] text-white'
+                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
+                  }`}
+                >
+                  {t('隐藏场景标签', 'シーンタグを非表示', 'Hide scene tags')}
                 </button>
               </div>
             </div>

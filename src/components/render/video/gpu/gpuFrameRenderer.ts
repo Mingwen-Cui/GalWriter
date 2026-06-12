@@ -4,13 +4,12 @@
 
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { animatedTextState } from '../canvas/textAnimation';
-import { loadCachedImage } from '../shared/mediaUtils';
-import { drawCoverImage, wrapText } from '../shared/storyNodes';
+import { drawPresentationVisuals } from '../shared/presentationRenderer';
+import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle } from '../shared/types';
 import {
   type WebGPUContext,
   initWebGPU,
-  importVideoFrameToTexture,
   importCanvasToTexture,
   renderCompositeFrame,
   destroyWebGPU,
@@ -28,6 +27,9 @@ type GPURenderFrameInput = {
   elapsed?: number;
   duration?: number;
   forceFinalText?: boolean;
+  nodes: import('@xyflow/react').Node[];
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
 };
 
 // 文字纹理缓存：key = nodeId + 文字内容 hash，避免逐帧重绘
@@ -145,27 +147,14 @@ async function createBackgroundCanvas(
   height: number,
   node: import('@xyflow/react').Node,
   media?: { source: CanvasImageSource; width: number; height: number },
+  nodes: import('@xyflow/react').Node[] = [],
+  elapsed?: number,
+  duration?: number,
 ): Promise<OffscreenCanvas> {
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
 
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(0, 0, width, height);
-
-  if (media) {
-    drawCoverImage(ctx, media.source, media.width || width, media.height || height, width, height);
-  } else {
-    const imageUrl = node.data?.imageUrl as string | undefined;
-    if (imageUrl) {
-      try {
-        const image = await loadCachedImage(imageUrl);
-        drawCoverImage(ctx, image, image.naturalWidth || width, image.naturalHeight || height, width, height);
-      } catch {
-        ctx.fillStyle = '#1f2937';
-        ctx.fillRect(0, 0, width, height);
-      }
-    }
-  }
+  await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
 
   return canvas;
 }
@@ -182,19 +171,31 @@ export async function drawGPUFrame({
   elapsed,
   duration,
   forceFinalText = false,
+  nodes,
+  hideCharacterTags,
+  hideSceneTags,
 }: GPURenderFrameInput): Promise<void> {
   const nodeId = node.id;
   const title = htmlToSpeechText(String(node.data?.title || ''));
-  const body = htmlToSpeechText(String(node.data?.text || ''));
+  const body = htmlToSpeechText(
+    filterMentionTags(
+      String(node.data?.text || ''),
+      hideCharacterTags,
+      hideSceneTags,
+    ),
+  );
 
   // 1. 准备背景纹理
-  let bgTexture: GPUTexture;
-  if (media?.source instanceof HTMLVideoElement) {
-    bgTexture = await importVideoFrameToTexture(gpu, media.source, width, height);
-  } else {
-    const bgCanvas = await createBackgroundCanvas(width, height, node, media);
-    bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
-  }
+  const bgCanvas = await createBackgroundCanvas(
+    width,
+    height,
+    node,
+    media,
+    nodes,
+    elapsed,
+    duration,
+  );
+  const bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
 
   // 2. 准备文字纹理（带缓存）
   const cacheKey = getTextCacheKey(nodeId, title, body, renderStyle);

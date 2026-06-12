@@ -36,7 +36,7 @@ export type PlaytestLayoutMode = 'classic' | 'immersive';
 export type PlaytestChoicesPosition = 'center' | 'aboveText' | 'belowText';
 export type StoryCardShape = 'square' | 'rounded-rectangle' | 'diamond';
 export type StoryCardVisualShape = StoryCardShape | 'trapezoid' | 'hexagon' | 'circle';
-export type MediaObjectFit = 'cover' | 'contain' | 'fill';
+export type MediaObjectFit = 'cover' | 'contain' | 'fill' | 'playtest';
 export type BatchReplaceScope = 'selected' | 'all' | 'group';
 export type PlotDetailLevel = 'brief' | 'standard' | 'detailed';
 export type AIActionType =
@@ -102,6 +102,8 @@ export interface PlaytestSettings {
   playTestDimBackground: boolean;
   playTestAutoAdvance: boolean;
   playTestAutoAdvanceDelay: number;
+  playTestHideCharacterTags: boolean;
+  playTestHideSceneTags: boolean;
 }
 
 export interface PlaytestSettingsSetters {
@@ -119,6 +121,8 @@ export interface PlaytestSettingsSetters {
   setPlayTestDimBackground: Dispatch<SetStateAction<boolean>>;
   setPlayTestAutoAdvance: Dispatch<SetStateAction<boolean>>;
   setPlayTestAutoAdvanceDelay: Dispatch<SetStateAction<number>>;
+  setPlayTestHideCharacterTags: Dispatch<SetStateAction<boolean>>;
+  setPlayTestHideSceneTags: Dispatch<SetStateAction<boolean>>;
 }
 
 export type PlaytestSettingsState = PlaytestSettings & PlaytestSettingsSetters;
@@ -389,6 +393,9 @@ export interface StoryNodeData extends BaseEditorNodeData {
   videoUrl?: string;
   audioUrl?: string;
   objectFit?: MediaObjectFit;
+  mediaScale?: number;
+  mediaOffsetX?: number;
+  mediaOffsetY?: number;
   showTextOverlay?: boolean;
   titleHeightAdded?: boolean;
   isRoot?: boolean;

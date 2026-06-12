@@ -1,7 +1,7 @@
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { animatedTextState } from '../canvas/textAnimation';
-import { loadCachedImage } from '../shared/mediaUtils';
-import { drawCoverImage, wrapText } from '../shared/storyNodes';
+import { drawPresentationVisuals } from '../shared/presentationRenderer';
+import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle } from '../shared/types';
 
 type DrawRenderFrameInput = {
@@ -16,6 +16,9 @@ type DrawRenderFrameInput = {
   elapsed?: number;
   duration?: number;
   forceFinalText?: boolean;
+  nodes: import('@xyflow/react').Node[];
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
 };
 
 export const drawRenderFrame = async ({
@@ -30,49 +33,19 @@ export const drawRenderFrame = async ({
   elapsed,
   duration,
   forceFinalText = false,
+  nodes,
+  hideCharacterTags,
+  hideSceneTags,
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
-  const body = htmlToSpeechText(String(node.data?.text || ''));
-  const imageUrl = !media ? (node.data?.imageUrl as string | undefined) : undefined;
-  let image: HTMLImageElement | undefined;
-  let imageFailed = false;
-
-  if (imageUrl) {
-    try {
-      image = await loadCachedImage(imageUrl);
-    } catch {
-      imageFailed = true;
-    }
-  }
-
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(0, 0, width, height);
-
-  if (media) {
-    drawCoverImage(
-      ctx,
-      media.source,
-      media.width || width,
-      media.height || height,
-      width,
-      height,
-    );
-  } else if (image) {
-    drawCoverImage(
-      ctx,
-      image,
-      image.naturalWidth || width,
-      image.naturalHeight || height,
-      width,
-      height,
-    );
-  } else if (imageFailed) {
-    ctx.fillStyle = '#1f2937';
-    ctx.fillRect(0, 0, width, height);
-  } else {
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, width, height);
-  }
+  const body = htmlToSpeechText(
+    filterMentionTags(
+      String(node.data?.text || ''),
+      hideCharacterTags,
+      hideSceneTags,
+    ),
+  );
+  await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
 
   const gradient = ctx.createLinearGradient(0, height * 0.45, 0, height);
   gradient.addColorStop(0, 'rgba(17, 24, 39, 0)');

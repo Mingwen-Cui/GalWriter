@@ -77,6 +77,7 @@ import {
   validDuration,
 } from './shared/mediaUtils';
 import {
+  filterMentionTags,
   getNodeDisplayTitle,
   getOrderedStoryNodes,
   stripHtml,
@@ -163,6 +164,8 @@ type PersistedRenderWorkspaceState = {
   timelineDisplayDuration?: number;
   timelinePreviewTime?: number;
   useGpuAcceleration?: boolean;
+  hideCharacterTags?: boolean;
+  hideSceneTags?: boolean;
   savedAt?: number;
 };
 
@@ -374,6 +377,12 @@ export function VideoRenderModal({
   });
   const [useGpuAcceleration, setUseGpuAcceleration] = useState(() =>
     Boolean(persistedWorkspace?.useGpuAcceleration),
+  );
+  const [hideCharacterTags, setHideCharacterTags] = useState(
+    () => persistedWorkspace?.hideCharacterTags ?? true,
+  );
+  const [hideSceneTags, setHideSceneTags] = useState(
+    () => persistedWorkspace?.hideSceneTags ?? true,
   );
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
@@ -1569,6 +1578,8 @@ export function VideoRenderModal({
       timelineDisplayDuration,
       timelinePreviewTime,
       useGpuAcceleration,
+      hideCharacterTags,
+      hideSceneTags,
       savedAt: Date.now(),
     };
     try {
@@ -1591,6 +1602,8 @@ export function VideoRenderModal({
     exportPanelWidth,
     exportSettingsMode,
     frameRate,
+    hideCharacterTags,
+    hideSceneTags,
     outputDir,
     renderStyle,
     resolutionIndex,
@@ -2350,6 +2363,9 @@ export function VideoRenderModal({
       renderStyle,
       animationLeadSeconds,
       isZh,
+      nodes,
+      hideCharacterTags,
+      hideSceneTags,
     });
   };
 
@@ -2578,6 +2594,9 @@ export function VideoRenderModal({
           media,
           elapsed: localTime,
           duration: nodeDuration * speed,
+          nodes,
+          hideCharacterTags,
+          hideSceneTags,
         });
 
         setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
@@ -2897,7 +2916,14 @@ export function VideoRenderModal({
 
   const segmentTitle = (node: FlowNode) =>
     String(node.data?.title || (isZh ? '未命名片段' : 'Untitled segment'));
-  const segmentText = (node: FlowNode) => stripHtml(String(node.data?.text || '')).trim();
+  const segmentText = (node: FlowNode) =>
+    stripHtml(
+      filterMentionTags(
+        String(node.data?.text || ''),
+        hideCharacterTags,
+        hideSceneTags,
+      ),
+    ).trim();
   const segmentDurationLabel = (node: FlowNode) => {
     if (node.data?.videoUrl && node.data?.audioUrl)
       return isZh ? '按音画较长时长' : 'Longest media length';
@@ -3320,6 +3346,10 @@ export function VideoRenderModal({
                 useGpuAcceleration={useGpuAcceleration}
                 setUseGpuAcceleration={setUseGpuAcceleration}
                 isWebGPUSupported={isWebGPUSupported()}
+                hideCharacterTags={hideCharacterTags}
+                setHideCharacterTags={setHideCharacterTags}
+                hideSceneTags={hideSceneTags}
+                setHideSceneTags={setHideSceneTags}
               />
             </main>
 

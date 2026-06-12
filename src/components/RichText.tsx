@@ -16,7 +16,7 @@ const escapeHtml = (text: string) =>
 
 const createMentionHtml = (kind: 'character' | 'scene', name: string) => {
   const safeName = escapeHtml(name);
-  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" contenteditable="false">@${safeName}</span>&nbsp;`;
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
 };
 
 const getMentionNearSelection = (direction: 'backward' | 'forward') => {
@@ -206,7 +206,29 @@ export const RichText = forwardRef<
     if ((kind !== 'character' && kind !== 'scene') || !name || !onMentionContextMenu) return;
     event.preventDefault();
     event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
     onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
+  };
+
+  const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const preventMentionSelection = (
+    event:
+      | React.MouseEvent<HTMLDivElement>
+      | React.DragEvent<HTMLDivElement>
+      | React.SyntheticEvent<HTMLDivElement>,
+  ) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
   };
 
   return (
@@ -217,6 +239,10 @@ export const RichText = forwardRef<
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       onDrop={handleDrop}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={preventMentionSelection}
+      onDragStart={preventMentionSelection}
+      onSelect={preventMentionSelection}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onDragOver={(e) => e.preventDefault()}

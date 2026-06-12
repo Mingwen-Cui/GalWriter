@@ -1003,6 +1003,10 @@ input[type='range']:focus {
 }
 
 .mention-chip {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: manipulation;
   display: inline-flex;
   align-items: center;
   max-width: 100%;
