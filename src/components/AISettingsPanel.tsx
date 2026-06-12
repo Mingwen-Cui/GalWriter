@@ -17,6 +17,7 @@ import {
 import React from 'react';
 
 import type {
+  CharacterImageMode,
   ImageAIProfile,
   SavedAIProfile,
   TextAIProfile,
@@ -616,6 +617,8 @@ interface AISettingsPanelProps {
   onUpdateAIProfile: (profileId: string, updates: ProfileUpdates) => void | Promise<void>;
   onSelectAIProfile: (kind: ProfileKind, profileId: string) => void | Promise<void>;
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
+  characterImageMode: CharacterImageMode;
+  setCharacterImageMode: (mode: CharacterImageMode) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -637,6 +640,8 @@ export function AISettingsPanel({
   onUpdateAIProfile,
   onSelectAIProfile,
   onDeleteAIProfile,
+  characterImageMode,
+  setCharacterImageMode,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -1813,6 +1818,91 @@ export function AISettingsPanel({
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
+              <div>
+                <h3 className="text-base font-black text-[var(--text-primary)]">
+                  {language === 'zh'
+                    ? '人物图片类型'
+                    : language === 'ja'
+                      ? 'キャラクター画像タイプ'
+                      : 'Character Image Type'}
+                </h3>
+                <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                  {language === 'zh'
+                    ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
+                    : language === 'ja'
+                      ? 'キャラクターカードの画像生成形式を選択します。'
+                      : 'Choose the format used by character card image generation.'}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[
+                  {
+                    value: 'three-view' as const,
+                    title:
+                      language === 'zh'
+                        ? '三视图'
+                        : language === 'ja'
+                          ? '三面図'
+                          : 'Three-view',
+                    description:
+                      language === 'zh'
+                        ? '在一张图中生成正面、侧面和背面设定图。'
+                        : language === 'ja'
+                          ? '正面・側面・背面を1枚に生成します。'
+                          : 'Front, side, and back views in one image.',
+                  },
+                  {
+                    value: 'transparent-sprite' as const,
+                    title:
+                      language === 'zh'
+                        ? '透明背景立绘'
+                        : language === 'ja'
+                          ? '透過背景立ち絵'
+                          : 'Transparent Sprite',
+                    description:
+                      language === 'zh'
+                        ? '生成单人全身立绘，并要求透明背景。'
+                        : language === 'ja'
+                          ? '透過背景の全身立ち絵を生成します。'
+                          : 'A single full-body character on a transparent background.',
+                  },
+                ].map((option) => {
+                  const selected = characterImageMode === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setCharacterImageMode(option.value)}
+                      className={`rounded-xl border p-4 text-left transition-all ${
+                        selected
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
+                          : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-black text-[var(--text-primary)]">
+                          {option.title}
+                        </span>
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                            selected
+                              ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                              : 'border-[var(--header-border)] text-transparent'
+                          }`}
+                        >
+                          <Check className="h-3 w-3" />
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                        {option.description}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 

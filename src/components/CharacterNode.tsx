@@ -417,6 +417,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     }
   };
 
+  const handleDownloadAvatarImage = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!avatarUrl) return;
+
+    const safeName = getSafeDownloadName(
+      `${name || (lang === 'zh' ? '人物' : lang === 'ja' ? 'キャラクター' : 'character')}-立绘`,
+    );
+    await downloadImageUrl(avatarUrl, `${safeName}.${getImageExtension(avatarUrl)}`);
+  };
+
   const handleDownloadOutfitImage = async (
     event: React.MouseEvent<HTMLButtonElement>,
     outfit: { id: string; name: string; imageUrl?: string },
@@ -496,7 +506,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           <div className="flex flex-col nodrag flex-1 min-h-min">
             {/* Avatar and Name */}
             <div className="flex items-center gap-3 p-3 border-b border-[var(--card-border)] bg-purple-50/10 dark:bg-purple-900/10 shrink-0">
-              <label className="relative cursor-pointer group/avatar shrink-0">
+              <div className="relative group/avatar shrink-0">
                 <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-purple-200 dark:border-purple-800 bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -504,16 +514,32 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                     <UserCircle2 className="w-6 h-6 text-purple-400" />
                   )}
                 </div>
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-                  <Upload className="w-4 h-4 text-white" />
+                <div className="absolute inset-0 overflow-hidden rounded-full bg-black/50 opacity-0 transition-opacity group-hover/avatar:opacity-100">
+                  <div className="flex h-full items-stretch">
+                    <label
+                      className="flex flex-1 cursor-pointer items-center justify-center border-r border-white/30 text-white transition-colors hover:bg-white/20"
+                      title={lang === 'zh' ? '上传人物图片' : 'Upload character image'}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(e)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleDownloadAvatarImage}
+                      disabled={!avatarUrl}
+                      className="flex flex-1 items-center justify-center text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-35"
+                      title={lang === 'zh' ? '下载人物图片' : 'Download character image'}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleImageUpload(e)}
-                />
-              </label>
+              </div>
 
               <div className="flex-1 min-w-0">
                 <input

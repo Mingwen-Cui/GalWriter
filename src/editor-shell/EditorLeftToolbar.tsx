@@ -80,6 +80,7 @@ interface EditorLeftToolbarProps {
   isMobile: boolean;
   language: Language;
   toolbarCollapsed: boolean;
+  showHoverButtonAnimations: boolean;
   historyPastLength: number;
   historyFutureLength: number;
   hasHiddenNodes: boolean;
@@ -112,6 +113,7 @@ export function EditorLeftToolbar({
   isMobile,
   language,
   toolbarCollapsed,
+  showHoverButtonAnimations,
   historyPastLength,
   historyFutureLength,
   hasHiddenNodes,
@@ -165,6 +167,8 @@ export function EditorLeftToolbar({
   );
 
   const showCardHoverGuide = (kind: HoverGuideKind, button: HTMLButtonElement) => {
+    if (!showHoverButtonAnimations) return;
+
     const requestId = guideRequestIdRef.current + 1;
     guideRequestIdRef.current = requestId;
     guideAnchorRef.current = button;
@@ -196,6 +200,20 @@ export function EditorLeftToolbar({
     setActiveHoverGuide(null);
     guideAnchorRef.current = null;
   };
+
+  useEffect(() => {
+    if (showHoverButtonAnimations) return;
+
+    guideRequestIdRef.current += 1;
+    if (guideDelayTimerRef.current) {
+      clearTimeout(guideDelayTimerRef.current);
+      guideDelayTimerRef.current = null;
+    }
+    setShowHoverGuide(false);
+    setShouldRenderHoverGuide(false);
+    setActiveHoverGuide(null);
+    guideAnchorRef.current = null;
+  }, [showHoverButtonAnimations]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -426,7 +444,8 @@ export function EditorLeftToolbar({
         )}
       </div>
 
-      {shouldRenderHoverGuide &&
+      {showHoverButtonAnimations &&
+        shouldRenderHoverGuide &&
         activeHoverGuide &&
         activeHoverGuideConfig &&
         typeof document !== 'undefined' &&

@@ -5,6 +5,7 @@ export type {
   AssistantTask,
   AiProvider,
   BubbleStyle,
+  CharacterImageMode,
   EdgeStyle,
   EditorTheme,
   ImportedProjectSettings,

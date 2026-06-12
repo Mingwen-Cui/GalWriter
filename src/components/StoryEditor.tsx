@@ -67,6 +67,7 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import type {
+  CharacterImageMode,
   ImageAIProfile,
   ProjectAIProfilesExport,
   SavedAIProfile,
@@ -422,6 +423,8 @@ export function StoryEditor() {
   const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
+  const [characterImageMode, setCharacterImageMode] =
+    useState<CharacterImageMode>('three-view');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
@@ -453,6 +456,7 @@ export function StoryEditor() {
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [miniMapPosition, setMiniMapPosition] = useState<'left' | 'right'>('left');
   const [showControls, setShowControls] = useState(true);
+  const [showHoverButtonAnimations, setShowHoverButtonAnimations] = useState(true);
   const [highlightedPath, setHighlightedPath] = useState<{
     nodes: Set<string>;
     edges: Set<string>;
@@ -915,6 +919,7 @@ export function StoryEditor() {
       ttsProvider,
       ttsNarrationMode,
       thinkingMode,
+      characterImageMode,
       customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
@@ -922,6 +927,7 @@ export function StoryEditor() {
       showMiniMap,
       miniMapPosition,
       showControls,
+      showHoverButtonAnimations,
       projectTitle,
       toolbarLayout,
       selectionMenuLayout,
@@ -949,6 +955,7 @@ export function StoryEditor() {
       aiProvider,
       bubbleStyle,
       canvasBg,
+      characterImageMode,
       customAiPromptsEnabled,
       edgeStyle,
       generateLength,
@@ -980,6 +987,7 @@ export function StoryEditor() {
       scrollMode,
       selectionMenuLayout,
       showControls,
+      showHoverButtonAnimations,
       showMiniMap,
       showNodeActions,
       showPresetColors,
@@ -1016,6 +1024,7 @@ export function StoryEditor() {
       setGenerateLength,
       setTtsNarrationMode,
       setImageSize,
+      setCharacterImageMode,
       setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
@@ -1023,6 +1032,7 @@ export function StoryEditor() {
       setShowMiniMap,
       setMiniMapPosition,
       setShowControls,
+      setShowHoverButtonAnimations,
       setProjectTitle,
       setToolbarLayout,
       setSelectionMenuLayout,
@@ -1462,6 +1472,7 @@ export function StoryEditor() {
     imageEnableHr,
     imageHrScale,
     imageDenoisingStrength,
+    characterImageMode,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
     setNodes,
@@ -2681,8 +2692,10 @@ export function StoryEditor() {
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
 
         setSavedAIProfiles(savedProfilesState.profiles);
+        const savedTextProfileId = savedProfilesState.activeTextProfileId;
+        const shouldUseHostedProxyByDefault = !isTauriRuntime() && !import.meta.env.DEV;
         setActiveTextProfileId(
-          isTauriRuntime() ? savedProfilesState.activeTextProfileId : HOSTED_PROXY_PROFILE_ID,
+          shouldUseHostedProxyByDefault ? HOSTED_PROXY_PROFILE_ID : savedTextProfileId,
         );
         setActiveImageProfileId(savedProfilesState.activeImageProfileId);
         setActiveVoiceProfileId(savedProfilesState.activeVoiceProfileId);
@@ -3178,6 +3191,7 @@ ${direction}
             isMobile={isMobile}
             language={language}
             toolbarCollapsed={toolbarCollapsed}
+            showHoverButtonAnimations={showHoverButtonAnimations}
             historyPastLength={history.past.length}
             historyFutureLength={history.future.length}
             hasHiddenNodes={nodes.some((node) => node.data?.hidden)}
@@ -3545,6 +3559,8 @@ ${direction}
           setMiniMapPosition={setMiniMapPosition}
           showControls={showControls}
           setShowControls={setShowControls}
+          showHoverButtonAnimations={showHoverButtonAnimations}
+          setShowHoverButtonAnimations={setShowHoverButtonAnimations}
           ttsNarrationMode={ttsNarrationMode}
           setTtsNarrationMode={setTtsNarrationMode}
           savedAIProfiles={savedAIProfiles}
@@ -3561,6 +3577,8 @@ ${direction}
           onDeleteAIProfile={handleDeleteAIProfile}
           generateLength={generateLength}
           setGenerateLength={setGenerateLength}
+          characterImageMode={characterImageMode}
+          setCharacterImageMode={setCharacterImageMode}
           customAiPromptsEnabled={customAiPromptsEnabled}
           setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}

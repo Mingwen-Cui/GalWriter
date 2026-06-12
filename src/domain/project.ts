@@ -132,6 +132,7 @@ export interface ApiKeySettings {
 }
 
 export type AIProfileKind = 'text' | 'image' | 'voice';
+export type CharacterImageMode = 'three-view' | 'transparent-sprite';
 
 export interface TextAIProfile {
   id: string;
@@ -211,6 +212,7 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsProvider: TtsProvider;
   ttsNarrationMode: TtsNarrationMode;
   thinkingMode: boolean;
+  characterImageMode: CharacterImageMode;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
   aiButtonsConfig: AIButtonsConfig;
@@ -218,6 +220,7 @@ export interface ProjectSettings extends PlaytestSettings {
   showMiniMap: boolean;
   miniMapPosition: MiniMapPosition;
   showControls: boolean;
+  showHoverButtonAnimations: boolean;
   projectTitle: string;
   toolbarLayout: ToolbarLayout;
   selectionMenuLayout: SelectionMenuLayout;
@@ -243,6 +246,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;
+  setCharacterImageMode: Dispatch<SetStateAction<CharacterImageMode>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;
@@ -250,6 +254,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowMiniMap: Dispatch<SetStateAction<boolean>>;
   setMiniMapPosition: Dispatch<SetStateAction<MiniMapPosition>>;
   setShowControls: Dispatch<SetStateAction<boolean>>;
+  setShowHoverButtonAnimations: Dispatch<SetStateAction<boolean>>;
   setProjectTitle: Dispatch<SetStateAction<string>>;
   setToolbarLayout: Dispatch<SetStateAction<ToolbarLayout>>;
   setSelectionMenuLayout: Dispatch<SetStateAction<SelectionMenuLayout>>;
@@ -258,8 +263,9 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setBubbleStyle: Dispatch<SetStateAction<BubbleStyle>>;
 }
 
-export interface ImportedProjectSettings
-  extends Partial<Omit<ProjectSettings, 'aiPrompts' | 'aiButtonsConfig'>> {
+export interface ImportedProjectSettings extends Partial<
+  Omit<ProjectSettings, 'aiPrompts' | 'aiButtonsConfig'>
+> {
   aiPrompts?: Partial<AIPromptsConfig>;
   aiButtonsConfig?: Partial<AIButtonsConfig>;
 }
@@ -457,10 +463,7 @@ export type BackgroundFlowNode = FlowNode<BackgroundNodeData, 'backgroundNode'>;
 export type GroupFlowNode = FlowNode<GroupNodeData, 'groupNode'>;
 export type TextFlowNode = FlowNode<TextNodeData, 'textNode'>;
 export type SummaryFlowNode = FlowNode<SummaryNodeData, 'summaryNode'>;
-export type NumberConditionFlowNode = FlowNode<
-  NumberConditionNodeData,
-  'numberConditionNode'
->;
+export type NumberConditionFlowNode = FlowNode<NumberConditionNodeData, 'numberConditionNode'>;
 export type BatchReplaceFlowNode = FlowNode<BatchReplaceNodeData, 'batchReplaceNode'>;
 export type PlotStructureFlowNode = FlowNode<PlotStructureNodeData, 'plotStructureNode'>;
 

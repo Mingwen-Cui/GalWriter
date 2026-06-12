@@ -107,8 +107,13 @@ export const createAIClient = (config: AIClientConfig) => {
         data = JSON.parse(rawText) as Record<string, unknown>;
       } catch {
         const preview = rawText.slice(0, 120).replace(/\n/g, ' ');
+        const returnedPhpSource = /^\s*<\?php\b/i.test(rawText);
         throw new Error(
-          `服务端代理返回了非 JSON 响应，请确认 /api/proxy.php 已正确部署且服务器支持 PHP。\n` +
+          (returnedPhpSource
+            ? `服务器把 /api/proxy.php 当作普通文件返回，说明当前服务器没有执行 PHP。` +
+              `本地开发请在“设置 → AI 配置 → 文本 AI”中选择并配置自己的模型；` +
+              `网站部署请启用 PHP 后端并确认该接口返回 JSON。\n`
+            : `服务端代理返回了非 JSON 响应，请确认 /api/proxy.php 已正确部署且服务器支持 PHP。\n`) +
           `服务器响应状态：${response.status}，内容预览：${preview}`,
         );
       }

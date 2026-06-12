@@ -341,6 +341,7 @@ export const buildImageGenerationRequest = (
   provider = '',
   stableDiffusionOptions: StableDiffusionOptions = {},
   referenceImages: string[] = [],
+  transparentBackground = false,
 ) => {
   if (isLocalStableDiffusionProvider(provider)) {
     const dimensions = parseImageDimensions(size);
@@ -427,6 +428,129 @@ export const buildImageGenerationRequest = (
       prompt,
       size: normalizedSize,
       n: 1,
+      ...(transparentBackground && /gpt-image/i.test(normalizedModel)
+        ? {
+            background: 'transparent',
+            output_format: 'png',
+          }
+        : {}),
     },
   };
+};
+
+const loadImageSource = async (imageUrl: string) => {
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error(`Failed to read generated image: HTTP ${response.status}`);
+  const blob = await response.blob();
+  return createImageBitmap(blob);
+};
+
+const colorDistance = (
+  red: number,
+  green: number,
+  blue: number,
+  background: readonly [number, number, number],
+) =>
+  Math.sqrt(
+    (red - background[0]) ** 2 +
+      (green - background[1]) ** 2 +
+      (blue - background[2]) ** 2,
+  );
+
+export const ensureTransparentImageBackground = async (imageUrl: string) => {
+  const bitmap = await loadImageSource(imageUrl);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) {
+    bitmap.close();
+    throw new Error('Canvas is unavailable.');
+  }
+
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  let hasTransparentPixel = false;
+  for (let index = 3; index < pixels.length; index += 4) {
+    if (pixels[index] < 250) {
+      hasTransparentPixel = true;
+      break;
+    }
+  }
+  if (hasTransparentPixel) return canvas.toDataURL('image/png');
+
+  const cornerOffsets = [
+    0,
+    (canvas.width - 1) * 4,
+    (canvas.height - 1) * canvas.width * 4,
+    (canvas.height * canvas.width - 1) * 4,
+  ];
+  const background = cornerOffsets
+    .map(
+      (offset) =>
+        [pixels[offset], pixels[offset + 1], pixels[offset + 2]] as const,
+    )
+    .reduce(
+      (sum, color) =>
+        [sum[0] + color[0], sum[1] + color[1], sum[2] + color[2]] as const,
+      [0, 0, 0] as const,
+    )
+    .map((value) => value / cornerOffsets.length) as [number, number, number];
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const pixelCount = width * height;
+  const visited = new Uint8Array(pixelCount);
+  const queue = new Int32Array(pixelCount);
+  let queueStart = 0;
+  let queueEnd = 0;
+  const removalThreshold = 82;
+
+  const enqueueIfBackground = (pixelIndex: number) => {
+    if (visited[pixelIndex]) return;
+    const offset = pixelIndex * 4;
+    if (
+      colorDistance(pixels[offset], pixels[offset + 1], pixels[offset + 2], background) >
+      removalThreshold
+    ) {
+      return;
+    }
+    visited[pixelIndex] = 1;
+    queue[queueEnd++] = pixelIndex;
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    enqueueIfBackground(x);
+    enqueueIfBackground((height - 1) * width + x);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueueIfBackground(y * width);
+    enqueueIfBackground(y * width + width - 1);
+  }
+
+  while (queueStart < queueEnd) {
+    const pixelIndex = queue[queueStart++];
+    const x = pixelIndex % width;
+    const y = Math.floor(pixelIndex / width);
+    const offset = pixelIndex * 4;
+    const distance = colorDistance(
+      pixels[offset],
+      pixels[offset + 1],
+      pixels[offset + 2],
+      background,
+    );
+    pixels[offset + 3] = Math.round(255 * Math.max(0, (distance - 18) / 64));
+
+    if (x > 0) enqueueIfBackground(pixelIndex - 1);
+    if (x + 1 < width) enqueueIfBackground(pixelIndex + 1);
+    if (y > 0) enqueueIfBackground(pixelIndex - width);
+    if (y + 1 < height) enqueueIfBackground(pixelIndex + width);
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
 };

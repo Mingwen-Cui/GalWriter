@@ -134,7 +134,7 @@ const processHtmlMedia = async (html: string, assetsFolder: JSZip | null, nodeId
 
     const type = blob.type.split('/')[0];
     const ext = blob.type.split('/')[1] || 'bin';
-    const fileName = `inline_${nodeId}_${type}_${index += 1}.${ext}`;
+    const fileName = `inline_${nodeId}_${type}_${(index += 1)}.${ext}`;
     assetsFolder?.file(fileName, blob);
     element.setAttribute('src', `assets/${fileName}`);
   }
@@ -204,6 +204,14 @@ const applyProjectSettings = (
     setters.setTtsNarrationMode(incomingSettings.ttsNarrationMode);
   }
   if (incomingSettings.imageSize) setters.setImageSize(incomingSettings.imageSize);
+  if (
+    incomingSettings.characterImageMode === 'three-view' ||
+    incomingSettings.characterImageMode === 'transparent-sprite'
+  ) {
+    setters.setCharacterImageMode(incomingSettings.characterImageMode);
+  } else {
+    setters.setCharacterImageMode('three-view');
+  }
   const shouldUseCustomPrompts =
     Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;
   setters.setCustomAiPromptsEnabled(shouldUseCustomPrompts);
@@ -228,6 +236,7 @@ const applyProjectSettings = (
   if (incomingSettings.showControls !== undefined) {
     setters.setShowControls(incomingSettings.showControls);
   }
+  setters.setShowHoverButtonAnimations(incomingSettings.showHoverButtonAnimations ?? true);
   if (typeof incomingSettings.projectTitle === 'string') {
     setters.setProjectTitle(incomingSettings.projectTitle);
   }
@@ -419,7 +428,9 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       edges: simpleEdges,
       settings: settingsForSnapshot,
       assistantTasks: settings.saveAssistantConversations ? assistantTasks : undefined,
-      activeAssistantTaskId: settings.saveAssistantConversations ? activeAssistantTaskId : undefined,
+      activeAssistantTaskId: settings.saveAssistantConversations
+        ? activeAssistantTaskId
+        : undefined,
     } as ProjectSnapshotData;
   };
 
@@ -567,12 +578,14 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
 
   const importProjectEntries = async (file: File): Promise<ImportedProjectEntry[]> => {
     if (file.name.endsWith('.json')) {
-      return [{
-        projectData: JSON.parse(await file.text()) as ProjectSnapshotData,
-        suggestedProjectName: file.name.replace(/\.json$/i, '').trim() || 'imported-project',
-        zip: null,
-        thumbnailDataUrl: null,
-      }];
+      return [
+        {
+          projectData: JSON.parse(await file.text()) as ProjectSnapshotData,
+          suggestedProjectName: file.name.replace(/\.json$/i, '').trim() || 'imported-project',
+          zip: null,
+          thumbnailDataUrl: null,
+        },
+      ];
     }
 
     const zip = await JSZip.loadAsync(file);
@@ -619,14 +632,16 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
 
     const thumbnailFile = zip.file('thumbnail.svg') ?? zip.file('thumbnail.png');
 
-    return [{
-      projectData: JSON.parse(await projectJsonFile.async('string')) as ProjectSnapshotData,
-      suggestedProjectName: file.name.replace(/\.(zip|json)$/i, '').trim() || 'imported-project',
-      zip,
-      thumbnailDataUrl: thumbnailFile
-        ? await blobToDataUrl(await thumbnailFile.async('blob'))
-        : null,
-    }];
+    return [
+      {
+        projectData: JSON.parse(await projectJsonFile.async('string')) as ProjectSnapshotData,
+        suggestedProjectName: file.name.replace(/\.(zip|json)$/i, '').trim() || 'imported-project',
+        zip,
+        thumbnailDataUrl: thumbnailFile
+          ? await blobToDataUrl(await thumbnailFile.async('blob'))
+          : null,
+      },
+    ];
   };
 
   const importZip = async (file: File) => {

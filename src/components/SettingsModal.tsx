@@ -19,6 +19,7 @@ import React, { useState } from 'react';
 import { AISettingsPanel } from './AISettingsPanel';
 import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/editorConfig';
 import type {
+  CharacterImageMode,
   ImageAIProfile,
   SavedAIProfile,
   StoryTitlePlacement,
@@ -32,10 +33,7 @@ import type { LocalProjectSummary } from '../lib/db';
 
 type AIProfileKind = 'text' | 'image' | 'voice';
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
-type AIProfileUpdates =
-  | Partial<TextAIProfile>
-  | Partial<ImageAIProfile>
-  | Partial<VoiceAIProfile>;
+type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 
 interface SettingsModalProps {
   showSettings: boolean;
@@ -83,6 +81,8 @@ interface SettingsModalProps {
   setMiniMapPosition: (position: 'left' | 'right') => void;
   showControls: boolean;
   setShowControls: (val: boolean) => void;
+  showHoverButtonAnimations: boolean;
+  setShowHoverButtonAnimations: (val: boolean) => void;
   ttsNarrationMode: TtsNarrationMode;
   setTtsNarrationMode: (mode: TtsNarrationMode) => void;
   savedAIProfiles: SavedAIProfile[];
@@ -102,6 +102,8 @@ interface SettingsModalProps {
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
   generateLength: string;
   setGenerateLength: (len: string) => void;
+  characterImageMode: CharacterImageMode;
+  setCharacterImageMode: (mode: CharacterImageMode) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -173,6 +175,8 @@ const settingsText = {
     copied: '已复制！',
     clickToCopy: '点击复制',
     toolbarBubbleStyle: '工具栏气泡质感',
+    hoverButtonAnimations: '悬浮按钮动画',
+    hoverButtonAnimationsDesc: '开启后，鼠标悬浮在部分工具按钮上会播放 Lottie 引导动画。',
     glassReadability: '玻璃可读性',
     opaqueAssistantMessagesInGlass: 'AI 助手对话不透明',
     opaqueFooterInGlass: '底部状态栏不透明',
@@ -276,6 +280,8 @@ const settingsText = {
     copied: 'Copied!',
     clickToCopy: 'Click to Copy',
     toolbarBubbleStyle: 'Toolbar Bubble Style',
+    hoverButtonAnimations: 'Hover Button Animations',
+    hoverButtonAnimationsDesc: 'Play Lottie guides when hovering over supported toolbar buttons.',
     glassReadability: 'Glass Readability',
     opaqueAssistantMessagesInGlass: 'Opaque AI assistant messages',
     opaqueFooterInGlass: 'Opaque bottom footer',
@@ -381,12 +387,16 @@ const settingsText = {
     copied: 'コピーしました！',
     clickToCopy: 'クリックしてコピー',
     toolbarBubbleStyle: 'ツールバーのバブルスタイル',
+    hoverButtonAnimations: 'ホバーボタンのアニメーション',
+    hoverButtonAnimationsDesc:
+      '対応するツールボタンにマウスを合わせると、Lottie ガイドを再生します。',
     glassReadability: 'ガラス表示の可読性',
     opaqueAssistantMessagesInGlass: 'AIアシスタント会話を不透明にする',
     opaqueFooterInGlass: '下部フッターを不透明にする',
     glass: 'ガラス',
     flat: 'フラット',
-    bgColorsDesc: '色をクリックするとカスタマイズできます。これらの色はキャンバス右側のクイック切り替えバーに表示されます。',
+    bgColorsDesc:
+      '色をクリックするとカスタマイズできます。これらの色はキャンバス右側のクイック切り替えバーに表示されます。',
     storyTitlePosition: '通常カードのタイトル位置',
     titleInside: 'カード内部',
     titleOutsideLeft: 'カードの左上（外部）',
@@ -430,17 +440,21 @@ const settingsText = {
     visitAuthorWebsite: '開発者のウェブサイトを訪問',
     helpUsageNotice: 'ヘルプと利用規約',
     aboutProductTitle: 'インタラクティブAI小説執筆ツール',
-    aboutProductDesc: '次世代のAIインタラクティブ小説創作インフラの構築を目指し、想像力のすべての種が花を咲かせるよう支援します。',
+    aboutProductDesc:
+      '次世代のAIインタラクティブ小説創作インフラの構築を目指し、想像力のすべての種が花を咲かせるよう支援します。',
     desktopCloseButton: 'デスクトップ閉じるボタンの挙動',
     minimizeToTray: 'タスクトレイに最小化',
     quitApp: 'アプリを終了',
-    desktopCloseDesc: 'この設定はTauriデスクトップアプリにのみ適用されます。ブラウザでのプレビュー動作には影響しません。',
+    desktopCloseDesc:
+      'この設定はTauriデスクトップアプリにのみ適用されます。ブラウザでのプレビュー動作には影響しません。',
     forceQuitTitle: 'アプリを強制終了',
     forceCloseApp: 'GalWriter AIを強制終了',
-    forceCloseDesc: 'ウィンドウの閉じるボタンが最小化として動作する場合に、このボタンで直接アプリを終了できます。',
+    forceCloseDesc:
+      'ウィンドウの閉じるボタンが最小化として動作する場合に、このボタンで直接アプリを終了できます。',
     backToAbout: 'バージョン情報に戻る',
     responsibleUseTitle: 'GalWriter AIの適切な利用について',
-    responsibleUseDesc: '本ツールは個人の創作活動、学習、およびプロトタイピングの支援を目的としています。現地の法律、プラットフォーム利用規約、および基本的な創作倫理を遵守してご利用ください。',
+    responsibleUseDesc:
+      '本ツールは個人の創作活動、学習、およびプロトタイピングの支援を目的としています。現地の法律、プラットフォーム利用規約、および基本的な創作倫理を遵守してご利用ください。',
     responsibleUseRule1:
       '本ソフトウェア本体、インストーラー、または無断で改変した版を販売、転売、有料製品として再包装しないでください。',
     responsibleUseRule2:
@@ -514,6 +528,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setMiniMapPosition,
   showControls,
   setShowControls,
+  showHoverButtonAnimations,
+  setShowHoverButtonAnimations,
   ttsNarrationMode,
   setTtsNarrationMode,
   savedAIProfiles,
@@ -530,6 +546,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDeleteAIProfile,
   generateLength,
   setGenerateLength,
+  characterImageMode,
+  setCharacterImageMode,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -669,9 +687,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               title={s.applyCurrentSettingsTitle}
             >
               <ArrowRight className="w-3.5 h-3.5" />
-              <span>
-                {isApplyingSettings ? s.applying : s.applyToOtherProjects}
-              </span>
+              <span>{isApplyingSettings ? s.applying : s.applyToOtherProjects}</span>
             </button>
             <button
               type="button"
@@ -715,7 +731,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] scale-[1.02] border border-[var(--card-border)]'
                         : tab.id === 'ai' && settingsAttentionTarget
                           ? 'text-rose-600 bg-rose-500/10 ring-2 ring-rose-400/30'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)]/50'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)]/50'
                     }`}
                   >
                     <span
@@ -804,9 +820,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </section>
 
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                      {s.rightToolbar}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.rightToolbar}</h3>
                     <div className={segmentedControlClass}>
                       <button
                         onClick={() => setToolbarLayout('vertical')}
@@ -888,9 +902,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
 
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                      {s.selectionMenu}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.selectionMenu}</h3>
                     <div className={segmentedControlClass}>
                       <button
                         onClick={() => setSelectionMenuLayout('horizontal')}
@@ -1012,9 +1024,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div
                           className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${showPresetColors ? 'left-6' : 'left-1'}`}
                         />
-                        {showPresetColors
-                          ? s.shownInToolbar
-                          : s.hiddenInToolbar}
+                        {showPresetColors ? s.shownInToolbar : s.hiddenInToolbar}
                       </button>
                     </header>
                     <p className="text-xs text-[var(--text-muted)] font-medium px-4">
@@ -1052,6 +1062,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </section>
+
+                  <div className="border-t border-[var(--header-border)]" />
+
+                  <section className={settingsRowClass}>
+                    <div className="min-w-0 flex-1">
+                      <h3 className={settingsRowTitleClass}>{s.hoverButtonAnimations}</h3>
+                      <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                        {s.hoverButtonAnimationsDesc}
+                      </p>
+                    </div>
+                    <div className={segmentedControlClass}>
+                      <button
+                        onClick={() => setShowHoverButtonAnimations(true)}
+                        className={compactSegmentButtonClass(showHoverButtonAnimations)}
+                      >
+                        {s.on}
+                      </button>
+                      <button
+                        onClick={() => setShowHoverButtonAnimations(false)}
+                        className={compactSegmentButtonClass(!showHoverButtonAnimations)}
+                      >
+                        {s.off}
+                      </button>
                     </div>
                   </section>
                 </div>
@@ -1145,21 +1180,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {[
                         {
                           id: 'body',
-                          label:
-                            language === 'zh'
-                              ? '正文'
-                              : language === 'ja'
-                                ? '本文'
-                                : 'Body',
+                          label: language === 'zh' ? '正文' : language === 'ja' ? '本文' : 'Body',
                         },
                         {
                           id: 'title',
                           label:
-                            language === 'zh'
-                              ? '标题'
-                              : language === 'ja'
-                                ? 'タイトル'
-                                : 'Title',
+                            language === 'zh' ? '标题' : language === 'ja' ? 'タイトル' : 'Title',
                         },
                         {
                           id: 'all',
@@ -1278,9 +1304,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Playtest Theme */}
                     {playTestLayoutMode === 'classic' && (
                       <div className={settingsRowClass}>
-                        <h3 className={settingsRowTitleClass}>
-                          {s.playtestTheme}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.playtestTheme}</h3>
                         <div className={segmentedControlClass}>
                           <button
                             onClick={() => setPlayTestDarkMode(false)}
@@ -1301,9 +1325,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {/* Playtest Choices Position */}
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                      {s.choicePosition}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.choicePosition}</h3>
                     <div className={segmentedControlClass}>
                       {[
                         { id: 'center', label: s.choiceCenter },
@@ -1348,9 +1370,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Playtest Blur Options */}
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>
-                        {s.blurChoiceBackground}
-                      </h3>
+                      <h3 className={settingsRowTitleClass}>{s.blurChoiceBackground}</h3>
                       <div className={segmentedControlClass}>
                         {[
                           {
@@ -1385,9 +1405,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }`}
                     >
                       <div className={settingsRowClass}>
-                        <h3 className={settingsRowTitleClass}>
-                          {s.blurStoryTextToo}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.blurStoryTextToo}</h3>
                         <div className={segmentedControlClass}>
                           {[
                             {
@@ -1419,9 +1437,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <section
                       className={`animate-in fade-in slide-in-from-top-1 duration-200 ${settingsRowClass}`}
                     >
-                      <h3 className={settingsRowTitleClass}>
-                        {s.hideCenterPopupSingleChoice}
-                      </h3>
+                      <h3 className={settingsRowTitleClass}>{s.hideCenterPopupSingleChoice}</h3>
                       <div className={segmentedControlClass}>
                         {[
                           {
@@ -1461,9 +1477,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                     {/* Interaction Mode Selection */}
                     <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>
-                        {s.storyTextDisplayMode}
-                      </h3>
+                      <h3 className={settingsRowTitleClass}>{s.storyTextDisplayMode}</h3>
                       <select
                         value={playTestInteractionMode}
                         onChange={(e) => setPlayTestInteractionMode(e.target.value)}
@@ -1509,9 +1523,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
-                        <h3 className={settingsRowTitleClass}>
-                          {s.typewriterSpeed}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.typewriterSpeed}</h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
                             type="range"
@@ -1533,9 +1545,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
-                        <h3 className={settingsRowTitleClass}>
-                          {s.choicesDelay}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.choicesDelay}</h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
                             type="range"
@@ -1565,9 +1575,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </header>
 
                     <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>
-                        {s.continueAfterAnimation}
-                      </h3>
+                      <h3 className={settingsRowTitleClass}>{s.continueAfterAnimation}</h3>
                       <div className="flex-1 flex items-center justify-between">
                         <span className="text-xs text-[var(--text-muted)] font-medium">
                           {s.autoAdvanceDesc}
@@ -1587,9 +1595,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div
                         className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
                       >
-                        <h3 className={settingsRowTitleClass}>
-                          {s.waitTime}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.waitTime}</h3>
                         <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
                           <input
                             type="range"
@@ -1612,9 +1618,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {/* Playtest Video Autoplay */}
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                        {s.multimediaSettings}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.multimediaSettings}</h3>
                     <div className="flex-1 flex items-center justify-between">
                       <span className="text-xs text-[var(--text-muted)] font-medium">
                         {t.videoAutoPlay}
@@ -1646,6 +1650,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onUpdateAIProfile={onUpdateAIProfile}
                   onSelectAIProfile={onSelectAIProfile}
                   onDeleteAIProfile={onDeleteAIProfile}
+                  characterImageMode={characterImageMode}
+                  setCharacterImageMode={setCharacterImageMode}
                   customAiPromptsEnabled={customAiPromptsEnabled}
                   setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
                   aiPrompts={aiPrompts}
@@ -1709,7 +1715,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ) : (
                               <Copy className="w-4 h-4" />
                             )}
-                              <span>{item.copied ? s.copied : s.clickToCopy}</span>
+                            <span>{item.copied ? s.copied : s.clickToCopy}</span>
                           </div>
                         </div>
                       ))}
@@ -1797,9 +1803,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           title={s.forceQuitTitle}
                         >
                           <X className="w-4 h-4" />
-                          <span>
-                            {s.forceCloseApp}
-                          </span>
+                          <span>{s.forceCloseApp}</span>
                         </button>
                         <p className="mt-3 text-center text-[10px] leading-relaxed font-bold text-rose-500/80">
                           {s.forceCloseDesc}
@@ -1944,8 +1948,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             {project.projectName || s.untitledProject}
                           </div>
                           <div className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                            {s.updated}{' '}
-                            {formatProjectUpdatedAt(project.updatedAt, language)}
+                            {s.updated} {formatProjectUpdatedAt(project.updatedAt, language)}
                           </div>
                         </div>
                       </button>
