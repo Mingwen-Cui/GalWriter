@@ -20,8 +20,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { useAIActions } from '../editor-features/ai/useAIActions';
 import {
-  type AssistantCardPlacementResult,
   type AssistantCardDraft,
+  type AssistantCardPlacementMode,
+  type AssistantCardPlacementOptions,
+  type AssistantCardPlacementResult,
   useAssistantPanel,
 } from '../editor-features/assistant/useAssistantPanel';
 import { useCanvasDnD } from '../editor-features/canvas/useCanvasDnD';
@@ -1357,6 +1359,7 @@ export function StoryEditor() {
     handlePaste,
     deleteSelected,
     hideSelected,
+    arrangeSelected,
     handleGenerateSelectedSpeech,
     unhideAllNodes,
   } = useSelectionActions({
@@ -1881,7 +1884,8 @@ export function StoryEditor() {
   const createAssistantCards = useCallback(
     (
       cards: AssistantCardDraft[],
-      mode: 'append' | 'fill-selected' = 'append',
+      mode: AssistantCardPlacementMode = 'append',
+      options?: AssistantCardPlacementOptions,
     ): AssistantCardPlacementResult => {
       const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
       const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
@@ -2039,25 +2043,113 @@ export function StoryEditor() {
       if (remainingCards.length === 0) return { count: filledCount };
 
       const selectedStories = nodes.filter((n) => n.selected && n.type === 'storyNode');
+      const selectedCanvasTarget = nodes.find(
+        (node) =>
+          node.selected &&
+          (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
+      );
       const center = getCenterPosition();
-      const sourceNode = selectedStories[0] || null;
+      const targetNode =
+        mode === 'bridge-to-target' && options?.targetNodeId
+          ? nodes.find((node) => node.id === options.targetNodeId) || null
+          : null;
+      const terminalStories = nodes.filter(
+        (node) =>
+          node.type === 'storyNode' &&
+          node.id !== targetNode?.id &&
+          node.data?.assistantFutureGoal !== true &&
+          !edges.some(
+            (edge) =>
+              edge.source === node.id &&
+              nodes.some(
+                (candidate) => candidate.id === edge.target && candidate.type === 'storyNode',
+              ),
+          ),
+      );
+      const sourceNode =
+        (mode === 'adjacent-revision' ? selectedCanvasTarget : null) ||
+        selectedStories.find((node) => node.id !== targetNode?.id) ||
+        terminalStories[terminalStories.length - 1] ||
+        null;
       const cardLayouts = remainingCards.map((card) => ({
         width: card.type === 'story' ? 300 : 280,
         height: card.type === 'story' ? 200 : 420,
-        gapAfter: card.type === 'story' ? 80 : 0,
       }));
-      const totalHeight = cardLayouts.reduce(
-        (height, layout, index) =>
-          height + layout.height + (index < cardLayouts.length - 1 ? layout.gapAfter : 0),
-        0,
-      );
-      let currentY = center.y - totalHeight / 2;
+      const characterIndexes = remainingCards
+        .map((card, index) => (card.type === 'character' ? index : -1))
+        .filter((index) => index >= 0);
+      const sceneIndexes = remainingCards
+        .map((card, index) => (card.type === 'scene' ? index : -1))
+        .filter((index) => index >= 0);
+      const storyIndexes = remainingCards
+        .map((card, index) => (card.type === 'story' ? index : -1))
+        .filter((index) => index >= 0);
+      const settingRowCount =
+        (characterIndexes.length > 0 ? 1 : 0) + (sceneIndexes.length > 0 ? 1 : 0);
+      const storyColumnHeight =
+        storyIndexes.length > 0 ? storyIndexes.length * 200 + (storyIndexes.length - 1) * 80 : 0;
+      const totalLayoutHeight =
+        settingRowCount * 420 +
+        Math.max(0, settingRowCount - 1) * 100 +
+        (settingRowCount > 0 && storyColumnHeight > 0 ? 140 : 0) +
+        storyColumnHeight;
+      const layoutTop = center.y - totalLayoutHeight / 2;
+      const characterRowY = layoutTop;
+      const sceneRowY =
+        layoutTop + (characterIndexes.length > 0 && sceneIndexes.length > 0 ? 520 : 0);
+      const storyColumnY =
+        layoutTop +
+        (settingRowCount > 0
+          ? settingRowCount * 420 + Math.max(0, settingRowCount - 1) * 100 + 140
+          : 0);
+      const getHorizontalRowPosition = (rowIndexes: number[], cardIndex: number, y: number) => {
+        const rowIndex = rowIndexes.indexOf(cardIndex);
+        const gap = 60;
+        const cardWidth = 280;
+        const rowWidth = rowIndexes.length * cardWidth + Math.max(0, rowIndexes.length - 1) * gap;
+        return {
+          x: center.x - rowWidth / 2 + rowIndex * (cardWidth + gap),
+          y,
+        };
+      };
 
       const newNodes: Node[] = remainingCards.map((card, index) => {
         const id = uuidv4();
         const layout = cardLayouts[index];
-        const position = { x: center.x - layout.width / 2, y: currentY };
-        currentY += layout.height + layout.gapAfter;
+        let position =
+          card.type === 'character'
+            ? getHorizontalRowPosition(characterIndexes, index, characterRowY)
+            : card.type === 'scene'
+              ? getHorizontalRowPosition(sceneIndexes, index, sceneRowY)
+              : {
+                  x: center.x - layout.width / 2,
+                  y: storyColumnY + storyIndexes.indexOf(index) * 280,
+                };
+        if (mode === 'adjacent-revision' && sourceNode) {
+          position = {
+            x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
+            y: sourceNode.position.y + index * (layout.height + 60),
+          };
+        } else if (mode === 'future-targets') {
+          const anchorX = sourceNode
+            ? sourceNode.position.x - Math.max(0, remainingCards.length - 1) * 190
+            : center.x - Math.max(0, remainingCards.length - 1) * 190;
+          const anchorY = sourceNode
+            ? sourceNode.position.y + (sourceNode.measured?.height || 200) + 300
+            : center.y;
+          position = { x: anchorX + index * 380, y: anchorY };
+        } else if (mode === 'bridge-to-target' && sourceNode && targetNode) {
+          const bridgeIndex =
+            card.type === 'story' ? Math.max(0, storyIndexes.indexOf(index)) : index;
+          position = {
+            x: sourceNode.position.x,
+            y:
+              sourceNode.position.y +
+              (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
+              100 +
+              bridgeIndex * 280,
+          };
+        }
         if (card.type === 'character') {
           return {
             id,
@@ -2120,13 +2212,19 @@ export function StoryEditor() {
             text: card.text,
             shape: 'square',
             color: '#ffffff',
+            assistantFutureGoal: mode === 'future-targets',
           } satisfies StoryNodeData,
         };
       });
 
       const storyNodesToLink = newNodes.filter((node) => node.type === 'storyNode');
       const newEdges: Edge[] = [];
-      if (sourceNode && storyNodesToLink[0]) {
+      if (
+        sourceNode &&
+        storyNodesToLink[0] &&
+        mode !== 'future-targets' &&
+        mode !== 'adjacent-revision'
+      ) {
         newEdges.push({
           id: `e-${sourceNode.id}-${storyNodesToLink[0].id}`,
           source: sourceNode.id,
@@ -2136,7 +2234,13 @@ export function StoryEditor() {
           type: 'customEdge',
         });
       }
-      for (let i = 0; i < storyNodesToLink.length - 1; i += 1) {
+      for (
+        let i = 0;
+        mode !== 'future-targets' &&
+        mode !== 'adjacent-revision' &&
+        i < storyNodesToLink.length - 1;
+        i += 1
+      ) {
         newEdges.push({
           id: `e-${storyNodesToLink[i].id}-${storyNodesToLink[i + 1].id}`,
           source: storyNodesToLink[i].id,
@@ -2146,15 +2250,48 @@ export function StoryEditor() {
           type: 'customEdge',
         });
       }
+      if (mode === 'bridge-to-target' && targetNode && storyNodesToLink.length > 0) {
+        const lastBridgeNode = storyNodesToLink[storyNodesToLink.length - 1];
+        newEdges.push({
+          id: `e-${lastBridgeNode.id}-${targetNode.id}`,
+          source: lastBridgeNode.id,
+          sourceHandle: 'bottom',
+          target: targetNode.id,
+          targetHandle: 'top',
+          type: 'customEdge',
+        });
+      }
 
-      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
+      const bridgeTargetPosition =
+        mode === 'bridge-to-target' && sourceNode && targetNode
+          ? {
+              x: sourceNode.position.x,
+              y:
+                sourceNode.position.y +
+                (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
+                100 +
+                storyNodesToLink.length * 280,
+            }
+          : null;
+      setNodes((nds) => [
+        ...nds.map((node) => ({
+          ...node,
+          selected: false,
+          position:
+            bridgeTargetPosition && node.id === targetNode?.id
+              ? bridgeTargetPosition
+              : node.position,
+        })),
+        ...newNodes,
+      ]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
       return {
         count: filledCount + remainingCards.length,
         position: { x: center.x, y: center.y, zoom: tzoom },
+        nodeIds: newNodes.map((node) => node.id),
       };
     },
-    [nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
+    [edges, nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
   );
 
   const handleAssistantMessagePositionClick = useCallback(
@@ -2191,6 +2328,8 @@ export function StoryEditor() {
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleAssistantOptionSelect,
+    handleStartAssistantFlow,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
@@ -3499,6 +3638,7 @@ ${direction}
               ttsLoading={ttsLoading}
               onWrapDynamicGroup={wrapWithDynamicGroup}
               onWrapBackground={wrapSelectedWithBackground}
+              onArrange={arrangeSelected}
               onBatchExport={connectSelectedToSummaryNode}
               onNarrate={handleGenerateSelectedSpeech}
               onDelete={deleteSelected}
@@ -3529,6 +3669,8 @@ ${direction}
           handleRenameAssistantTask={handleRenameAssistantTask}
           handleCloseAssistantTask={handleRequestCloseAssistantTask}
           handleAssistantSend={handleAssistantSend}
+          handleAssistantOptionSelect={handleAssistantOptionSelect}
+          handleStartAssistantFlow={handleStartAssistantFlow}
           handleAssistantDocumentUpload={handleAssistantDocumentUpload}
           handleRemoveAssistantDocument={handleRemoveAssistantDocument}
           handleAssistantVoiceInput={handleAssistantVoiceInput}

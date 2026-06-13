@@ -54,6 +54,8 @@ interface AssistantPanelProps {
   handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleAssistantOptionSelect: (value: string) => Promise<void>;
+  handleStartAssistantFlow: (flow: 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
@@ -91,6 +93,8 @@ export function AssistantPanel({
   handleRenameAssistantTask,
   handleCloseAssistantTask,
   handleAssistantSend,
+  handleAssistantOptionSelect,
+  handleStartAssistantFlow,
   handleAssistantDocumentUpload,
   handleRemoveAssistantDocument,
   handleAssistantVoiceInput,
@@ -483,6 +487,28 @@ export function AssistantPanel({
                 }`}
               >
                 {message.content}
+                {message.role === 'assistant' && message.options && message.options.length > 0 && (
+                  <div className="mt-3 grid gap-2">
+                    {message.options.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => void handleAssistantOptionSelect(option.value)}
+                        disabled={assistantLoading}
+                        className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60"
+                      >
+                        <span className="block text-xs font-black text-indigo-700 dark:text-indigo-200">
+                          {option.label}
+                        </span>
+                        {option.description && (
+                          <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                            {option.description}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {message.role === 'assistant' && message.cardPosition && (
                   <button
                     type="button"
@@ -799,13 +825,7 @@ export function AssistantPanel({
               type="button"
               onClick={() => {
                 setSuggestMenuOpen(false);
-                void handleAssistantSend(
-                  language === 'zh'
-                    ? '根据选中的卡片，给我合理性建议，不要生成卡片。回复格式：按【是否合理】【问题点】【调整方案】整理，重点检查动机、因果、信息量和角色行为。'
-                    : language === 'ja'
-                      ? '選択したカードに基づいて、カードを生成せずに妥当性のアドバイスをください。返答形式は【妥当かどうか】【問題点】【調整案】に沿って整理し、動機、因果関係、情報量、およびキャラクターの行動を重点的にチェックしてください。'
-                      : 'Based on the selected cards, give me suggestions on consistency/logic, do not generate cards. Reply format: organize by [Reasonable or not] [Issue points] [Adjustment plan], focusing on motivation, causality, information density, and character behavior.',
-                );
+                void handleStartAssistantFlow('starter');
               }}
               disabled={assistantLoading}
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
@@ -813,23 +833,17 @@ export function AssistantPanel({
               <SearchCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {language === 'zh'
-                  ? '合理性建议'
+                  ? '起手式'
                   : language === 'ja'
-                    ? '妥当性のアドバイス'
-                    : 'Logic Suggestions'}
+                    ? 'スタートガイド'
+                    : 'Story Starter'}
               </span>
             </button>
             <button
               type="button"
               onClick={() => {
                 setSuggestMenuOpen(false);
-                void handleAssistantSend(
-                  language === 'zh'
-                    ? '根据选中的卡片，给我修改建议，不要生成卡片。回复格式：按【可修改处】【为什么改】【改法示例】整理，优先给出能直接落笔的修改方向。'
-                    : language === 'ja'
-                      ? '選択したカードに基づいて、カードを生成せずに修正のアドバイスをください。返答形式は【修正可能な箇所】【なぜ修正するか】【修正例】に沿って整理し、直接執筆に活かせる修正方向を優先してください。'
-                      : 'Based on the selected cards, give me revision suggestions, do not generate cards. Reply format: organize by [Revisable points] [Why revise] [Revision examples], prioritizing actionable writing directions.',
-                );
+                void handleStartAssistantFlow('revision');
               }}
               disabled={assistantLoading}
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
@@ -837,23 +851,17 @@ export function AssistantPanel({
               <PencilLine className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {language === 'zh'
-                  ? '修改建议'
+                  ? '修改意见'
                   : language === 'ja'
-                    ? '修正のアドバイス'
-                    : 'Revision Suggestions'}
+                    ? '修正意見'
+                    : 'Revision Request'}
               </span>
             </button>
             <button
               type="button"
               onClick={() => {
                 setSuggestMenuOpen(false);
-                void handleAssistantSend(
-                  language === 'zh'
-                    ? '根据选中的卡片，给我三个后续写作建议，不要生成卡片。回复格式：每条建议都包含【方向】【冲突】【下一步】三项，语言简洁具体。'
-                    : language === 'ja'
-                      ? '選択したカードに基づいて、カードを生成せずにその後の執筆アドバイスを3つください。返答形式は、各大項目ごとに【方向】【葛藤・衝突】【次のステップ】の3つを含め、簡潔かつ具体的に記述してください。'
-                      : 'Based on the selected cards, give me three subsequent writing suggestions, do not generate cards. Reply format: each suggestion should include [Direction] [Conflict] [Next step], with concise and specific language.',
-                );
+                void handleStartAssistantFlow('future');
               }}
               disabled={assistantLoading}
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
@@ -861,10 +869,10 @@ export function AssistantPanel({
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {language === 'zh'
-                  ? '后续写作建议'
+                  ? '未来写作建议'
                   : language === 'ja'
-                    ? 'その後の執筆アドバイス'
-                    : 'Writing Suggestions'}
+                    ? '将来の執筆提案'
+                    : 'Future Writing Plan'}
               </span>
             </button>
           </div>,

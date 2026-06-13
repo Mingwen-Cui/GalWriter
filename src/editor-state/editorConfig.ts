@@ -2,6 +2,7 @@ export type {
   AIButtonsConfig,
   AIPromptsConfig,
   AssistantMessage,
+  AssistantMessageOption,
   AssistantTask,
   AiProvider,
   BubbleStyle,

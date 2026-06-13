@@ -227,6 +227,244 @@ export const useSelectionActions = ({
     );
   }, [language, nodes, setNodes, showToast]);
 
+  const arrangeSelected = useCallback(() => {
+    const selectedNodes = nodes.filter((node) => node.selected);
+    if (selectedNodes.length < 2) return;
+
+    const readDimension = (value: unknown, fallback: number) => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return fallback;
+    };
+    const getNodeSize = (node: Node, fallbackWidth: number, fallbackHeight: number) => ({
+      width: node.measured?.width ?? node.width ?? readDimension(node.style?.width, fallbackWidth),
+      height:
+        node.measured?.height ?? node.height ?? readDimension(node.style?.height, fallbackHeight),
+    });
+    const backgrounds = nodes.filter((node) => node.type === 'backgroundNode');
+    const backgroundRects = backgrounds.map((node) => {
+      const size = getNodeSize(node, 600, 400);
+      return {
+        x: node.position.x,
+        y: node.position.y,
+        width: size.width,
+        height: size.height,
+      };
+    });
+    const isProtectedByBackground = (node: Node) => {
+      if (node.type === 'backgroundNode') return true;
+      const fallbackWidth = node.type === 'characterNode' || node.type === 'sceneNode' ? 280 : 300;
+      const fallbackHeight = node.type === 'characterNode' || node.type === 'sceneNode' ? 420 : 200;
+      const size = getNodeSize(node, fallbackWidth, fallbackHeight);
+      const center = {
+        x: node.position.x + size.width / 2,
+        y: node.position.y + size.height / 2,
+      };
+      return backgroundRects.some(
+        (rect) =>
+          center.x >= rect.x &&
+          center.x <= rect.x + rect.width &&
+          center.y >= rect.y &&
+          center.y <= rect.y + rect.height,
+      );
+    };
+    const movableNodes = selectedNodes.filter((node) => !isProtectedByBackground(node));
+    if (movableNodes.length < 2) {
+      showToast(
+        language === 'zh'
+          ? '背景卡片内部的卡片会保持原位，没有足够的外部卡片可整理'
+          : language === 'ja'
+            ? '背景カード内のカードは固定されます。整列できる外部カードが不足しています'
+            : 'Cards inside background regions stay fixed; not enough outside cards to arrange',
+      );
+      return;
+    }
+
+    const ordered = [...movableNodes].sort(
+      (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
+    );
+    const characters = ordered.filter((node) => node.type === 'characterNode');
+    const scenes = ordered.filter((node) => node.type === 'sceneNode');
+    const stories = ordered.filter((node) => node.type === 'storyNode');
+    const others = ordered.filter(
+      (node) =>
+        node.type !== 'characterNode' && node.type !== 'sceneNode' && node.type !== 'storyNode',
+    );
+
+    const minX = Math.min(...movableNodes.map((node) => node.position.x));
+    const minY = Math.min(...movableNodes.map((node) => node.position.y));
+    const maxX = Math.max(
+      ...movableNodes.map(
+        (node) =>
+          node.position.x +
+          getNodeSize(
+            node,
+            node.type === 'characterNode' || node.type === 'sceneNode' ? 280 : 300,
+            node.type === 'characterNode' || node.type === 'sceneNode' ? 420 : 200,
+          ).width,
+      ),
+    );
+    const selectionCenterX = minX + (maxX - minX) / 2;
+    const positions = new Map<string, { x: number; y: number }>();
+    const horizontalGap = 60;
+    const verticalGap = 100;
+    let currentY = minY;
+
+    const placeHorizontalRow = (row: Node[], defaultWidth: number, defaultHeight: number) => {
+      if (row.length === 0) return;
+      const widths = row.map(
+        (node) => node.measured?.width || (node.style?.width as number) || defaultWidth,
+      );
+      const rowWidth =
+        widths.reduce((sum, width) => sum + width, 0) + Math.max(0, row.length - 1) * horizontalGap;
+      let currentX = selectionCenterX - rowWidth / 2;
+      let rowHeight = defaultHeight;
+
+      row.forEach((node, index) => {
+        positions.set(node.id, { x: currentX, y: currentY });
+        currentX += widths[index] + horizontalGap;
+        rowHeight = Math.max(
+          rowHeight,
+          node.measured?.height || (node.style?.height as number) || defaultHeight,
+        );
+      });
+      currentY += rowHeight + verticalGap;
+    };
+
+    placeHorizontalRow(characters, 280, 420);
+    placeHorizontalRow(scenes, 280, 420);
+
+    if (stories.length > 0) {
+      const storyIds = new Set(stories.map((node) => node.id));
+      const storyById = new Map(stories.map((node) => [node.id, node]));
+      const outgoing = new Map<string, string[]>();
+      const incomingCount = new Map(stories.map((node) => [node.id, 0]));
+
+      edges.forEach((edge) => {
+        if (!storyIds.has(edge.source) || !storyIds.has(edge.target)) return;
+        const targets = outgoing.get(edge.source) || [];
+        targets.push(edge.target);
+        outgoing.set(edge.source, targets);
+        incomingCount.set(edge.target, (incomingCount.get(edge.target) || 0) + 1);
+      });
+      outgoing.forEach((targets) =>
+        targets.sort(
+          (a, b) => (storyById.get(a)?.position.x || 0) - (storyById.get(b)?.position.x || 0),
+        ),
+      );
+
+      const roots = stories
+        .filter((node) => (incomingCount.get(node.id) || 0) === 0)
+        .sort((a, b) => a.position.x - b.position.x);
+      if (roots.length === 0) roots.push(stories[0]);
+
+      const depthById = new Map<string, number>();
+      const depthQueue = roots.map((node) => ({ id: node.id, depth: 0 }));
+      const depthVisits = new Map<string, number>();
+      while (depthQueue.length > 0) {
+        const current = depthQueue.shift()!;
+        const visits = (depthVisits.get(current.id) || 0) + 1;
+        depthVisits.set(current.id, visits);
+        if (visits > stories.length) continue;
+        depthById.set(current.id, Math.max(depthById.get(current.id) || 0, current.depth));
+        (outgoing.get(current.id) || []).forEach((targetId) => {
+          depthQueue.push({ id: targetId, depth: current.depth + 1 });
+        });
+      }
+
+      let nextColumn = 0;
+      const columnById = new Map<string, number>();
+      const assigning = new Set<string>();
+      const assignColumn = (nodeId: string): number => {
+        const existing = columnById.get(nodeId);
+        if (existing !== undefined) return existing;
+        if (assigning.has(nodeId)) {
+          const cycleColumn = nextColumn++;
+          columnById.set(nodeId, cycleColumn);
+          return cycleColumn;
+        }
+
+        assigning.add(nodeId);
+        const childIds = (outgoing.get(nodeId) || []).filter((id) => storyIds.has(id));
+        let column: number;
+        if (childIds.length === 0) {
+          column = nextColumn++;
+        } else {
+          const childColumns = childIds.map(assignColumn);
+          column =
+            childColumns.reduce((sum, childColumn) => sum + childColumn, 0) / childColumns.length;
+        }
+        assigning.delete(nodeId);
+        columnById.set(nodeId, column);
+        return column;
+      };
+      roots.forEach((node) => assignColumn(node.id));
+      stories.forEach((node) => {
+        if (!columnById.has(node.id)) {
+          depthById.set(node.id, depthById.get(node.id) || 0);
+          assignColumn(node.id);
+        }
+      });
+
+      const columns = Array.from(columnById.values());
+      const minColumn = Math.min(...columns);
+      const maxColumn = Math.max(...columns);
+      const columnWidth = 380;
+      const graphWidth = (maxColumn - minColumn) * columnWidth;
+      const graphLeft = selectionCenterX - graphWidth / 2;
+      const levelHeights = new Map<number, number>();
+      stories.forEach((node) => {
+        const depth = depthById.get(node.id) || 0;
+        const height = node.measured?.height || (node.style?.height as number) || 200;
+        levelHeights.set(depth, Math.max(levelHeights.get(depth) || 0, height));
+      });
+      const levelY = new Map<number, number>();
+      let nextLevelY = currentY;
+      const maxDepth = Math.max(...Array.from(depthById.values()), 0);
+      for (let depth = 0; depth <= maxDepth; depth += 1) {
+        levelY.set(depth, nextLevelY);
+        nextLevelY += (levelHeights.get(depth) || 200) + 100;
+      }
+
+      const occupiedByDepth = new Map<number, number[]>();
+      stories.forEach((node) => {
+        const depth = depthById.get(node.id) || 0;
+        const width = node.measured?.width || (node.style?.width as number) || 300;
+        let column = columnById.get(node.id) || 0;
+        const occupied = occupiedByDepth.get(depth) || [];
+        while (occupied.some((usedColumn) => Math.abs(usedColumn - column) < 0.8)) {
+          column += 1;
+        }
+        occupied.push(column);
+        occupiedByDepth.set(depth, occupied);
+        positions.set(node.id, {
+          x: graphLeft + (column - minColumn) * columnWidth - width / 2,
+          y: levelY.get(depth) || currentY,
+        });
+      });
+      currentY = nextLevelY + 20;
+    }
+
+    placeHorizontalRow(others, 300, 200);
+
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        const position = positions.get(node.id);
+        return position ? { ...node, position } : node;
+      }),
+    );
+    showToast(
+      language === 'zh'
+        ? `已整理 ${movableNodes.length} 张卡片，背景区域内的卡片保持原位`
+        : language === 'ja'
+          ? `${movableNodes.length} 枚のカードを整列し、背景領域内のカードは固定しました`
+          : `Arranged ${movableNodes.length} cards; cards inside background regions stayed fixed`,
+    );
+  }, [edges, language, nodes, setNodes, showToast]);
+
   const handleGenerateSelectedSpeech = useCallback(async () => {
     if (ttsLoading) return;
     const storyNodes = nodes
@@ -343,6 +581,7 @@ export const useSelectionActions = ({
     handlePaste,
     deleteSelected,
     hideSelected,
+    arrangeSelected,
     handleGenerateSelectedSpeech,
     unhideAllNodes,
   };

@@ -77,6 +77,14 @@ export type AssistantMessage = {
   content: string;
   collapsed?: boolean;
   cardPosition?: { x: number; y: number; zoom?: number };
+  options?: AssistantMessageOption[];
+};
+
+export type AssistantMessageOption = {
+  id: string;
+  label: string;
+  value: string;
+  description?: string;
 };
 
 export type AssistantTask = {

@@ -1155,7 +1155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>{s.storyTitlePosition}</h3>
-                    <div className={segmentedControlClass}>
+                    <div className="grid flex-1 grid-cols-3 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                       {[
                         {
                           id: 'inside',
@@ -1173,9 +1173,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button
                           key={item.id}
                           onClick={() => setStoryTitlePlacement(item.id as StoryTitlePlacement)}
-                          className={compactSegmentButtonClass(storyTitlePlacement === item.id)}
+                          className={`flex min-w-0 flex-col items-center gap-2 rounded-lg px-2 py-2.5 transition-all ${
+                            storyTitlePlacement === item.id
+                              ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+                              : 'text-[var(--text-muted)] hover:bg-[var(--card-bg)]/60 hover:text-[var(--text-primary)]'
+                          }`}
                         >
-                          {item.label}
+                          <svg
+                            viewBox="0 0 88 64"
+                            className="h-12 w-full max-w-24 overflow-visible"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <rect
+                              x="13"
+                              y="17"
+                              width="62"
+                              height="42"
+                              rx="6"
+                              fill="currentColor"
+                              fillOpacity="0.08"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M24 38H64M24 45H56M24 52H48"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              opacity="0.45"
+                            />
+                            {item.id === 'inside' && (
+                              <path
+                                d="M24 27H52"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                              />
+                            )}
+                            {item.id === 'outside-left' && (
+                              <>
+                                <path
+                                  d="M13 8H41"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M13 12V17"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  opacity="0.55"
+                                />
+                              </>
+                            )}
+                            {item.id === 'outside-right' && (
+                              <>
+                                <path
+                                  d="M47 8H75"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M75 12V17"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  opacity="0.55"
+                                />
+                              </>
+                            )}
+                          </svg>
+                          <span className="text-center text-[11px] font-black leading-4">
+                            {item.label}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1218,6 +1291,178 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {item.label}
                         </button>
                       ))}
+                    </div>
+                  </section>
+
+                  <div className="border-t border-[var(--header-border)]" />
+
+                  <section className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-black text-[var(--text-primary)]">
+                        {language === 'zh'
+                          ? '人物图片类型'
+                          : language === 'ja'
+                            ? 'キャラクター画像タイプ'
+                            : 'Character Image Type'}
+                      </h3>
+                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                        {language === 'zh'
+                          ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
+                          : language === 'ja'
+                            ? 'キャラクターカードの画像生成形式を選択します。'
+                            : 'Choose the format used by character card image generation.'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {[
+                        {
+                          value: 'three-view' as const,
+                          title:
+                            language === 'zh'
+                              ? '三视图'
+                              : language === 'ja'
+                                ? '三面図'
+                                : 'Three-view',
+                          description:
+                            language === 'zh'
+                              ? '在一张图中生成正面、侧面和背面设定图。'
+                              : language === 'ja'
+                                ? '正面・側面・背面を1枚に生成します。'
+                                : 'Front, side, and back views in one image.',
+                        },
+                        {
+                          value: 'transparent-sprite' as const,
+                          title:
+                            language === 'zh'
+                              ? '透明背景立绘'
+                              : language === 'ja'
+                                ? '透過背景立ち絵'
+                                : 'Transparent Sprite',
+                          description:
+                            language === 'zh'
+                              ? '生成单人全身立绘，并要求透明背景。'
+                              : language === 'ja'
+                                ? '透過背景の全身立ち絵を生成します。'
+                                : 'A single full-body character on a transparent background.',
+                        },
+                      ].map((option) => {
+                        const selected = characterImageMode === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setCharacterImageMode(option.value)}
+                            className={`rounded-xl border p-4 text-left transition-all ${
+                              selected
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
+                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-black text-[var(--text-primary)]">
+                                {option.title}
+                              </span>
+                              <span
+                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                  selected
+                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                    : 'border-[var(--header-border)] text-transparent'
+                                }`}
+                              >
+                                <Check className="h-3 w-3" />
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                              {option.description}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-black text-[var(--text-primary)]">
+                        {language === 'zh'
+                          ? '场景图片比例'
+                          : language === 'ja'
+                            ? 'シーン画像比率'
+                            : 'Scene Image Ratio'}
+                      </h3>
+                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                        {language === 'zh'
+                          ? '只影响场景卡片的一键生图，优先级高于图片 API 配置中的尺寸。'
+                          : language === 'ja'
+                            ? 'シーンカードの画像生成にのみ適用され、画像 API のサイズ設定より優先されます。'
+                            : 'Only affects scene card generation and overrides the image API size.'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {[
+                        {
+                          value: 'storyboard-16:9' as const,
+                          title:
+                            language === 'zh'
+                              ? '16:9 分镜图'
+                              : language === 'ja'
+                                ? '16:9 絵コンテ'
+                                : '16:9 Storyboard',
+                          description:
+                            language === 'zh'
+                              ? '强制请求并输出横向 16:9 场景图。'
+                              : language === 'ja'
+                                ? '横長 16:9 のシーン画像を強制します。'
+                                : 'Force a landscape 16:9 scene image.',
+                        },
+                        {
+                          value: 'follow-api' as const,
+                          title:
+                            language === 'zh'
+                              ? '跟随图片 API'
+                              : language === 'ja'
+                                ? '画像 API に従う'
+                                : 'Follow Image API',
+                          description:
+                            language === 'zh'
+                              ? '使用图片 AI 配置中填写的普通图片尺寸。'
+                              : language === 'ja'
+                                ? '画像 AI 設定の通常サイズを使用します。'
+                                : 'Use the size configured in the image AI profile.',
+                        },
+                      ].map((option) => {
+                        const selected = sceneImageMode === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setSceneImageMode(option.value)}
+                            className={`rounded-xl border p-4 text-left transition-all ${
+                              selected
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
+                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-black text-[var(--text-primary)]">
+                                {option.title}
+                              </span>
+                              <span
+                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                  selected
+                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                    : 'border-[var(--header-border)] text-transparent'
+                                }`}
+                              >
+                                <Check className="h-3 w-3" />
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                              {option.description}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
                   </section>
 
@@ -1709,10 +1954,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onUpdateAIProfile={onUpdateAIProfile}
                   onSelectAIProfile={onSelectAIProfile}
                   onDeleteAIProfile={onDeleteAIProfile}
-                  characterImageMode={characterImageMode}
-                  setCharacterImageMode={setCharacterImageMode}
-                  sceneImageMode={sceneImageMode}
-                  setSceneImageMode={setSceneImageMode}
                   customAiPromptsEnabled={customAiPromptsEnabled}
                   setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
                   aiPrompts={aiPrompts}

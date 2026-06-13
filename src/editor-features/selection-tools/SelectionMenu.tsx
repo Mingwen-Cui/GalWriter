@@ -1,4 +1,4 @@
-import { Copy, EyeOff, FileText, Layers, Square, Trash2, Volume2 } from 'lucide-react';
+import { Copy, EyeOff, FileText, Grid3X3, Layers, Square, Trash2, Volume2 } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import type { Language } from '../../lib/i18n';
@@ -12,6 +12,7 @@ interface SelectionMenuProps {
   onWrapDynamicGroup: () => void;
   onWrapBackground: () => void;
   onBatchExport: () => void;
+  onArrange: () => void;
   onNarrate: () => void;
   onDelete: () => void;
   onCopy: () => void;
@@ -33,6 +34,7 @@ export function SelectionMenu({
   onWrapDynamicGroup,
   onWrapBackground,
   onBatchExport,
+  onArrange,
   onNarrate,
   onDelete,
   onCopy,
@@ -97,6 +99,15 @@ export function SelectionMenu({
       </button>
 
       <Divider horizontal={isHorizontal} />
+
+      <button
+        onClick={onArrange}
+        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
+        title={language === 'zh' ? '整理选中的卡片' : 'Arrange selected cards'}
+      >
+        <Grid3X3 className="w-4 h-4 shrink-0" />
+        <span className={nowrapClass}>{language === 'zh' ? '整理卡片' : 'Arrange'}</span>
+      </button>
 
       <button
         onClick={onDelete}

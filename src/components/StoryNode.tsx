@@ -29,7 +29,6 @@ import {
   Play,
   Plus,
   Save,
-  ScanSearch,
   Sparkles,
   StepForward,
   Trash2,
@@ -890,32 +889,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     }
   };
 
-  const highlightCharacters = () => {
-    if (!text) return;
-    const allNodes = storeApi.getState().nodes;
-    const charNodes = allNodes.filter((n) => n.type === 'characterNode' && n.data?.characterName);
-    if (charNodes.length === 0) return;
-
-    let newText = text;
-    charNodes.forEach((node, index) => {
-      const name = String(node.data.characterName || '');
-      if (!name) return;
-      // Define a palette of colors for different characters
-      const highlightColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
-      const color = highlightColors[index % highlightColors.length];
-
-      // Prevent double highlighting if already wrapped in a span with this color
-      const regex = new RegExp(`(?<!<span[^>]*>)${name}(?!</span>)`, 'g');
-      newText = newText.replace(
-        regex,
-        `<span style="color: ${color}; font-weight: bold; background-color: ${color}20; padding: 0 2px; border-radius: 2px;">${name}</span>`,
-      );
-    });
-
-    if (newText !== text) {
-      updateNodeData({ text: newText });
-    }
-  };
 
   const showNodeActions = data.showNodeActions !== false;
   const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${showNodeActions ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`;
@@ -1158,13 +1131,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   <Separator />
 
                   {/* 视图按钮 */}
-                  <button
-                    onClick={highlightCharacters}
-                    className={iconBtnBase}
-                    title="高亮角色 (审查)"
-                  >
-                    <ScanSearch className="w-4 h-4" />
-                  </button>
                   <button
                     onClick={() => data.onZenMode?.(id)}
                     className={iconBtnBase}

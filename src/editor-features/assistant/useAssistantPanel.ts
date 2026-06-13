@@ -31,6 +31,17 @@ export type AssistantCardDraft = {
   other?: string;
 };
 
+export type AssistantCardPlacementMode =
+  | 'append'
+  | 'fill-selected'
+  | 'adjacent-revision'
+  | 'future-targets'
+  | 'bridge-to-target';
+
+export type AssistantCardPlacementOptions = {
+  targetNodeId?: string;
+};
+
 type AssistantSpeechRecognitionResult = {
   transcript?: string;
 };
@@ -58,9 +69,20 @@ type AssistantHistorySnapshot = {
   input: string;
 };
 
+type AssistantWorkflowState =
+  | { type: 'idle' }
+  | { type: 'starter-theme' }
+  | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
+  | { type: 'starter-supplement'; theme: string; style: string }
+  | { type: 'starter-generate'; theme: string; style: string; supplement?: string }
+  | { type: 'revision-awaiting-opinion' }
+  | { type: 'future-awaiting-count'; targetNodeId: string }
+  | { type: 'future-generate-bridge'; targetNodeId: string; count: number };
+
 export type AssistantCardPlacementResult = {
   count: number;
   position?: { x: number; y: number; zoom?: number };
+  nodeIds?: string[];
 };
 
 const createAssistantWelcomeMessage = (language: Language): AssistantMessage => ({
@@ -91,6 +113,72 @@ const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
     messages: task.messages.map((message) => ({ ...message })),
   }));
 
+type AssistantGeneratedOption = {
+  label: string;
+  description?: string;
+};
+
+const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOption[] => {
+  const normalized = content
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  const jsonText = normalized.match(/\{[\s\S]*\}/)?.[0] || normalized;
+
+  const parseJson = (value: string) => {
+    const parsed = JSON.parse(value) as {
+      options?: Array<{ label?: unknown; description?: unknown }>;
+    };
+    return (parsed.options || [])
+      .map((option) => ({
+        label: typeof option.label === 'string' ? option.label.trim() : '',
+        description: typeof option.description === 'string' ? option.description.trim() : undefined,
+      }))
+      .filter((option) => option.label);
+  };
+
+  try {
+    return parseJson(jsonText).slice(0, 3);
+  } catch {
+    try {
+      return parseJson(jsonText.replace(/,\s*([}\]])/g, '$1')).slice(0, 3);
+    } catch {
+      const objectOptions = Array.from(jsonText.matchAll(/\{[^{}]*"label"\s*:[^{}]*\}/g))
+        .map((match) => {
+          const block = match[0];
+          const label =
+            block.match(/"label"\s*:\s*"([^"\r\n]*)/)?.[1]?.trim() ||
+            block.match(/"label"\s*:\s*([^,\r\n}]+)/)?.[1]?.trim();
+          const description =
+            block.match(/"description"\s*:\s*"([\s\S]*?)"\s*(?:,|})/)?.[1]?.trim() ||
+            block.match(/"description"\s*:\s*([^,\r\n}]+)/)?.[1]?.trim();
+          return { label: label || '', description };
+        })
+        .filter((option) => option.label);
+
+      if (objectOptions.length >= 3) return objectOptions.slice(0, 3);
+
+      return normalized
+        .split(/\r?\n/)
+        .map((line) =>
+          line
+            .replace(/^\s*(?:[-*•]|\d+[.)、])\s*/, '')
+            .replace(/^["']|["'],?$/g, '')
+            .trim(),
+        )
+        .filter((line) => line.length > 1 && !/^(?:\{|\}|\[|\]|"options"|options|```)/i.test(line))
+        .slice(0, 3)
+        .map((line) => {
+          const [label, ...descriptionParts] = line.split(/[：:]\s*/);
+          return {
+            label: label.trim(),
+            description: descriptionParts.join('：').trim() || undefined,
+          };
+        });
+    }
+  }
+};
+
 interface UseAssistantPanelParams {
   language: Language;
   isMobile: boolean;
@@ -100,7 +188,8 @@ interface UseAssistantPanelParams {
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
   createAssistantCards: (
     cards: AssistantCardDraft[],
-    mode?: 'append' | 'fill-selected',
+    mode?: AssistantCardPlacementMode,
+    options?: AssistantCardPlacementOptions,
   ) => AssistantCardPlacementResult;
   hasTextApiKey: boolean;
   onMissingTextApiKeyRequest?: () => void;
@@ -130,6 +219,8 @@ interface UseAssistantPanelResult {
   handleCancelCloseAssistantTask: () => void;
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleAssistantOptionSelect: (value: string) => Promise<void>;
+  handleStartAssistantFlow: (flow: 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
@@ -185,6 +276,7 @@ export const useAssistantPanel = ({
   const assistantInputRef = useRef(assistantInput);
   const assistantHistoryPastRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantHistoryFutureRef = useRef<AssistantHistorySnapshot[]>([]);
+  const assistantWorkflowRef = useRef<AssistantWorkflowState>({ type: 'idle' });
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
 
   const assistantPanelWidth = Math.min(
@@ -549,6 +641,67 @@ export const useAssistantPanel = ({
       const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
       setAssistantMessages((messages) => [...messages, userMessage]);
 
+      const workflow = assistantWorkflowRef.current;
+      if (workflow.type === 'starter-theme') {
+        assistantWorkflowRef.current = { type: 'starter-style', theme: userText };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `主题确定为“${userText}”。你想写成什么样的故事？可以直接输入，也可以让我给出三个方向。`,
+            options: [
+              {
+                id: uuidv4(),
+                label: 'AI 给我 3 个故事方向',
+                value: '__starter_styles__',
+              },
+            ],
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+      if (workflow.type === 'starter-style' && !workflow.style) {
+        assistantWorkflowRef.current = { ...workflow, style: userText };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `任务确认\n主题：${workflow.theme}\n故事方向：${userText}\n\n还有补充要求吗？`,
+            options: [
+              { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
+              { id: uuidv4(), label: '添加补充要求', value: '__starter_supplement__' },
+            ],
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+      if (workflow.type === 'starter-supplement') {
+        assistantWorkflowRef.current = {
+          type: 'starter-style',
+          theme: workflow.theme,
+          style: workflow.style,
+          supplement: userText,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `任务确认\n主题：${workflow.theme}\n故事方向：${workflow.style}\n补充要求：${userText}\n\n确认后，我会依次生成人物、场景和剧情卡片。`,
+            options: [
+              { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
+              { id: uuidv4(), label: '继续补充', value: '__starter_supplement__' },
+            ],
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+
       if (!hasTextApiKey) {
         onMissingTextApiKeyRequest?.();
         setAssistantMessages((messages) => [
@@ -601,9 +754,26 @@ export const useAssistantPanel = ({
 
       const documentContext = buildAssistantDocumentContext(assistantDocuments);
 
+      let effectiveUserText = userText;
+      let forcedMode: AssistantCardPlacementMode | undefined;
+      let placementOptions: AssistantCardPlacementOptions | undefined;
+      if (workflow.type === 'revision-awaiting-opinion') {
+        effectiveUserText = `请根据用户的修改意见改写选中的卡片。保留原卡片，并返回一张同类型、已经修改好的新卡片。修改意见：${userText}`;
+        forcedMode = 'adjacent-revision';
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'starter-generate') {
+        effectiveUserText = `请创建一套故事开端。主题：${workflow.theme}。故事方向：${workflow.style}。补充要求：${workflow.supplement || '无'}。先生成主要人物卡片和核心场景卡片，再生成3到5张按顺序推进的剧情卡片。`;
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'future-generate-bridge') {
+        effectiveUserText = `请生成${workflow.count}张剧情过渡卡片，把当前故事最后一张剧情卡片自然连接到选定的未来目标。只返回过渡剧情卡片，不要重复目标卡片。`;
+        forcedMode = 'bridge-to-target';
+        placementOptions = { targetNodeId: workflow.targetNodeId };
+        assistantWorkflowRef.current = { type: 'idle' };
+      }
+
       const wantsCards =
         /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|地点|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
-          userText,
+          effectiveUserText,
         );
       const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
 
@@ -625,7 +795,7 @@ export const useAssistantPanel = ({
 如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
 
 用户请求：
-${userText}
+${effectiveUserText}
 
 选中卡片：
 ${selectedContext || '无'}
@@ -645,7 +815,7 @@ ${canvasContext || '无'}`;
         let parsed: {
           reply?: string;
           cards?: AssistantCardDraft[];
-          mode?: 'append' | 'fill-selected';
+          mode?: AssistantCardPlacementMode;
         };
 
         try {
@@ -655,9 +825,11 @@ ${canvasContext || '无'}`;
         }
 
         const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
-        const mode = parsed.mode || (fillSelected ? 'fill-selected' : 'append');
+        const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
-        const placement = shouldPlaceCards ? createAssistantCards(cards, mode) : { count: 0 };
+        const placement = shouldPlaceCards
+          ? createAssistantCards(cards, mode, placementOptions)
+          : { count: 0 };
         const actionText =
           placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
 
@@ -702,6 +874,286 @@ ${canvasContext || '无'}`;
       selectedAssistantTargetNodes,
       setAssistantMessages,
     ],
+  );
+
+  const requestAssistantOptions = useCallback(
+    async (prompt: string, heading: string, valuePrefix: string, refreshValue?: string) => {
+      if (!hasTextApiKey) {
+        onMissingTextApiKeyRequest?.();
+        return;
+      }
+      setAssistantLoading(true);
+      try {
+        const result = await callAIForTextResult(`${prompt}
+只返回 JSON，不要使用 Markdown：
+{"options":[{"label":"简短标题","description":"一句具体说明"}]}
+options 必须正好有 3 项。`);
+        const generatedOptions = parseAssistantGeneratedOptions(result.content);
+        if (generatedOptions.length < 3) {
+          throw new Error('AI 返回的选项数量不足，请点击“再换三个”重试');
+        }
+        const options = generatedOptions.map((option) => ({
+          id: uuidv4(),
+          label: option.label,
+          description: option.description,
+          value: `${valuePrefix}${option.label}`,
+        }));
+        if (refreshValue) {
+          options.push({
+            id: uuidv4(),
+            label: '再换三个',
+            description: '这批不合适，重新生成一组不同的选项。',
+            value: refreshValue,
+          });
+        }
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'assistant', content: heading, options },
+        ]);
+      } catch (error: any) {
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `暂时没能生成选项：${error.message || '请检查 AI 配置'}`,
+          },
+        ]);
+      } finally {
+        setAssistantLoading(false);
+      }
+    },
+    [callAIForTextResult, hasTextApiKey, onMissingTextApiKeyRequest, setAssistantMessages],
+  );
+
+  const handleStartAssistantFlow = useCallback(
+    async (flow: 'starter' | 'revision' | 'future') => {
+      if (assistantLoading) return;
+
+      if (flow === 'starter') {
+        assistantWorkflowRef.current = { type: 'starter-theme' };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '起手式已启动。你想写什么主题？可以直接输入，也可以让我先给出三个主题。',
+            options: [{ id: uuidv4(), label: 'AI 给我 3 个主题', value: '__starter_topics__' }],
+          },
+        ]);
+        return;
+      }
+
+      if (flow === 'revision') {
+        if (selectedAssistantTargetNodes.length === 0) {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: '请先在画布上选择一张需要修改的卡片。',
+            },
+          ]);
+          return;
+        }
+        assistantWorkflowRef.current = { type: 'revision-awaiting-opinion' };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '请直接说出修改意见。我会保留原卡片，并在它旁边生成修改后的版本。',
+          },
+        ]);
+        return;
+      }
+
+      if (!hasTextApiKey) {
+        onMissingTextApiKeyRequest?.();
+        return;
+      }
+      setAssistantLoading(true);
+      try {
+        const context = selectedAssistantTargetNodes
+          .map((node) => `${String(node.data?.title || '')}\n${String(node.data?.text || '')}`)
+          .join('\n---\n');
+        const result =
+          await callAIForTextResult(`根据当前故事，设计三个差异明显、可以作为长期写作方向的未来目标。
+当前内容：
+${context || '画布当前没有选中卡片，请给出适合故事开篇后的通用目标。'}
+只返回 JSON：{"reply":"一句引导语","cards":[{"type":"story","title":"目标标题","text":"目标发生时的具体剧情"}]}
+cards 必须正好有 3 张。`);
+        const jsonText = result.content.match(/\{[\s\S]*\}/)?.[0] || result.content;
+        const parsed = JSON.parse(jsonText) as {
+          reply?: string;
+          cards?: AssistantCardDraft[];
+        };
+        const cards = (parsed.cards || []).slice(0, 3);
+        const placement = createAssistantCards(cards, 'future-targets');
+        const nodeIds = placement.nodeIds || [];
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: parsed.reply || '我画出了三个未来目标，请选择一个长期写作方向。',
+            cardPosition: placement.position,
+            options: cards.map((card, index) => ({
+              id: uuidv4(),
+              label: card.title || `目标 ${index + 1}`,
+              description: card.text,
+              value: `__future_target__:${nodeIds[index] || ''}`,
+            })),
+          },
+        ]);
+      } catch (error: any) {
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `未来目标生成失败：${error.message || '请检查 AI 配置'}`,
+          },
+        ]);
+      } finally {
+        setAssistantLoading(false);
+      }
+    },
+    [
+      assistantLoading,
+      callAIForTextResult,
+      createAssistantCards,
+      hasTextApiKey,
+      onMissingTextApiKeyRequest,
+      selectedAssistantTargetNodes,
+      setAssistantMessages,
+    ],
+  );
+
+  const handleAssistantOptionSelect = useCallback(
+    async (value: string) => {
+      if (value === '__starter_topics__') {
+        await requestAssistantOptions(
+          '为视觉小说或互动故事提供三个差异明显、有冲突潜力的主题。',
+          '这里有三个主题，选一个继续：',
+          '__starter_theme__:',
+          '__starter_topics__',
+        );
+        return;
+      }
+      if (value.startsWith('__starter_theme__:')) {
+        const theme = value.slice('__starter_theme__:'.length);
+        assistantWorkflowRef.current = { type: 'starter-style', theme };
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'user', content: theme },
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `主题确定为“${theme}”。你想写成什么样的故事？`,
+            options: [
+              {
+                id: uuidv4(),
+                label: 'AI 给我 3 个故事方向',
+                value: '__starter_styles__',
+              },
+            ],
+          },
+        ]);
+        return;
+      }
+      if (value === '__starter_styles__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'starter-style') return;
+        await requestAssistantOptions(
+          `围绕主题“${workflow.theme}”，提供三个差异明显的故事类型、气质和核心冲突方向。`,
+          '选择一种故事方向：',
+          '__starter_style__:',
+          '__starter_styles__',
+        );
+        return;
+      }
+      if (value.startsWith('__starter_style__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'starter-style') return;
+        const style = value.slice('__starter_style__:'.length);
+        assistantWorkflowRef.current = { ...workflow, style };
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'user', content: style },
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `任务确认\n主题：${workflow.theme}\n故事方向：${style}\n\n还有补充要求吗？`,
+            options: [
+              { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
+              { id: uuidv4(), label: '添加补充要求', value: '__starter_supplement__' },
+            ],
+          },
+        ]);
+        return;
+      }
+      if (value === '__starter_supplement__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'starter-style' || !workflow.style) return;
+        assistantWorkflowRef.current = {
+          type: 'starter-supplement',
+          theme: workflow.theme,
+          style: workflow.style,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '请直接输入补充要求，例如人物数量、时代背景、禁用元素或结局气质。',
+          },
+        ]);
+        return;
+      }
+      if (value === '__starter_confirm__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'starter-style' || !workflow.style) return;
+        assistantWorkflowRef.current = {
+          type: 'starter-generate',
+          theme: workflow.theme,
+          style: workflow.style,
+          supplement: workflow.supplement,
+        };
+        await handleAssistantSend('确认任务并开始生成');
+        return;
+      }
+      if (value.startsWith('__future_target__:')) {
+        const targetNodeId = value.slice('__future_target__:'.length);
+        assistantWorkflowRef.current = { type: 'future-awaiting-count', targetNodeId };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '目标已选定。要用多少张过渡剧情卡片连接当前故事与目标？',
+            options: [3, 5, 7].map((count) => ({
+              id: uuidv4(),
+              label: `${count} 张过渡卡片`,
+              value: `__future_count__:${count}`,
+            })),
+          },
+        ]);
+        return;
+      }
+      if (value.startsWith('__future_count__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'future-awaiting-count') return;
+        const count = Number(value.slice('__future_count__:'.length)) || 5;
+        assistantWorkflowRef.current = {
+          type: 'future-generate-bridge',
+          targetNodeId: workflow.targetNodeId,
+          count,
+        };
+        await handleAssistantSend(`使用 ${count} 张卡片连接未来目标`);
+      }
+    },
+    [handleAssistantSend, requestAssistantOptions, setAssistantMessages],
   );
 
   const handleAssistantVoiceInput = useCallback(() => {
@@ -813,6 +1265,8 @@ ${canvasContext || '无'}`;
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleAssistantOptionSelect,
+    handleStartAssistantFlow,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
