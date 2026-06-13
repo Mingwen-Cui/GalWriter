@@ -10,6 +10,7 @@ export type RenderVideoToBufferOptions = {
   drawFrame: FrameRenderFn;
   audioBuffer?: AudioBuffer;
   onProgress?: (current: number, total: number) => void;
+  signal?: AbortSignal;
 };
 
 export async function renderVideoToBuffer(
@@ -52,23 +53,33 @@ export async function renderVideoToBuffer(
     output.addAudioTrack(audioSource);
   }
 
-  await output.start();
+  try {
+    options.signal?.throwIfAborted();
+    await output.start();
 
-  for (let i = 0; i < options.totalFrames; i++) {
-    const timestamp = i / options.frameRate;
-    await options.drawFrame(i, timestamp);
-    await videoSource.add(timestamp, 1 / options.frameRate);
-    options.onProgress?.(i + 1, options.totalFrames);
+    for (let i = 0; i < options.totalFrames; i++) {
+      options.signal?.throwIfAborted();
+      const timestamp = i / options.frameRate;
+      await options.drawFrame(i, timestamp);
+      options.signal?.throwIfAborted();
+      await videoSource.add(timestamp, 1 / options.frameRate);
+      options.onProgress?.(i + 1, options.totalFrames);
+    }
+
+    videoSource.close();
+
+    if (audioSource && options.audioBuffer) {
+      options.signal?.throwIfAborted();
+      await audioSource.add(options.audioBuffer);
+      audioSource.close();
+    }
+
+    options.signal?.throwIfAborted();
+    await output.finalize();
+  } catch (error) {
+    await output.cancel().catch(() => undefined);
+    throw error;
   }
-
-  videoSource.close();
-
-  if (audioSource && options.audioBuffer) {
-    await audioSource.add(options.audioBuffer);
-    audioSource.close();
-  }
-
-  await output.finalize();
 
   if (!target.buffer) {
     throw new Error('Failed to generate video buffer: target buffer is null.');

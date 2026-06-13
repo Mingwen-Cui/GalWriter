@@ -623,7 +623,7 @@ export function VideoTimelinePanel({
                                 trackKind: 'video',
                               })
                             }
-                            className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border p-2 cursor-grab active:cursor-grabbing transition-colors ${enabled ? 'border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)]' : 'border-[var(--vr-video-track-border)] bg-[var(--vr-panel)] opacity-60'} ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
+                            className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)] p-2 cursor-grab active:cursor-grabbing transition-colors ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
                             style={{
                               left: segmentLayout.left,
                               width: segmentLayout.width,
@@ -647,6 +647,9 @@ export function VideoTimelinePanel({
                             ) : null}
                             {(node.data?.imageUrl || node.data?.videoUrl) && (
                               <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/65" />
+                            )}
+                            {!enabled && (
+                              <div className="pointer-events-none absolute left-[-10%] top-1/2 z-20 h-0.5 w-[120%] -rotate-12 bg-rose-500 shadow-[0_0_0_1px_rgba(255,255,255,0.5)]" />
                             )}
                             <div className="relative z-10 flex items-center justify-end">
                               <div className="flex items-center gap-1">
@@ -783,6 +786,7 @@ export function VideoTimelinePanel({
                     >
                       {trackMetrics.map((metric) => {
                         const node = metric.node;
+                        const enabled = selectedIds.has(node.id);
                         const audioText = segmentText(node) || segmentTitle(node);
                         const segmentLayout = getTimelineSegmentLayout(
                           metric.start,
@@ -822,12 +826,15 @@ export function VideoTimelinePanel({
                               event.stopPropagation();
                               focusTimelineSegment(node.id);
                             }}
-                            className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border px-3 text-left transition-colors ${selectedIds.has(node.id) ? 'border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)]' : 'border-[var(--vr-audio-track-border)] bg-[var(--vr-panel)] opacity-55'} ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
+                            className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)] px-3 text-left transition-colors ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
                             style={{
                               left: segmentLayout.left,
                               width: segmentLayout.width,
                             }}
                           >
+                            {!enabled && (
+                              <div className="pointer-events-none absolute left-[-10%] top-1/2 z-20 h-0.5 w-[120%] -rotate-12 bg-rose-500 shadow-[0_0_0_1px_rgba(255,255,255,0.5)]" />
+                            )}
                             <div className="flex items-center gap-2 text-[11px] font-black text-[var(--vr-text)]">
                               <span className="truncate">{audioText}</span>
                             </div>

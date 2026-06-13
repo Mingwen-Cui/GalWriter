@@ -21,7 +21,7 @@ export const ASSET_CARD_MIN_SCALE = 0.72;
 export const ASSET_CARD_MAX_SCALE = 1.75;
 export const PANEL_SIZE_LIMITS = {
   asset: { min: 220, max: 520 },
-  export: { min: 280, max: 560 },
+  export: { min: 380, max: 560 },
   timeline: { min: 150, max: 420 },
 };
 export const ENCODER_OPTIONS = [

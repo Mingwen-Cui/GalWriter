@@ -2,7 +2,6 @@ import { FileDown, FolderOpen, Loader2, Mic, Music, Settings, Sparkles, Video } 
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import {
-  ENCODER_OPTIONS,
   EXPORT_FORMAT_OPTIONS,
   FRAME_RATE_OPTIONS,
   RESOLUTION_OPTIONS,
@@ -30,10 +29,12 @@ type VideoExportSettingsPanelProps = {
   setExportFormat: (value: ExportFormat) => void;
   resolutionIndex: number;
   setResolutionIndex: (value: number) => void;
+  resolutionWidth: number;
+  setResolutionWidth: (value: number) => void;
+  resolutionHeight: number;
+  setResolutionHeight: (value: number) => void;
   frameRate: number;
   setFrameRate: (value: number) => void;
-  encoder: string;
-  setEncoder: (value: string) => void;
   outputDir: string;
   setOutputDir: (value: string) => void;
   outputDirError: string;
@@ -80,10 +81,12 @@ export function VideoExportSettingsPanel({
   setExportFormat,
   resolutionIndex,
   setResolutionIndex,
+  resolutionWidth,
+  setResolutionWidth,
+  resolutionHeight,
+  setResolutionHeight,
   frameRate,
   setFrameRate,
-  encoder,
-  setEncoder,
   outputDir,
   setOutputDir,
   outputDirError,
@@ -166,16 +169,31 @@ export function VideoExportSettingsPanel({
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('视频参数', '動画パラメータ', 'Video')}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <label className="min-w-0 space-y-1.5">
+              <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                <label className="block min-w-0">
                   <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('分辨率', '解像度', 'Resolution')}
+                    {t('分辨率模板', '解像度テンプレート', 'Resolution preset')}
                   </span>
                   <select
                     value={resolutionIndex}
-                    onChange={(e) => setResolutionIndex(Number(e.target.value))}
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                    onChange={(e) => {
+                      const nextIndex = Number(e.target.value);
+                      setResolutionIndex(nextIndex);
+                      const preset = RESOLUTION_OPTIONS[nextIndex];
+                      if (preset) {
+                        setResolutionWidth(preset.width);
+                        setResolutionHeight(preset.height);
+                      }
+                    }}
+                    className="mt-1 w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 py-2 text-xs font-bold text-[var(--vr-text)]"
                   >
+                    <option value={-1}>
+                      {t(
+                        `自定义 ${resolutionWidth} x ${resolutionHeight}`,
+                        `カスタム ${resolutionWidth} x ${resolutionHeight}`,
+                        `Custom ${resolutionWidth} x ${resolutionHeight}`,
+                      )}
+                    </option>
                     {RESOLUTION_OPTIONS.map((option, index) => (
                       <option key={option.label} value={index}>
                         {option.label}
@@ -183,146 +201,191 @@ export function VideoExportSettingsPanel({
                     ))}
                   </select>
                 </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('帧率', 'フレームレート', 'FPS')}
-                  </span>
-                  <select
-                    value={frameRate}
-                    onChange={(e) => setFrameRate(Number(e.target.value) || 30)}
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                  >
-                    {FRAME_RATE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option} fps
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('格式', '形式', 'Format')}
-                  </span>
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                  >
-                    {EXPORT_FORMAT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  <label className="min-w-0">
+                    <span className="mb-1 block truncate text-[10px] font-black text-[var(--vr-text-muted)]">
+                      {t('宽度', '幅', 'Width')}
+                    </span>
+                    <DragSizeControl
+                      label={t(
+                        '左右拖动调整视频宽度',
+                        '左右にドラッグして動画幅を調整',
+                        'Drag horizontally to adjust video width',
+                      )}
+                      value={resolutionWidth}
+                      min={320}
+                      max={7680}
+                      step={2}
+                      onChange={(value) => {
+                        setResolutionIndex(-1);
+                        setResolutionWidth(value);
+                      }}
+                    />
+                  </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block truncate text-[10px] font-black text-[var(--vr-text-muted)]">
+                      {t('高度', '高さ', 'Height')}
+                    </span>
+                    <DragSizeControl
+                      label={t(
+                        '左右拖动调整视频高度',
+                        '左右にドラッグして動画高さを調整',
+                        'Drag horizontally to adjust video height',
+                      )}
+                      value={resolutionHeight}
+                      min={240}
+                      max={4320}
+                      step={2}
+                      onChange={(value) => {
+                        setResolutionIndex(-1);
+                        setResolutionHeight(value);
+                      }}
+                    />
+                  </label>
+                  <label className="min-w-0">
+                    <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                      {t('帧率', 'フレームレート', 'FPS')}
+                    </span>
+                    <select
+                      value={frameRate}
+                      onChange={(e) => setFrameRate(Number(e.target.value) || 30)}
+                      className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                    >
+                      {FRAME_RATE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option} fps
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="min-w-0">
+                    <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
+                      {t('格式', '形式', 'Format')}
+                    </span>
+                    <select
+                      value={exportFormat}
+                      onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                      className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                    >
+                      {EXPORT_FORMAT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('标题样式', 'タイトルスタイル', 'Title Style')}
+                {t('文字样式', 'テキストスタイル', 'Text Style')}
               </div>
-              <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('字号', 'サイズ', 'Size')}
+              <div className="space-y-2">
+                <div className="grid grid-cols-[52px_88px_minmax(112px,1fr)_44px] items-end gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-2">
+                  <span className="mb-0.5 rounded-lg bg-indigo-500/10 px-2 py-2 text-center text-[11px] font-black text-indigo-500">
+                    {t('标题', 'タイトル', 'Title')}
                   </span>
-                  <DragSizeControl
-                    label={t(
-                      '拖动调整标题字号，单击输入精确数字',
-                      'ドラッグでタイトルサイズを調整、クリックで数値入力',
-                      'Drag to adjust title size, click to type an exact value',
-                    )}
-                    value={renderStyle.titleFontSize}
-                    min={18}
-                    max={120}
-                    step={1}
-                    onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
-                  />
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('动画', 'アニメーション', 'Animation')}
-                  </span>
-                  <select
-                    value={renderStyle.titleAnimation}
-                    onChange={(e) =>
-                      updateRenderStyle('titleAnimation', e.target.value as TextAnimation)
-                    }
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                  >
-                    {TEXT_ANIMATION_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {renderCopy(language, option.zh, option.ja, option.en)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('颜色', '色', 'Color')}
-                  </span>
-                  <input
-                    type="color"
-                    value={renderStyle.titleColor}
-                    onChange={(e) => updateRenderStyle('titleColor', e.target.value)}
-                    className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
-                  />
-                </label>
-              </div>
-            </div>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('字号', 'サイズ', 'Size')}
+                    </span>
+                    <DragSizeControl
+                      label={t(
+                        '拖动调整标题字号，单击输入精确数字',
+                        'ドラッグでタイトルサイズを調整、クリックで数値入力',
+                        'Drag to adjust title size, click to type an exact value',
+                      )}
+                      value={renderStyle.titleFontSize}
+                      min={18}
+                      max={120}
+                      step={1}
+                      onChange={(nextValue) => updateRenderStyle('titleFontSize', nextValue)}
+                    />
+                  </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('动画 / 打字', 'アニメ / タイプ', 'Animation / Type')}
+                    </span>
+                    <select
+                      value={renderStyle.titleAnimation}
+                      onChange={(e) =>
+                        updateRenderStyle('titleAnimation', e.target.value as TextAnimation)
+                      }
+                      className="h-9 w-full min-w-0 rounded-lg border border-indigo-500/20 bg-[var(--vr-surface)] px-2 text-xs font-bold text-[var(--vr-text)]"
+                    >
+                      {TEXT_ANIMATION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {renderCopy(language, option.zh, option.ja, option.en)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-center text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('颜色', '色', 'Color')}
+                    </span>
+                    <input
+                      type="color"
+                      value={renderStyle.titleColor}
+                      onChange={(e) => updateRenderStyle('titleColor', e.target.value)}
+                      className="h-9 w-full rounded-lg border border-indigo-500/20 bg-[var(--vr-surface)] p-1"
+                    />
+                  </label>
+                </div>
 
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('正文样式', '本文スタイル', 'Body Style')}
-              </div>
-              <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('字号', 'サイズ', 'Size')}
+                <div className="grid grid-cols-[52px_88px_minmax(112px,1fr)_44px] items-end gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 p-2">
+                  <span className="mb-0.5 rounded-lg bg-blue-500/10 px-2 py-2 text-center text-[11px] font-black text-blue-500">
+                    {t('正文', '本文', 'Body')}
                   </span>
-                  <DragSizeControl
-                    label={t(
-                      '拖动调整正文字号，单击输入精确数字',
-                      'ドラッグで本文サイズを調整、クリックで数値入力',
-                      'Drag to adjust body size, click to type an exact value',
-                    )}
-                    value={renderStyle.bodyFontSize}
-                    min={16}
-                    max={96}
-                    step={1}
-                    onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
-                  />
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('动画', 'アニメーション', 'Animation')}
-                  </span>
-                  <select
-                    value={renderStyle.bodyAnimation}
-                    onChange={(e) =>
-                      updateRenderStyle('bodyAnimation', e.target.value as TextAnimation)
-                    }
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                  >
-                    {TEXT_ANIMATION_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {renderCopy(language, option.zh, option.ja, option.en)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('颜色', '色', 'Color')}
-                  </span>
-                  <input
-                    type="color"
-                    value={renderStyle.bodyColor}
-                    onChange={(e) => updateRenderStyle('bodyColor', e.target.value)}
-                    className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
-                  />
-                </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('字号', 'サイズ', 'Size')}
+                    </span>
+                    <DragSizeControl
+                      label={t(
+                        '拖动调整正文字号，单击输入精确数字',
+                        'ドラッグで本文サイズを調整、クリックで数値入力',
+                        'Drag to adjust body size, click to type an exact value',
+                      )}
+                      value={renderStyle.bodyFontSize}
+                      min={16}
+                      max={96}
+                      step={1}
+                      onChange={(nextValue) => updateRenderStyle('bodyFontSize', nextValue)}
+                    />
+                  </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('动画 / 打字', 'アニメ / タイプ', 'Animation / Type')}
+                    </span>
+                    <select
+                      value={renderStyle.bodyAnimation}
+                      onChange={(e) =>
+                        updateRenderStyle('bodyAnimation', e.target.value as TextAnimation)
+                      }
+                      className="h-9 w-full min-w-0 rounded-lg border border-blue-500/20 bg-[var(--vr-surface)] px-2 text-xs font-bold text-[var(--vr-text)]"
+                    >
+                      {TEXT_ANIMATION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {renderCopy(language, option.zh, option.ja, option.en)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-center text-[9px] font-black text-[var(--vr-text-muted)]">
+                      {t('颜色', '色', 'Color')}
+                    </span>
+                    <input
+                      type="color"
+                      value={renderStyle.bodyColor}
+                      onChange={(e) => updateRenderStyle('bodyColor', e.target.value)}
+                      className="h-9 w-full rounded-lg border border-blue-500/20 bg-[var(--vr-surface)] p-1"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -330,35 +393,23 @@ export function VideoExportSettingsPanel({
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('导出细节', '書き出し詳細', 'Export Details')}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <label className="min-w-0 space-y-1.5">
                   <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('编码器', 'エンコーダー', 'Encoder')}
+                    {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
                   </span>
-                  <select
-                    value={encoder}
-                    onChange={(e) => setEncoder(e.target.value)}
-                    className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                  >
-                    {ENCODER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                    {t('无音频', '音声なし', 'No audio')}
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="30"
-                    step="1"
+                  <DragSizeControl
+                    label={t(
+                      '左右拖动调整无音频视频长度',
+                      '左右にドラッグして音声なし動画の長さを調整',
+                      'Drag horizontally to adjust no-audio video length',
+                    )}
                     value={defaultSeconds}
-                    onChange={(e) => setDefaultSeconds(clamp(Number(e.target.value) || 4, 1, 30))}
-                    className="w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
+                    min={1}
+                    max={30}
+                    step={1}
+                    unit="s"
+                    onChange={setDefaultSeconds}
                   />
                 </label>
                 <label className="min-w-0 space-y-1.5">
@@ -409,7 +460,7 @@ export function VideoExportSettingsPanel({
               </div>
             </div>
 
-            <div className="-order-2 flex items-center gap-3">
+            <div className="order-last flex items-center gap-3">
               <div className="shrink-0 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('渲染加速', 'レンダリング加速', 'Render Acceleration')}
               </div>
@@ -494,7 +545,7 @@ export function VideoExportSettingsPanel({
               </div>
             </div>
 
-            <label className="-order-1 flex items-start gap-3">
+            <label className="flex items-start gap-3">
               <span className="mt-2.5 shrink-0 text-[11px] font-black text-[var(--vr-text-soft)]">
                 {t('保存位置', '保存先', 'Save location')}
               </span>

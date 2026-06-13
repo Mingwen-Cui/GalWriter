@@ -40,6 +40,7 @@ import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../web/webE
 import { WebWorkspace } from '../web/WebWorkspace';
 import { RenderContextMenu } from './panels/RenderContextMenu';
 import { RenderHeader } from './panels/RenderHeader';
+import { RenderProgressModal } from './panels/RenderProgressModal';
 import { VideoAssetSidebar } from './panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from './panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from './panels/VideoPreviewPanel';
@@ -56,7 +57,6 @@ import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
   DEFAULT_VIDEO_BITRATE,
-  ENCODER_OPTIONS,
   EXPORT_FORMAT_OPTIONS,
   FRAME_RATE_OPTIONS,
   HEADER_HEIGHT,
@@ -145,12 +145,13 @@ type PersistedRenderWorkspaceState = {
   activePreviewId?: string;
   assetRegionFilter?: string;
   resolutionIndex?: number;
+  resolutionWidth?: number;
+  resolutionHeight?: number;
   exportFormat?: ExportFormat;
   speed?: number;
   defaultSeconds?: number;
   animationLeadSeconds?: number;
   frameRate?: number;
-  encoder?: string;
   outputDir?: string;
   webOutputDir?: string;
   renderStyle?: Partial<RenderStyle>;
@@ -356,7 +357,23 @@ export function VideoRenderModal({
     () => persistedWorkspace?.assetRegionFilter || 'all',
   );
   const [resolutionIndex, setResolutionIndex] = useState(() =>
-    clampPersistedNumber(persistedWorkspace?.resolutionIndex, 0, 0, RESOLUTION_OPTIONS.length - 1),
+    clampPersistedNumber(persistedWorkspace?.resolutionIndex, 0, -1, RESOLUTION_OPTIONS.length - 1),
+  );
+  const [resolutionWidth, setResolutionWidth] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.resolutionWidth,
+      RESOLUTION_OPTIONS[resolutionIndex]?.width || 1920,
+      320,
+      7680,
+    ),
+  );
+  const [resolutionHeight, setResolutionHeight] = useState(() =>
+    clampPersistedNumber(
+      persistedWorkspace?.resolutionHeight,
+      RESOLUTION_OPTIONS[resolutionIndex]?.height || 1080,
+      240,
+      4320,
+    ),
   );
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() =>
     isExportFormat(persistedWorkspace?.exportFormat) ? persistedWorkspace.exportFormat : 'mp4',
@@ -375,7 +392,6 @@ export function VideoRenderModal({
       ? persistedWorkspace!.frameRate!
       : 30,
   );
-  const [encoder, setEncoder] = useState(() => persistedWorkspace?.encoder || 'libx264');
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
   const [renderStyle, setRenderStyle] = useState<RenderStyle>({
@@ -393,6 +409,7 @@ export function VideoRenderModal({
   );
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
+  const [isCancellingRender, setIsCancellingRender] = useState(false);
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   const [previewTime, setPreviewTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
@@ -524,6 +541,7 @@ export function VideoRenderModal({
   const previewDrawIdRef = useRef(0);
   const uploadedObjectUrlsRef = useRef<Set<string>>(new Set());
   const timelineClipCounterRef = useRef(0);
+  const renderAbortControllerRef = useRef<AbortController | null>(null);
 
   const allAssetNodes = useMemo(
     () => [...uploadedAssetNodes, ...orderedNodes],
@@ -569,7 +587,11 @@ export function VideoRenderModal({
   const selectedSpeechNodes = selectedNodes.filter(canGenerateSpeechFromNode);
   const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || allAssetNodes[0];
   const focusedPreviewNode = focusedPreviewId ? nodeById.get(focusedPreviewId) : undefined;
-  const resolution = RESOLUTION_OPTIONS[resolutionIndex] || RESOLUTION_OPTIONS[0];
+  const resolution = {
+    label: `${resolutionWidth} x ${resolutionHeight}`,
+    width: resolutionWidth,
+    height: resolutionHeight,
+  };
   const isZh = language === 'zh';
   const fallbackEstimatedSeconds = (selectedNodes.length * defaultSeconds) / speed;
   const assetRegionOptions = useMemo(() => getAssetRegionOptions(nodes, isZh), [nodes, isZh]);
@@ -1576,12 +1598,13 @@ export function VideoRenderModal({
       activePreviewId,
       assetRegionFilter,
       resolutionIndex,
+      resolutionWidth,
+      resolutionHeight,
       exportFormat,
       speed,
       defaultSeconds,
       animationLeadSeconds,
       frameRate,
-      encoder,
       outputDir,
       webOutputDir,
       renderStyle,
@@ -1620,7 +1643,6 @@ export function VideoRenderModal({
     audioTrackByNodeId,
     audioTrackIds,
     defaultSeconds,
-    encoder,
     exportFormat,
     exportPanelWidth,
     exportSettingsMode,
@@ -1629,7 +1651,9 @@ export function VideoRenderModal({
     hideSceneTags,
     outputDir,
     renderStyle,
+    resolutionHeight,
     resolutionIndex,
+    resolutionWidth,
     selectedIds,
     speed,
     timelineDisplayDuration,
@@ -1841,49 +1865,54 @@ export function VideoRenderModal({
     });
   };
 
-  const removeTimelineNode = (id: string) => {
-    if (!timelineIds.includes(id)) return;
-    const sourceId = timelineSourceById[id] || id;
-    const hasAnotherInstanceOfSource = timelineIds.some(
-      (timelineId) =>
-        timelineId !== id && (timelineSourceById[timelineId] || timelineId) === sourceId,
+  const removeTimelineNodes = (ids: string[]) => {
+    const removedIds = new Set(ids.filter((id) => timelineIds.includes(id)));
+    if (removedIds.size === 0) return;
+    const remainingIds = timelineIds.filter((id) => !removedIds.has(id));
+    const removedSourceIds = new Set(
+      Array.from(removedIds).map((id) => timelineSourceById[id] || id),
+    );
+    const excludedSourceIds = Array.from(removedSourceIds).filter(
+      (sourceId) =>
+        !remainingIds.some(
+          (timelineId) => (timelineSourceById[timelineId] || timelineId) === sourceId,
+        ),
     );
     closeContextMenu();
     pushTimelineHistory();
-    setTimelineIds((prev) => prev.filter((item) => item !== id));
-    if (!hasAnotherInstanceOfSource) {
-      setTimelineExcludedSourceIds((prev) => new Set(prev).add(sourceId));
+    setTimelineIds(remainingIds);
+    if (excludedSourceIds.length > 0) {
+      setTimelineExcludedSourceIds((prev) => {
+        const next = new Set(prev);
+        excludedSourceIds.forEach((sourceId) => next.add(sourceId));
+        return next;
+      });
     }
     setTimelineSourceById((prev) => {
-      const { [id]: _removed, ...next } = prev;
-      return next;
+      return Object.fromEntries(
+        Object.entries(prev).filter(([timelineId]) => !removedIds.has(timelineId)),
+      );
     });
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.delete(id);
+      removedIds.forEach((id) => next.delete(id));
       return next;
     });
-    if (activePreviewId === id) {
-      const nextNode =
-        timelineNodes.find((node) => node.id !== id) || orderedNodes.find((node) => node.id !== id);
+    if (removedIds.has(activePreviewId)) {
+      const nextNode = timelineNodes.find((node) => !removedIds.has(node.id)) || orderedNodes[0];
       setActivePreviewId(nextNode?.id || '');
     }
-    if (focusedPreviewId === id) {
+    if (removedIds.has(focusedPreviewId)) {
       setFocusedPreviewId('');
     }
-    setVideoTrackByNodeId((prev) => {
-      const { [id]: _removed, ...next } = prev;
-      return next;
-    });
-    setAudioTrackByNodeId((prev) => {
-      const { [id]: _removed, ...next } = prev;
-      return next;
-    });
-    setTimelineStartById((prev) => {
-      const { [id]: _removed, ...next } = prev;
-      return next;
-    });
+    const removeMapEntries = <T,>(map: Record<string, T>) =>
+      Object.fromEntries(Object.entries(map).filter(([id]) => !removedIds.has(id)));
+    setVideoTrackByNodeId(removeMapEntries);
+    setAudioTrackByNodeId(removeMapEntries);
+    setTimelineStartById(removeMapEntries);
   };
+
+  const removeTimelineNode = (id: string) => removeTimelineNodes([id]);
 
   const removeVideoTrack = (trackId: string) => {
     if (videoTrackIds.length <= 1) return;
@@ -2464,6 +2493,9 @@ export function VideoRenderModal({
     const ctx2d = canvas2d?.getContext('2d');
     if (!canvas2d || !ctx2d) return;
 
+    const abortController = new AbortController();
+    renderAbortControllerRef.current = abortController;
+    setIsCancellingRender(false);
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -2489,8 +2521,10 @@ export function VideoRenderModal({
 
     const useGpu = gpuContext !== null && gpuCanvas !== null;
     const canvas = useGpu ? gpuCanvas! : canvas2d;
+    const throwIfRenderCancelled = () => abortController.signal.throwIfAborted();
 
     try {
+      throwIfRenderCancelled();
       canvas.width = resolution.width;
       canvas.height = resolution.height;
 
@@ -2498,6 +2532,7 @@ export function VideoRenderModal({
       const nodeDurations: number[] = [];
       let totalDuration = 0;
       for (const node of selectedNodes) {
+        throwIfRenderCancelled();
         const duration = await getNodeRenderDuration(node);
         nodeDurations.push(duration);
         totalDuration += duration;
@@ -2516,10 +2551,12 @@ export function VideoRenderModal({
       );
 
       const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
+      throwIfRenderCancelled();
 
       // 预加载视频资源
       const videoCache = new Map<string, HTMLVideoElement>();
       for (const node of selectedNodes) {
+        throwIfRenderCancelled();
         const videoUrl = node.data?.videoUrl as string | undefined;
         if (videoUrl && !videoCache.has(videoUrl)) {
           videoCache.set(videoUrl, await loadVideo(videoUrl));
@@ -2536,6 +2573,7 @@ export function VideoRenderModal({
 
       // 逐帧绘制回调（2D 路径）
       const drawFrame2D = async (_frameIndex: number, timestamp: number) => {
+        throwIfRenderCancelled();
         let nodeIndex = selectedNodes.length - 1;
         for (let i = 0; i < selectedNodes.length; i++) {
           if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
@@ -2585,6 +2623,7 @@ export function VideoRenderModal({
 
       // 逐帧绘制回调（GPU 路径）
       const drawFrameGPU = async (_frameIndex: number, timestamp: number) => {
+        throwIfRenderCancelled();
         if (!gpuContext) return;
         let nodeIndex = selectedNodes.length - 1;
         for (let i = 0; i < selectedNodes.length; i++) {
@@ -2645,8 +2684,10 @@ export function VideoRenderModal({
         onProgress: (current, total) => {
           setProgressValue(Math.round((current / total) * 100));
         },
+        signal: abortController.signal,
       });
 
+      throwIfRenderCancelled();
       // 保存/下载
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
@@ -2679,15 +2720,48 @@ export function VideoRenderModal({
       setProgressValue(100);
       setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
     } catch (renderError: any) {
+      if (renderError?.name === 'AbortError' || abortController.signal.aborted) {
+        setStatus('idle');
+        setError('');
+        setProgressValue(0);
+        setProgress(
+          renderCopy(
+            language,
+            '渲染已取消',
+            'レンダリングをキャンセルしました',
+            'Render cancelled',
+          ),
+        );
+        return;
+      }
       console.error('Video render failed:', renderError);
       setStatus('error');
       setError(renderError?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
     } finally {
+      if (renderAbortControllerRef.current === abortController) {
+        renderAbortControllerRef.current = null;
+      }
+      setIsCancellingRender(false);
       if (useGpu) {
         destroyWebGPU();
         clearGPUTextCache();
       }
     }
+  };
+
+  const cancelVideoRender = () => {
+    const controller = renderAbortControllerRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setIsCancellingRender(true);
+    setProgress(
+      renderCopy(
+        language,
+        '正在取消渲染...',
+        'レンダリングをキャンセルしています...',
+        'Cancelling render...',
+      ),
+    );
+    controller.abort();
   };
 
   const exportWebProject = async () => {
@@ -2977,6 +3051,9 @@ export function VideoRenderModal({
     const speechNodesForMenu = getSpeechNodesForContextMenu(menu, node);
 
     if (!node) {
+      const selectedTimelineIds = (menu.selectedNodeIds || []).filter((id) =>
+        timelineIds.includes(id),
+      );
       return [
         {
           items: [
@@ -3034,6 +3111,23 @@ export function VideoRenderModal({
             },
           ],
         },
+        ...(selectedTimelineIds.length > 0
+          ? [
+              {
+                items: [
+                  {
+                    label: isZh
+                      ? `删除选中的 ${selectedTimelineIds.length} 个片段`
+                      : `Delete ${selectedTimelineIds.length} selected segment(s)`,
+                    icon: <Trash2 className="w-4 h-4" />,
+                    onSelect: () => removeTimelineNodes(selectedTimelineIds),
+                    disabled: !canMutate,
+                    danger: true,
+                  },
+                ],
+              },
+            ]
+          : []),
       ];
     }
 
@@ -3347,10 +3441,12 @@ export function VideoRenderModal({
                 setExportFormat={setExportFormat}
                 resolutionIndex={resolutionIndex}
                 setResolutionIndex={setResolutionIndex}
+                resolutionWidth={resolutionWidth}
+                setResolutionWidth={setResolutionWidth}
+                resolutionHeight={resolutionHeight}
+                setResolutionHeight={setResolutionHeight}
                 frameRate={frameRate}
                 setFrameRate={setFrameRate}
-                encoder={encoder}
-                setEncoder={setEncoder}
                 outputDir={outputDir}
                 setOutputDir={setOutputDir}
                 outputDirError={outputDirError}
@@ -3494,6 +3590,15 @@ export function VideoRenderModal({
           segmentDurationLabel={segmentDurationLabel}
           segmentTitle={segmentTitle}
           segmentText={segmentText}
+        />
+      )}
+      {workspaceMode === 'video' && status === 'rendering' && (
+        <RenderProgressModal
+          language={language}
+          progress={progress}
+          progressValue={progressValue}
+          cancelling={isCancellingRender}
+          onCancel={cancelVideoRender}
         />
       )}
       <VideoNoticeModal notice={noticeModal} onClose={() => setNoticeModal(null)} />

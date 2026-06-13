@@ -9,10 +9,19 @@ export type DragSizeControlProps = {
   min: number;
   max: number;
   step: number;
+  unit?: string;
   onChange: (value: number) => void;
 };
 
-export function DragSizeControl({ label, value, min, max, step, onChange }: DragSizeControlProps) {
+export function DragSizeControl({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit = 'px',
+  onChange,
+}: DragSizeControlProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const dragRef = useRef<{ startX: number; startValue: number; moved: boolean } | null>(null);
@@ -75,7 +84,10 @@ export function DragSizeControl({ label, value, min, max, step, onChange }: Drag
       className="group w-full px-3 py-2 rounded-lg bg-[var(--vr-surface-soft)] border border-[var(--vr-border)] text-sm text-[var(--vr-text)] flex items-center justify-between cursor-ew-resize hover:border-[var(--vr-accent)] transition-colors select-none"
       title={label}
     >
-      <span className="font-black">{value}px</span>
+      <span className="font-black">
+        {value}
+        {unit}
+      </span>
       <MoveHorizontal className="w-4 h-4 text-[var(--vr-text-muted)] group-hover:text-[var(--vr-accent)]" />
     </button>
   );
