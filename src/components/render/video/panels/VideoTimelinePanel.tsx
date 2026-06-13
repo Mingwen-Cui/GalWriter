@@ -78,7 +78,6 @@ type VideoTimelinePanelProps = {
   removeVideoTrack: (trackId: string) => void;
   removeAudioTrack: (trackId: string) => void;
   removeTimelineNode: (id: string) => void;
-  onBoxSelectTimelineNodes: (ids: string[], additive: boolean) => void;
   handleAssetDragStart: (
     event: React.DragEvent<HTMLElement>,
     id: string,
@@ -151,7 +150,6 @@ export function VideoTimelinePanel({
   removeVideoTrack,
   removeAudioTrack,
   removeTimelineNode,
-  onBoxSelectTimelineNodes,
   handleAssetDragStart,
   focusTimelineSegment,
   segmentTitle,
@@ -176,7 +174,6 @@ export function VideoTimelinePanel({
     startY: number;
     currentX: number;
     currentY: number;
-    additive: boolean;
     pointerId: number;
     button: number;
   } | null>(null);
@@ -205,7 +202,6 @@ export function VideoTimelinePanel({
     startY: number;
     currentX: number;
     currentY: number;
-    additive: boolean;
   }) => {
     const rect = getSelectionRect(box);
     const ids = Array.from(
@@ -223,9 +219,7 @@ export function VideoTimelinePanel({
       .map((element) => element.dataset.timelineClipId)
       .filter((id): id is string => Boolean(id));
 
-    const selectedBoxIds = Array.from(new Set(ids));
-    onBoxSelectTimelineNodes(selectedBoxIds, box.additive);
-    return selectedBoxIds;
+    return Array.from(new Set(ids));
   };
 
   const handleBoxSelectPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -244,7 +238,6 @@ export function VideoTimelinePanel({
       startY: event.clientY,
       currentX: event.clientX,
       currentY: event.clientY,
-      additive: event.shiftKey || event.ctrlKey || event.metaKey,
       pointerId: event.pointerId,
       button: event.button,
     };

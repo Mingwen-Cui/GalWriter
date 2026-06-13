@@ -2008,22 +2008,19 @@ export function VideoRenderModal({
     setSelectedIds(new Set());
   };
 
-  const boxSelectTimelineNodes = (ids: string[], additive: boolean) => {
+  const setTimelineNodesExported = (ids: string[], exported: boolean) => {
+    const timelineIdSet = new Set(ids.filter((id) => timelineIds.includes(id)));
+    if (timelineIdSet.size === 0) return;
     closeContextMenu();
     pushTimelineHistory();
-    setFocusedPreviewId('');
-    setPreviewPlaying(false);
     setSelectedIds((prev) => {
-      if (!additive) return new Set(ids);
       const next = new Set(prev);
-      ids.forEach((id) => next.add(id));
+      timelineIdSet.forEach((id) => {
+        if (exported) next.add(id);
+        else next.delete(id);
+      });
       return next;
     });
-    if (ids[0]) {
-      setActivePreviewId(ids[0]);
-      const metric = timelineMetricById.get(ids[0]);
-      if (metric) setTimelinePreviewTime(metric.start);
-    }
   };
 
   const focusTimelineSegment = (nodeId: string) => {
@@ -3054,6 +3051,8 @@ export function VideoRenderModal({
       const selectedTimelineIds = (menu.selectedNodeIds || []).filter((id) =>
         timelineIds.includes(id),
       );
+      const allSelectedTimelineIdsExported =
+        selectedTimelineIds.length > 0 && selectedTimelineIds.every((id) => selectedIds.has(id));
       return [
         {
           items: [
@@ -3081,6 +3080,26 @@ export function VideoRenderModal({
         },
         {
           items: [
+            ...(selectedTimelineIds.length > 0
+              ? [
+                  {
+                    label: allSelectedTimelineIdsExported
+                      ? isZh
+                        ? `从导出中排除 ${selectedTimelineIds.length} 个片段`
+                        : `Exclude ${selectedTimelineIds.length} segment(s) from export`
+                      : isZh
+                        ? `将 ${selectedTimelineIds.length} 个片段加入导出`
+                        : `Include ${selectedTimelineIds.length} segment(s) in export`,
+                    icon: <CheckCircle2 className="w-4 h-4" />,
+                    onSelect: () =>
+                      setTimelineNodesExported(
+                        selectedTimelineIds,
+                        !allSelectedTimelineIdsExported,
+                      ),
+                    disabled: !canMutate,
+                  },
+                ]
+              : []),
             {
               label: isZh ? '选择全部时间线卡片' : 'Select all timeline cards',
               icon: <CheckCircle2 className="w-4 h-4" />,
@@ -3526,7 +3545,6 @@ export function VideoRenderModal({
               removeVideoTrack={removeVideoTrack}
               removeAudioTrack={removeAudioTrack}
               removeTimelineNode={removeTimelineNode}
-              onBoxSelectTimelineNodes={boxSelectTimelineNodes}
               handleAssetDragStart={handleAssetDragStart}
               focusTimelineSegment={focusTimelineSegment}
               segmentTitle={segmentTitle}

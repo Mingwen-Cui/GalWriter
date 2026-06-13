@@ -140,11 +140,10 @@ export function VideoExportSettingsPanel({
               key={mode}
               type="button"
               onClick={() => setExportSettingsMode(mode)}
-              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
-                exportSettingsMode === mode
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${exportSettingsMode === mode
                   ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                   : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              }`}
+                }`}
               title={
                 mode === 'video'
                   ? t('切换到导出设置', '書き出し設定を表示', 'Show export settings')
@@ -469,11 +468,10 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => setUseGpuAcceleration(false)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
-                    !useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${!useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={t(
                     '使用 2D Canvas 渲染（最稳定）',
                     '2D Canvas レンダリング（最も安定）',
@@ -486,23 +484,22 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => isWebGPUSupported && setUseGpuAcceleration(true)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
-                    useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={
                     isWebGPUSupported
                       ? t(
-                          '使用 WebGPU 加速渲染（实验性）',
-                          'WebGPU 加速レンダリング（実験的）',
-                          'WebGPU accelerated rendering (experimental)',
-                        )
+                        '使用 WebGPU 加速渲染（实验性）',
+                        'WebGPU 加速レンダリング（実験的）',
+                        'WebGPU accelerated rendering (experimental)',
+                      )
                       : t(
-                          '当前浏览器不支持 WebGPU',
-                          'このブラウザは WebGPU をサポートしていません',
-                          'WebGPU is not supported in this browser',
-                        )
+                        '当前浏览器不支持 WebGPU',
+                        'このブラウザは WebGPU をサポートしていません',
+                        'WebGPU is not supported in this browser',
+                      )
                   }
                 >
                   GPU
@@ -523,22 +520,20 @@ export function VideoExportSettingsPanel({
                 <button
                   type="button"
                   onClick={() => setHideCharacterTags(!hideCharacterTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
-                    hideCharacterTags
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideCharacterTags
                       ? 'bg-[var(--vr-accent)] text-white'
                       : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                  }`}
+                    }`}
                 >
                   {t('隐藏人物标签', '人物タグを非表示', 'Hide character tags')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setHideSceneTags(!hideSceneTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
-                    hideSceneTags
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideSceneTags
                       ? 'bg-[var(--vr-accent)] text-white'
                       : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                  }`}
+                    }`}
                 >
                   {t('隐藏场景标签', 'シーンタグを非表示', 'Hide scene tags')}
                 </button>
@@ -563,9 +558,8 @@ export function VideoExportSettingsPanel({
                       '未指定ならダウンロードへ保存',
                       'Defaults to Downloads',
                     )}
-                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
-                      outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
-                    }`}
+                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                      }`}
                   />
                   <button
                     type="button"
@@ -633,11 +627,10 @@ export function VideoExportSettingsPanel({
                 <button
                   type="button"
                   onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
-                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${
-                    isRecordingVoiceover
+                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${isRecordingVoiceover
                       ? 'bg-rose-500 text-white hover:bg-rose-600'
                       : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
-                  }`}
+                    }`}
                 >
                   <Mic className="h-4 w-4 shrink-0" />
                   <span className="truncate">

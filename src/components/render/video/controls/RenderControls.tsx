@@ -216,16 +216,14 @@ export function ResizeHandle({
         const nextSign = reverse ? -sign : sign;
         onChange(clamp(value + nextSign * 16, min, max));
       }}
-      className={`group relative z-10 shrink-0 outline-none ${
-        isHorizontal ? '-mx-1 w-2 cursor-col-resize' : '-my-1 h-2 cursor-row-resize'
-      }`}
+      className={`group relative z-10 shrink-0 outline-none ${isHorizontal ? '-mx-1 w-2 cursor-col-resize' : '-my-1 h-2 cursor-row-resize'
+        }`}
     >
       <span
-        className={`absolute rounded-full bg-[var(--vr-border-strong)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100 ${
-          isHorizontal
-            ? 'inset-y-4 left-1/2 w-0.5 -translate-x-1/2'
-            : 'inset-x-4 top-1/2 h-0.5 -translate-y-1/2'
-        }`}
+        className={`absolute rounded-full bg-[var(--vr-border-strong)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100 ${isHorizontal
+          ? 'inset-y-4 left-1/2 w-0.5 -translate-x-1/2'
+          : 'inset-x-4 top-1/2 h-0.5 -translate-y-1/2'
+          }`}
       />
     </div>
   );
