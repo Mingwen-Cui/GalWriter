@@ -76,6 +76,7 @@ import type {
   CharacterNodeData,
   SceneNodeData,
   SceneImageMode,
+  StoryAudioClip,
   StoryTitlePlacement,
   StoryNodeData,
   TextAIProfile,
@@ -1517,8 +1518,40 @@ export function StoryEditor() {
           voice: ttsVoice,
         });
 
+        const existingClips = Array.isArray(node.data.audioClips)
+          ? node.data.audioClips
+          : typeof node.data.audioUrl === 'string' && node.data.audioUrl
+            ? [
+                {
+                  id: crypto.randomUUID(),
+                  name:
+                    language === 'zh'
+                      ? '已有音频'
+                      : language === 'ja'
+                        ? '既存の音声'
+                        : 'Existing audio',
+                  url: node.data.audioUrl,
+                  source: 'imported' as const,
+                  createdAt: Date.now() - 1,
+                },
+              ]
+            : [];
+        const generatedClip: StoryAudioClip = {
+          id: crypto.randomUUID(),
+          name:
+            language === 'zh'
+              ? `文字音频 ${existingClips.length + 1}`
+              : language === 'ja'
+                ? `テキスト音声 ${existingClips.length + 1}`
+                : `Text audio ${existingClips.length + 1}`,
+          url: audio.url,
+          source: 'tts',
+          createdAt: Date.now(),
+        };
+        const nextClips = [...existingClips, generatedClip];
         handleUpdateNode(nodeId, {
-          audioUrl: audio.url,
+          audioUrl: nextClips.find((clip) => !clip.skipped)?.url || generatedClip.url,
+          audioClips: nextClips,
           ttsGenerated: true,
         });
         showToast(
@@ -4089,12 +4122,26 @@ ${direction}
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}
                 imageUrl={zenImageUrl}
                 videoUrl={typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : ''}
+                audioUrl={typeof node?.data.audioUrl === 'string' ? node.data.audioUrl : ''}
+                audioClips={
+                  Array.isArray(node?.data.audioClips)
+                    ? (node.data.audioClips as StoryAudioClip[])
+                    : []
+                }
                 characterTags={characterTags}
                 sceneTags={sceneTags}
                 presentation={zenPresentation}
                 isAILoading={aiLoadingNodeId === zenModeNodeId}
                 onAIGenerate={() => handleAIButtonClick(zenModeNodeId)}
                 onGenerateImage={() => handleGenerateStoryNodeImage(zenModeNodeId)}
+                onGenerateAudio={() => handleGenerateStoryNodeSpeech(zenModeNodeId)}
+                onAudioClipsChange={(audioClips) => {
+                  const firstPlayable = audioClips.find((clip) => !clip.skipped);
+                  handleUpdateNode(zenModeNodeId, {
+                    audioClips,
+                    audioUrl: firstPlayable?.url,
+                  });
+                }}
                 onChange={(val) => handleUpdateNode(zenModeNodeId, { text: val })}
                 onPresentationChange={(presentation) =>
                   handleUpdateNode(zenModeNodeId, { presentation })

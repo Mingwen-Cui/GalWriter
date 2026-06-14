@@ -232,12 +232,12 @@ export function WebPlaytestPreview({
   }, [playlistAudioUrl]);
 
   const goTo = (targetId: string) => {
-    if (presentationExiting) return;
     if (settings.layoutMode === 'classic') {
       if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
       setCurrentNodeId(targetId);
       return;
     }
+    if (presentationExiting) return;
     const exitDuration = Math.max(
       presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
       ...presentation.characters.map((char) =>
@@ -765,7 +765,7 @@ export function WebPlaytestPreview({
             className={`pointer-events-auto relative w-full border-t border-white/10 p-4 ${
               settings.layoutMode === 'immersive'
                 ? 'overflow-y-auto rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
-                : ''
+                : 'px-12 md:px-16'
             }`}
             style={{
               backgroundColor:
@@ -831,7 +831,7 @@ export function WebPlaytestPreview({
             positionClass={
               settings.layoutMode === 'immersive'
                 ? 'pointer-events-auto static ml-3 shrink-0'
-                : 'absolute left-full top-0 ml-3'
+                : 'absolute bottom-3 right-3'
             }
           />
         </div>

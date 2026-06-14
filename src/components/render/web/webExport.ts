@@ -471,7 +471,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       border-top: 1px solid rgba(255,255,255,0.14);
       height: auto;
       max-height: min(45vh, 420px);
-      padding: clamp(14px, 2.5vw, 20px);
+      padding: clamp(14px, 2.5vw, 20px) clamp(64px, 8vw, 96px);
       background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 18%);
       box-shadow: 0 -14px 36px rgba(0,0,0,0.18);
       overflow: auto;
@@ -484,6 +484,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       margin: 0;
       width: min(960px, calc(100% - 112px));
       max-height: min(46vh, 430px);
+      padding: clamp(14px, 2.5vw, 20px);
       transform: translateX(-50%);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px;
@@ -506,6 +507,18 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       line-height: 1.55;
       font-size: var(--body-size, 16px);
       overflow-wrap: anywhere;
+    }
+    .text.typewriter-reserved { position: relative; }
+    .typewriter-placeholder {
+      display: block;
+      visibility: hidden;
+      white-space: pre-wrap;
+    }
+    .typewriter-visible {
+      position: absolute;
+      inset: 0;
+      display: block;
+      white-space: pre-wrap;
     }
     .zen-toggle {
       position: absolute;
@@ -602,6 +615,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         max-height: 100vh;
       }
       .dialogue { padding: 16px; }
+      .app:not(.immersive) .dialogue { padding-left: 56px; padding-right: 56px; }
       .app.immersive .dialogue {
         width: calc(100% - 24px);
         left: 12px;
@@ -662,10 +676,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
-      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u5f55\\u97f3\\u64ad\\u653e\\u5217\\u8868", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3" }
+      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3" }
       : content.language === "ja"
-        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u9332\\u97f3\\u30d7\\u30ec\\u30a4\\u30ea\\u30b9\\u30c8", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3" }
-        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio playlist", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio" };
+        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u97f3\\u58f0\\u518d\\u751f", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3" }
+        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio" };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -875,6 +889,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     function applyTypewriter(element, html, enabled, revealChoices) {
       if (!element) return;
       if (!enabled) {
+        element.classList.remove("typewriter-reserved");
         element.innerHTML = html || "";
         if (revealChoices) showChoicesAndMaybeAdvance();
         return;
@@ -882,11 +897,20 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const temp = document.createElement("div");
       temp.innerHTML = html || "";
       const source = temp.textContent || "";
+      element.classList.add("typewriter-reserved");
+      element.innerHTML = "";
+      const placeholder = document.createElement("span");
+      placeholder.className = "typewriter-placeholder";
+      placeholder.textContent = source || " ";
+      placeholder.setAttribute("aria-hidden", "true");
+      const visible = document.createElement("span");
+      visible.className = "typewriter-visible";
+      element.append(placeholder, visible);
       let index = 0;
-      element.textContent = "";
+      visible.textContent = "";
       const timer = setInterval(() => {
         index += 1;
-        element.textContent = source.slice(0, index);
+        visible.textContent = source.slice(0, index);
         if (index >= source.length) {
           clearInterval(timer);
           typewriterTimers = typewriterTimers.filter((item) => item !== timer);
@@ -975,6 +999,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const data = node.data || {};
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
+      const hideCenteredTitle =
+        settings.skipSingleChoicePopup && choicePosition === "center";
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
       currentAudioEnded = !data.audioUrl;
@@ -1046,7 +1072,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + charactersHtml + '</div>' +
         '<div class="dialogue">' +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
-          '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>' +
+          (hideCenteredTitle ? "" : '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>') +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
           (data.audioUrl ? '<audio id="nodeAudio" src="' + escapeAttr(data.audioUrl) + '" preload="auto" hidden></audio>' : '') +
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
@@ -1074,8 +1100,6 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           });
         }
       }, 50);
-      stageEl.querySelector(".text")?.addEventListener("click", continueFromText);
-      stageEl.querySelector(".media")?.addEventListener("click", continueFromText);
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) {
         nodeAudio.addEventListener("play", () => recordAudio(node, data.audioUrl));
@@ -1140,6 +1164,19 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
+    });
+    document.querySelector(".app")?.addEventListener("click", (event) => {
+      if (settings.autoAdvance || !currentId || currentId === "THE_END") return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          "header, button, a, video, audio, input, select, textarea, .playlist-panel"
+        )
+      ) {
+        return;
+      }
+      continueFromText();
     });
     renderPlaylist();
     render();

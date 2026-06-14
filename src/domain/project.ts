@@ -353,6 +353,15 @@ export interface StoryPresentation {
   characters: CharacterPresentation[];
 }
 
+export interface StoryAudioClip {
+  id: string;
+  name: string;
+  url: string;
+  source: 'tts' | 'recording' | 'imported';
+  createdAt: number;
+  skipped?: boolean;
+}
+
 export type HullPoint = {
   x: number;
   y: number;
@@ -400,6 +409,7 @@ export interface StoryNodeData extends BaseEditorNodeData {
   imageUrl?: string;
   videoUrl?: string;
   audioUrl?: string;
+  audioClips?: StoryAudioClip[];
   objectFit?: MediaObjectFit;
   mediaScale?: number;
   mediaOffsetX?: number;

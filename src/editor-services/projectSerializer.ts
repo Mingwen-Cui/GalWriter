@@ -333,6 +333,21 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         restoredNode.data[field] = URL.createObjectURL(blob);
       }
 
+      if (Array.isArray(restoredNode.data.audioClips)) {
+        restoredNode.data.audioClips = await Promise.all(
+          restoredNode.data.audioClips.map(async (clip: unknown) => {
+            if (!clip || typeof clip !== 'object') return clip;
+            const nextClip = { ...(clip as Record<string, unknown>) };
+            const url = nextClip.url;
+            if (typeof url !== 'string' || !url.startsWith('assets/') || !zip) return nextClip;
+            const assetFile = zip.file(url);
+            if (!assetFile) return nextClip;
+            const blob = await assetFile.async('blob');
+            return { ...nextClip, url: URL.createObjectURL(blob) };
+          }),
+        );
+      }
+
       if (typeof restoredNode.data.text === 'string') {
         restoredNode.data.text = await restoreHtmlMedia(restoredNode.data.text, zip);
       }
@@ -471,6 +486,30 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
           const mediaFileName = `media_${node.id}_${field}.${extension}`;
           assetsFolder?.file(mediaFileName, blob);
           nextNode.data[field] = `assets/${mediaFileName}`;
+        }
+
+        if (Array.isArray(nextNode.data.audioClips)) {
+          nextNode.data.audioClips = await Promise.all(
+            nextNode.data.audioClips.map(async (clip: unknown, index: number) => {
+              if (!clip || typeof clip !== 'object') return clip;
+              const nextClip = { ...(clip as Record<string, unknown>) };
+              const url = nextClip.url;
+              if (
+                typeof url !== 'string' ||
+                (!url.startsWith('data:') && !url.startsWith('blob:'))
+              ) {
+                return nextClip;
+              }
+
+              const blob = await urlToBlob(url);
+              if (!blob) return nextClip;
+              const extension =
+                blob.type === 'audio/mpeg' ? 'mp3' : blob.type.split('/')[1] || 'bin';
+              const mediaFileName = `media_${node.id}_audioClip_${index + 1}.${extension}`;
+              assetsFolder?.file(mediaFileName, blob);
+              return { ...nextClip, url: `assets/${mediaFileName}` };
+            }),
+          );
         }
 
         if (typeof nextNode.data.text === 'string') {

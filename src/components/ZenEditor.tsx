@@ -8,13 +8,19 @@ import {
   ListOrdered,
   Loader2,
   MapPin,
+  Mic,
   Palette,
+  Pause,
+  Play,
   Save,
+  SkipForward,
   Sparkles,
+  Square,
   Trash2,
   Type,
   Underline,
   User,
+  Volume2,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -23,8 +29,10 @@ import type {
   PresentationAnimation,
   PresentationMotion,
   ScenePresentation,
+  StoryAudioClip,
   StoryPresentation,
 } from '../domain/project';
+import { convertRecordingToMp3 } from '../lib/audioRecording';
 import {
   clampCharacterLayer,
   copyCharacterPresentationSettings,
@@ -51,12 +59,16 @@ export function ZenEditor({
   value,
   imageUrl,
   videoUrl,
+  audioUrl,
+  audioClips = [],
   characterTags = [],
   sceneTags = [],
   presentation,
   isAILoading = false,
   onAIGenerate,
   onGenerateImage,
+  onGenerateAudio,
+  onAudioClipsChange,
   onChange,
   onPresentationChange,
   onClose,
@@ -64,18 +76,39 @@ export function ZenEditor({
   value: string;
   imageUrl?: string;
   videoUrl?: string;
+  audioUrl?: string;
+  audioClips?: StoryAudioClip[];
   characterTags?: ZenTag[];
   sceneTags?: ZenTag[];
   presentation?: StoryPresentation;
   isAILoading?: boolean;
   onAIGenerate?: () => void;
   onGenerateImage?: () => Promise<void> | void;
+  onGenerateAudio?: () => Promise<void> | void;
+  onAudioClipsChange?: (clips: StoryAudioClip[]) => void;
   onChange: (v: string) => void;
   onPresentationChange?: (presentation: StoryPresentation) => void;
   onClose: () => void;
 }) {
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [rightPanel, setRightPanel] = useState<'presentation' | 'audio'>('presentation');
+  const [recordingState, setRecordingState] = useState<
+    'idle' | 'recording' | 'paused' | 'encoding'
+  >('idle');
+  const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [editingAudioId, setEditingAudioId] = useState<string | null>(null);
+  const [editingAudioName, setEditingAudioName] = useState('');
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveformFrameRef = useRef<number | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement>(null);
+  const [waveformLevels, setWaveformLevels] = useState<number[]>(() => Array(24).fill(0.08));
   const [toolbarMenu, setToolbarMenu] = useState<'colors' | 'sizes' | null>(null);
   const [presentationMenu, setPresentationMenu] = useState<
     (ZenTag & { kind: 'character' | 'scene' }) | null
@@ -92,6 +125,21 @@ export function ZenEditor({
     value: CharacterPresentation | ScenePresentation;
   } | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
+
+  const normalizedAudioClips: StoryAudioClip[] =
+    audioClips.length > 0
+      ? audioClips
+      : audioUrl
+        ? [
+            {
+              id: 'legacy-audio',
+              name: '已有音频',
+              url: audioUrl,
+              source: 'imported',
+              createdAt: 0,
+            },
+          ]
+        : [];
 
   // NOTE: 演出设置模板接口定义
   interface CharacterTemplate {
@@ -457,6 +505,218 @@ export function ZenEditor({
     }
   };
 
+  const handleGenerateAudio = async () => {
+    if (!onGenerateAudio || isGeneratingAudio) return;
+    setRightPanel('audio');
+    setIsGeneratingAudio(true);
+    try {
+      await onGenerateAudio();
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
+
+  const updateAudioClips = (clips: StoryAudioClip[]) => {
+    onAudioClipsChange?.(clips);
+  };
+
+  const stopRecordingTracks = () => {
+    if (waveformFrameRef.current !== null) {
+      cancelAnimationFrame(waveformFrameRef.current);
+      waveformFrameRef.current = null;
+    }
+    analyserRef.current?.disconnect();
+    analyserRef.current = null;
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
+    setWaveformLevels(Array(24).fill(0.08));
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+  };
+
+  const startWaveformAnalysis = (stream: MediaStream) => {
+    try {
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.72;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      const drawWaveform = () => {
+        analyser.getByteFrequencyData(frequencyData);
+        const bars = 24;
+        const bucketSize = Math.max(1, Math.floor(frequencyData.length / bars));
+        const levels = Array.from({ length: bars }, (_, index) => {
+          let total = 0;
+          const start = index * bucketSize;
+          const end = Math.min(frequencyData.length, start + bucketSize);
+          for (let cursor = start; cursor < end; cursor += 1) total += frequencyData[cursor];
+          const average = total / Math.max(1, end - start);
+          return Math.max(0.08, Math.min(1, average / 150));
+        });
+        setWaveformLevels(levels);
+        waveformFrameRef.current = requestAnimationFrame(drawWaveform);
+      };
+      drawWaveform();
+    } catch (error) {
+      console.warn('Microphone waveform is unavailable:', error);
+    }
+  };
+
+  const startRecording = async () => {
+    if (!onAudioClipsChange || recordingState !== 'idle') return;
+    setRightPanel('audio');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recordingChunksRef.current = [];
+      recordingStreamRef.current = stream;
+      startWaveformAnalysis(stream);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const recording = new Blob(recordingChunksRef.current, {
+          type: mimeType || recorder.mimeType || 'audio/webm',
+        });
+        recordingChunksRef.current = [];
+        recorderRef.current = null;
+        stopRecordingTracks();
+        if (recording.size === 0) {
+          setRecordingState('idle');
+          return;
+        }
+
+        setRecordingState('encoding');
+        try {
+          const mp3 = await convertRecordingToMp3(recording);
+          const clip: StoryAudioClip = {
+            id: crypto.randomUUID(),
+            name: `录音 ${new Date().toLocaleTimeString()}`,
+            url: URL.createObjectURL(mp3),
+            source: 'recording',
+            createdAt: Date.now(),
+          };
+          updateAudioClips([...normalizedAudioClips, clip]);
+          setActiveAudioId(clip.id);
+        } catch (error) {
+          console.error('Failed to encode recording as MP3:', error);
+          alert('录音转 MP3 失败，请重试。');
+        } finally {
+          setRecordingState('idle');
+        }
+      };
+      recorder.start(250);
+      setRecordingState('recording');
+    } catch (error) {
+      stopRecordingTracks();
+      setRecordingState('idle');
+      const message = error instanceof Error ? error.message : '无法打开麦克风';
+      alert(`无法开始录音：${message}`);
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  };
+
+  const toggleRecordingPause = () => {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    if (recorder.state === 'recording') {
+      recorder.pause();
+      void audioContextRef.current?.suspend();
+      setRecordingState('paused');
+    } else if (recorder.state === 'paused') {
+      recorder.resume();
+      void audioContextRef.current?.resume();
+      setRecordingState('recording');
+    }
+  };
+
+  const playableAudioClips = normalizedAudioClips.filter((clip) => !clip.skipped);
+  const activeAudioClip =
+    normalizedAudioClips.find((clip) => clip.id === activeAudioId) || playableAudioClips[0];
+
+  const playClip = (clip: StoryAudioClip) => {
+    setActiveAudioId(clip.id);
+    window.setTimeout(() => {
+      audioPlayerRef.current?.play().catch(() => setIsAudioPlaying(false));
+    }, 0);
+  };
+
+  const toggleClipPlayback = (clip: StoryAudioClip) => {
+    if (activeAudioClip?.id === clip.id && isAudioPlaying) {
+      audioPlayerRef.current?.pause();
+      return;
+    }
+    playClip(clip);
+  };
+
+  const playNextClip = () => {
+    if (!activeAudioClip) return;
+    const currentIndex = normalizedAudioClips.findIndex((clip) => clip.id === activeAudioClip.id);
+    const next = normalizedAudioClips.slice(currentIndex + 1).find((clip) => !clip.skipped);
+    if (next) playClip(next);
+    else setIsAudioPlaying(false);
+  };
+
+  const toggleClipSkipped = (clipId: string) => {
+    const nextClips = normalizedAudioClips.map((clip) =>
+      clip.id === clipId ? { ...clip, skipped: !clip.skipped } : clip,
+    );
+    updateAudioClips(nextClips);
+    if (activeAudioClip?.id === clipId) {
+      audioPlayerRef.current?.pause();
+      setIsAudioPlaying(false);
+    }
+  };
+
+  const deleteClip = (clipId: string) => {
+    const nextClips = normalizedAudioClips.filter((clip) => clip.id !== clipId);
+    if (activeAudioClip?.id === clipId) {
+      audioPlayerRef.current?.pause();
+      setActiveAudioId(nextClips.find((clip) => !clip.skipped)?.id || null);
+      setIsAudioPlaying(false);
+    }
+    updateAudioClips(nextClips);
+  };
+
+  const startRenamingClip = (clip: StoryAudioClip) => {
+    setEditingAudioId(clip.id);
+    setEditingAudioName(clip.name);
+  };
+
+  const finishRenamingClip = () => {
+    if (!editingAudioId) return;
+    const name = editingAudioName.trim();
+    if (name) {
+      updateAudioClips(
+        normalizedAudioClips.map((clip) => (clip.id === editingAudioId ? { ...clip, name } : clip)),
+      );
+    }
+    setEditingAudioId(null);
+    setEditingAudioName('');
+  };
+
+  useEffect(
+    () => () => {
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== 'inactive') recorder.stop();
+      stopRecordingTracks();
+      audioPlayerRef.current?.pause();
+    },
+    [],
+  );
+
   const colors = ['#1e293b', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
   const sizes = [
     { label: 'S', val: '2' },
@@ -579,6 +839,49 @@ export function ZenEditor({
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <Sparkles className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setRightPanel('audio');
+                if (recordingState === 'recording' || recordingState === 'paused') {
+                  stopRecording();
+                } else {
+                  void startRecording();
+                }
+              }}
+              disabled={!onAudioClipsChange || recordingState === 'encoding'}
+              className={`rounded-lg p-3 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                recordingState === 'recording' || recordingState === 'paused'
+                  ? 'bg-rose-500/10 text-rose-500'
+                  : 'text-rose-500'
+              }`}
+              title={
+                recordingState === 'recording' || recordingState === 'paused'
+                  ? '停止录音'
+                  : recordingState === 'encoding'
+                    ? '正在生成 MP3'
+                    : '声音录制'
+              }
+            >
+              {recordingState === 'encoding' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : recordingState === 'recording' || recordingState === 'paused' ? (
+                <Square className="h-5 w-5 fill-current" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              onClick={handleGenerateAudio}
+              disabled={!onGenerateAudio || isGeneratingAudio}
+              className="rounded-lg p-3 text-sky-500 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+              title="文字转音频"
+            >
+              {isGeneratingAudio ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Volume2 className="h-5 w-5" />
               )}
             </button>
             <button
@@ -758,7 +1061,30 @@ export function ZenEditor({
       </main>
       <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
         <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3">
-          <span className="text-xs font-black text-[var(--text-muted)]">演出设置</span>
+          <div className="flex rounded-xl bg-[var(--app-bg)] p-1">
+            <button
+              type="button"
+              onClick={() => setRightPanel('presentation')}
+              className={`rounded-lg px-3 py-2 text-xs font-black ${
+                rightPanel === 'presentation'
+                  ? 'bg-[var(--card-bg)] text-indigo-500 shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              演出设置
+            </button>
+            <button
+              type="button"
+              onClick={() => setRightPanel('audio')}
+              className={`rounded-lg px-3 py-2 text-xs font-black ${
+                rightPanel === 'audio'
+                  ? 'bg-[var(--card-bg)] text-sky-500 shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              音频列表
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="rounded-xl border border-rose-400/50 bg-rose-500/10 px-5 py-2.5 text-sm font-black text-rose-500 shadow-sm hover:bg-rose-500 hover:text-white"
@@ -766,7 +1092,11 @@ export function ZenEditor({
             退出专注
           </button>
         </div>
-        <div className="space-y-2 border-b border-[var(--card-border)] p-3">
+        <div
+          className={`space-y-2 border-b border-[var(--card-border)] p-3 ${
+            rightPanel === 'audio' ? 'hidden' : ''
+          }`}
+        >
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-indigo-500">
               <User className="h-5 w-5" />
@@ -841,7 +1171,8 @@ export function ZenEditor({
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {presentationMenu?.kind === 'character' &&
+          {rightPanel === 'presentation' &&
+            presentationMenu?.kind === 'character' &&
             (() => {
               const current =
                 normalizedPresentation.characters.find(
@@ -1184,7 +1515,8 @@ export function ZenEditor({
                 </div>
               );
             })()}
-          {presentationMenu?.kind === 'scene' &&
+          {rightPanel === 'presentation' &&
+            presentationMenu?.kind === 'scene' &&
             (() => {
               const current =
                 normalizedPresentation.scene?.sourceNodeId === presentationMenu.id
@@ -1484,6 +1816,231 @@ export function ZenEditor({
                 </div>
               );
             })()}
+          {rightPanel === 'audio' && (
+            <div className="space-y-4 text-sm text-[var(--text-primary)]">
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <strong>录音控制</strong>
+                  <span className="text-xs font-bold text-[var(--text-muted)]">
+                    {recordingState === 'recording'
+                      ? '正在录音'
+                      : recordingState === 'paused'
+                        ? '已暂停'
+                        : recordingState === 'encoding'
+                          ? '正在生成 MP3'
+                          : '未录音'}
+                  </span>
+                </div>
+                <div
+                  className={`mb-3 flex h-16 items-center justify-center gap-1 rounded-xl border px-3 transition-colors ${
+                    recordingState === 'recording'
+                      ? 'border-rose-500/30 bg-rose-500/10'
+                      : recordingState === 'paused'
+                        ? 'border-amber-500/30 bg-amber-500/10 opacity-60'
+                        : 'border-[var(--card-border)] bg-[var(--app-bg)]'
+                  }`}
+                  aria-label={
+                    recordingState === 'recording' ? '正在接收麦克风声音' : '麦克风音量波形'
+                  }
+                >
+                  {waveformLevels.map((level, index) => (
+                    <span
+                      key={index}
+                      className={`w-1 rounded-full transition-[height,background-color] duration-75 ${
+                        recordingState === 'recording'
+                          ? 'bg-rose-500'
+                          : recordingState === 'paused'
+                            ? 'bg-amber-500'
+                            : 'bg-[var(--text-muted)]/30'
+                      }`}
+                      style={{
+                        height:
+                          recordingState === 'recording' || recordingState === 'paused'
+                            ? `${Math.max(5, level * 48)}px`
+                            : `${5 + ((index * 7) % 12)}px`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (recordingState === 'recording' || recordingState === 'paused') {
+                        stopRecording();
+                      } else {
+                        void startRecording();
+                      }
+                    }}
+                    disabled={!onAudioClipsChange || recordingState === 'encoding'}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 font-bold text-white disabled:opacity-50"
+                  >
+                    {recordingState === 'recording' || recordingState === 'paused' ? (
+                      <>
+                        <Square className="h-4 w-4 fill-current" />
+                        停止录音
+                      </>
+                    ) : recordingState === 'encoding' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        生成 MP3
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4" />
+                        开始录音
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleRecordingPause}
+                    disabled={recordingState !== 'recording' && recordingState !== 'paused'}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-3 py-2 font-bold disabled:opacity-40"
+                  >
+                    {recordingState === 'paused' ? (
+                      <>
+                        <Play className="h-4 w-4" />
+                        继续录音
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-4 w-4" />
+                        暂停录音
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>音频播放列表</strong>
+                  <div className="mt-0.5 text-xs text-[var(--text-muted)]">
+                    顺序播放 · 跳过已标记音频
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const first = playableAudioClips[0];
+                    if (first) playClip(first);
+                  }}
+                  disabled={playableAudioClips.length === 0}
+                  className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
+                >
+                  <Play className="h-4 w-4" />
+                  顺序播放
+                </button>
+              </div>
+
+              {activeAudioClip && (
+                <audio
+                  ref={audioPlayerRef}
+                  src={activeAudioClip.url}
+                  controls
+                  preload="metadata"
+                  onPlay={() => setIsAudioPlaying(true)}
+                  onPause={() => setIsAudioPlaying(false)}
+                  onEnded={playNextClip}
+                  className="h-10 w-full"
+                />
+              )}
+
+              <div className="space-y-2">
+                {normalizedAudioClips.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--card-border)] p-6 text-center text-xs text-[var(--text-muted)]">
+                    暂无音频。可使用左侧的录音或文字转音频按钮添加。
+                  </div>
+                ) : (
+                  normalizedAudioClips.map((clip, index) => {
+                    const active = activeAudioClip?.id === clip.id;
+                    return (
+                      <div
+                        key={clip.id}
+                        className={`rounded-xl border p-3 ${
+                          active
+                            ? 'border-sky-500/50 bg-sky-500/10'
+                            : 'border-[var(--card-border)] bg-[var(--app-bg)]'
+                        } ${clip.skipped ? 'opacity-55' : ''}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleClipPlayback(clip)}
+                            disabled={clip.skipped}
+                            className="rounded-lg bg-sky-500/10 p-2 text-sky-500 disabled:opacity-40"
+                            title={active && isAudioPlaying ? '暂停' : '播放'}
+                          >
+                            {active && isAudioPlaying ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            {editingAudioId === clip.id ? (
+                              <input
+                                autoFocus
+                                value={editingAudioName}
+                                onChange={(event) => setEditingAudioName(event.target.value)}
+                                onBlur={finishRenamingClip}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') finishRenamingClip();
+                                  if (event.key === 'Escape') {
+                                    setEditingAudioId(null);
+                                    setEditingAudioName('');
+                                  }
+                                }}
+                                className="w-full rounded border border-sky-500/40 bg-[var(--card-bg)] px-2 py-1 font-bold outline-none"
+                                aria-label="重命名音频"
+                              />
+                            ) : (
+                              <div
+                                className="truncate font-bold"
+                                onDoubleClick={() => startRenamingClip(clip)}
+                                title="双击重命名"
+                              >
+                                {index + 1}. {clip.name}
+                              </div>
+                            )}
+                            <div className="text-[10px] uppercase text-[var(--text-muted)]">
+                              {clip.source === 'recording'
+                                ? 'MP3 录音'
+                                : clip.source === 'tts'
+                                  ? '文字转音频'
+                                  : '已有音频'}
+                              {clip.skipped ? ' · 已跳过' : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleClipSkipped(clip.id)}
+                            className={`rounded-lg p-2 ${
+                              clip.skipped
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-amber-500/10 text-amber-500'
+                            }`}
+                            title={clip.skipped ? '恢复播放' : '播放时跳过'}
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteClip(clip.id)}
+                            className="rounded-lg bg-rose-500/10 p-2 text-rose-500"
+                            title="删除音频"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </aside>
     </div>
