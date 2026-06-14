@@ -5,10 +5,13 @@ import {
   EyeOff,
   FastForward,
   Layout,
+  ListMusic,
   Loader2,
   Maximize2,
   Minimize2,
   Moon,
+  Pause,
+  Play,
   PlayCircle,
   RotateCcw,
   Settings,
@@ -30,6 +33,12 @@ import {
   getPresentationTransform,
   normalizeStoryPresentation,
 } from '../lib/presentation';
+
+type PlayedAudio = {
+  nodeId: string;
+  title: string;
+  url: string;
+};
 
 // Helper: HTML-Aware Safe Slicing for Typewriter Effect
 function sliceHtmlByTextLength(
@@ -188,10 +197,18 @@ export function PlayTestModal({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playlistAudioRef = useRef<HTMLAudioElement>(null);
   const audioPreloadRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const choicesRef = useRef<HTMLDivElement>(null);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showAudioPlaylist, setShowAudioPlaylist] = useState(false);
+  const [playedAudios, setPlayedAudios] = useState<PlayedAudio[]>([]);
+  const [playlistAudioUrl, setPlaylistAudioUrl] = useState<string | null>(null);
+  const [isPlaylistAudioPlaying, setIsPlaylistAudioPlaying] = useState(false);
+  const [currentAudioEnded, setCurrentAudioEnded] = useState(false);
+  const [currentVideoEnded, setCurrentVideoEnded] = useState(false);
+  const [mediaStatusNodeId, setMediaStatusNodeId] = useState<string | null>(currentNodeId);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -270,6 +287,70 @@ export function PlayTestModal({
     }
     return container.innerHTML;
   }, [hideCharacterTags, hideSceneTags, rawTextHtml]);
+
+  const getAudioTitle = React.useCallback(
+    (node: FlowNode) => {
+      const title = typeof node.data.title === 'string' ? node.data.title.trim() : '';
+      if (title) return title;
+
+      const container = document.createElement('div');
+      container.innerHTML = typeof node.data.text === 'string' ? node.data.text : '';
+      const text = container.textContent?.trim().replace(/\s+/g, ' ') || '';
+      if (text) return text.slice(0, 42);
+
+      return language === 'zh'
+        ? '未命名录音'
+        : language === 'ja'
+          ? '名称未設定の録音'
+          : 'Untitled audio';
+    },
+    [language],
+  );
+
+  const recordCurrentAudio = React.useCallback(() => {
+    if (!currentNode || typeof currentNode.data.audioUrl !== 'string') return;
+    const url = currentNode.data.audioUrl.trim();
+    if (!url) return;
+
+    playlistAudioRef.current?.pause();
+    setIsPlaylistAudioPlaying(false);
+    const entry = {
+      nodeId: currentNode.id,
+      title: getAudioTitle(currentNode),
+      url,
+    };
+    setPlayedAudios((previous) => [
+      entry,
+      ...previous.filter((audio) => audio.nodeId !== entry.nodeId && audio.url !== entry.url),
+    ]);
+  }, [currentNode, getAudioTitle]);
+
+  const togglePlaylistAudio = (audio: PlayedAudio) => {
+    audioRef.current?.pause();
+
+    if (playlistAudioUrl === audio.url && playlistAudioRef.current) {
+      if (playlistAudioRef.current.paused) {
+        playlistAudioRef.current.play().catch((error) => {
+          console.error('Playlist audio playback failed', error);
+        });
+      } else {
+        playlistAudioRef.current.pause();
+      }
+      return;
+    }
+
+    setPlaylistAudioUrl(audio.url);
+  };
+
+  useEffect(() => {
+    if (!playlistAudioUrl || !playlistAudioRef.current) return;
+    playlistAudioRef.current.currentTime = 0;
+    playlistAudioRef.current.play().catch((error) => {
+      setIsPlaylistAudioPlaying(false);
+      console.error('Playlist audio playback failed', error);
+    });
+  }, [playlistAudioUrl]);
+
   const outEdges = edges.filter((e) => e.source === currentNodeId);
   const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
   const advanceToTarget = React.useCallback(
@@ -297,6 +378,9 @@ export function PlayTestModal({
   useEffect(() => {
     setPresentationExiting(false);
     setPresentationVisible(false);
+    setCurrentAudioEnded(false);
+    setCurrentVideoEnded(false);
+    setMediaStatusNodeId(currentNodeId);
     const frame = requestAnimationFrame(() => setPresentationVisible(true));
     return () => cancelAnimationFrame(frame);
   }, [currentNodeId]);
@@ -385,9 +469,15 @@ export function PlayTestModal({
       autoAdvanceTimerRef.current = null;
     }
 
+    const hasAudio =
+      typeof currentNode?.data.audioUrl === 'string' && currentNode.data.audioUrl.trim();
+    const hasVideo =
+      typeof currentNode?.data.videoUrl === 'string' &&
+      currentNode.data.videoUrl.trim() &&
+      (layoutMode === 'classic' || !sceneImageUrl);
+
     if (
       !autoAdvance ||
-      !animationCompleted ||
       !currentNode ||
       currentNodeId === 'THE_END' ||
       currentNode.type === 'numberConditionNode' ||
@@ -396,6 +486,16 @@ export function PlayTestModal({
     ) {
       return;
     }
+
+    if (hasAudio || hasVideo) {
+      if (mediaStatusNodeId !== currentNodeId) return;
+      if ((!hasAudio || currentAudioEnded) && (!hasVideo || currentVideoEnded)) {
+        advanceToTarget(autoAdvanceTarget);
+      }
+      return;
+    }
+
+    if (!animationCompleted) return;
 
     autoAdvanceTimerRef.current = setTimeout(
       () => {
@@ -418,6 +518,11 @@ export function PlayTestModal({
     autoAdvanceTarget,
     currentNode,
     currentNodeId,
+    currentAudioEnded,
+    currentVideoEnded,
+    mediaStatusNodeId,
+    layoutMode,
+    sceneImageUrl,
     outEdges.length,
   ]);
 
@@ -663,7 +768,7 @@ export function PlayTestModal({
 
   useEffect(() => {
     if (currentNodeId && currentNodeId !== 'THE_END') {
-      if (videoAutoPlay && videoRef.current) {
+      if ((videoAutoPlay || autoAdvance) && videoRef.current) {
         // Try to play with sound first
         videoRef.current.play().catch(() => {
           // If failed (browser restriction), play muted
@@ -674,11 +779,11 @@ export function PlayTestModal({
         });
       }
       // Also autoplay audio if it exists, as it's often background music or narration
-      if (videoAutoPlay && audioRef.current) {
+      if ((videoAutoPlay || autoAdvance) && audioRef.current) {
         audioRef.current.play().catch((e) => console.log('Audio autoplay blocked', e));
       }
     }
-  }, [currentNodeId, videoAutoPlay]);
+  }, [autoAdvance, currentNodeId, videoAutoPlay]);
 
   useEffect(() => {
     if (!currentNodeId || currentNodeId === 'THE_END') return;
@@ -968,6 +1073,131 @@ export function PlayTestModal({
             <FastForward className="w-5 h-5" />
           </button>
 
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowAudioPlaylist((visible) => !visible);
+                setShowSettings(false);
+              }}
+              className={`p-1.5 md:p-2 rounded-full transition-colors ${
+                showAudioPlaylist
+                  ? layoutMode === 'immersive'
+                    ? 'bg-white/25 text-white'
+                    : isDarkMode
+                      ? 'bg-white/20 text-white'
+                      : 'bg-indigo-100 text-indigo-600'
+                  : layoutMode === 'immersive'
+                    ? 'bg-white/10 text-white hover:bg-white/20'
+                    : isDarkMode
+                      ? 'bg-white/10 text-white hover:bg-white/20'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title={
+                language === 'zh'
+                  ? '录音播放列表'
+                  : language === 'ja'
+                    ? '録音プレイリスト'
+                    : 'Audio playlist'
+              }
+            >
+              <ListMusic className="w-5 h-5" />
+            </button>
+
+            {showAudioPlaylist && (
+              <div
+                onClick={(event) => event.stopPropagation()}
+                className={`absolute right-0 mt-2 flex h-96 w-[min(22rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border p-3 shadow-2xl ${
+                  layoutMode === 'immersive'
+                    ? 'border-white/10 bg-black/85 text-white backdrop-blur-md'
+                    : isDarkMode
+                      ? 'border-white/10 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-800'
+                }`}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                  <div>
+                    <div className="text-sm font-bold">
+                      {language === 'zh'
+                        ? '录音播放列表'
+                        : language === 'ja'
+                          ? '録音プレイリスト'
+                          : 'Audio playlist'}
+                    </div>
+                    <div className="mt-0.5 text-[11px] opacity-55">
+                      {language === 'zh'
+                        ? '最近听过的录音排在最上方'
+                        : language === 'ja'
+                          ? '最近聴いた録音が上に表示されます'
+                          : 'Most recently heard first'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowAudioPlaylist(false)}
+                    className="rounded-lg p-1.5 opacity-60 transition hover:bg-white/10 hover:opacity-100"
+                    aria-label={t.close}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                  {playedAudios.length === 0 ? (
+                    <div
+                      className={`flex h-full items-center justify-center rounded-xl border border-dashed px-6 text-center text-xs ${
+                        isDarkMode || layoutMode === 'immersive'
+                          ? 'border-white/15 text-slate-400'
+                          : 'border-slate-200 text-slate-400'
+                      }`}
+                    >
+                      {language === 'zh'
+                        ? '听过的录音会显示在这里'
+                        : language === 'ja'
+                          ? '再生した録音がここに表示されます'
+                          : 'Audio you have heard will appear here'}
+                    </div>
+                  ) : (
+                    playedAudios.map((audio) => {
+                      const isActive = playlistAudioUrl === audio.url && isPlaylistAudioPlaying;
+                      return (
+                        <div
+                          key={`${audio.nodeId}-${audio.url}`}
+                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 ${
+                            isActive
+                              ? isDarkMode || layoutMode === 'immersive'
+                                ? 'border-sky-400/50 bg-sky-500/15'
+                                : 'border-indigo-300 bg-indigo-50'
+                              : isDarkMode || layoutMode === 'immersive'
+                                ? 'border-white/10 bg-white/5'
+                                : 'border-slate-200 bg-slate-50'
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1 truncate text-center text-sm">
+                            {audio.title}
+                          </span>
+                          <button
+                            onClick={() => togglePlaylistAudio(audio)}
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+                              isDarkMode || layoutMode === 'immersive'
+                                ? 'bg-sky-500 text-white hover:bg-sky-400'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                            }`}
+                            aria-label={isActive ? 'Pause' : 'Play'}
+                          >
+                            {isActive ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="ml-0.5 h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {layoutMode === 'classic' && (
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -999,7 +1229,10 @@ export function PlayTestModal({
 
           <div className="relative">
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => {
+                setShowSettings(!showSettings);
+                setShowAudioPlaylist(false);
+              }}
               className={`p-1.5 md:p-2 rounded-full transition-colors ${
                 showSettings
                   ? layoutMode === 'immersive'
@@ -1465,6 +1698,18 @@ export function PlayTestModal({
         </div>
       </div>
 
+      {playlistAudioUrl && (
+        <audio
+          ref={playlistAudioRef}
+          src={playlistAudioUrl}
+          preload="auto"
+          onPlay={() => setIsPlaylistAudioPlaying(true)}
+          onPause={() => setIsPlaylistAudioPlaying(false)}
+          onEnded={() => setIsPlaylistAudioPlaying(false)}
+          className="hidden"
+        />
+      )}
+
       {/* Novel Container */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <div
@@ -1539,8 +1784,9 @@ export function PlayTestModal({
                     src={currentNode.data.videoUrl as string}
                     playsInline
                     muted
-                    loop
+                    loop={!autoAdvance}
                     autoPlay={videoAutoPlay}
+                    onEnded={() => setCurrentVideoEnded(true)}
                     className="w-full h-full object-cover transition-all duration-1000"
                   />
                 ) : (
@@ -1571,16 +1817,15 @@ export function PlayTestModal({
                     className="w-full p-6 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 cursor-pointer overflow-hidden"
                   >
                     {currentNode?.data.audioUrl && (
-                      <div className="mb-3 p-1.5 rounded-lg bg-white/5 border border-white/10">
-                        <audio
-                          key={currentNodeId}
-                          ref={audioRef}
-                          src={currentNode.data.audioUrl as string}
-                          preload="auto"
-                          controls
-                          className="w-full h-7 opacity-75 hover:opacity-100 transition-opacity"
-                        />
-                      </div>
+                      <audio
+                        key={currentNodeId}
+                        ref={audioRef}
+                        src={currentNode.data.audioUrl as string}
+                        preload="auto"
+                        onPlay={recordCurrentAudio}
+                        onEnded={() => setCurrentAudioEnded(true)}
+                        className="hidden"
+                      />
                     )}
 
                     <div className="text-base md:text-lg lg:text-xl leading-relaxed whitespace-pre-wrap font-serif tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1">
@@ -1677,6 +1922,7 @@ export function PlayTestModal({
                         draggable={false}
                         onDragStart={(e) => e.preventDefault()}
                         autoPlay={videoAutoPlay}
+                        onEnded={() => setCurrentVideoEnded(true)}
                         className="max-h-full max-w-full object-contain rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10 transition-transform duration-500 hover:scale-[1.01]"
                         style={{
                           maxWidth: 'min(100%, 1200px)',
@@ -1731,18 +1977,15 @@ export function PlayTestModal({
                 }`}
               >
                 {currentNode?.data.audioUrl && (
-                  <div
-                    className={`mb-6 p-2 rounded-xl backdrop-blur-sm ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-900/5 border-slate-200'} border`}
-                  >
-                    <audio
-                      key={currentNodeId}
-                      ref={audioRef}
-                      src={currentNode.data.audioUrl as string}
-                      preload="auto"
-                      controls
-                      className="w-full h-8 opacity-80 hover:opacity-100 transition-opacity"
-                    />
-                  </div>
+                  <audio
+                    key={currentNodeId}
+                    ref={audioRef}
+                    src={currentNode.data.audioUrl as string}
+                    preload="auto"
+                    onPlay={recordCurrentAudio}
+                    onEnded={() => setCurrentAudioEnded(true)}
+                    className="hidden"
+                  />
                 )}
                 <div
                   className={`text-lg md:text-xl lg:text-2xl ${isDarkMode ? 'text-slate-100' : 'text-slate-800'} leading-relaxed whitespace-pre-wrap font-serif tracking-wide drop-shadow-sm`}

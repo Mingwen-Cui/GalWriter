@@ -215,9 +215,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       right: 0;
       top: 0;
       z-index: 5;
-      border-bottom: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.72), rgba(0,0,0,0.34), transparent);
-      box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+      // border-bottom: 0;
+      // background: linear-gradient(180deg, rgba(0,0,0,0.72), rgba(0,0,0,0.34), transparent);
+      // box-shadow: 0 16px 40px rgba(0,0,0,0.28);
     }
     .app.controls-hidden header {
       opacity: 0;
@@ -227,15 +227,26 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       min-height: 56px;
       display: flex;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: space-between;
       gap: 16px;
       padding: 12px 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-      background: rgba(10, 13, 20, 0.52);
-      backdrop-filter: blur(16px);
+      // border-bottom: 1px solid rgba(255,255,255,0.12);
+      // background: rgba(10, 13, 20, 0.52);
+      // backdrop-filter: blur(16px);
       transition: opacity 180ms ease;
     }
-    h1 { display: none; margin: 0; font-size: 15px; letter-spacing: 0; }
+    h1 {
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      color: #f8fafc;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-overflow: ellipsis;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.72);
+      white-space: nowrap;
+    }
     .toolbar { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
     .tool {
       border: 1px solid rgba(255,255,255,0.16);
@@ -253,12 +264,93 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     .tool img { width: 18px; height: 18px; display: block; }
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
+    .playlist-wrap { position: relative; }
+    .playlist-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 40;
+      width: min(340px, calc(100vw - 24px));
+      height: 360px;
+      display: none;
+      flex-direction: column;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      background: rgba(8, 12, 20, 0.94);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+      backdrop-filter: blur(18px);
+    }
+    .playlist-panel.open { display: flex; }
+    .playlist-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .playlist-title { font-size: 14px; font-weight: 900; }
+    .playlist-hint { margin-top: 3px; color: rgba(255,255,255,0.46); font-size: 11px; }
+    .playlist-close {
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255,255,255,0.64);
+      cursor: pointer;
+    }
+    .playlist-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .playlist-items { min-height: 0; flex: 1; overflow-y: auto; display: grid; align-content: start; gap: 8px; }
+    .playlist-empty {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      border: 1px dashed rgba(255,255,255,0.16);
+      border-radius: 12px;
+      color: rgba(255,255,255,0.42);
+      font-size: 12px;
+      text-align: center;
+    }
+    .playlist-item {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+    }
+    .playlist-item.active { border-color: rgba(56,189,248,0.5); background: rgba(14,165,233,0.15); }
+    .playlist-name {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+    .playlist-play {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 999px;
+      background: #0ea5e9;
+      color: #fff;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .playlist-play:hover { background: #38bdf8; }
     main {
       position: relative;
       min-height: 0;
       display: grid;
       place-items: center;
-      padding: 24px;
+      padding: 0;
       overflow: hidden;
     }
     .app.immersive main {
@@ -270,12 +362,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       background-position: center;
       background-size: cover;
       opacity: 0.72;
-      transform: scale(1.02);
       transition: background-image 180ms ease, opacity 180ms ease;
-    }
-    .backdrop.blurred {
-      filter: blur(14px);
-      transform: scale(1.08);
     }
     .backdrop::after {
       content: "";
@@ -283,22 +370,24 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       inset: 0;
       background: linear-gradient(180deg, rgba(8,11,18,0.25), rgba(8,11,18,0.72));
     }
+    .app.immersive .backdrop { display: none; }
     .stage {
       position: relative;
       z-index: 1;
-      width: min(1100px, 100%);
-      height: min(720px, calc(100vh - 112px));
-      max-height: calc(100vh - 112px);
+      width: 100%;
+      height: 100%;
+      max-height: none;
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(12, 16, 24, 0.76);
-      border-radius: 8px;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
       overflow: hidden;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.42);
+      box-shadow: none;
       backdrop-filter: blur(18px);
     }
     .app.immersive .stage {
+      display: block;
       width: 100%;
       height: 100vh;
       max-height: 100vh;
@@ -308,23 +397,58 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       box-shadow: none;
       backdrop-filter: none;
     }
+    .app.immersive .media {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
     .media {
       position: relative;
       min-height: 0;
-      display: grid;
+      width: fit-content;
+      height: fit-content;
+      max-width: calc(100% - clamp(28px, 5vw, 48px));
+      max-height: calc(100% - clamp(28px, 5vw, 48px));
+      place-self: center;
+      display: inline-grid;
       place-items: center;
+      margin: 0;
       background: rgba(0,0,0,0.24);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
       overflow: hidden;
     }
-    .media img, .media video {
+    .scene-image {
+      position: relative;
+      z-index: 1;
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: min(100%, calc(100vw - clamp(28px, 5vw, 48px)));
+      max-height: calc(100vh - 220px);
+      object-fit: contain;
+    }
+    .media > video {
+      position: relative;
+      z-index: 1;
       width: 100%;
       height: 100%;
       object-fit: contain;
       display: block;
     }
-    .app.immersive .media img,
-    .app.immersive .media video {
-      object-fit: cover;
+    .app.immersive .scene-image,
+    .app.immersive .media > video {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: contain;
     }
     .media.empty { color: rgba(248,250,252,0.42); font-weight: 700; }
     .characters-layer {
@@ -349,13 +473,18 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       max-height: min(45vh, 420px);
       padding: clamp(14px, 2.5vw, 20px);
       background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 18%);
+      box-shadow: 0 -14px 36px rgba(0,0,0,0.18);
       overflow: auto;
     }
     .app.immersive .dialogue {
-      align-self: end;
-      margin: 0 auto clamp(14px, 3vh, 24px);
+      position: absolute;
+      left: 50%;
+      bottom: clamp(14px, 3vh, 24px);
+      z-index: 4;
+      margin: 0;
       width: min(960px, calc(100% - 112px));
       max-height: min(46vh, 430px);
+      transform: translateX(-50%);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px;
       background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 36%);
@@ -380,7 +509,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     .zen-toggle {
       position: absolute;
-      left: 24px;
+      right: 24px;
       bottom: 24px;
       z-index: 18;
       width: 44px;
@@ -452,12 +581,21 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     @media (max-width: 720px) {
       main { padding: 0; }
-      header { align-items: center; justify-content: flex-end; }
-      .toolbar { width: 100%; justify-content: flex-end; }
+      header { align-items: center; }
+      h1 { max-width: 34vw; font-size: 13px; }
+      .toolbar { width: auto; min-width: 0; justify-content: flex-end; }
       .tool { flex: 0 0 auto; }
       .stage {
-        height: calc(100vh - 138px);
-        max-height: calc(100vh - 138px);
+        height: 100%;
+        max-height: none;
+      }
+      .media {
+        max-width: calc(100% - 24px);
+        max-height: calc(100% - 24px);
+      }
+      .scene-image {
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 210px);
       }
       .app.immersive .stage {
         height: 100vh;
@@ -466,8 +604,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       .dialogue { padding: 16px; }
       .app.immersive .dialogue {
         width: calc(100% - 24px);
-        margin-left: 12px;
-        margin-right: 12px;
+        left: 12px;
+        right: 12px;
+        transform: none;
       }
     }
   </style>
@@ -480,6 +619,19 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         <button class="tool" id="backButton" type="button"></button>
         <button class="tool" id="resetButton" type="button"></button>
         <button class="tool" id="autoButton" type="button"></button>
+        <div class="playlist-wrap">
+          <button class="tool" id="playlistButton" type="button" aria-expanded="false"></button>
+          <div class="playlist-panel" id="playlistPanel">
+            <div class="playlist-head">
+              <div>
+                <div class="playlist-title" id="playlistTitle"></div>
+                <div class="playlist-hint" id="playlistHint"></div>
+              </div>
+              <button class="playlist-close" id="playlistClose" type="button" aria-label="Close">&#10005;</button>
+            </div>
+            <div class="playlist-items" id="playlistItems"></div>
+          </div>
+        </div>
         <a class="tool" id="makeButton" href="https://mingwencui.com/AIwriter/?lang=zh" target="_blank" rel="noopener noreferrer"></a>
       </div>
     </header>
@@ -487,6 +639,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       <div class="backdrop" id="backdrop"></div>
       <section class="stage" id="stage"></section>
       <button class="zen-toggle" id="zenButton" type="button" aria-label="Toggle controls"><img src="./icons/eye.svg" alt="" /></button>
+      <audio id="playlistAudio" preload="auto" hidden></audio>
     </main>
   </div>
   <script>
@@ -509,10 +662,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
-      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c" }
+      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u5f55\\u97f3\\u64ad\\u653e\\u5217\\u8868", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3" }
       : content.language === "ja"
-        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093" }
-        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview" };
+        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u9332\\u97f3\\u30d7\\u30ec\\u30a4\\u30ea\\u30b9\\u30c8", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3" }
+        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio playlist", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio" };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -524,21 +677,96 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const backButton = document.getElementById("backButton");
     const resetButton = document.getElementById("resetButton");
     const autoButton = document.getElementById("autoButton");
+    const playlistButton = document.getElementById("playlistButton");
+    const playlistPanel = document.getElementById("playlistPanel");
+    const playlistClose = document.getElementById("playlistClose");
+    const playlistTitle = document.getElementById("playlistTitle");
+    const playlistHint = document.getElementById("playlistHint");
+    const playlistItems = document.getElementById("playlistItems");
+    const playlistAudio = document.getElementById("playlistAudio");
     const makeButton = document.getElementById("makeButton");
     const zenButton = document.getElementById("zenButton");
     titleEl.textContent = content.title || "GalWriter";
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
+    playlistButton.innerHTML = '<span aria-hidden="true">&#9835;</span><span>' + labels.playlist + '</span>';
+    playlistTitle.textContent = labels.playlist;
+    playlistHint.textContent = labels.playlistHint;
     makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + labels.make + '</span>';
     updateAutoButton();
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
-    backdropEl.classList.toggle("blurred", settings.blurBackground);
     let typewriterTimers = [];
     let autoAdvanceTimer = null;
     let controlsHidden = false;
+    let playedAudios = [];
+    let currentAudioEnded = true;
+    let currentVideoEnded = true;
 
     function nodeTitle(node) {
       return (node && node.data && node.data.title) || labels.option;
+    }
+
+    function audioTitle(node) {
+      if (node && node.data && node.data.title) return String(node.data.title);
+      const temp = document.createElement("div");
+      temp.innerHTML = node && node.data && node.data.text || "";
+      const text = (temp.textContent || "").trim().replace(/\\s+/g, " ");
+      return text ? text.slice(0, 42) : labels.untitledAudio;
+    }
+
+    function renderPlaylist() {
+      playlistItems.innerHTML = "";
+      if (!playedAudios.length) {
+        const empty = document.createElement("div");
+        empty.className = "playlist-empty";
+        empty.textContent = labels.playlistEmpty;
+        playlistItems.appendChild(empty);
+        return;
+      }
+      playedAudios.forEach((item) => {
+        const row = document.createElement("div");
+        const active = playlistAudio.getAttribute("src") === item.url && !playlistAudio.paused;
+        row.className = "playlist-item" + (active ? " active" : "");
+        const name = document.createElement("span");
+        name.className = "playlist-name";
+        name.textContent = item.title;
+        name.title = item.title;
+        const play = document.createElement("button");
+        play.className = "playlist-play";
+        play.type = "button";
+        play.textContent = active ? "\\u275a\\u275a" : "\\u25b6";
+        play.setAttribute("aria-label", active ? "Pause" : "Play");
+        play.addEventListener("click", () => togglePlaylistAudio(item));
+        row.append(name, play);
+        playlistItems.appendChild(row);
+      });
+    }
+
+    function recordAudio(node, url) {
+      if (!node || !url) return;
+      playlistAudio.pause();
+      const item = { nodeId: node.id, title: audioTitle(node), url };
+      playedAudios = [
+        item,
+        ...playedAudios.filter((audio) => audio.nodeId !== item.nodeId && audio.url !== item.url),
+      ];
+      renderPlaylist();
+    }
+
+    function togglePlaylistAudio(item) {
+      const nodeAudio = document.getElementById("nodeAudio");
+      if (nodeAudio) nodeAudio.pause();
+      if (playlistAudio.getAttribute("src") === item.url) {
+        if (playlistAudio.paused) {
+          playlistAudio.play().catch(() => {});
+        } else {
+          playlistAudio.pause();
+        }
+        return;
+      }
+      playlistAudio.src = item.url;
+      playlistAudio.currentTime = 0;
+      playlistAudio.play().catch(() => renderPlaylist());
     }
 
     function updateAutoButton() {
@@ -598,7 +826,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
             if (sceneExit.type === 'fade') {
               mediaEl.style.opacity = '0';
             } else {
-              const baseScale = (data.presentation.scene && data.presentation.scene.scale) || 1;
+              const baseScale = settings.layoutMode === 'immersive'
+                ? 1
+                : (data.presentation.scene && data.presentation.scene.scale) || 1;
               mediaEl.style.transform = 'scale(' + baseScale + ') ' + getPresentationTransform(sceneExit.type, true);
             }
           }
@@ -694,11 +924,24 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         element.hidden = false;
       });
       bindChoices();
-      if (settings.autoAdvance && outEdges(currentId).length <= 1) {
+      const node = nodeById.get(currentId);
+      const hasMedia = Boolean(
+        node &&
+          node.data &&
+          (node.data.audioUrl || (node.data.videoUrl && !node.data.imageUrl)),
+      );
+      if (settings.autoAdvance && !hasMedia && outEdges(currentId).length <= 1) {
         autoAdvanceTimer = setTimeout(() => {
           const next = outEdges(currentId)[0]?.target || "THE_END";
           goTo(next);
         }, 900);
+      }
+    }
+
+    function maybeAdvanceAfterMedia() {
+      if (!settings.autoAdvance || outEdges(currentId).length > 1) return;
+      if (currentAudioEnded && currentVideoEnded) {
+        goTo(outEdges(currentId)[0]?.target || "THE_END");
       }
     }
 
@@ -734,6 +977,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const choicePosition = settings.choicesPosition || "belowText";
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
+      currentAudioEnded = !data.audioUrl;
+      currentVideoEnded = !video || Boolean(image);
 
       // 场景入场及基础样式计算
       const sceneEnter = data.presentation && data.presentation.scene && data.presentation.scene.enter;
@@ -744,21 +989,25 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const sceneOffsetX = data.presentation && data.presentation.scene && data.presentation.scene.offsetX || 0;
       const sceneOffsetY = data.presentation && data.presentation.scene && data.presentation.scene.offsetY || 0;
       const sceneObjectFit = sceneCrop === 'contain' ? 'contain' : sceneCrop === 'stretch' ? 'fill' : 'cover';
-      const finalCrop = settings.layoutMode === 'immersive' ? 'cover' : (sceneCrop ? sceneObjectFit : 'contain');
+      const immersive = settings.layoutMode === 'immersive';
+      const finalCrop = immersive ? 'contain' : (sceneCrop ? sceneObjectFit : 'contain');
+      const finalScale = immersive ? 1 : sceneScale;
+      const finalOffsetX = immersive ? 0 : sceneOffsetX;
+      const finalOffsetY = immersive ? 0 : sceneOffsetY;
       
       const initSceneOpacity = (hasSceneEnter && sceneEnter.type === 'fade') ? 0 : 1;
-      const initSceneTransform = 'scale(' + sceneScale + ') ' + (hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : '');
+      const initSceneTransform = 'scale(' + finalScale + ') ' + (hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : '');
       const initSceneStyle = 
         'object-fit: ' + finalCrop + '; ' +
-        'object-position: ' + (50 + sceneOffsetX) + '% ' + (50 + sceneOffsetY) + '%; ' +
+        'object-position: ' + (50 + finalOffsetX) + '% ' + (50 + finalOffsetY) + '%; ' +
         'opacity: ' + initSceneOpacity + '; ' +
         'transform: ' + initSceneTransform + '; ' +
         'transition: opacity ' + sceneDuration + 'ms ease-out, transform ' + sceneDuration + 'ms ease-out;';
 
       const media = image
-        ? '<img src="' + escapeAttr(image) + '" alt="" style="' + initSceneStyle + '" />'
+        ? '<img class="scene-image" src="' + escapeAttr(image) + '" alt="" style="' + initSceneStyle.replace('object-fit: ' + finalCrop, 'object-fit: contain') + '" />'
         : video
-          ? '<video src="' + escapeAttr(video) + '" controls playsinline style="' + initSceneStyle + '" ' + (settings.videoAutoPlay ? 'autoplay muted ' : '') + '></video>'
+          ? '<video id="nodeVideo" src="' + escapeAttr(video) + '" controls playsinline style="' + initSceneStyle + '" ' + (settings.videoAutoPlay || settings.autoAdvance ? 'autoplay muted ' : '') + '></video>'
           : labels.noStory;
 
       let charactersHtml = "";
@@ -799,7 +1048,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>' +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
-          (data.audioUrl ? '<audio src="' + escapeAttr(data.audioUrl) + '" controls preload="metadata"></audio>' : '') +
+          (data.audioUrl ? '<audio id="nodeAudio" src="' + escapeAttr(data.audioUrl) + '" preload="auto" hidden></audio>' : '') +
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
@@ -809,7 +1058,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         const mediaEl = stageEl.querySelector('.media img, .media video');
         if (mediaEl) {
           mediaEl.style.opacity = '1';
-          mediaEl.style.transform = 'scale(' + sceneScale + ')';
+          mediaEl.style.transform = 'scale(' + finalScale + ')';
         }
         
         if (data.presentation && Array.isArray(data.presentation.characters)) {
@@ -827,6 +1076,23 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       }, 50);
       stageEl.querySelector(".text")?.addEventListener("click", continueFromText);
       stageEl.querySelector(".media")?.addEventListener("click", continueFromText);
+      const nodeAudio = document.getElementById("nodeAudio");
+      if (nodeAudio) {
+        nodeAudio.addEventListener("play", () => recordAudio(node, data.audioUrl));
+        nodeAudio.addEventListener("ended", () => {
+          currentAudioEnded = true;
+          maybeAdvanceAfterMedia();
+        });
+        nodeAudio.play().catch(() => {});
+      }
+      const nodeVideo = document.getElementById("nodeVideo");
+      if (nodeVideo) {
+        nodeVideo.addEventListener("ended", () => {
+          currentVideoEnded = true;
+          maybeAdvanceAfterMedia();
+        });
+        if (settings.autoAdvance) nodeVideo.play().catch(() => {});
+      }
       const hideChoicesDuringTypewriter = settings.autoAdvance && settings.interactionMode === "typewriter";
       stageEl.querySelectorAll(".choices").forEach((element) => {
         element.hidden = hideChoicesDuringTypewriter;
@@ -858,11 +1124,24 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       updateAutoButton();
       render();
     });
+    playlistButton.addEventListener("click", () => {
+      const open = !playlistPanel.classList.contains("open");
+      playlistPanel.classList.toggle("open", open);
+      playlistButton.setAttribute("aria-expanded", String(open));
+    });
+    playlistClose.addEventListener("click", () => {
+      playlistPanel.classList.remove("open");
+      playlistButton.setAttribute("aria-expanded", "false");
+    });
+    playlistAudio.addEventListener("play", renderPlaylist);
+    playlistAudio.addEventListener("pause", renderPlaylist);
+    playlistAudio.addEventListener("ended", renderPlaylist);
     zenButton.addEventListener("click", () => {
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
     });
+    renderPlaylist();
     render();
   </script>
 </body>
