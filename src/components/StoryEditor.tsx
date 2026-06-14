@@ -1170,10 +1170,11 @@ export function StoryEditor() {
 
   const handleDeleteNode = useCallback(
     (id: string) => {
+      if (nodes.find((node) => node.id === id)?.data.isRoot === true) return;
       setNodes((nds) => nds.filter((node) => node.id !== id));
       setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
     },
-    [setEdges, setNodes],
+    [nodes, setEdges, setNodes],
   );
 
   const handleDeleteNodeOutputEdges = useCallback(
@@ -1211,16 +1212,41 @@ export function StoryEditor() {
       const nextNodes = currentNodes.map((node) => {
         if (node.type !== 'storyNode') return node;
 
-        const connectedNodes = edges
-          .filter((edge) => edge.source === node.id || edge.target === node.id)
+        const connectedEdges = edges.filter(
+          (edge) => edge.source === node.id || edge.target === node.id,
+        );
+        const connectedNodes = connectedEdges
           .map((edge) => nodeById.get(edge.source === node.id ? edge.target : edge.source))
           .filter((connected): connected is Node => Boolean(connected));
-        const connectedScene = connectedNodes.find(
-          (connected) =>
-            connected.type === 'sceneNode' &&
-            typeof connected.data.coverImageUrl === 'string' &&
-            connected.data.coverImageUrl,
-        );
+        const connectedSceneBinding = connectedEdges
+          .map((edge) => {
+            const connectedId = edge.source === node.id ? edge.target : edge.source;
+            const connected = nodeById.get(connectedId);
+            if (connected?.type !== 'sceneNode') return null;
+
+            const sceneHandle = edge.source === connectedId ? edge.sourceHandle : edge.targetHandle;
+            const imageId = sceneHandle?.match(/^image-(?:in|out)-(.+)$/)?.[1];
+            const sceneImages = Array.isArray(connected.data.images)
+              ? (connected.data.images as Array<{ id: string; imageUrl?: string }>)
+              : [];
+            const selectedImage = imageId
+              ? sceneImages.find((image) => image.id === imageId && image.imageUrl)
+              : undefined;
+            const imageUrl =
+              selectedImage?.imageUrl ||
+              (typeof connected.data.coverImageUrl === 'string'
+                ? connected.data.coverImageUrl
+                : undefined);
+            if (!imageUrl) return null;
+
+            return {
+              node: connected,
+              imageId: selectedImage?.id,
+              imageUrl,
+            };
+          })
+          .filter((binding): binding is NonNullable<typeof binding> => Boolean(binding))
+          .sort((a, b) => Number(Boolean(b.imageId)) - Number(Boolean(a.imageId)))[0];
         const connectedCharacters = connectedNodes.filter(
           (connected) => connected.type === 'characterNode',
         );
@@ -1229,7 +1255,8 @@ export function StoryEditor() {
         let nextImageUrl = node.data.imageUrl as string | undefined;
         let nextShowTextOverlay = node.data.showTextOverlay as boolean | undefined;
 
-        if (connectedScene) {
+        if (connectedSceneBinding) {
+          const connectedScene = connectedSceneBinding.node;
           const previousImageUrl =
             nextScene?.linkedByEdge && nextScene.previousImageUrl !== undefined
               ? nextScene.previousImageUrl
@@ -1245,13 +1272,14 @@ export function StoryEditor() {
                 )),
             sourceNodeId: connectedScene.id,
             linkedByEdge: true,
+            imageId: connectedSceneBinding.imageId,
             previousImageUrl,
             previousShowTextOverlay:
               nextScene?.linkedByEdge && nextScene.previousShowTextOverlay !== undefined
                 ? nextScene.previousShowTextOverlay
                 : nextShowTextOverlay,
           };
-          nextImageUrl = connectedScene.data.coverImageUrl as string;
+          nextImageUrl = connectedSceneBinding.imageUrl;
           nextShowTextOverlay = true;
         } else if (nextScene?.linkedByEdge) {
           nextImageUrl = nextScene.previousImageUrl;
@@ -2328,10 +2356,7 @@ export function StoryEditor() {
   );
 
   const handleAssistantMessagePositionClick = useCallback(
-    (target: {
-      position?: { x: number; y: number; zoom?: number };
-      nodeIds?: string[];
-    }) => {
+    (target: { position?: { x: number; y: number; zoom?: number }; nodeIds?: string[] }) => {
       const targetIds = new Set(target.nodeIds || []);
       const targetNodes = nodes.filter((node) => targetIds.has(node.id));
 
@@ -4136,10 +4161,19 @@ ${direction}
             const presentationScene = zenPresentation.scene
               ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
               : undefined;
+            const presentationSceneImages = Array.isArray(presentationScene?.data.images)
+              ? (presentationScene.data.images as Array<{ id: string; imageUrl?: string }>)
+              : [];
+            const selectedPresentationSceneImage = zenPresentation.scene?.imageId
+              ? presentationSceneImages.find((image) => image.id === zenPresentation.scene?.imageId)
+                  ?.imageUrl
+              : undefined;
             const zenImageUrl =
+              (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
+              selectedPresentationSceneImage ||
               (typeof presentationScene?.data.coverImageUrl === 'string'
                 ? presentationScene.data.coverImageUrl
-                : undefined) || (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : '');
+                : '');
             return (
               <ZenEditor
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}

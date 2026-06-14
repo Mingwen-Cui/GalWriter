@@ -142,6 +142,7 @@ export const useCanvasDnD = ({
             shape: 'square',
             color: '#ffffff',
             text: '',
+            objectFit: 'playtest',
             titleHeightAdded: showTitles,
             ...mediaData,
           },

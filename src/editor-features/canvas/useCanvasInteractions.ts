@@ -301,7 +301,7 @@ export const useCanvasInteractions = ({
         handleUpdateNode(targetNode.id, {
           imageUrl: node.data.imageUrl,
           videoUrl: node.data.videoUrl,
-          objectFit: 'cover',
+          objectFit: 'playtest',
         });
       } else {
         setNodes((nds) =>

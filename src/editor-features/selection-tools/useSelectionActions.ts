@@ -49,16 +49,65 @@ export const useSelectionActions = ({
   getCenterPosition,
   showToast,
 }: UseSelectionActionsParams) => {
+  const collectMentionedSettingNodes = useCallback(
+    (selectedNodes: Node[]) => {
+      const dependencyIds = new Set<string>();
+
+      selectedNodes.forEach((node) => {
+        if (node.type !== 'storyNode') return;
+
+        const text = typeof node.data.text === 'string' ? node.data.text : '';
+        const container = document.createElement('div');
+        container.innerHTML = text;
+        container.querySelectorAll<HTMLElement>('[data-mention-kind]').forEach((mention) => {
+          const kind = mention.dataset.mentionKind;
+          const name = mention.dataset.mentionName;
+          const settingNode = nodes.find((candidate) =>
+            kind === 'character'
+              ? candidate.type === 'characterNode' && candidate.data.characterName === name
+              : kind === 'scene'
+                ? candidate.type === 'sceneNode' && candidate.data.sceneName === name
+                : false,
+          );
+          if (settingNode) dependencyIds.add(settingNode.id);
+        });
+
+        const presentation = node.data.presentation as
+          | {
+              scene?: { sourceNodeId?: string };
+              characters?: Array<{ sourceNodeId?: string }>;
+            }
+          | undefined;
+        if (presentation?.scene?.sourceNodeId) {
+          dependencyIds.add(presentation.scene.sourceNodeId);
+        }
+        presentation?.characters?.forEach((character) => {
+          if (character.sourceNodeId) dependencyIds.add(character.sourceNodeId);
+        });
+      });
+
+      const selectedIds = new Set(selectedNodes.map((node) => node.id));
+      return nodes.filter(
+        (node) =>
+          dependencyIds.has(node.id) &&
+          !selectedIds.has(node.id) &&
+          (node.type === 'characterNode' || node.type === 'sceneNode'),
+      );
+    },
+    [nodes],
+  );
+
   const handleCopy = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);
     if (selectedNodes.length === 0) return;
 
-    const selectedNodeIds = new Set(selectedNodes.map((node) => node.id));
+    const copiedNodes = [...selectedNodes, ...collectMentionedSettingNodes(selectedNodes)];
+    const selectedNodeIds = new Set(copiedNodes.map((node) => node.id));
     const selectedEdges = edges.filter(
       (edge) => selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target),
     );
 
-    setNodeClipboard({ nodes: selectedNodes, edges: selectedEdges });
+    setNodeClipboard({ nodes: copiedNodes, edges: selectedEdges });
     showToast(
       language === 'zh'
         ? selectedNodes.length === 1
@@ -68,7 +117,7 @@ export const useSelectionActions = ({
           ? `${selectedNodes.length} 個のノードをコピーしました`
           : `${selectedNodes.length} nodes copied`,
     );
-  }, [edges, language, nodes, setNodeClipboard, showToast]);
+  }, [collectMentionedSettingNodes, edges, language, nodes, setNodeClipboard, showToast]);
 
   const handlePaste = useCallback(async () => {
     if (nodeClipboard && nodeClipboard.nodes.length > 0) {
@@ -91,7 +140,7 @@ export const useSelectionActions = ({
       const offsetX = center.x - groupCenterX;
       const offsetY = center.y - groupCenterY;
 
-      const newNodes = nodeClipboard.nodes.map((node) => {
+      const newNodes: Node[] = nodeClipboard.nodes.map((node) => {
         const newId = uuidv4();
         idMap[node.id] = newId;
         return {
@@ -103,6 +152,35 @@ export const useSelectionActions = ({
             ...node.data,
             id: newId,
             isRoot: false,
+          },
+        };
+      });
+
+      newNodes.forEach((node) => {
+        if (node.type !== 'storyNode') return;
+        const presentation = node.data.presentation as
+          | {
+              scene?: { sourceNodeId: string };
+              characters?: Array<{ sourceNodeId: string }>;
+            }
+          | undefined;
+        if (!presentation) return;
+
+        node.data = {
+          ...node.data,
+          presentation: {
+            ...presentation,
+            scene: presentation.scene
+              ? {
+                  ...presentation.scene,
+                  sourceNodeId:
+                    idMap[presentation.scene.sourceNodeId] || presentation.scene.sourceNodeId,
+                }
+              : undefined,
+            characters: presentation.characters?.map((character) => ({
+              ...character,
+              sourceNodeId: idMap[character.sourceNodeId] || character.sourceNodeId,
+            })),
           },
         };
       });

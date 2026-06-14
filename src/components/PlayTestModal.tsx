@@ -33,6 +33,7 @@ import {
   getPresentationTransform,
   normalizeStoryPresentation,
 } from '../lib/presentation';
+import { VirtualPresentationStage } from './VirtualPresentationStage';
 
 type PlayedAudio = {
   nodeId: string;
@@ -247,9 +248,14 @@ export function PlayTestModal({
   const sceneSource = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
     : null;
+  const sceneData = sceneSource?.data as SceneNodeData | undefined;
+  const selectedSceneImage = presentation.scene?.imageId
+    ? sceneData?.images?.find((image) => image.id === presentation.scene?.imageId)
+    : undefined;
   const sceneImageUrl =
-    (sceneSource?.data as SceneNodeData | undefined)?.coverImageUrl ||
-    (currentNode?.data.imageUrl as string | undefined);
+    (currentNode?.data.imageUrl as string | undefined) ||
+    selectedSceneImage?.imageUrl ||
+    sceneData?.coverImageUrl;
   const presentedCharacters = presentation.characters
     .map((config) => {
       const source = nodes.find((node) => node.id === config.sourceNodeId);
@@ -947,6 +953,7 @@ export function PlayTestModal({
   const hasMedia = !!(sceneImageUrl || currentNode?.data.videoUrl || presentedCharacters.length);
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive = presentationExiting || !presentationVisible;
+  const presentationScale = presentation.scene?.scale || 1;
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -959,11 +966,10 @@ export function PlayTestModal({
       50 + (presentation.scene?.offsetY || 0)
     }%`,
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
-    transform: `scale(${presentation.scene?.scale || 1}) ${
+    transform:
       sceneAnimationActive && sceneMotion
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : ''
-    }`,
+        : 'none',
     transitionProperty: 'opacity, transform',
     transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionTimingFunction: 'ease-out',
@@ -1768,34 +1774,38 @@ export function PlayTestModal({
             )
           ) : layoutMode === 'immersive' ? (
             <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
-              {/* 1. 全景大图/视频背景 */}
-              <div className="absolute inset-0 z-0 overflow-hidden w-full h-full select-none pointer-events-none">
-                {sceneImageUrl ? (
-                  <img
-                    src={sceneImageUrl}
-                    className="w-full h-full"
-                    style={sceneStyle}
-                    alt="Scene Background"
-                  />
-                ) : currentNode?.data.videoUrl ? (
-                  <video
-                    key={currentNodeId}
-                    ref={videoRef}
-                    src={currentNode.data.videoUrl as string}
-                    playsInline
-                    muted
-                    loop={!autoAdvance}
-                    autoPlay={videoAutoPlay}
-                    onEnded={() => setCurrentVideoEnded(true)}
-                    className="w-full h-full object-cover transition-all duration-1000"
-                  />
-                ) : (
-                  <div
-                    className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
-                  />
-                )}
+              <div
+                className="absolute inset-0 z-0 overflow-hidden"
+                style={{ transform: `scale(${presentationScale})`, transformOrigin: 'center' }}
+              >
+                <div className="absolute inset-0 overflow-hidden w-full h-full select-none pointer-events-none">
+                  {sceneImageUrl ? (
+                    <img
+                      src={sceneImageUrl}
+                      className="w-full h-full"
+                      style={sceneStyle}
+                      alt="Scene Background"
+                    />
+                  ) : currentNode?.data.videoUrl ? (
+                    <video
+                      key={currentNodeId}
+                      ref={videoRef}
+                      src={currentNode.data.videoUrl as string}
+                      playsInline
+                      muted
+                      loop={!autoAdvance}
+                      autoPlay={videoAutoPlay}
+                      onEnded={() => setCurrentVideoEnded(true)}
+                      className="w-full h-full object-cover transition-all duration-1000"
+                    />
+                  ) : (
+                    <div
+                      className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
+                    />
+                  )}
+                </div>
+                {renderPresentedCharacters()}
               </div>
-              {renderPresentedCharacters()}
 
               {/* 2. 悬浮的选项与对话框 */}
               <div
@@ -1896,44 +1906,42 @@ export function PlayTestModal({
                     )}
                   </div>
 
-                  {/* Media Wrapper */}
-                  <div className="relative z-10 w-full h-full flex items-center justify-center animate-in zoom-in-95 duration-500">
-                    {sceneImageUrl && (
-                      <img
-                        src={sceneImageUrl}
-                        alt="Scene"
-                        className="h-full w-full rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10"
-                        style={{
-                          maxWidth: 'min(100%, 1200px)',
-                          ...sceneStyle,
-                          boxShadow: isDarkMode
-                            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
-                            : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        }}
-                      />
-                    )}
-                    {currentNode?.data.videoUrl && (
-                      <video
-                        key={currentNodeId}
-                        ref={videoRef}
-                        src={currentNode.data.videoUrl as string}
-                        controls
-                        playsInline
-                        draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                        autoPlay={videoAutoPlay}
-                        onEnded={() => setCurrentVideoEnded(true)}
-                        className="max-h-full max-w-full object-contain rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/10 transition-transform duration-500 hover:scale-[1.01]"
-                        style={{
-                          maxWidth: 'min(100%, 1200px)',
-                          boxShadow: isDarkMode
-                            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
-                            : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        }}
-                      />
-                    )}
-                  </div>
-                  {renderPresentedCharacters(true)}
+                  {/* Shared 1920x1080 presentation stage */}
+                  <VirtualPresentationStage className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500">
+                    <div
+                      className="absolute inset-0 overflow-hidden"
+                      style={{
+                        transform: `scale(${presentationScale})`,
+                        transformOrigin: 'center',
+                      }}
+                    >
+                      {sceneImageUrl && (
+                        <img
+                          src={sceneImageUrl}
+                          alt="Scene"
+                          className="h-full w-full"
+                          style={{
+                            ...sceneStyle,
+                          }}
+                        />
+                      )}
+                      {currentNode?.data.videoUrl && (
+                        <video
+                          key={currentNodeId}
+                          ref={videoRef}
+                          src={currentNode.data.videoUrl as string}
+                          controls
+                          playsInline
+                          draggable={false}
+                          onDragStart={(e) => e.preventDefault()}
+                          autoPlay={videoAutoPlay}
+                          onEnded={() => setCurrentVideoEnded(true)}
+                          className="h-full w-full object-contain"
+                        />
+                      )}
+                      {renderPresentedCharacters()}
+                    </div>
+                  </VirtualPresentationStage>
 
                   {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
                   {choicesPosition === 'center' &&

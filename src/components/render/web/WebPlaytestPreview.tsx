@@ -592,6 +592,7 @@ export function WebPlaytestPreview({
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive =
     settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible);
+  const presentationScale = presentation.scene?.scale || 1;
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -610,11 +611,10 @@ export function WebPlaytestPreview({
       50 + (presentation.scene?.offsetY || 0)
     }%`,
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
-    transform: `scale(${presentation.scene?.scale || 1}) ${
+    transform:
       sceneAnimationActive && sceneMotion
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : ''
-    }`,
+        : 'none',
     transitionProperty: 'opacity, transform',
     transitionDuration:
       settings.layoutMode === 'classic'
@@ -655,90 +655,95 @@ export function WebPlaytestPreview({
             }`}
             onClick={continueFromText}
           >
-            {imageUrl ? (
-              <img
-                key={`${currentNodeId}-${imageUrl}-${settings.layoutMode}`}
-                src={imageUrl}
-                alt=""
-                className={
-                  settings.layoutMode === 'classic'
-                    ? 'block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
-                    : 'h-full w-full'
-                }
-                style={
-                  settings.layoutMode === 'classic'
-                    ? {
-                        objectFit: 'contain',
-                        objectPosition: '50% 50%',
-                        width: 'auto',
-                        height: 'auto',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        opacity: 1,
-                        transform: 'none',
-                        transition: 'none',
-                        animation: 'none',
-                      }
-                    : sceneStyle
-                }
-              />
-            ) : videoUrl ? (
-              <video
-                ref={currentVideoRef}
-                src={videoUrl}
-                controls
-                playsInline
-                autoPlay={settings.videoAutoPlay || settings.autoAdvance}
-                muted={settings.videoAutoPlay}
-                onEnded={() => setCurrentVideoEnded(true)}
-                className="h-full w-full"
-                style={sceneStyle}
-              />
-            ) : (
-              <div className="px-6 text-center text-sm font-bold text-white/45">
-                {t(
-                  '当前节点没有图片或视频',
-                  '現在のノードに画像または動画がありません',
-                  'This node has no image or video',
-                )}
-              </div>
-            )}
-            {presentedCharacters.length > 0 && (
-              <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
-                {presentedCharacters.map(({ config, data, imageUrl }) => {
-                  const motion = presentationExiting ? config.exit : config.enter;
-                  const animationActive =
-                    settings.layoutMode === 'immersive' &&
-                    (presentationExiting || !presentationVisible);
-                  const animationTransform =
-                    animationActive && motion
-                      ? getPresentationTransform(motion.type, presentationExiting)
-                      : '';
-                  return (
-                    <img
-                      key={config.sourceNodeId}
-                      src={imageUrl}
-                      alt={data.characterName}
-                      className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
-                      style={{
-                        ...getCharacterStagePosition(config),
-                        zIndex: clampCharacterLayer(config.layer),
-                        opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-                        translate: '-50% 0',
-                        transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
-                        transformOrigin: 'center center',
-                        transitionProperty: 'opacity, transform',
-                        transitionDuration:
-                          settings.layoutMode === 'classic'
-                            ? '0ms'
-                            : `${motion.type === 'none' ? 0 : motion.duration}ms`,
-                        transitionTimingFunction: 'ease-out',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
+            <div
+              className="absolute inset-0 overflow-hidden"
+              style={{ transform: `scale(${presentationScale})`, transformOrigin: 'center' }}
+            >
+              {imageUrl ? (
+                <img
+                  key={`${currentNodeId}-${imageUrl}-${settings.layoutMode}`}
+                  src={imageUrl}
+                  alt=""
+                  className={
+                    settings.layoutMode === 'classic'
+                      ? 'block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
+                      : 'h-full w-full'
+                  }
+                  style={
+                    settings.layoutMode === 'classic'
+                      ? {
+                          objectFit: 'contain',
+                          objectPosition: '50% 50%',
+                          width: 'auto',
+                          height: 'auto',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          opacity: 1,
+                          transform: 'none',
+                          transition: 'none',
+                          animation: 'none',
+                        }
+                      : sceneStyle
+                  }
+                />
+              ) : videoUrl ? (
+                <video
+                  ref={currentVideoRef}
+                  src={videoUrl}
+                  controls
+                  playsInline
+                  autoPlay={settings.videoAutoPlay || settings.autoAdvance}
+                  muted={settings.videoAutoPlay}
+                  onEnded={() => setCurrentVideoEnded(true)}
+                  className="h-full w-full"
+                  style={sceneStyle}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
+                  {t(
+                    '当前节点没有图片或视频',
+                    '現在のノードに画像または動画がありません',
+                    'This node has no image or video',
+                  )}
+                </div>
+              )}
+              {presentedCharacters.length > 0 && (
+                <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+                  {presentedCharacters.map(({ config, data, imageUrl }) => {
+                    const motion = presentationExiting ? config.exit : config.enter;
+                    const animationActive =
+                      settings.layoutMode === 'immersive' &&
+                      (presentationExiting || !presentationVisible);
+                    const animationTransform =
+                      animationActive && motion
+                        ? getPresentationTransform(motion.type, presentationExiting)
+                        : '';
+                    return (
+                      <img
+                        key={config.sourceNodeId}
+                        src={imageUrl}
+                        alt={data.characterName}
+                        className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                        style={{
+                          ...getCharacterStagePosition(config),
+                          zIndex: clampCharacterLayer(config.layer),
+                          opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+                          translate: '-50% 0',
+                          transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                          transformOrigin: 'center center',
+                          transitionProperty: 'opacity, transform',
+                          transitionDuration:
+                            settings.layoutMode === 'classic'
+                              ? '0ms'
+                              : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                          transitionTimingFunction: 'ease-out',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         {settings.choicesPosition === 'center' && shouldShowChoices && (

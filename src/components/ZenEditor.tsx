@@ -48,6 +48,8 @@ import {
   pasteScenePresentationSettings,
 } from '../lib/presentation';
 import { RichText, RichTextHandle } from './RichText';
+import { DurationInput } from './DurationInput';
+import { VirtualPresentationStage } from './VirtualPresentationStage';
 
 type ZenTag = {
   id: string;
@@ -390,7 +392,7 @@ export function ZenEditor({
   const updateCharacter = (
     sourceNodeId: string,
     updater: (current: CharacterPresentation) => CharacterPresentation,
-    phase: 'enter' | 'exit' = 'enter',
+    _phase: 'enter' | 'exit' = 'enter',
     preserveResetUndo = false,
   ) => {
     const current =
@@ -405,7 +407,6 @@ export function ZenEditor({
       ],
     });
     if (!preserveResetUndo) setPresentationResetUndo(null);
-    replayCharacter(sourceNodeId, phase, next[phase]);
   };
 
   const openCharacterMenu = (tag: ZenTag) => {
@@ -444,7 +445,7 @@ export function ZenEditor({
   const updateScene = (
     sourceNodeId: string,
     updater: (current: ScenePresentation) => ScenePresentation,
-    phase: 'enter' | 'exit' = 'enter',
+    _phase: 'enter' | 'exit' = 'enter',
     preserveResetUndo = false,
   ) => {
     const current =
@@ -457,7 +458,6 @@ export function ZenEditor({
       scene: next,
     });
     if (!preserveResetUndo) setPresentationResetUndo(null);
-    replayScene(sourceNodeId, phase, next[phase]);
   };
 
   const openSceneMenu = (tag: ZenTag) => {
@@ -962,84 +962,99 @@ export function ZenEditor({
               characterTags.some((tag) => tag.id === config.sourceNodeId && tag.imageUrl),
             )) && (
             <div className="relative flex-1 min-h-48 w-full shrink-0 overflow-hidden border-b border-[var(--card-border)] bg-slate-950">
-              {imageUrl ? (
-                (() => {
-                  const scene = normalizedPresentation.scene;
-                  const previewMatches =
-                    Boolean(scene) &&
-                    preview?.kind === 'scene' &&
-                    preview.sourceNodeId === scene?.sourceNodeId;
-                  const phase = previewMatches ? preview?.phase || 'enter' : 'enter';
-                  const motion = scene?.[phase];
-                  const animated = previewMatches && !preview?.visible;
-                  return (
-                    <img
-                      src={imageUrl}
-                      className="absolute inset-0 h-full w-full"
-                      style={{
-                        objectFit:
-                          scene?.cropMode === 'contain'
-                            ? 'contain'
-                            : scene?.cropMode === 'stretch'
-                              ? 'fill'
-                              : 'cover',
-                        objectPosition: `${50 + (scene?.offsetX || 0)}% ${
-                          50 + (scene?.offsetY || 0)
-                        }%`,
-                        opacity: animated && motion?.type === 'fade' ? 0 : 1,
-                        transform: `scale(${scene?.scale || 1}) ${
-                          animated && motion
-                            ? getPresentationTransform(motion.type, phase === 'exit')
-                            : ''
-                        }`,
-                        transitionProperty: 'opacity, transform',
-                        transitionDuration: `${previewMatches ? motion?.duration || 0 : 0}ms`,
-                        transitionTimingFunction: 'ease-out',
-                      }}
-                      alt=""
-                    />
-                  );
-                })()
-              ) : videoUrl ? (
+              {!imageUrl && videoUrl ? (
                 <video
                   src={videoUrl}
                   controls
                   className="absolute inset-0 h-full w-full object-contain"
                 />
               ) : null}
-              {normalizedPresentation.characters.map((config) => {
-                const tag = characterTags.find(
-                  (character) => character.id === config.sourceNodeId && character.imageUrl,
-                );
-                if (!tag?.imageUrl) return null;
-                const previewMatches =
-                  preview?.kind === 'character' && preview.sourceNodeId === config.sourceNodeId;
-                const phase = previewMatches ? preview.phase : 'enter';
-                const motion = config[phase];
-                const animated = previewMatches && !preview.visible;
-                return (
-                  <img
-                    key={config.sourceNodeId}
-                    src={tag.imageUrl}
-                    alt={tag.name}
-                    className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+              {(imageUrl || normalizedPresentation.characters.length > 0) && (
+                <VirtualPresentationStage className="absolute inset-0">
+                  <div
+                    className="absolute inset-0 overflow-hidden"
                     style={{
-                      ...getCharacterStagePosition(config),
-                      zIndex: clampCharacterLayer(config.layer),
-                      opacity: animated && motion.type === 'fade' ? 0 : 1,
-                      translate: '-50% 0',
-                      transform: `${
-                        animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
-                      } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
-                      transformOrigin: 'center center',
-                      transition:
-                        previewMatches && motion.type !== 'none' && motion.duration > 0
-                          ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
-                          : undefined,
+                      transform: `scale(${normalizedPresentation.scene?.scale || 1})`,
+                      transformOrigin: 'center',
                     }}
-                  />
-                );
-              })}
+                  >
+                    {imageUrl &&
+                      (() => {
+                        const scene = normalizedPresentation.scene;
+                        const previewMatches =
+                          Boolean(scene) &&
+                          preview?.kind === 'scene' &&
+                          preview.sourceNodeId === scene?.sourceNodeId;
+                        const phase = previewMatches ? preview?.phase || 'enter' : 'enter';
+                        const motion = scene?.[phase];
+                        const animated = previewMatches && !preview?.visible;
+                        return (
+                          <img
+                            src={imageUrl}
+                            className="absolute inset-0 h-full w-full"
+                            style={{
+                              objectFit:
+                                scene?.cropMode === 'contain'
+                                  ? 'contain'
+                                  : scene?.cropMode === 'stretch'
+                                    ? 'fill'
+                                    : 'cover',
+                              objectPosition: `${50 + (scene?.offsetX || 0)}% ${
+                                50 + (scene?.offsetY || 0)
+                              }%`,
+                              opacity: animated && motion?.type === 'fade' ? 0 : 1,
+                              transform: `${
+                                animated && motion
+                                  ? getPresentationTransform(motion.type, phase === 'exit')
+                                  : 'none'
+                              }`,
+                              transitionProperty: 'opacity, transform',
+                              transitionDuration: `${previewMatches ? motion?.duration || 0 : 0}ms`,
+                              transitionTimingFunction: 'ease-out',
+                            }}
+                            alt=""
+                          />
+                        );
+                      })()}
+                    {normalizedPresentation.characters.map((config) => {
+                      const tag = characterTags.find(
+                        (character) => character.id === config.sourceNodeId && character.imageUrl,
+                      );
+                      if (!tag?.imageUrl) return null;
+                      const previewMatches =
+                        preview?.kind === 'character' &&
+                        preview.sourceNodeId === config.sourceNodeId;
+                      const phase = previewMatches ? preview.phase : 'enter';
+                      const motion = config[phase];
+                      const animated = previewMatches && !preview.visible;
+                      return (
+                        <img
+                          key={config.sourceNodeId}
+                          src={tag.imageUrl}
+                          alt={tag.name}
+                          className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                          style={{
+                            ...getCharacterStagePosition(config),
+                            zIndex: clampCharacterLayer(config.layer),
+                            opacity: animated && motion.type === 'fade' ? 0 : 1,
+                            translate: '-50% 0',
+                            transform: `${
+                              animated
+                                ? getPresentationTransform(motion.type, phase === 'exit')
+                                : ''
+                            } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                            transformOrigin: 'center center',
+                            transition:
+                              previewMatches && motion.type !== 'none' && motion.duration > 0
+                                ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                                : undefined,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </VirtualPresentationStage>
+              )}
             </div>
           )}
           <div className="h-48 shrink-0 bg-[var(--card-bg)] p-8 overflow-y-auto">
@@ -1484,31 +1499,22 @@ export function ZenEditor({
                       </label>
                       <label>
                         <span className="mb-1 block font-bold">时长</span>
-                        <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
-                          <input
-                            type="number"
-                            min="0"
-                            step="100"
-                            value={current[phase].duration}
-                            onChange={(event) =>
-                              updateCharacter(
-                                presentationMenu.id,
-                                (item) => ({
-                                  ...item,
-                                  [phase]: {
-                                    ...item[phase],
-                                    duration: Number(event.target.value),
-                                  },
-                                }),
-                                phase,
-                              )
-                            }
-                            className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
-                          />
-                          <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
-                            MS
-                          </span>
-                        </div>
+                        <DurationInput
+                          value={current[phase].duration}
+                          onChange={(duration) =>
+                            updateCharacter(
+                              presentationMenu.id,
+                              (item) => ({
+                                ...item,
+                                [phase]: {
+                                  ...item[phase],
+                                  duration,
+                                },
+                              }),
+                              phase,
+                            )
+                          }
+                        />
                       </label>
                     </div>
                   ))}
@@ -1785,31 +1791,22 @@ export function ZenEditor({
                       </label>
                       <label>
                         <span className="mb-1 block font-bold">时长</span>
-                        <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
-                          <input
-                            type="number"
-                            min="0"
-                            step="100"
-                            value={current[phase].duration}
-                            onChange={(event) =>
-                              updateScene(
-                                presentationMenu.id,
-                                (item) => ({
-                                  ...item,
-                                  [phase]: {
-                                    ...item[phase],
-                                    duration: Number(event.target.value),
-                                  },
-                                }),
-                                phase,
-                              )
-                            }
-                            className="min-w-0 flex-1 border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
-                          />
-                          <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">
-                            MS
-                          </span>
-                        </div>
+                        <DurationInput
+                          value={current[phase].duration}
+                          onChange={(duration) =>
+                            updateScene(
+                              presentationMenu.id,
+                              (item) => ({
+                                ...item,
+                                [phase]: {
+                                  ...item[phase],
+                                  duration,
+                                },
+                              }),
+                              phase,
+                            )
+                          }
+                        />
                       </label>
                     </div>
                   ))}

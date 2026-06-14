@@ -114,9 +114,17 @@ export const drawPresentationVisuals = async ({
 
   if (!background) {
     const sceneNode = scene ? nodes.find((item) => item.id === scene.sourceNodeId) : undefined;
+    const sceneData = sceneNode?.data as CharacterNodeData & {
+      coverImageUrl?: string;
+      images?: Array<{ id: string; imageUrl?: string }>;
+    };
+    const selectedSceneImage = scene?.imageId
+      ? sceneData?.images?.find((image) => image.id === scene.imageId)
+      : undefined;
     const imageUrl =
-      (sceneNode?.data?.coverImageUrl as string | undefined) ||
-      (node.data?.imageUrl as string | undefined);
+      (node.data?.imageUrl as string | undefined) ||
+      selectedSceneImage?.imageUrl ||
+      sceneData?.coverImageUrl;
     if (imageUrl) {
       try {
         const image = await loadCachedImage(imageUrl);
@@ -134,6 +142,12 @@ export const drawPresentationVisuals = async ({
   ctx.fillStyle = '#111827';
   ctx.fillRect(0, 0, width, height);
 
+  const presentationScale = scene?.scale || 1;
+  ctx.save();
+  ctx.translate(width / 2, height / 2);
+  ctx.scale(presentationScale, presentationScale);
+  ctx.translate(-width / 2, -height / 2);
+
   if (background) {
     const state = scene
       ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height)
@@ -141,7 +155,7 @@ export const drawPresentationVisuals = async ({
     ctx.save();
     ctx.globalAlpha = state.alpha;
     ctx.translate(width / 2 + state.x, height / 2 + state.y);
-    ctx.scale((scene?.scale || 1) * state.scale, (scene?.scale || 1) * state.scale);
+    ctx.scale(state.scale, state.scale);
     ctx.translate(-width / 2, -height / 2);
     drawFitted(
       ctx,
@@ -196,4 +210,6 @@ export const drawPresentationVisuals = async ({
       ctx.drawImage(image, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
       ctx.restore();
     });
+
+  ctx.restore();
 };

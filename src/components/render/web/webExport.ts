@@ -424,6 +424,16 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       border-radius: 10px;
       overflow: hidden;
     }
+    .presentation-scale {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      transform-origin: center;
+    }
+    .app.immersive .presentation-scale {
+      width: 100%;
+      height: 100%;
+    }
     .scene-image {
       position: relative;
       z-index: 1;
@@ -434,7 +444,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       max-height: calc(100vh - 220px);
       object-fit: contain;
     }
-    .media > video {
+    .presentation-scale > video {
       position: relative;
       z-index: 1;
       width: 100%;
@@ -443,7 +453,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       display: block;
     }
     .app.immersive .scene-image,
-    .app.immersive .media > video {
+    .app.immersive .presentation-scale > video {
       width: 100%;
       height: 100%;
       max-width: none;
@@ -834,16 +844,13 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         if (exitDuration > 0) {
           isTransitioning = true;
           
-          const mediaEl = stageEl.querySelector('.media img, .media video');
+          const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
           if (mediaEl && sceneExit && sceneExit.type !== 'none') {
             mediaEl.style.transition = 'opacity ' + sceneExit.duration + 'ms ease-out, transform ' + sceneExit.duration + 'ms ease-out';
             if (sceneExit.type === 'fade') {
               mediaEl.style.opacity = '0';
             } else {
-              const baseScale = settings.layoutMode === 'immersive'
-                ? 1
-                : (data.presentation.scene && data.presentation.scene.scale) || 1;
-              mediaEl.style.transform = 'scale(' + baseScale + ') ' + getPresentationTransform(sceneExit.type, true);
+              mediaEl.style.transform = getPresentationTransform(sceneExit.type, true);
             }
           }
           
@@ -1017,12 +1024,11 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const sceneObjectFit = sceneCrop === 'contain' ? 'contain' : sceneCrop === 'stretch' ? 'fill' : 'cover';
       const immersive = settings.layoutMode === 'immersive';
       const finalCrop = immersive ? 'contain' : (sceneCrop ? sceneObjectFit : 'contain');
-      const finalScale = immersive ? 1 : sceneScale;
       const finalOffsetX = immersive ? 0 : sceneOffsetX;
       const finalOffsetY = immersive ? 0 : sceneOffsetY;
       
       const initSceneOpacity = (hasSceneEnter && sceneEnter.type === 'fade') ? 0 : 1;
-      const initSceneTransform = 'scale(' + finalScale + ') ' + (hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : '');
+      const initSceneTransform = hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : 'none';
       const initSceneStyle = 
         'object-fit: ' + finalCrop + '; ' +
         'object-position: ' + (50 + finalOffsetX) + '% ' + (50 + finalOffsetY) + '%; ' +
@@ -1069,7 +1075,11 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
       backdropEl.style.backgroundImage = image ? 'url("' + image.replace(/"/g, '\\"') + '")' : "";
       stageEl.innerHTML =
-        '<div class="media ' + (!image && !video ? 'empty' : '') + '">' + media + charactersHtml + '</div>' +
+        '<div class="media ' + (!image && !video ? 'empty' : '') + '">' +
+          '<div class="presentation-scale" style="transform: scale(' + sceneScale + ')">' +
+            media + charactersHtml +
+          '</div>' +
+        '</div>' +
         '<div class="dialogue">' +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           (hideCenteredTitle ? "" : '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>') +
@@ -1081,10 +1091,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
       // 在下一个渲染帧中触发入场动画过渡到正常状态
       setTimeout(() => {
-        const mediaEl = stageEl.querySelector('.media img, .media video');
+        const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
         if (mediaEl) {
           mediaEl.style.opacity = '1';
-          mediaEl.style.transform = 'scale(' + finalScale + ')';
+          mediaEl.style.transform = 'none';
         }
         
         if (data.presentation && Array.isArray(data.presentation.characters)) {

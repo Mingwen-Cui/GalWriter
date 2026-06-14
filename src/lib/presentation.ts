@@ -32,8 +32,8 @@ export const createCharacterPresentation = (
   scale: 1,
   flipX: false,
   layer: MIN_CHARACTER_LAYER,
-  enter: createPresentationMotion('slide-left'),
-  exit: createPresentationMotion('fade'),
+  enter: createPresentationMotion('none', 0),
+  exit: createPresentationMotion('none', 0),
 });
 
 export const createScenePresentation = (
@@ -44,12 +44,12 @@ export const createScenePresentation = (
 ): ScenePresentation => ({
   sourceNodeId,
   linkedByEdge,
-  cropMode: 'cover',
+  cropMode: 'contain',
   scale: 1,
   offsetX: 0,
   offsetY: 0,
-  enter: createPresentationMotion('fade', 600),
-  exit: createPresentationMotion('fade', 400),
+  enter: createPresentationMotion('none', 0),
+  exit: createPresentationMotion('none', 0),
   previousImageUrl,
   previousShowTextOverlay,
 });

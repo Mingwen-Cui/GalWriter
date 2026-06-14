@@ -231,6 +231,7 @@ export const useNodeActions = ({
             shape: 'square',
             color: '#ffffff',
             text: '',
+            objectFit: 'playtest',
             titleHeightAdded: showTitles,
             ...mediaData,
           },
