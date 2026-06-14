@@ -67,7 +67,10 @@ interface AssistantPanelProps {
   handleAssistantRedo: () => void;
   canAssistantUndo: boolean;
   canAssistantRedo: boolean;
-  onAssistantMessagePositionClick: (position: { x: number; y: number; zoom?: number }) => void;
+  onAssistantMessagePositionClick: (target: {
+    position?: { x: number; y: number; zoom?: number };
+    nodeIds?: string[];
+  }) => void;
   showStats: boolean;
   language: Language;
 }
@@ -509,10 +512,16 @@ export function AssistantPanel({
                     ))}
                   </div>
                 )}
-                {message.role === 'assistant' && message.cardPosition && (
+                {message.role === 'assistant' &&
+                  (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
                   <button
                     type="button"
-                    onClick={() => onAssistantMessagePositionClick(message.cardPosition!)}
+                    onClick={() =>
+                      onAssistantMessagePositionClick({
+                        position: message.cardPosition,
+                        nodeIds: message.cardNodeIds,
+                      })
+                    }
                     className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
                     title={
                       language === 'zh'

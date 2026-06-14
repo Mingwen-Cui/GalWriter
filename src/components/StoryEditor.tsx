@@ -646,7 +646,7 @@ export function StoryEditor() {
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const { screenToFlowPosition, getIntersectingNodes, setCenter } = useReactFlow();
+  const { screenToFlowPosition, getIntersectingNodes, setCenter, fitView } = useReactFlow();
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -2328,13 +2328,36 @@ export function StoryEditor() {
   );
 
   const handleAssistantMessagePositionClick = useCallback(
-    (position: { x: number; y: number; zoom?: number }) => {
-      void setCenter(position.x, position.y, {
-        zoom: position.zoom ?? tzoom,
+    (target: {
+      position?: { x: number; y: number; zoom?: number };
+      nodeIds?: string[];
+    }) => {
+      const targetIds = new Set(target.nodeIds || []);
+      const targetNodes = nodes.filter((node) => targetIds.has(node.id));
+
+      if (targetNodes.length > 0) {
+        setNodes((currentNodes) =>
+          currentNodes.map((node) => ({
+            ...node,
+            selected: targetIds.has(node.id),
+          })),
+        );
+        void fitView({
+          nodes: targetNodes,
+          padding: 0.3,
+          duration: 450,
+          maxZoom: 1.2,
+        });
+        return;
+      }
+
+      if (!target.position) return;
+      void setCenter(target.position.x, target.position.y, {
+        zoom: target.position.zoom ?? tzoom,
         duration: 450,
       });
     },
-    [setCenter, tzoom],
+    [fitView, nodes, setCenter, setNodes, tzoom],
   );
 
   const {

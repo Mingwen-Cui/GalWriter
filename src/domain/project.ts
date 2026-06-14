@@ -77,6 +77,7 @@ export type AssistantMessage = {
   content: string;
   collapsed?: boolean;
   cardPosition?: { x: number; y: number; zoom?: number };
+  cardNodeIds?: string[];
   options?: AssistantMessageOption[];
 };
 

@@ -838,6 +838,7 @@ ${canvasContext || '无'}`;
           role: 'assistant',
           content: `${parsed.reply || raw}${actionText}`,
           cardPosition: placement.position,
+          cardNodeIds: placement.nodeIds,
         };
         setAssistantMessages((messages) => [...messages, assistantMessage]);
       } catch (error: any) {
@@ -998,6 +999,7 @@ cards 必须正好有 3 张。`);
             role: 'assistant',
             content: parsed.reply || '我画出了三个未来目标，请选择一个长期写作方向。',
             cardPosition: placement.position,
+            cardNodeIds: placement.nodeIds,
             options: cards.map((card, index) => ({
               id: uuidv4(),
               label: card.title || `目标 ${index + 1}`,
