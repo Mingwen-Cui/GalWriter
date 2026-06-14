@@ -25,11 +25,13 @@ import {
   Loader2,
   MapPin,
   Maximize,
+  Mic,
   Palette,
   Play,
   Plus,
   Save,
   Sparkles,
+  Square,
   StepForward,
   Trash2,
   Type,
@@ -47,6 +49,7 @@ import type {
   PresentationMotion,
   SceneFlowNode,
   ScenePresentation,
+  StoryAudioClip,
   StoryCardVisualShape,
   StoryFlowNode,
   StoryNodeData,
@@ -203,6 +206,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
+  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>(
+    'idle',
+  );
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
@@ -861,6 +870,116 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     }
   };
 
+  const stopRecordingTracks = () => {
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+  };
+
+  const startRecording = async () => {
+    if (recordingState !== 'idle') return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recordingChunksRef.current = [];
+      recordingStreamRef.current = stream;
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const recording = new Blob(recordingChunksRef.current, {
+          type: mimeType || recorder.mimeType || 'audio/webm',
+        });
+        recordingChunksRef.current = [];
+        recorderRef.current = null;
+        stopRecordingTracks();
+
+        if (recording.size === 0) {
+          setRecordingState('idle');
+          return;
+        }
+
+        setRecordingState('encoding');
+        try {
+          const { convertRecordingToMp3 } = await import('../lib/audioRecording');
+          const mp3 = await convertRecordingToMp3(recording);
+          const url = URL.createObjectURL(mp3);
+          const latestNode = storeApi.getState().nodes.find((node) => node.id === id);
+          const latestData = latestNode?.data as StoryNodeData | undefined;
+          const existingClips: StoryAudioClip[] = Array.isArray(latestData?.audioClips)
+            ? latestData.audioClips
+            : latestData?.audioUrl
+              ? [
+                  {
+                    id: crypto.randomUUID(),
+                    name: lang === 'zh' ? '已有音频' : 'Existing audio',
+                    url: latestData.audioUrl,
+                    source: 'imported',
+                    createdAt: Date.now() - 1,
+                  },
+                ]
+              : [];
+          const clip: StoryAudioClip = {
+            id: crypto.randomUUID(),
+            name:
+              lang === 'zh'
+                ? `录音 ${new Date().toLocaleTimeString()}`
+                : `Recording ${new Date().toLocaleTimeString()}`,
+            url,
+            source: 'recording',
+            createdAt: Date.now(),
+          };
+          updateNodeData({
+            audioUrl: url,
+            audioClips: [...existingClips, clip],
+          });
+        } catch (error) {
+          console.error('Failed to encode recording as MP3:', error);
+          alert(lang === 'zh' ? '录音转 MP3 失败，请重试。' : 'Failed to convert recording to MP3.');
+        } finally {
+          setRecordingState('idle');
+        }
+      };
+
+      recorder.start(250);
+      setRecordingState('recording');
+    } catch (error) {
+      recorderRef.current = null;
+      recordingChunksRef.current = [];
+      stopRecordingTracks();
+      setRecordingState('idle');
+      const message = error instanceof Error ? error.message : '';
+      alert(
+        lang === 'zh'
+          ? `无法开始录音${message ? `：${message}` : '。'}`
+          : `Unable to start recording${message ? `: ${message}` : '.'}`,
+      );
+    }
+  };
+
+  const stopRecording = () => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  };
+
+  useEffect(
+    () => () => {
+      const recorder = recorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== 'inactive') recorder.stop();
+      }
+      stopRecordingTracks();
+    },
+    [],
+  );
+
   const handleDownloadImage = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (!imageUrl) return;
@@ -1132,17 +1251,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
                   {/* 视图按钮 */}
                   <button
-                    onClick={() => data.onZenMode?.(id)}
-                    className={iconBtnBase}
-                    title="专注模式"
+                    onClick={() => {
+                      if (recordingState === 'recording') {
+                        stopRecording();
+                      } else {
+                        void startRecording();
+                      }
+                    }}
+                    disabled={recordingState === 'encoding'}
+                    className={`${iconBtnBase} ${
+                      recordingState === 'recording'
+                        ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 hover:text-rose-500'
+                        : 'text-rose-500 hover:text-rose-500'
+                    } disabled:opacity-100`}
+                    title={
+                      recordingState === 'recording'
+                        ? lang === 'zh'
+                          ? '停止录音并保存 MP3'
+                          : 'Stop and save MP3'
+                        : recordingState === 'encoding'
+                          ? lang === 'zh'
+                            ? '正在生成 MP3'
+                            : 'Creating MP3'
+                          : lang === 'zh'
+                            ? '开始录音'
+                            : 'Start recording'
+                    }
                   >
-                    <Maximize className="w-4 h-4" />
+                    {recordingState === 'encoding' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : recordingState === 'recording' ? (
+                      <Square className="w-4 h-4 fill-current" />
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
                   </button>
                   {plainSpeechText && (
                     <button
                       onClick={handleGenerateSpeech}
                       disabled={isGeneratingSpeech}
-                      className={`${iconBtnBase} bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-100`}
+                      className={`${iconBtnBase} text-sky-600 disabled:opacity-100`}
                       title={lang === 'zh' ? '文字转音频' : 'Text to audio'}
                     >
                       {isGeneratingSpeech ? (
