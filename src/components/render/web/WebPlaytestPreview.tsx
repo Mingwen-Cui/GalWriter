@@ -96,6 +96,7 @@ export function WebPlaytestPreview({
   const currentAudioRef = useRef<HTMLAudioElement>(null);
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
+  const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
 
@@ -136,6 +137,13 @@ export function WebPlaytestPreview({
   const presentation = normalizeStoryPresentation(
     currentNode?.data?.presentation as StoryPresentation | undefined,
   );
+
+  React.useEffect(() => {
+    if (!imageUrl || imagePreloadRef.current.has(imageUrl)) return;
+    const image = new Image();
+    image.src = imageUrl;
+    imagePreloadRef.current.set(imageUrl, image);
+  }, [imageUrl]);
   const presentedCharacters = useMemo(() => {
     if (!presentation.characters) return [];
     return presentation.characters
@@ -210,7 +218,7 @@ export function WebPlaytestPreview({
     }
     if (settings.autoAdvance && videoUrl && currentVideoRef.current) {
       currentVideoRef.current.currentTime = 0;
-      currentVideoRef.current.play().catch(() => { });
+      currentVideoRef.current.play().catch(() => {});
     }
   }, [audioUrl, currentNodeId, settings.autoAdvance, videoUrl]);
 
@@ -225,6 +233,11 @@ export function WebPlaytestPreview({
 
   const goTo = (targetId: string) => {
     if (presentationExiting) return;
+    if (settings.layoutMode === 'classic') {
+      if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
+      setCurrentNodeId(targetId);
+      return;
+    }
     const exitDuration = Math.max(
       presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
       ...presentation.characters.map((char) =>
@@ -369,10 +382,11 @@ export function WebPlaytestPreview({
     titleText = projectTitle || t('未命名作品', '無題の作品', 'Untitled Project'),
   ) => (
     <div
-      className={`flex h-12 items-center justify-between px-3 transition-opacity ${settings.layoutMode === 'immersive'
-        ? 'absolute left-0 right-0 top-0 z-30 border-b border-transparent bg-transparent shadow-none backdrop-blur-0'
-        : 'border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md'
-        } ${previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      className={`relative z-[200] flex h-12 items-center justify-between overflow-visible px-3 transition-opacity ${
+        settings.layoutMode === 'immersive'
+          ? 'absolute left-0 right-0 top-0 border-b border-transparent bg-transparent shadow-none backdrop-blur-0'
+          : 'border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md'
+      } ${previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
     >
       <div className="min-w-0 flex items-center gap-2.5">
         <span className="truncate text-sm font-black text-white/88">{titleText}</span>
@@ -395,10 +409,11 @@ export function WebPlaytestPreview({
               setShowAudioPlaylist((visible) => !visible);
               setShowPreviewSettings(false);
             }}
-            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${showAudioPlaylist
-              ? 'bg-sky-500/35 text-sky-100'
-              : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
+            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
+              showAudioPlaylist
+                ? 'bg-sky-500/35 text-sky-100'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
             title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
             aria-label={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
           >
@@ -406,7 +421,7 @@ export function WebPlaytestPreview({
           </button>
           {showAudioPlaylist && (
             <div
-              className="absolute right-0 top-10 z-50 flex h-80 w-[min(320px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/12 bg-slate-950/94 p-3 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
+              className="absolute right-0 top-10 z-[300] flex h-80 w-[min(320px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/12 bg-slate-950/94 p-3 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between gap-3 px-1">
@@ -446,10 +461,11 @@ export function WebPlaytestPreview({
                     return (
                       <div
                         key={`${audio.nodeId}-${audio.url}`}
-                        className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 ${isActive
-                          ? 'border-sky-400/50 bg-sky-500/15'
-                          : 'border-white/10 bg-white/[0.05]'
-                          }`}
+                        className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 ${
+                          isActive
+                            ? 'border-sky-400/50 bg-sky-500/15'
+                            : 'border-white/10 bg-white/[0.05]'
+                        }`}
                       >
                         <span className="min-w-0 flex-1 truncate text-center text-xs font-bold text-white/85">
                           {audio.title}
@@ -481,10 +497,11 @@ export function WebPlaytestPreview({
               setShowPreviewSettings((prev) => !prev);
               setShowAudioPlaylist(false);
             }}
-            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${showPreviewSettings
-              ? 'bg-white/24 text-white'
-              : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
+            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
+              showPreviewSettings
+                ? 'bg-white/24 text-white'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
             title={t('预览设置', 'プレビュー設定', 'Preview settings')}
             aria-label={t('预览设置', 'プレビュー設定', 'Preview settings')}
           >
@@ -573,7 +590,8 @@ export function WebPlaytestPreview({
   }
 
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
-  const sceneAnimationActive = presentationExiting || !presentationVisible;
+  const sceneAnimationActive =
+    settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible);
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -588,15 +606,20 @@ export function WebPlaytestPreview({
         : 'contain';
   const sceneStyle: React.CSSProperties = {
     objectFit: finalObjectFit as any,
-    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${50 + (presentation.scene?.offsetY || 0)
-      }%`,
+    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
+      50 + (presentation.scene?.offsetY || 0)
+    }%`,
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
-    transform: `scale(${presentation.scene?.scale || 1}) ${sceneAnimationActive && sceneMotion
-      ? getPresentationTransform(sceneMotion.type, presentationExiting)
-      : ''
-      }`,
+    transform: `scale(${presentation.scene?.scale || 1}) ${
+      sceneAnimationActive && sceneMotion
+        ? getPresentationTransform(sceneMotion.type, presentationExiting)
+        : ''
+    }`,
     transitionProperty: 'opacity, transform',
-    transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
+    transitionDuration:
+      settings.layoutMode === 'classic'
+        ? '0ms'
+        : `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
 
@@ -609,29 +632,56 @@ export function WebPlaytestPreview({
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
       </style>
-      {imageUrl && (
+      {imageUrl && settings.layoutMode === 'immersive' && (
         <div
           className={`absolute inset-0 bg-cover bg-center opacity-35 scale-105 ${settings.blurBackground ? 'blur-sm' : ''}`}
           style={{ backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` }}
         />
       )}
       <div
-        className={`z-10 ${settings.layoutMode === 'immersive'
-          ? 'absolute inset-0 bg-transparent'
-          : 'relative grid h-full grid-rows-[48px_minmax(0,1fr)_auto] bg-slate-950/45'
-          }`}
+        className={`z-10 ${
+          settings.layoutMode === 'immersive'
+            ? 'absolute inset-0 bg-transparent'
+            : 'relative grid h-full grid-rows-[48px_minmax(0,1fr)_auto] bg-slate-950/45'
+        }`}
       >
         {renderPreviewToolbar()}
         <div
           className={settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 p-4'}
         >
           <div
-            className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${settings.layoutMode === 'immersive' ? 'rounded-none' : 'rounded-lg bg-black/35'
-              }`}
+            className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
+              settings.layoutMode === 'immersive' ? 'rounded-none' : 'bg-transparent'
+            }`}
             onClick={continueFromText}
           >
             {imageUrl ? (
-              <img src={imageUrl} alt="" className="h-full w-full" style={sceneStyle} />
+              <img
+                key={`${currentNodeId}-${imageUrl}-${settings.layoutMode}`}
+                src={imageUrl}
+                alt=""
+                className={
+                  settings.layoutMode === 'classic'
+                    ? 'block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
+                    : 'h-full w-full'
+                }
+                style={
+                  settings.layoutMode === 'classic'
+                    ? {
+                        objectFit: 'contain',
+                        objectPosition: '50% 50%',
+                        width: 'auto',
+                        height: 'auto',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        opacity: 1,
+                        transform: 'none',
+                        transition: 'none',
+                        animation: 'none',
+                      }
+                    : sceneStyle
+                }
+              />
             ) : videoUrl ? (
               <video
                 ref={currentVideoRef}
@@ -657,7 +707,9 @@ export function WebPlaytestPreview({
               <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
                 {presentedCharacters.map(({ config, data, imageUrl }) => {
                   const motion = presentationExiting ? config.exit : config.enter;
-                  const animationActive = presentationExiting || !presentationVisible;
+                  const animationActive =
+                    settings.layoutMode === 'immersive' &&
+                    (presentationExiting || !presentationVisible);
                   const animationTransform =
                     animationActive && motion
                       ? getPresentationTransform(motion.type, presentationExiting)
@@ -676,7 +728,10 @@ export function WebPlaytestPreview({
                         transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
                         transformOrigin: 'center center',
                         transitionProperty: 'opacity, transform',
-                        transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                        transitionDuration:
+                          settings.layoutMode === 'classic'
+                            ? '0ms'
+                            : `${motion.type === 'none' ? 0 : motion.duration}ms`,
                         transitionTimingFunction: 'ease-out',
                       }}
                     />
@@ -695,10 +750,11 @@ export function WebPlaytestPreview({
           </div>
         )}
         <div
-          className={`${settings.layoutMode === 'immersive'
-            ? 'pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-end justify-center'
-            : 'relative'
-            }`}
+          className={`${
+            settings.layoutMode === 'immersive'
+              ? 'pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-end justify-center'
+              : 'relative'
+          }`}
           style={{
             width:
               settings.layoutMode === 'immersive' ? 'min(960px, calc(100% - 112px))' : undefined,
@@ -706,10 +762,11 @@ export function WebPlaytestPreview({
           }}
         >
           <div
-            className={`pointer-events-auto relative w-full border-t border-white/10 p-4 ${settings.layoutMode === 'immersive'
-              ? 'overflow-y-auto rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
-              : ''
-              }`}
+            className={`pointer-events-auto relative w-full border-t border-white/10 p-4 ${
+              settings.layoutMode === 'immersive'
+                ? 'overflow-y-auto rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
+                : ''
+            }`}
             style={{
               backgroundColor:
                 settings.layoutMode === 'immersive'
@@ -721,7 +778,11 @@ export function WebPlaytestPreview({
             {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
             <div
               key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
-              className="mt-2 text-sm leading-relaxed text-slate-200"
+              className={`mt-2 text-sm leading-relaxed text-slate-200 ${
+                settings.layoutMode === 'classic' && settings.interactionMode === 'typewriter'
+                  ? 'relative'
+                  : ''
+              }`}
               style={{
                 color: renderStyle.bodyColor,
                 fontSize: renderStyle.bodyFontSize,
@@ -729,7 +790,19 @@ export function WebPlaytestPreview({
               }}
               onClick={continueFromText}
             >
-              {settings.interactionMode === 'typewriter' ? displayedPreviewText || '' : null}
+              {settings.interactionMode === 'typewriter' &&
+                (settings.layoutMode === 'classic' ? (
+                  <>
+                    <span className="invisible block whitespace-pre-wrap" aria-hidden="true">
+                      {stripHtml(text) || ' '}
+                    </span>
+                    <span className="absolute inset-0 block whitespace-pre-wrap">
+                      {displayedPreviewText || ''}
+                    </span>
+                  </>
+                ) : (
+                  displayedPreviewText || ''
+                ))}
               {settings.interactionMode !== 'typewriter' && (
                 <span
                   dangerouslySetInnerHTML={{
@@ -961,10 +1034,11 @@ function PreviewOptionGroup({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${value === option.value
-              ? 'bg-sky-500 text-white'
-              : 'bg-white/10 text-white/75 hover:bg-white/16'
-              }`}
+            className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
+              value === option.value
+                ? 'bg-sky-500 text-white'
+                : 'bg-white/10 text-white/75 hover:bg-white/16'
+            }`}
           >
             {option.label}
           </button>
