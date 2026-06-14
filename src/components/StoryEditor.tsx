@@ -1215,9 +1215,6 @@ export function StoryEditor() {
         const connectedEdges = edges.filter(
           (edge) => edge.source === node.id || edge.target === node.id,
         );
-        const connectedNodes = connectedEdges
-          .map((edge) => nodeById.get(edge.source === node.id ? edge.target : edge.source))
-          .filter((connected): connected is Node => Boolean(connected));
         const connectedSceneBinding = connectedEdges
           .map((edge) => {
             const connectedId = edge.source === node.id ? edge.target : edge.source;
@@ -1227,32 +1224,68 @@ export function StoryEditor() {
             const sceneHandle = edge.source === connectedId ? edge.sourceHandle : edge.targetHandle;
             const imageId = sceneHandle?.match(/^image-(?:in|out)-(.+)$/)?.[1];
             const sceneImages = Array.isArray(connected.data.images)
-              ? (connected.data.images as Array<{ id: string; imageUrl?: string }>)
+              ? (connected.data.images as Array<{
+                  id: string;
+                  imageUrl?: string;
+                  videoUrl?: string;
+                }>)
               : [];
-            const selectedImage = imageId
-              ? sceneImages.find((image) => image.id === imageId && image.imageUrl)
+            const selectedMedia = imageId
+              ? sceneImages.find(
+                  (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
+                )
               : undefined;
             const imageUrl =
-              selectedImage?.imageUrl ||
-              (typeof connected.data.coverImageUrl === 'string'
+              selectedMedia?.imageUrl ||
+              (!selectedMedia && typeof connected.data.coverImageUrl === 'string'
                 ? connected.data.coverImageUrl
                 : undefined);
-            if (!imageUrl) return null;
+            const videoUrl = selectedMedia?.videoUrl;
+            if (!imageUrl && !videoUrl) return null;
 
             return {
               node: connected,
-              imageId: selectedImage?.id,
+              imageId: selectedMedia?.id,
               imageUrl,
+              videoUrl,
             };
           })
           .filter((binding): binding is NonNullable<typeof binding> => Boolean(binding))
           .sort((a, b) => Number(Boolean(b.imageId)) - Number(Boolean(a.imageId)))[0];
-        const connectedCharacters = connectedNodes.filter(
-          (connected) => connected.type === 'characterNode',
-        );
+        const connectedCharacterBindings = connectedEdges
+          .map((edge) => {
+            const connectedId = edge.source === node.id ? edge.target : edge.source;
+            const connected = nodeById.get(connectedId);
+            if (connected?.type !== 'characterNode') return null;
+
+            const characterHandle =
+              edge.source === connectedId ? edge.sourceHandle : edge.targetHandle;
+            const outfitId = characterHandle?.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
+            const outfits = Array.isArray(connected.data.outfits)
+              ? (connected.data.outfits as Array<{ id: string }>)
+              : [];
+
+            return {
+              node: connected,
+              outfitId:
+                outfitId && outfits.some((outfit) => outfit.id === outfitId) ? outfitId : undefined,
+            };
+          })
+          .filter((binding): binding is NonNullable<typeof binding> => Boolean(binding));
+        const connectedCharacterById = new Map<
+          string,
+          (typeof connectedCharacterBindings)[number]
+        >();
+        connectedCharacterBindings.forEach((binding) => {
+          const existing = connectedCharacterById.get(binding.node.id);
+          if (!existing || binding.outfitId) {
+            connectedCharacterById.set(binding.node.id, binding);
+          }
+        });
         const presentation = normalizeStoryPresentation(node.data.presentation as any);
         let nextScene = presentation.scene;
         let nextImageUrl = node.data.imageUrl as string | undefined;
+        let nextVideoUrl = node.data.videoUrl as string | undefined;
         let nextShowTextOverlay = node.data.showTextOverlay as boolean | undefined;
 
         if (connectedSceneBinding) {
@@ -1261,6 +1294,10 @@ export function StoryEditor() {
             nextScene?.linkedByEdge && nextScene.previousImageUrl !== undefined
               ? nextScene.previousImageUrl
               : nextImageUrl;
+          const previousVideoUrl =
+            nextScene?.linkedByEdge && nextScene.previousVideoUrl !== undefined
+              ? nextScene.previousVideoUrl
+              : nextVideoUrl;
           nextScene = {
             ...(nextScene?.sourceNodeId === connectedScene.id
               ? nextScene
@@ -1274,33 +1311,40 @@ export function StoryEditor() {
             linkedByEdge: true,
             imageId: connectedSceneBinding.imageId,
             previousImageUrl,
+            previousVideoUrl,
             previousShowTextOverlay:
               nextScene?.linkedByEdge && nextScene.previousShowTextOverlay !== undefined
                 ? nextScene.previousShowTextOverlay
                 : nextShowTextOverlay,
           };
           nextImageUrl = connectedSceneBinding.imageUrl;
+          nextVideoUrl = connectedSceneBinding.videoUrl;
           nextShowTextOverlay = true;
         } else if (nextScene?.linkedByEdge) {
           nextImageUrl = nextScene.previousImageUrl;
+          nextVideoUrl = nextScene.previousVideoUrl;
           nextShowTextOverlay = nextScene.previousShowTextOverlay;
           nextScene = undefined;
         }
 
-        const connectedCharacterIds = new Set(connectedCharacters.map((character) => character.id));
+        const connectedCharacterIds = new Set(connectedCharacterById.keys());
         const nextCharacters = presentation.characters
           .filter(
             (character) =>
               !character.linkedByEdge || connectedCharacterIds.has(character.sourceNodeId),
           )
-          .map((character) =>
-            connectedCharacterIds.has(character.sourceNodeId)
-              ? { ...character, linkedByEdge: true }
-              : character,
-          );
-        connectedCharacters.forEach((character) => {
-          if (!nextCharacters.some((item) => item.sourceNodeId === character.id)) {
-            nextCharacters.push(createCharacterPresentation(character.id, true));
+          .map((character) => {
+            const binding = connectedCharacterById.get(character.sourceNodeId);
+            return binding
+              ? { ...character, linkedByEdge: true, outfitId: binding.outfitId }
+              : character;
+          });
+        connectedCharacterById.forEach((binding) => {
+          if (!nextCharacters.some((item) => item.sourceNodeId === binding.node.id)) {
+            nextCharacters.push({
+              ...createCharacterPresentation(binding.node.id, true),
+              outfitId: binding.outfitId,
+            });
           }
         });
 
@@ -1310,6 +1354,7 @@ export function StoryEditor() {
         };
         if (
           nextImageUrl === node.data.imageUrl &&
+          nextVideoUrl === node.data.videoUrl &&
           nextShowTextOverlay === node.data.showTextOverlay &&
           JSON.stringify(nextPresentation) === JSON.stringify(presentation)
         ) {
@@ -1322,6 +1367,7 @@ export function StoryEditor() {
           data: {
             ...node.data,
             imageUrl: nextImageUrl,
+            videoUrl: nextVideoUrl,
             showTextOverlay: nextShowTextOverlay,
             presentation: nextPresentation,
           },
@@ -4120,7 +4166,10 @@ ${direction}
                         (e.source === n.id && e.target === node.id) ||
                         (e.target === n.id && e.source === node.id),
                     );
-                    return isGlobal || isConnected;
+                    const isPresented = zenPresentation.characters.some(
+                      (item) => item.sourceNodeId === n.id,
+                    );
+                    return isGlobal || isConnected || isPresented;
                   })
                   .map((n) => {
                     const config = zenPresentation.characters.find(
@@ -4154,7 +4203,8 @@ ${direction}
                         (e.source === n.id && e.target === node.id) ||
                         (e.target === n.id && e.source === node.id),
                     );
-                    return isGlobal || isConnected;
+                    const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
+                    return isGlobal || isConnected || isPresented;
                   })
                   .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
               : [];
@@ -4162,23 +4212,30 @@ ${direction}
               ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
               : undefined;
             const presentationSceneImages = Array.isArray(presentationScene?.data.images)
-              ? (presentationScene.data.images as Array<{ id: string; imageUrl?: string }>)
+              ? (presentationScene.data.images as Array<{
+                  id: string;
+                  imageUrl?: string;
+                  videoUrl?: string;
+                }>)
               : [];
-            const selectedPresentationSceneImage = zenPresentation.scene?.imageId
+            const selectedPresentationSceneMedia = zenPresentation.scene?.imageId
               ? presentationSceneImages.find((image) => image.id === zenPresentation.scene?.imageId)
-                  ?.imageUrl
               : undefined;
-            const zenImageUrl =
-              (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
-              selectedPresentationSceneImage ||
-              (typeof presentationScene?.data.coverImageUrl === 'string'
-                ? presentationScene.data.coverImageUrl
-                : '');
+            const zenVideoUrl =
+              selectedPresentationSceneMedia?.videoUrl ||
+              (typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : undefined);
+            const zenImageUrl = zenVideoUrl
+              ? undefined
+              : (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
+                selectedPresentationSceneMedia?.imageUrl ||
+                (typeof presentationScene?.data.coverImageUrl === 'string'
+                  ? presentationScene.data.coverImageUrl
+                  : '');
             return (
               <ZenEditor
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}
                 imageUrl={zenImageUrl}
-                videoUrl={typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : ''}
+                videoUrl={zenVideoUrl}
                 audioUrl={typeof node?.data.audioUrl === 'string' ? node.data.audioUrl : ''}
                 audioClips={
                   Array.isArray(node?.data.audioClips)

@@ -197,6 +197,7 @@ export function PlayTestModal({
   const [history, setHistory] = useState<string[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
   const audioPreloadRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -252,10 +253,16 @@ export function PlayTestModal({
   const selectedSceneImage = presentation.scene?.imageId
     ? sceneData?.images?.find((image) => image.id === presentation.scene?.imageId)
     : undefined;
-  const sceneImageUrl =
-    (currentNode?.data.imageUrl as string | undefined) ||
-    selectedSceneImage?.imageUrl ||
-    sceneData?.coverImageUrl;
+  const sceneVideoUrl =
+    selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined);
+  const sceneImageUrl = sceneVideoUrl
+    ? undefined
+    : (currentNode?.data.imageUrl as string | undefined) ||
+      selectedSceneImage?.imageUrl ||
+      sceneData?.coverImageUrl;
+  const sceneVideoStartTime = Math.max(0, presentation.scene?.videoStartTime || 0);
+  const sceneVideoEndTime = presentation.scene?.videoEndTime;
+  const sceneVideoMaxDuration = Math.max(0.1, presentation.scene?.videoMaxDuration || 30);
   const presentedCharacters = presentation.characters
     .map((config) => {
       const source = nodes.find((node) => node.id === config.sourceNodeId);
@@ -358,6 +365,8 @@ export function PlayTestModal({
   }, [playlistAudioUrl]);
 
   const outEdges = edges.filter((e) => e.source === currentNodeId);
+  const waitsForBranchVideo = outEdges.length > 1 && Boolean(sceneVideoUrl);
+  const choicesReady = animationCompleted && (!waitsForBranchVideo || currentVideoEnded);
   const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
   const advanceToTarget = React.useCallback(
     (targetId: string) => {
@@ -387,9 +396,48 @@ export function PlayTestModal({
     setCurrentAudioEnded(false);
     setCurrentVideoEnded(false);
     setMediaStatusNodeId(currentNodeId);
+    if (videoStopTimerRef.current) {
+      clearTimeout(videoStopTimerRef.current);
+      videoStopTimerRef.current = null;
+    }
     const frame = requestAnimationFrame(() => setPresentationVisible(true));
     return () => cancelAnimationFrame(frame);
   }, [currentNodeId]);
+
+  const stopVideoLimitTimer = () => {
+    if (!videoStopTimerRef.current) return;
+    clearTimeout(videoStopTimerRef.current);
+    videoStopTimerRef.current = null;
+  };
+
+  const startVideoLimitTimer = () => {
+    stopVideoLimitTimer();
+    videoStopTimerRef.current = setTimeout(() => {
+      videoRef.current?.pause();
+      setCurrentVideoEnded(true);
+      videoStopTimerRef.current = null;
+    }, sceneVideoMaxDuration * 1000);
+  };
+
+  const handleSceneVideoTimeUpdate = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    const endTime =
+      sceneVideoEndTime && sceneVideoEndTime > sceneVideoStartTime
+        ? Math.min(sceneVideoEndTime, video.duration || sceneVideoEndTime)
+        : video.duration;
+    if (!Number.isFinite(endTime) || video.currentTime < endTime) return;
+
+    if (presentation.scene?.videoLoop) {
+      video.currentTime = Math.min(sceneVideoStartTime, Math.max(0, video.duration || 0));
+      void video.play();
+      return;
+    }
+
+    video.pause();
+    video.currentTime = endTime;
+    stopVideoLimitTimer();
+    setCurrentVideoEnded(true);
+  };
 
   // 触发打字机或延时逻辑
   useEffect(() => {
@@ -478,8 +526,8 @@ export function PlayTestModal({
     const hasAudio =
       typeof currentNode?.data.audioUrl === 'string' && currentNode.data.audioUrl.trim();
     const hasVideo =
-      typeof currentNode?.data.videoUrl === 'string' &&
-      currentNode.data.videoUrl.trim() &&
+      typeof sceneVideoUrl === 'string' &&
+      sceneVideoUrl.trim() &&
       (layoutMode === 'classic' || !sceneImageUrl);
 
     if (
@@ -529,6 +577,7 @@ export function PlayTestModal({
     mediaStatusNodeId,
     layoutMode,
     sceneImageUrl,
+    sceneVideoUrl,
     outEdges.length,
   ]);
 
@@ -549,7 +598,7 @@ export function PlayTestModal({
   };
 
   const renderChoices = (isImmersive: boolean) => {
-    if (!animationCompleted) return null;
+    if (!choicesReady) return null;
 
     const effectiveCols = choicesPosition === 'center' ? 1 : choicesColumns;
     const gridClass = `grid ${effectiveCols === 1 ? 'grid-cols-1' : effectiveCols === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-3 w-full mb-1 animate-in fade-in duration-300 ${
@@ -774,7 +823,7 @@ export function PlayTestModal({
 
   useEffect(() => {
     if (currentNodeId && currentNodeId !== 'THE_END') {
-      if ((videoAutoPlay || autoAdvance) && videoRef.current) {
+      if ((videoAutoPlay || autoAdvance || waitsForBranchVideo) && videoRef.current) {
         // Try to play with sound first
         videoRef.current.play().catch(() => {
           // If failed (browser restriction), play muted
@@ -789,7 +838,7 @@ export function PlayTestModal({
         audioRef.current.play().catch((e) => console.log('Audio autoplay blocked', e));
       }
     }
-  }, [autoAdvance, currentNodeId, videoAutoPlay]);
+  }, [autoAdvance, currentNodeId, videoAutoPlay, waitsForBranchVideo]);
 
   useEffect(() => {
     if (!currentNodeId || currentNodeId === 'THE_END') return;
@@ -950,7 +999,7 @@ export function PlayTestModal({
     }
   };
 
-  const hasMedia = !!(sceneImageUrl || currentNode?.data.videoUrl || presentedCharacters.length);
+  const hasMedia = !!(sceneImageUrl || sceneVideoUrl || presentedCharacters.length);
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive = presentationExiting || !presentationVisible;
   const presentationScale = presentation.scene?.scale || 1;
@@ -1786,17 +1835,30 @@ export function PlayTestModal({
                       style={sceneStyle}
                       alt="Scene Background"
                     />
-                  ) : currentNode?.data.videoUrl ? (
+                  ) : sceneVideoUrl ? (
                     <video
                       key={currentNodeId}
                       ref={videoRef}
-                      src={currentNode.data.videoUrl as string}
+                      src={sceneVideoUrl}
                       playsInline
                       muted
-                      loop={!autoAdvance}
-                      autoPlay={videoAutoPlay}
-                      onEnded={() => setCurrentVideoEnded(true)}
-                      className="w-full h-full object-cover transition-all duration-1000"
+                      loop={false}
+                      autoPlay={videoAutoPlay || waitsForBranchVideo}
+                      onLoadedMetadata={(event) => {
+                        event.currentTarget.currentTime = Math.min(
+                          sceneVideoStartTime,
+                          Math.max(0, event.currentTarget.duration || 0),
+                        );
+                      }}
+                      onPlay={startVideoLimitTimer}
+                      onPause={stopVideoLimitTimer}
+                      onTimeUpdate={handleSceneVideoTimeUpdate}
+                      onEnded={() => {
+                        stopVideoLimitTimer();
+                        setCurrentVideoEnded(true);
+                      }}
+                      className="w-full h-full"
+                      style={sceneStyle}
                     />
                   ) : (
                     <div
@@ -1810,7 +1872,7 @@ export function PlayTestModal({
               {/* 2. 悬浮的选项与对话框 */}
               <div
                 className={`absolute inset-0 flex flex-col justify-end p-4 md:p-6 lg:pb-10 lg:px-48 xl:px-64 pointer-events-none ${
-                  choicesPosition === 'center' && animationCompleted && blurBackground
+                  choicesPosition === 'center' && choicesReady && blurBackground
                     ? blurText
                       ? 'z-20'
                       : 'z-40'
@@ -1872,7 +1934,7 @@ export function PlayTestModal({
 
               {/* 选项区域 - 画面中间 */}
               {choicesPosition === 'center' &&
-                animationCompleted &&
+                choicesReady &&
                 !(skipSingleChoicePopup && outEdges.length <= 1) && (
                   <div
                     className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
@@ -1925,18 +1987,31 @@ export function PlayTestModal({
                           }}
                         />
                       )}
-                      {currentNode?.data.videoUrl && (
+                      {sceneVideoUrl && (
                         <video
                           key={currentNodeId}
                           ref={videoRef}
-                          src={currentNode.data.videoUrl as string}
+                          src={sceneVideoUrl}
                           controls
                           playsInline
                           draggable={false}
                           onDragStart={(e) => e.preventDefault()}
-                          autoPlay={videoAutoPlay}
-                          onEnded={() => setCurrentVideoEnded(true)}
-                          className="h-full w-full object-contain"
+                          autoPlay={videoAutoPlay || waitsForBranchVideo}
+                          onLoadedMetadata={(event) => {
+                            event.currentTarget.currentTime = Math.min(
+                              sceneVideoStartTime,
+                              Math.max(0, event.currentTarget.duration || 0),
+                            );
+                          }}
+                          onPlay={startVideoLimitTimer}
+                          onPause={stopVideoLimitTimer}
+                          onTimeUpdate={handleSceneVideoTimeUpdate}
+                          onEnded={() => {
+                            stopVideoLimitTimer();
+                            setCurrentVideoEnded(true);
+                          }}
+                          className="h-full w-full"
+                          style={sceneStyle}
                         />
                       )}
                       {renderPresentedCharacters()}
@@ -1946,7 +2021,7 @@ export function PlayTestModal({
                   {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
                   {choicesPosition === 'center' &&
                     !isFullscreen &&
-                    animationCompleted &&
+                    choicesReady &&
                     !(skipSingleChoicePopup && outEdges.length <= 1) && (
                       <div
                         className={`absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
@@ -1960,7 +2035,7 @@ export function PlayTestModal({
               )}
 
               {/* 选项区域 - 文字上方 */}
-              {choicesPosition === 'aboveText' && animationCompleted && (
+              {choicesPosition === 'aboveText' && choicesReady && (
                 <div
                   ref={choicesRef}
                   className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
@@ -1973,7 +2048,7 @@ export function PlayTestModal({
               <div
                 onClick={handleTextContainerClick}
                 className={`${hasMedia ? 'h-32 md:h-48 shrink-0' : 'flex-1'} overflow-y-auto px-6 py-4 md:px-12 md:py-8 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 cursor-pointer overflow-hidden transition-all duration-300 relative ${
-                  choicesPosition === 'center' && animationCompleted && blurBackground
+                  choicesPosition === 'center' && choicesReady && blurBackground
                     ? isFullscreen
                       ? blurText
                         ? 'z-20'
@@ -2023,7 +2098,7 @@ export function PlayTestModal({
               </div>
 
               {/* 3. Choices Area - 文字下方 */}
-              {choicesPosition === 'belowText' && animationCompleted && (
+              {choicesPosition === 'belowText' && choicesReady && (
                 <div
                   ref={choicesRef}
                   className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
@@ -2035,7 +2110,7 @@ export function PlayTestModal({
               {/* 选项区域 - 屏幕的中间（当全屏，或无媒体文件时挂载在整个视口中央） */}
               {choicesPosition === 'center' &&
                 (isFullscreen || !hasMedia) &&
-                animationCompleted &&
+                choicesReady &&
                 !(skipSingleChoicePopup && outEdges.length <= 1) && (
                   <div
                     className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}

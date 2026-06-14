@@ -511,9 +511,17 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             {/* Avatar and Name */}
             <div className="flex items-center gap-3 p-3 border-b border-[var(--card-border)] bg-purple-50/10 dark:bg-purple-900/10 shrink-0">
               <div className="relative group/avatar shrink-0">
-                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-purple-200 dark:border-purple-800 bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <div
+                  className={`w-12 h-12 rounded-full overflow-hidden border-2 border-purple-200 dark:border-purple-800 flex items-center justify-center ${
+                    avatarUrl ? 'bg-white' : 'bg-purple-100 dark:bg-purple-900/30'
+                  }`}
+                >
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar"
+                      className="w-full h-full object-cover bg-white"
+                    />
                   ) : (
                     <UserCircle2 className="w-6 h-6 text-purple-400" />
                   )}
@@ -743,11 +751,15 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       key={outfit.id}
                       className="relative flex items-center gap-2 bg-[var(--app-bg)] p-1.5 rounded-lg border border-[var(--card-border)] group/outfit"
                     >
-                      <label className="relative cursor-pointer shrink-0 w-8 h-8 rounded-md overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center border border-purple-200 dark:border-purple-800">
+                      <label
+                        className={`relative cursor-pointer shrink-0 w-8 h-8 rounded-md overflow-hidden flex items-center justify-center border border-purple-200 dark:border-purple-800 ${
+                          outfit.imageUrl ? 'bg-white' : 'bg-purple-100 dark:bg-purple-900/30'
+                        }`}
+                      >
                         {outfit.imageUrl ? (
                           <img
                             src={outfit.imageUrl}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover bg-white"
                             alt="Outfit"
                           />
                         ) : (
@@ -821,9 +833,13 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
       {isMinimized && (
         <div className="px-3 py-2 flex items-center gap-2 bg-purple-50/10 dark:bg-purple-900/10 shrink-0">
-          <div className="w-5 h-5 rounded-full overflow-hidden bg-purple-200 shrink-0 flex items-center justify-center">
+          <div
+            className={`w-5 h-5 rounded-full overflow-hidden shrink-0 flex items-center justify-center ${
+              avatarUrl ? 'bg-white' : 'bg-purple-200'
+            }`}
+          >
             {avatarUrl ? (
-              <img src={avatarUrl} className="w-full h-full object-cover" />
+              <img src={avatarUrl} className="w-full h-full object-cover bg-white" />
             ) : (
               <UserCircle2 className="w-3 h-3 text-purple-500" />
             )}

@@ -304,6 +304,7 @@ export type SceneImage = {
   id: string;
   name: string;
   imageUrl?: string;
+  videoUrl?: string;
   isPanorama?: boolean;
 };
 
@@ -343,9 +344,14 @@ export interface ScenePresentation {
   scale: number;
   offsetX: number;
   offsetY: number;
+  videoStartTime?: number;
+  videoEndTime?: number;
+  videoLoop?: boolean;
+  videoMaxDuration?: number;
   enter: PresentationMotion;
   exit: PresentationMotion;
   previousImageUrl?: string;
+  previousVideoUrl?: string;
   previousShowTextOverlay?: boolean;
 }
 

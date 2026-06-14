@@ -3,9 +3,22 @@ import React, { useRef } from 'react';
 type DurationInputProps = {
   value: number;
   onChange: (value: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+  unit?: string;
+  decimals?: number;
 };
 
-export function DurationInput({ value, onChange }: DurationInputProps) {
+export function DurationInput({
+  value,
+  onChange,
+  step = 100,
+  min = 0,
+  max,
+  unit = 'MS',
+  decimals = 0,
+}: DurationInputProps) {
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -14,13 +27,15 @@ export function DurationInput({ value, onChange }: DurationInputProps) {
   } | null>(null);
 
   const commitValue = (nextValue: number) => {
-    onChange(Math.max(0, Math.round(nextValue / 100) * 100));
+    const stepped = Math.round(nextValue / step) * step;
+    const bounded = Math.min(max ?? Infinity, Math.max(min, stepped));
+    onChange(Number(bounded.toFixed(decimals)));
   };
 
   return (
     <div
       className="flex w-full cursor-ew-resize items-center rounded-lg bg-[var(--app-bg)]"
-      title="按住鼠标左右拖动，每次调整 100ms"
+      title={`按住鼠标左右拖动，每次调整 ${step}${unit}`}
       onPointerDown={(event) => {
         event.stopPropagation();
         if (event.button !== 0) return;
@@ -39,7 +54,7 @@ export function DurationInput({ value, onChange }: DurationInputProps) {
         const steps = Math.trunc((event.clientX - drag.startX) / 4);
         if (steps === drag.lastSteps) return;
         drag.lastSteps = steps;
-        commitValue(drag.startValue + steps * 100);
+        commitValue(drag.startValue + steps * step);
       }}
       onPointerUp={(event) => {
         event.stopPropagation();
@@ -53,13 +68,14 @@ export function DurationInput({ value, onChange }: DurationInputProps) {
     >
       <input
         type="number"
-        min="0"
-        step="100"
+        min={min}
+        max={max}
+        step={step}
         value={value}
         onChange={(event) => commitValue(Number(event.target.value))}
         className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
       />
-      <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">MS</span>
+      <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>
     </div>
   );
 }

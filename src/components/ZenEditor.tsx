@@ -49,6 +49,7 @@ import {
 } from '../lib/presentation';
 import { RichText, RichTextHandle } from './RichText';
 import { DurationInput } from './DurationInput';
+import { DraggableNumberInput } from './DraggableNumberInput';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
 type ZenTag = {
@@ -110,6 +111,9 @@ export function ZenEditor({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const waveformFrameRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement>(null);
+  const sceneVideoRef = useRef<HTMLVideoElement>(null);
+  const sceneVideoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sceneVideoDuration, setSceneVideoDuration] = useState(0);
   const [waveformLevels, setWaveformLevels] = useState<number[]>(() => Array(24).fill(0.08));
   const [toolbarMenu, setToolbarMenu] = useState<'colors' | 'sizes' | null>(null);
   const [presentationMenu, setPresentationMenu] = useState<
@@ -167,6 +171,10 @@ export function ZenEditor({
       scale: number;
       offsetX: number;
       offsetY: number;
+      videoStartTime?: number;
+      videoEndTime?: number;
+      videoLoop?: boolean;
+      videoMaxDuration?: number;
       enter: PresentationMotion;
       exit: PresentationMotion;
     };
@@ -363,6 +371,39 @@ export function ZenEditor({
     };
   }, []);
   const normalizedPresentation = normalizeStoryPresentation(presentation);
+  const sceneVideoStartTime = Math.max(0, normalizedPresentation.scene?.videoStartTime || 0);
+  const sceneVideoEndTime =
+    normalizedPresentation.scene?.videoEndTime &&
+    normalizedPresentation.scene.videoEndTime > sceneVideoStartTime
+      ? Math.min(normalizedPresentation.scene.videoEndTime, sceneVideoDuration || Infinity)
+      : sceneVideoDuration;
+  const sceneVideoMaxDuration = Math.max(0.1, normalizedPresentation.scene?.videoMaxDuration || 30);
+
+  useEffect(() => {
+    return () => {
+      if (sceneVideoStopTimerRef.current) clearTimeout(sceneVideoStopTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const video = sceneVideoRef.current;
+    if (!video || !videoUrl) return;
+    video.currentTime = Math.min(sceneVideoStartTime, Math.max(0, video.duration || Infinity));
+  }, [sceneVideoStartTime, videoUrl]);
+
+  const stopSceneVideoTimer = () => {
+    if (!sceneVideoStopTimerRef.current) return;
+    clearTimeout(sceneVideoStopTimerRef.current);
+    sceneVideoStopTimerRef.current = null;
+  };
+
+  const startSceneVideoTimer = () => {
+    stopSceneVideoTimer();
+    sceneVideoStopTimerRef.current = setTimeout(() => {
+      sceneVideoRef.current?.pause();
+      sceneVideoStopTimerRef.current = null;
+    }, sceneVideoMaxDuration * 1000);
+  };
 
   const replayCharacter = (
     sourceNodeId: string,
@@ -962,98 +1003,131 @@ export function ZenEditor({
               characterTags.some((tag) => tag.id === config.sourceNodeId && tag.imageUrl),
             )) && (
             <div className="relative flex-1 min-h-48 w-full shrink-0 overflow-hidden border-b border-[var(--card-border)] bg-slate-950">
-              {!imageUrl && videoUrl ? (
-                <video
-                  src={videoUrl}
-                  controls
-                  className="absolute inset-0 h-full w-full object-contain"
-                />
-              ) : null}
-              {(imageUrl || normalizedPresentation.characters.length > 0) && (
-                <VirtualPresentationStage className="absolute inset-0">
-                  <div
-                    className="absolute inset-0 overflow-hidden"
-                    style={{
-                      transform: `scale(${normalizedPresentation.scene?.scale || 1})`,
-                      transformOrigin: 'center',
-                    }}
-                  >
-                    {imageUrl &&
-                      (() => {
-                        const scene = normalizedPresentation.scene;
+              {(imageUrl || videoUrl || normalizedPresentation.characters.length > 0) && (
+                <div className="absolute inset-0">
+                  <VirtualPresentationStage className="h-full w-full">
+                    <div
+                      className="absolute inset-0 overflow-hidden"
+                      style={{
+                        transform: `scale(${normalizedPresentation.scene?.scale || 1})`,
+                        transformOrigin: 'center',
+                      }}
+                    >
+                      {(imageUrl || videoUrl) &&
+                        (() => {
+                          const scene = normalizedPresentation.scene;
+                          const previewMatches =
+                            Boolean(scene) &&
+                            preview?.kind === 'scene' &&
+                            preview.sourceNodeId === scene?.sourceNodeId;
+                          const phase = previewMatches ? preview?.phase || 'enter' : 'enter';
+                          const motion = scene?.[phase];
+                          const animated = previewMatches && !preview?.visible;
+                          const mediaStyle: React.CSSProperties = {
+                            objectFit:
+                              scene?.cropMode === 'contain'
+                                ? 'contain'
+                                : scene?.cropMode === 'stretch'
+                                  ? 'fill'
+                                  : 'cover',
+                            objectPosition: `${50 + (scene?.offsetX || 0)}% ${
+                              50 + (scene?.offsetY || 0)
+                            }%`,
+                            opacity: animated && motion?.type === 'fade' ? 0 : 1,
+                            transform: `${
+                              animated && motion
+                                ? getPresentationTransform(motion.type, phase === 'exit')
+                                : 'none'
+                            }`,
+                            transitionProperty: 'opacity, transform',
+                            transitionDuration: `${previewMatches ? motion?.duration || 0 : 0}ms`,
+                            transitionTimingFunction: 'ease-out',
+                          };
+                          return imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              className="absolute inset-0 h-full w-full"
+                              style={mediaStyle}
+                              alt=""
+                            />
+                          ) : (
+                            <video
+                              ref={sceneVideoRef}
+                              src={videoUrl}
+                              controls
+                              playsInline
+                              className="absolute inset-0 h-full w-full"
+                              style={mediaStyle}
+                              onLoadedMetadata={(event) => {
+                                const duration = Number.isFinite(event.currentTarget.duration)
+                                  ? event.currentTarget.duration
+                                  : 0;
+                                setSceneVideoDuration(duration);
+                                event.currentTarget.currentTime = Math.min(
+                                  sceneVideoStartTime,
+                                  duration,
+                                );
+                              }}
+                              onPlay={startSceneVideoTimer}
+                              onPause={stopSceneVideoTimer}
+                              onEnded={stopSceneVideoTimer}
+                              onTimeUpdate={(event) => {
+                                const video = event.currentTarget;
+                                if (!sceneVideoEndTime || video.currentTime < sceneVideoEndTime)
+                                  return;
+                                if (normalizedPresentation.scene?.videoLoop) {
+                                  video.currentTime = Math.min(
+                                    sceneVideoStartTime,
+                                    Math.max(0, video.duration || sceneVideoStartTime),
+                                  );
+                                  void video.play();
+                                } else {
+                                  video.pause();
+                                  video.currentTime = sceneVideoEndTime;
+                                }
+                              }}
+                            />
+                          );
+                        })()}
+                      {normalizedPresentation.characters.map((config) => {
+                        const tag = characterTags.find(
+                          (character) => character.id === config.sourceNodeId && character.imageUrl,
+                        );
+                        if (!tag?.imageUrl) return null;
                         const previewMatches =
-                          Boolean(scene) &&
-                          preview?.kind === 'scene' &&
-                          preview.sourceNodeId === scene?.sourceNodeId;
-                        const phase = previewMatches ? preview?.phase || 'enter' : 'enter';
-                        const motion = scene?.[phase];
-                        const animated = previewMatches && !preview?.visible;
+                          preview?.kind === 'character' &&
+                          preview.sourceNodeId === config.sourceNodeId;
+                        const phase = previewMatches ? preview.phase : 'enter';
+                        const motion = config[phase];
+                        const animated = previewMatches && !preview.visible;
                         return (
                           <img
-                            src={imageUrl}
-                            className="absolute inset-0 h-full w-full"
+                            key={config.sourceNodeId}
+                            src={tag.imageUrl}
+                            alt={tag.name}
+                            className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
                             style={{
-                              objectFit:
-                                scene?.cropMode === 'contain'
-                                  ? 'contain'
-                                  : scene?.cropMode === 'stretch'
-                                    ? 'fill'
-                                    : 'cover',
-                              objectPosition: `${50 + (scene?.offsetX || 0)}% ${
-                                50 + (scene?.offsetY || 0)
-                              }%`,
-                              opacity: animated && motion?.type === 'fade' ? 0 : 1,
+                              ...getCharacterStagePosition(config),
+                              zIndex: clampCharacterLayer(config.layer),
+                              opacity: animated && motion.type === 'fade' ? 0 : 1,
+                              translate: '-50% 0',
                               transform: `${
-                                animated && motion
+                                animated
                                   ? getPresentationTransform(motion.type, phase === 'exit')
-                                  : 'none'
-                              }`,
-                              transitionProperty: 'opacity, transform',
-                              transitionDuration: `${previewMatches ? motion?.duration || 0 : 0}ms`,
-                              transitionTimingFunction: 'ease-out',
+                                  : ''
+                              } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                              transformOrigin: 'center center',
+                              transition:
+                                previewMatches && motion.type !== 'none' && motion.duration > 0
+                                  ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                                  : undefined,
                             }}
-                            alt=""
                           />
                         );
-                      })()}
-                    {normalizedPresentation.characters.map((config) => {
-                      const tag = characterTags.find(
-                        (character) => character.id === config.sourceNodeId && character.imageUrl,
-                      );
-                      if (!tag?.imageUrl) return null;
-                      const previewMatches =
-                        preview?.kind === 'character' &&
-                        preview.sourceNodeId === config.sourceNodeId;
-                      const phase = previewMatches ? preview.phase : 'enter';
-                      const motion = config[phase];
-                      const animated = previewMatches && !preview.visible;
-                      return (
-                        <img
-                          key={config.sourceNodeId}
-                          src={tag.imageUrl}
-                          alt={tag.name}
-                          className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
-                          style={{
-                            ...getCharacterStagePosition(config),
-                            zIndex: clampCharacterLayer(config.layer),
-                            opacity: animated && motion.type === 'fade' ? 0 : 1,
-                            translate: '-50% 0',
-                            transform: `${
-                              animated
-                                ? getPresentationTransform(motion.type, phase === 'exit')
-                                : ''
-                            } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
-                            transformOrigin: 'center center',
-                            transition:
-                              previewMatches && motion.type !== 'none' && motion.duration > 0
-                                ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
-                                : undefined,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </VirtualPresentationStage>
+                      })}
+                    </div>
+                  </VirtualPresentationStage>
+                </div>
               )}
             </div>
           )}
@@ -1409,27 +1483,36 @@ export function ZenEditor({
                       右边
                     </button>
                   </div>
-                  {(['offsetX', 'offsetY'] as const).map((field) => (
-                    <label key={field} className="mb-3 block">
-                      <span className="mb-1 flex justify-between font-bold">
-                        <span>{field === 'offsetX' ? '水平偏移' : '垂直偏移'}</span>
-                        <span>{current[field]}</span>
-                      </span>
-                      <input
-                        type="range"
-                        min="-500"
-                        max="500"
-                        value={current[field]}
-                        onChange={(event) =>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="shrink-0 font-bold">水平偏移</span>
+                    <div className="min-w-0 flex-1">
+                      <DraggableNumberInput
+                        value={current.offsetX}
+                        min={-500}
+                        max={500}
+                        onChange={(value) =>
                           updateCharacter(presentationMenu.id, (item) => ({
                             ...item,
-                            [field]: Number(event.target.value),
+                            offsetX: value,
                           }))
                         }
-                        className="w-full cursor-ew-resize"
                       />
-                    </label>
-                  ))}
+                    </div>
+                    <span className="shrink-0 font-bold">垂直偏移</span>
+                    <div className="min-w-0 flex-1">
+                      <DraggableNumberInput
+                        value={current.offsetY}
+                        min={-500}
+                        max={500}
+                        onChange={(value) =>
+                          updateCharacter(presentationMenu.id, (item) => ({
+                            ...item,
+                            offsetY: value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
                   {normalizedPresentation.characters.length > 1 && (
                     <label className="mb-3 flex items-center gap-2">
                       <span className="shrink-0 font-bold">Z轴</span>
@@ -1448,8 +1531,8 @@ export function ZenEditor({
                       />
                     </label>
                   )}
-                  <label className="mb-3 block">
-                    <span className="mb-1 block font-bold">
+                  <label className="mb-3 flex items-center gap-2">
+                    <span className="shrink-0 font-bold">
                       缩放：{Math.round(current.scale * 100)}%
                     </span>
                     <input
@@ -1464,15 +1547,15 @@ export function ZenEditor({
                           scale: Number(event.target.value),
                         }))
                       }
-                      className="w-full"
+                      className="min-w-0 flex-1"
                     />
                   </label>
                   {(['enter', 'exit'] as const).map((phase) => (
-                    <div key={phase} className="mb-3 grid grid-cols-[1fr_90px] gap-2">
-                      <label>
-                        <span className="mb-1 block font-bold">
-                          {phase === 'enter' ? '入场动画' : '出场动画'}
-                        </span>
+                    <div key={phase} className="mb-3 flex items-center gap-2">
+                      <span className="shrink-0 font-bold">
+                        {phase === 'enter' ? '入场动画' : '出场动画'}
+                      </span>
+                      <label className="min-w-0 flex-1">
                         <select
                           value={current[phase].type}
                           onChange={(event) =>
@@ -1497,8 +1580,8 @@ export function ZenEditor({
                           ))}
                         </select>
                       </label>
-                      <label>
-                        <span className="mb-1 block font-bold">时长</span>
+                      <span className="shrink-0 font-bold">时长</span>
+                      <label className="w-[72px] shrink-0">
                         <DurationInput
                           value={current[phase].duration}
                           onChange={(duration) =>
@@ -1566,6 +1649,7 @@ export function ZenEditor({
                           linkedByEdge: item.linkedByEdge,
                           imageId: item.imageId,
                           previousImageUrl: item.previousImageUrl,
+                          previousVideoUrl: item.previousVideoUrl,
                           previousShowTextOverlay: item.previousShowTextOverlay,
                         }),
                         'enter',
@@ -1719,8 +1803,94 @@ export function ZenEditor({
                       </button>
                     ))}
                   </div>
-                  <label className="mb-3 block">
-                    <span className="mb-1 block font-bold">
+                  {videoUrl && (
+                    <div className="mb-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-blue-500">视频播放范围</strong>
+                        <span className="text-[10px] text-[var(--text-muted)]">
+                          视频总长 {sceneVideoDuration.toFixed(1)} 秒
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-xs font-bold">开始时间</span>
+                        <div className="min-w-0 flex-1">
+                          <DurationInput
+                            value={current.videoStartTime || 0}
+                            step={0.1}
+                            min={0}
+                            max={Math.max(0, sceneVideoDuration)}
+                            unit="S"
+                            decimals={1}
+                            onChange={(start) => {
+                              updateScene(presentationMenu.id, (item) => ({
+                                ...item,
+                                videoStartTime: start,
+                                videoEndTime:
+                                  item.videoEndTime && item.videoEndTime > start
+                                    ? item.videoEndTime
+                                    : undefined,
+                              }));
+                            }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-xs font-bold">结束时间</span>
+                        <div className="min-w-0 flex-1">
+                          <DurationInput
+                            value={current.videoEndTime ?? sceneVideoDuration}
+                            step={0.1}
+                            min={current.videoStartTime || 0}
+                            max={Math.max(0, sceneVideoDuration)}
+                            unit="S"
+                            decimals={1}
+                            onChange={(end) =>
+                              updateScene(presentationMenu.id, (item) => ({
+                                ...item,
+                                videoEndTime: Math.max(item.videoStartTime || 0, end),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="flex h-9 shrink-0 items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(current.videoLoop)}
+                            onChange={(event) =>
+                              updateScene(presentationMenu.id, (item) => ({
+                                ...item,
+                                videoLoop: event.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4"
+                          />
+                          <span className="font-bold">循环播放</span>
+                        </label>
+                        {current.videoLoop && (
+                          <>
+                            <span className="shrink-0 text-xs font-bold">持续时间</span>
+                            <div className="min-w-0 flex-1">
+                              <DurationInput
+                                value={current.videoMaxDuration || 30}
+                                step={0.5}
+                                min={0.5}
+                                unit="S"
+                                decimals={1}
+                                onChange={(duration) =>
+                                  updateScene(presentationMenu.id, (item) => ({
+                                    ...item,
+                                    videoMaxDuration: duration,
+                                  }))
+                                }
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <label className="mb-3 flex items-center gap-2">
+                    <span className="shrink-0 font-bold">
                       缩放：{Math.round(current.scale * 100)}%
                     </span>
                     <input
@@ -1735,36 +1905,45 @@ export function ZenEditor({
                           scale: Number(event.target.value),
                         }))
                       }
-                      className="w-full"
+                      className="min-w-0 flex-1"
                     />
                   </label>
-                  {(['offsetX', 'offsetY'] as const).map((field) => (
-                    <label key={field} className="mb-3 block">
-                      <span className="mb-1 flex justify-between font-bold">
-                        <span>{field === 'offsetX' ? '水平位置' : '垂直位置'}</span>
-                        <span>{current[field]}</span>
-                      </span>
-                      <input
-                        type="range"
-                        min="-100"
-                        max="100"
-                        value={current[field]}
-                        onChange={(event) =>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="shrink-0 font-bold">水平偏移</span>
+                    <div className="min-w-0 flex-1">
+                      <DraggableNumberInput
+                        value={current.offsetX}
+                        min={-100}
+                        max={100}
+                        onChange={(value) =>
                           updateScene(presentationMenu.id, (item) => ({
                             ...item,
-                            [field]: Number(event.target.value),
+                            offsetX: value,
                           }))
                         }
-                        className="w-full"
                       />
-                    </label>
-                  ))}
+                    </div>
+                    <span className="shrink-0 font-bold">垂直偏移</span>
+                    <div className="min-w-0 flex-1">
+                      <DraggableNumberInput
+                        value={current.offsetY}
+                        min={-100}
+                        max={100}
+                        onChange={(value) =>
+                          updateScene(presentationMenu.id, (item) => ({
+                            ...item,
+                            offsetY: value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
                   {(['enter', 'exit'] as const).map((phase) => (
-                    <div key={phase} className="mb-3 grid grid-cols-[1fr_90px] gap-2">
-                      <label>
-                        <span className="mb-1 block font-bold">
-                          {phase === 'enter' ? '入场动画' : '出场动画'}
-                        </span>
+                    <div key={phase} className="mb-3 flex items-center gap-2">
+                      <span className="shrink-0 font-bold">
+                        {phase === 'enter' ? '入场动画' : '出场动画'}
+                      </span>
+                      <label className="min-w-0 flex-1">
                         <select
                           value={current[phase].type}
                           onChange={(event) =>
@@ -1789,8 +1968,8 @@ export function ZenEditor({
                           ))}
                         </select>
                       </label>
-                      <label>
-                        <span className="mb-1 block font-bold">时长</span>
+                      <span className="shrink-0 font-bold">时长</span>
+                      <label className="w-[72px] shrink-0">
                         <DurationInput
                           value={current[phase].duration}
                           onChange={(duration) =>

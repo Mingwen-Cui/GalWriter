@@ -48,6 +48,9 @@ export const createScenePresentation = (
   scale: 1,
   offsetX: 0,
   offsetY: 0,
+  videoStartTime: 0,
+  videoLoop: false,
+  videoMaxDuration: 30,
   enter: createPresentationMotion('none', 0),
   exit: createPresentationMotion('none', 0),
   previousImageUrl,
@@ -75,7 +78,12 @@ type CharacterPresentationSettings = Omit<
 >;
 type ScenePresentationSettings = Omit<
   ScenePresentation,
-  'sourceNodeId' | 'linkedByEdge' | 'imageId' | 'previousImageUrl' | 'previousShowTextOverlay'
+  | 'sourceNodeId'
+  | 'linkedByEdge'
+  | 'imageId'
+  | 'previousImageUrl'
+  | 'previousShowTextOverlay'
+  | 'previousVideoUrl'
 >;
 
 let characterPresentationClipboard: CharacterPresentationSettings | null = null;
@@ -106,6 +114,7 @@ export const copyScenePresentationSettings = (config: ScenePresentation) => {
     linkedByEdge: _linkedByEdge,
     imageId: _imageId,
     previousImageUrl: _previousImageUrl,
+    previousVideoUrl: _previousVideoUrl,
     previousShowTextOverlay: _previousShowTextOverlay,
     ...settings
   } = config;

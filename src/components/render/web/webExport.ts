@@ -108,6 +108,46 @@ const isPackableImage = (url: unknown): url is string => {
   return /^https?:\/\//i.test(trimmed) || /^\.?\//.test(trimmed);
 };
 
+const VIDEO_EXTENSION_BY_MIME: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/ogg': 'ogv',
+  'video/quicktime': 'mov',
+};
+
+const addVideoAsset = async (
+  zip: JSZip,
+  url: string | undefined,
+  hint: string,
+  assetMap: Map<string, string>,
+) => {
+  if (typeof url !== 'string' || !url.trim()) return url;
+  if (assetMap.has(url)) return assetMap.get(url);
+  if (
+    !url.startsWith('blob:') &&
+    !url.startsWith('data:video/') &&
+    !/^https?:\/\//i.test(url) &&
+    !/^\.?\//.test(url)
+  ) {
+    return url;
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const extension = getImageExtension(url, VIDEO_EXTENSION_BY_MIME[blob.type] || 'mp4');
+    const fileName = `videos/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
+    zip.file(fileName, blob);
+    const relativePath = `./${fileName}`;
+    assetMap.set(url, relativePath);
+    return relativePath;
+  } catch (error) {
+    console.warn('Could not pack web export video:', error);
+    return url;
+  }
+};
+
 const addImageAsset = async (
   zip: JSZip,
   url: string | undefined,
@@ -1263,6 +1303,12 @@ export async function buildInteractiveWebZipBlob(
       `${titleText}-image`,
       assetMap,
     );
+    const videoUrl = await addVideoAsset(
+      zip,
+      typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
+      `${titleText}-video`,
+      assetMap,
+    );
 
     let webPresentation: any = undefined;
     const rawPresentation = node.data?.presentation as any;
@@ -1312,7 +1358,7 @@ export async function buildInteractiveWebZipBlob(
         text: filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags),
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,
         imageUrl,
-        videoUrl: typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
+        videoUrl,
         audioUrl: typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
         objectFit: typeof node.data?.objectFit === 'string' ? node.data.objectFit : undefined,
         showTextOverlay:

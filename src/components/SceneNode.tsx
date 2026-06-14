@@ -293,7 +293,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     }
   };
 
-  const handleImageUpload = (
+  const handleMediaUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     imageId?: string,
     asCover?: boolean,
@@ -304,9 +304,15 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
 
     if (imageId) {
       updateNodeData({
-        images: images.map((img) => (img.id === imageId ? { ...img, imageUrl: url } : img)),
+        images: images.map((img) =>
+          img.id === imageId
+            ? file.type.startsWith('video/')
+              ? { ...img, imageUrl: undefined, videoUrl: url, isPanorama: false }
+              : { ...img, imageUrl: url, videoUrl: undefined }
+            : img,
+        ),
       });
-    } else if (asCover) {
+    } else if (asCover && file.type.startsWith('image/')) {
       updateNodeData({ coverImageUrl: url });
     }
     e.target.value = '';
@@ -314,7 +320,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
 
   const addImage = () => {
     updateNodeData({
-      images: [...images, { id: uuidv4(), name: lang === 'zh' ? '场景图片' : 'Scene Image' }],
+      images: [...images, { id: uuidv4(), name: lang === 'zh' ? '场景素材' : 'Scene Media' }],
     });
   };
 
@@ -515,7 +521,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => handleImageUpload(e, undefined, true)}
+                          onChange={(e) => handleMediaUpload(e, undefined, true)}
                         />
                       </label>
                       <button
@@ -720,12 +726,12 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
               <div className="p-3 flex flex-col gap-2 relative shrink-0 min-h-[100px] rounded-b-xl border-t border-[var(--card-border)] bg-[var(--card-bg)]">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-[var(--text-secondary)] ml-1">
-                    {lang === 'zh' ? '场景图片 / 全景图' : 'Scene Images / Panorama'}
+                    {lang === 'zh' ? '场景照片 / 视频' : 'Scene Photos / Videos'}
                   </label>
                   <button
                     onClick={addImage}
                     className="text-blue-800 hover:text-blue-900 hover:bg-blue-800/10 p-1 rounded transition-colors"
-                    title={lang === 'zh' ? '添加图片' : 'Add image'}
+                    title={lang === 'zh' ? '添加照片或视频' : 'Add photo or video'}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -734,8 +740,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                 {images.length === 0 ? (
                   <div className="text-[10px] text-[var(--text-muted)] text-center py-2 bg-[var(--app-bg)] rounded-lg border border-dashed border-[var(--card-border)]">
                     {lang === 'zh'
-                      ? '暂无图片，点击右上角 + 添加'
-                      : 'No images yet, click + to add'}
+                      ? '暂无照片或视频，点击右上角 + 添加'
+                      : 'No photos or videos yet, click + to add'}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -747,7 +753,15 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         <div className="flex items-center gap-2">
                           {!image.isPanorama ? (
                             <label className="relative cursor-pointer shrink-0 w-8 h-8 rounded-md overflow-hidden bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center border border-blue-300 dark:border-blue-800">
-                              {image.imageUrl ? (
+                              {image.videoUrl ? (
+                                <video
+                                  src={image.videoUrl}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                              ) : image.imageUrl ? (
                                 <img
                                   src={image.imageUrl}
                                   className="w-full h-full object-cover"
@@ -758,9 +772,9 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                               )}
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 className="hidden"
-                                onChange={(e) => handleImageUpload(e, image.id)}
+                                onChange={(e) => handleMediaUpload(e, image.id)}
                               />
                             </label>
                           ) : (
@@ -780,19 +794,19 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                             type="text"
                             value={image.name}
                             onChange={(e) => updateImageName(image.id, e.target.value)}
-                            placeholder={lang === 'zh' ? '图片名称' : 'Image name'}
+                            placeholder={lang === 'zh' ? '素材名称' : 'Media name'}
                             className="flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none focus:border-b focus:border-blue-700 min-w-0"
                           />
                           <label
                             className="cursor-pointer rounded p-1 text-[var(--text-muted)] opacity-0 transition-opacity hover:bg-blue-800/10 hover:text-blue-800 group-hover/image:opacity-100"
-                            title={lang === 'zh' ? '上传图片' : 'Upload image'}
+                            title={lang === 'zh' ? '上传照片或视频' : 'Upload photo or video'}
                           >
                             <Upload className="w-3 h-3" />
                             <input
                               type="file"
-                              accept="image/*"
+                              accept="image/*,video/*"
                               className="hidden"
-                              onChange={(e) => handleImageUpload(e, image.id)}
+                              onChange={(e) => handleMediaUpload(e, image.id)}
                             />
                           </label>
                           {image.imageUrl && (

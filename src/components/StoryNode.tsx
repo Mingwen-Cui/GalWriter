@@ -71,6 +71,7 @@ import {
 } from '../lib/presentation';
 import { NumberInput } from './NumberInput';
 import { DurationInput } from './DurationInput';
+import { DraggableNumberInput } from './DraggableNumberInput';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
@@ -144,65 +145,6 @@ const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
   { value: 'zoom', label: '↕ 缩放' },
 ];
 
-function DraggableNumberInput({
-  value,
-  onChange,
-  min,
-  max,
-  unit = 'PX',
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  unit?: string | null;
-}) {
-  const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
-  const commitValue = (nextValue: number) =>
-    onChange(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, nextValue)));
-
-  return (
-    <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={value}
-        title="可直接输入，或按住鼠标左右拖动调整"
-        onChange={(event) => commitValue(Number(event.target.value))}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          dragRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startValue: value,
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const drag = dragRef.current;
-          if (!drag || drag.pointerId !== event.pointerId) return;
-          const delta = Math.round((event.clientX - drag.startX) / 4);
-          if (delta !== 0) {
-            event.preventDefault();
-            commitValue(drag.startValue + delta);
-          }
-        }}
-        onPointerUp={(event) => {
-          if (dragRef.current?.pointerId !== event.pointerId) return;
-          dragRef.current = null;
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }}
-        onPointerCancel={() => {
-          dragRef.current = null;
-        }}
-        className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
-      />
-      {unit && <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>}
-    </div>
-  );
-}
-
 export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
@@ -221,6 +163,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const audioUrl = data.audioUrl;
   const storyPresentation = normalizeStoryPresentation(data.presentation);
   const hasScenePresentationImage = Boolean(storyPresentation.scene && imageUrl);
+  const hasScenePresentationVideo = Boolean(storyPresentation.scene && videoUrl && !imageUrl);
   const hasVisualMedia = !!((imageUrl && !hasScenePresentationImage) || videoUrl);
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
@@ -245,6 +188,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
   const isRoot = data.isRoot === true;
   const { zoom } = useViewport();
+  const presentationMenuScale = Math.min(zoom, 1.25);
   const storeApi = useStoreApi();
   const { setNodes } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -346,7 +290,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       cancelAnimationFrame(frame);
       window.removeEventListener('resize', updatePosition);
     };
-  }, [presentationMenu, showCharacterTemplateList, showSceneTemplateList]);
+  }, [presentationMenu, showCharacterTemplateList, showSceneTemplateList, presentationMenuScale]);
 
   // NOTE: 新建角色模板处理
   const handleCreateCharacterTemplate = (config: CharacterPresentation) => {
@@ -1619,7 +1563,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         )}
 
         <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-          {(hasScenePresentationImage || presentedCharacters.length > 0) && (
+          {(hasScenePresentationImage ||
+            hasScenePresentationVideo ||
+            presentedCharacters.length > 0) && (
             <VirtualPresentationStage
               fit="cover"
               className="relative z-0 h-[52%] w-full shrink-0 pointer-events-none bg-slate-950"
@@ -1670,6 +1616,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     alt=""
                   />
                 )}
+                {hasScenePresentationVideo && (
+                  <video
+                    key={`scene-video-preview-${presentationPreview?.nonce || 0}`}
+                    src={videoUrl}
+                    className="absolute inset-0 z-0 h-full w-full pointer-events-none"
+                    style={mediaStyle}
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                  />
+                )}
                 {presentedCharacters.map(({ config, imageUrl: characterImageUrl, name }) => {
                   const previewMatches =
                     presentationPreview?.kind === 'character' &&
@@ -1718,7 +1676,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               alt="node"
               loading="lazy"
             />
-          ) : videoUrl ? (
+          ) : videoUrl && !hasScenePresentationVideo ? (
             <div className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} relative`}>
               {zoom < 0.3 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/10 text-slate-400">
@@ -1830,6 +1788,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               style={{
                 left: presentationMenuPosition.left,
                 top: presentationMenuPosition.top,
+                maxHeight: (window.innerHeight - 24) / presentationMenuScale,
+                transform: `scale(${presentationMenuScale})`,
+                transformOrigin: 'top left',
               }}
               onMouseDown={(event) => event.stopPropagation()}
               onContextMenu={(event) => event.preventDefault()}
@@ -2115,9 +2076,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             右边
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label>
-                            <span className="mb-1 block font-bold">水平偏移</span>
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">水平偏移</span>
+                          <div className="min-w-0 flex-1">
                             <DraggableNumberInput
                               value={current.offsetX}
                               onChange={(value) =>
@@ -2127,9 +2088,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 )
                               }
                             />
-                          </label>
-                          <label>
-                            <span className="mb-1 block font-bold">垂直偏移</span>
+                          </div>
+                          <span className="shrink-0 font-bold">垂直偏移</span>
+                          <div className="min-w-0 flex-1">
                             <DraggableNumberInput
                               value={current.offsetY}
                               onChange={(value) =>
@@ -2139,7 +2100,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 )
                               }
                             />
-                          </label>
+                          </div>
                         </div>
                         {presentation.characters.length > 1 && (
                           <label className="flex items-center gap-2">
@@ -2163,8 +2124,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             </div>
                           </label>
                         )}
-                        <label className="block">
-                          <span className="mb-1 block font-bold">
+                        <label className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">
                             缩放：{Math.round(current.scale * 100)}%
                           </span>
                           <input
@@ -2182,15 +2143,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 }),
                               )
                             }
-                            className="w-full"
+                            className="min-w-0 flex-1"
                           />
                         </label>
                         {(['enter', 'exit'] as const).map((phase) => (
-                          <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
-                            <label>
-                              <span className="mb-1 block font-bold">
-                                {phase === 'enter' ? '入场动画' : '出场动画'}
-                              </span>
+                          <div key={phase} className="flex items-center gap-2">
+                            <span className="shrink-0 font-bold">
+                              {phase === 'enter' ? '入场动画' : '出场动画'}
+                            </span>
+                            <label className="min-w-0 flex-1">
                               <select
                                 value={current[phase].type}
                                 onChange={(event) =>
@@ -2215,8 +2176,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 ))}
                               </select>
                             </label>
-                            <label>
-                              <span className="mb-1 block font-bold">时长</span>
+                            <span className="shrink-0 font-bold">时长</span>
+                            <label className="w-[72px] shrink-0">
                               <DurationInput
                                 value={current[phase].duration}
                                 onChange={(duration) =>
@@ -2409,8 +2370,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             拉伸填充
                           </button>
                         </div>
-                        <label className="block">
-                          <span className="mb-1 block font-bold">
+                        <label className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">
                             缩放：{Math.round(current.scale * 100)}%
                           </span>
                           <input
@@ -2425,12 +2386,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 scale: Number(event.target.value),
                               }))
                             }
-                            className="w-full"
+                            className="min-w-0 flex-1"
                           />
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label>
-                            <span className="mb-1 block font-bold">水平偏移</span>
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">水平偏移</span>
+                          <div className="min-w-0 flex-1">
                             <DraggableNumberInput
                               value={current.offsetX}
                               onChange={(value) =>
@@ -2440,9 +2401,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 }))
                               }
                             />
-                          </label>
-                          <label>
-                            <span className="mb-1 block font-bold">垂直偏移</span>
+                          </div>
+                          <span className="shrink-0 font-bold">垂直偏移</span>
+                          <div className="min-w-0 flex-1">
                             <DraggableNumberInput
                               value={current.offsetY}
                               onChange={(value) =>
@@ -2452,14 +2413,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 }))
                               }
                             />
-                          </label>
+                          </div>
                         </div>
                         {(['enter', 'exit'] as const).map((phase) => (
-                          <div key={phase} className="grid grid-cols-[1fr_90px] gap-2">
-                            <label>
-                              <span className="mb-1 block font-bold">
-                                {phase === 'enter' ? '入场动画' : '出场动画'}
-                              </span>
+                          <div key={phase} className="flex items-center gap-2">
+                            <span className="shrink-0 font-bold">
+                              {phase === 'enter' ? '入场动画' : '出场动画'}
+                            </span>
+                            <label className="min-w-0 flex-1">
                               <select
                                 value={current[phase].type}
                                 onChange={(event) =>
@@ -2484,8 +2445,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 ))}
                               </select>
                             </label>
-                            <label>
-                              <span className="mb-1 block font-bold">时长</span>
+                            <span className="shrink-0 font-bold">时长</span>
+                            <label className="w-[72px] shrink-0">
                               <DurationInput
                                 value={current[phase].duration}
                                 onChange={(duration) =>
