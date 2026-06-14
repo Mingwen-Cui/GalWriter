@@ -204,7 +204,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const text = data.text || '';
-  const title = data.title || '新节点';
+  const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
   const color = data.color || COLORS[0];
   const imageUrl = data.imageUrl;

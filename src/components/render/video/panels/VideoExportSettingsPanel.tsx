@@ -164,6 +164,45 @@ export function VideoExportSettingsPanel({
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
           <div className="flex flex-col gap-4">
+            <label className="flex items-start gap-3">
+              <span className="mt-2.5 shrink-0 text-[11px] font-black text-[var(--vr-text-soft)]">
+                {t('保存位置', '保存先', 'Save location')}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={outputDir}
+                    onChange={(e) => {
+                      setOutputDir(e.target.value);
+                      setOutputDirError('');
+                    }}
+                    placeholder={t(
+                      '默认保存到系统下载目录',
+                      '未指定ならダウンロードへ保存',
+                      'Defaults to Downloads',
+                    )}
+                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={chooseOutputDir}
+                    className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                  >
+                    <FolderOpen className="mx-auto h-4 w-4" />
+                  </button>
+                </div>
+                {outputDirError && (
+                  <span className="mt-1 block text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                    {outputDirError}
+                  </span>
+                )}
+              </div>
+            </label>
+
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('视频参数', '動画パラメータ', 'Video')}
@@ -540,44 +579,6 @@ export function VideoExportSettingsPanel({
               </div>
             </div>
 
-            <label className="flex items-start gap-3">
-              <span className="mt-2.5 shrink-0 text-[11px] font-black text-[var(--vr-text-soft)]">
-                {t('保存位置', '保存先', 'Save location')}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={outputDir}
-                    onChange={(e) => {
-                      setOutputDir(e.target.value);
-                      setOutputDirError('');
-                    }}
-                    placeholder={t(
-                      '默认保存到系统下载目录',
-                      '未指定ならダウンロードへ保存',
-                      'Defaults to Downloads',
-                    )}
-                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={chooseOutputDir}
-                    className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                  >
-                    <FolderOpen className="mx-auto h-4 w-4" />
-                  </button>
-                </div>
-                {outputDirError && (
-                  <span className="mt-1 block text-[11px] font-bold text-rose-500 dark:text-rose-400">
-                    {outputDirError}
-                  </span>
-                )}
-              </div>
-            </label>
           </div>
         ) : (
           <div className="space-y-4">
