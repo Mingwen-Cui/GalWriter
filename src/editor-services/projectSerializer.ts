@@ -212,6 +212,7 @@ const applyProjectSettings = (
   } else {
     setters.setCharacterImageMode('transparent-sprite');
   }
+  setters.setHideStoryImageButtonWithTags(incomingSettings.hideStoryImageButtonWithTags !== false);
   if (
     incomingSettings.sceneImageMode === 'storyboard-16:9' ||
     incomingSettings.sceneImageMode === 'follow-api'

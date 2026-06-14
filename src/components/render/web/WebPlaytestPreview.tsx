@@ -26,7 +26,10 @@ import {
 } from '../video/shared/storyNodes';
 import {
   clampCharacterLayer,
+  getCharacterEnterDelay,
   getCharacterStagePosition,
+  getPresentationExitDuration,
+  getSceneExitDelay,
   normalizeStoryPresentation,
   getPresentationTransform,
 } from '../../../lib/presentation';
@@ -238,12 +241,7 @@ export function WebPlaytestPreview({
       return;
     }
     if (presentationExiting) return;
-    const exitDuration = Math.max(
-      presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
-      ...presentation.characters.map((char) =>
-        char.exit.type === 'none' ? 0 : char.exit.duration || 0,
-      ),
-    );
+    const exitDuration = getPresentationExitDuration(presentation);
     setPresentationExiting(true);
     window.setTimeout(() => {
       if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
@@ -620,6 +618,10 @@ export function WebPlaytestPreview({
       settings.layoutMode === 'classic'
         ? '0ms'
         : `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
+    transitionDelay:
+      settings.layoutMode === 'classic' || !presentationExiting
+        ? '0ms'
+        : `${getSceneExitDelay(presentation)}ms`,
     transitionTimingFunction: 'ease-out',
   };
 
@@ -736,6 +738,10 @@ export function WebPlaytestPreview({
                             settings.layoutMode === 'classic'
                               ? '0ms'
                               : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                          transitionDelay:
+                            settings.layoutMode === 'classic' || presentationExiting
+                              ? '0ms'
+                              : `${getCharacterEnterDelay(presentation)}ms`,
                           transitionTimingFunction: 'ease-out',
                         }}
                       />

@@ -845,18 +845,19 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     let isTransitioning = false;
 
     function getPresentationTransform(type, isExit) {
-      if (type === 'slideLeft') {
-        return 'translateX(' + (isExit ? '-100%' : '-100vw') + ')';
+      if (type === 'slide-left' || type === 'slideLeft') {
+        return 'translateX(' + (isExit ? '-120%' : '100%') + ')';
       }
-      if (type === 'slideRight') {
-        return 'translateX(' + (isExit ? '100%' : '100vw') + ')';
+      if (type === 'slide-right' || type === 'slideRight') {
+        return 'translateX(' + (isExit ? '120%' : '-100%') + ')';
       }
-      if (type === 'slideUp') {
-        return 'translateY(' + (isExit ? '-100%' : '-100vh') + ')';
+      if (type === 'slide-up' || type === 'slideUp') {
+        return 'translateY(' + (isExit ? '-120%' : '100%') + ')';
       }
-      if (type === 'slideDown') {
-        return 'translateY(' + (isExit ? '100%' : '100vh') + ')';
+      if (type === 'slide-down' || type === 'slideDown') {
+        return 'translateY(' + (isExit ? '120%' : '-100%') + ')';
       }
+      if (type === 'zoom') return 'scale(0.82)';
       return '';
     }
 
@@ -870,16 +871,17 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       if (node && node.data) {
         const data = node.data;
         const sceneExit = data.presentation && data.presentation.scene && data.presentation.scene.exit;
-        if (sceneExit && sceneExit.type !== 'none') {
-          exitDuration = Math.max(exitDuration, sceneExit.duration || 0);
-        }
+        const sceneExitDuration =
+          sceneExit && sceneExit.type !== 'none' ? Math.max(0, sceneExit.duration || 0) : 0;
+        let characterExitDuration = 0;
         if (data.presentation && Array.isArray(data.presentation.characters)) {
           data.presentation.characters.forEach((char) => {
             if (char.exit && char.exit.type !== 'none') {
-              exitDuration = Math.max(exitDuration, char.exit.duration || 0);
+              characterExitDuration = Math.max(characterExitDuration, char.exit.duration || 0);
             }
           });
         }
+        exitDuration = characterExitDuration + sceneExitDuration;
         
         if (exitDuration > 0) {
           isTransitioning = true;
@@ -887,6 +889,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
           if (mediaEl && sceneExit && sceneExit.type !== 'none') {
             mediaEl.style.transition = 'opacity ' + sceneExit.duration + 'ms ease-out, transform ' + sceneExit.duration + 'ms ease-out';
+            mediaEl.style.transitionDelay = characterExitDuration + 'ms';
             if (sceneExit.type === 'fade') {
               mediaEl.style.opacity = '0';
             } else {
@@ -1107,7 +1110,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
                 'z-index: ' + zIndex + '; ' +
                 'opacity: ' + initCharOpacity + '; ' +
                 'transform: ' + initCharTransform + '; ' +
-                'transition: opacity ' + charDuration + 'ms ease-out, transform ' + charDuration + 'ms ease-out;' +
+                'transition: opacity ' + charDuration + 'ms ease-out ' + sceneDuration + 'ms, transform ' + charDuration + 'ms ease-out ' + sceneDuration + 'ms;' +
               '" />';
           }).join("") +
           "</div>";
@@ -1339,6 +1342,8 @@ export async function buildInteractiveWebZipBlob(
               scale: Number(charConfig.scale) ?? 1,
               flipX: Boolean(charConfig.flipX),
               layer: Number(charConfig.layer) ?? 1,
+              enter: structuredClone(charConfig.enter || { type: 'none', duration: 0 }),
+              exit: structuredClone(charConfig.exit || { type: 'none', duration: 0 }),
               imageUrl: packedCharImgUrl,
               name: charName,
             });
@@ -1346,6 +1351,7 @@ export async function buildInteractiveWebZipBlob(
         }
       }
       webPresentation = {
+        scene: rawPresentation.scene ? structuredClone(rawPresentation.scene) : undefined,
         characters: packedChars,
       };
     }

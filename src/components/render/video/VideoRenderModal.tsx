@@ -305,15 +305,11 @@ export function VideoRenderModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () =>
       new Set(
-        Array.isArray(persistedWorkspace?.selectedIds) && persistedWorkspace.selectedIds.length > 0
-          ? persistedWorkspace.selectedIds
-          : orderedNodes.map((node) => node.id),
+        Array.isArray(persistedWorkspace?.selectedIds) ? persistedWorkspace.selectedIds : [],
       ),
   );
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
-    Array.isArray(persistedWorkspace?.timelineIds) && persistedWorkspace.timelineIds.length > 0
-      ? persistedWorkspace.timelineIds
-      : orderedNodes.map((node) => node.id),
+    Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : [],
   );
   const [timelineSourceById, setTimelineSourceById] = useState<Record<string, string>>(
     () => persistedWorkspace?.timelineSourceById || {},
@@ -332,14 +328,10 @@ export function VideoRenderModal({
       : ['audio-1'],
   );
   const [videoTrackByNodeId, setVideoTrackByNodeId] = useState<Record<string, string>>(
-    () =>
-      persistedWorkspace?.videoTrackByNodeId ||
-      Object.fromEntries(orderedNodes.map((node) => [node.id, 'video-1'])),
+    () => persistedWorkspace?.videoTrackByNodeId || {},
   );
   const [audioTrackByNodeId, setAudioTrackByNodeId] = useState<Record<string, string>>(
-    () =>
-      persistedWorkspace?.audioTrackByNodeId ||
-      Object.fromEntries(orderedNodes.map((node) => [node.id, 'audio-1'])),
+    () => persistedWorkspace?.audioTrackByNodeId || {},
   );
   const [timelineStartById, setTimelineStartById] = useState<Record<string, number>>(
     () => persistedWorkspace?.timelineStartById || {},
@@ -482,6 +474,7 @@ export function VideoRenderModal({
   );
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
   const [uploadedAssetNodes, setUploadedAssetNodes] = useState<FlowNode[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [focusedPreviewId, setFocusedPreviewId] = useState('');
   const [timelinePreviewTime, setTimelinePreviewTime] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.timelinePreviewTime, 0, 0, 3600),
@@ -822,12 +815,10 @@ export function VideoRenderModal({
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    const menuWidth = 240;
-    const menuHeight = target.nodeId ? 430 : 260;
     setContextMenu({
       ...target,
-      x: clamp(event.clientX, 8, Math.max(8, window.innerWidth - menuWidth - 8)),
-      y: clamp(event.clientY, 8, Math.max(8, window.innerHeight - menuHeight - 8)),
+      x: event.clientX,
+      y: event.clientY,
     });
   };
 
@@ -1507,18 +1498,10 @@ export function VideoRenderModal({
 
   React.useEffect(() => {
     const validIds = new Set(allAssetNodes.map((node) => node.id));
-    const excludedSourceIds = new Set(
-      [...timelineExcludedSourceIds].filter((sourceId) => validIds.has(sourceId)),
-    );
     const getValidTimelineIds = (ids: string[]) =>
       ids.filter((id) => validIds.has(timelineSourceById[id] || id));
     setTimelineIds((prev) => {
-      const kept = getValidTimelineIds(prev);
-      const sourceIdsOnTimeline = new Set(kept.map((id) => timelineSourceById[id] || id));
-      const missing = orderedNodes
-        .map((node) => node.id)
-        .filter((id) => !sourceIdsOnTimeline.has(id) && !excludedSourceIds.has(id));
-      const next = [...kept, ...missing];
+      const next = getValidTimelineIds(prev);
       return next.length === prev.length && next.every((id, index) => id === prev[index])
         ? prev
         : next;
@@ -1560,7 +1543,6 @@ export function VideoRenderModal({
     });
   }, [
     allAssetNodes,
-    orderedNodes,
     videoTrackIds,
     audioTrackIds,
     timelineIds,
@@ -2064,7 +2046,12 @@ export function VideoRenderModal({
     dragOffsetSeconds = 0,
   ) => {
     event.stopPropagation();
+    const draggedAssetIds =
+      !trackKind && selectedAssetIds.includes(id) && selectedAssetIds.length > 1
+        ? selectedAssetIds
+        : [id];
     event.dataTransfer.setData('application/x-galwriter-node', id);
+    event.dataTransfer.setData('application/x-galwriter-nodes', JSON.stringify(draggedAssetIds));
     event.dataTransfer.setData(
       'application/x-galwriter-drag-origin',
       trackKind ? 'timeline' : 'asset',
@@ -2078,7 +2065,7 @@ export function VideoRenderModal({
     event.dataTransfer.effectAllowed = 'copyMove';
   };
 
-  const handleTimelineDrop = (
+  const handleTimelineDrop = async (
     event: React.DragEvent,
     targetId?: string,
     trackId?: string,
@@ -2091,6 +2078,19 @@ export function VideoRenderModal({
       event.dataTransfer.getData('text/plain');
     if (!draggedId) return;
     const dragOrigin = event.dataTransfer.getData('application/x-galwriter-drag-origin');
+    let draggedAssetIds: string[] = [];
+    try {
+      const parsed = JSON.parse(
+        event.dataTransfer.getData('application/x-galwriter-nodes') || '[]',
+      );
+      if (Array.isArray(parsed)) {
+        draggedAssetIds = parsed.filter(
+          (id): id is string => typeof id === 'string' && assetNodeById.has(id),
+        );
+      }
+    } catch {
+      draggedAssetIds = [];
+    }
     const isTimelineClip = dragOrigin === 'timeline' && timelineIds.includes(draggedId);
     if (!isTimelineClip && !assetNodeById.has(draggedId)) return;
     let droppedTrackKind =
@@ -2098,6 +2098,76 @@ export function VideoRenderModal({
       (event.dataTransfer.getData('application/x-galwriter-track-kind') as 'video' | 'audio') ||
       'video';
     let droppedTrackId = trackId;
+    if (dragOrigin === 'asset' && draggedAssetIds.length > 1) {
+      const trackElement = (event.currentTarget as HTMLElement).closest(
+        '[data-render-track-kind]',
+      ) as HTMLElement | null;
+      const rect = (trackElement || (event.currentTarget as HTMLElement)).getBoundingClientRect();
+      const dropTime = Math.max(
+        0,
+        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond),
+      );
+      const newIds = [];
+      for (const sourceId of draggedAssetIds) {
+        const sourceNode = assetNodeById.get(sourceId);
+        if (!sourceNode) continue;
+        newIds.push({
+          sourceId,
+          timelineId: makeTimelineClipInstanceId(sourceId),
+          mediaDuration: await getNodeMediaDuration(sourceNode),
+        });
+      }
+      let cursor = dropTime;
+      const startById: Record<string, number> = {};
+      const durationById: Record<string, number> = {};
+      newIds.forEach(({ timelineId, mediaDuration }) => {
+        const duration = Math.max(0.25, mediaDuration / speed);
+        startById[timelineId] = cursor;
+        durationById[timelineId] = mediaDuration;
+        cursor += duration;
+      });
+      const targetVideoTrackId = droppedTrackId || videoTrackIds[0] || 'video-1';
+      const targetAudioTrackId =
+        droppedTrackKind === 'audio'
+          ? droppedTrackId || audioTrackIds[0] || 'audio-1'
+          : audioTrackIds[videoTrackIds.indexOf(targetVideoTrackId)] ||
+            audioTrackIds[0] ||
+            'audio-1';
+
+      pushTimelineHistory();
+      setTimelineIds((prev) => [...prev, ...newIds.map(({ timelineId }) => timelineId)]);
+      setTimelineSourceById((prev) => ({
+        ...prev,
+        ...Object.fromEntries(newIds.map(({ timelineId, sourceId }) => [timelineId, sourceId])),
+      }));
+      setTimelineStartById((prev) => ({ ...prev, ...startById }));
+      setTimelineDurationById((prev) => ({ ...prev, ...durationById }));
+      setVideoTrackByNodeId((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          newIds
+            .filter(({ sourceId }) => {
+              const sourceNode = assetNodeById.get(sourceId);
+              return droppedTrackKind !== 'audio' && !isAudioOnlyNode(sourceNode);
+            })
+            .map(({ timelineId }) => [timelineId, targetVideoTrackId]),
+        ),
+      }));
+      setAudioTrackByNodeId((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          newIds.map(({ timelineId }) => [timelineId, targetAudioTrackId]),
+        ),
+      }));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach(({ timelineId }) => next.add(timelineId));
+        return next;
+      });
+      setActivePreviewId(newIds[0]?.timelineId || '');
+      closeContextMenu();
+      return;
+    }
     const draggedSourceNode = isTimelineClip
       ? timelineNodeById.get(draggedId)
       : assetNodeById.get(draggedId);
@@ -3036,6 +3106,77 @@ export function VideoRenderModal({
     return selectedSpeechNodes;
   };
 
+  const getSelectedAssetsInCardOrder = () => {
+    const visibleIndex = new Map(visibleAssetNodes.map((node, index) => [node.id, index]));
+    return [...selectedAssetIds].sort(
+      (a, b) => (visibleIndex.get(a) ?? Number.MAX_SAFE_INTEGER) - (visibleIndex.get(b) ?? Number.MAX_SAFE_INTEGER),
+    );
+  };
+
+  const sortSelectedAssetsByCardOrder = () => {
+    const next = getSelectedAssetsInCardOrder();
+    setSelectedAssetIds(next);
+    closeContextMenu();
+  };
+
+  const importSelectedAssetsToTimeline = async () => {
+    const sourceIds = getSelectedAssetsInCardOrder().filter((id) => assetNodeById.has(id));
+    if (sourceIds.length === 0 || status === 'rendering') return;
+
+    const newClips = [];
+    for (const sourceId of sourceIds) {
+      const sourceNode = assetNodeById.get(sourceId);
+      if (!sourceNode) continue;
+      newClips.push({
+        sourceId,
+        timelineId: makeTimelineClipInstanceId(sourceId),
+        mediaDuration: await getNodeMediaDuration(sourceNode),
+      });
+    }
+    let cursor = timelineMetrics.totalDuration;
+    const startById: Record<string, number> = {};
+    const durationById: Record<string, number> = {};
+    newClips.forEach(({ timelineId, mediaDuration }) => {
+      const duration = Math.max(0.25, mediaDuration / speed);
+      startById[timelineId] = cursor;
+      durationById[timelineId] = mediaDuration;
+      cursor += duration;
+    });
+    const videoTrackId = videoTrackIds[0] || 'video-1';
+    const audioTrackId = audioTrackIds[0] || 'audio-1';
+
+    pushTimelineHistory();
+    setTimelineIds((prev) => [...prev, ...newClips.map(({ timelineId }) => timelineId)]);
+    setTimelineSourceById((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId]),
+      ),
+    }));
+    setTimelineStartById((prev) => ({ ...prev, ...startById }));
+    setTimelineDurationById((prev) => ({ ...prev, ...durationById }));
+    setVideoTrackByNodeId((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        newClips
+          .filter(({ sourceId }) => !isAudioOnlyNode(assetNodeById.get(sourceId)))
+          .map(({ timelineId }) => [timelineId, videoTrackId]),
+      ),
+    }));
+    setAudioTrackByNodeId((prev) => ({
+      ...prev,
+      ...Object.fromEntries(newClips.map(({ timelineId }) => [timelineId, audioTrackId])),
+    }));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      newClips.forEach(({ timelineId }) => next.add(timelineId));
+      return next;
+    });
+    setSelectedAssetIds(sourceIds);
+    setActivePreviewId(newClips[0]?.timelineId || '');
+    closeContextMenu();
+  };
+
   const buildContextMenuSections = (
     menu: RenderContextMenuTarget,
     node?: FlowNode,
@@ -3048,6 +3189,52 @@ export function VideoRenderModal({
     const speechNodesForMenu = getSpeechNodesForContextMenu(menu, node);
 
     if (!node) {
+      const selectedMenuAssetIds = (menu.selectedNodeIds || []).filter((id) =>
+        assetNodeById.has(id),
+      );
+      if (menu.kind === 'asset' && selectedMenuAssetIds.length > 0) {
+        return [
+          {
+            items: [
+              {
+                label: renderCopy(
+                  language,
+                  '按卡片顺序排序',
+                  'カード順に並べる',
+                  'Sort by card order',
+                ),
+                icon: <ListPlus className="w-4 h-4" />,
+                onSelect: sortSelectedAssetsByCardOrder,
+              },
+              {
+                label: renderCopy(
+                  language,
+                  '导入到编辑时间线',
+                  '編集タイムラインに追加',
+                  'Import to editing timeline',
+                ),
+                icon: <Download className="w-4 h-4" />,
+                onSelect: importSelectedAssetsToTimeline,
+                disabled: !canMutate,
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                label: renderCopy(
+                  language,
+                  `已选择 ${selectedMenuAssetIds.length} 个素材，拖动任一卡片加入时间线`,
+                  `${selectedMenuAssetIds.length} 個の素材を選択中。任意のカードをドラッグ`,
+                  `${selectedMenuAssetIds.length} assets selected; drag any card to the timeline`,
+                ),
+                icon: <ListPlus className="w-4 h-4" />,
+                disabled: true,
+              },
+            ],
+          },
+        ];
+      }
       const selectedTimelineIds = (menu.selectedNodeIds || []).filter((id) =>
         timelineIds.includes(id),
       );
@@ -3135,9 +3322,12 @@ export function VideoRenderModal({
               {
                 items: [
                   {
-                    label: isZh
-                      ? `删除选中的 ${selectedTimelineIds.length} 个片段`
-                      : `Delete ${selectedTimelineIds.length} selected segment(s)`,
+                    label: renderCopy(
+                      language,
+                      `批量删除（${selectedTimelineIds.length}）`,
+                      `一括削除（${selectedTimelineIds.length}）`,
+                      `Batch delete (${selectedTimelineIds.length})`,
+                    ),
                     icon: <Trash2 className="w-4 h-4" />,
                     onSelect: () => removeTimelineNodes(selectedTimelineIds),
                     disabled: !canMutate,
@@ -3367,6 +3557,7 @@ export function VideoRenderModal({
                 timelineIds={timelineIds}
                 nodeRegionById={nodeRegionById}
                 activePreviewNode={activePreviewNode}
+                selectedAssetIds={selectedAssetIds}
                 assetScrollInfo={assetScrollInfo}
                 assetThumbTopPercent={assetThumbTopPercent}
                 assetThumbHeightPercent={assetThumbHeightPercent}
@@ -3375,6 +3566,9 @@ export function VideoRenderModal({
                 setAssetCardLayout={setAssetCardLayout}
                 setAssetRegionFilter={setAssetRegionFilter}
                 setActivePreviewId={setActivePreviewId}
+                setAssetSelection={(ids) => {
+                  setSelectedAssetIds(ids);
+                }}
                 handleAssetUploadInputChange={handleAssetUploadInputChange}
                 handleAssetFileDragOver={handleAssetFileDragOver}
                 handleAssetFileDrop={handleAssetFileDrop}
@@ -3601,6 +3795,12 @@ export function VideoRenderModal({
             '时间线菜单',
             'タイムラインメニュー',
             'Timeline menu',
+          )}
+          assetMenuLabel={renderCopy(
+            language,
+            `素材批量菜单（${selectedAssetIds.length}）`,
+            `素材一括メニュー（${selectedAssetIds.length}）`,
+            `Asset batch menu (${selectedAssetIds.length})`,
           )}
           buildContextMenuSections={buildContextMenuSections}
           mediaIcon={mediaIcon}

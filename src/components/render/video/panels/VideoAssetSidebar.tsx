@@ -1,5 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import { FileText, Grid2X2, Image, Layers, ListPlus, Plus, Rows3 } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { renderCopy } from '../shared/renderCopy';
@@ -17,6 +18,7 @@ type VideoAssetSidebarProps = {
   timelineIds: string[];
   nodeRegionById: Map<string, AssetRegionOption | null>;
   activePreviewNode?: FlowNode;
+  selectedAssetIds: string[];
   assetScrollInfo: { scrollTop: number; scrollHeight: number; clientHeight: number };
   assetThumbTopPercent: number;
   assetThumbHeightPercent: number;
@@ -25,6 +27,7 @@ type VideoAssetSidebarProps = {
   setAssetCardLayout: (value: AssetCardLayout) => void;
   setAssetRegionFilter: (value: string) => void;
   setActivePreviewId: (value: string) => void;
+  setAssetSelection: (ids: string[]) => void;
   handleAssetUploadInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleAssetFileDragOver: (event: React.DragEvent<HTMLElement>) => void;
   handleAssetFileDrop: (event: React.DragEvent<HTMLElement>) => void;
@@ -37,7 +40,7 @@ type VideoAssetSidebarProps = {
   ) => void;
   openContextMenu: (
     event: React.MouseEvent<HTMLElement>,
-    target: { kind: 'asset'; nodeId: string },
+    target: { kind: 'asset'; nodeId?: string; selectedNodeIds?: string[] },
   ) => void;
   addNodeToTimeline: (
     id: string,
@@ -73,6 +76,7 @@ export function VideoAssetSidebar({
   timelineIds,
   nodeRegionById,
   activePreviewNode,
+  selectedAssetIds,
   assetScrollInfo,
   assetThumbTopPercent,
   assetThumbHeightPercent,
@@ -81,6 +85,7 @@ export function VideoAssetSidebar({
   setAssetCardLayout,
   setAssetRegionFilter,
   setActivePreviewId,
+  setAssetSelection,
   handleAssetUploadInputChange,
   handleAssetFileDragOver,
   handleAssetFileDrop,
@@ -101,6 +106,89 @@ export function VideoAssetSidebar({
   handleAssetScaleHandleEnd,
 }: VideoAssetSidebarProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const selectionDragRef = useRef<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    pointerId: number;
+  } | null>(null);
+  const suppressNextContextMenuRef = useRef(false);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  const handleSelectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.focus({ preventScroll: true });
+    if (event.button !== 2) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button,input,select,textarea,[draggable="true"]')) return;
+    event.preventDefault();
+    const drag = {
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      pointerId: event.pointerId,
+    };
+    selectionDragRef.current = drag;
+    setSelectionBox(drag);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleSelectionPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = selectionDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const next = { ...drag, currentX: event.clientX, currentY: event.clientY };
+    selectionDragRef.current = next;
+    setSelectionBox(next);
+  };
+
+  const handleSelectionPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = selectionDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    selectionDragRef.current = null;
+    setSelectionBox(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const width = Math.abs(drag.currentX - drag.startX);
+    const height = Math.abs(drag.currentY - drag.startY);
+    if (width < 5 && height < 5) return;
+
+    suppressNextContextMenuRef.current = true;
+    const selectionRect = {
+      left: Math.min(drag.startX, drag.currentX),
+      right: Math.max(drag.startX, drag.currentX),
+      top: Math.min(drag.startY, drag.currentY),
+      bottom: Math.max(drag.startY, drag.currentY),
+    };
+    const ids = Array.from(
+      assetViewportRef.current?.querySelectorAll<HTMLElement>('[data-asset-card-id]') || [],
+    )
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const selected =
+          rect.left <= selectionRect.right &&
+          rect.right >= selectionRect.left &&
+          rect.top <= selectionRect.bottom &&
+          rect.bottom >= selectionRect.top;
+        return selected;
+      })
+      .map((element) => element.dataset.assetCardId)
+      .filter((id): id is string => Boolean(id));
+    const uniqueIds = Array.from(new Set(ids));
+    setAssetSelection(uniqueIds);
+    if (uniqueIds.length > 0) {
+      openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
+        kind: 'asset',
+        selectedNodeIds: uniqueIds,
+      });
+    }
+  };
 
   return (
     <aside
@@ -175,7 +263,28 @@ export function VideoAssetSidebar({
       <div className="relative min-h-0 flex-1">
         <div
           ref={assetViewportRef}
+          tabIndex={0}
           onScroll={syncAssetScrollInfo}
+          onKeyDown={(event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') return;
+            event.preventDefault();
+            const allVisibleSelected =
+              visibleAssetNodes.length > 0 &&
+              visibleAssetNodes.every((node) => selectedAssetIds.includes(node.id));
+            setAssetSelection(
+              allVisibleSelected ? [] : visibleAssetNodes.map((node) => node.id),
+            );
+          }}
+          onPointerDown={handleSelectionPointerDown}
+          onPointerMove={handleSelectionPointerMove}
+          onPointerUp={handleSelectionPointerEnd}
+          onPointerCancel={handleSelectionPointerEnd}
+          onContextMenu={(event) => {
+            if (!suppressNextContextMenuRef.current) return;
+            suppressNextContextMenuRef.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
           className="video-render-scroll video-render-scroll-hidden min-h-0 h-full overflow-y-auto p-3 pr-7"
         >
           <div
@@ -188,18 +297,31 @@ export function VideoAssetSidebar({
           >
             {visibleAssetNodes.map((node) => {
               const region = nodeRegionById.get(node.id);
+              const selectedOrder = selectedAssetIds.indexOf(node.id);
               return (
                 <div
+                  data-asset-card-id={node.id}
                   key={node.id}
                   draggable
                   onDragStart={(event) => handleAssetDragStart(event, node.id)}
-                  onClick={() => setActivePreviewId(node.id)}
-                  onContextMenu={(event) =>
-                    openContextMenu(event, { kind: 'asset', nodeId: node.id })
-                  }
-                  className={`group cursor-grab active:cursor-grabbing rounded-lg border transition-all ${
+                  onClick={() => {
+                    setAssetSelection([node.id]);
+                    setActivePreviewId(node.id);
+                  }}
+                  onContextMenu={(event) => {
+                    if (selectedAssetIds.includes(node.id) && selectedAssetIds.length > 1) {
+                      openContextMenu(event, {
+                        kind: 'asset',
+                        selectedNodeIds: selectedAssetIds,
+                      });
+                      return;
+                    }
+                    setAssetSelection([node.id]);
+                    openContextMenu(event, { kind: 'asset', nodeId: node.id });
+                  }}
+                  className={`group relative cursor-grab active:cursor-grabbing rounded-lg border transition-all ${
                     assetCardLayout === 'grid' ? 'p-2' : 'p-2.5'
-                  } ${activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
+                  } ${selectedAssetIds.includes(node.id) ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/25 shadow-sm' : activePreviewNode?.id === node.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] shadow-sm' : 'border-[var(--vr-border)] bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
                 >
                   <div
                     className={assetCardLayout === 'grid' ? 'flex flex-col gap-2' : 'flex gap-3'}
@@ -230,6 +352,11 @@ export function VideoAssetSidebar({
                       <div className="flex items-center gap-1.5 text-[11px] font-black text-[var(--vr-text-muted)]">
                         {mediaIcon(node, 'w-3.5 h-3.5')}
                         <span>{mediaKind(node).toUpperCase()}</span>
+                        {selectedOrder >= 0 && (
+                          <span className="rounded bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] text-white">
+                            {selectedOrder + 1}
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 text-xs font-black text-[var(--vr-text)] truncate">
                         {segmentTitle(node)}
@@ -321,6 +448,17 @@ export function VideoAssetSidebar({
           </div>
         </div>
       </div>
+      {selectionBox && (
+        <div
+          className="pointer-events-none fixed z-[9999] rounded border border-[var(--vr-accent)] bg-[var(--vr-accent)]/15 shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset]"
+          style={{
+            left: Math.min(selectionBox.startX, selectionBox.currentX),
+            top: Math.min(selectionBox.startY, selectionBox.currentY),
+            width: Math.abs(selectionBox.currentX - selectionBox.startX),
+            height: Math.abs(selectionBox.currentY - selectionBox.startY),
+          }}
+        />
+      )}
     </aside>
   );
 }

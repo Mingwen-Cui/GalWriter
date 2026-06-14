@@ -17,12 +17,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "tauri": "tauri",
-    "tauri:build:full": "tauri build --config src-tauri/tauri.full.conf.json && node build-scripts/copy-tauri-installer.mjs full",
     "tauri:build:lite": "tauri build --config src-tauri/tauri.lite.conf.json && node build-scripts/copy-tauri-installer.mjs lite",
     "tauri:build:portable": "npm run tauri:build:portable:lite",
-    "tauri:build:portable:lite": "tauri build --config src-tauri/tauri.lite.conf.json && node build-scripts/copy-tauri-portable.mjs lite",
-    "tauri:build:portable:full": "tauri build --config src-tauri/tauri.full.conf.json && node build-scripts/copy-tauri-portable.mjs full",
-    "tauri:check:ffmpeg": "node build-scripts/check-ffmpeg-binary.mjs"
+    "tauri:build:portable:lite": "tauri build --config src-tauri/tauri.lite.conf.json && node build-scripts/copy-tauri-portable.mjs lite"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

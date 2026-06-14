@@ -227,6 +227,7 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsNarrationMode: TtsNarrationMode;
   thinkingMode: boolean;
   characterImageMode: CharacterImageMode;
+  hideStoryImageButtonWithTags: boolean;
   sceneImageMode: SceneImageMode;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
@@ -262,6 +263,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;
   setCharacterImageMode: Dispatch<SetStateAction<CharacterImageMode>>;
+  setHideStoryImageButtonWithTags: Dispatch<SetStateAction<boolean>>;
   setSceneImageMode: Dispatch<SetStateAction<SceneImageMode>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
@@ -427,6 +429,8 @@ export interface StoryNodeData extends BaseEditorNodeData {
   nodeValue?: number;
   skip?: boolean;
   presentation?: StoryPresentation;
+  characterImageMode?: CharacterImageMode;
+  hideStoryImageButtonWithTags?: boolean;
 }
 
 export interface CharacterNodeData extends BaseEditorNodeData {

@@ -29,8 +29,11 @@ import type {
 import { Language, translations } from '../lib/i18n';
 import {
   clampCharacterLayer,
+  getCharacterEnterDelay,
   getCharacterStagePosition,
+  getPresentationExitDuration,
   getPresentationTransform,
+  getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../lib/presentation';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
@@ -375,12 +378,7 @@ export function PlayTestModal({
         clearTimeout(autoAdvanceTimerRef.current);
         autoAdvanceTimerRef.current = null;
       }
-      const exitDuration = Math.max(
-        presentation.scene?.exit.type === 'none' ? 0 : presentation.scene?.exit.duration || 0,
-        ...presentation.characters.map((character) =>
-          character.exit.type === 'none' ? 0 : character.exit.duration || 0,
-        ),
-      );
+      const exitDuration = getPresentationExitDuration(presentation);
       setPresentationExiting(true);
       window.setTimeout(() => {
         setHistory((prev) => [...prev, currentNodeId || '']);
@@ -1021,6 +1019,7 @@ export function PlayTestModal({
         : 'none',
     transitionProperty: 'opacity, transform',
     transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
+    transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
 
@@ -1054,6 +1053,7 @@ export function PlayTestModal({
               transformOrigin: 'center center',
               transitionProperty: 'opacity, transform',
               transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,
+              transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
               transitionTimingFunction: 'ease-out',
             }}
           />

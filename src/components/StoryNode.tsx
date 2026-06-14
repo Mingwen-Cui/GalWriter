@@ -162,9 +162,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const videoUrl = data.videoUrl;
   const audioUrl = data.audioUrl;
   const storyPresentation = normalizeStoryPresentation(data.presentation);
+  const hasCharacterOrSceneTag = /data-mention-kind=(?:"|')(?:character|scene)(?:"|')/i.test(
+    String(text),
+  );
+  const hideGenerateImageButton =
+    data.characterImageMode === 'transparent-sprite' &&
+    data.hideStoryImageButtonWithTags === true &&
+    hasCharacterOrSceneTag;
   const hasScenePresentationImage = Boolean(storyPresentation.scene && imageUrl);
-  const hasScenePresentationVideo = Boolean(storyPresentation.scene && videoUrl && !imageUrl);
-  const hasVisualMedia = !!((imageUrl && !hasScenePresentationImage) || videoUrl);
+  const hasScenePresentationVideo = Boolean(
+    videoUrl && !imageUrl && (storyPresentation.scene || storyPresentation.characters.length > 0),
+  );
+  const hasVisualMedia = !!(
+    (imageUrl && !hasScenePresentationImage) ||
+    (videoUrl && !hasScenePresentationVideo)
+  );
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
@@ -1059,6 +1071,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     richTextRef.current?.insertMention('scene', name);
   };
 
+  const openCardVideoPresentationMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const presentation = getPresentation();
+    if (presentation.scene?.sourceNodeId !== id) {
+      updateNodeData({
+        showTextOverlay: true,
+        presentation: {
+          ...presentation,
+          scene: createScenePresentation(id, imageUrl, false, data.showTextOverlay),
+        },
+      });
+    }
+
+    setPresentationMenu({
+      kind: 'scene',
+      sourceNodeId: id,
+      name: lang === 'zh' ? '卡片视频' : lang === 'ja' ? 'カード動画' : 'Card Video',
+      x: event.clientX,
+      y: event.clientY,
+    });
+    replayPresentation('scene', id, 'enter');
+  };
+
   const presentedCharacters = useStore(
     useCallback(
       (state) =>
@@ -1298,26 +1332,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
             {/* 媒体适配行 */}
             {/* Connected/global scenes: insert @scene name */}
-            {showRichTextTools && mentionableScenes.length > 0 && (
+            {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
               <>
                 <ToolbarRow className="flex-wrap justify-start gap-1">
                   <ToolGroup className="gap-1 shrink-0">
                     <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                   </ToolGroup>
-                  {mentionableScenes.map((scene) => (
+                  {videoUrl && (
                     <button
-                      key={scene.id}
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onDoubleClick={(event) => event.preventDefault()}
                       onDragStart={(event) => event.preventDefault()}
-                      onClick={() => insertSceneMention(scene.name)}
+                      onClick={openCardVideoPresentationMenu}
                       className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
-                      title={`插入 @${scene.name}`}
+                      title={
+                        lang === 'zh'
+                          ? '调整卡片视频的场景演出'
+                          : lang === 'ja'
+                            ? 'カード動画のシーン演出を調整'
+                            : 'Adjust card video presentation'
+                      }
                     >
-                      @{scene.name}
+                      @{lang === 'zh' ? '卡片视频' : lang === 'ja' ? 'カード動画' : 'Card Video'}
                     </button>
-                  ))}
+                  )}
+                  {showRichTextTools &&
+                    mentionableScenes.map((scene) => (
+                      <button
+                        key={scene.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onDoubleClick={(event) => event.preventDefault()}
+                        onDragStart={(event) => event.preventDefault()}
+                        onClick={() => insertSceneMention(scene.name)}
+                        className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
+                        title={`插入 @${scene.name}`}
+                      >
+                        @{scene.name}
+                      </button>
+                    ))}
                 </ToolbarRow>
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
@@ -1725,17 +1779,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           {showRichTextTools && (
             <div
               className={`relative z-0 w-full flex-1 flex flex-col items-center justify-center ${dynamicPaddingClasses()} ${
-                (imageUrl && !hasScenePresentationImage) || videoUrl
+                (imageUrl && !hasScenePresentationImage) || (videoUrl && !hasScenePresentationVideo)
                   ? 'border-t border-[var(--card-border)]/30'
                   : ''
               }`}
               style={{
-                backgroundColor: hasScenePresentationImage
-                  ? isDefaultColor
-                    ? 'rgb(var(--card-bg-rgb))'
-                    : color
-                  : nodeBg,
-                ...(hasScenePresentationImage || presentedCharacters.length > 0
+                backgroundColor:
+                  hasScenePresentationImage || hasScenePresentationVideo
+                    ? isDefaultColor
+                      ? 'rgb(var(--card-bg-rgb))'
+                      : color
+                    : nodeBg,
+                ...(hasScenePresentationImage ||
+                hasScenePresentationVideo ||
+                presentedCharacters.length > 0
                   ? { flex: '0 0 48%' }
                   : {}),
               }}
@@ -2474,18 +2531,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           document.body,
         )}
 
-      <button
-        onClick={handleGenerateImage}
-        disabled={isGeneratingImage}
-        className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg bottom-2 right-11"
-        title={lang === 'zh' ? '生成图片' : 'Generate Image'}
-      >
-        {isGeneratingImage ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <ImageIcon className="w-4 h-4" />
-        )}
-      </button>
+      {!hideGenerateImageButton && (
+        <button
+          onClick={handleGenerateImage}
+          disabled={isGeneratingImage}
+          className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg bottom-2 right-11"
+          title={lang === 'zh' ? '生成图片' : 'Generate Image'}
+        >
+          {isGeneratingImage ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ImageIcon className="w-4 h-4" />
+          )}
+        </button>
+      )}
 
       {/* TOP */}
       <Handle

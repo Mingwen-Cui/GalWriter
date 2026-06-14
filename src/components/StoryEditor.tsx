@@ -434,6 +434,7 @@ export function StoryEditor() {
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
   const [characterImageMode, setCharacterImageMode] =
     useState<CharacterImageMode>('transparent-sprite');
+  const [hideStoryImageButtonWithTags, setHideStoryImageButtonWithTags] = useState(true);
   const [sceneImageMode, setSceneImageMode] = useState<SceneImageMode>('storyboard-16:9');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
@@ -937,6 +938,7 @@ export function StoryEditor() {
       ttsNarrationMode,
       thinkingMode,
       characterImageMode,
+      hideStoryImageButtonWithTags,
       sceneImageMode,
       customAiPromptsEnabled,
       aiPrompts,
@@ -976,6 +978,7 @@ export function StoryEditor() {
       bubbleStyle,
       canvasBg,
       characterImageMode,
+      hideStoryImageButtonWithTags,
       sceneImageMode,
       customAiPromptsEnabled,
       edgeStyle,
@@ -1048,6 +1051,7 @@ export function StoryEditor() {
       setTtsNarrationMode,
       setImageSize,
       setCharacterImageMode,
+      setHideStoryImageButtonWithTags,
       setSceneImageMode,
       setCustomAiPromptsEnabled,
       setAiPrompts,
@@ -3428,6 +3432,8 @@ ${direction}
           showTitles,
           storyTitlePlacement,
           isAILoading: aiLoadingNodeId === n.id,
+          characterImageMode,
+          hideStoryImageButtonWithTags,
           onUpdate: handleUpdateNode,
           onAddNode: handleAddConnectedNode,
           onDelete: handleDeleteNode,
@@ -3470,6 +3476,8 @@ ${direction}
     showTitles,
     storyTitlePlacement,
     aiLoadingNodeId,
+    characterImageMode,
+    hideStoryImageButtonWithTags,
     handleUpdateNode,
     handleAddConnectedNode,
     handleDeleteNode,
@@ -3979,6 +3987,8 @@ ${direction}
           setGenerateLength={setGenerateLength}
           characterImageMode={characterImageMode}
           setCharacterImageMode={setCharacterImageMode}
+          hideStoryImageButtonWithTags={hideStoryImageButtonWithTags}
+          setHideStoryImageButtonWithTags={setHideStoryImageButtonWithTags}
           sceneImageMode={sceneImageMode}
           setSceneImageMode={setSceneImageMode}
           customAiPromptsEnabled={customAiPromptsEnabled}

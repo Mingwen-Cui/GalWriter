@@ -2,11 +2,15 @@ import type { Node as FlowNode } from '@xyflow/react';
 
 import type {
   CharacterNodeData,
-  PresentationAnimation,
   PresentationMotion,
   StoryPresentation,
 } from '../../../../domain/project';
-import { clampCharacterLayer, normalizeStoryPresentation } from '../../../../lib/presentation';
+import {
+  clampCharacterLayer,
+  getCharacterEnterDelay,
+  getPresentationMotionDuration,
+  normalizeStoryPresentation,
+} from '../../../../lib/presentation';
 import { clamp, loadCachedImage } from './mediaUtils';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
@@ -43,16 +47,30 @@ const activeMotionState = (
   duration: number,
   width: number,
   height: number,
+  enterDelayMs = 0,
+  exitDelayMs = 0,
 ) => {
   const enterSeconds = Math.max(0, enter.duration) / 1000;
   const exitSeconds = Math.max(0, exit.duration) / 1000;
-  if (enter.type !== 'none' && enterSeconds > 0 && elapsed < enterSeconds) {
-    return motionState(enter, elapsed / enterSeconds, false, width, height);
+  const enterStart = Math.max(0, enterDelayMs) / 1000;
+  const exitDelaySeconds = Math.max(0, exitDelayMs) / 1000;
+  if (enter.type !== 'none' && enterSeconds > 0 && elapsed < enterStart + enterSeconds) {
+    return motionState(
+      enter,
+      Math.max(0, elapsed - enterStart) / enterSeconds,
+      false,
+      width,
+      height,
+    );
   }
-  if (exit.type !== 'none' && exitSeconds > 0 && elapsed > duration - exitSeconds) {
+  if (
+    exit.type !== 'none' &&
+    exitSeconds > 0 &&
+    elapsed > duration - exitSeconds - exitDelaySeconds
+  ) {
     return motionState(
       exit,
-      (elapsed - (duration - exitSeconds)) / exitSeconds,
+      (elapsed - (duration - exitSeconds - exitDelaySeconds)) / exitSeconds,
       true,
       width,
       height,
@@ -143,6 +161,8 @@ export const drawPresentationVisuals = async ({
   ctx.fillRect(0, 0, width, height);
 
   const presentationScale = scene?.scale || 1;
+  const characterEnterDelay = getCharacterEnterDelay(presentation);
+  const sceneExitDuration = getPresentationMotionDuration(scene?.exit);
   ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.scale(presentationScale, presentationScale);
@@ -150,7 +170,7 @@ export const drawPresentationVisuals = async ({
 
   if (background) {
     const state = scene
-      ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height)
+      ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height, 0, 0)
       : { x: 0, y: 0, scale: 1, alpha: 1 };
     ctx.save();
     ctx.globalAlpha = state.alpha;
@@ -201,7 +221,16 @@ export const drawPresentationVisuals = async ({
       const baseX = config.position === 'left' ? 0.24 : config.position === 'right' ? 0.76 : 0.5;
       const centerX = width * (baseX + config.offsetX / 1000);
       const bottom = height * (config.offsetY / 1000);
-      const state = activeMotionState(config.enter, config.exit, elapsed, duration, width, height);
+      const state = activeMotionState(
+        config.enter,
+        config.exit,
+        elapsed,
+        duration,
+        width,
+        height,
+        characterEnterDelay,
+        sceneExitDuration,
+      );
 
       ctx.save();
       ctx.globalAlpha = state.alpha;

@@ -105,6 +105,8 @@ interface SettingsModalProps {
   setGenerateLength: (len: string) => void;
   characterImageMode: CharacterImageMode;
   setCharacterImageMode: (mode: CharacterImageMode) => void;
+  hideStoryImageButtonWithTags: boolean;
+  setHideStoryImageButtonWithTags: (hidden: boolean) => void;
   sceneImageMode: SceneImageMode;
   setSceneImageMode: (mode: SceneImageMode) => void;
   customAiPromptsEnabled: boolean;
@@ -555,6 +557,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setGenerateLength,
   characterImageMode,
   setCharacterImageMode,
+  hideStoryImageButtonWithTags,
+  setHideStoryImageButtonWithTags,
   sceneImageMode,
   setSceneImageMode,
   customAiPromptsEnabled,
@@ -1379,6 +1383,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         );
                       })}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)}
+                      className={`flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition-all ${
+                        hideStoryImageButtonWithTags
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+                          : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-sm font-black text-[var(--text-primary)]">
+                          {language === 'zh'
+                            ? '有 Tag 时隐藏剧情卡生图按钮'
+                            : language === 'ja'
+                              ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
+                              : 'Hide story image button when tags exist'}
+                        </div>
+                        <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                          {language === 'zh'
+                            ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
+                            : language === 'ja'
+                              ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
+                              : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.'}
+                        </p>
+                      </div>
+                      <span
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                          hideStoryImageButtonWithTags
+                            ? 'bg-[var(--accent)]'
+                            : 'bg-[var(--header-border)]'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                            hideStoryImageButtonWithTags ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </span>
+                    </button>
                   </section>
 
                   <section className="space-y-4">

@@ -1,4 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type {
   RenderContextMenuSection,
@@ -10,6 +12,7 @@ type RenderContextMenuProps = {
   contextMenu: RenderContextMenuState | null;
   nodeById: Map<string, FlowNode>;
   timelineMenuLabel: string;
+  assetMenuLabel: string;
   buildContextMenuSections: (
     target: RenderContextMenuTarget,
     node?: FlowNode,
@@ -25,6 +28,7 @@ export function RenderContextMenu({
   contextMenu,
   nodeById,
   timelineMenuLabel,
+  assetMenuLabel,
   buildContextMenuSections,
   mediaIcon,
   mediaKind,
@@ -32,16 +36,52 @@ export function RenderContextMenu({
   segmentTitle,
   segmentText,
 }: RenderContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: 8, y: 8, measured: false });
+
+  useLayoutEffect(() => {
+    if (!contextMenu) return;
+    const menu = menuRef.current;
+    if (!menu) return;
+
+    const viewportPadding = 8;
+    const pointerOffset = 6;
+    const rect = menu.getBoundingClientRect();
+    const preferredX = contextMenu.x + pointerOffset;
+    const preferredY = contextMenu.y + pointerOffset;
+    const x =
+      preferredX + rect.width <= window.innerWidth - viewportPadding
+        ? preferredX
+        : contextMenu.x - rect.width - pointerOffset;
+    const y =
+      preferredY + rect.height <= window.innerHeight - viewportPadding
+        ? preferredY
+        : contextMenu.y - rect.height - pointerOffset;
+
+    setPosition({
+      x: Math.max(viewportPadding, Math.min(x, window.innerWidth - rect.width - viewportPadding)),
+      y: Math.max(viewportPadding, Math.min(y, window.innerHeight - rect.height - viewportPadding)),
+      measured: true,
+    });
+  }, [contextMenu]);
+
   if (!contextMenu) return null;
 
   const node = contextMenu.nodeId ? nodeById.get(contextMenu.nodeId) : undefined;
   const sections = buildContextMenuSections(contextMenu, node);
   const body = node ? segmentText(node) : '';
 
-  return (
+  return createPortal(
     <div
-      className="fixed z-[500] w-60 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] py-1 shadow-2xl"
-      style={{ left: contextMenu.x, top: contextMenu.y }}
+      ref={menuRef}
+      className="video-render-workspace fixed isolate z-[1000] w-60 overflow-x-hidden overflow-y-auto rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] py-1 text-[var(--vr-text)] opacity-100 shadow-2xl"
+      style={{
+        left: position.x,
+        top: position.y,
+        maxHeight: 'calc(100vh - 16px)',
+        backgroundColor: 'var(--vr-surface-strong, #ffffff)',
+        visibility: position.measured ? 'visible' : 'hidden',
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
@@ -64,7 +104,7 @@ export function RenderContextMenu({
       )}
       {!node && (
         <div className="border-b border-[var(--vr-border)] px-3 py-2 text-xs font-black text-[var(--vr-text)]">
-          {timelineMenuLabel}
+          {contextMenu.kind === 'asset' ? assetMenuLabel : timelineMenuLabel}
         </div>
       )}
       {sections.map((section, sectionIndex) => (
@@ -93,6 +133,7 @@ export function RenderContextMenu({
           ))}
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

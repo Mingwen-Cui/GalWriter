@@ -128,6 +128,21 @@ export const pasteScenePresentationSettings = (current: ScenePresentation): Scen
 
 export const hasScenePresentationClipboard = () => scenePresentationClipboard !== null;
 
+export const getPresentationMotionDuration = (motion: PresentationMotion | undefined) =>
+  motion && motion.type !== 'none' ? Math.max(0, motion.duration || 0) : 0;
+
+export const getCharacterEnterDelay = (presentation: StoryPresentation) =>
+  getPresentationMotionDuration(presentation.scene?.enter);
+
+export const getSceneExitDelay = (presentation: StoryPresentation) =>
+  Math.max(
+    0,
+    ...presentation.characters.map((character) => getPresentationMotionDuration(character.exit)),
+  );
+
+export const getPresentationExitDuration = (presentation: StoryPresentation) =>
+  getSceneExitDelay(presentation) + getPresentationMotionDuration(presentation.scene?.exit);
+
 export const getPresentationTransform = (animation: PresentationAnimation, exiting: boolean) => {
   const distance = exiting ? 120 : 100;
   if (animation === 'slide-left') return `translateX(${exiting ? -distance : distance}%)`;
