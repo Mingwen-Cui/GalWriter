@@ -768,8 +768,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   const handleMentionContextMenu = (
     event: React.MouseEvent<HTMLSpanElement>,
-    mention: { kind: 'character' | 'scene'; name: string },
+    mention: { kind: 'character' | 'scene' | 'video'; name: string },
   ) => {
+    if (mention.kind === 'video') {
+      if (videoUrl) openCardVideoPresentationMenu(event);
+      return;
+    }
     const allNodes = storeApi.getState().nodes;
     const presentation = getPresentation();
     const boundSourceIds =
@@ -1071,7 +1075,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     richTextRef.current?.insertMention('scene', name);
   };
 
-  const openCardVideoPresentationMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const cardVideoMentionName =
+    lang === 'zh' ? '卡片视频' : lang === 'ja' ? 'カード動画' : 'Card Video';
+
+  const insertCardVideoMention = () => {
+    richTextRef.current?.insertMention('video', cardVideoMentionName);
+  };
+
+  const openCardVideoPresentationMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     const presentation = getPresentation();
     if (presentation.scene?.sourceNodeId !== id) {
       updateNodeData({
@@ -1086,7 +1099,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     setPresentationMenu({
       kind: 'scene',
       sourceNodeId: id,
-      name: lang === 'zh' ? '卡片视频' : lang === 'ja' ? 'カード動画' : 'Card Video',
+      name: cardVideoMentionName,
       x: event.clientX,
       y: event.clientY,
     });
@@ -1344,17 +1357,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       onMouseDown={(event) => event.preventDefault()}
                       onDoubleClick={(event) => event.preventDefault()}
                       onDragStart={(event) => event.preventDefault()}
-                      onClick={openCardVideoPresentationMenu}
+                      onClick={insertCardVideoMention}
+                      onContextMenu={openCardVideoPresentationMenu}
                       className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
                       title={
                         lang === 'zh'
-                          ? '调整卡片视频的场景演出'
+                          ? '点击插入视频 Tag，右键调整场景演出'
                           : lang === 'ja'
-                            ? 'カード動画のシーン演出を調整'
-                            : 'Adjust card video presentation'
+                            ? 'クリックで動画タグを挿入、右クリックで演出を調整'
+                            : 'Click to insert video tag; right-click to adjust presentation'
                       }
                     >
-                      @{lang === 'zh' ? '卡片视频' : lang === 'ja' ? 'カード動画' : 'Card Video'}
+                      @{cardVideoMentionName}
                     </button>
                   )}
                   {showRichTextTools &&

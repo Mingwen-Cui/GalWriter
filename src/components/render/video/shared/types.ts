@@ -57,6 +57,10 @@ export type SegmentRenderInfo = {
   startSecs?: number;
   audioUrl?: string;
   videoUrl?: string;
+  volume?: number;
+  loop?: boolean;
+  fadeIn?: number;
+  fadeOut?: number;
 };
 
 export type RenderedFramePayload = {
@@ -87,6 +91,7 @@ export type TimelineHistoryState = {
   videoTrackByNodeId: Record<string, string>;
   audioTrackByNodeId: Record<string, string>;
   timelineStartById: Record<string, number>;
+  timelineDurationById?: Record<string, number>;
   activePreviewId: string;
 };
 

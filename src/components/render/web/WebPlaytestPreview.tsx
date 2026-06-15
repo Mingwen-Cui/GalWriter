@@ -14,30 +14,31 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 
-import type { Language } from '../../../lib/i18n';
-import { renderCopy } from '../video/shared/renderCopy';
-import type { RenderStyle, WebExportSettings } from '../video/shared/types';
-import {
-  getNodeDisplayText,
-  getNodeDisplayTitle,
-  filterMentionTags,
-  stripHtml,
-  webAnimationStyle,
-} from '../video/shared/storyNodes';
-import {
-  clampCharacterLayer,
-  getCharacterEnterDelay,
-  getCharacterStagePosition,
-  getPresentationExitDuration,
-  getSceneExitDelay,
-  normalizeStoryPresentation,
-  getPresentationTransform,
-} from '../../../lib/presentation';
 import type {
   CharacterNodeData,
   CharacterPresentation,
   StoryPresentation,
 } from '../../../domain/project';
+import type { Language } from '../../../lib/i18n';
+import {
+  clampCharacterLayer,
+  getCharacterEnterDelay,
+  getCharacterStagePosition,
+  getPresentationExitDuration,
+  getPresentationTransform,
+  getSceneExitDelay,
+  normalizeStoryPresentation,
+} from '../../../lib/presentation';
+import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
+import { renderCopy } from '../video/shared/renderCopy';
+import {
+  filterMentionTags,
+  getNodeDisplayText,
+  getNodeDisplayTitle,
+  stripHtml,
+  webAnimationStyle,
+} from '../video/shared/storyNodes';
+import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -129,6 +130,7 @@ export function WebPlaytestPreview({
     currentNodeId && currentNodeId !== 'THE_END'
       ? playableNodes.find((node) => node.id === currentNodeId)
       : null;
+  useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   const outEdges = currentNodeId ? edges.filter((edge) => edge.source === currentNodeId) : [];
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';

@@ -83,6 +83,7 @@ type VideoTimelinePanelProps = {
     id: string,
     kind?: 'video' | 'audio',
     offsetSeconds?: number,
+    draggedTimelineIds?: string[],
   ) => void;
   focusTimelineSegment: (nodeId: string) => void;
   segmentTitle: (node: FlowNode) => string;
@@ -184,6 +185,7 @@ export function VideoTimelinePanel({
     currentX: number;
     currentY: number;
   } | null>(null);
+  const [dragSelectionIds, setDragSelectionIds] = useState<Set<string>>(new Set());
 
   const getSelectionRect = (box: {
     startX: number;
@@ -269,6 +271,7 @@ export function VideoTimelinePanel({
     }
     if (width < 5 && height < 5) return;
     const ids = selectClipsInBox(drag);
+    setDragSelectionIds(new Set(ids));
     if (drag.button === 2 && ids.length > 0) {
       openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
         kind: 'empty',
@@ -507,7 +510,7 @@ export function VideoTimelinePanel({
             </div>
             <div className="space-y-0">
               <div
-                className="grid items-center"
+                className="grid items-center gap-3"
                 style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
               >
                 <button
@@ -539,12 +542,12 @@ export function VideoTimelinePanel({
                 return (
                   <div
                     key={trackId}
-                    className="relative grid items-center"
+                    className="relative grid items-center gap-3"
                     style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
                   >
                     <div
                       className="pointer-events-none absolute inset-y-0 left-0 z-0 border border-[var(--vr-video-track-border)] bg-[var(--vr-video-track-bg)]"
-                      style={{ width: TIMELINE_LABEL_WIDTH + timelineMetrics.width }}
+                      style={{ width: TIMELINE_LABEL_WIDTH + 12 + timelineMetrics.width }}
                     />
                     <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-sky-600 dark:text-sky-300">
                       <span className="min-w-0 truncate">
@@ -568,7 +571,10 @@ export function VideoTimelinePanel({
                       onContextMenu={(event) =>
                         openContextMenu(event, { kind: 'empty', trackId, trackKind: 'video' })
                       }
-                      onClick={() => setFocusedPreviewId('')}
+                      onClick={() => {
+                        setFocusedPreviewId('');
+                        setDragSelectionIds(new Set());
+                      }}
                       onDragOver={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -579,6 +585,7 @@ export function VideoTimelinePanel({
                       {trackMetrics.map((metric) => {
                         const node = metric.node;
                         const enabled = selectedIds.has(node.id);
+                        const dragSelected = dragSelectionIds.has(node.id);
                         const segmentLayout = getTimelineSegmentLayout(
                           metric.start,
                           metric.duration,
@@ -596,6 +603,7 @@ export function VideoTimelinePanel({
                                 'video',
                                 (event.clientX - event.currentTarget.getBoundingClientRect().left) /
                                   Math.max(1, timelineMetrics.pixelsPerSecond),
+                                dragSelected ? [...dragSelectionIds] : [node.id],
                               )
                             }
                             onDragOver={(event) => {
@@ -606,6 +614,16 @@ export function VideoTimelinePanel({
                             onDrop={(event) => handleTimelineDrop(event, node.id, trackId, 'video')}
                             onClick={(event) => {
                               event.stopPropagation();
+                              if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                                setDragSelectionIds((previous) => {
+                                  const next = new Set(previous);
+                                  if (next.has(node.id)) next.delete(node.id);
+                                  else next.add(node.id);
+                                  return next;
+                                });
+                              } else {
+                                setDragSelectionIds(new Set([node.id]));
+                              }
                               focusTimelineSegment(node.id);
                             }}
                             onContextMenu={(event) =>
@@ -616,7 +634,7 @@ export function VideoTimelinePanel({
                                 trackKind: 'video',
                               })
                             }
-                            className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)] p-2 cursor-grab active:cursor-grabbing transition-colors ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
+                            className={`absolute top-0 h-20 min-w-0 overflow-hidden rounded-none border border-[var(--vr-video-clip-border)] bg-[var(--vr-video-clip-bg)] p-2 cursor-grab active:cursor-grabbing transition-colors ${dragSelected ? 'ring-2 ring-inset ring-[var(--vr-accent)]' : focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-video-clip-border)]/40' : ''}`}
                             style={{
                               left: segmentLayout.left,
                               width: segmentLayout.width,
@@ -740,12 +758,12 @@ export function VideoTimelinePanel({
                 return (
                   <div
                     key={trackId}
-                    className="relative grid items-center"
+                    className="relative grid items-center gap-3"
                     style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
                   >
                     <div
                       className="pointer-events-none absolute inset-y-0 left-0 z-0 border border-[var(--vr-audio-track-border)] bg-[var(--vr-audio-track-bg)]"
-                      style={{ width: TIMELINE_LABEL_WIDTH + timelineMetrics.width }}
+                      style={{ width: TIMELINE_LABEL_WIDTH + 12 + timelineMetrics.width }}
                     />
                     <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-violet-600 dark:text-violet-300">
                       <span className="min-w-0 truncate">
@@ -769,7 +787,10 @@ export function VideoTimelinePanel({
                       onContextMenu={(event) =>
                         openContextMenu(event, { kind: 'empty', trackId, trackKind: 'audio' })
                       }
-                      onClick={() => setFocusedPreviewId('')}
+                      onClick={() => {
+                        setFocusedPreviewId('');
+                        setDragSelectionIds(new Set());
+                      }}
                       onDragOver={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -780,6 +801,7 @@ export function VideoTimelinePanel({
                       {trackMetrics.map((metric) => {
                         const node = metric.node;
                         const enabled = selectedIds.has(node.id);
+                        const dragSelected = dragSelectionIds.has(node.id);
                         const audioText = segmentText(node) || segmentTitle(node);
                         const segmentLayout = getTimelineSegmentLayout(
                           metric.start,
@@ -799,6 +821,7 @@ export function VideoTimelinePanel({
                                 'audio',
                                 (event.clientX - event.currentTarget.getBoundingClientRect().left) /
                                   Math.max(1, timelineMetrics.pixelsPerSecond),
+                                dragSelected ? [...dragSelectionIds] : [node.id],
                               )
                             }
                             onDragOver={(event) => {
@@ -817,9 +840,19 @@ export function VideoTimelinePanel({
                             }
                             onClick={(event) => {
                               event.stopPropagation();
+                              if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                                setDragSelectionIds((previous) => {
+                                  const next = new Set(previous);
+                                  if (next.has(node.id)) next.delete(node.id);
+                                  else next.add(node.id);
+                                  return next;
+                                });
+                              } else {
+                                setDragSelectionIds(new Set([node.id]));
+                              }
                               focusTimelineSegment(node.id);
                             }}
-                            className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)] px-3 text-left transition-colors ${focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
+                            className={`absolute top-0 h-12 min-w-0 overflow-hidden rounded-none border border-[var(--vr-audio-clip-border)] bg-[var(--vr-audio-clip-bg)] px-3 text-left transition-colors ${dragSelected ? 'ring-2 ring-inset ring-[var(--vr-accent)]' : focusedPreviewId === node.id ? 'ring-2 ring-[var(--vr-audio-clip-border)]/40' : ''}`}
                             style={{
                               left: segmentLayout.left,
                               width: segmentLayout.width,
@@ -851,7 +884,7 @@ export function VideoTimelinePanel({
                 );
               })}
               <div
-                className="grid items-center"
+                className="grid items-center gap-3"
                 style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}
               >
                 <button

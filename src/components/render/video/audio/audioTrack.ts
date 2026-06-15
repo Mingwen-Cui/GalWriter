@@ -1,5 +1,5 @@
-import type { SegmentRenderInfo } from '../shared/types';
 import { encodeWav, fetchArrayBuffer } from '../shared/mediaUtils';
+import type { SegmentRenderInfo } from '../shared/types';
 
 export const buildAudioBuffer = async (
   segments: SegmentRenderInfo[],
@@ -25,17 +25,31 @@ export const buildAudioBuffer = async (
         const bytes = await fetchArrayBuffer(mediaUrl);
         const decoded = await context.decodeAudioData(bytes.slice(0));
         const source = context.createBufferSource();
+        const gain = context.createGain();
         source.buffer = decoded;
         source.playbackRate.value = speed;
-        source.connect(context.destination);
+        source.loop = segment.loop === true;
+        source.connect(gain);
+        gain.connect(context.destination);
         const startAt = segment.startSecs ?? cursor;
         const remainingDuration = Math.max(0, totalDuration - startAt);
-        const sourceDuration = Math.min(
-          decoded.duration,
-          segment.durationSecs * speed,
-          remainingDuration * speed,
-        );
+        const playbackDuration = Math.min(segment.durationSecs, remainingDuration);
+        const sourceDuration = segment.loop
+          ? playbackDuration * speed
+          : Math.min(decoded.duration, playbackDuration * speed);
         if (sourceDuration <= 0) continue;
+        const volume = Math.min(1, Math.max(0, segment.volume ?? 1));
+        const fadeIn = Math.min(playbackDuration, Math.max(0, segment.fadeIn ?? 0));
+        const fadeOut = Math.min(playbackDuration, Math.max(0, segment.fadeOut ?? 0));
+        gain.gain.setValueAtTime(fadeIn > 0 ? 0 : volume, startAt);
+        if (fadeIn > 0) {
+          gain.gain.linearRampToValueAtTime(volume, startAt + fadeIn);
+        }
+        if (fadeOut > 0) {
+          const fadeOutAt = Math.max(startAt + fadeIn, startAt + playbackDuration - fadeOut);
+          gain.gain.setValueAtTime(volume, fadeOutAt);
+          gain.gain.linearRampToValueAtTime(0, startAt + playbackDuration);
+        }
         source.start(startAt, 0, sourceDuration);
         hasAudio = true;
       } catch (error) {

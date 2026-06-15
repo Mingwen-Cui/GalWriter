@@ -4243,6 +4243,7 @@ ${direction}
                   : '');
             return (
               <ZenEditor
+                nodeId={zenModeNodeId}
                 value={typeof node?.data.text === 'string' ? node.data.text : ''}
                 imageUrl={zenImageUrl}
                 videoUrl={zenVideoUrl}

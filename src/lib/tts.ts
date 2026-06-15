@@ -62,6 +62,38 @@ export const htmlToSpeechText = (html: string) => {
   return normalize(doc.body.textContent || '');
 };
 
+export const stripTagsFromSpeechText = (text: string) =>
+  text
+    .replace(/\{\{\s*(?:character|scene)\s*:[^}]+\}\}/gi, ' ')
+    .replace(/@[\p{L}\p{N}_·・.-]+/gu, ' ')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+export const htmlToTagFreeSpeechText = (html: string) => {
+  if (!html) return '';
+
+  if (typeof DOMParser === 'undefined') {
+    const withoutMentions = html
+      .replace(
+        /<span\b[^>]*(?:class=(?:"[^"]*\bmention-chip\b[^"]*"|'[^']*\bmention-chip\b[^']*')|data-mention-(?:kind|name)=(?:"[^"]*"|'[^']*'))[^>]*>[\s\S]*?<\/span>/gi,
+        ' ',
+      )
+      .replace(
+        /&lt;span\b[\s\S]*?(?:mention-chip|data-mention-(?:kind|name))[\s\S]*?&gt;[\s\S]*?&lt;\/span&gt;/gi,
+        ' ',
+      );
+    return stripTagsFromSpeechText(htmlToSpeechText(withoutMentions));
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc
+    .querySelectorAll('.mention-chip, [data-mention-kind], [data-mention-name]')
+    .forEach((mention) => mention.remove());
+  return stripTagsFromSpeechText(htmlToSpeechText(doc.body.innerHTML));
+};
+
 const sha256Hex = async (text: string) => {
   const bytes = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest('SHA-256', bytes);
@@ -160,7 +192,7 @@ const generateSystemSpeechAudio = async (input: string) => {
 };
 
 export async function generateSpeechAudio(text: string, config: TTSConfig) {
-  const input = text.trim();
+  const input = stripTagsFromSpeechText(text);
   if (!input) {
     throw new Error('No text to synthesize.');
   }

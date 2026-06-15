@@ -25,14 +25,38 @@ const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {
   bodyAnimation: 'typewriter',
 };
 
-export const useWebExportSettings = (defaultProjectName: string, isLocked: boolean) => {
-  const [webProjectName, setWebProjectName] = useState(defaultProjectName);
-  const [webChoiceColor, setWebChoiceColor] = useState('#0ea5e9');
-  const [webChoiceTextColor, setWebChoiceTextColor] = useState('#ffffff');
-  const [webSettings, setWebSettings] = useState<WebExportSettings>(DEFAULT_WEB_SETTINGS);
-  const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(DEFAULT_WEB_RENDER_STYLE);
-  const [webPast, setWebPast] = useState<WebHistoryState[]>([]);
-  const [webFuture, setWebFuture] = useState<WebHistoryState[]>([]);
+type InitialWebExportState = {
+  projectName?: string;
+  choiceColor?: string;
+  choiceTextColor?: string;
+  settings?: Partial<WebExportSettings>;
+  renderStyle?: Partial<RenderStyle>;
+  past?: WebHistoryState[];
+  future?: WebHistoryState[];
+};
+
+export const useWebExportSettings = (
+  defaultProjectName: string,
+  isLocked: boolean,
+  initial?: InitialWebExportState,
+) => {
+  const [webProjectName, setWebProjectName] = useState(
+    () => initial?.projectName || defaultProjectName,
+  );
+  const [webChoiceColor, setWebChoiceColor] = useState(() => initial?.choiceColor || '#0ea5e9');
+  const [webChoiceTextColor, setWebChoiceTextColor] = useState(
+    () => initial?.choiceTextColor || '#ffffff',
+  );
+  const [webSettings, setWebSettings] = useState<WebExportSettings>(() => ({
+    ...DEFAULT_WEB_SETTINGS,
+    ...initial?.settings,
+  }));
+  const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
+    ...DEFAULT_WEB_RENDER_STYLE,
+    ...initial?.renderStyle,
+  }));
+  const [webPast, setWebPast] = useState<WebHistoryState[]>(() => initial?.past || []);
+  const [webFuture, setWebFuture] = useState<WebHistoryState[]>(() => initial?.future || []);
 
   const captureWebState = (): WebHistoryState => ({
     settings: { ...webSettings },

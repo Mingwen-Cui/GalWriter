@@ -472,9 +472,19 @@ export interface AINodeData extends BaseEditorNodeData {
   result?: string;
 }
 
+export interface RegionBackgroundMusic {
+  url: string;
+  name?: string;
+  loop: boolean;
+  volume: number;
+  fadeIn: number;
+  fadeOut: number;
+}
+
 export interface BackgroundNodeData extends BaseEditorNodeData {
   title?: string;
   color?: string;
+  backgroundMusic?: RegionBackgroundMusic;
 }
 
 export interface GroupNodeData extends BaseEditorNodeData {
@@ -483,6 +493,7 @@ export interface GroupNodeData extends BaseEditorNodeData {
   childIds?: string[];
   gap?: number;
   hullPoints?: HullPoint[];
+  backgroundMusic?: RegionBackgroundMusic;
 }
 
 export interface TextNodeData extends BaseEditorNodeData {

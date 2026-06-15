@@ -36,6 +36,7 @@ import {
   getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../lib/presentation';
+import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
 type PlayedAudio = {
@@ -246,6 +247,7 @@ export function PlayTestModal({
   );
 
   const currentNode = nodes.find((n) => n.id === currentNodeId);
+  useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   const presentation = normalizeStoryPresentation(
     currentNode?.data.presentation as StoryPresentation | undefined,
   );
@@ -299,7 +301,9 @@ export function PlayTestModal({
         .forEach((node) => node.remove());
     }
     if (hideSceneTags) {
-      container.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
+      container
+        .querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]')
+        .forEach((node) => node.remove());
     }
     return container.innerHTML;
   }, [hideCharacterTags, hideSceneTags, rawTextHtml]);

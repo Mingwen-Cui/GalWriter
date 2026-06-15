@@ -1,14 +1,14 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   CheckCircle2,
-  Clock,
   ClipboardCopy,
+  Clock,
   Copy,
   Download,
   Eye,
-  Film,
   FileDown,
   FileText,
+  Film,
   Gauge,
   Image,
   ListPlus,
@@ -25,10 +25,13 @@ import {
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import { resolveRegionBackgroundMusic } from '../../../lib/regionMusic';
 import { generateSpeechAudio, htmlToSpeechText } from '../../../lib/tts';
-import { buildAudioBuffer, buildAudioTrack } from './audio/audioTrack';
+import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../web/webExport';
+import { WebWorkspace } from '../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from './assets/assetRegions';
-import { ResizeHandle, makeTrackId } from './controls/RenderControls';
+import { buildAudioBuffer, buildAudioTrack } from './audio/audioTrack';
+import { makeTrackId, ResizeHandle } from './controls/RenderControls';
 import {
   chooseRenderOutputDir,
   getDefaultRenderDir,
@@ -36,8 +39,13 @@ import {
   saveRenderedWebZip,
 } from './export/tauriRenderAdapter';
 import { useWebExportSettings } from './export/useWebExportSettings';
-import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../web/webExport';
-import { WebWorkspace } from '../web/WebWorkspace';
+import { clearGPUTextCache, drawGPUFrame } from './gpu/gpuFrameRenderer';
+import {
+  destroyWebGPU,
+  getWebGPUCanvas,
+  initWebGPU,
+  isWebGPUSupported,
+} from './gpu/webgpuRenderer';
 import { RenderContextMenu } from './panels/RenderContextMenu';
 import { RenderHeader } from './panels/RenderHeader';
 import { RenderProgressModal } from './panels/RenderProgressModal';
@@ -46,13 +54,6 @@ import { VideoExportSettingsPanel } from './panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from './panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from './panels/VideoTimelinePanel';
 import { drawRenderFrame } from './preview/frameRenderer';
-import {
-  initWebGPU,
-  destroyWebGPU,
-  isWebGPUSupported,
-  getWebGPUCanvas,
-} from './gpu/webgpuRenderer';
-import { drawGPUFrame, clearGPUTextCache } from './gpu/gpuFrameRenderer';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
@@ -76,13 +77,13 @@ import {
   seekVideo,
   validDuration,
 } from './shared/mediaUtils';
+import { renderCopy } from './shared/renderCopy';
 import {
   filterMentionTags,
   getNodeDisplayTitle,
   getOrderedStoryNodes,
   stripHtml,
 } from './shared/storyNodes';
-import { renderCopy } from './shared/renderCopy';
 import type {
   AssetCardLayout,
   ExportFormat,
@@ -90,10 +91,10 @@ import type {
   RenderContextMenuSection,
   RenderContextMenuState,
   RenderContextMenuTarget,
+  RenderedFramePayload,
   RenderStatus,
   RenderStyle,
   RenderWorkspaceMode,
-  RenderedFramePayload,
   SegmentRenderInfo,
   TextAnimation,
   TimelineHistoryState,
@@ -101,6 +102,8 @@ import type {
   TimelineSegmentMetric,
   TimelineWheelMode,
   VideoRenderModalProps,
+  WebExportSettings,
+  WebHistoryState,
 } from './shared/types';
 import {
   captureTimelineHistoryState,
@@ -140,6 +143,7 @@ type PersistedRenderWorkspaceState = {
   videoTrackByNodeId?: Record<string, string>;
   audioTrackByNodeId?: Record<string, string>;
   timelineStartById?: Record<string, number>;
+  timelineDurationById?: Record<string, number>;
   timelinePast?: TimelineHistoryState[];
   timelineFuture?: TimelineHistoryState[];
   activePreviewId?: string;
@@ -167,9 +171,20 @@ type PersistedRenderWorkspaceState = {
   timelinePixelsPerSecond?: number;
   timelineDisplayDuration?: number;
   timelinePreviewTime?: number;
+  timelineScrollLeft?: number;
+  assetScrollTop?: number;
+  selectedAssetIds?: string[];
+  focusedPreviewId?: string;
   useGpuAcceleration?: boolean;
   hideCharacterTags?: boolean;
   hideSceneTags?: boolean;
+  webProjectName?: string;
+  webChoiceColor?: string;
+  webChoiceTextColor?: string;
+  webSettings?: Partial<WebExportSettings>;
+  webRenderStyle?: Partial<RenderStyle>;
+  webPast?: WebHistoryState[];
+  webFuture?: WebHistoryState[];
   savedAt?: number;
 };
 
@@ -185,6 +200,18 @@ const readRenderWorkspaceState = (workspaceKey?: string): PersistedRenderWorkspa
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
     return null;
+  }
+};
+
+const writeRenderWorkspaceState = (
+  workspaceKey: string | undefined,
+  snapshot: PersistedRenderWorkspaceState,
+) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(renderWorkspaceStorageKey(workspaceKey), JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage quota/private-mode failures; the render workspace still works in-memory.
   }
 };
 
@@ -301,12 +328,18 @@ export function VideoRenderModal({
     updateWebRenderStyle,
     updateWebChoiceColor,
     updateWebChoiceTextColor,
-  } = useWebExportSettings(defaultWebProjectName, status === 'rendering');
+  } = useWebExportSettings(defaultWebProjectName, status === 'rendering', {
+    projectName: persistedWorkspace?.webProjectName,
+    choiceColor: persistedWorkspace?.webChoiceColor,
+    choiceTextColor: persistedWorkspace?.webChoiceTextColor,
+    settings: persistedWorkspace?.webSettings,
+    renderStyle: persistedWorkspace?.webRenderStyle,
+    past: persistedWorkspace?.webPast,
+    future: persistedWorkspace?.webFuture,
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () =>
-      new Set(
-        Array.isArray(persistedWorkspace?.selectedIds) ? persistedWorkspace.selectedIds : [],
-      ),
+      new Set(Array.isArray(persistedWorkspace?.selectedIds) ? persistedWorkspace.selectedIds : []),
   );
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
     Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : [],
@@ -472,21 +505,27 @@ export function VideoRenderModal({
   const [timelineDisplayDuration, setTimelineDisplayDuration] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.timelineDisplayDuration, 60, 5, 3600),
   );
-  const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>({});
+  const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>(
+    () => persistedWorkspace?.timelineDurationById || {},
+  );
   const [uploadedAssetNodes, setUploadedAssetNodes] = useState<FlowNode[]>([]);
-  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  const [focusedPreviewId, setFocusedPreviewId] = useState('');
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(
+    () => persistedWorkspace?.selectedAssetIds || [],
+  );
+  const [focusedPreviewId, setFocusedPreviewId] = useState(
+    () => persistedWorkspace?.focusedPreviewId || '',
+  );
   const [timelinePreviewTime, setTimelinePreviewTime] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.timelinePreviewTime, 0, 0, 3600),
   );
   const [timelineScrollInfo, setTimelineScrollInfo] = useState({
-    scrollLeft: 0,
+    scrollLeft: persistedWorkspace?.timelineScrollLeft || 0,
     scrollWidth: 1,
     clientWidth: 1,
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [assetScrollInfo, setAssetScrollInfo] = useState({
-    scrollTop: 0,
+    scrollTop: persistedWorkspace?.assetScrollTop || 0,
     scrollHeight: 1,
     clientHeight: 1,
   });
@@ -535,6 +574,10 @@ export function VideoRenderModal({
   const uploadedObjectUrlsRef = useRef<Set<string>>(new Set());
   const timelineClipCounterRef = useRef(0);
   const renderAbortControllerRef = useRef<AbortController | null>(null);
+  const latestWorkspaceSnapshotRef = useRef<{
+    workspaceKey?: string;
+    snapshot: PersistedRenderWorkspaceState;
+  } | null>(null);
 
   const allAssetNodes = useMemo(
     () => [...uploadedAssetNodes, ...orderedNodes],
@@ -570,9 +613,58 @@ export function VideoRenderModal({
     () => timelineNodes.filter((node) => selectedIds.has(node.id)),
     [timelineNodes, selectedIds],
   );
+  const speechTagNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          nodes
+            .flatMap((node) => [
+              node.type === 'characterNode' ? node.data?.characterName : '',
+              node.type === 'sceneNode' ? node.data?.sceneName : '',
+            ])
+            .map((name) => String(name || '').trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => b.length - a.length),
+    [nodes],
+  );
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const removePlainSpeechTags = (text: string) => {
+    let cleaned = text
+      .replace(/<\/?span\b[^>]*(?:mention-chip|data-mention-(?:kind|name))[^>]*>/gi, ' ')
+      .replace(/\{\{\s*(?:character|scene)\s*:[^}]+\}\}/gi, ' ');
+    speechTagNames.forEach((name) => {
+      cleaned = cleaned.replace(new RegExp(`@\\s*${escapeRegExp(name)}`, 'giu'), ' ');
+    });
+    return cleaned
+      .replace(/@[\p{L}\p{N}_·・.-]+/gu, ' ')
+      .replace(/[ \t\f\v]+/g, ' ')
+      .replace(/\s*\n\s*/g, '\n')
+      .trim();
+  };
+  const removeSpeechMentionTags = (html: string) => {
+    if (!html) return '';
+    if (typeof DOMParser === 'undefined') {
+      return html
+        .replace(
+          /<span\b[^>]*(?:class=(?:"[^"]*\bmention-chip\b[^"]*"|'[^']*\bmention-chip\b[^']*')|data-mention-kind=(?:"[^"]*"|'[^']*'))[^>]*>[\s\S]*?<\/span>/gi,
+          ' ',
+        )
+        .replace(/@\S+/g, ' ');
+    }
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    document
+      .querySelectorAll('.mention-chip, [data-mention-kind], [data-mention-name]')
+      .forEach((mention) => mention.remove());
+    return document.body.innerHTML;
+  };
   const getSpeechTextForNode = (node: FlowNode) => {
-    const title = htmlToSpeechText(String(node.data?.title || ''));
-    const body = htmlToSpeechText(String(node.data?.text || ''));
+    const title = removePlainSpeechTags(
+      htmlToSpeechText(removeSpeechMentionTags(String(node.data?.title || ''))),
+    );
+    const body = removePlainSpeechTags(
+      htmlToSpeechText(removeSpeechMentionTags(String(node.data?.text || ''))),
+    );
     return [title, body].filter(Boolean).join('\n').trim();
   };
   const canGenerateSpeechFromNode = (node: FlowNode) =>
@@ -718,6 +810,7 @@ export function VideoRenderModal({
       videoTrackByNodeId,
       audioTrackByNodeId,
       timelineStartById,
+      timelineDurationById,
       activePreviewId,
     });
 
@@ -732,6 +825,7 @@ export function VideoRenderModal({
       setVideoTrackByNodeId,
       setAudioTrackByNodeId,
       setTimelineStartById,
+      setTimelineDurationById,
       setActivePreviewId,
     });
   };
@@ -741,7 +835,73 @@ export function VideoRenderModal({
     setTimelineFuture([]);
   };
 
+  const captureWorkspaceState = (): PersistedRenderWorkspaceState => ({
+    workspaceMode,
+    selectedIds: [...selectedIds],
+    timelineIds,
+    timelineSourceById,
+    timelineExcludedSourceIds: [...timelineExcludedSourceIds],
+    videoTrackIds,
+    audioTrackIds,
+    videoTrackByNodeId,
+    audioTrackByNodeId,
+    timelineStartById,
+    timelineDurationById,
+    timelinePast: timelinePast.slice(-50),
+    timelineFuture: timelineFuture.slice(0, 50),
+    activePreviewId,
+    assetRegionFilter,
+    resolutionIndex,
+    resolutionWidth,
+    resolutionHeight,
+    exportFormat,
+    speed,
+    defaultSeconds,
+    animationLeadSeconds,
+    frameRate,
+    outputDir,
+    webOutputDir,
+    renderStyle,
+    assetPanelWidth,
+    assetCardLayout,
+    assetCardScale,
+    exportPanelWidth,
+    exportSettingsMode,
+    timelineHeight,
+    timelineScaleMode,
+    timelineWheelMode,
+    timelineSnapEnabled,
+    timelinePixelsPerSecond,
+    timelineDisplayDuration,
+    timelinePreviewTime,
+    timelineScrollLeft: timelineScrollInfo.scrollLeft,
+    assetScrollTop: assetScrollInfo.scrollTop,
+    selectedAssetIds,
+    focusedPreviewId,
+    useGpuAcceleration,
+    hideCharacterTags,
+    hideSceneTags,
+    webProjectName,
+    webChoiceColor,
+    webChoiceTextColor,
+    webSettings,
+    webRenderStyle,
+    webPast: webPast.slice(-50),
+    webFuture: webFuture.slice(0, 50),
+    savedAt: Date.now(),
+  });
+
+  const saveWorkspaceImmediately = () => {
+    const snapshot = captureWorkspaceState();
+    latestWorkspaceSnapshotRef.current = { workspaceKey, snapshot };
+    writeRenderWorkspaceState(workspaceKey, snapshot);
+  };
+
   const closeContextMenu = () => setContextMenu(null);
+  const closeRenderWorkspace = () => {
+    saveWorkspaceImmediately();
+    onClose();
+  };
 
   const toggleFullscreen = async () => {
     try {
@@ -1527,6 +1687,11 @@ export function VideoRenderModal({
         Object.entries(prev).filter(([id]) => validIds.has(timelineSourceById[id] || id)),
       ),
     );
+    setTimelineDurationById((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([id]) => validIds.has(timelineSourceById[id] || id)),
+      ),
+    );
     setVideoTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
       getValidTimelineIds(timelineIds).forEach((id) => {
@@ -1553,6 +1718,10 @@ export function VideoRenderModal({
   React.useEffect(() => {
     const objectUrls = uploadedObjectUrlsRef.current;
     return () => {
+      const latestWorkspace = latestWorkspaceSnapshotRef.current;
+      if (latestWorkspace) {
+        writeRenderWorkspaceState(latestWorkspace.workspaceKey, latestWorkspace.snapshot);
+      }
       if (voiceoverRecorderRef.current?.state === 'recording') {
         voiceoverRecorderRef.current.stop();
       }
@@ -1563,58 +1732,9 @@ export function VideoRenderModal({
   }, []);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const snapshot: PersistedRenderWorkspaceState = {
-      workspaceMode,
-      selectedIds: [...selectedIds],
-      timelineIds,
-      timelineSourceById,
-      timelineExcludedSourceIds: [...timelineExcludedSourceIds],
-      videoTrackIds,
-      audioTrackIds,
-      videoTrackByNodeId,
-      audioTrackByNodeId,
-      timelineStartById,
-      timelinePast: timelinePast.slice(-50),
-      timelineFuture: timelineFuture.slice(0, 50),
-      activePreviewId,
-      assetRegionFilter,
-      resolutionIndex,
-      resolutionWidth,
-      resolutionHeight,
-      exportFormat,
-      speed,
-      defaultSeconds,
-      animationLeadSeconds,
-      frameRate,
-      outputDir,
-      webOutputDir,
-      renderStyle,
-      assetPanelWidth,
-      assetCardLayout,
-      assetCardScale,
-      exportPanelWidth,
-      exportSettingsMode,
-      timelineHeight,
-      timelineScaleMode,
-      timelineWheelMode,
-      timelineSnapEnabled,
-      timelinePixelsPerSecond,
-      timelineDisplayDuration,
-      timelinePreviewTime,
-      useGpuAcceleration,
-      hideCharacterTags,
-      hideSceneTags,
-      savedAt: Date.now(),
-    };
-    try {
-      window.localStorage.setItem(
-        renderWorkspaceStorageKey(workspaceKey),
-        JSON.stringify(snapshot),
-      );
-    } catch {
-      // Ignore storage quota/private-mode failures; the render workspace still works in-memory.
-    }
+    const snapshot = captureWorkspaceState();
+    latestWorkspaceSnapshotRef.current = { workspaceKey, snapshot };
+    writeRenderWorkspaceState(workspaceKey, snapshot);
   }, [
     activePreviewId,
     animationLeadSeconds,
@@ -1622,6 +1742,7 @@ export function VideoRenderModal({
     assetCardScale,
     assetPanelWidth,
     assetRegionFilter,
+    assetScrollInfo.scrollTop,
     audioTrackByNodeId,
     audioTrackIds,
     defaultSeconds,
@@ -1629,6 +1750,7 @@ export function VideoRenderModal({
     exportPanelWidth,
     exportSettingsMode,
     frameRate,
+    focusedPreviewId,
     hideCharacterTags,
     hideSceneTags,
     outputDir,
@@ -1637,8 +1759,10 @@ export function VideoRenderModal({
     resolutionIndex,
     resolutionWidth,
     selectedIds,
+    selectedAssetIds,
     speed,
     timelineDisplayDuration,
+    timelineDurationById,
     timelineHeight,
     timelineIds,
     timelineExcludedSourceIds,
@@ -1647,6 +1771,7 @@ export function VideoRenderModal({
     timelinePast,
     timelinePixelsPerSecond,
     timelinePreviewTime,
+    timelineScrollInfo.scrollLeft,
     timelineScaleMode,
     timelineSnapEnabled,
     timelineSourceById,
@@ -1654,10 +1779,35 @@ export function VideoRenderModal({
     timelineWheelMode,
     videoTrackByNodeId,
     videoTrackIds,
+    webChoiceColor,
+    webChoiceTextColor,
+    webFuture,
     webOutputDir,
+    webPast,
+    webProjectName,
+    webRenderStyle,
+    webSettings,
     workspaceKey,
     workspaceMode,
   ]);
+
+  React.useEffect(() => {
+    const saveBeforePageExit = () => {
+      const latestWorkspace = latestWorkspaceSnapshotRef.current;
+      if (latestWorkspace) {
+        writeRenderWorkspaceState(latestWorkspace.workspaceKey, {
+          ...latestWorkspace.snapshot,
+          savedAt: Date.now(),
+        });
+      }
+    };
+    window.addEventListener('pagehide', saveBeforePageExit);
+    window.addEventListener('beforeunload', saveBeforePageExit);
+    return () => {
+      window.removeEventListener('pagehide', saveBeforePageExit);
+      window.removeEventListener('beforeunload', saveBeforePageExit);
+    };
+  }, []);
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1667,6 +1817,19 @@ export function VideoRenderModal({
     handleFullscreenChange();
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  React.useEffect(() => {
+    if (workspaceMode !== 'video') return;
+    const frame = requestAnimationFrame(() => {
+      if (timelineViewportRef.current) {
+        timelineViewportRef.current.scrollLeft = timelineScrollInfo.scrollLeft;
+      }
+      if (assetViewportRef.current) {
+        assetViewportRef.current.scrollTop = assetScrollInfo.scrollTop;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [workspaceMode]);
 
   React.useEffect(() => {
     if (assetRegionFilter === 'all' || assetRegionFilter === 'outside') return;
@@ -1892,6 +2055,7 @@ export function VideoRenderModal({
     setVideoTrackByNodeId(removeMapEntries);
     setAudioTrackByNodeId(removeMapEntries);
     setTimelineStartById(removeMapEntries);
+    setTimelineDurationById(removeMapEntries);
   };
 
   const removeTimelineNode = (id: string) => removeTimelineNodes([id]);
@@ -2044,12 +2208,15 @@ export function VideoRenderModal({
     id: string,
     trackKind?: 'video' | 'audio',
     dragOffsetSeconds = 0,
+    draggedTimelineIds?: string[],
   ) => {
     event.stopPropagation();
     const draggedAssetIds =
-      !trackKind && selectedAssetIds.includes(id) && selectedAssetIds.length > 1
-        ? selectedAssetIds
-        : [id];
+      trackKind && draggedTimelineIds?.includes(id) && draggedTimelineIds.length > 1
+        ? draggedTimelineIds.filter((timelineId) => timelineIds.includes(timelineId))
+        : !trackKind && selectedAssetIds.includes(id) && selectedAssetIds.length > 1
+          ? selectedAssetIds
+          : [id];
     event.dataTransfer.setData('application/x-galwriter-node', id);
     event.dataTransfer.setData('application/x-galwriter-nodes', JSON.stringify(draggedAssetIds));
     event.dataTransfer.setData(
@@ -2085,7 +2252,8 @@ export function VideoRenderModal({
       );
       if (Array.isArray(parsed)) {
         draggedAssetIds = parsed.filter(
-          (id): id is string => typeof id === 'string' && assetNodeById.has(id),
+          (id): id is string =>
+            typeof id === 'string' && (assetNodeById.has(id) || timelineNodeById.has(id)),
         );
       }
     } catch {
@@ -2155,9 +2323,7 @@ export function VideoRenderModal({
       }));
       setAudioTrackByNodeId((prev) => ({
         ...prev,
-        ...Object.fromEntries(
-          newIds.map(({ timelineId }) => [timelineId, targetAudioTrackId]),
-        ),
+        ...Object.fromEntries(newIds.map(({ timelineId }) => [timelineId, targetAudioTrackId])),
       }));
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -2196,6 +2362,50 @@ export function VideoRenderModal({
       const droppedTime =
         (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
         dragOffsetSeconds;
+      const draggedTimelineClipIds =
+        isTimelineClip && draggedAssetIds.includes(draggedId)
+          ? draggedAssetIds.filter((id) => timelineMetricById.has(id))
+          : [];
+
+      if (draggedTimelineClipIds.length > 1) {
+        const anchorStart = timelineMetricById.get(draggedId)?.start || 0;
+        const desiredAnchorStart = snapTimelineTime(droppedTime);
+        const rawDelta = desiredAnchorStart - anchorStart;
+        const minimumStart = Math.min(
+          ...draggedTimelineClipIds.map((id) => timelineMetricById.get(id)?.start || 0),
+        );
+        const delta = Math.max(rawDelta, -minimumStart);
+        const nextStarts = Object.fromEntries(
+          draggedTimelineClipIds.map((id) => [
+            id,
+            Math.max(0, (timelineMetricById.get(id)?.start || 0) + delta),
+          ]),
+        );
+
+        pushTimelineHistory();
+        setTimelineStartById((previous) => ({ ...previous, ...nextStarts }));
+
+        if (droppedTrackKind === 'video' && droppedTrackId) {
+          setVideoTrackByNodeId((previous) => ({ ...previous, [draggedId]: droppedTrackId! }));
+          assignAudioTrackForVideoPlacement(
+            draggedId,
+            nextStarts[draggedId],
+            timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed),
+            droppedTrackId,
+          );
+        } else if (droppedTrackKind === 'audio' && droppedTrackId) {
+          setAudioTrackByNodeId((previous) => ({ ...previous, [draggedId]: droppedTrackId! }));
+        }
+
+        if (draggedTimelineClipIds.includes(activePreviewId)) {
+          preservePreviewTimeOnNodeChangeRef.current = true;
+          setTimelinePreviewTime((previous) =>
+            clamp(previous + delta, 0, timelineMetrics.totalDuration + Math.max(0, delta)),
+          );
+        }
+        return;
+      }
+
       const placementTrackId = droppedTrackId || audioTrackIds[0] || makeTrackId('audio');
       const nextStart = draggingAudioOnly
         ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
@@ -2616,6 +2826,40 @@ export function VideoRenderModal({
           audioUrl: source.url,
         })),
       );
+      let regionCursor = 0;
+      selectedNodes.forEach((node, index) => {
+        const duration = nodeDurations[index];
+        const match = resolveRegionBackgroundMusic(nodes, node);
+        const previous = audioSegments[audioSegments.length - 1];
+        const canExtend =
+          match &&
+          previous?.node.id === `region-music:${match.regionId}` &&
+          previous.audioUrl === match.music.url &&
+          previous.startSecs !== undefined &&
+          previous.startSecs + previous.durationSecs === regionCursor;
+
+        if (canExtend) {
+          previous.durationSecs += duration;
+          previous.fadeOut = match.music.fadeOut;
+        } else if (match) {
+          audioSegments.push({
+            node: {
+              id: `region-music:${match.regionId}`,
+              type: 'regionMusic',
+              position: { x: 0, y: 0 },
+              data: {},
+            },
+            startSecs: regionCursor,
+            durationSecs: duration,
+            audioUrl: match.music.url,
+            volume: match.music.volume,
+            loop: match.music.loop,
+            fadeIn: match.music.fadeIn,
+            fadeOut: match.music.fadeOut,
+          });
+        }
+        regionCursor += duration;
+      });
 
       const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
       throwIfRenderCancelled();
@@ -2860,7 +3104,7 @@ export function VideoRenderModal({
       };
 
       if (isTauriRuntime()) {
-        const blob = await buildInteractiveWebZipBlob(storyNodes, edges, webExportOptions);
+        const blob = await buildInteractiveWebZipBlob(nodes, edges, webExportOptions);
         setProgressValue(70);
         setProgress(isZh ? '正在保存网页 ZIP...' : 'Saving web ZIP...');
         const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
@@ -2871,7 +3115,7 @@ export function VideoRenderModal({
         });
         setSavedPath(result.path);
       } else {
-        await exportInteractiveWebZip(storyNodes, edges, webExportOptions);
+        await exportInteractiveWebZip(nodes, edges, webExportOptions);
         setSavedPath(`${exportTitle}-web.zip`);
       }
       setStatus('done');
@@ -3109,7 +3353,9 @@ export function VideoRenderModal({
   const getSelectedAssetsInCardOrder = () => {
     const visibleIndex = new Map(visibleAssetNodes.map((node, index) => [node.id, index]));
     return [...selectedAssetIds].sort(
-      (a, b) => (visibleIndex.get(a) ?? Number.MAX_SAFE_INTEGER) - (visibleIndex.get(b) ?? Number.MAX_SAFE_INTEGER),
+      (a, b) =>
+        (visibleIndex.get(a) ?? Number.MAX_SAFE_INTEGER) -
+        (visibleIndex.get(b) ?? Number.MAX_SAFE_INTEGER),
     );
   };
 
@@ -3149,9 +3395,7 @@ export function VideoRenderModal({
     setTimelineIds((prev) => [...prev, ...newClips.map(({ timelineId }) => timelineId)]);
     setTimelineSourceById((prev) => ({
       ...prev,
-      ...Object.fromEntries(
-        newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId]),
-      ),
+      ...Object.fromEntries(newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId])),
     }));
     setTimelineStartById((prev) => ({ ...prev, ...startById }));
     setTimelineDurationById((prev) => ({ ...prev, ...durationById }));
@@ -3528,7 +3772,10 @@ export function VideoRenderModal({
           webFuture={webFuture}
           selectedNodes={selectedNodes}
           nodes={nodes}
-          setWorkspaceMode={setWorkspaceMode}
+          setWorkspaceMode={(mode) => {
+            saveWorkspaceImmediately();
+            setWorkspaceMode(mode);
+          }}
           setError={setError}
           setProgress={setProgress}
           setSavedPath={setSavedPath}
@@ -3539,7 +3786,7 @@ export function VideoRenderModal({
           redoWeb={redoWeb}
           renderVideo={renderVideo}
           exportWebProject={exportWebProject}
-          onClose={onClose}
+          onClose={closeRenderWorkspace}
         />
 
         {workspaceMode === 'video' ? (

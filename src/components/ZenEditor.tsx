@@ -59,6 +59,7 @@ type ZenTag = {
 };
 
 export function ZenEditor({
+  nodeId,
   value,
   imageUrl,
   videoUrl,
@@ -76,6 +77,7 @@ export function ZenEditor({
   onPresentationChange,
   onClose,
 }: {
+  nodeId: string;
   value: string;
   imageUrl?: string;
   videoUrl?: string;
@@ -512,12 +514,24 @@ export function ZenEditor({
     replayScene(tag.id);
   };
 
+  const cardVideoMentionName = '卡片视频';
+  const openCardVideoMenu = () => {
+    openSceneMenu({ id: nodeId, name: cardVideoMentionName });
+  };
+
   useEffect(() => {
     if (!presentationMenu) return;
+    if (
+      presentationMenu.kind === 'scene' &&
+      videoUrl &&
+      presentationMenu.id === nodeId
+    ) {
+      return;
+    }
     const tags = presentationMenu.kind === 'character' ? characterTags : sceneTags;
     const latest = tags.find((tag) => tag.id === presentationMenu.id);
     if (!latest) setPresentationMenu(null);
-  }, [characterTags, sceneTags, presentationMenu]);
+  }, [characterTags, nodeId, sceneTags, presentationMenu, videoUrl]);
 
   useEffect(() => {
     if (presentationMenu) return;
@@ -532,7 +546,7 @@ export function ZenEditor({
     document.execCommand(command, false, arg);
   };
 
-  const insertMention = (kind: 'character' | 'scene', name: string) => {
+  const insertMention = (kind: 'character' | 'scene' | 'video', name: string) => {
     richTextRef.current?.insertMention(kind, name);
   };
 
@@ -940,7 +954,7 @@ export function ZenEditor({
           </div>
 
           <div className="hidden">
-            {(characterTags.length > 0 || sceneTags.length > 0) && (
+            {(characterTags.length > 0 || sceneTags.length > 0 || videoUrl) && (
               <div>
                 {characterTags.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1">
@@ -986,6 +1000,20 @@ export function ZenEditor({
                         @{tag.name}
                       </button>
                     ))}
+                  </div>
+                )}
+                {videoUrl && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <MapPin className="w-4 h-4 text-[var(--text-muted)] mx-1 shrink-0" />
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => insertMention('video', cardVideoMentionName)}
+                      className="select-none px-2 py-1 rounded-md text-xs font-bold bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 border border-blue-800/20 dark:text-blue-300"
+                      title={`插入 @${cardVideoMentionName}`}
+                    >
+                      @{cardVideoMentionName}
+                    </button>
                   </div>
                 )}
               </div>
@@ -1137,6 +1165,7 @@ export function ZenEditor({
               value={value}
               onChange={onChange}
               onMentionContextMenu={(event, mention) => {
+                if (mention.kind === 'video') return;
                 const tags = mention.kind === 'character' ? characterTags : sceneTags;
                 const tag = tags.find((item) => item.name === mention.name);
                 if (!tag) return;
@@ -1186,73 +1215,74 @@ export function ZenEditor({
             rightPanel === 'audio' ? 'hidden' : ''
           }`}
         >
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-indigo-500">
               <User className="h-5 w-5" />
               人物演出
             </div>
-            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+            <div className="flex min-w-0 flex-1 flex-wrap gap-1">
               {characterTags.length ? (
                 characterTags.map((tag) => (
-                  <div key={tag.id} className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openCharacterMenu(tag)}
-                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
-                        presentationMenu?.kind === 'character' && presentationMenu.id === tag.id
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => insertMention('character', tag.name)}
-                      className="rounded-lg bg-[var(--app-bg)] px-3 text-sm font-black text-indigo-500"
-                      title={`插入 @${tag.name}`}
-                    >
-                      @
-                    </button>
-                  </div>
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => openCharacterMenu(tag)}
+                    className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                      presentationMenu?.kind === 'character' && presentationMenu.id === tag.id
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
+                    }`}
+                    title={`切换到${tag.name}的人物演出设置`}
+                  >
+                    {tag.name}
+                  </button>
                 ))
               ) : (
                 <div className="text-[11px] text-[var(--text-muted)]">无人物</div>
               )}
             </div>
           </div>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-blue-500">
               <MapPin className="h-5 w-5" />
               场景演出
             </div>
-            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-              {sceneTags.length ? (
-                sceneTags.map((tag) => (
-                  <div key={tag.id} className="flex shrink-0 gap-1">
+            <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+              {sceneTags.length || videoUrl ? (
+                <>
+                  {videoUrl && (
                     <button
                       type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={openCardVideoMenu}
+                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                        presentationMenu?.kind === 'scene' && presentationMenu.id === nodeId
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                      }`}
+                      title="切换到卡片视频的场景演出设置"
+                    >
+                      {cardVideoMentionName}
+                    </button>
+                  )}
+                  {sceneTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => openSceneMenu(tag)}
                       className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
                         presentationMenu?.kind === 'scene' && presentationMenu.id === tag.id
                           ? 'bg-blue-500 text-white'
                           : 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
                       }`}
+                      title={`切换到${tag.name}的场景演出设置`}
                     >
                       {tag.name}
                     </button>
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => insertMention('scene', tag.name)}
-                      className="rounded-lg bg-[var(--app-bg)] px-3 text-sm font-black text-blue-500"
-                      title={`插入 @${tag.name}`}
-                    >
-                      @
-                    </button>
-                  </div>
-                ))
+                  ))}
+                </>
               ) : (
                 <div className="text-[11px] text-[var(--text-muted)]">无场景</div>
               )}

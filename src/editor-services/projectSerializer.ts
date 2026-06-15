@@ -349,6 +349,20 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         );
       }
 
+      const backgroundMusic = restoredNode.data.backgroundMusic;
+      if (backgroundMusic && typeof backgroundMusic === 'object') {
+        const music = { ...(backgroundMusic as Record<string, unknown>) };
+        const url = music.url;
+        if (typeof url === 'string' && url.startsWith('assets/') && zip) {
+          const assetFile = zip.file(url);
+          if (assetFile) {
+            const blob = await assetFile.async('blob');
+            music.url = URL.createObjectURL(blob);
+          }
+        }
+        restoredNode.data.backgroundMusic = music;
+      }
+
       if (typeof restoredNode.data.text === 'string') {
         restoredNode.data.text = await restoreHtmlMedia(restoredNode.data.text, zip);
       }
@@ -511,6 +525,23 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
               return { ...nextClip, url: `assets/${mediaFileName}` };
             }),
           );
+        }
+
+        const backgroundMusic = nextNode.data.backgroundMusic;
+        if (backgroundMusic && typeof backgroundMusic === 'object') {
+          const music = { ...(backgroundMusic as Record<string, unknown>) };
+          const url = music.url;
+          if (typeof url === 'string' && (url.startsWith('data:') || url.startsWith('blob:'))) {
+            const blob = await urlToBlob(url);
+            if (blob) {
+              const extension =
+                blob.type === 'audio/mpeg' ? 'mp3' : blob.type.split('/')[1] || 'bin';
+              const mediaFileName = `media_${node.id}_backgroundMusic.${extension}`;
+              assetsFolder?.file(mediaFileName, blob);
+              music.url = `assets/${mediaFileName}`;
+            }
+          }
+          nextNode.data.backgroundMusic = music;
         }
 
         if (typeof nextNode.data.text === 'string') {

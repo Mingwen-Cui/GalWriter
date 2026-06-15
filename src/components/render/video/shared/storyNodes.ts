@@ -10,10 +10,29 @@ export const filterMentionTags = (
   hideCharacterTags: boolean,
   hideSceneTags: boolean,
 ) => {
-  if ((!hideCharacterTags && !hideSceneTags) || !html) return html;
-  if (typeof DOMParser === 'undefined') return html;
+  if (!html) return html;
+  if (typeof DOMParser === 'undefined') {
+    let filtered = html.replace(
+      /<span\b[^>]*data-mention-kind=(?:"video"|'video')[^>]*>[\s\S]*?<\/span>/gi,
+      '',
+    );
+    if (hideCharacterTags) {
+      filtered = filtered.replace(
+        /<span\b[^>]*data-mention-kind=(?:"character"|'character')[^>]*>[\s\S]*?<\/span>/gi,
+        '',
+      );
+    }
+    if (hideSceneTags) {
+      filtered = filtered.replace(
+        /<span\b[^>]*data-mention-kind=(?:"scene"|'scene')[^>]*>[\s\S]*?<\/span>/gi,
+        '',
+      );
+    }
+    return filtered;
+  }
 
   const document = new DOMParser().parseFromString(html, 'text/html');
+  document.querySelectorAll('[data-mention-kind="video"]').forEach((node) => node.remove());
   if (hideCharacterTags) {
     document.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
   }

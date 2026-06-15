@@ -10,6 +10,7 @@ type TimelineHistorySource = {
   videoTrackByNodeId: Record<string, string>;
   audioTrackByNodeId: Record<string, string>;
   timelineStartById: Record<string, number>;
+  timelineDurationById: Record<string, number>;
   activePreviewId: string;
 };
 
@@ -23,6 +24,7 @@ type TimelineHistoryRestoreHandlers = {
   setVideoTrackByNodeId: (value: Record<string, string>) => void;
   setAudioTrackByNodeId: (value: Record<string, string>) => void;
   setTimelineStartById: (value: Record<string, number>) => void;
+  setTimelineDurationById: (value: Record<string, number>) => void;
   setActivePreviewId: (value: string) => void;
 };
 
@@ -36,6 +38,7 @@ export const captureTimelineHistoryState = ({
   videoTrackByNodeId,
   audioTrackByNodeId,
   timelineStartById,
+  timelineDurationById,
   activePreviewId,
 }: TimelineHistorySource): TimelineHistoryState => ({
   timelineIds: [...timelineIds],
@@ -47,6 +50,7 @@ export const captureTimelineHistoryState = ({
   videoTrackByNodeId: { ...videoTrackByNodeId },
   audioTrackByNodeId: { ...audioTrackByNodeId },
   timelineStartById: { ...timelineStartById },
+  timelineDurationById: { ...timelineDurationById },
   activePreviewId,
 });
 
@@ -63,5 +67,6 @@ export const restoreTimelineHistoryState = (
   handlers.setVideoTrackByNodeId(snapshot.videoTrackByNodeId);
   handlers.setAudioTrackByNodeId(snapshot.audioTrackByNodeId);
   handlers.setTimelineStartById(snapshot.timelineStartById || {});
+  handlers.setTimelineDurationById(snapshot.timelineDurationById || {});
   handlers.setActivePreviewId(snapshot.activePreviewId);
 };

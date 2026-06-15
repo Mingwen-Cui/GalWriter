@@ -1,6 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
+import { resolveRegionBackgroundMusic } from '../../../lib/regionMusic';
 import { filterMentionTags } from '../video/shared/storyNodes';
 
 type WebExportOptions = {
@@ -45,6 +46,13 @@ type WebExportNode = {
     imageUrl?: string;
     videoUrl?: string;
     audioUrl?: string;
+    backgroundMusic?: {
+      url: string;
+      loop: boolean;
+      volume: number;
+      fadeIn: number;
+      fadeOut: number;
+    };
     objectFit?: string;
     showTextOverlay?: boolean;
     isRoot?: boolean;
@@ -144,6 +152,31 @@ const addVideoAsset = async (
     return relativePath;
   } catch (error) {
     console.warn('Could not pack web export video:', error);
+    return url;
+  }
+};
+
+const addAudioAsset = async (
+  zip: JSZip,
+  url: string | undefined,
+  hint: string,
+  assetMap: Map<string, string>,
+) => {
+  if (typeof url !== 'string' || !url.trim()) return url;
+  if (assetMap.has(url)) return assetMap.get(url);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const extension =
+      blob.type === 'audio/mpeg' ? 'mp3' : getImageExtension(url, blob.type.split('/')[1] || 'bin');
+    const fileName = `audio/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
+    zip.file(fileName, blob);
+    const relativePath = `./${fileName}`;
+    assetMap.set(url, relativePath);
+    return relativePath;
+  } catch (error) {
+    console.warn('Could not pack web export audio:', error);
     return url;
   }
 };
@@ -765,6 +798,61 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     let playedAudios = [];
     let currentAudioEnded = true;
     let currentVideoEnded = true;
+    let regionAudio = null;
+    let regionAudioKey = "";
+    let regionFadeFrame = 0;
+
+    function fadeRegionAudio(audio, from, to, seconds, done) {
+      cancelAnimationFrame(regionFadeFrame);
+      const duration = Math.max(0, Number(seconds) || 0) * 1000;
+      if (!duration) {
+        audio.volume = to;
+        if (done) done();
+        return;
+      }
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / duration);
+        audio.volume = from + (to - from) * progress;
+        if (progress < 1) regionFadeFrame = requestAnimationFrame(tick);
+        else if (done) done();
+      };
+      regionFadeFrame = requestAnimationFrame(tick);
+    }
+
+    function syncRegionMusic(music) {
+      const nextKey = music && music.url ? music.url : "";
+      if (regionAudio && regionAudioKey === nextKey) {
+        regionAudio.loop = music.loop !== false;
+        regionAudio.volume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        return;
+      }
+      const previous = regionAudio;
+      const startNext = () => {
+        if (!music || !music.url) return;
+        const audio = new Audio(music.url);
+        regionAudio = audio;
+        regionAudioKey = nextKey;
+        audio.loop = music.loop !== false;
+        audio._fadeOut = Math.max(0, Number(music.fadeOut) || 0);
+        const targetVolume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        audio.volume = Number(music.fadeIn) > 0 ? 0 : targetVolume;
+        audio.play().catch(() => {});
+        fadeRegionAudio(audio, audio.volume, targetVolume, music.fadeIn);
+      };
+      if (!previous) {
+        startNext();
+        return;
+      }
+      fadeRegionAudio(previous, previous.volume, 0, previous._fadeOut || 0, () => {
+        previous.pause();
+        if (regionAudio === previous) {
+          regionAudio = null;
+          regionAudioKey = "";
+        }
+        startNext();
+      });
+    }
 
     function nodeTitle(node) {
       return (node && node.data && node.data.title) || labels.option;
@@ -1032,11 +1120,13 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       typewriterTimers = [];
       backButton.disabled = history.length === 0;
       if (!currentId) {
+        syncRegionMusic(null);
         backdropEl.style.backgroundImage = "";
         stageEl.innerHTML = '<div class="end">' + labels.noStory + '</div>';
         return;
       }
       if (currentId === "THE_END") {
+        syncRegionMusic(null);
         stageEl.innerHTML = '<div class="end">' + labels.end + '</div>';
         return;
       }
@@ -1047,6 +1137,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         return;
       }
       const data = node.data || {};
+      syncRegionMusic(data.backgroundMusic || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
       const hideCenteredTitle =
@@ -1298,7 +1389,7 @@ export async function buildInteractiveWebZipBlob(
   };
 
   const webNodes: WebExportNode[] = [];
-  for (const node of nodes) {
+  for (const node of nodes.filter((candidate) => candidate.type === 'storyNode')) {
     const titleText = nodeTitle(node);
     const imageUrl = await addImageAsset(
       zip,
@@ -1310,6 +1401,19 @@ export async function buildInteractiveWebZipBlob(
       zip,
       typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
       `${titleText}-video`,
+      assetMap,
+    );
+    const audioUrl = await addAudioAsset(
+      zip,
+      typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
+      `${titleText}-audio`,
+      assetMap,
+    );
+    const regionMusicMatch = resolveRegionBackgroundMusic(nodes, node);
+    const backgroundMusicUrl = await addAudioAsset(
+      zip,
+      regionMusicMatch?.music.url,
+      `${titleText}-background-music`,
       assetMap,
     );
 
@@ -1365,7 +1469,11 @@ export async function buildInteractiveWebZipBlob(
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,
         imageUrl,
         videoUrl,
-        audioUrl: typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
+        audioUrl,
+        backgroundMusic:
+          regionMusicMatch && backgroundMusicUrl
+            ? { ...regionMusicMatch.music, url: backgroundMusicUrl }
+            : undefined,
         objectFit: typeof node.data?.objectFit === 'string' ? node.data.objectFit : undefined,
         showTextOverlay:
           typeof node.data?.showTextOverlay === 'boolean' ? node.data.showTextOverlay : undefined,

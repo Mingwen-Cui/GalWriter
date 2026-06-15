@@ -2,6 +2,9 @@ import { NodeProps, NodeToolbar, Position, useStore } from '@xyflow/react';
 import { BookOpen, Lock, Replace, Unlock } from 'lucide-react';
 import React, { memo, useCallback, useMemo } from 'react';
 
+import type { RegionBackgroundMusic } from '../domain/project';
+import { RegionMusicMenu } from './RegionMusicControls';
+
 /**
  * 动态包裹组件
  *
@@ -519,6 +522,12 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
               value={color}
               onChange={(event) => updateNodeData({ color: event.target.value })}
               className="w-5 h-5 rounded-full overflow-hidden border-none p-0 cursor-pointer shadow-sm"
+            />
+
+            <RegionMusicMenu
+              active={Boolean(data.backgroundMusic)}
+              value={data.backgroundMusic as RegionBackgroundMusic | undefined}
+              onChange={(backgroundMusic) => updateNodeData({ backgroundMusic })}
             />
 
             {batchToolCount > 0 && (

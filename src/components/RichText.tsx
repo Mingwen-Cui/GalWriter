@@ -1,8 +1,10 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
+export type MentionKind = 'character' | 'scene' | 'video';
+
 export type RichTextHandle = {
   insertText: (text: string) => void;
-  insertMention: (kind: 'character' | 'scene', name: string) => void;
+  insertMention: (kind: MentionKind, name: string) => void;
   focus: () => void;
 };
 
@@ -14,7 +16,7 @@ const escapeHtml = (text: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const createMentionHtml = (kind: 'character' | 'scene', name: string) => {
+const createMentionHtml = (kind: MentionKind, name: string) => {
   const safeName = escapeHtml(name);
   return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
 };
@@ -56,7 +58,7 @@ export const RichText = forwardRef<
     autoFocus?: boolean;
     onMentionContextMenu?: (
       event: React.MouseEvent<HTMLSpanElement>,
-      mention: { kind: 'character' | 'scene'; name: string },
+      mention: { kind: MentionKind; name: string },
     ) => void;
   }
 >(function RichText(
@@ -125,7 +127,7 @@ export const RichText = forwardRef<
       document.execCommand('insertText', false, text);
       handleInput();
     },
-    insertMention(kind: 'character' | 'scene', name: string) {
+    insertMention(kind: MentionKind, name: string) {
       if (!editorRef.current) return;
       editorRef.current.focus();
       document.execCommand('insertHTML', false, createMentionHtml(kind, name));
@@ -192,7 +194,12 @@ export const RichText = forwardRef<
     if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
     const kind = target.dataset.mentionKind;
     const name = target.dataset.mentionName;
-    if ((kind !== 'character' && kind !== 'scene') || !name || !onMentionContextMenu) return;
+    if (
+      (kind !== 'character' && kind !== 'scene' && kind !== 'video') ||
+      !name ||
+      !onMentionContextMenu
+    )
+      return;
     event.preventDefault();
     event.stopPropagation();
     onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
@@ -203,7 +210,12 @@ export const RichText = forwardRef<
     if (!(target instanceof HTMLSpanElement) || !target.classList.contains('mention-chip')) return;
     const kind = target.dataset.mentionKind;
     const name = target.dataset.mentionName;
-    if ((kind !== 'character' && kind !== 'scene') || !name || !onMentionContextMenu) return;
+    if (
+      (kind !== 'character' && kind !== 'scene' && kind !== 'video') ||
+      !name ||
+      !onMentionContextMenu
+    )
+      return;
     event.preventDefault();
     event.stopPropagation();
     window.getSelection()?.removeAllRanges();

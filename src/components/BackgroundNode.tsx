@@ -2,7 +2,9 @@ import { NodeProps, NodeResizer, NodeToolbar, Position, useStore } from '@xyflow
 import { BookOpen, Lock, Replace, Unlock } from 'lucide-react';
 import React, { memo } from 'react';
 
+import type { RegionBackgroundMusic } from '../domain/project';
 import { isBatchReplaceNode, isPlotStructureNode } from '../lib/regionUtils';
+import { RegionMusicMenu } from './RegionMusicControls';
 
 type Point = {
   x: number;
@@ -215,6 +217,12 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
             value={color}
             onChange={(event) => updateNodeData({ color: event.target.value })}
             className="w-5 h-5 rounded-full overflow-hidden border-none p-0 cursor-pointer"
+          />
+
+          <RegionMusicMenu
+            active={Boolean(data.backgroundMusic)}
+            value={data.backgroundMusic as RegionBackgroundMusic | undefined}
+            onChange={(backgroundMusic) => updateNodeData({ backgroundMusic })}
           />
 
           {batchToolCount > 0 && (
