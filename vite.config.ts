@@ -80,6 +80,9 @@ export default defineConfig(() => {
       cors: true,
     },
     build: {
+      // Tauri WebView and the web demo both target modern runtimes; keeping modern output
+      // avoids esbuild 0.28 trying to downlevel dynamic chunks it no longer transforms.
+      target: 'esnext',
       // 针对 Tauri 桌面应用，本地加载速度极快，无需过分担忧 500kb 限制
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
