@@ -1047,7 +1047,9 @@ export function PlayTestModal({
             key={config.sourceNodeId}
             src={imageUrl}
             alt={data.characterName}
-            className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
+            className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
             style={{
               ...getCharacterStagePosition(config),
               zIndex: clampCharacterLayer(config.layer),
@@ -1835,7 +1837,9 @@ export function PlayTestModal({
                   {sceneImageUrl ? (
                     <img
                       src={sceneImageUrl}
-                      className="w-full h-full"
+                      draggable={false}
+                      onDragStart={(event) => event.preventDefault()}
+                      className="preview-media-safe w-full h-full"
                       style={sceneStyle}
                       alt="Scene Background"
                     />
@@ -1962,7 +1966,9 @@ export function PlayTestModal({
                     {sceneImageUrl ? (
                       <img
                         src={sceneImageUrl}
-                        className="w-full h-full object-cover blur-[60px] opacity-20 scale-125"
+                        draggable={false}
+                        onDragStart={(event) => event.preventDefault()}
+                        className="preview-media-safe w-full h-full object-cover blur-[60px] opacity-20 scale-125"
                         alt=""
                       />
                     ) : (
@@ -1985,7 +1991,9 @@ export function PlayTestModal({
                         <img
                           src={sceneImageUrl}
                           alt="Scene"
-                          className="h-full w-full"
+                          draggable={false}
+                          onDragStart={(event) => event.preventDefault()}
+                          className="preview-media-safe h-full w-full"
                           style={{
                             ...sceneStyle,
                           }}

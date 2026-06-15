@@ -189,6 +189,19 @@ body,
   stroke-dasharray: 4;
 }
 
+.preview-media-safe {
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+
+.preview-media-safe::selection {
+  background: transparent;
+}
+
 .bubble-glass-mode .toolbar-bubble-surface {
   isolation: isolate;
   overflow: hidden;

@@ -1074,7 +1074,9 @@ export function ZenEditor({
                           return imageUrl ? (
                             <img
                               src={imageUrl}
-                              className="absolute inset-0 h-full w-full"
+                              draggable={false}
+                              onDragStart={(event) => event.preventDefault()}
+                              className="preview-media-safe absolute inset-0 h-full w-full"
                               style={mediaStyle}
                               alt=""
                             />
@@ -1133,7 +1135,9 @@ export function ZenEditor({
                             key={config.sourceNodeId}
                             src={tag.imageUrl}
                             alt={tag.name}
-                            className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                            draggable={false}
+                            onDragStart={(event) => event.preventDefault()}
+                            className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
                             style={{
                               ...getCharacterStagePosition(config),
                               zIndex: clampCharacterLayer(config.layer),

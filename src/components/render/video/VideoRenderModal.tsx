@@ -1590,14 +1590,19 @@ export function VideoRenderModal({
     event.target.value = '';
   };
 
+  const isInternalGalWriterDrag = (event: React.DragEvent<HTMLElement>) =>
+    event.dataTransfer.types.includes('application/x-galwriter-node') ||
+    event.dataTransfer.types.includes('application/x-galwriter-nodes');
+
   const handleAssetFileDragOver = (event: React.DragEvent<HTMLElement>) => {
-    if (event.dataTransfer.types.includes('Files')) {
+    if (!isInternalGalWriterDrag(event) && event.dataTransfer.types.includes('Files')) {
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
     }
   };
 
   const handleAssetFileDrop = (event: React.DragEvent<HTMLElement>) => {
+    if (isInternalGalWriterDrag(event) || !event.dataTransfer.types.includes('Files')) return;
     if (!event.dataTransfer.files.length) return;
     event.preventDefault();
     event.stopPropagation();
@@ -3515,6 +3520,66 @@ export function VideoRenderModal({
     closeContextMenu();
   };
 
+  const removeUploadedAssets = (ids: string[]) => {
+    const uploadedIds = new Set(
+      ids.filter((id) => uploadedAssetNodes.some((node) => node.id === id)),
+    );
+    if (uploadedIds.size === 0) return;
+
+    const timelineIdsToRemove = timelineIds.filter((timelineId) =>
+      uploadedIds.has(timelineSourceById[timelineId] || timelineId),
+    );
+    closeContextMenu();
+    setUploadedAssetNodes((prev) => {
+      const removedNodes = prev.filter((node) => uploadedIds.has(node.id));
+      removedNodes.forEach((node) => {
+        [node.data?.imageUrl, node.data?.videoUrl, node.data?.audioUrl].forEach((url) => {
+          if (typeof url === 'string' && uploadedObjectUrlsRef.current.has(url)) {
+            URL.revokeObjectURL(url);
+            uploadedObjectUrlsRef.current.delete(url);
+          }
+        });
+      });
+      return prev.filter((node) => !uploadedIds.has(node.id));
+    });
+    if (timelineIdsToRemove.length > 0) {
+      const removedTimelineIds = new Set(timelineIdsToRemove);
+      setTimelineIds((prev) => prev.filter((id) => !removedTimelineIds.has(id)));
+      setTimelineSourceById((prev) =>
+        Object.fromEntries(
+          Object.entries(prev).filter(([timelineId]) => !removedTimelineIds.has(timelineId)),
+        ),
+      );
+      const removeMapEntries = <T,>(map: Record<string, T>) =>
+        Object.fromEntries(
+          Object.entries(map).filter(([id]) => !removedTimelineIds.has(id)),
+        ) as Record<string, T>;
+      setVideoTrackByNodeId(removeMapEntries);
+      setAudioTrackByNodeId(removeMapEntries);
+      setTimelineStartById(removeMapEntries);
+      setTimelineDurationById(removeMapEntries);
+      setTimelineDataOverrides(removeMapEntries);
+      setKeyShotIds((previous) => {
+        const next = new Set(previous);
+        removedTimelineIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+    setSelectedAssetIds((prev) => prev.filter((id) => !uploadedIds.has(id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      timelineIdsToRemove.forEach((id) => next.delete(id));
+      return next;
+    });
+    if (uploadedIds.has(activePreviewId) || timelineIdsToRemove.includes(activePreviewId)) {
+      const nextAsset = allAssetNodes.find((node) => !uploadedIds.has(node.id));
+      setActivePreviewId(nextAsset?.id || '');
+    }
+    if (timelineIdsToRemove.includes(focusedPreviewId)) {
+      setFocusedPreviewId('');
+    }
+  };
+
   const buildContextMenuSections = (
     menu: RenderContextMenuTarget,
     node?: FlowNode,
@@ -3529,6 +3594,9 @@ export function VideoRenderModal({
     if (!node) {
       const selectedMenuAssetIds = (menu.selectedNodeIds || []).filter((id) =>
         assetNodeById.has(id),
+      );
+      const selectedUploadedAssetIds = selectedMenuAssetIds.filter((id) =>
+        uploadedAssetNodes.some((assetNode) => assetNode.id === id),
       );
       if (menu.kind === 'asset' && selectedMenuAssetIds.length > 0) {
         return [
@@ -3557,6 +3625,26 @@ export function VideoRenderModal({
               },
             ],
           },
+          ...(selectedUploadedAssetIds.length > 0
+            ? [
+                {
+                  items: [
+                    {
+                      label: renderCopy(
+                        language,
+                        `删除上传素材（${selectedUploadedAssetIds.length}）`,
+                        `アップロード素材を削除（${selectedUploadedAssetIds.length}）`,
+                        `Delete uploaded asset(s) (${selectedUploadedAssetIds.length})`,
+                      ),
+                      icon: <Trash2 className="w-4 h-4" />,
+                      onSelect: () => removeUploadedAssets(selectedUploadedAssetIds),
+                      disabled: !canMutate,
+                      danger: true,
+                    },
+                  ],
+                },
+              ]
+            : []),
           {
             items: [
               {
@@ -3921,6 +4009,21 @@ export function VideoRenderModal({
         ],
       },
       ...(trackItems.length > 1 ? [{ items: trackItems }] : []),
+      ...(uploadedAssetNodes.some((assetNode) => assetNode.id === node.id)
+        ? [
+            {
+              items: [
+                {
+                  label: isZh ? '删除上传素材' : 'Delete uploaded asset',
+                  icon: <Trash2 className="w-4 h-4" />,
+                  onSelect: () => removeUploadedAssets([node.id]),
+                  disabled: !canMutate || isTimelineNode,
+                  danger: true,
+                },
+              ],
+            },
+          ]
+        : []),
       {
         items: [
           {

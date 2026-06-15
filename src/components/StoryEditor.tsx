@@ -3418,6 +3418,22 @@ ${direction}
     handleUpdateNode,
   });
 
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (!event.shiftKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setNodes((currentNodes) =>
+        currentNodes.map((currentNode) =>
+          currentNode.id === node.id && !currentNode.data?.locked
+            ? { ...currentNode, selected: !currentNode.selected }
+            : currentNode,
+        ),
+      );
+    },
+    [setNodes],
+  );
+
   // Bind callbacks to nodes and edges on render
   const nodesWithCallbacks = useMemo<Node[]>(() => {
     return nodes.map((n) => {
@@ -3665,6 +3681,7 @@ ${direction}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onEdgeDoubleClick={onEdgeDoubleClick}
+              onNodeClick={handleNodeClick}
               onEdgeContextMenu={onEdgeContextMenu}
               onNodeContextMenu={(event, node) => {
                 // 默认阻止所有节点的右键菜单，除非是特定解锁逻辑

@@ -668,10 +668,12 @@ export function WebPlaytestPreview({
                   key={`${currentNodeId}-${imageUrl}-${settings.layoutMode}`}
                   src={imageUrl}
                   alt=""
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
                   className={
                     settings.layoutMode === 'classic'
-                      ? 'block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
-                      : 'h-full w-full'
+                      ? 'preview-media-safe block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
+                      : 'preview-media-safe h-full w-full'
                   }
                   style={
                     settings.layoutMode === 'classic'
@@ -727,7 +729,9 @@ export function WebPlaytestPreview({
                         key={config.sourceNodeId}
                         src={imageUrl}
                         alt={data.characterName}
-                        className="absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                        draggable={false}
+                        onDragStart={(event) => event.preventDefault()}
+                        className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
                         style={{
                           ...getCharacterStagePosition(config),
                           zIndex: clampCharacterLayer(config.layer),

@@ -121,6 +121,20 @@ export function VideoAssetSidebar({
     currentY: number;
   } | null>(null);
 
+  const toggleAssetSelection = (id: string) => {
+    const visibleOrder = new Map(visibleAssetNodes.map((node, index) => [node.id, index]));
+    const selectedSet = new Set(selectedAssetIds);
+    if (selectedSet.has(id)) selectedSet.delete(id);
+    else selectedSet.add(id);
+    const nextSelection = Array.from(selectedSet).sort(
+      (a, b) =>
+        (visibleOrder.get(a) ?? Number.MAX_SAFE_INTEGER) -
+        (visibleOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
+    );
+    setAssetSelection(nextSelection);
+    setActivePreviewId(id);
+  };
+
   const handleSelectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.currentTarget.focus({ preventScroll: true });
     if (event.button !== 2) return;
@@ -304,7 +318,13 @@ export function VideoAssetSidebar({
                   key={node.id}
                   draggable
                   onDragStart={(event) => handleAssetDragStart(event, node.id)}
-                  onClick={() => {
+                  onClick={(event) => {
+                    if (event.shiftKey) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleAssetSelection(node.id);
+                      return;
+                    }
                     setAssetSelection([node.id]);
                     setActivePreviewId(node.id);
                   }}
@@ -335,11 +355,13 @@ export function VideoAssetSidebar({
                         <img
                           src={node.data.imageUrl as string}
                           alt=""
+                          draggable={false}
                           className="w-full h-full object-cover"
                         />
                       ) : node.data?.videoUrl ? (
                         <video
                           src={node.data.videoUrl as string}
+                          draggable={false}
                           className="w-full h-full object-cover"
                           muted
                           playsInline
