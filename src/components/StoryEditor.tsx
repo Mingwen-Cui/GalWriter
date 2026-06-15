@@ -195,6 +195,7 @@ const INITIAL_NODES: Node[] = [
       text: '从前有座山...',
       shape: 'rounded-rectangle',
       color: '#ffffff',
+      sizeMode: 'auto',
       isRoot: true,
     },
   },
@@ -1786,6 +1787,7 @@ export function StoryEditor() {
             title: '分支',
             shape: 'square',
             color: '#ffffff',
+            sizeMode: 'auto',
             text: '',
           } satisfies StoryNodeData,
         };
@@ -2323,6 +2325,7 @@ export function StoryEditor() {
             text: card.text,
             shape: 'square',
             color: '#ffffff',
+            sizeMode: 'auto',
             assistantFutureGoal: mode === 'future-targets',
           } satisfies StoryNodeData,
         };
@@ -3333,6 +3336,7 @@ ${direction}
                 text: card.text,
                 shape: 'square',
                 color: '#ffffff',
+                sizeMode: 'auto',
               } satisfies StoryNodeData,
             };
 

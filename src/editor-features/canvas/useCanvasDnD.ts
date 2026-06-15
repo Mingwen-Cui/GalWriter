@@ -141,6 +141,7 @@ export const useCanvasDnD = ({
             title,
             shape: 'square',
             color: '#ffffff',
+            sizeMode: 'auto',
             text: '',
             objectFit: 'playtest',
             titleHeightAdded: showTitles,

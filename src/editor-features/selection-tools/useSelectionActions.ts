@@ -173,6 +173,7 @@ export const useSelectionActions = ({
             title: '粘贴卡片',
             shape: 'square',
             color: '#ffffff',
+            sizeMode: 'auto',
             text: text.trim(),
           },
         };

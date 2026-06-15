@@ -70,6 +70,15 @@ const getConvexHull = (points: { x: number; y: number }[]) => {
   return upper.concat(lower);
 };
 
+const getNumericSize = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!/^-?\d+(\.\d+)?(px)?$/.test(trimmed)) return undefined;
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export const useCanvasInteractions = ({
   nodes,
   interactionMode,
@@ -174,8 +183,26 @@ export const useCanvasInteractions = ({
             if (targetNode) {
               const x = targetNode.position.x;
               const y = targetNode.position.y;
+              const constrainedMinHeight =
+                (targetNode.type === 'storyNode' && targetNode.data?.sizeMode !== 'custom') ||
+                targetNode.type === 'characterNode' ||
+                targetNode.type === 'sceneNode'
+                  ? getNumericSize(targetNode.style?.minHeight)
+                  : undefined;
               const width = change.dimensions.width;
-              const height = change.dimensions.height;
+              const height =
+                typeof constrainedMinHeight === 'number'
+                  ? Math.max(change.dimensions.height, constrainedMinHeight)
+                  : change.dimensions.height;
+              if (height !== change.dimensions.height) {
+                change = {
+                  ...change,
+                  dimensions: {
+                    ...change.dimensions,
+                    height,
+                  },
+                };
+              }
               for (const node of nds) {
                 if (node.id === change.id) continue;
                 const nodeX = node.position.x;

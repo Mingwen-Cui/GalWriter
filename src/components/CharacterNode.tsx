@@ -26,7 +26,7 @@ import {
   UserCircle2,
   WandSparkles,
 } from 'lucide-react';
-import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
+import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { formatCharacterNodeText } from '../lib/export';
@@ -65,6 +65,9 @@ const getCalculatedCharacterNodeMinHeight = (activeTraitsCount: number, outfitsC
   20 +
   (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
+const CHARACTER_NODE_MIN_WIDTH = 280;
+const CHARACTER_NODE_HEIGHT_SAFETY = 8;
+
 export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
@@ -79,6 +82,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
+  const contentFrameRef = useRef<HTMLDivElement>(null);
+  const [measuredMinHeight, setMeasuredMinHeight] = useState(
+    getCalculatedCharacterNodeMinHeight(1, 0),
+  );
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -148,6 +155,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     activeTraitsCount,
     outfits.length,
   );
+  const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
   const hasCharacterText = [
     name,
     traits,
@@ -158,7 +166,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
   const syncNodeHeightToMinimum = useCallback(
-    (nextMinHeight = calculatedMinHeight) => {
+    (nextMinHeight = effectiveMinHeight) => {
       if (isMinimized) return;
 
       const heightToApply = Math.ceil(nextMinHeight);
@@ -195,7 +203,28 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         updateNodeInternals(id);
       });
     },
-    [calculatedMinHeight, id, isMinimized, setNodes, updateNodeInternals],
+    [effectiveMinHeight, id, isMinimized, setNodes, updateNodeInternals],
+  );
+
+  const measureContentMinHeight = useCallback(() => {
+    if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
+
+    const contentHeight =
+      contentFrameRef.current.scrollHeight || contentFrameRef.current.getBoundingClientRect().height;
+    return Math.max(
+      calculatedMinHeight,
+      Math.ceil(contentHeight + CHARACTER_NODE_HEIGHT_SAFETY),
+    );
+  }, [calculatedMinHeight, isMinimized]);
+
+  const shouldResizeCharacterNode = useCallback(
+    (_event: unknown, params: { height: number; direction?: number[] }) => {
+      if (isMinimized) return true;
+      const isVerticalResize = !params.direction || params.direction[1] !== 0;
+      if (!isVerticalResize) return true;
+      return params.height >= measureContentMinHeight() - 1;
+    },
+    [isMinimized, measureContentMinHeight],
   );
 
   const updateNodeData = useCallback(
@@ -218,9 +247,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     };
 
     const nextActiveTraitsCount = Object.values(nextVisibility).filter(Boolean).length || 1;
-    const nextMinHeight = getCalculatedCharacterNodeMinHeight(
+    const nextMinHeight = Math.max(
+      getCalculatedCharacterNodeMinHeight(
       nextActiveTraitsCount,
       outfits.length,
+      ),
+      measureContentMinHeight(),
     );
 
     // 只按公式同步一次最小高度，不再使用 scrollHeight 反复测量。
@@ -263,7 +295,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
    * 注意：不要持续读取 scrollHeight，否则会和 height: 100% 形成反馈循环，导致高度一直变高。
    */
   useLayoutEffect(() => {
-    syncNodeHeightToMinimum(calculatedMinHeight);
+    const nextMeasuredMinHeight = measureContentMinHeight();
+    setMeasuredMinHeight((previous) =>
+      Math.abs(previous - nextMeasuredMinHeight) < 1 ? previous : nextMeasuredMinHeight,
+    );
+    syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
   }, [
     calculatedMinHeight,
     data.showPersonality,
@@ -272,6 +308,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     data.showOther,
     outfits.length,
     isMinimized,
+    measureContentMinHeight,
     syncNodeHeightToMinimum,
   ]);
 
@@ -446,20 +483,21 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
       style={{
         height: isMinimized ? 'auto' : '100%',
-        minHeight: isMinimized ? 'auto' : calculatedMinHeight,
-        minWidth: '280px',
+        minHeight: isMinimized ? 'auto' : effectiveMinHeight,
+        minWidth: `${CHARACTER_NODE_MIN_WIDTH}px`,
         overflow: 'visible',
       }}
     >
       <NodeResizer
-        minWidth={280}
-        minHeight={calculatedMinHeight}
+        minWidth={CHARACTER_NODE_MIN_WIDTH}
+        minHeight={effectiveMinHeight}
+        shouldResize={shouldResizeCharacterNode}
         isVisible={!isMinimized && selected && selectionCount === 1}
         lineStyle={{ border: 'none' }}
         handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-purple-500 !rounded-full"
       />
 
-      <div className="flex flex-col w-full h-full rounded-xl">
+      <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">
         {/* Header with Buttons */}
         <div className="bg-[var(--header-bg)] rounded-t-xl border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing shrink-0">
           <div className="flex items-center gap-2">

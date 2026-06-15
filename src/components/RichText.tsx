@@ -6,6 +6,7 @@ export type RichTextHandle = {
   insertText: (text: string) => void;
   insertMention: (kind: MentionKind, name: string) => void;
   focus: () => void;
+  getElement: () => HTMLDivElement | null;
 };
 
 const escapeHtml = (text: string) =>
@@ -135,6 +136,9 @@ export const RichText = forwardRef<
     },
     focus() {
       editorRef.current?.focus();
+    },
+    getElement() {
+      return editorRef.current;
     },
   }));
 

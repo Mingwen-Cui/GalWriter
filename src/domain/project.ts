@@ -415,6 +415,7 @@ export interface StoryNodeData extends BaseEditorNodeData {
   text: string;
   shape: StoryCardVisualShape;
   color: string;
+  sizeMode?: 'auto' | 'custom';
   imageUrl?: string;
   videoUrl?: string;
   audioUrl?: string;

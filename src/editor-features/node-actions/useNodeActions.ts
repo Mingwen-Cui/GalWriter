@@ -60,6 +60,7 @@ export const useNodeActions = ({
           title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',
           shape,
           color: '#ffffff',
+          sizeMode: 'auto',
           text: '',
         },
       };
@@ -230,6 +231,7 @@ export const useNodeActions = ({
             title,
             shape: 'square',
             color: '#ffffff',
+            sizeMode: 'auto',
             text: '',
             objectFit: 'playtest',
             titleHeightAdded: showTitles,

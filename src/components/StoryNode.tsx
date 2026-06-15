@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   Italic,
   Layers,
+  LayoutList,
   List,
   Loader2,
   MapPin,
@@ -85,6 +86,12 @@ const SHAPES: StoryCardVisualShape[] = [
 ];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
+const AUTO_SIZE_MIN_HEIGHT = 50;
+const AUTO_SIZE_MEDIA_TEXT_BOTTOM_SAFE = 36;
+const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
+const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
+const AUTO_SIZE_AUDIO_BAR_HEIGHT = 50;
+const AUTO_SIZE_CONTENT_SAFETY = 10;
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -148,15 +155,22 @@ const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
 export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
+  const nodeRootRef = useRef<HTMLDivElement>(null);
+  const textPanelRef = useRef<HTMLDivElement>(null);
+  const lastAutoHeightRef = useRef<number | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
+  const [autoMinHeight, setAutoMinHeight] = useState(AUTO_SIZE_MIN_HEIGHT);
+  const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
+  const sizeMode = data.sizeMode === 'custom' ? 'custom' : 'auto';
+  const isAutoSizeMode = sizeMode === 'auto';
   const color = data.color || COLORS[0];
   const imageUrl = data.imageUrl;
   const videoUrl = data.videoUrl;
@@ -549,6 +563,27 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
   const showRichTextTools = !hasVisualMedia || data.showTextOverlay;
+  const hasMediaTextLayout =
+    showRichTextTools &&
+    Boolean(
+      imageUrl ||
+        videoUrl ||
+        hasScenePresentationImage ||
+        hasScenePresentationVideo ||
+        storyPresentation.characters.length > 0,
+    );
+  const autoMediaHeight =
+    isAutoSizeMode && hasMediaTextLayout
+      ? Math.round(
+          Math.min(
+            AUTO_SIZE_MEDIA_MAX_HEIGHT,
+            Math.max(
+              AUTO_SIZE_MEDIA_MIN_HEIGHT,
+              (nodeWidthForAutoSize * 9) / 16,
+            ),
+          ),
+        )
+      : undefined;
 
   const updateNodeData = useCallback(
     (updates: Partial<StoryNodeData>) => {
@@ -597,6 +632,243 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       },
     });
   };
+
+  const computeAutoMinHeight = useCallback(
+    (candidateWidth?: number) => {
+      if (!showRichTextTools) return null;
+
+      const rootElement = nodeRootRef.current;
+      const textPanelElement = textPanelRef.current;
+      const editorElement = richTextRef.current?.getElement();
+      if (!rootElement || !textPanelElement || !editorElement) return null;
+
+      const measuredRootWidth = rootElement.getBoundingClientRect().width || 0;
+      const rootWidth = candidateWidth && candidateWidth > 0 ? candidateWidth : measuredRootWidth;
+      if (rootWidth <= 0) return null;
+
+      const panelStyles = window.getComputedStyle(textPanelElement);
+      const panelPaddingLeft = Number.parseFloat(panelStyles.paddingLeft || '0');
+      const panelPaddingRight = Number.parseFloat(panelStyles.paddingRight || '0');
+      const panelVerticalPadding =
+        Number.parseFloat(panelStyles.paddingTop || '0') +
+        Number.parseFloat(panelStyles.paddingBottom || '0') +
+        Number.parseFloat(panelStyles.borderTopWidth || '0') +
+        Number.parseFloat(panelStyles.borderBottomWidth || '0') +
+        Math.max(0, textPanelElement.offsetHeight - textPanelElement.clientHeight);
+      const titleBlockHeight = showTitleInside ? TITLE_HEIGHT : 0;
+      const mediaPreviewHeight = hasMediaTextLayout
+        ? Math.round(
+            Math.min(
+              AUTO_SIZE_MEDIA_MAX_HEIGHT,
+              Math.max(AUTO_SIZE_MEDIA_MIN_HEIGHT, (rootWidth * 9) / 16),
+            ),
+          )
+        : 0;
+      const audioBarHeight =
+        audioUrl && (imageUrl || videoUrl || showRichTextTools) ? AUTO_SIZE_AUDIO_BAR_HEIGHT : 0;
+
+      const editorCurrentWidth = editorElement.getBoundingClientRect().width || 0;
+      const editorCandidateWidth = Math.max(
+        1,
+        rootWidth - panelPaddingLeft - panelPaddingRight,
+      );
+      let contentHeight = editorElement.scrollHeight || editorElement.getBoundingClientRect().height;
+
+      if (Math.abs(editorCandidateWidth - editorCurrentWidth) > 1) {
+        const editorClone = editorElement.cloneNode(true) as HTMLElement;
+        editorClone.style.position = 'absolute';
+        editorClone.style.left = '-10000px';
+        editorClone.style.top = '0';
+        editorClone.style.width = `${editorCandidateWidth}px`;
+        editorClone.style.height = 'auto';
+        editorClone.style.minHeight = '0';
+        editorClone.style.maxHeight = 'none';
+        editorClone.style.overflow = 'visible';
+        editorClone.style.visibility = 'hidden';
+        editorClone.style.pointerEvents = 'none';
+        editorClone.style.boxSizing = window.getComputedStyle(editorElement).boxSizing;
+        document.body.appendChild(editorClone);
+        contentHeight = editorClone.scrollHeight || editorClone.getBoundingClientRect().height;
+        document.body.removeChild(editorClone);
+      }
+
+      if (!Number.isFinite(contentHeight) || contentHeight <= 0) return null;
+
+      const targetHeight = Math.max(
+        AUTO_SIZE_MIN_HEIGHT,
+        Math.ceil(
+          titleBlockHeight +
+            mediaPreviewHeight +
+            panelVerticalPadding +
+            contentHeight +
+            audioBarHeight +
+            AUTO_SIZE_CONTENT_SAFETY,
+        ),
+      );
+
+      return Number.isFinite(targetHeight) ? targetHeight : null;
+    },
+    [
+      audioUrl,
+      hasMediaTextLayout,
+      imageUrl,
+      showRichTextTools,
+      showTitleInside,
+      videoUrl,
+    ],
+  );
+
+  const syncAutoSizeHeight = useCallback(() => {
+    if (!isAutoSizeMode || !showRichTextTools) return;
+
+    const rootElement = nodeRootRef.current;
+    if (!rootElement) return;
+
+    const rootHeight = rootElement.getBoundingClientRect().height || 0;
+    const rootWidth = rootElement.getBoundingClientRect().width || 0;
+    const targetHeight = computeAutoMinHeight(rootWidth);
+
+    if (!targetHeight || rootHeight <= 0 || rootWidth <= 0) {
+      return;
+    }
+
+    setAutoMinHeight((previous) =>
+      Math.abs(previous - targetHeight) < 1 ? previous : targetHeight,
+    );
+
+    setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id !== id) return node;
+        const currentHeight =
+          getNumericSize(node.style?.height) ??
+          getNumericSize((node as any).height) ??
+          getNumericSize((node as any).measured?.height) ??
+          rootHeight;
+        const currentMinHeight = getNumericSize(node.style?.minHeight);
+        const shouldSnapToAutoHeight =
+          lastAutoHeightRef.current === null ||
+          Math.abs(currentHeight - lastAutoHeightRef.current) < 2 ||
+          currentHeight < targetHeight;
+        const nextHeight = shouldSnapToAutoHeight ? targetHeight : currentHeight;
+        lastAutoHeightRef.current = targetHeight;
+        if (
+          Math.abs(currentHeight - nextHeight) < 1 &&
+          Math.abs((currentMinHeight ?? 0) - targetHeight) < 1
+        ) {
+          return node;
+        }
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            height: nextHeight,
+            minHeight: targetHeight,
+          },
+        };
+      }),
+    );
+
+    requestAnimationFrame(() => updateNodeInternals(id));
+  }, [
+    audioUrl,
+    computeAutoMinHeight,
+    hasMediaTextLayout,
+    id,
+    imageUrl,
+    isAutoSizeMode,
+    setNodes,
+    showRichTextTools,
+    showTitleInside,
+    updateNodeInternals,
+    videoUrl,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!isAutoSizeMode) return;
+    const frame = requestAnimationFrame(syncAutoSizeHeight);
+    const secondFrame = requestAnimationFrame(() => {
+      requestAnimationFrame(syncAutoSizeHeight);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [
+    activeMediaScale,
+    audioUrl,
+    color,
+    imageUrl,
+    isAutoSizeMode,
+    nodeWidthForAutoSize,
+    objectFit,
+    shape,
+    showRichTextTools,
+    showTitleInside,
+    data.presentation,
+    syncAutoSizeHeight,
+    text,
+    title,
+    videoUrl,
+  ]);
+
+  useEffect(() => {
+    if (!isAutoSizeMode || !nodeRootRef.current) return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = nodeRootRef.current?.clientWidth || 300;
+      setNodeWidthForAutoSize((previous) =>
+        Math.abs(previous - nextWidth) < 1 ? previous : nextWidth,
+      );
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(syncAutoSizeHeight);
+    });
+    observer.observe(nodeRootRef.current);
+    if (textPanelRef.current) observer.observe(textPanelRef.current);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [isAutoSizeMode, syncAutoSizeHeight]);
+
+  const toggleSizeMode = () => {
+    const nextMode: StoryNodeData['sizeMode'] = isAutoSizeMode ? 'custom' : 'auto';
+    updateNodeData({ sizeMode: nextMode });
+    if (nextMode === 'custom') {
+      lastAutoHeightRef.current = null;
+      setAutoMinHeight(AUTO_SIZE_MIN_HEIGHT);
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                style: {
+                  ...node.style,
+                  minHeight: undefined,
+                },
+              }
+            : node,
+        ),
+      );
+      requestAnimationFrame(() => updateNodeInternals(id));
+      return;
+    }
+    if (nextMode === 'auto') {
+      lastAutoHeightRef.current = null;
+      setAutoMinHeight(AUTO_SIZE_MIN_HEIGHT);
+      requestAnimationFrame(syncAutoSizeHeight);
+    }
+  };
+
+  const shouldResizeStoryNode = useCallback(
+    (_event: unknown, params: { width: number; height: number; direction?: number[] }) => {
+      if (!isAutoSizeMode) return true;
+      const isVerticalResize = !params.direction || params.direction[1] !== 0;
+      if (!isVerticalResize) return true;
+      const nextMinHeight = computeAutoMinHeight(params.width) ?? autoMinHeight;
+      return params.height >= nextMinHeight - 1;
+    },
+    [autoMinHeight, computeAutoMinHeight, isAutoSizeMode],
+  );
 
   const syncImageNodeHeight = useCallback(
     (dimensions: { width: number; height: number } | null) => {
@@ -1148,7 +1420,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   };
 
   return (
-    <div className="w-full h-full relative group min-w-[100px] min-h-[50px]">
+    <div ref={nodeRootRef} className="w-full h-full relative group min-w-[100px] min-h-[50px]">
       {isRoot && (
         <div className="absolute -top-3 -left-3 z-50 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
           <Play className="w-3 h-4" /> 开始
@@ -1163,7 +1435,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       )}
       <NodeResizer
         minWidth={100}
-        minHeight={50}
+        minHeight={isAutoSizeMode ? autoMinHeight : 20}
+        shouldResize={shouldResizeStoryNode}
         isVisible={selected && selectionCount === 1}
         lineClassName="!border-blue-500 !border-2"
         handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-blue-500 !rounded-sm"
@@ -1530,6 +1803,33 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   <GitFork className={`w-4 h-4 ${data.isHighlighted ? 'animate-pulse' : ''}`} />
                 </button>
                 <button
+                  onClick={toggleSizeMode}
+                  className={`${iconBtnBase} ${
+                    isAutoSizeMode
+                      ? 'bg-sky-500/15 text-sky-600 shadow-inner hover:bg-sky-500/25 hover:text-sky-700'
+                      : 'bg-slate-500/15 text-slate-500 hover:bg-slate-500/25'
+                  }`}
+                  title={
+                    isAutoSizeMode
+                      ? lang === 'zh'
+                        ? '自适应高度：文字不会被隐藏'
+                        : lang === 'ja'
+                          ? '高さ自動調整：文字を隠しません'
+                          : 'Auto height: content stays visible'
+                      : lang === 'zh'
+                        ? '自定义大小：溢出文字显示滚动条'
+                        : lang === 'ja'
+                          ? 'カスタムサイズ：はみ出す文字はスクロール'
+                          : 'Custom size: overflowing text scrolls'
+                  }
+                >
+                  {isAutoSizeMode ? (
+                    <LayoutList className="w-4 h-4" />
+                  ) : (
+                    <Square className="w-4 h-4" />
+                  )}
+                </button>
+                <button
                   onClick={() => updateNodeData({ skip: !data.skip })}
                   className={`${iconBtnBase} ${data.skip ? 'bg-emerald-500/20 text-emerald-500 shadow-inner font-bold hover:bg-emerald-500/30' : ''}`}
                   title={t.skipForNow}
@@ -1636,7 +1936,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             presentedCharacters.length > 0) && (
             <VirtualPresentationStage
               fit="cover"
-              className="relative z-0 h-[52%] w-full shrink-0 pointer-events-none bg-slate-950"
+              className={`relative z-0 w-full shrink-0 pointer-events-none bg-slate-950 ${
+                isAutoSizeMode ? '' : 'h-[52%]'
+              }`}
+              style={isAutoSizeMode ? { height: autoMediaHeight } : undefined}
             >
               <div
                 className="absolute inset-0 overflow-hidden"
@@ -1732,8 +2035,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           {imageUrl && !hasScenePresentationImage ? (
             <img
               src={imageUrl}
-              className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} object-cover pointer-events-none`}
-              style={mediaStyle}
+              className={`w-full ${
+                data.showTextOverlay ? (isAutoSizeMode ? 'shrink-0' : 'h-1/2') : 'flex-1'
+              } object-cover pointer-events-none`}
+              style={{
+                ...mediaStyle,
+                ...(isAutoSizeMode && data.showTextOverlay ? { height: autoMediaHeight } : {}),
+              }}
               onLoad={(event) => {
                 const image = event.currentTarget;
                 setImageDimensions({
@@ -1745,7 +2053,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               loading="lazy"
             />
           ) : videoUrl && !hasScenePresentationVideo ? (
-            <div className={`w-full ${data.showTextOverlay ? 'h-1/2' : 'flex-1'} relative`}>
+            <div
+              className={`w-full ${
+                data.showTextOverlay ? (isAutoSizeMode ? 'shrink-0' : 'h-1/2') : 'flex-1'
+              } relative`}
+              style={isAutoSizeMode && data.showTextOverlay ? { height: autoMediaHeight } : undefined}
+            >
               {zoom < 0.3 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/10 text-slate-400">
                   <Play className="w-8 h-8 opacity-40" />
@@ -1792,7 +2105,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
           {showRichTextTools && (
             <div
-              className={`relative z-0 w-full flex-1 flex flex-col items-center justify-center ${dynamicPaddingClasses()} ${
+              ref={textPanelRef}
+              className={`relative z-0 w-full flex-1 flex flex-col items-center ${
+                isAutoSizeMode && hasMediaTextLayout ? 'justify-start' : 'justify-center'
+              } ${dynamicPaddingClasses()} ${
                 (imageUrl && !hasScenePresentationImage) || (videoUrl && !hasScenePresentationVideo)
                   ? 'border-t border-[var(--card-border)]/30'
                   : ''
@@ -1804,22 +2120,34 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       ? 'rgb(var(--card-bg-rgb))'
                       : color
                     : nodeBg,
+                paddingBottom:
+                  isAutoSizeMode && hasMediaTextLayout
+                    ? AUTO_SIZE_MEDIA_TEXT_BOTTOM_SAFE
+                    : undefined,
                 ...(hasScenePresentationImage ||
                 hasScenePresentationVideo ||
                 presentedCharacters.length > 0
-                  ? { flex: '0 0 48%' }
+                  ? isAutoSizeMode
+                    ? { flex: '0 0 auto' }
+                    : { flex: '0 0 48%' }
                   : {}),
               }}
             >
               <div
-                className={`w-full h-full flex flex-col items-center justify-center ${shape === 'diamond' ? 'scale-[0.8]' : ''}`}
+                className={`w-full ${
+                  isAutoSizeMode && hasMediaTextLayout
+                    ? 'block overflow-visible'
+                    : `flex flex-col items-center justify-center ${
+                        isAutoSizeMode ? 'overflow-visible' : 'h-full min-h-0 overflow-hidden'
+                      }`
+                } ${shape === 'diamond' ? 'scale-[0.8]' : ''}`}
               >
                 <RichText
                   ref={richTextRef}
                   value={text}
                   onChange={handleTextChange}
                   pasteAsPlainText={!!data.pasteAsPlainText}
-                  className={`w-full h-full resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
+                  className={`w-full ${isAutoSizeMode ? 'overflow-visible' : 'h-full overflow-y-auto custom-scrollbar'} resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{ color: nodeText }}
                   onMentionContextMenu={handleMentionContextMenu}
                 />
@@ -1833,7 +2161,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       <button
         onClick={() => data.onAIGenerate?.(id)}
         disabled={!!data.isAILoading}
-        className={`absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg ${imageUrl || videoUrl ? 'bottom-2 right-2' : 'bottom-2 right-2'}`}
+        className="absolute bottom-2 right-2 z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg"
         title="AI 操作"
       >
         {data.isAILoading ? (
