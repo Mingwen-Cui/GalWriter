@@ -21,7 +21,6 @@ import {
   Image as ImageIcon,
   Italic,
   Layers,
-  LayoutList,
   List,
   Loader2,
   MapPin,
@@ -86,8 +85,8 @@ const SHAPES: StoryCardVisualShape[] = [
 ];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
-const AUTO_SIZE_MIN_HEIGHT = 50;
-const AUTO_SIZE_TEXT_MIN_LINES = 7;
+const AUTO_SIZE_MIN_HEIGHT = 60;
+const AUTO_SIZE_TEXT_MIN_LINES = 6;
 const AUTO_SIZE_TEXT_VERTICAL_PADDING = 4;
 const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
 const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
@@ -104,6 +103,16 @@ const getNumericSize = (value: unknown) => {
   }
 
   return undefined;
+};
+
+const readMentionNames = (html: string, kind: 'character' | 'scene') => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  return new Set(
+    Array.from(container.querySelectorAll<HTMLElement>(`[data-mention-kind="${kind}"]`))
+      .map((element) => element.dataset.mentionName?.trim())
+      .filter((name): name is string => Boolean(name)),
+  );
 };
 
 const isLightColor = (color: string) => {
@@ -158,6 +167,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const titleBlockRef = useRef<HTMLDivElement>(null);
   const textPanelRef = useRef<HTMLDivElement>(null);
   const lastAutoHeightRef = useRef<number | null>(null);
+  const resizeStartHeightRef = useRef<number | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
@@ -169,8 +179,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
-  const sizeMode = data.sizeMode === 'custom' ? 'custom' : 'auto';
-  const isAutoSizeMode = sizeMode === 'auto';
+  const isAutoSizeMode = data.sizeMode !== 'custom';
   const color = data.color || COLORS[0];
   const imageUrl = data.imageUrl;
   const videoUrl = data.videoUrl;
@@ -202,6 +211,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const objectFit = !data.objectFit || data.objectFit === 'contain' ? 'playtest' : data.objectFit;
   const mediaScale = typeof data.mediaScale === 'number' ? data.mediaScale : 1;
   const activeMediaScale = storyPresentation.scene?.scale ?? mediaScale;
+  const usesPlaytestPresentationLayout =
+    objectFit === 'playtest' &&
+    Boolean(storyPresentation.scene || storyPresentation.characters.length > 0);
   const mediaStyle: React.CSSProperties = {
     objectFit: objectFit === 'fill' ? 'fill' : objectFit === 'cover' ? 'cover' : 'contain',
     objectPosition: '50% 50%',
@@ -224,6 +236,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(
     null,
   );
+  useEffect(() => {
+    setImageDimensions(null);
+  }, [imageUrl]);
   const [presentationMenu, setPresentationMenu] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId: string;
@@ -566,24 +581,36 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
   const showRichTextTools = !hasVisualMedia || data.showTextOverlay;
-  const hasMediaTextLayout =
-    showRichTextTools &&
-    Boolean(
-      imageUrl ||
-      videoUrl ||
-      hasScenePresentationImage ||
-      hasScenePresentationVideo ||
-      storyPresentation.characters.length > 0,
-    );
+  const hasCardVisualContent = Boolean(
+    imageUrl ||
+    videoUrl ||
+    hasScenePresentationImage ||
+    hasScenePresentationVideo ||
+    storyPresentation.characters.length > 0,
+  );
+  const hasMediaTextLayout = showRichTextTools && hasCardVisualContent;
+  const getAutoMediaHeight = useCallback(
+    (width: number) => {
+      if (
+        imageUrl &&
+        !hasScenePresentationImage &&
+        imageDimensions?.width &&
+        imageDimensions.height
+      ) {
+        return Math.round((width * imageDimensions.height) / imageDimensions.width);
+      }
+
+      return Math.round(
+        Math.min(
+          AUTO_SIZE_MEDIA_MAX_HEIGHT,
+          Math.max(AUTO_SIZE_MEDIA_MIN_HEIGHT, (width * 9) / 16),
+        ),
+      );
+    },
+    [hasScenePresentationImage, imageDimensions, imageUrl],
+  );
   const autoMediaHeight =
-    isAutoSizeMode && hasMediaTextLayout
-      ? Math.round(
-          Math.min(
-            AUTO_SIZE_MEDIA_MAX_HEIGHT,
-            Math.max(AUTO_SIZE_MEDIA_MIN_HEIGHT, (nodeWidthForAutoSize * 9) / 16),
-          ),
-        )
-      : undefined;
+    isAutoSizeMode && hasMediaTextLayout ? getAutoMediaHeight(nodeWidthForAutoSize) : undefined;
 
   const updateNodeData = useCallback(
     (updates: Partial<StoryNodeData>) => {
@@ -641,14 +668,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             Number.parseFloat(titleBlockStyles?.marginTop || '0') +
             Number.parseFloat(titleBlockStyles?.marginBottom || '0')
           : 0;
-      const mediaPreviewHeight = hasMediaTextLayout
-        ? Math.round(
-            Math.min(
-              AUTO_SIZE_MEDIA_MAX_HEIGHT,
-              Math.max(AUTO_SIZE_MEDIA_MIN_HEIGHT, (rootWidth * 9) / 16),
-            ),
-          )
-        : 0;
+      const mediaPreviewHeight = hasMediaTextLayout ? getAutoMediaHeight(rootWidth) : 0;
       const editorCurrentWidth = editorElement.getBoundingClientRect().width || 0;
       const editorCandidateWidth = Math.max(1, rootWidth - panelPaddingLeft - panelPaddingRight);
       const editorStyles = window.getComputedStyle(editorElement);
@@ -657,7 +677,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       const editorLineHeight = Number.isFinite(parsedLineHeight)
         ? parsedLineHeight
         : editorFontSize * 1.625;
-      const minimumTextHeight = hasMediaTextLayout
+      const minimumTextHeight = hasCardVisualContent
         ? 0
         : editorLineHeight * AUTO_SIZE_TEXT_MIN_LINES;
       let contentHeight =
@@ -697,7 +717,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
       return Number.isFinite(targetHeight) ? targetHeight : null;
     },
-    [hasMediaTextLayout, showRichTextTools, showTitleInside],
+    [
+      getAutoMediaHeight,
+      hasCardVisualContent,
+      hasMediaTextLayout,
+      showRichTextTools,
+      showTitleInside,
+    ],
   );
 
   const syncAutoSizeHeight = useCallback(() => {
@@ -805,35 +831,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     };
   }, [isAutoSizeMode, syncAutoSizeHeight]);
 
-  const toggleSizeMode = () => {
-    const nextMode: StoryNodeData['sizeMode'] = isAutoSizeMode ? 'custom' : 'auto';
-    updateNodeData({ sizeMode: nextMode });
-    if (nextMode === 'custom') {
-      lastAutoHeightRef.current = null;
-      setAutoMinHeight(AUTO_SIZE_MIN_HEIGHT);
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                style: {
-                  ...node.style,
-                  minHeight: undefined,
-                },
-              }
-            : node,
-        ),
-      );
-      requestAnimationFrame(() => updateNodeInternals(id));
-      return;
-    }
-    if (nextMode === 'auto') {
-      lastAutoHeightRef.current = null;
-      setAutoMinHeight(AUTO_SIZE_MIN_HEIGHT);
-      requestAnimationFrame(syncAutoSizeHeight);
-    }
-  };
-
   const shouldResizeStoryNode = useCallback(
     (_event: unknown, params: { width: number; height: number; direction?: number[] }) => {
       if (!isAutoSizeMode) return true;
@@ -843,6 +840,25 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       return params.height >= nextMinHeight - 1;
     },
     [autoMinHeight, computeAutoMinHeight, isAutoSizeMode],
+  );
+
+  const handleResizeStoryNodeStart = useCallback((_event: unknown, params: { height: number }) => {
+    resizeStartHeightRef.current = params.height;
+  }, []);
+
+  const handleResizeStoryNodeEnd = useCallback(
+    (_event: unknown, params: { height: number }) => {
+      const startHeight = resizeStartHeightRef.current;
+      resizeStartHeightRef.current = null;
+      if (
+        startHeight !== null &&
+        Math.abs(params.height - startHeight) >= 1 &&
+        data.sizeMode !== 'custom'
+      ) {
+        updateNodeData({ sizeMode: 'custom' });
+      }
+    },
+    [data.sizeMode, updateNodeData],
   );
 
   const syncImageNodeHeight = useCallback(
@@ -872,7 +888,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             200;
           const imageHeight = (dimensions.height / dimensions.width) * currentWidth;
           const targetHeight = Math.max(
-            50,
+            AUTO_SIZE_MIN_HEIGHT,
             Math.ceil(
               imageHeight +
                 (showTitleInside && titleBlockRef.current
@@ -930,7 +946,51 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   );
 
   const handleTextChange = (newHtml: string) => {
-    updateNodeData({ text: newHtml });
+    const presentation = getPresentation();
+    if (!presentation.scene && presentation.characters.length === 0) {
+      updateNodeData({ text: newHtml });
+      return;
+    }
+
+    const allNodes = storeApi.getState().nodes;
+    const characterMentionNames = readMentionNames(newHtml, 'character');
+    const sceneMentionNames = readMentionNames(newHtml, 'scene');
+    const remainingCharacters = presentation.characters.filter((character) => {
+      const sourceNode = allNodes.find((node) => node.id === character.sourceNodeId);
+      if (!sourceNode || sourceNode.type !== 'characterNode') return false;
+      const name =
+        typeof sourceNode.data.characterName === 'string'
+          ? sourceNode.data.characterName.trim()
+          : '';
+      return Boolean(name && characterMentionNames.has(name));
+    });
+    const sceneSourceNode = presentation.scene
+      ? allNodes.find((node) => node.id === presentation.scene?.sourceNodeId)
+      : undefined;
+    const sceneName =
+      sceneSourceNode?.type === 'sceneNode' && typeof sceneSourceNode.data.sceneName === 'string'
+        ? sceneSourceNode.data.sceneName.trim()
+        : '';
+    const removedScene =
+      presentation.scene && sceneName && !sceneMentionNames.has(sceneName)
+        ? presentation.scene
+        : undefined;
+
+    updateNodeData({
+      text: newHtml,
+      ...(removedScene
+        ? {
+            imageUrl: removedScene.previousImageUrl,
+            videoUrl: removedScene.previousVideoUrl,
+            showTextOverlay: removedScene.previousShowTextOverlay ?? data.showTextOverlay,
+          }
+        : {}),
+      presentation: {
+        ...presentation,
+        scene: removedScene ? undefined : presentation.scene,
+        characters: remainingCharacters,
+      },
+    });
   };
 
   const getPresentation = () => normalizeStoryPresentation(data.presentation);
@@ -1056,7 +1116,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           showTextOverlay: true,
           presentation: {
             ...presentation,
-            scene: createScenePresentation(sourceNode.id, imageUrl, false, data.showTextOverlay),
+            scene: {
+              ...createScenePresentation(sourceNode.id, imageUrl, false, data.showTextOverlay),
+              previousVideoUrl: videoUrl,
+            },
           },
         });
       }
@@ -1318,6 +1381,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       [id],
     ),
   ) as { id: string; name: string }[];
+  const hasMentionToolbarItems =
+    (showRichTextTools && mentionableCharacters.length > 0) ||
+    Boolean(videoUrl) ||
+    (showRichTextTools && mentionableScenes.length > 0);
 
   const insertCharacterMention = (name: string) => {
     richTextRef.current?.insertMention('character', name);
@@ -1399,8 +1466,51 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : !presentationPreview.active;
   };
 
+  const mediaToolbarButtons = (imageUrl || videoUrl) &&
+    hasMediaToolbarActions &&
+    !hasScenePresentationImage && (
+      <ToolGroup className="shrink-0">
+        {imageUrl && (
+          <button
+            onClick={handleDownloadImage}
+            className={`${iconBtnBase} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
+            title={lang === 'zh' ? '下载图片' : 'Download Image'}
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        )}
+        {(!data.showTextOverlay || plainSpeechText === '') && (
+          <button
+            onClick={() => data.onAddTextToImage?.(id)}
+            className={`${iconBtnBase} bg-indigo-50 text-indigo-600 hover:bg-indigo-100`}
+            title={lang === 'zh' ? '在卡片中添加/显示文字' : 'Add/Show text in card'}
+          >
+            <Type className="w-4 h-4" />
+          </button>
+        )}
+        {data.showTextOverlay && plainSpeechText !== '' && (
+          <button
+            onClick={() => data.onExtractMedia?.(id)}
+            className={`${iconBtnBase} bg-amber-50 text-amber-600 hover:bg-amber-100`}
+            title={lang === 'zh' ? '从卡片中提取照片/视频' : 'Extract media from card'}
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+        )}
+        {data.showTextOverlay && (
+          <button
+            onClick={() => data.onRemoveTextFromImage?.(id)}
+            className={`${iconBtnBase} bg-rose-50 text-rose-600 hover:bg-rose-100`}
+            title={lang === 'zh' ? '移除/隐藏卡片文字' : 'Remove/Hide text from card'}
+          >
+            <Eraser className="w-4 h-4" />
+          </button>
+        )}
+      </ToolGroup>
+    );
+
   return (
-    <div ref={nodeRootRef} className="w-full h-full relative group min-w-[100px] min-h-[50px]">
+    <div ref={nodeRootRef} className="w-full h-full relative group min-w-[100px] min-h-[60px]">
       {isRoot && (
         <div className="absolute -top-3 -left-3 z-50 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
           <Play className="w-3 h-4" /> 开始
@@ -1415,8 +1525,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       )}
       <NodeResizer
         minWidth={100}
-        minHeight={isAutoSizeMode ? autoMinHeight : 20}
+        minHeight={isAutoSizeMode ? autoMinHeight : AUTO_SIZE_MIN_HEIGHT}
         shouldResize={shouldResizeStoryNode}
+        onResizeStart={handleResizeStoryNodeStart}
+        onResizeEnd={handleResizeStoryNodeEnd}
         isVisible={selected && selectionCount === 1}
         lineClassName="!border-blue-500 !border-2"
         handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-blue-500 !rounded-sm"
@@ -1571,13 +1683,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
 
             {/* 已连接人物与场景：插入对应 Tag */}
-            {((showRichTextTools && mentionableCharacters.length > 0) ||
-              videoUrl ||
-              (showRichTextTools && mentionableScenes.length > 0)) && (
+            {hasMentionToolbarItems && (
               <>
-                <ToolbarRow className="flex-wrap justify-start gap-1">
+                <ToolbarRow className="flex-nowrap justify-start gap-1">
                   {showRichTextTools && mentionableCharacters.length > 0 && (
-                    <ToolGroup className="flex-wrap gap-1">
+                    <ToolGroup className="flex-nowrap gap-1">
                       <div className="flex shrink-0 items-center">
                         <User className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                       </div>
@@ -1598,7 +1708,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     </ToolGroup>
                   )}
                   {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
-                    <ToolGroup className="flex-wrap gap-1">
+                    <ToolGroup className="flex-nowrap gap-1">
                       <div className="flex shrink-0 items-center">
                         <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                       </div>
@@ -1639,12 +1749,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         ))}
                     </ToolGroup>
                   )}
+                  {mediaToolbarButtons && (
+                    <>
+                      <Separator />
+                      {mediaToolbarButtons}
+                    </>
+                  )}
                 </ToolbarRow>
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
 
-            {(imageUrl || videoUrl) && hasMediaToolbarActions && (
+            {!hasMentionToolbarItems && (imageUrl || videoUrl) && hasMediaToolbarActions && (
               <>
                 <ToolbarRow>
                   <ToolGroup>
@@ -1732,33 +1848,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   title={t.showStoryline}
                 >
                   <GitFork className={`w-4 h-4 ${data.isHighlighted ? 'animate-pulse' : ''}`} />
-                </button>
-                <button
-                  onClick={toggleSizeMode}
-                  className={`${iconBtnBase} ${
-                    isAutoSizeMode
-                      ? 'bg-sky-500/15 text-sky-600 shadow-inner hover:bg-sky-500/25 hover:text-sky-700'
-                      : 'bg-slate-500/15 text-slate-500 hover:bg-slate-500/25'
-                  }`}
-                  title={
-                    isAutoSizeMode
-                      ? lang === 'zh'
-                        ? '自适应高度：文字不会被隐藏'
-                        : lang === 'ja'
-                          ? '高さ自動調整：文字を隠しません'
-                          : 'Auto height: content stays visible'
-                      : lang === 'zh'
-                        ? '自定义大小：溢出文字显示滚动条'
-                        : lang === 'ja'
-                          ? 'カスタムサイズ：はみ出す文字はスクロール'
-                          : 'Custom size: overflowing text scrolls'
-                  }
-                >
-                  {isAutoSizeMode ? (
-                    <LayoutList className="w-4 h-4" />
-                  ) : (
-                    <Square className="w-4 h-4" />
-                  )}
                 </button>
                 <button
                   onClick={() => updateNodeData({ skip: !data.skip })}
@@ -1879,9 +1968,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             hasScenePresentationVideo ||
             presentedCharacters.length > 0) && (
             <VirtualPresentationStage
-              fit="cover"
-              className={`relative z-0 w-full shrink-0 pointer-events-none bg-slate-950 ${
-                isAutoSizeMode ? '' : 'h-[52%]'
+              fit={usesPlaytestPresentationLayout ? 'contain' : 'cover'}
+              className={`relative z-0 w-full pointer-events-none bg-white dark:bg-black ${
+                isAutoSizeMode
+                  ? 'shrink-0'
+                  : usesPlaytestPresentationLayout
+                    ? 'min-h-0 flex-1'
+                    : 'h-[52%] shrink-0'
               }`}
               style={isAutoSizeMode ? { height: autoMediaHeight } : undefined}
             >
@@ -2029,7 +2122,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             <div
               ref={textPanelRef}
               className={`relative z-0 w-full flex flex-col items-center ${
-                isAutoSizeMode ? 'shrink-0 justify-start' : 'flex-1 justify-center'
+                isAutoSizeMode || usesPlaytestPresentationLayout
+                  ? 'shrink-0 justify-start'
+                  : 'flex-1 justify-center'
               } ${dynamicPaddingClasses()} ${
                 (imageUrl && !hasScenePresentationImage) || (videoUrl && !hasScenePresentationVideo)
                   ? 'border-t border-[var(--card-border)]/30'
@@ -2045,7 +2140,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 ...(hasScenePresentationImage ||
                 hasScenePresentationVideo ||
                 presentedCharacters.length > 0
-                  ? isAutoSizeMode
+                  ? isAutoSizeMode || usesPlaytestPresentationLayout
                     ? { flex: '0 0 auto' }
                     : { flex: '0 0 48%' }
                   : {}),
@@ -2053,7 +2148,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             >
               <div
                 className={`w-full ${
-                  isAutoSizeMode && hasMediaTextLayout
+                  (isAutoSizeMode && hasMediaTextLayout) || usesPlaytestPresentationLayout
                     ? 'block overflow-visible'
                     : `flex flex-col items-center justify-center ${
                         isAutoSizeMode ? 'overflow-visible' : 'h-full min-h-0 overflow-hidden'
@@ -2065,13 +2160,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   value={text}
                   onChange={handleTextChange}
                   pasteAsPlainText={!!data.pasteAsPlainText}
-                  className={`w-full ${isAutoSizeMode ? 'overflow-visible' : 'h-full overflow-y-auto custom-scrollbar'} resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
+                  className={`w-full ${
+                    isAutoSizeMode || usesPlaytestPresentationLayout
+                      ? 'overflow-visible'
+                      : 'h-full overflow-y-auto custom-scrollbar'
+                  } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,
-                    minHeight:
-                      isAutoSizeMode && !hasMediaTextLayout
-                        ? `${AUTO_SIZE_TEXT_MIN_LINES * 1.625}em`
-                        : undefined,
+                    minHeight: hasCardVisualContent
+                      ? '1.5em'
+                      : `${AUTO_SIZE_TEXT_MIN_LINES * 1.625}em`,
                   }}
                   onMentionContextMenu={handleMentionContextMenu}
                 />

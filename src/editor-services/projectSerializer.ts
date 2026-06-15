@@ -531,8 +531,11 @@ const applyProjectSettings = (
 const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
   Promise.all(
     nodes.map(async (node) => {
+      const isAutoSizedStoryNode =
+        node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
       const restoredNode: Node = {
         ...node,
+        ...(isAutoSizedStoryNode ? { height: undefined, measured: undefined } : {}),
         data: { ...node.data },
         dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
       };
@@ -612,16 +615,21 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     assistantTasks: AssistantTask[];
     activeAssistantTaskId: string;
   }) => {
-    const simpleNodes = nodes.map((node) => ({
-      id: node.id,
-      position: node.position,
-      type: node.type,
-      style: node.style,
-      data: { ...node.data },
-      width: node.measured?.width || node.width,
-      height: node.measured?.height || node.height,
-      dragHandle: node.dragHandle,
-    })) as StoryNode[];
+    const simpleNodes = nodes.map((node) => {
+      const isAutoSizedStoryNode =
+        node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
+
+      return {
+        id: node.id,
+        position: node.position,
+        type: node.type,
+        style: node.style,
+        data: { ...node.data },
+        width: node.measured?.width || node.width,
+        height: isAutoSizedStoryNode ? undefined : node.measured?.height || node.height,
+        dragHandle: node.dragHandle,
+      };
+    }) as StoryNode[];
 
     const simpleEdges: StoryEdge[] = edges.map((edge) => ({
       id: edge.id,
