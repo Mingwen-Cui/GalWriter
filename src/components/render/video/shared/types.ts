@@ -92,6 +92,8 @@ export type TimelineHistoryState = {
   audioTrackByNodeId: Record<string, string>;
   timelineStartById: Record<string, number>;
   timelineDurationById?: Record<string, number>;
+  timelineDataOverrides?: Record<string, Record<string, unknown>>;
+  keyShotIds?: string[];
   activePreviewId: string;
 };
 

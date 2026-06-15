@@ -8,6 +8,7 @@ import {
   Pause,
   Play,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -73,6 +74,7 @@ type VideoTimelinePanelProps = {
   timelineMetricById: Map<string, TimelineSegmentMetric>;
   selectedIds: Set<string>;
   focusedPreviewId: string;
+  keyShotIds: Set<string>;
   addVideoTrack: () => void;
   addAudioTrack: () => void;
   removeVideoTrack: (trackId: string) => void;
@@ -146,6 +148,7 @@ export function VideoTimelinePanel({
   timelineMetricById,
   selectedIds,
   focusedPreviewId,
+  keyShotIds,
   addVideoTrack,
   addAudioTrack,
   removeVideoTrack,
@@ -640,6 +643,11 @@ export function VideoTimelinePanel({
                               width: segmentLayout.width,
                             }}
                           >
+                            {keyShotIds.has(node.id) && (
+                              <div className="pointer-events-none absolute left-1 top-1 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white shadow">
+                                <Sparkles className="h-3.5 w-3.5 fill-current" />
+                              </div>
+                            )}
                             {node.data?.imageUrl ? (
                               <img
                                 src={node.data.imageUrl as string}
@@ -750,7 +758,10 @@ export function VideoTimelinePanel({
                 const trackNodes = timelineNodes.filter(
                   (node) =>
                     (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId &&
-                    Boolean(node.data?.audioUrl || node.data?.videoUrl),
+                    Boolean(
+                      node.data?.audioUrl ||
+                        (node.data?.videoUrl && node.data?.muteVideoAudio !== true),
+                    ),
                 );
                 const trackMetrics = trackNodes
                   .map((node) => timelineMetricById.get(node.id))
@@ -858,6 +869,11 @@ export function VideoTimelinePanel({
                               width: segmentLayout.width,
                             }}
                           >
+                            {keyShotIds.has(node.id) && (
+                              <div className="pointer-events-none absolute left-1 top-1 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white shadow">
+                                <Sparkles className="h-3.5 w-3.5 fill-current" />
+                              </div>
+                            )}
                             {!enabled && (
                               <div className="pointer-events-none absolute left-[-10%] top-1/2 z-20 h-0.5 w-[120%] -rotate-12 bg-rose-500 shadow-[0_0_0_1px_rgba(255,255,255,0.5)]" />
                             )}

@@ -144,6 +144,8 @@ type PersistedRenderWorkspaceState = {
   audioTrackByNodeId?: Record<string, string>;
   timelineStartById?: Record<string, number>;
   timelineDurationById?: Record<string, number>;
+  timelineDataOverrides?: Record<string, Record<string, unknown>>;
+  keyShotIds?: string[];
   timelinePast?: TimelineHistoryState[];
   timelineFuture?: TimelineHistoryState[];
   activePreviewId?: string;
@@ -508,6 +510,12 @@ export function VideoRenderModal({
   const [timelineDurationById, setTimelineDurationById] = useState<Record<string, number>>(
     () => persistedWorkspace?.timelineDurationById || {},
   );
+  const [timelineDataOverrides, setTimelineDataOverrides] = useState<
+    Record<string, Record<string, unknown>>
+  >(() => persistedWorkspace?.timelineDataOverrides || {});
+  const [keyShotIds, setKeyShotIds] = useState<Set<string>>(
+    () => new Set(persistedWorkspace?.keyShotIds || []),
+  );
   const [uploadedAssetNodes, setUploadedAssetNodes] = useState<FlowNode[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(
     () => persistedWorkspace?.selectedAssetIds || [],
@@ -596,10 +604,16 @@ export function VideoRenderModal({
       timelineIds
         .map((id) => {
           const sourceNode = assetNodeById.get(timelineSourceById[id] || id);
-          return sourceNode ? ({ ...sourceNode, id } as FlowNode) : null;
+          return sourceNode
+            ? ({
+                ...sourceNode,
+                id,
+                data: { ...sourceNode.data, ...(timelineDataOverrides[id] || {}) },
+              } as FlowNode)
+            : null;
         })
         .filter(Boolean) as FlowNode[],
-    [assetNodeById, timelineIds, timelineSourceById],
+    [assetNodeById, timelineDataOverrides, timelineIds, timelineSourceById],
   );
   const timelineNodeById = useMemo(
     () => new Map(timelineNodes.map((node) => [node.id, node])),
@@ -667,8 +681,7 @@ export function VideoRenderModal({
     );
     return [title, body].filter(Boolean).join('\n').trim();
   };
-  const canGenerateSpeechFromNode = (node: FlowNode) =>
-    !node.data?.videoUrl && Boolean(getSpeechTextForNode(node));
+  const canGenerateSpeechFromNode = (node: FlowNode) => Boolean(getSpeechTextForNode(node));
   const selectedSpeechNodes = selectedNodes.filter(canGenerateSpeechFromNode);
   const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || allAssetNodes[0];
   const focusedPreviewNode = focusedPreviewId ? nodeById.get(focusedPreviewId) : undefined;
@@ -760,14 +773,19 @@ export function VideoRenderModal({
   const activeAudioSegments = useMemo(
     () =>
       timelineMetrics.segments.filter(
-        (segment) => segment.node.data?.audioUrl || segment.node.data?.videoUrl,
+        (segment) =>
+          segment.node.data?.audioUrl ||
+          (segment.node.data?.videoUrl && segment.node.data?.muteVideoAudio !== true),
       ),
     [timelineMetrics.segments],
   );
   const getSegmentAudioSources = (node: FlowNode) =>
     [
       { kind: 'card-audio', url: node.data?.audioUrl as string | undefined },
-      { kind: 'video-audio', url: node.data?.videoUrl as string | undefined },
+      {
+        kind: 'video-audio',
+        url: node.data?.muteVideoAudio ? undefined : (node.data?.videoUrl as string | undefined),
+      },
     ].filter((source): source is { kind: string; url: string } => Boolean(source.url));
   const activeTimelineFrame = Math.floor(activeTimelineTime * frameRate);
   const timelinePlayheadLeft = activeTimelineTime * timelineMetrics.pixelsPerSecond;
@@ -811,6 +829,8 @@ export function VideoRenderModal({
       audioTrackByNodeId,
       timelineStartById,
       timelineDurationById,
+      timelineDataOverrides,
+      keyShotIds,
       activePreviewId,
     });
 
@@ -826,6 +846,8 @@ export function VideoRenderModal({
       setAudioTrackByNodeId,
       setTimelineStartById,
       setTimelineDurationById,
+      setTimelineDataOverrides,
+      setKeyShotIds,
       setActivePreviewId,
     });
   };
@@ -847,6 +869,8 @@ export function VideoRenderModal({
     audioTrackByNodeId,
     timelineStartById,
     timelineDurationById,
+    timelineDataOverrides,
+    keyShotIds: [...keyShotIds],
     timelinePast: timelinePast.slice(-50),
     timelineFuture: timelineFuture.slice(0, 50),
     activePreviewId,
@@ -1763,10 +1787,12 @@ export function VideoRenderModal({
     speed,
     timelineDisplayDuration,
     timelineDurationById,
+    timelineDataOverrides,
     timelineHeight,
     timelineIds,
     timelineExcludedSourceIds,
     timelineFuture,
+    keyShotIds,
     useGpuAcceleration,
     timelinePast,
     timelinePixelsPerSecond,
@@ -2056,9 +2082,76 @@ export function VideoRenderModal({
     setAudioTrackByNodeId(removeMapEntries);
     setTimelineStartById(removeMapEntries);
     setTimelineDurationById(removeMapEntries);
+    setTimelineDataOverrides(removeMapEntries);
+    setKeyShotIds((previous) => {
+      const next = new Set(previous);
+      removedIds.forEach((id) => next.delete(id));
+      return next;
+    });
   };
 
   const removeTimelineNode = (id: string) => removeTimelineNodes([id]);
+
+  const useActualMediaDuration = async (node: FlowNode) => {
+    if (!timelineIds.includes(node.id)) return;
+    const duration = await getNodeMediaDuration(node);
+    closeContextMenu();
+    pushTimelineHistory();
+    setTimelineDurationById((previous) => ({
+      ...previous,
+      [node.id]: Math.max(0.25, duration),
+    }));
+  };
+
+  const separateTimelineAudio = (node: FlowNode) => {
+    if (!timelineIds.includes(node.id) || !node.data?.videoUrl) return;
+    const audioTimelineId = makeTimelineClipInstanceId(timelineSourceById[node.id] || node.id);
+    const start = timelineMetricById.get(node.id)?.start || 0;
+    const duration = timelineDurationById[node.id] || defaultSeconds;
+    const audioTrackId = audioTrackByNodeId[node.id] || audioTrackIds[0] || 'audio-1';
+
+    closeContextMenu();
+    pushTimelineHistory();
+    setTimelineIds((previous) => [...previous, audioTimelineId]);
+    setTimelineSourceById((previous) => ({
+      ...previous,
+      [audioTimelineId]: timelineSourceById[node.id] || node.id,
+    }));
+    setTimelineDataOverrides((previous) => ({
+      ...previous,
+      [node.id]: {
+        ...(previous[node.id] || {}),
+        audioUrl: undefined,
+        muteVideoAudio: true,
+      },
+      [audioTimelineId]: {
+        videoUrl: undefined,
+        imageUrl: undefined,
+        text: '',
+        audioUrl: node.data.videoUrl,
+        title: `${segmentTitle(node)} - 音频`,
+      },
+    }));
+    setTimelineStartById((previous) => ({ ...previous, [audioTimelineId]: start }));
+    setTimelineDurationById((previous) => ({ ...previous, [audioTimelineId]: duration }));
+    setAudioTrackByNodeId((previous) => ({
+      ...previous,
+      [audioTimelineId]: audioTrackId,
+    }));
+    setSelectedIds((previous) => new Set(previous).add(audioTimelineId));
+  };
+
+  const toggleKeyShot = (id: string) => {
+    if (!timelineIds.includes(id)) return;
+    closeContextMenu();
+    pushTimelineHistory();
+    setKeyShotIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const removeVideoTrack = (trackId: string) => {
     if (videoTrackIds.length <= 1) return;
@@ -2644,7 +2737,8 @@ export function VideoRenderModal({
       audioDuration = validDuration(await getAudioDuration(audioUrl));
     }
 
-    return Math.max(videoDuration, audioDuration, defaultSeconds);
+    const mediaDuration = Math.max(videoDuration, audioDuration);
+    return mediaDuration > 0 ? mediaDuration : defaultSeconds;
   };
 
   const getNodeRenderDuration = async (node: FlowNode) => {
@@ -3484,6 +3578,46 @@ export function VideoRenderModal({
       );
       const allSelectedTimelineIdsExported =
         selectedTimelineIds.length > 0 && selectedTimelineIds.every((id) => selectedIds.has(id));
+      if (selectedTimelineIds.length > 0) {
+        return [
+          {
+            items: [
+              {
+                label: isZh
+                  ? `文字转音频（${speechNodesForMenu.length}）`
+                  : `Text to audio (${speechNodesForMenu.length})`,
+                icon: <Mic className="w-4 h-4" />,
+                onSelect: () => generateAudioFromSelectedText(speechNodesForMenu),
+                disabled: !canMutate || audioBusy || speechNodesForMenu.length === 0,
+              },
+              {
+                label: allSelectedTimelineIdsExported
+                  ? isZh
+                    ? '不导出'
+                    : 'Do not export'
+                  : isZh
+                    ? '导出'
+                    : 'Export',
+                icon: <CheckCircle2 className="w-4 h-4" />,
+                onSelect: () =>
+                  setTimelineNodesExported(selectedTimelineIds, !allSelectedTimelineIdsExported),
+                disabled: !canMutate,
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                label: isZh ? '删除' : 'Delete',
+                icon: <Trash2 className="w-4 h-4" />,
+                onSelect: () => removeTimelineNodes(selectedTimelineIds),
+                disabled: !canMutate,
+                danger: true,
+              },
+            ],
+          },
+        ];
+      }
       return [
         {
           items: [
@@ -3581,6 +3715,98 @@ export function VideoRenderModal({
               },
             ]
           : []),
+      ];
+    }
+
+    const timelineTrackItems =
+      menu.trackKind === 'audio'
+        ? audioTrackIds.map((trackId, index) => ({
+            label: isZh ? `移动到音频轨 ${index + 1}` : `Move to Audio ${index + 1}`,
+            icon: <Music className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'audio', trackId),
+            disabled: !canMutate || (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId,
+          }))
+        : videoTrackIds.map((trackId, index) => ({
+            label: isZh ? `移动到视频轨 ${index + 1}` : `Move to Video ${index + 1}`,
+            icon: <Video className="w-4 h-4" />,
+            onSelect: () => assignNodeTrack(node.id, 'video', trackId),
+            disabled: !canMutate || (videoTrackByNodeId[node.id] || videoTrackIds[0]) === trackId,
+          }));
+
+    if (isTimelineNode && node) {
+      const exported = selectedIds.has(node.id);
+      const hasVideoAudio = Boolean(node.data?.videoUrl);
+      return [
+        {
+          items: [
+            {
+              label: `${segmentDurationLabel(node)} · ${
+                timelineDurationById[node.id]
+                  ? `${(timelineDurationById[node.id] / speed).toFixed(2)}s`
+                  : `${defaultSeconds.toFixed(2)}s`
+              }`,
+              icon: <Clock className="w-4 h-4" />,
+              onSelect: () => useActualMediaDuration(node),
+              disabled: !canMutate || (!node.data?.videoUrl && !node.data?.audioUrl),
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: isZh ? '预览此段' : 'Preview this segment',
+              icon: <Eye className="w-4 h-4" />,
+              onSelect: () => previewNode(node.id),
+              disabled: status === 'rendering',
+            },
+            {
+              label: exported ? (isZh ? '不导出' : 'Do not export') : isZh ? '导出' : 'Export',
+              icon: <CheckCircle2 className="w-4 h-4" />,
+              onSelect: () => toggleNode(node.id),
+              disabled: !canMutate,
+            },
+            {
+              label: isZh ? '文字转音频' : 'Text to audio',
+              icon: <Mic className="w-4 h-4" />,
+              onSelect: () => generateAudioFromSelectedText([node]),
+              disabled: !canMutate || audioBusy || !canGenerateSpeechFromNode(node),
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: isZh ? '音视频分离' : 'Separate audio and video',
+              icon: <Scissors className="w-4 h-4" />,
+              onSelect: () => separateTimelineAudio(node),
+              disabled: !canMutate || !hasVideoAudio,
+            },
+            {
+              label: keyShotIds.has(node.id)
+                ? isZh
+                  ? '取消重点镜头'
+                  : 'Unmark key shot'
+                : isZh
+                  ? '标记为重点镜头'
+                  : 'Mark as key shot',
+              icon: <Sparkles className="w-4 h-4" />,
+              onSelect: () => toggleKeyShot(node.id),
+              disabled: !canMutate,
+            },
+          ],
+        },
+        ...(timelineTrackItems.length > 1 ? [{ items: timelineTrackItems }] : []),
+        {
+          items: [
+            {
+              label: isZh ? '删除' : 'Delete',
+              icon: <Trash2 className="w-4 h-4" />,
+              onSelect: () => removeTimelineNode(node.id),
+              disabled: !canMutate,
+              danger: true,
+            },
+          ],
+        },
       ];
     }
 
@@ -3981,6 +4207,7 @@ export function VideoRenderModal({
               timelineMetricById={timelineMetricById}
               selectedIds={selectedIds}
               focusedPreviewId={focusedPreviewId}
+              keyShotIds={keyShotIds}
               addVideoTrack={addVideoTrack}
               addAudioTrack={addAudioTrack}
               removeVideoTrack={removeVideoTrack}

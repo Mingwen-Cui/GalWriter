@@ -11,6 +11,8 @@ type TimelineHistorySource = {
   audioTrackByNodeId: Record<string, string>;
   timelineStartById: Record<string, number>;
   timelineDurationById: Record<string, number>;
+  timelineDataOverrides: Record<string, Record<string, unknown>>;
+  keyShotIds: Set<string>;
   activePreviewId: string;
 };
 
@@ -25,6 +27,8 @@ type TimelineHistoryRestoreHandlers = {
   setAudioTrackByNodeId: (value: Record<string, string>) => void;
   setTimelineStartById: (value: Record<string, number>) => void;
   setTimelineDurationById: (value: Record<string, number>) => void;
+  setTimelineDataOverrides: (value: Record<string, Record<string, unknown>>) => void;
+  setKeyShotIds: (value: Set<string>) => void;
   setActivePreviewId: (value: string) => void;
 };
 
@@ -39,6 +43,8 @@ export const captureTimelineHistoryState = ({
   audioTrackByNodeId,
   timelineStartById,
   timelineDurationById,
+  timelineDataOverrides,
+  keyShotIds,
   activePreviewId,
 }: TimelineHistorySource): TimelineHistoryState => ({
   timelineIds: [...timelineIds],
@@ -51,6 +57,8 @@ export const captureTimelineHistoryState = ({
   audioTrackByNodeId: { ...audioTrackByNodeId },
   timelineStartById: { ...timelineStartById },
   timelineDurationById: { ...timelineDurationById },
+  timelineDataOverrides: structuredClone(timelineDataOverrides),
+  keyShotIds: [...keyShotIds],
   activePreviewId,
 });
 
@@ -68,5 +76,7 @@ export const restoreTimelineHistoryState = (
   handlers.setAudioTrackByNodeId(snapshot.audioTrackByNodeId);
   handlers.setTimelineStartById(snapshot.timelineStartById || {});
   handlers.setTimelineDurationById(snapshot.timelineDurationById || {});
+  handlers.setTimelineDataOverrides(snapshot.timelineDataOverrides || {});
+  handlers.setKeyShotIds(new Set(snapshot.keyShotIds || []));
   handlers.setActivePreviewId(snapshot.activePreviewId);
 };
