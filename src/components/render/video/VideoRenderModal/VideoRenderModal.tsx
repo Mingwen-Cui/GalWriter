@@ -2,26 +2,15 @@ import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
-import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../../web/webExport';
 import { WebWorkspace } from '../../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
-import { buildAudioBuffer, buildAudioTrack } from '../audio/audioTrack';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
 import {
   chooseRenderOutputDir,
   getDefaultRenderDir,
-  saveRenderedVideo,
-  saveRenderedWebZip,
 } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
-import { clearGPUTextCache, drawGPUFrame } from '../gpu/gpuFrameRenderer';
-import {
-  destroyWebGPU,
-  getWebGPUCanvas,
-  initWebGPU,
-  isWebGPUSupported,
-} from '../gpu/webgpuRenderer';
+import { isWebGPUSupported } from '../gpu/webgpuRenderer';
 import { RenderContextMenu } from '../panels/RenderContextMenu';
 import { RenderHeader } from '../panels/RenderHeader';
 import { RenderProgressModal } from '../panels/RenderProgressModal';
@@ -29,11 +18,9 @@ import { VideoAssetSidebar } from '../panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from '../panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from '../panels/VideoTimelinePanel';
-import { drawRenderFrame } from '../preview/frameRenderer';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
-  DEFAULT_VIDEO_BITRATE,
   EXPORT_FORMAT_OPTIONS,
   FRAME_RATE_OPTIONS,
   HEADER_HEIGHT,
@@ -43,13 +30,7 @@ import {
   RESOLUTION_OPTIONS,
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
-import {
-  clamp,
-  isTauriRuntime,
-  loadVideo,
-  seekVideo,
-  validDuration,
-} from '../shared/mediaUtils';
+import { clamp, isTauriRuntime } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
 import { stripHtml } from '../shared/storyNodes';
 import {
@@ -65,7 +46,6 @@ import type {
   RenderStatus,
   RenderStyle,
   RenderWorkspaceMode,
-  SegmentRenderInfo,
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
@@ -113,8 +93,15 @@ import {
   isVisualTimelineNode,
 } from './timelineTrackLayout';
 import { useAssetAudioTools } from './useAssetAudioTools';
+import { useAssetMenuActions } from './useAssetMenuActions';
 import { useMediaDurations } from './useMediaDurations';
 import { usePreviewAudio } from './usePreviewAudio';
+import { usePreviewPlayback } from './usePreviewPlayback';
+import { usePreviewRenderer } from './usePreviewRenderer';
+import { useTimelineEditingActions } from './useTimelineEditingActions';
+import { useTimelineDragDrop } from './useTimelineDragDrop';
+import { useVideoExport } from './useVideoExport';
+import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
 
 export function VideoRenderModal({
@@ -260,7 +247,6 @@ export function VideoRenderModal({
   );
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
-  const [isCancellingRender, setIsCancellingRender] = useState(false);
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   const [previewTime, setPreviewTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
@@ -370,10 +356,7 @@ export function VideoRenderModal({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetUploadInputRef = useRef<HTMLInputElement>(null);
   const preservePreviewTimeOnNodeChangeRef = useRef(false);
-  const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
-  const previewDrawIdRef = useRef(0);
   const timelineClipCounterRef = useRef(0);
-  const renderAbortControllerRef = useRef<AbortController | null>(null);
   const latestWorkspaceSnapshotRef = useRef<{
     workspaceKey?: string;
     snapshot: PersistedRenderWorkspaceState;
@@ -1328,17 +1311,6 @@ export function VideoRenderModal({
     };
   }, [selectedNodes, defaultSeconds, speed]);
 
-  const toggleNode = (id: string) => {
-    closeContextMenu();
-    pushTimelineHistory();
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const addNodeToTimeline = (
     id: string,
     trackKind: 'video' | 'audio' = 'video',
@@ -1402,562 +1374,109 @@ export function VideoRenderModal({
     setSelectedIds((prev) => new Set(prev).add(timelineId));
     setActivePreviewId(timelineId);
   };
+  const { handleAssetDragStart, handleTimelineDrop } = useTimelineDragDrop({
+    timelineIds,
+    selectedAssetIds,
+    assetNodeById,
+    timelineNodeById,
+    timelineMetricById,
+    timelineMetrics,
+    videoTrackIds,
+    audioTrackIds,
+    activePreviewId,
+    activeTimelineTime,
+    defaultSeconds,
+    speed,
+    preservePreviewTimeOnNodeChangeRef,
+    closeContextMenu,
+    pushTimelineHistory,
+    getNodeMediaDuration,
+    makeTimelineClipInstanceId,
+    getTimelinePlaceholderOverrides,
+    snapTimelineTime,
+    snapToTimelineClipEdges,
+    findNonOverlappingTrackStart,
+    getAudioDropTrackId,
+    assignAudioTrackForVideoPlacement,
+    addNodeToTimeline,
+    setTimelineIds,
+    setTimelineSourceById,
+    setTimelineStartById,
+    setTimelineDurationById,
+    setTimelineDataOverrides,
+    setVideoTrackByNodeId,
+    setAudioTrackByNodeId,
+    setSelectedIds,
+    setActivePreviewId,
+    setPreviewTime,
+    setTimelinePreviewTime,
+  });
 
-  const reorderTimelineNode = (
-    dragId: string,
-    targetId: string,
-    placement: 'before' | 'after' = 'before',
-  ) => {
-    if (!dragId || !targetId || dragId === targetId) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setTimelineIds((prev) => {
-      const withoutDragged = prev.filter((id) => id !== dragId);
-      const targetIndex = withoutDragged.indexOf(targetId);
-      if (targetIndex < 0) return prev;
-      const next = [...withoutDragged];
-      next.splice(placement === 'after' ? targetIndex + 1 : targetIndex, 0, dragId);
-      return next;
-    });
-  };
-
-  const removeTimelineNodes = (ids: string[]) => {
-    const removedIds = new Set(ids.filter((id) => timelineIds.includes(id)));
-    if (removedIds.size === 0) return;
-    const remainingIds = timelineIds.filter((id) => !removedIds.has(id));
-    const removedSourceIds = new Set(
-      Array.from(removedIds).map((id) => timelineSourceById[id] || id),
-    );
-    const excludedSourceIds = Array.from(removedSourceIds).filter(
-      (sourceId) =>
-        !remainingIds.some(
-          (timelineId) => (timelineSourceById[timelineId] || timelineId) === sourceId,
-        ),
-    );
-    closeContextMenu();
-    pushTimelineHistory();
-    setTimelineIds(remainingIds);
-    if (excludedSourceIds.length > 0) {
-      setTimelineExcludedSourceIds((prev) => {
-        const next = new Set(prev);
-        excludedSourceIds.forEach((sourceId) => next.add(sourceId));
-        return next;
-      });
-    }
-    setTimelineSourceById((prev) => {
-      return Object.fromEntries(
-        Object.entries(prev).filter(([timelineId]) => !removedIds.has(timelineId)),
-      );
-    });
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      removedIds.forEach((id) => next.delete(id));
-      return next;
-    });
-    if (removedIds.has(activePreviewId)) {
-      const nextNode = timelineNodes.find((node) => !removedIds.has(node.id)) || orderedNodes[0];
-      setActivePreviewId(nextNode?.id || '');
-    }
-    if (removedIds.has(focusedPreviewId)) {
-      setFocusedPreviewId('');
-    }
-    const removeMapEntries = <T,>(map: Record<string, T>) =>
-      Object.fromEntries(Object.entries(map).filter(([id]) => !removedIds.has(id)));
-    setVideoTrackByNodeId(removeMapEntries);
-    setAudioTrackByNodeId(removeMapEntries);
-    setTimelineStartById(removeMapEntries);
-    setTimelineDurationById(removeMapEntries);
-    setTimelineDataOverrides(removeMapEntries);
-    setKeyShotIds((previous) => {
-      const next = new Set(previous);
-      removedIds.forEach((id) => next.delete(id));
-      return next;
-    });
-  };
-
-  const removeTimelineNode = (id: string) => removeTimelineNodes([id]);
-
-  const useActualMediaDuration = async (node: FlowNode) => {
-    if (!timelineIds.includes(node.id)) return;
-    const duration = await getNodeMediaDuration(node);
-    closeContextMenu();
-    pushTimelineHistory();
-    setTimelineDurationById((previous) => ({
-      ...previous,
-      [node.id]: Math.max(0.25, duration),
-    }));
-  };
-
-  const separateTimelineAudio = (node: FlowNode) => {
-    if (!timelineIds.includes(node.id) || !node.data?.videoUrl) return;
-    const audioTimelineId = makeTimelineClipInstanceId(timelineSourceById[node.id] || node.id);
-    const start = timelineMetricById.get(node.id)?.start || 0;
-    const duration = timelineDurationById[node.id] || defaultSeconds;
-    const audioTrackId = audioTrackByNodeId[node.id] || audioTrackIds[0] || 'audio-1';
-
-    closeContextMenu();
-    pushTimelineHistory();
-    setTimelineIds((previous) => [...previous, audioTimelineId]);
-    setTimelineSourceById((previous) => ({
-      ...previous,
-      [audioTimelineId]: timelineSourceById[node.id] || node.id,
-    }));
-    setTimelineDataOverrides((previous) => ({
-      ...previous,
-      [node.id]: {
-        ...(previous[node.id] || {}),
-        audioUrl: undefined,
-        muteVideoAudio: true,
-      },
-      [audioTimelineId]: {
-        videoUrl: undefined,
-        imageUrl: undefined,
-        text: '',
-        audioUrl: node.data.videoUrl,
-        title: `${segmentTitle(node)} - 音频`,
-      },
-    }));
-    setTimelineStartById((previous) => ({ ...previous, [audioTimelineId]: start }));
-    setTimelineDurationById((previous) => ({ ...previous, [audioTimelineId]: duration }));
-    setAudioTrackByNodeId((previous) => ({
-      ...previous,
-      [audioTimelineId]: audioTrackId,
-    }));
-    setSelectedIds((previous) => new Set(previous).add(audioTimelineId));
-  };
-
-  const toggleKeyShot = (id: string) => {
-    if (!timelineIds.includes(id)) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setKeyShotIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const removeVideoTrack = (trackId: string) => {
-    if (videoTrackIds.length <= 1) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setVideoTrackIds((prev) => {
-      if (prev.length <= 1) return prev;
-      const next = prev.filter((id) => id !== trackId);
-      setVideoTrackByNodeId((map) =>
-        Object.fromEntries(
-          Object.entries(map).map(([nodeId, assignedTrackId]) => [
-            nodeId,
-            assignedTrackId === trackId ? next[0] : assignedTrackId,
-          ]),
-        ),
-      );
-      return next;
-    });
-  };
-
-  const removeAudioTrack = (trackId: string) => {
-    if (audioTrackIds.length <= 1) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setAudioTrackIds((prev) => {
-      if (prev.length <= 1) return prev;
-      const next = prev.filter((id) => id !== trackId);
-      setAudioTrackByNodeId((map) =>
-        Object.fromEntries(
-          Object.entries(map).map(([nodeId, assignedTrackId]) => [
-            nodeId,
-            assignedTrackId === trackId ? next[0] : assignedTrackId,
-          ]),
-        ),
-      );
-      return next;
-    });
-  };
-
-  const addVideoTrack = () => {
-    closeContextMenu();
-    pushTimelineHistory();
-    setVideoTrackIds((prev) => [...prev, makeTrackId('video')]);
-  };
-
-  const addAudioTrack = () => {
-    closeContextMenu();
-    pushTimelineHistory();
-    setAudioTrackIds((prev) => [...prev, makeTrackId('audio')]);
-  };
-
-  const previewNode = (id: string) => {
-    if (!nodeById.has(id)) return;
-    closeContextMenu();
-    if (timelineMetricById.has(id)) {
-      focusTimelineSegment(id);
-      return;
-    }
-    setActivePreviewId(id);
-    setPreviewTime(0);
-    setPreviewPlaying(false);
-  };
-
-  const selectTimelineFromNode = (id: string) => {
-    const startIndex = timelineIds.indexOf(id);
-    if (startIndex < 0) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setSelectedIds(new Set(timelineIds.slice(startIndex)));
-    setActivePreviewId(id);
-    setPreviewTime(0);
-    setPreviewPlaying(false);
-  };
-
-  const selectOnlyNode = (id: string) => {
-    if (!timelineIds.includes(id)) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setSelectedIds(new Set([id]));
-    setActivePreviewId(id);
-  };
-
-  const selectAllTimelineNodes = () => {
-    closeContextMenu();
-    pushTimelineHistory();
-    setSelectedIds(new Set(timelineIds));
-  };
-
-  const clearTimelineSelection = () => {
-    closeContextMenu();
-    pushTimelineHistory();
-    setFocusedPreviewId('');
-    setSelectedIds(new Set());
-  };
-
-  const setTimelineNodesExported = (ids: string[], exported: boolean) => {
-    const timelineIdSet = new Set(ids.filter((id) => timelineIds.includes(id)));
-    if (timelineIdSet.size === 0) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      timelineIdSet.forEach((id) => {
-        if (exported) next.add(id);
-        else next.delete(id);
-      });
-      return next;
-    });
-  };
-
-  const focusTimelineSegment = (nodeId: string) => {
-    const metric = timelineMetricById.get(nodeId);
-    if (!metric) return;
-    preservePreviewTimeOnNodeChangeRef.current = true;
-    setFocusedPreviewId(nodeId);
-    setActivePreviewId(nodeId);
-    setTimelinePreviewTime(metric.start);
-    setPreviewTime(0);
-    setPreviewPlaying(false);
-  };
-
-  const assignNodeTrack = (id: string, trackKind: 'video' | 'audio', trackId: string) => {
-    if (!timelineIds.includes(id)) return;
-    closeContextMenu();
-    pushTimelineHistory();
-    if (trackKind === 'video') {
-      setVideoTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
-      assignAudioTrackForVideoPlacement(
-        id,
-        timelineMetricById.get(id)?.start ?? timelineStartById[id] ?? 0,
-        timelineMetricById.get(id)?.duration || Math.max(0.25, defaultSeconds / speed),
-        trackId,
-      );
-      return;
-    }
-    setAudioTrackByNodeId((prev) => ({ ...prev, [id]: trackId }));
-  };
-
-  const addNearestAssetToTimeline = (trackKind: 'video' | 'audio' = 'video') => {
-    const node = visibleAssetNodes[0];
-    if (!node) return;
-    addNodeToTimeline(node.id, trackKind);
-  };
-
-  const handleAssetDragStart = (
-    event: React.DragEvent,
-    id: string,
-    trackKind?: 'video' | 'audio',
-    dragOffsetSeconds = 0,
-    draggedTimelineIds?: string[],
-  ) => {
-    event.stopPropagation();
-    const draggedAssetIds =
-      trackKind && draggedTimelineIds?.includes(id) && draggedTimelineIds.length > 1
-        ? draggedTimelineIds.filter((timelineId) => timelineIds.includes(timelineId))
-        : !trackKind && selectedAssetIds.includes(id) && selectedAssetIds.length > 1
-          ? selectedAssetIds
-          : [id];
-    event.dataTransfer.setData('application/x-galwriter-node', id);
-    event.dataTransfer.setData('application/x-galwriter-nodes', JSON.stringify(draggedAssetIds));
-    event.dataTransfer.setData(
-      'application/x-galwriter-drag-origin',
-      trackKind ? 'timeline' : 'asset',
-    );
-    if (trackKind) event.dataTransfer.setData('application/x-galwriter-track-kind', trackKind);
-    event.dataTransfer.setData(
-      'application/x-galwriter-drag-offset-seconds',
-      String(Math.max(0, dragOffsetSeconds)),
-    );
-    event.dataTransfer.setData('text/plain', id);
-    event.dataTransfer.effectAllowed = 'copyMove';
-  };
-
-  const handleTimelineDrop = async (
-    event: React.DragEvent,
-    targetId?: string,
-    trackId?: string,
-    trackKind?: 'video' | 'audio',
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const draggedId =
-      event.dataTransfer.getData('application/x-galwriter-node') ||
-      event.dataTransfer.getData('text/plain');
-    if (!draggedId) return;
-    const dragOrigin = event.dataTransfer.getData('application/x-galwriter-drag-origin');
-    let draggedAssetIds: string[] = [];
-    try {
-      const parsed = JSON.parse(
-        event.dataTransfer.getData('application/x-galwriter-nodes') || '[]',
-      );
-      if (Array.isArray(parsed)) {
-        draggedAssetIds = parsed.filter(
-          (id): id is string =>
-            typeof id === 'string' && (assetNodeById.has(id) || timelineNodeById.has(id)),
-        );
-      }
-    } catch {
-      draggedAssetIds = [];
-    }
-    const isTimelineClip = dragOrigin === 'timeline' && timelineIds.includes(draggedId);
-    if (!isTimelineClip && !assetNodeById.has(draggedId)) return;
-    let droppedTrackKind =
-      trackKind ||
-      (event.dataTransfer.getData('application/x-galwriter-track-kind') as 'video' | 'audio') ||
-      'video';
-    let droppedTrackId = trackId;
-    if (dragOrigin === 'asset' && draggedAssetIds.length > 1) {
-      const trackElement = (event.currentTarget as HTMLElement).closest(
-        '[data-render-track-kind]',
-      ) as HTMLElement | null;
-      const rect = (trackElement || (event.currentTarget as HTMLElement)).getBoundingClientRect();
-      const dropTime = Math.max(
-        0,
-        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond),
-      );
-      const newIds = [];
-      for (const sourceId of draggedAssetIds) {
-        const sourceNode = assetNodeById.get(sourceId);
-        if (!sourceNode) continue;
-        newIds.push({
-          sourceId,
-          timelineId: makeTimelineClipInstanceId(sourceId),
-          mediaDuration: await getNodeMediaDuration(sourceNode),
-          placeholderOverrides: getTimelinePlaceholderOverrides(sourceNode),
-        });
-      }
-      let cursor = dropTime;
-      const startById: Record<string, number> = {};
-      const durationById: Record<string, number> = {};
-      newIds.forEach(({ timelineId, mediaDuration }) => {
-        const duration = Math.max(0.25, mediaDuration / speed);
-        startById[timelineId] = cursor;
-        durationById[timelineId] = mediaDuration;
-        cursor += duration;
-      });
-      const timelineDataOverridesById = Object.fromEntries(
-        newIds
-          .filter(({ placeholderOverrides }) => Object.keys(placeholderOverrides).length > 0)
-          .map(({ timelineId, placeholderOverrides }) => [timelineId, placeholderOverrides]),
-      );
-      const targetVideoTrackId = droppedTrackId || videoTrackIds[0] || 'video-1';
-      const targetAudioTrackId =
-        droppedTrackKind === 'audio'
-          ? droppedTrackId || audioTrackIds[0] || 'audio-1'
-          : audioTrackIds[videoTrackIds.indexOf(targetVideoTrackId)] ||
-            audioTrackIds[0] ||
-            'audio-1';
-
-      pushTimelineHistory();
-      setTimelineIds((prev) => [...prev, ...newIds.map(({ timelineId }) => timelineId)]);
-      setTimelineSourceById((prev) => ({
-        ...prev,
-        ...Object.fromEntries(newIds.map(({ timelineId, sourceId }) => [timelineId, sourceId])),
-      }));
-      setTimelineStartById((prev) => ({ ...prev, ...startById }));
-      setTimelineDurationById((prev) => ({ ...prev, ...durationById }));
-      setTimelineDataOverrides((prev) => ({ ...prev, ...timelineDataOverridesById }));
-      setVideoTrackByNodeId((prev) => ({
-        ...prev,
-        ...Object.fromEntries(
-          newIds
-            .filter(({ sourceId }) => {
-              const sourceNode = assetNodeById.get(sourceId);
-              return droppedTrackKind !== 'audio' && !isAudioOnlyNode(sourceNode);
-            })
-            .map(({ timelineId }) => [timelineId, targetVideoTrackId]),
-        ),
-      }));
-      setAudioTrackByNodeId((prev) => ({
-        ...prev,
-        ...Object.fromEntries(newIds.map(({ timelineId }) => [timelineId, targetAudioTrackId])),
-      }));
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        newIds.forEach(({ timelineId }) => next.add(timelineId));
-        return next;
-      });
-      setActivePreviewId(newIds[0]?.timelineId || '');
-      closeContextMenu();
-      return;
-    }
-    const draggedSourceNode = isTimelineClip
-      ? timelineNodeById.get(draggedId)
-      : assetNodeById.get(draggedId);
-    const draggingAudioOnly = isAudioOnlyNode(draggedSourceNode);
-    if (draggingAudioOnly) {
-      droppedTrackKind = 'audio';
-      if (trackKind === 'video' && trackId) {
-        droppedTrackId = audioTrackIds[videoTrackIds.indexOf(trackId)] || makeTrackId('audio');
-      } else {
-        droppedTrackId = trackId || audioTrackIds[0];
-      }
-    }
-    if (draggingAudioOnly || droppedTrackId) {
-      const trackElement = (event.currentTarget as HTMLElement).closest(
-        '[data-render-track-kind]',
-      ) as HTMLElement | null;
-      const rect = (trackElement || (event.currentTarget as HTMLElement)).getBoundingClientRect();
-      const dragOffsetSeconds =
-        Number.parseFloat(
-          event.dataTransfer.getData('application/x-galwriter-drag-offset-seconds'),
-        ) || 0;
-      const timelineId = isTimelineClip ? draggedId : makeTimelineClipInstanceId(draggedId);
-      const placeholderOverrides = isTimelineClip
-        ? {}
-        : getTimelinePlaceholderOverrides(draggedSourceNode);
-      const duration = isTimelineClip
-        ? timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed)
-        : Math.max(0.25, defaultSeconds / speed);
-      const droppedTime =
-        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
-        dragOffsetSeconds;
-      const draggedTimelineClipIds =
-        isTimelineClip && draggedAssetIds.includes(draggedId)
-          ? draggedAssetIds.filter((id) => timelineMetricById.has(id))
-          : [];
-
-      if (draggedTimelineClipIds.length > 1) {
-        const anchorStart = timelineMetricById.get(draggedId)?.start || 0;
-        const desiredAnchorStart = snapTimelineTime(droppedTime);
-        const rawDelta = desiredAnchorStart - anchorStart;
-        const minimumStart = Math.min(
-          ...draggedTimelineClipIds.map((id) => timelineMetricById.get(id)?.start || 0),
-        );
-        const delta = Math.max(rawDelta, -minimumStart);
-        const nextStarts = Object.fromEntries(
-          draggedTimelineClipIds.map((id) => [
-            id,
-            Math.max(0, (timelineMetricById.get(id)?.start || 0) + delta),
-          ]),
-        );
-
-        pushTimelineHistory();
-        setTimelineStartById((previous) => ({ ...previous, ...nextStarts }));
-
-        if (droppedTrackKind === 'video' && droppedTrackId) {
-          setVideoTrackByNodeId((previous) => ({ ...previous, [draggedId]: droppedTrackId! }));
-          assignAudioTrackForVideoPlacement(
-            draggedId,
-            nextStarts[draggedId],
-            timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed),
-            droppedTrackId,
-          );
-        } else if (droppedTrackKind === 'audio' && droppedTrackId) {
-          setAudioTrackByNodeId((previous) => ({ ...previous, [draggedId]: droppedTrackId! }));
-        }
-
-        if (draggedTimelineClipIds.includes(activePreviewId)) {
-          preservePreviewTimeOnNodeChangeRef.current = true;
-          setTimelinePreviewTime((previous) =>
-            clamp(previous + delta, 0, timelineMetrics.totalDuration + Math.max(0, delta)),
-          );
-        }
-        return;
-      }
-
-      const placementTrackId = droppedTrackId || audioTrackIds[0] || makeTrackId('audio');
-      const nextStart = draggingAudioOnly
-        ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
-        : findNonOverlappingTrackStart(
-            timelineId,
-            droppedTime,
-            duration,
-            droppedTrackKind,
-            placementTrackId,
-          );
-      if (droppedTrackKind === 'audio') {
-        droppedTrackId = getAudioDropTrackId(timelineId, nextStart, duration, droppedTrackId);
-      } else {
-        droppedTrackId = placementTrackId;
-      }
-      const resolvedTrackId = droppedTrackId || placementTrackId;
-      const shouldPreservePlayhead = timelineId === activePreviewId;
-      const preservedTimelineTime = activeTimelineTime;
-
-      pushTimelineHistory();
-      setTimelineIds((prev) => (prev.includes(timelineId) ? prev : [...prev, timelineId]));
-      if (!isTimelineClip) {
-        setTimelineSourceById((prev) => ({ ...prev, [timelineId]: draggedId }));
-      }
-      if (Object.keys(placeholderOverrides).length > 0) {
-        setTimelineDataOverrides((prev) => ({
-          ...prev,
-          [timelineId]: {
-            ...(prev[timelineId] || {}),
-            ...placeholderOverrides,
-          },
-        }));
-      }
-      if (droppedTrackKind === 'video') {
-        setVideoTrackByNodeId((prev) => ({ ...prev, [timelineId]: resolvedTrackId }));
-        assignAudioTrackForVideoPlacement(timelineId, nextStart, duration, resolvedTrackId);
-      } else {
-        setAudioTrackByNodeId((prev) => ({ ...prev, [timelineId]: resolvedTrackId }));
-        setVideoTrackByNodeId((prev) => {
-          const next = { ...prev };
-          delete next[timelineId];
-          return next;
-        });
-      }
-      setTimelineStartById((prev) => ({ ...prev, [timelineId]: nextStart }));
-      if (shouldPreservePlayhead) {
-        preservePreviewTimeOnNodeChangeRef.current = true;
-        setPreviewTime(clamp((preservedTimelineTime - nextStart) * speed, 0, duration * speed));
-      }
-      setSelectedIds((prev) => new Set(prev).add(timelineId));
-      if (!activePreviewId || !isTimelineClip) setActivePreviewId(timelineId);
-      return;
-    }
-
-    if (targetId && isTimelineClip) {
-      reorderTimelineNode(
-        draggedId,
-        targetId,
-        event.clientX > (event.currentTarget as HTMLElement).getBoundingClientRect().left
-          ? 'after'
-          : 'before',
-      );
-    } else addNodeToTimeline(draggedId, droppedTrackKind, droppedTrackId);
-  };
+  const {
+    toggleNode,
+    removeTimelineNodes,
+    removeTimelineNode,
+    useActualMediaDuration,
+    separateTimelineAudio,
+    toggleKeyShot,
+    removeVideoTrack,
+    removeAudioTrack,
+    addVideoTrack,
+    addAudioTrack,
+    previewNode,
+    selectTimelineFromNode,
+    selectOnlyNode,
+    selectAllTimelineNodes,
+    clearTimelineSelection,
+    setTimelineNodesExported,
+    focusTimelineSegment,
+    assignNodeTrack,
+    addNearestAssetToTimeline,
+  } = useTimelineEditingActions({
+    timelineIds,
+    timelineSourceById,
+    timelineNodes,
+    orderedNodes,
+    nodeById,
+    timelineMetricById,
+    timelineStartById,
+    timelineDurationById,
+    videoTrackIds,
+    audioTrackIds,
+    audioTrackByNodeId,
+    activePreviewId,
+    focusedPreviewId,
+    defaultSeconds,
+    speed,
+    visibleAssetNodes,
+    preservePreviewTimeOnNodeChangeRef,
+    closeContextMenu,
+    pushTimelineHistory,
+    getNodeMediaDuration,
+    makeTimelineClipInstanceId,
+    segmentTitle: (node) =>
+      getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment'),
+    separatedAudioLabel: isZh ? '音频' : 'Audio',
+    assignAudioTrackForVideoPlacement,
+    addNodeToTimeline,
+    setTimelineIds,
+    setTimelineSourceById,
+    setTimelineExcludedSourceIds,
+    setSelectedIds,
+    setActivePreviewId,
+    setFocusedPreviewId,
+    setPreviewTime,
+    setPreviewPlaying,
+    setTimelinePreviewTime,
+    setVideoTrackIds,
+    setAudioTrackIds,
+    setVideoTrackByNodeId,
+    setAudioTrackByNodeId,
+    setTimelineStartById,
+    setTimelineDurationById,
+    setTimelineDataOverrides,
+    setKeyShotIds,
+  });
 
   React.useEffect(() => {
     if (!contextMenu) return undefined;
@@ -2031,644 +1550,95 @@ export function VideoRenderModal({
   // renderStaticFramesWithFfmpeg 和 ensureFfmpegForDesktopTranscode 已移除，
   // 统一使用 mediabunny 浏览器内编码
 
-  const drawFrame = async (
-    ctx: CanvasRenderingContext2D,
-    node: FlowNode,
-    width: number,
-    height: number,
-    media?: { source: CanvasImageSource; width: number; height: number },
-    elapsed?: number,
-    duration?: number,
-    forceFinalText = false,
-  ) => {
-    await drawRenderFrame({
-      ctx,
-      node,
-      width,
-      height,
-      media,
-      elapsed,
-      duration,
-      forceFinalText,
-      renderStyle,
-      animationLeadSeconds,
-      isZh,
-      nodes,
-      hideCharacterTags,
-      hideSceneTags,
-    });
-  };
-
-  const getTopVisualTimelineSegment = (time: number) => {
-    const candidates = timelineMetrics.segments.filter((metric) => {
-      const trackId = videoTrackByNodeId[metric.node.id] || videoTrackIds[0];
-      return (
-        videoTrackIds.includes(trackId) &&
-        time >= metric.start &&
-        time < metric.end &&
-        (metric.node.data?.videoUrl || metric.node.data?.imageUrl || segmentText(metric.node))
-      );
-    });
-    return candidates.sort((a, b) => {
-      const aTrackIndex = videoTrackIds.indexOf(videoTrackByNodeId[a.node.id] || videoTrackIds[0]);
-      const bTrackIndex = videoTrackIds.indexOf(videoTrackByNodeId[b.node.id] || videoTrackIds[0]);
-      return bTrackIndex - aTrackIndex;
-    })[0];
-  };
-
-  const drawTimelineCompositeFrame = async (
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    time: number,
-  ) => {
-    const segment = getTopVisualTimelineSegment(time);
-    if (!segment) {
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(0, 0, width, height);
-      return;
-    }
-
-    const localTime = clamp((time - segment.start) * speed, 0, segment.duration * speed);
-    const videoUrl = segment.node.data?.videoUrl as string | undefined;
-    if (videoUrl) {
-      if (previewVideoRef.current?.url !== videoUrl) {
-        previewVideoRef.current = { url: videoUrl, video: await loadVideo(videoUrl) };
-      }
-      const video = previewVideoRef.current.video;
-      await seekVideo(video, localTime);
-      await drawFrame(
-        ctx,
-        segment.node,
-        width,
-        height,
-        {
-          source: video,
-          width: video.videoWidth || width,
-          height: video.videoHeight || height,
-        },
-        localTime,
-        segment.duration * speed,
-      );
-      return;
-    }
-
-    await drawFrame(
-      ctx,
-      segment.node,
-      width,
-      height,
-      undefined,
-      localTime,
-      segment.duration * speed,
-    );
-  };
-
-  const renderVideo = async () => {
-    if (selectedNodes.length === 0 || status === 'rendering') return;
-
-    const canvas2d = canvasRef.current;
-    const ctx2d = canvas2d?.getContext('2d');
-    if (!canvas2d || !ctx2d) return;
-
-    const abortController = new AbortController();
-    renderAbortControllerRef.current = abortController;
-    setIsCancellingRender(false);
-    setStatus('rendering');
-    setError('');
-    setSavedPath('');
-    setProgressValue(0);
-    setProgress(isZh ? '准备渲染 0%' : 'Preparing render 0%');
-
-    // 尝试初始化 GPU（如果用户启用且设备支持）
-    let gpuCanvas: HTMLCanvasElement | null = null;
-    let gpuContext: Awaited<ReturnType<typeof initWebGPU>> | null = null;
-    const shouldTryGpu = useGpuAcceleration && isWebGPUSupported();
-
-    if (shouldTryGpu) {
-      try {
-        gpuContext = await initWebGPU(resolution.width, resolution.height);
-        if (gpuContext) {
-          gpuCanvas = gpuContext.canvas;
-          setProgress(isZh ? 'GPU 加速已启用' : 'GPU acceleration enabled');
-        }
-      } catch (gpuErr) {
-        console.warn('[GPU] 初始化失败，回退到 2D Canvas:', gpuErr);
-      }
-    }
-
-    const useGpu = gpuContext !== null && gpuCanvas !== null;
-    const canvas = useGpu ? gpuCanvas! : canvas2d;
-    const throwIfRenderCancelled = () => abortController.signal.throwIfAborted();
-
-    try {
-      throwIfRenderCancelled();
-      canvas.width = resolution.width;
-      canvas.height = resolution.height;
-
-      // 计算每个节点的渲染时长
-      const nodeDurations: number[] = [];
-      let totalDuration = 0;
-      for (const node of selectedNodes) {
-        throwIfRenderCancelled();
-        const duration = await getNodeRenderDuration(node);
-        nodeDurations.push(duration);
-        totalDuration += duration;
-      }
-
-      const totalFrames = Math.max(1, Math.ceil(totalDuration * frameRate));
-
-      // 准备时间线音频
-      const audioSegments: SegmentRenderInfo[] = activeAudioSegments.flatMap((segment) =>
-        getSegmentAudioSources(segment.node).map((source) => ({
-          node: segment.node,
-          startSecs: segment.start,
-          durationSecs: segment.duration,
-          audioUrl: source.url,
-        })),
-      );
-      let regionCursor = 0;
-      selectedNodes.forEach((node, index) => {
-        const duration = nodeDurations[index];
-        const match = resolveRegionBackgroundMusic(nodes, node);
-        const previous = audioSegments[audioSegments.length - 1];
-        const canExtend =
-          match &&
-          previous?.node.id === `region-music:${match.regionId}` &&
-          previous.audioUrl === match.music.url &&
-          previous.startSecs !== undefined &&
-          previous.startSecs + previous.durationSecs === regionCursor;
-
-        if (canExtend) {
-          previous.durationSecs += duration;
-          previous.fadeOut = match.music.fadeOut;
-        } else if (match) {
-          audioSegments.push({
-            node: {
-              id: `region-music:${match.regionId}`,
-              type: 'regionMusic',
-              position: { x: 0, y: 0 },
-              data: {},
-            },
-            startSecs: regionCursor,
-            durationSecs: duration,
-            audioUrl: match.music.url,
-            volume: match.music.volume,
-            loop: match.music.loop,
-            fadeIn: match.music.fadeIn,
-            fadeOut: match.music.fadeOut,
-          });
-        }
-        regionCursor += duration;
-      });
-
-      const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
-      throwIfRenderCancelled();
-
-      // 预加载视频资源
-      const videoCache = new Map<string, HTMLVideoElement>();
-      for (const node of selectedNodes) {
-        throwIfRenderCancelled();
-        const videoUrl = node.data?.videoUrl as string | undefined;
-        if (videoUrl && !videoCache.has(videoUrl)) {
-          videoCache.set(videoUrl, await loadVideo(videoUrl));
-        }
-      }
-
-      // 计算每个节点的起始时间
-      const nodeStartTimes: number[] = [];
-      let acc = 0;
-      for (const d of nodeDurations) {
-        nodeStartTimes.push(acc);
-        acc += d;
-      }
-
-      // 逐帧绘制回调（2D 路径）
-      const drawFrame2D = async (_frameIndex: number, timestamp: number) => {
-        throwIfRenderCancelled();
-        let nodeIndex = selectedNodes.length - 1;
-        for (let i = 0; i < selectedNodes.length; i++) {
-          if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
-            nodeIndex = i;
-            break;
-          }
-        }
-
-        const node = selectedNodes[nodeIndex];
-        const nodeStart = nodeStartTimes[nodeIndex];
-        const nodeDuration = nodeDurations[nodeIndex];
-        const localTime = (timestamp - nodeStart) * speed;
-
-        const videoUrl = node.data?.videoUrl as string | undefined;
-        if (videoUrl) {
-          const video = videoCache.get(videoUrl);
-          if (video) {
-            await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
-            await drawFrame(
-              ctx2d,
-              node,
-              resolution.width,
-              resolution.height,
-              {
-                source: video,
-                width: video.videoWidth || resolution.width,
-                height: video.videoHeight || resolution.height,
-              },
-              localTime,
-              nodeDuration * speed,
-            );
-          }
-        } else {
-          await drawFrame(
-            ctx2d,
-            node,
-            resolution.width,
-            resolution.height,
-            undefined,
-            localTime,
-            nodeDuration * speed,
-          );
-        }
-
-        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
-      };
-
-      // 逐帧绘制回调（GPU 路径）
-      const drawFrameGPU = async (_frameIndex: number, timestamp: number) => {
-        throwIfRenderCancelled();
-        if (!gpuContext) return;
-        let nodeIndex = selectedNodes.length - 1;
-        for (let i = 0; i < selectedNodes.length; i++) {
-          if (timestamp < nodeStartTimes[i] + nodeDurations[i]) {
-            nodeIndex = i;
-            break;
-          }
-        }
-
-        const node = selectedNodes[nodeIndex];
-        const nodeStart = nodeStartTimes[nodeIndex];
-        const nodeDuration = nodeDurations[nodeIndex];
-        const localTime = (timestamp - nodeStart) * speed;
-
-        const videoUrl = node.data?.videoUrl as string | undefined;
-        let media: { source: CanvasImageSource; width: number; height: number } | undefined;
-        if (videoUrl) {
-          const video = videoCache.get(videoUrl);
-          if (video) {
-            await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
-            media = {
-              source: video,
-              width: video.videoWidth || resolution.width,
-              height: video.videoHeight || resolution.height,
-            };
-          }
-        }
-
-        await drawGPUFrame({
-          gpu: gpuContext,
-          node,
-          width: resolution.width,
-          height: resolution.height,
-          renderStyle,
-          animationLeadSeconds,
-          isZh,
-          media,
-          elapsed: localTime,
-          duration: nodeDuration * speed,
-          nodes,
-          hideCharacterTags,
-          hideSceneTags,
-        });
-
-        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
-      };
-
-      // 动态导入 mediabunny 编码器
-      const { renderVideoToBuffer } = await import('../export/browserVideoEncoder');
-
-      const bytes = await renderVideoToBuffer({
-        canvas,
-        format: exportFormat,
-        frameRate,
-        totalFrames,
-        drawFrame: useGpu ? drawFrameGPU : drawFrame2D,
-        audioBuffer: audioBuffer || undefined,
-        onProgress: (current, total) => {
-          setProgressValue(Math.round((current / total) * 100));
-        },
-        signal: abortController.signal,
-      });
-
-      throwIfRenderCancelled();
-      // 保存/下载
-      if (isDesktopApp) {
-        const result = await saveRenderedVideo({
-          fileName: `galwriter-render-${Date.now()}`,
-          format: exportFormat,
-          bytes: Array.from(bytes),
-          outputDir,
-          videoBitrate: DEFAULT_VIDEO_BITRATE,
-        });
-        setSavedPath(result.path);
-      } else {
-        const mimeType =
-          exportFormat === 'mov'
-            ? 'video/quicktime'
-            : exportFormat === 'mkv'
-              ? 'video/x-matroska'
-              : 'video/mp4';
-        const blob = new Blob([bytes], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `galwriter-render-${Date.now()}.${exportFormat}`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      }
-
-      setStatus('done');
-      setProgressValue(100);
-      setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
-    } catch (renderError: any) {
-      if (renderError?.name === 'AbortError' || abortController.signal.aborted) {
-        setStatus('idle');
-        setError('');
-        setProgressValue(0);
-        setProgress(
-          renderCopy(
-            language,
-            '渲染已取消',
-            'レンダリングをキャンセルしました',
-            'Render cancelled',
-          ),
-        );
-        return;
-      }
-      console.error('Video render failed:', renderError);
-      setStatus('error');
-      setError(renderError?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
-    } finally {
-      if (renderAbortControllerRef.current === abortController) {
-        renderAbortControllerRef.current = null;
-      }
-      setIsCancellingRender(false);
-      if (useGpu) {
-        destroyWebGPU();
-        clearGPUTextCache();
-      }
-    }
-  };
-
-  const cancelVideoRender = () => {
-    const controller = renderAbortControllerRef.current;
-    if (!controller || controller.signal.aborted) return;
-    setIsCancellingRender(true);
-    setProgress(
-      renderCopy(
-        language,
-        '正在取消渲染...',
-        'レンダリングをキャンセルしています...',
-        'Cancelling render...',
-      ),
-    );
-    controller.abort();
-  };
-
-  const exportWebProject = async () => {
-    if (status === 'rendering') return;
-    const storyNodes = nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden);
-    if (storyNodes.length === 0) {
-      setStatus('error');
-      setError(isZh ? '没有可导出的剧本节点' : 'No story nodes to export');
-      return;
-    }
-    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
-
-    setStatus('rendering');
-    setError('');
-    setSavedPath('');
-    setProgressValue(15);
-    setProgress(isZh ? '正在生成网页 ZIP...' : 'Generating web ZIP...');
-
-    try {
-      const webExportOptions = {
-        projectName: exportTitle,
-        language,
-        style: {
-          ...webRenderStyle,
-          choiceColor: webChoiceColor,
-          choiceTextColor: webChoiceTextColor,
-        },
-        settings: webSettings,
-      };
-
-      if (isTauriRuntime()) {
-        const blob = await buildInteractiveWebZipBlob(nodes, edges, webExportOptions);
-        setProgressValue(70);
-        setProgress(isZh ? '正在保存网页 ZIP...' : 'Saving web ZIP...');
-        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-        const result = await saveRenderedWebZip({
-          fileName: `${exportTitle}-web`,
-          bytes,
-          outputDir: webOutputDir,
-        });
-        setSavedPath(result.path);
-      } else {
-        await exportInteractiveWebZip(nodes, edges, webExportOptions);
-        setSavedPath(`${exportTitle}-web.zip`);
-      }
-      setStatus('done');
-      setProgressValue(100);
-      setProgress(isZh ? '网页 ZIP 已导出' : 'Web ZIP exported');
-    } catch (exportError: any) {
-      console.error('Web export failed:', exportError);
-      setStatus('error');
-      setError(exportError?.message || (isZh ? '网页导出失败' : 'Web export failed'));
-    }
-  };
-
-  React.useEffect(() => {
-    if (!focusedPreviewNode) {
-      setPreviewDuration(Math.max(0.1, timelineMetrics.totalDuration));
-      return;
-    }
-
-    let cancelled = false;
-    const loadPreviewDuration = async () => {
-      const duration = await getNodeMediaDuration(focusedPreviewNode);
-      if (!cancelled) setPreviewDuration(duration);
-    };
-    loadPreviewDuration();
-    return () => {
-      cancelled = true;
-    };
-  }, [focusedPreviewNode, defaultSeconds, timelineMetrics.totalDuration]);
-
-  React.useEffect(() => {
-    if (status === 'rendering') return;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    let cancelled = false;
-    if (canvas.width !== resolution.width) canvas.width = resolution.width;
-    if (canvas.height !== resolution.height) canvas.height = resolution.height;
-
-    const drawPreview = async () => {
-      const drawId = ++previewDrawIdRef.current;
-      if (!focusedPreviewNode) {
-        await drawTimelineCompositeFrame(
-          ctx,
-          resolution.width,
-          resolution.height,
-          timelinePreviewTime,
-        );
-        return;
-      }
-
-      const videoUrl = focusedPreviewNode.data?.videoUrl as string | undefined;
-      if (videoUrl) {
-        try {
-          if (previewVideoRef.current?.url !== videoUrl) {
-            previewVideoRef.current?.video.pause();
-            previewVideoRef.current = { url: videoUrl, video: await loadVideo(videoUrl) };
-          }
-          const video = previewVideoRef.current.video;
-          await seekVideo(video, previewTime);
-          if (cancelled || drawId !== previewDrawIdRef.current) return;
-          await drawFrame(
-            ctx,
-            focusedPreviewNode,
-            resolution.width,
-            resolution.height,
-            {
-              source: video,
-              width: video.videoWidth || resolution.width,
-              height: video.videoHeight || resolution.height,
-            },
-            previewTime,
-            previewDuration,
-          );
-          return;
-        } catch {
-          if (cancelled) return;
-        }
-      } else if (previewVideoRef.current) {
-        previewVideoRef.current.video.pause();
-        previewVideoRef.current = null;
-      }
-      if (cancelled || drawId !== previewDrawIdRef.current) return;
-      await drawFrame(
-        ctx,
-        focusedPreviewNode,
-        resolution.width,
-        resolution.height,
-        undefined,
-        previewTime,
-        previewDuration,
-      );
-    };
-
-    drawPreview().catch(() => {
-      if (cancelled) return;
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(0, 0, resolution.width, resolution.height);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  const { drawFrame } = usePreviewRenderer({
+    canvasRef,
+    nodes,
     focusedPreviewNode,
     previewTime,
+    previewDuration,
     timelinePreviewTime,
-    timelineMetrics,
+    timelineSegments: timelineMetrics.segments,
     videoTrackByNodeId,
     videoTrackIds,
-    resolution.width,
-    resolution.height,
+    resolution,
     renderStyle,
     animationLeadSeconds,
+    isZh,
+    hideCharacterTags,
+    hideSceneTags,
+    speed,
     status,
-  ]);
+    segmentText: (node) => getSegmentText(node, hideCharacterTags, hideSceneTags),
+  });
+  const { isCancellingRender, renderVideo, cancelVideoRender } = useVideoExport({
+    canvasRef,
+    nodes,
+    selectedNodes,
+    activeAudioSegments,
+    status,
+    language,
+    isZh,
+    isDesktopApp,
+    useGpuAcceleration,
+    resolution,
+    frameRate,
+    exportFormat,
+    outputDir,
+    speed,
+    renderStyle,
+    animationLeadSeconds,
+    hideCharacterTags,
+    hideSceneTags,
+    drawFrame,
+    getNodeRenderDuration,
+    getSegmentAudioSources,
+    setStatus,
+    setError,
+    setSavedPath,
+    setProgress,
+    setProgressValue,
+  });
+  const { exportWebProject } = useWebProjectExport({
+    nodes,
+    edges,
+    status,
+    language,
+    isZh,
+    webProjectName,
+    defaultWebProjectName,
+    webRenderStyle,
+    webChoiceColor,
+    webChoiceTextColor,
+    webSettings,
+    webOutputDir,
+    setStatus,
+    setError,
+    setSavedPath,
+    setProgress,
+    setProgressValue,
+  });
 
-  React.useEffect(() => {
-    if (status === 'rendering') {
-      stopPreviewAudio();
-      return;
-    }
-
-    if (focusedPreviewNode) {
-      void syncPreviewAudioSegments(
-        getSegmentAudioSources(focusedPreviewNode).map((source) => ({
-          key: `focused-${source.kind}`,
-          audioUrl: source.url,
-          localTime: previewTime,
-        })),
-        previewPlaying,
-      );
-      return;
-    }
-
-    const overlappingSegments = activeAudioSegments
-      .filter((metric) => activeTimelineTime >= metric.start && activeTimelineTime < metric.end)
-      .flatMap((metric) =>
-        getSegmentAudioSources(metric.node).map((source) => ({
-          key: `${metric.node.id}-${source.kind}`,
-          audioUrl: source.url,
-          localTime: (activeTimelineTime - metric.start) * speed,
-        })),
-      );
-    void syncPreviewAudioSegments(overlappingSegments, previewPlaying);
-  }, [
+  usePreviewPlayback({
+    focusedPreviewNode,
+    focusedTimelineMetric,
     activeAudioSegments,
     activeTimelineTime,
-    focusedPreviewNode,
     previewPlaying,
     previewTime,
-    speed,
-    status,
-  ]);
-
-  React.useEffect(() => {
-    if (!previewPlaying || status === 'rendering') return;
-    const startedAt = performance.now();
-    const startTimelineTime = activeTimelineTime;
-    const startPreviewTime = previewTime;
-    const timer = window.setInterval(() => {
-      const elapsed = (performance.now() - startedAt) / 1000;
-      if (focusedTimelineMetric) {
-        const nextPreviewTime = startPreviewTime + elapsed * speed;
-        if (nextPreviewTime >= previewDuration) {
-          setPreviewTime(previewDuration);
-          setTimelinePreviewTime(focusedTimelineMetric.end);
-          setPreviewPlaying(false);
-          return;
-        }
-        setPreviewTime(nextPreviewTime);
-        setTimelinePreviewTime(focusedTimelineMetric.start + nextPreviewTime / speed);
-        return;
-      }
-
-      const nextTime = startTimelineTime + elapsed;
-      if (nextTime >= timelineMetrics.totalDuration) {
-        seekTimelineTime(timelineMetrics.totalDuration);
-        setPreviewPlaying(false);
-        return;
-      }
-      seekTimelineTime(nextTime, { keepPlaying: true });
-    }, 120);
-    return () => window.clearInterval(timer);
-  }, [
-    activeTimelineTime,
-    focusedTimelineMetric,
     previewDuration,
-    previewPlaying,
-    previewTime,
     speed,
     status,
-    timelineMetrics.totalDuration,
-  ]);
+    timelineTotalDuration: timelineMetrics.totalDuration,
+    getNodeMediaDuration,
+    getSegmentAudioSources,
+    stopPreviewAudio,
+    syncPreviewAudioSegments,
+    seekTimelineTime,
+    setPreviewDuration,
+    setPreviewPlaying,
+    setPreviewTime,
+    setTimelinePreviewTime,
+  });
 
   const mediaKind = getMediaKind;
   const mediaIcon = getMediaIcon;
@@ -2682,126 +1652,44 @@ export function VideoRenderModal({
       video: isZh ? '按视频时长' : 'Video length',
       audio: isZh ? '按音频时长' : 'Audio length',
     });
-  const getSelectedAssetsInCardOrder = () => {
-    const visibleIndex = new Map(visibleAssetNodes.map((node, index) => [node.id, index]));
-    return [...selectedAssetIds].sort(
-      (a, b) =>
-        (visibleIndex.get(a) ?? Number.MAX_SAFE_INTEGER) -
-        (visibleIndex.get(b) ?? Number.MAX_SAFE_INTEGER),
-    );
-  };
-
-  const sortSelectedAssetsByCardOrder = () => {
-    setSelectedAssetIds(getSelectedAssetsInCardOrder());
-    closeContextMenu();
-  };
-
-  const importSelectedAssetsToTimeline = async () => {
-    const sourceIds = getSelectedAssetsInCardOrder().filter((id) => assetNodeById.has(id));
-    if (sourceIds.length === 0 || status === 'rendering') return;
-
-    const newClips = [];
-    for (const sourceId of sourceIds) {
-      const sourceNode = assetNodeById.get(sourceId);
-      if (!sourceNode) continue;
-      newClips.push({
-        sourceId,
-        timelineId: makeTimelineClipInstanceId(sourceId),
-        mediaDuration: await getNodeMediaDuration(sourceNode),
-      });
-    }
-    let cursor = timelineMetrics.totalDuration;
-    const startById: Record<string, number> = {};
-    const durationById: Record<string, number> = {};
-    newClips.forEach(({ timelineId, mediaDuration }) => {
-      const duration = Math.max(0.25, mediaDuration / speed);
-      startById[timelineId] = cursor;
-      durationById[timelineId] = mediaDuration;
-      cursor += duration;
-    });
-    const videoTrackId = videoTrackIds[0] || 'video-1';
-    const audioTrackId = audioTrackIds[0] || 'audio-1';
-
-    pushTimelineHistory();
-    setTimelineIds((prev) => [...prev, ...newClips.map(({ timelineId }) => timelineId)]);
-    setTimelineSourceById((prev) => ({
-      ...prev,
-      ...Object.fromEntries(newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId])),
-    }));
-    setTimelineStartById((prev) => ({ ...prev, ...startById }));
-    setTimelineDurationById((prev) => ({ ...prev, ...durationById }));
-    setVideoTrackByNodeId((prev) => ({
-      ...prev,
-      ...Object.fromEntries(
-        newClips
-          .filter(({ sourceId }) => !isAudioOnlyNode(assetNodeById.get(sourceId)))
-          .map(({ timelineId }) => [timelineId, videoTrackId]),
-      ),
-    }));
-    setAudioTrackByNodeId((prev) => ({
-      ...prev,
-      ...Object.fromEntries(newClips.map(({ timelineId }) => [timelineId, audioTrackId])),
-    }));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      newClips.forEach(({ timelineId }) => next.add(timelineId));
-      return next;
-    });
-    setSelectedAssetIds(sourceIds);
-    setActivePreviewId(newClips[0]?.timelineId || '');
-    closeContextMenu();
-  };
-
-  const removeUploadedAssets = (ids: string[]) => {
-    const uploadedIds = new Set(
-      ids.filter((id) => uploadedAssetNodes.some((node) => node.id === id)),
-    );
-    if (uploadedIds.size === 0) return;
-
-    const timelineIdsToRemove = timelineIds.filter((timelineId) =>
-      uploadedIds.has(timelineSourceById[timelineId] || timelineId),
-    );
-    closeContextMenu();
-    setUploadedAssetNodes((prev) => {
-      const removedNodes = prev.filter((node) => uploadedIds.has(node.id));
-      removedNodes.forEach((node) => {
-        [node.data?.imageUrl, node.data?.videoUrl, node.data?.audioUrl].forEach((url) => {
-          if (typeof url === 'string') revokeTrackedObjectUrl(url);
-        });
-      });
-      return prev.filter((node) => !uploadedIds.has(node.id));
-    });
-    if (timelineIdsToRemove.length > 0) {
-      const removedTimelineIds = new Set(timelineIdsToRemove);
-      const removeMapEntries = <T,>(map: Record<string, T>) =>
-        Object.fromEntries(
-          Object.entries(map).filter(([id]) => !removedTimelineIds.has(id)),
-        ) as Record<string, T>;
-      setTimelineIds((prev) => prev.filter((id) => !removedTimelineIds.has(id)));
-      setTimelineSourceById(removeMapEntries);
-      setVideoTrackByNodeId(removeMapEntries);
-      setAudioTrackByNodeId(removeMapEntries);
-      setTimelineStartById(removeMapEntries);
-      setTimelineDurationById(removeMapEntries);
-      setTimelineDataOverrides(removeMapEntries);
-      setKeyShotIds((previous) => {
-        const next = new Set(previous);
-        removedTimelineIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    }
-    setSelectedAssetIds((prev) => prev.filter((id) => !uploadedIds.has(id)));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      timelineIdsToRemove.forEach((id) => next.delete(id));
-      return next;
-    });
-    if (uploadedIds.has(activePreviewId) || timelineIdsToRemove.includes(activePreviewId)) {
-      setActivePreviewId(allAssetNodes.find((node) => !uploadedIds.has(node.id))?.id || '');
-    }
-    if (timelineIdsToRemove.includes(focusedPreviewId)) setFocusedPreviewId('');
-  };
-
+  const {
+    sortSelectedAssetsByCardOrder,
+    importSelectedAssetsToTimeline,
+    removeUploadedAssets,
+  } = useAssetMenuActions({
+    status,
+    selectedAssetIds,
+    visibleAssetNodes,
+    uploadedAssetNodes,
+    allAssetNodes,
+    assetNodeById,
+    timelineIds,
+    timelineSourceById,
+    timelineTotalDuration: timelineMetrics.totalDuration,
+    videoTrackIds,
+    audioTrackIds,
+    speed,
+    activePreviewId,
+    focusedPreviewId,
+    closeContextMenu,
+    pushTimelineHistory,
+    getNodeMediaDuration,
+    makeTimelineClipInstanceId,
+    revokeTrackedObjectUrl,
+    setSelectedAssetIds,
+    setUploadedAssetNodes,
+    setTimelineIds,
+    setTimelineSourceById,
+    setTimelineStartById,
+    setTimelineDurationById,
+    setTimelineDataOverrides,
+    setVideoTrackByNodeId,
+    setAudioTrackByNodeId,
+    setSelectedIds,
+    setKeyShotIds,
+    setActivePreviewId,
+    setFocusedPreviewId,
+  });
   const buildContextMenuSections = createContextMenuSectionBuilder({
     language,
     status,

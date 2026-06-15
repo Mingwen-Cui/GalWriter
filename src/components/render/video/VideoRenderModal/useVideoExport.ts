@@ -1,0 +1,342 @@
+import type { Node as FlowNode } from '@xyflow/react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
+import { useRef, useState } from 'react';
+
+import type { Language } from '../../../../lib/i18n';
+import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
+import { buildAudioBuffer } from '../audio/audioTrack';
+import { saveRenderedVideo } from '../export/tauriRenderAdapter';
+import { clearGPUTextCache, drawGPUFrame } from '../gpu/gpuFrameRenderer';
+import {
+  destroyWebGPU,
+  initWebGPU,
+  isWebGPUSupported,
+} from '../gpu/webgpuRenderer';
+import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
+import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
+import { renderCopy } from '../shared/renderCopy';
+import type {
+  ExportFormat,
+  RenderStatus,
+  RenderStyle,
+  SegmentRenderInfo,
+  TimelineSegmentMetric,
+} from '../shared/types';
+
+type DrawFrame = (
+  ctx: CanvasRenderingContext2D,
+  node: FlowNode,
+  width: number,
+  height: number,
+  media?: { source: CanvasImageSource; width: number; height: number },
+  elapsed?: number,
+  duration?: number,
+  forceFinalText?: boolean,
+) => Promise<void>;
+
+export const useVideoExport = ({
+  canvasRef,
+  nodes,
+  selectedNodes,
+  activeAudioSegments,
+  status,
+  language,
+  isZh,
+  isDesktopApp,
+  useGpuAcceleration,
+  resolution,
+  frameRate,
+  exportFormat,
+  outputDir,
+  speed,
+  renderStyle,
+  animationLeadSeconds,
+  hideCharacterTags,
+  hideSceneTags,
+  drawFrame,
+  getNodeRenderDuration,
+  getSegmentAudioSources,
+  setStatus,
+  setError,
+  setSavedPath,
+  setProgress,
+  setProgressValue,
+}: {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  nodes: FlowNode[];
+  selectedNodes: FlowNode[];
+  activeAudioSegments: TimelineSegmentMetric[];
+  status: RenderStatus;
+  language: Language;
+  isZh: boolean;
+  isDesktopApp: boolean;
+  useGpuAcceleration: boolean;
+  resolution: { width: number; height: number };
+  frameRate: number;
+  exportFormat: ExportFormat;
+  outputDir: string;
+  speed: number;
+  renderStyle: RenderStyle;
+  animationLeadSeconds: number;
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
+  drawFrame: DrawFrame;
+  getNodeRenderDuration: (node: FlowNode) => Promise<number>;
+  getSegmentAudioSources: (node: FlowNode) => { kind: string; url: string }[];
+  setStatus: Dispatch<SetStateAction<RenderStatus>>;
+  setError: Dispatch<SetStateAction<string>>;
+  setSavedPath: Dispatch<SetStateAction<string>>;
+  setProgress: Dispatch<SetStateAction<string>>;
+  setProgressValue: Dispatch<SetStateAction<number>>;
+}) => {
+  const [isCancellingRender, setIsCancellingRender] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const renderVideo = async () => {
+    if (selectedNodes.length === 0 || status === 'rendering') return;
+    const canvas2d = canvasRef.current;
+    const ctx2d = canvas2d?.getContext('2d');
+    if (!canvas2d || !ctx2d) return;
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    setIsCancellingRender(false);
+    setStatus('rendering');
+    setError('');
+    setSavedPath('');
+    setProgressValue(0);
+    setProgress(isZh ? '准备渲染 0%' : 'Preparing render 0%');
+
+    let gpuContext: Awaited<ReturnType<typeof initWebGPU>> | null = null;
+    if (useGpuAcceleration && isWebGPUSupported()) {
+      try {
+        gpuContext = await initWebGPU(resolution.width, resolution.height);
+        if (gpuContext) setProgress(isZh ? 'GPU 加速已启用' : 'GPU acceleration enabled');
+      } catch (error) {
+        console.warn('[GPU] Initialization failed; falling back to 2D canvas:', error);
+      }
+    }
+    const useGpu = gpuContext !== null;
+    const canvas = gpuContext?.canvas || canvas2d;
+    const throwIfCancelled = () => abortController.signal.throwIfAborted();
+
+    try {
+      throwIfCancelled();
+      canvas.width = resolution.width;
+      canvas.height = resolution.height;
+      const nodeDurations: number[] = [];
+      let totalDuration = 0;
+      for (const node of selectedNodes) {
+        throwIfCancelled();
+        const duration = await getNodeRenderDuration(node);
+        nodeDurations.push(duration);
+        totalDuration += duration;
+      }
+      const totalFrames = Math.max(1, Math.ceil(totalDuration * frameRate));
+
+      const audioSegments: SegmentRenderInfo[] = activeAudioSegments.flatMap((segment) =>
+        getSegmentAudioSources(segment.node).map((source) => ({
+          node: segment.node,
+          startSecs: segment.start,
+          durationSecs: segment.duration,
+          audioUrl: source.url,
+        })),
+      );
+      let regionCursor = 0;
+      selectedNodes.forEach((node, index) => {
+        const duration = nodeDurations[index];
+        const match = resolveRegionBackgroundMusic(nodes, node);
+        const previous = audioSegments[audioSegments.length - 1];
+        const canExtend =
+          match &&
+          previous?.node.id === `region-music:${match.regionId}` &&
+          previous.audioUrl === match.music.url &&
+          previous.startSecs !== undefined &&
+          previous.startSecs + previous.durationSecs === regionCursor;
+        if (canExtend) {
+          previous.durationSecs += duration;
+          previous.fadeOut = match.music.fadeOut;
+        } else if (match) {
+          audioSegments.push({
+            node: {
+              id: `region-music:${match.regionId}`,
+              type: 'regionMusic',
+              position: { x: 0, y: 0 },
+              data: {},
+            },
+            startSecs: regionCursor,
+            durationSecs: duration,
+            audioUrl: match.music.url,
+            volume: match.music.volume,
+            loop: match.music.loop,
+            fadeIn: match.music.fadeIn,
+            fadeOut: match.music.fadeOut,
+          });
+        }
+        regionCursor += duration;
+      });
+      const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
+      throwIfCancelled();
+
+      const videoCache = new Map<string, HTMLVideoElement>();
+      for (const node of selectedNodes) {
+        throwIfCancelled();
+        const videoUrl = node.data?.videoUrl as string | undefined;
+        if (videoUrl && !videoCache.has(videoUrl)) {
+          videoCache.set(videoUrl, await loadVideo(videoUrl));
+        }
+      }
+      const nodeStartTimes: number[] = [];
+      let cursor = 0;
+      nodeDurations.forEach((duration) => {
+        nodeStartTimes.push(cursor);
+        cursor += duration;
+      });
+      const resolveFrame = (timestamp: number) => {
+        let nodeIndex = selectedNodes.length - 1;
+        for (let index = 0; index < selectedNodes.length; index += 1) {
+          if (timestamp < nodeStartTimes[index] + nodeDurations[index]) {
+            nodeIndex = index;
+            break;
+          }
+        }
+        const node = selectedNodes[nodeIndex];
+        const nodeDuration = nodeDurations[nodeIndex];
+        return {
+          node,
+          nodeIndex,
+          nodeDuration,
+          localTime: (timestamp - nodeStartTimes[nodeIndex]) * speed,
+        };
+      };
+      const loadFrameMedia = async (node: FlowNode, localTime: number) => {
+        const videoUrl = node.data?.videoUrl as string | undefined;
+        const video = videoUrl ? videoCache.get(videoUrl) : undefined;
+        if (!video) return undefined;
+        await seekVideo(video, Math.min(localTime, validDuration(video.duration)));
+        return {
+          source: video,
+          width: video.videoWidth || resolution.width,
+          height: video.videoHeight || resolution.height,
+        };
+      };
+      const reportNode = (node: FlowNode, nodeIndex: number) =>
+        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
+
+      const drawFrame2D = async (_frameIndex: number, timestamp: number) => {
+        throwIfCancelled();
+        const { node, nodeIndex, nodeDuration, localTime } = resolveFrame(timestamp);
+        await drawFrame(
+          ctx2d,
+          node,
+          resolution.width,
+          resolution.height,
+          await loadFrameMedia(node, localTime),
+          localTime,
+          nodeDuration * speed,
+        );
+        reportNode(node, nodeIndex);
+      };
+      const drawFrameGPU = async (_frameIndex: number, timestamp: number) => {
+        throwIfCancelled();
+        if (!gpuContext) return;
+        const { node, nodeIndex, nodeDuration, localTime } = resolveFrame(timestamp);
+        await drawGPUFrame({
+          gpu: gpuContext,
+          node,
+          width: resolution.width,
+          height: resolution.height,
+          renderStyle,
+          animationLeadSeconds,
+          isZh,
+          media: await loadFrameMedia(node, localTime),
+          elapsed: localTime,
+          duration: nodeDuration * speed,
+          nodes,
+          hideCharacterTags,
+          hideSceneTags,
+        });
+        reportNode(node, nodeIndex);
+      };
+
+      const { renderVideoToBuffer } = await import('../export/browserVideoEncoder');
+      const bytes = await renderVideoToBuffer({
+        canvas,
+        format: exportFormat,
+        frameRate,
+        totalFrames,
+        drawFrame: useGpu ? drawFrameGPU : drawFrame2D,
+        audioBuffer: audioBuffer || undefined,
+        onProgress: (current, total) => {
+          setProgressValue(Math.round((current / total) * 100));
+        },
+        signal: abortController.signal,
+      });
+      throwIfCancelled();
+
+      if (isDesktopApp) {
+        const result = await saveRenderedVideo({
+          fileName: `galwriter-render-${Date.now()}`,
+          format: exportFormat,
+          bytes: Array.from(bytes),
+          outputDir,
+          videoBitrate: DEFAULT_VIDEO_BITRATE,
+        });
+        setSavedPath(result.path);
+      } else {
+        const mimeType =
+          exportFormat === 'mov'
+            ? 'video/quicktime'
+            : exportFormat === 'mkv'
+              ? 'video/x-matroska'
+              : 'video/mp4';
+        const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `galwriter-render-${Date.now()}.${exportFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+      setStatus('done');
+      setProgressValue(100);
+      setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
+    } catch (error: any) {
+      if (error?.name === 'AbortError' || abortController.signal.aborted) {
+        setStatus('idle');
+        setError('');
+        setProgressValue(0);
+        setProgress(renderCopy(language, '渲染已取消', 'レンダリングをキャンセルしました', 'Render cancelled'));
+      } else {
+        console.error('Video render failed:', error);
+        setStatus('error');
+        setError(error?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
+      }
+    } finally {
+      if (abortControllerRef.current === abortController) abortControllerRef.current = null;
+      setIsCancellingRender(false);
+      if (useGpu) {
+        destroyWebGPU();
+        clearGPUTextCache();
+      }
+    }
+  };
+
+  const cancelVideoRender = () => {
+    const controller = abortControllerRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setIsCancellingRender(true);
+    setProgress(
+      renderCopy(
+        language,
+        '正在取消渲染...',
+        'レンダリングをキャンセルしています...',
+        'Cancelling render...',
+      ),
+    );
+    controller.abort();
+  };
+
+  return { isCancellingRender, renderVideo, cancelVideoRender };
+};
