@@ -7,11 +7,7 @@ import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { buildAudioBuffer } from '../audio/audioTrack';
 import { saveRenderedVideo } from '../export/tauriRenderAdapter';
 import { clearGPUTextCache, drawGPUFrame } from '../gpu/gpuFrameRenderer';
-import {
-  destroyWebGPU,
-  initWebGPU,
-  isWebGPUSupported,
-} from '../gpu/webgpuRenderer';
+import { destroyWebGPU, initWebGPU, isWebGPUSupported } from '../gpu/webgpuRenderer';
 import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
 import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
@@ -140,6 +136,9 @@ export const useVideoExport = ({
           startSecs: segment.start,
           durationSecs: segment.duration,
           audioUrl: source.url,
+          volume: Number(segment.node.data?.volume ?? 1),
+          fadeIn: Number(segment.node.data?.fadeIn ?? 0),
+          fadeOut: Number(segment.node.data?.fadeOut ?? 0),
         })),
       );
       let regionCursor = 0;
@@ -307,7 +306,14 @@ export const useVideoExport = ({
         setStatus('idle');
         setError('');
         setProgressValue(0);
-        setProgress(renderCopy(language, '渲染已取消', 'レンダリングをキャンセルしました', 'Render cancelled'));
+        setProgress(
+          renderCopy(
+            language,
+            '渲染已取消',
+            'レンダリングをキャンセルしました',
+            'Render cancelled',
+          ),
+        );
       } else {
         console.error('Video render failed:', error);
         setStatus('error');

@@ -66,7 +66,12 @@ export const useTimelineDragDrop = ({
   makeTimelineClipInstanceId: (sourceId: string) => string;
   getTimelinePlaceholderOverrides: (node?: FlowNode | null) => Record<string, unknown>;
   snapTimelineTime: (time: number) => number;
-  snapToTimelineClipEdges: (nodeId: string, wantedStart: number, duration: number) => number;
+  snapToTimelineClipEdges: (
+    nodeId: string,
+    wantedStart: number,
+    duration: number,
+    excludedNodeIds?: Iterable<string>,
+  ) => number;
   findNonOverlappingTrackStart: (
     nodeId: string,
     wantedStart: number,
@@ -149,6 +154,35 @@ export const useTimelineDragDrop = ({
     );
     event.dataTransfer.setData('text/plain', id);
     event.dataTransfer.effectAllowed = 'copyMove';
+
+    if (draggedAssetIds.length > 1) {
+      const preview = document.createElement('div');
+      preview.style.cssText =
+        'position:fixed;left:-10000px;top:-10000px;width:190px;padding:8px;border-radius:10px;background:rgba(15,23,42,.94);color:white;box-shadow:0 12px 30px rgba(0,0,0,.3);font:700 12px system-ui;z-index:2147483647;';
+      draggedAssetIds.slice(0, 4).forEach((draggedId, index) => {
+        const item = document.createElement('div');
+        item.textContent = `卡片 ${index + 1}`;
+        item.style.cssText =
+          'height:28px;margin-top:3px;padding:0 10px;border:1px solid rgba(255,255,255,.28);border-radius:6px;background:rgba(99,102,241,.82);display:flex;align-items:center;overflow:hidden;white-space:nowrap;';
+        const sourceElement = Array.from(
+          document.querySelectorAll<HTMLElement>('[data-timeline-clip-id],[data-asset-card-id]'),
+        ).find(
+          (element) =>
+            element.dataset.timelineClipId === draggedId ||
+            element.dataset.assetCardId === draggedId,
+        );
+        const label = sourceElement?.textContent?.trim();
+        if (label) item.textContent = label.slice(0, 28);
+        preview.appendChild(item);
+      });
+      const count = document.createElement('div');
+      count.textContent = `共 ${draggedAssetIds.length} 张卡片`;
+      count.style.cssText = 'margin-top:6px;text-align:center;opacity:.82;';
+      preview.appendChild(count);
+      document.body.appendChild(preview);
+      event.dataTransfer.setDragImage(preview, 24, 18);
+      window.setTimeout(() => preview.remove(), 0);
+    }
   };
 
   const handleTimelineDrop = async (
@@ -229,15 +263,10 @@ export const useTimelineDragDrop = ({
             'audio-1';
 
       pushTimelineHistory();
-      setTimelineIds((previous) => [
-        ...previous,
-        ...newClips.map(({ timelineId }) => timelineId),
-      ]);
+      setTimelineIds((previous) => [...previous, ...newClips.map(({ timelineId }) => timelineId)]);
       setTimelineSourceById((previous) => ({
         ...previous,
-        ...Object.fromEntries(
-          newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId]),
-        ),
+        ...Object.fromEntries(newClips.map(({ timelineId, sourceId }) => [timelineId, sourceId])),
       }));
       setTimelineStartById((previous) => ({ ...previous, ...startById }));
       setTimelineDurationById((previous) => ({ ...previous, ...durationById }));
@@ -248,17 +277,14 @@ export const useTimelineDragDrop = ({
           newClips
             .filter(
               ({ sourceId }) =>
-                droppedTrackKind !== 'audio' &&
-                !isAudioOnlyNode(assetNodeById.get(sourceId)),
+                droppedTrackKind !== 'audio' && !isAudioOnlyNode(assetNodeById.get(sourceId)),
             )
             .map(({ timelineId }) => [timelineId, targetVideoTrackId]),
         ),
       }));
       setAudioTrackByNodeId((previous) => ({
         ...previous,
-        ...Object.fromEntries(
-          newClips.map(({ timelineId }) => [timelineId, targetAudioTrackId]),
-        ),
+        ...Object.fromEntries(newClips.map(({ timelineId }) => [timelineId, targetAudioTrackId])),
       }));
       setSelectedIds((previous) => {
         const next = new Set(previous);
@@ -296,12 +322,10 @@ export const useTimelineDragDrop = ({
         ? {}
         : getTimelinePlaceholderOverrides(draggedSourceNode);
       const duration = isTimelineClip
-        ? timelineMetricById.get(draggedId)?.duration ||
-          Math.max(0.25, defaultSeconds / speed)
+        ? timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed)
         : Math.max(0.25, defaultSeconds / speed);
       const droppedTime =
-        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) -
-        dragOffset;
+        (event.clientX - rect.left) / Math.max(1, timelineMetrics.pixelsPerSecond) - dragOffset;
       const draggedTimelineIds =
         isTimelineClip && draggedAssetIds.includes(draggedId)
           ? draggedAssetIds.filter((id) => timelineMetricById.has(id))
@@ -309,7 +333,14 @@ export const useTimelineDragDrop = ({
 
       if (draggedTimelineIds.length > 1) {
         const anchorStart = timelineMetricById.get(draggedId)?.start || 0;
-        const desiredAnchorStart = snapTimelineTime(droppedTime);
+        const anchorDuration =
+          timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed);
+        const desiredAnchorStart = snapToTimelineClipEdges(
+          draggedId,
+          droppedTime,
+          anchorDuration,
+          draggedTimelineIds,
+        );
         const minimumStart = Math.min(
           ...draggedTimelineIds.map((id) => timelineMetricById.get(id)?.start || 0),
         );
@@ -327,8 +358,7 @@ export const useTimelineDragDrop = ({
           assignAudioTrackForVideoPlacement(
             draggedId,
             nextStarts[draggedId],
-            timelineMetricById.get(draggedId)?.duration ||
-              Math.max(0.25, defaultSeconds / speed),
+            timelineMetricById.get(draggedId)?.duration || Math.max(0.25, defaultSeconds / speed),
             droppedTrackId,
           );
         } else if (droppedTrackKind === 'audio' && droppedTrackId) {

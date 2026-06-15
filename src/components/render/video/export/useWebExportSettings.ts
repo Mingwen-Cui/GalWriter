@@ -16,11 +16,19 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
 };
 
 const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {
+  titleVisible: true,
   titleFontSize: 34,
   bodyFontSize: 18,
   titleColor: '#ffffff',
   bodyColor: '#f8fafc',
   panelColor: '#111827',
+  dialogVisible: true,
+  dialogWidth: 86,
+  dialogHeight: 34,
+  dialogRadius: 24,
+  dialogBackgroundType: 'solid',
+  dialogGradientColor: '#111827',
+  dialogImageUrl: '',
   titleAnimation: 'none',
   bodyAnimation: 'typewriter',
 };

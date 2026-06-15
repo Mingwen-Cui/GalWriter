@@ -73,7 +73,6 @@ type VideoTimelinePanelProps = {
   timelineNodes: FlowNode[];
   timelineMetricById: Map<string, TimelineSegmentMetric>;
   linkedTimelineClipById?: Record<string, string>;
-  onTimelineSelectionChange: (ids: string[]) => void;
   selectedIds: Set<string>;
   focusedPreviewId: string;
   keyShotIds: Set<string>;
@@ -149,7 +148,6 @@ export function VideoTimelinePanel({
   timelineNodes,
   timelineMetricById,
   linkedTimelineClipById = {},
-  onTimelineSelectionChange,
   selectedIds,
   focusedPreviewId,
   keyShotIds,
@@ -186,6 +184,7 @@ export function VideoTimelinePanel({
     button: number;
   } | null>(null);
   const suppressNextContextMenuRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
   const [selectionBox, setSelectionBox] = useState<{
     startX: number;
     startY: number;
@@ -232,7 +231,7 @@ export function VideoTimelinePanel({
   };
 
   const handleBoxSelectPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (status === 'rendering' || event.button !== 2) return;
+    if (status === 'rendering' || (event.button !== 0 && event.button !== 2)) return;
     const target = event.target as HTMLElement;
     if (
       target.closest(
@@ -278,8 +277,8 @@ export function VideoTimelinePanel({
     }
     if (width < 5 && height < 5) return;
     const ids = selectClipsInBox(drag);
+    suppressNextClickRef.current = true;
     setDragSelectionIds(new Set(ids));
-    onTimelineSelectionChange(ids);
     if (drag.button === 2 && ids.length > 0) {
       openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
         kind: 'empty',
@@ -301,6 +300,13 @@ export function VideoTimelinePanel({
   const suppressBoxSelectContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     if (!suppressNextContextMenuRef.current) return;
     suppressNextContextMenuRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const suppressBoxSelectClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!suppressNextClickRef.current) return;
+    suppressNextClickRef.current = false;
     event.preventDefault();
     event.stopPropagation();
   };
@@ -505,6 +511,7 @@ export function VideoTimelinePanel({
           </div>
           <div
             className="relative"
+            onClickCapture={suppressBoxSelectClick}
             onPointerDown={handleBoxSelectPointerDown}
             onPointerMove={handleBoxSelectPointerMove}
             onPointerUp={handleBoxSelectPointerEnd}
@@ -582,7 +589,6 @@ export function VideoTimelinePanel({
                       onClick={() => {
                         setFocusedPreviewId('');
                         setDragSelectionIds(new Set());
-                        onTimelineSelectionChange([]);
                       }}
                       onDragOver={(event) => {
                         event.preventDefault();
@@ -628,12 +634,10 @@ export function VideoTimelinePanel({
                                   const next = new Set(previous);
                                   if (next.has(node.id)) next.delete(node.id);
                                   else next.add(node.id);
-                                  onTimelineSelectionChange([...next]);
                                   return next;
                                 });
                               } else {
                                 setDragSelectionIds(new Set([node.id]));
-                                onTimelineSelectionChange([node.id]);
                               }
                               focusTimelineSegment(node.id);
                             }}
@@ -724,15 +728,9 @@ export function VideoTimelinePanel({
                       })}
                       {trackNodes.length === 0 ? (
                         <div
-                          className="h-20 rounded-none border border-dashed border-[var(--vr-video-track-border)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
+                          className="h-20 border border-dashed border-[var(--vr-video-track-border)]"
                           style={{ width: timelineMetrics.width }}
-                        >
-                          {t(
-                            '把左侧素材拖到这里',
-                            '左側の素材をここへドラッグ',
-                            'Drag assets here',
-                          )}
-                        </div>
+                        />
                       ) : null}
                     </div>
                   </div>
@@ -776,7 +774,7 @@ export function VideoTimelinePanel({
                     (audioTrackByNodeId[node.id] || audioTrackIds[0]) === trackId &&
                     Boolean(
                       node.data?.audioUrl ||
-                        (node.data?.videoUrl && node.data?.muteVideoAudio !== true),
+                      (node.data?.videoUrl && node.data?.muteVideoAudio !== true),
                     ),
                 );
                 const trackMetrics = trackNodes
@@ -788,7 +786,7 @@ export function VideoTimelinePanel({
                   ? t('视频原声', '動画の元音声', 'Video original audio')
                   : trackNodes.some((node) => node.data?.audioRole === 'generated-speech')
                     ? t('文字语音', 'テキスト音声', 'Generated speech')
-                    : `Audio ${trackIndex + 1}`;
+                    : `音频轨 ${trackIndex + 1}`;
                 return (
                   <div
                     key={trackId}
@@ -825,7 +823,6 @@ export function VideoTimelinePanel({
                       onClick={() => {
                         setFocusedPreviewId('');
                         setDragSelectionIds(new Set());
-                        onTimelineSelectionChange([]);
                       }}
                       onDragOver={(event) => {
                         event.preventDefault();
@@ -886,12 +883,10 @@ export function VideoTimelinePanel({
                                   const next = new Set(previous);
                                   if (next.has(node.id)) next.delete(node.id);
                                   else next.add(node.id);
-                                  onTimelineSelectionChange([...next]);
                                   return next;
                                 });
                               } else {
                                 setDragSelectionIds(new Set([node.id]));
-                                onTimelineSelectionChange([node.id]);
                               }
                               focusTimelineSegment(node.id);
                             }}
@@ -917,15 +912,9 @@ export function VideoTimelinePanel({
                       })}
                       {trackNodes.length === 0 ? (
                         <div
-                          className="h-12 rounded-none border border-dashed border-[var(--vr-audio-track-border)] flex items-center justify-center text-xs font-bold text-[var(--vr-text-muted)]"
+                          className="h-12 border border-dashed border-[var(--vr-audio-track-border)]"
                           style={{ width: timelineMetrics.width }}
-                        >
-                          {t(
-                            '把音频片段拖到这里',
-                            '音声クリップをここへドラッグ',
-                            'Drag audio clips here',
-                          )}
-                        </div>
+                        />
                       ) : null}
                     </div>
                   </div>

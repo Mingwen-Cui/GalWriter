@@ -1,5 +1,6 @@
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { animatedTextState } from '../canvas/textAnimation';
+import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle } from '../shared/types';
@@ -49,36 +50,25 @@ export const drawRenderFrame = async ({
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  const margin = Math.max(48, width * 0.07);
+  const dialogLayout = await drawDialogueBox(ctx, width, height, renderStyle);
+  const margin = dialogLayout.x + dialogLayout.padding;
   const titleSize = Math.max(18, renderStyle.titleFontSize);
   const bodySize = Math.max(16, renderStyle.bodyFontSize);
   const titleLineHeight = Math.round(titleSize * 1.25);
   const bodyLineHeight = Math.round(bodySize * 1.45);
-  const maxTextWidth = width - margin * 2;
+  const maxTextWidth = dialogLayout.width - dialogLayout.padding * 2;
 
   ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-  const titleLines = wrapText(
-    ctx,
-    title || (isZh ? '未命名片段' : 'Untitled segment'),
-    maxTextWidth,
-  ).slice(0, 2);
+  const titleLines = renderStyle.titleVisible
+    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
+    : [];
   ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
   const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
   const textHeight =
     titleLines.length * titleLineHeight +
     (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     bodyLines.length * bodyLineHeight;
-  let y = height - margin - textHeight;
-
-  ctx.fillStyle = renderStyle.panelColor;
-  ctx.globalAlpha = 0.62;
-  ctx.fillRect(
-    margin * 0.72,
-    y - bodySize * 0.8,
-    width - margin * 1.44,
-    textHeight + bodySize * 1.35,
-  );
-  ctx.globalAlpha = 1;
+  let y = dialogLayout.y + Math.max(dialogLayout.padding, (dialogLayout.height - textHeight) / 2);
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
   ctx.shadowBlur = 12;

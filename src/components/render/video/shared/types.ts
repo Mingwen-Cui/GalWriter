@@ -30,11 +30,19 @@ export type VideoRenderModalProps = {
 };
 
 export type RenderStyle = {
+  titleVisible: boolean;
   titleFontSize: number;
   bodyFontSize: number;
   titleColor: string;
   bodyColor: string;
   panelColor: string;
+  dialogVisible: boolean;
+  dialogWidth: number;
+  dialogHeight: number;
+  dialogRadius: number;
+  dialogBackgroundType: 'solid' | 'gradient' | 'image';
+  dialogGradientColor: string;
+  dialogImageUrl: string;
   titleAnimation: TextAnimation;
   bodyAnimation: TextAnimation;
 };

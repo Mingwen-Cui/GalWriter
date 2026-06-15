@@ -26,6 +26,7 @@ export const snapToTimelineClipEdges = ({
   pixelsPerSecond,
   segments,
   snapTime,
+  excludedNodeIds,
 }: {
   nodeId: string;
   wantedStart: number;
@@ -34,12 +35,15 @@ export const snapToTimelineClipEdges = ({
   pixelsPerSecond: number;
   segments: TimelineSegmentMetric[];
   snapTime: (time: number) => number;
+  excludedNodeIds?: Iterable<string>;
 }) => {
   if (!enabled) return Math.max(0, wantedStart);
   const gridStart = snapTime(wantedStart);
-  const tolerance = Math.max(0.08, 10 / Math.max(1, pixelsPerSecond));
+  const excludedIds = new Set(excludedNodeIds || [nodeId]);
+  excludedIds.add(nodeId);
+  const tolerance = Math.max(0.12, 18 / Math.max(1, pixelsPerSecond));
   const candidates = segments
-    .filter((segment) => segment.node.id !== nodeId)
+    .filter((segment) => !excludedIds.has(segment.node.id))
     .flatMap((segment) => [
       segment.start,
       segment.end,

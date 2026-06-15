@@ -5,10 +5,7 @@ import type { Language } from '../../../../lib/i18n';
 import { WebWorkspace } from '../../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
-import {
-  chooseRenderOutputDir,
-  getDefaultRenderDir,
-} from '../export/tauriRenderAdapter';
+import { chooseRenderOutputDir, getDefaultRenderDir } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
 import { isWebGPUSupported } from '../gpu/webgpuRenderer';
 import { RenderContextMenu } from '../panels/RenderContextMenu';
@@ -28,15 +25,14 @@ import {
   MIN_PREVIEW_WIDTH,
   PANEL_SIZE_LIMITS,
   RESOLUTION_OPTIONS,
+  TIMELINE_MAX_PIXELS_PER_SECOND,
+  TIMELINE_MIN_PIXELS_PER_SECOND,
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
 import { stripHtml } from '../shared/storyNodes';
-import {
-  getNodeDisplayTitle,
-  getOrderedStoryNodes,
-} from '../shared/storyNodes';
+import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
 import type {
   AssetCardLayout,
   ExportFormat,
@@ -361,9 +357,7 @@ export function VideoRenderModal({
     workspaceKey?: string;
     snapshot: PersistedRenderWorkspaceState;
   } | null>(null);
-  const previousVideoPlacementRef = useRef<Record<string, { start: number; duration: number }>>(
-    {},
-  );
+  const previousVideoPlacementRef = useRef<Record<string, { start: number; duration: number }>>({});
   const EMPTY_TIMELINE_PLACEHOLDER = '\u200b';
 
   const allAssetNodes = useMemo(
@@ -421,10 +415,15 @@ export function VideoRenderModal({
     [timelineNodes, selectedIds],
   );
   const speechTagNames = useMemo(() => getSpeechTagNames(nodes), [nodes]);
-  const getSpeechTextForNode = (node: FlowNode) =>
-    buildSpeechTextForNode(node, speechTagNames);
+  const getSpeechTextForNode = (node: FlowNode) => buildSpeechTextForNode(node, speechTagNames);
   const canGenerateSpeechFromNode = (node: FlowNode) => Boolean(getSpeechTextForNode(node));
   const selectedSpeechNodes = selectedNodes.filter(canGenerateSpeechFromNode);
+  const selectedAudioNodes = selectedNodes.filter(
+    (node) => node.data?.audioUrl || (node.data?.videoUrl && node.data?.muteVideoAudio !== true),
+  );
+  const selectedAudioVolume = Number(selectedAudioNodes[0]?.data?.volume ?? 1);
+  const selectedAudioFadeIn = Number(selectedAudioNodes[0]?.data?.fadeIn ?? 0);
+  const selectedAudioFadeOut = Number(selectedAudioNodes[0]?.data?.fadeOut ?? 0);
   const activePreviewNode = nodeById.get(activePreviewId) || selectedNodes[0] || allAssetNodes[0];
   const focusedPreviewNode = focusedPreviewId ? nodeById.get(focusedPreviewId) : undefined;
   const resolution = {
@@ -912,7 +911,12 @@ export function VideoRenderModal({
     });
   };
 
-  const snapToTimelineClipEdges = (nodeId: string, wantedStart: number, duration: number) =>
+  const snapToTimelineClipEdges = (
+    nodeId: string,
+    wantedStart: number,
+    duration: number,
+    excludedNodeIds?: Iterable<string>,
+  ) =>
     calculateTimelineClipEdgeSnap({
       nodeId,
       wantedStart,
@@ -921,6 +925,7 @@ export function VideoRenderModal({
       pixelsPerSecond: timelineMetrics.pixelsPerSecond,
       segments: timelineMetrics.segments,
       snapTime: snapTimelineTime,
+      excludedNodeIds,
     });
 
   const findNonOverlappingTrackStart = (
@@ -1454,8 +1459,7 @@ export function VideoRenderModal({
     pushTimelineHistory,
     getNodeMediaDuration,
     makeTimelineClipInstanceId,
-    segmentTitle: (node) =>
-      getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment'),
+    segmentTitle: (node) => getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment'),
     separatedAudioLabel: isZh ? '音频' : 'Audio',
     assignAudioTrackForVideoPlacement,
     addNodeToTimeline,
@@ -1539,6 +1543,17 @@ export function VideoRenderModal({
 
   const updateRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
     setRenderStyle((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateSelectedAudioSettings = (key: 'volume' | 'fadeIn' | 'fadeOut', value: number) => {
+    if (selectedAudioNodes.length === 0) return;
+    setTimelineDataOverrides((previous) => {
+      const next = { ...previous };
+      selectedAudioNodes.forEach((node) => {
+        next[node.id] = { ...(next[node.id] || {}), [key]: value };
+      });
+      return next;
+    });
   };
 
   const updateProgress = (label: string, current: number, total: number) => {
@@ -1644,52 +1659,48 @@ export function VideoRenderModal({
   const mediaIcon = getMediaIcon;
   const segmentTitle = (node: FlowNode) =>
     getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment');
-  const segmentText = (node: FlowNode) =>
-    getSegmentText(node, hideCharacterTags, hideSceneTags);
+  const segmentText = (node: FlowNode) => getSegmentText(node, hideCharacterTags, hideSceneTags);
   const segmentDurationLabel = (node: FlowNode) =>
     getSegmentDurationLabel(node, defaultSeconds, {
       longestMedia: isZh ? '按音画较长时长' : 'Longest media length',
       video: isZh ? '按视频时长' : 'Video length',
       audio: isZh ? '按音频时长' : 'Audio length',
     });
-  const {
-    sortSelectedAssetsByCardOrder,
-    importSelectedAssetsToTimeline,
-    removeUploadedAssets,
-  } = useAssetMenuActions({
-    status,
-    selectedAssetIds,
-    visibleAssetNodes,
-    uploadedAssetNodes,
-    allAssetNodes,
-    assetNodeById,
-    timelineIds,
-    timelineSourceById,
-    timelineTotalDuration: timelineMetrics.totalDuration,
-    videoTrackIds,
-    audioTrackIds,
-    speed,
-    activePreviewId,
-    focusedPreviewId,
-    closeContextMenu,
-    pushTimelineHistory,
-    getNodeMediaDuration,
-    makeTimelineClipInstanceId,
-    revokeTrackedObjectUrl,
-    setSelectedAssetIds,
-    setUploadedAssetNodes,
-    setTimelineIds,
-    setTimelineSourceById,
-    setTimelineStartById,
-    setTimelineDurationById,
-    setTimelineDataOverrides,
-    setVideoTrackByNodeId,
-    setAudioTrackByNodeId,
-    setSelectedIds,
-    setKeyShotIds,
-    setActivePreviewId,
-    setFocusedPreviewId,
-  });
+  const { sortSelectedAssetsByCardOrder, importSelectedAssetsToTimeline, removeUploadedAssets } =
+    useAssetMenuActions({
+      status,
+      selectedAssetIds,
+      visibleAssetNodes,
+      uploadedAssetNodes,
+      allAssetNodes,
+      assetNodeById,
+      timelineIds,
+      timelineSourceById,
+      timelineTotalDuration: timelineMetrics.totalDuration,
+      videoTrackIds,
+      audioTrackIds,
+      speed,
+      activePreviewId,
+      focusedPreviewId,
+      closeContextMenu,
+      pushTimelineHistory,
+      getNodeMediaDuration,
+      makeTimelineClipInstanceId,
+      revokeTrackedObjectUrl,
+      setSelectedAssetIds,
+      setUploadedAssetNodes,
+      setTimelineIds,
+      setTimelineSourceById,
+      setTimelineStartById,
+      setTimelineDurationById,
+      setTimelineDataOverrides,
+      setVideoTrackByNodeId,
+      setAudioTrackByNodeId,
+      setSelectedIds,
+      setKeyShotIds,
+      setActivePreviewId,
+      setFocusedPreviewId,
+    });
   const buildContextMenuSections = createContextMenuSectionBuilder({
     language,
     status,
@@ -1911,6 +1922,11 @@ export function VideoRenderModal({
                 animationLeadSeconds={animationLeadSeconds}
                 setAnimationLeadSeconds={setAnimationLeadSeconds}
                 selectedSpeechNodeCount={selectedSpeechNodes.length}
+                selectedAudioClipCount={selectedAudioNodes.length}
+                selectedAudioVolume={selectedAudioVolume}
+                selectedAudioFadeIn={selectedAudioFadeIn}
+                selectedAudioFadeOut={selectedAudioFadeOut}
+                updateSelectedAudioSettings={updateSelectedAudioSettings}
                 audioBusy={audioBusy}
                 audioMessage={audioMessage}
                 isRecordingVoiceover={isRecordingVoiceover}

@@ -4,6 +4,7 @@
 
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { animatedTextState } from '../canvas/textAnimation';
+import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle } from '../shared/types';
@@ -36,10 +37,10 @@ type GPURenderFrameInput = {
 const textTextureCache = new Map<string, { canvas: OffscreenCanvas; texture?: GPUTexture }>();
 
 function getTextCacheKey(nodeId: string, title: string, body: string, style: RenderStyle): string {
-  return `${nodeId}::${title}::${body}::${style.titleFontSize}:${style.bodyFontSize}:${style.titleColor}:${style.bodyColor}:${style.panelColor}`;
+  return `${nodeId}::${title}::${body}::${JSON.stringify(style)}`;
 }
 
-function createTextLayerCanvas(
+async function createTextLayerCanvas(
   width: number,
   height: number,
   title: string,
@@ -50,51 +51,33 @@ function createTextLayerCanvas(
   duration: number | undefined,
   forceFinalText: boolean,
   isZh: boolean,
-): OffscreenCanvas {
+): Promise<OffscreenCanvas> {
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
 
   // 清空为透明
   ctx.clearRect(0, 0, width, height);
 
-  const margin = Math.max(48, width * 0.07);
+  const dialogLayout = await drawDialogueBox(ctx, width, height, style);
+  const margin = dialogLayout.x + dialogLayout.padding;
   const titleSize = Math.max(18, style.titleFontSize);
   const bodySize = Math.max(16, style.bodyFontSize);
   const titleLineHeight = Math.round(titleSize * 1.25);
   const bodyLineHeight = Math.round(bodySize * 1.45);
-  const maxTextWidth = width - margin * 2;
-
-  // 绘制渐变遮罩
-  const gradient = ctx.createLinearGradient(0, height * 0.45, 0, height);
-  gradient.addColorStop(0, 'rgba(17, 24, 39, 0)');
-  gradient.addColorStop(1, 'rgba(17, 24, 39, 0.88)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
+  const maxTextWidth = dialogLayout.width - dialogLayout.padding * 2;
 
   // 文字面板
   ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-  const titleLines = wrapText(
-    ctx,
-    title || (isZh ? '未命名片段' : 'Untitled segment'),
-    maxTextWidth,
-  ).slice(0, 2);
+  const titleLines = style.titleVisible
+    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
+    : [];
   ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
   const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
   const textHeight =
     titleLines.length * titleLineHeight +
     (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     bodyLines.length * bodyLineHeight;
-  let y = height - margin - textHeight;
-
-  ctx.fillStyle = style.panelColor;
-  ctx.globalAlpha = 0.62;
-  ctx.fillRect(
-    margin * 0.72,
-    y - bodySize * 0.8,
-    width - margin * 1.44,
-    textHeight + bodySize * 1.35,
-  );
-  ctx.globalAlpha = 1;
+  let y = dialogLayout.y + Math.max(dialogLayout.padding, (dialogLayout.height - textHeight) / 2);
 
   // 标题
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
@@ -205,7 +188,7 @@ export async function drawGPUFrame({
     (renderStyle.titleAnimation !== 'none' || renderStyle.bodyAnimation !== 'none');
 
   if (needsAnimation || !textCanvas) {
-    textCanvas = createTextLayerCanvas(
+    textCanvas = await createTextLayerCanvas(
       width,
       height,
       title,

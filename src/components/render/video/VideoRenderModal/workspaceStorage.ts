@@ -12,11 +12,19 @@ import type {
 } from '../shared/types';
 
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
+  titleVisible: true,
   titleFontSize: 56,
   bodyFontSize: 38,
   titleColor: '#ffffff',
   bodyColor: '#f8fafc',
   panelColor: '#111827',
+  dialogVisible: true,
+  dialogWidth: 86,
+  dialogHeight: 34,
+  dialogRadius: 24,
+  dialogBackgroundType: 'solid',
+  dialogGradientColor: '#111827',
+  dialogImageUrl: '',
   titleAnimation: 'none',
   bodyAnimation: 'typewriter',
 };
@@ -110,12 +118,8 @@ export const writeRenderWorkspaceState = (
   }
 };
 
-export const clampPersistedNumber = (
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-) => (typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : fallback);
+export const clampPersistedNumber = (value: unknown, fallback: number, min: number, max: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
 export const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
   value === 'video' || value === 'web';
