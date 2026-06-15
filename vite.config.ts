@@ -66,6 +66,14 @@ export default defineConfig(() => {
     assetsInclude: ['**/*.lottie'],
     plugins: [arkImageProxy(), react(), tailwindcss()],
     clearScreen: false,
+    esbuild: {
+      target: 'esnext',
+    },
+    optimizeDeps: {
+      esbuildOptions: {
+        target: 'esnext',
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

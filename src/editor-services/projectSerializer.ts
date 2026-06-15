@@ -107,7 +107,96 @@ const urlToBlob = async (url: string) => {
       return null;
     }
   }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.blob();
+    } catch (error) {
+      console.warn('Failed to fetch external project media URL', url, error);
+      return null;
+    }
+  }
   return null;
+};
+
+const PROJECT_MEDIA_URL_FIELDS = new Set([
+  'imageUrl',
+  'videoUrl',
+  'audioUrl',
+  'avatarUrl',
+  'coverImageUrl',
+  'previousImageUrl',
+  'previousVideoUrl',
+]);
+
+const PROJECT_MEDIA_OBJECT_URL_FIELDS = new Set(['url']);
+const PROJECT_HTML_MEDIA_FIELDS = new Set(['text', 'content']);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const isEmbeddableMediaUrl = (value: string) =>
+  value.startsWith('data:') ||
+  value.startsWith('blob:') ||
+  value.startsWith('http://') ||
+  value.startsWith('https://');
+
+const isProjectAssetUrl = (value: string) => value.startsWith('assets/');
+
+const extensionFromBlob = (blob: Blob, fallback = 'bin') => {
+  const [kind, subtype] = blob.type.split('/');
+  if (blob.type === 'audio/mpeg') return 'mp3';
+  if (subtype) return subtype.split(';')[0].replace(/[^a-z0-9.+-]/gi, '') || fallback;
+  if (kind === 'image') return 'png';
+  if (kind === 'audio') return 'mp3';
+  if (kind === 'video') return 'mp4';
+  return fallback;
+};
+
+const sanitizeAssetPart = (value: string) =>
+  value
+    .replace(/[^a-z0-9_-]/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'media';
+
+const shouldPackUrlField = (
+  key: string,
+  value: string,
+  parent: Record<string, unknown> | null,
+) => {
+  if (!isEmbeddableMediaUrl(value)) return false;
+  if (PROJECT_MEDIA_URL_FIELDS.has(key)) return true;
+  if (!PROJECT_MEDIA_OBJECT_URL_FIELDS.has(key) || !parent) return false;
+  return (
+    typeof parent.source === 'string' ||
+    typeof parent.mimeType === 'string' ||
+    typeof parent.type === 'string' ||
+    typeof parent.loop === 'boolean' ||
+    typeof parent.fadeIn === 'number' ||
+    typeof parent.fadeOut === 'number' ||
+    typeof parent.createdAt === 'number'
+  );
+};
+
+const shouldRestoreUrlField = (
+  key: string,
+  value: string,
+  parent: Record<string, unknown> | null,
+) => {
+  if (!isProjectAssetUrl(value)) return false;
+  if (PROJECT_MEDIA_URL_FIELDS.has(key)) return true;
+  if (!PROJECT_MEDIA_OBJECT_URL_FIELDS.has(key) || !parent) return false;
+  return (
+    typeof parent.source === 'string' ||
+    typeof parent.mimeType === 'string' ||
+    typeof parent.type === 'string' ||
+    typeof parent.loop === 'boolean' ||
+    typeof parent.fadeIn === 'number' ||
+    typeof parent.fadeOut === 'number' ||
+    typeof parent.createdAt === 'number'
+  );
 };
 
 const blobToDataUrl = (blob: Blob) =>
@@ -127,7 +216,7 @@ const processHtmlMedia = async (html: string, assetsFolder: JSZip | null, nodeId
 
   for (const element of Array.from(elements)) {
     const src = element.getAttribute('src');
-    if (!src || (!src.startsWith('data:') && !src.startsWith('blob:'))) continue;
+    if (!src || !isEmbeddableMediaUrl(src)) continue;
 
     const blob = await urlToBlob(src);
     if (!blob) continue;
@@ -158,6 +247,97 @@ const restoreHtmlMedia = async (html: string, zip: JSZip | null) => {
   }
 
   return doc.body.innerHTML;
+};
+
+const packProjectMediaValue = async (
+  value: unknown,
+  assetsFolder: JSZip | null,
+  context: string,
+  parent: Record<string, unknown> | null = null,
+  key = '',
+  counters = { media: 0, html: 0 },
+): Promise<unknown> => {
+  if (typeof value === 'string') {
+    if (PROJECT_HTML_MEDIA_FIELDS.has(key)) {
+      counters.html += 1;
+      return processHtmlMedia(value, assetsFolder, `${context}_html_${counters.html}`);
+    }
+
+    if (!shouldPackUrlField(key, value, parent)) return value;
+
+    const blob = await urlToBlob(value);
+    if (!blob) return value;
+
+    counters.media += 1;
+    const extension = extensionFromBlob(blob);
+    const mediaFileName = `media_${sanitizeAssetPart(context)}_${sanitizeAssetPart(key)}_${counters.media}.${extension}`;
+    assetsFolder?.file(mediaFileName, blob);
+    return `assets/${mediaFileName}`;
+  }
+
+  if (Array.isArray(value)) {
+    return Promise.all(
+      value.map((item, index) =>
+        packProjectMediaValue(
+          item,
+          assetsFolder,
+          `${context}_${sanitizeAssetPart(key || 'item')}_${index + 1}`,
+          null,
+          '',
+          counters,
+        ),
+      ),
+    );
+  }
+
+  if (isRecord(value)) {
+    const next: Record<string, unknown> = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      next[childKey] = await packProjectMediaValue(
+        childValue,
+        assetsFolder,
+        `${context}_${sanitizeAssetPart(childKey)}`,
+        value,
+        childKey,
+        counters,
+      );
+    }
+    return next;
+  }
+
+  return value;
+};
+
+const restoreProjectMediaValue = async (
+  value: unknown,
+  zip: JSZip | null,
+  parent: Record<string, unknown> | null = null,
+  key = '',
+): Promise<unknown> => {
+  if (typeof value === 'string') {
+    if (PROJECT_HTML_MEDIA_FIELDS.has(key)) return restoreHtmlMedia(value, zip);
+    if (!zip || !shouldRestoreUrlField(key, value, parent)) return value;
+    const assetFile = zip.file(value);
+    if (!assetFile) return value;
+    const blob = await assetFile.async('blob');
+    return URL.createObjectURL(blob);
+  }
+
+  if (Array.isArray(value)) {
+    return Promise.all(
+      value.map((item) => restoreProjectMediaValue(item, zip, null, '')),
+    );
+  }
+
+  if (isRecord(value)) {
+    const next: Record<string, unknown> = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      next[childKey] = await restoreProjectMediaValue(childValue, zip, value, childKey);
+    }
+    return next;
+  }
+
+  return value;
 };
 
 const applyProjectSettings = (
@@ -324,52 +504,10 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         data: { ...node.data },
         dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
       };
-
-      for (const field of ['imageUrl', 'videoUrl', 'audioUrl']) {
-        const value = restoredNode.data[field];
-        if (typeof value !== 'string' || !value.startsWith('assets/') || !zip) continue;
-        const assetFile = zip.file(value);
-        if (!assetFile) continue;
-        const blob = await assetFile.async('blob');
-        restoredNode.data[field] = URL.createObjectURL(blob);
-      }
-
-      if (Array.isArray(restoredNode.data.audioClips)) {
-        restoredNode.data.audioClips = await Promise.all(
-          restoredNode.data.audioClips.map(async (clip: unknown) => {
-            if (!clip || typeof clip !== 'object') return clip;
-            const nextClip = { ...(clip as Record<string, unknown>) };
-            const url = nextClip.url;
-            if (typeof url !== 'string' || !url.startsWith('assets/') || !zip) return nextClip;
-            const assetFile = zip.file(url);
-            if (!assetFile) return nextClip;
-            const blob = await assetFile.async('blob');
-            return { ...nextClip, url: URL.createObjectURL(blob) };
-          }),
-        );
-      }
-
-      const backgroundMusic = restoredNode.data.backgroundMusic;
-      if (backgroundMusic && typeof backgroundMusic === 'object') {
-        const music = { ...(backgroundMusic as Record<string, unknown>) };
-        const url = music.url;
-        if (typeof url === 'string' && url.startsWith('assets/') && zip) {
-          const assetFile = zip.file(url);
-          if (assetFile) {
-            const blob = await assetFile.async('blob');
-            music.url = URL.createObjectURL(blob);
-          }
-        }
-        restoredNode.data.backgroundMusic = music;
-      }
-
-      if (typeof restoredNode.data.text === 'string') {
-        restoredNode.data.text = await restoreHtmlMedia(restoredNode.data.text, zip);
-      }
-
-      if (typeof restoredNode.data.content === 'string') {
-        restoredNode.data.content = await restoreHtmlMedia(restoredNode.data.content, zip);
-      }
+      restoredNode.data = (await restoreProjectMediaValue(
+        restoredNode.data,
+        zip,
+      )) as Node['data'];
 
       return restoredNode;
     }),
@@ -488,73 +626,11 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     const processedNodes = await Promise.all(
       projectData.nodes.map(async (node) => {
         const nextNode = { ...node, data: { ...node.data } };
-
-        for (const field of ['imageUrl', 'videoUrl', 'audioUrl']) {
-          const value = nextNode.data[field];
-          if (typeof value !== 'string') continue;
-          if (!value.startsWith('data:') && !value.startsWith('blob:')) continue;
-
-          const blob = await urlToBlob(value);
-          if (!blob) continue;
-
-          const extension = blob.type.split('/')[1] || 'bin';
-          const mediaFileName = `media_${node.id}_${field}.${extension}`;
-          assetsFolder?.file(mediaFileName, blob);
-          nextNode.data[field] = `assets/${mediaFileName}`;
-        }
-
-        if (Array.isArray(nextNode.data.audioClips)) {
-          nextNode.data.audioClips = await Promise.all(
-            nextNode.data.audioClips.map(async (clip: unknown, index: number) => {
-              if (!clip || typeof clip !== 'object') return clip;
-              const nextClip = { ...(clip as Record<string, unknown>) };
-              const url = nextClip.url;
-              if (
-                typeof url !== 'string' ||
-                (!url.startsWith('data:') && !url.startsWith('blob:'))
-              ) {
-                return nextClip;
-              }
-
-              const blob = await urlToBlob(url);
-              if (!blob) return nextClip;
-              const extension =
-                blob.type === 'audio/mpeg' ? 'mp3' : blob.type.split('/')[1] || 'bin';
-              const mediaFileName = `media_${node.id}_audioClip_${index + 1}.${extension}`;
-              assetsFolder?.file(mediaFileName, blob);
-              return { ...nextClip, url: `assets/${mediaFileName}` };
-            }),
-          );
-        }
-
-        const backgroundMusic = nextNode.data.backgroundMusic;
-        if (backgroundMusic && typeof backgroundMusic === 'object') {
-          const music = { ...(backgroundMusic as Record<string, unknown>) };
-          const url = music.url;
-          if (typeof url === 'string' && (url.startsWith('data:') || url.startsWith('blob:'))) {
-            const blob = await urlToBlob(url);
-            if (blob) {
-              const extension =
-                blob.type === 'audio/mpeg' ? 'mp3' : blob.type.split('/')[1] || 'bin';
-              const mediaFileName = `media_${node.id}_backgroundMusic.${extension}`;
-              assetsFolder?.file(mediaFileName, blob);
-              music.url = `assets/${mediaFileName}`;
-            }
-          }
-          nextNode.data.backgroundMusic = music;
-        }
-
-        if (typeof nextNode.data.text === 'string') {
-          nextNode.data.text = await processHtmlMedia(nextNode.data.text, assetsFolder, node.id);
-        }
-
-        if (typeof nextNode.data.content === 'string') {
-          nextNode.data.content = await processHtmlMedia(
-            nextNode.data.content,
-            assetsFolder,
-            node.id,
-          );
-        }
+        nextNode.data = (await packProjectMediaValue(
+          nextNode.data,
+          assetsFolder,
+          node.id,
+        )) as StoryNode['data'];
 
         return nextNode;
       }),
