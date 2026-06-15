@@ -51,6 +51,14 @@ type VideoExportSettingsPanelProps = {
   animationLeadSeconds: number;
   setAnimationLeadSeconds: (value: number) => void;
   selectedSpeechNodeCount: number;
+  selectedAudioClipCount: number;
+  selectedAudioVolume?: number;
+  selectedAudioFadeIn?: number;
+  selectedAudioFadeOut?: number;
+  updateSelectedAudioSettings: (
+    key: 'volume' | 'fadeIn' | 'fadeOut',
+    value: number,
+  ) => void;
   audioBusy: boolean;
   audioMessage: string;
   isRecordingVoiceover: boolean;
@@ -103,6 +111,11 @@ export function VideoExportSettingsPanel({
   animationLeadSeconds,
   setAnimationLeadSeconds,
   selectedSpeechNodeCount,
+  selectedAudioClipCount,
+  selectedAudioVolume = 0,
+  selectedAudioFadeIn = 0,
+  selectedAudioFadeOut = 0,
+  updateSelectedAudioSettings,
   audioBusy,
   audioMessage,
   isRecordingVoiceover,
@@ -582,6 +595,57 @@ export function VideoExportSettingsPanel({
           </div>
         ) : (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                {t('时间线声音', 'タイムライン音声', 'Timeline Audio')}
+              </div>
+              <div className="space-y-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
+                <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
+                  {selectedAudioClipCount > 0
+                    ? t(
+                        `正在调整 ${selectedAudioClipCount} 个声音片段`,
+                        `${selectedAudioClipCount} 個の音声クリップを調整中`,
+                        `Editing ${selectedAudioClipCount} audio clip(s)`,
+                      )
+                    : t(
+                        '请在时间线中选择带声音的卡片。',
+                        'タイムラインで音声付きカードを選択してください。',
+                        'Select an audio-enabled card in the timeline.',
+                      )}
+                </p>
+                <RangeControl
+                  label={t('音量', '音量', 'Volume')}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={selectedAudioVolume}
+                  valueLabel={`${Math.round(selectedAudioVolume * 100)}%`}
+                  disabled={selectedAudioClipCount === 0}
+                  onChange={(value) => updateSelectedAudioSettings('volume', value)}
+                />
+                <RangeControl
+                  label={t('淡入', 'フェードイン', 'Fade in')}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  value={selectedAudioFadeIn}
+                  valueLabel={`${Number(selectedAudioFadeIn).toFixed(1)}s`}
+                  disabled={selectedAudioClipCount === 0}
+                  onChange={(value) => updateSelectedAudioSettings('fadeIn', value)}
+                />
+                <RangeControl
+                  label={t('淡出', 'フェードアウト', 'Fade out')}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  value={selectedAudioFadeOut}
+                  valueLabel={`${Number(selectedAudioFadeOut).toFixed(1)}s`}
+                  disabled={selectedAudioClipCount === 0}
+                  onChange={(value) => updateSelectedAudioSettings('fadeOut', value)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('文字转音频', 'テキストから音声', 'Text to Audio')}

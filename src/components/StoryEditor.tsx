@@ -3924,10 +3924,9 @@ ${direction}
             nodes={nodes}
             edges={edges}
             onClose={() => setShowVideoRender(false)}
+            onUpdateNodeData={handleUpdateNode}
             language={language}
-            workspaceKey={
-              currentProjectId || currentProjectFilePath || saveFileName || projectTitle || 'draft'
-            }
+            workspaceKey={currentProjectId || currentProjectFilePath || 'draft'}
             voiceTtsConfig={{
               provider: ttsProvider,
               apiUrl: ttsApiUrl,

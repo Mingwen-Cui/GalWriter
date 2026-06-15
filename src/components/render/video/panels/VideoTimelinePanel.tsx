@@ -72,6 +72,8 @@ type VideoTimelinePanelProps = {
   audioTrackByNodeId: Record<string, string>;
   timelineNodes: FlowNode[];
   timelineMetricById: Map<string, TimelineSegmentMetric>;
+  linkedTimelineClipById?: Record<string, string>;
+  onTimelineSelectionChange: (ids: string[]) => void;
   selectedIds: Set<string>;
   focusedPreviewId: string;
   keyShotIds: Set<string>;
@@ -146,6 +148,8 @@ export function VideoTimelinePanel({
   audioTrackByNodeId,
   timelineNodes,
   timelineMetricById,
+  linkedTimelineClipById = {},
+  onTimelineSelectionChange,
   selectedIds,
   focusedPreviewId,
   keyShotIds,
@@ -275,6 +279,7 @@ export function VideoTimelinePanel({
     if (width < 5 && height < 5) return;
     const ids = selectClipsInBox(drag);
     setDragSelectionIds(new Set(ids));
+    onTimelineSelectionChange(ids);
     if (drag.button === 2 && ids.length > 0) {
       openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
         kind: 'empty',
@@ -577,6 +582,7 @@ export function VideoTimelinePanel({
                       onClick={() => {
                         setFocusedPreviewId('');
                         setDragSelectionIds(new Set());
+                        onTimelineSelectionChange([]);
                       }}
                       onDragOver={(event) => {
                         event.preventDefault();
@@ -622,10 +628,12 @@ export function VideoTimelinePanel({
                                   const next = new Set(previous);
                                   if (next.has(node.id)) next.delete(node.id);
                                   else next.add(node.id);
+                                  onTimelineSelectionChange([...next]);
                                   return next;
                                 });
                               } else {
                                 setDragSelectionIds(new Set([node.id]));
+                                onTimelineSelectionChange([node.id]);
                               }
                               focusTimelineSegment(node.id);
                             }}
@@ -646,6 +654,14 @@ export function VideoTimelinePanel({
                             {keyShotIds.has(node.id) && (
                               <div className="pointer-events-none absolute left-1 top-1 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white shadow">
                                 <Sparkles className="h-3.5 w-3.5 fill-current" />
+                              </div>
+                            )}
+                            {(node.data?.audioUrl ||
+                              (Array.isArray(node.data?.audioClips) &&
+                                node.data.audioClips.length > 0) ||
+                              linkedTimelineClipById[node.id]) && (
+                              <div className="pointer-events-none absolute bottom-1 right-1 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/90 text-white shadow">
+                                <Music className="h-3.5 w-3.5" />
                               </div>
                             )}
                             {node.data?.imageUrl ? (
@@ -766,6 +782,13 @@ export function VideoTimelinePanel({
                 const trackMetrics = trackNodes
                   .map((node) => timelineMetricById.get(node.id))
                   .filter(Boolean) as TimelineSegmentMetric[];
+                const trackLabel = trackNodes.some(
+                  (node) => node.data?.audioRole === 'video-original',
+                )
+                  ? t('视频原声', '動画の元音声', 'Video original audio')
+                  : trackNodes.some((node) => node.data?.audioRole === 'generated-speech')
+                    ? t('文字语音', 'テキスト音声', 'Generated speech')
+                    : `Audio ${trackIndex + 1}`;
                 return (
                   <div
                     key={trackId}
@@ -777,7 +800,8 @@ export function VideoTimelinePanel({
                       style={{ width: TIMELINE_LABEL_WIDTH + 12 + timelineMetrics.width }}
                     />
                     <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-violet-600 dark:text-violet-300">
-                      <span className="min-w-0 truncate">
+                      <span className="min-w-0 truncate">{trackLabel}</span>
+                      <span className="hidden">
                         {`${t('音频轨', '音声トラック', 'Audio')} ${trackIndex + 1}`}
                       </span>
                       {audioTrackIds.length > 1 && (
@@ -801,6 +825,7 @@ export function VideoTimelinePanel({
                       onClick={() => {
                         setFocusedPreviewId('');
                         setDragSelectionIds(new Set());
+                        onTimelineSelectionChange([]);
                       }}
                       onDragOver={(event) => {
                         event.preventDefault();
@@ -813,7 +838,12 @@ export function VideoTimelinePanel({
                         const node = metric.node;
                         const enabled = selectedIds.has(node.id);
                         const dragSelected = dragSelectionIds.has(node.id);
-                        const audioText = segmentText(node) || segmentTitle(node);
+                        const audioText =
+                          node.data?.audioRole === 'video-original'
+                            ? t('视频原声', '動画の元音声', 'Video original audio')
+                            : node.data?.audioRole === 'generated-speech'
+                              ? t('文字语音', 'テキスト音声', 'Generated speech')
+                              : segmentText(node) || segmentTitle(node);
                         const segmentLayout = getTimelineSegmentLayout(
                           metric.start,
                           metric.duration,
@@ -856,10 +886,12 @@ export function VideoTimelinePanel({
                                   const next = new Set(previous);
                                   if (next.has(node.id)) next.delete(node.id);
                                   else next.add(node.id);
+                                  onTimelineSelectionChange([...next]);
                                   return next;
                                 });
                               } else {
                                 setDragSelectionIds(new Set([node.id]));
+                                onTimelineSelectionChange([node.id]);
                               }
                               focusTimelineSegment(node.id);
                             }}

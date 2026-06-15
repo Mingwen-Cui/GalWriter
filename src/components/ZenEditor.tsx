@@ -1,4 +1,4 @@
-import {
+﻿import {
   Bold,
   ClipboardPaste,
   Copy,
@@ -21,6 +21,7 @@ import {
   Underline,
   User,
   Volume2,
+  Upload,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -113,6 +114,8 @@ export function ZenEditor({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const waveformFrameRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement>(null);
+  const audioImportInputRef = useRef<HTMLInputElement>(null);
+  const importedAudioUrlsRef = useRef<string[]>([]);
   const sceneVideoRef = useRef<HTMLVideoElement>(null);
   const sceneVideoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sceneVideoDuration, setSceneVideoDuration] = useState(0);
@@ -575,6 +578,26 @@ export function ZenEditor({
     onAudioClipsChange?.(clips);
   };
 
+  const importAudioFiles = (files: FileList | File[]) => {
+    if (!onAudioClipsChange) return;
+    const audioFiles = Array.from(files).filter((file) => file.type.startsWith('audio/'));
+    if (audioFiles.length === 0) return;
+
+    const clips = audioFiles.map((file) => {
+      const url = URL.createObjectURL(file);
+      importedAudioUrlsRef.current.push(url);
+      return {
+        id: crypto.randomUUID(),
+        name: file.name.replace(/\.[^.]+$/, '') || '导入音频',
+        url,
+        source: 'imported' as const,
+        createdAt: Date.now(),
+      };
+    });
+
+    updateAudioClips([...normalizedAudioClips, ...clips]);
+  };
+
   const stopRecordingTracks = () => {
     if (waveformFrameRef.current !== null) {
       cancelAnimationFrame(waveformFrameRef.current);
@@ -768,6 +791,8 @@ export function ZenEditor({
       if (recorder && recorder.state !== 'inactive') recorder.stop();
       stopRecordingTracks();
       audioPlayerRef.current?.pause();
+      importedAudioUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      importedAudioUrlsRef.current = [];
     },
     [],
   );
@@ -2130,18 +2155,41 @@ export function ZenEditor({
                     顺序播放 · 跳过已标记音频
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const first = playableAudioClips[0];
-                    if (first) playClip(first);
-                  }}
-                  disabled={playableAudioClips.length === 0}
-                  className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
-                >
-                  <Play className="h-4 w-4" />
-                  顺序播放
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={audioImportInputRef}
+                    type="file"
+                    accept="audio/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      if (files && files.length > 0) importAudioFiles(files);
+                      event.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => audioImportInputRef.current?.click()}
+                    disabled={!onAudioClipsChange}
+                    className="flex items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-3 py-2 text-xs font-black disabled:opacity-40"
+                  >
+                    <Upload className="h-4 w-4" />
+                    上传
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = playableAudioClips[0];
+                      if (first) playClip(first);
+                    }}
+                    disabled={playableAudioClips.length === 0}
+                    className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
+                  >
+                    <Play className="h-4 w-4" />
+                    顺序播放
+                  </button>
+                </div>
               </div>
 
               {activeAudioClip && (
@@ -2160,7 +2208,7 @@ export function ZenEditor({
               <div className="space-y-2">
                 {normalizedAudioClips.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[var(--card-border)] p-6 text-center text-xs text-[var(--text-muted)]">
-                    暂无音频。可使用左侧的录音或文字转音频按钮添加。
+                    暂无音频。可使用左侧的录音、文字转音频或上方上传按钮添加。
                   </div>
                 ) : (
                   normalizedAudioClips.map((clip, index) => {

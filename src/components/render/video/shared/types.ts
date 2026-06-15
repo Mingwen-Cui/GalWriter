@@ -23,6 +23,7 @@ export type VideoRenderModalProps = {
   nodes: FlowNode[];
   edges: FlowEdge[];
   onClose: () => void;
+  onUpdateNodeData?: (id: string, data: Record<string, unknown>) => void;
   language: Language;
   workspaceKey?: string;
   voiceTtsConfig?: TTSConfig;
