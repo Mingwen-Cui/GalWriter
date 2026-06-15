@@ -362,6 +362,31 @@ export interface StoryPresentation {
   characters: CharacterPresentation[];
 }
 
+export interface CharacterPresentationTemplate {
+  id: string;
+  name: string;
+  settings: Omit<CharacterPresentation, 'sourceNodeId' | 'linkedByEdge' | 'outfitId'>;
+}
+
+export interface ScenePresentationTemplate {
+  id: string;
+  name: string;
+  settings: Omit<
+    ScenePresentation,
+    | 'sourceNodeId'
+    | 'linkedByEdge'
+    | 'imageId'
+    | 'previousImageUrl'
+    | 'previousVideoUrl'
+    | 'previousShowTextOverlay'
+  >;
+}
+
+export interface PresentationTemplates {
+  characters: CharacterPresentationTemplate[];
+  scenes: ScenePresentationTemplate[];
+}
+
 export interface StoryAudioClip {
   id: string;
   name: string;
@@ -589,6 +614,7 @@ export interface StoryProject {
   nodes: StoryNode[];
   edges: StoryEdge[];
   settings: ProjectSettings;
+  presentationTemplates?: PresentationTemplates;
   assistantTasks?: AssistantTask[];
   activeAssistantTaskId?: string;
   exportedAIProfiles?: ProjectAIProfilesExport;

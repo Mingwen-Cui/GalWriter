@@ -6,6 +6,7 @@ import type {
   AIButtonsConfig,
   AIPromptsConfig,
   ImportedProjectSettings,
+  PresentationTemplates,
   StoryEdge,
   StoryNode,
   StoryProject,
@@ -135,6 +136,37 @@ const PROJECT_HTML_MEDIA_FIELDS = new Set(['text', 'content']);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const readStoredPresentationTemplates = (): PresentationTemplates => {
+  const parseTemplates = (key: string) => {
+    try {
+      const stored = localStorage.getItem(key);
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error(`Failed to parse ${key}:`, error);
+      return [];
+    }
+  };
+
+  return {
+    characters: parseTemplates('galwriter-char-templates'),
+    scenes: parseTemplates('galwriter-scene-templates'),
+  };
+};
+
+const restoreStoredPresentationTemplates = (templates: PresentationTemplates | undefined) => {
+  if (!templates) return;
+  localStorage.setItem(
+    'galwriter-char-templates',
+    JSON.stringify(Array.isArray(templates.characters) ? templates.characters : []),
+  );
+  localStorage.setItem(
+    'galwriter-scene-templates',
+    JSON.stringify(Array.isArray(templates.scenes) ? templates.scenes : []),
+  );
+  window.dispatchEvent(new Event('galwriter-templates-changed'));
+};
 
 const isEmbeddableMediaUrl = (value: string) =>
   value.startsWith('data:') ||
@@ -609,6 +641,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       nodes: simpleNodes,
       edges: simpleEdges,
       settings: settingsForSnapshot,
+      presentationTemplates: readStoredPresentationTemplates(),
       assistantTasks: settings.saveAssistantConversations ? assistantTasks : undefined,
       activeAssistantTaskId: settings.saveAssistantConversations
         ? activeAssistantTaskId
@@ -846,6 +879,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       options.defaultAIPrompts,
       options.defaultAIButtonsConfig,
     );
+    restoreStoredPresentationTemplates(restoredProject.presentationTemplates);
 
     if (
       restoredProject.settings?.saveAssistantConversations !== false &&

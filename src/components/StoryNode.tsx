@@ -87,11 +87,10 @@ const SHAPES: StoryCardVisualShape[] = [
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
 const AUTO_SIZE_MIN_HEIGHT = 50;
-const AUTO_SIZE_MEDIA_TEXT_BOTTOM_SAFE = 36;
+const AUTO_SIZE_TEXT_MIN_LINES = 7;
+const AUTO_SIZE_TEXT_VERTICAL_PADDING = 4;
 const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
 const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
-const AUTO_SIZE_AUDIO_BAR_HEIGHT = 50;
-const AUTO_SIZE_CONTENT_SAFETY = 10;
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -156,6 +155,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
   const nodeRootRef = useRef<HTMLDivElement>(null);
+  const titleBlockRef = useRef<HTMLDivElement>(null);
   const textPanelRef = useRef<HTMLDivElement>(null);
   const lastAutoHeightRef = useRef<number | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -194,10 +194,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
+  const hasMediaToolbarActions =
+    Boolean(imageUrl && !hasScenePresentationImage) ||
+    !data.showTextOverlay ||
+    plainSpeechText === '' ||
+    Boolean(data.showTextOverlay && !hasScenePresentationImage);
   const objectFit = !data.objectFit || data.objectFit === 'contain' ? 'playtest' : data.objectFit;
   const mediaScale = typeof data.mediaScale === 'number' ? data.mediaScale : 1;
-  const mediaOffsetX = typeof data.mediaOffsetX === 'number' ? data.mediaOffsetX : 0;
-  const mediaOffsetY = typeof data.mediaOffsetY === 'number' ? data.mediaOffsetY : 0;
   const activeMediaScale = storyPresentation.scene?.scale ?? mediaScale;
   const mediaStyle: React.CSSProperties = {
     objectFit: objectFit === 'fill' ? 'fill' : objectFit === 'cover' ? 'cover' : 'contain',
@@ -567,20 +570,17 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     showRichTextTools &&
     Boolean(
       imageUrl ||
-        videoUrl ||
-        hasScenePresentationImage ||
-        hasScenePresentationVideo ||
-        storyPresentation.characters.length > 0,
+      videoUrl ||
+      hasScenePresentationImage ||
+      hasScenePresentationVideo ||
+      storyPresentation.characters.length > 0,
     );
   const autoMediaHeight =
     isAutoSizeMode && hasMediaTextLayout
       ? Math.round(
           Math.min(
             AUTO_SIZE_MEDIA_MAX_HEIGHT,
-            Math.max(
-              AUTO_SIZE_MEDIA_MIN_HEIGHT,
-              (nodeWidthForAutoSize * 9) / 16,
-            ),
+            Math.max(AUTO_SIZE_MEDIA_MIN_HEIGHT, (nodeWidthForAutoSize * 9) / 16),
           ),
         )
       : undefined;
@@ -611,28 +611,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     });
   };
 
-  const updateMediaTransform = (
-    updates: Partial<Pick<StoryNodeData, 'mediaScale' | 'mediaOffsetX' | 'mediaOffsetY'>>,
-  ) => {
-    if (!storyPresentation.scene) {
-      updateNodeData(updates);
-      return;
-    }
-
-    updateNodeData({
-      ...updates,
-      presentation: {
-        ...storyPresentation,
-        scene: {
-          ...storyPresentation.scene,
-          ...(updates.mediaScale !== undefined ? { scale: updates.mediaScale } : {}),
-          ...(updates.mediaOffsetX !== undefined ? { offsetX: updates.mediaOffsetX } : {}),
-          ...(updates.mediaOffsetY !== undefined ? { offsetY: updates.mediaOffsetY } : {}),
-        },
-      },
-    });
-  };
-
   const computeAutoMinHeight = useCallback(
     (candidateWidth?: number) => {
       if (!showRichTextTools) return null;
@@ -653,9 +631,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         Number.parseFloat(panelStyles.paddingTop || '0') +
         Number.parseFloat(panelStyles.paddingBottom || '0') +
         Number.parseFloat(panelStyles.borderTopWidth || '0') +
-        Number.parseFloat(panelStyles.borderBottomWidth || '0') +
-        Math.max(0, textPanelElement.offsetHeight - textPanelElement.clientHeight);
-      const titleBlockHeight = showTitleInside ? TITLE_HEIGHT : 0;
+        Number.parseFloat(panelStyles.borderBottomWidth || '0');
+      const titleBlockStyles = titleBlockRef.current
+        ? window.getComputedStyle(titleBlockRef.current)
+        : null;
+      const titleBlockHeight =
+        showTitleInside && titleBlockRef.current
+          ? titleBlockRef.current.getBoundingClientRect().height +
+            Number.parseFloat(titleBlockStyles?.marginTop || '0') +
+            Number.parseFloat(titleBlockStyles?.marginBottom || '0')
+          : 0;
       const mediaPreviewHeight = hasMediaTextLayout
         ? Math.round(
             Math.min(
@@ -664,15 +649,19 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             ),
           )
         : 0;
-      const audioBarHeight =
-        audioUrl && (imageUrl || videoUrl || showRichTextTools) ? AUTO_SIZE_AUDIO_BAR_HEIGHT : 0;
-
       const editorCurrentWidth = editorElement.getBoundingClientRect().width || 0;
-      const editorCandidateWidth = Math.max(
-        1,
-        rootWidth - panelPaddingLeft - panelPaddingRight,
-      );
-      let contentHeight = editorElement.scrollHeight || editorElement.getBoundingClientRect().height;
+      const editorCandidateWidth = Math.max(1, rootWidth - panelPaddingLeft - panelPaddingRight);
+      const editorStyles = window.getComputedStyle(editorElement);
+      const editorFontSize = Number.parseFloat(editorStyles.fontSize || '14');
+      const parsedLineHeight = Number.parseFloat(editorStyles.lineHeight || '');
+      const editorLineHeight = Number.isFinite(parsedLineHeight)
+        ? parsedLineHeight
+        : editorFontSize * 1.625;
+      const minimumTextHeight = hasMediaTextLayout
+        ? 0
+        : editorLineHeight * AUTO_SIZE_TEXT_MIN_LINES;
+      let contentHeight =
+        editorElement.scrollHeight || editorElement.getBoundingClientRect().height;
 
       if (Math.abs(editorCandidateWidth - editorCurrentWidth) > 1) {
         const editorClone = editorElement.cloneNode(true) as HTMLElement;
@@ -691,6 +680,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         contentHeight = editorClone.scrollHeight || editorClone.getBoundingClientRect().height;
         document.body.removeChild(editorClone);
       }
+      contentHeight = Math.max(contentHeight, minimumTextHeight);
 
       if (!Number.isFinite(contentHeight) || contentHeight <= 0) return null;
 
@@ -701,21 +691,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             mediaPreviewHeight +
             panelVerticalPadding +
             contentHeight +
-            audioBarHeight +
-            AUTO_SIZE_CONTENT_SAFETY,
+            AUTO_SIZE_TEXT_VERTICAL_PADDING,
         ),
       );
 
       return Number.isFinite(targetHeight) ? targetHeight : null;
     },
-    [
-      audioUrl,
-      hasMediaTextLayout,
-      imageUrl,
-      showRichTextTools,
-      showTitleInside,
-      videoUrl,
-    ],
+    [hasMediaTextLayout, showRichTextTools, showTitleInside],
   );
 
   const syncAutoSizeHeight = useCallback(() => {
@@ -745,11 +727,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           getNumericSize((node as any).measured?.height) ??
           rootHeight;
         const currentMinHeight = getNumericSize(node.style?.minHeight);
-        const shouldSnapToAutoHeight =
-          lastAutoHeightRef.current === null ||
-          Math.abs(currentHeight - lastAutoHeightRef.current) < 2 ||
-          currentHeight < targetHeight;
-        const nextHeight = shouldSnapToAutoHeight ? targetHeight : currentHeight;
+        const nextHeight = targetHeight;
         lastAutoHeightRef.current = targetHeight;
         if (
           Math.abs(currentHeight - nextHeight) < 1 &&
@@ -770,17 +748,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
     requestAnimationFrame(() => updateNodeInternals(id));
   }, [
-    audioUrl,
     computeAutoMinHeight,
     hasMediaTextLayout,
     id,
-    imageUrl,
     isAutoSizeMode,
     setNodes,
     showRichTextTools,
     showTitleInside,
     updateNodeInternals,
-    videoUrl,
   ]);
 
   useLayoutEffect(() => {
@@ -898,7 +873,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           const imageHeight = (dimensions.height / dimensions.width) * currentWidth;
           const targetHeight = Math.max(
             50,
-            Math.ceil(imageHeight + (showTitleInside ? TITLE_HEIGHT : 0)),
+            Math.ceil(
+              imageHeight +
+                (showTitleInside && titleBlockRef.current
+                  ? titleBlockRef.current.getBoundingClientRect().height
+                  : 0),
+            ),
           );
           const titleHeightAdded = showTitleInside;
 
@@ -1291,7 +1271,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       case 'hexagon':
         return 'px-8 py-4';
       default:
-        return showTitleInside ? 'p-3 pt-0' : 'p-3';
+        return 'px-3 py-[2px]';
     }
   };
 
@@ -1590,132 +1570,83 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
             <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
 
-            {/* 已连接人物：插入 @角色名 */}
-            {showRichTextTools && mentionableCharacters.length > 0 && (
+            {/* 已连接人物与场景：插入对应 Tag */}
+            {((showRichTextTools && mentionableCharacters.length > 0) ||
+              videoUrl ||
+              (showRichTextTools && mentionableScenes.length > 0)) && (
               <>
                 <ToolbarRow className="flex-wrap justify-start gap-1">
-                  <ToolGroup className="gap-1 shrink-0">
-                    <User className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                  </ToolGroup>
-                  {mentionableCharacters.map((char) => (
-                    <button
-                      key={char.id}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onDoubleClick={(event) => event.preventDefault()}
-                      onDragStart={(event) => event.preventDefault()}
-                      onClick={() => insertCharacterMention(char.name)}
-                      className={`${textBtnBase} select-none bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-400 border border-indigo-500/20`}
-                      title={`插入 @${char.name}`}
-                    >
-                      @{char.name}
-                    </button>
-                  ))}
-                </ToolbarRow>
-                <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
-              </>
-            )}
-
-            {/* 媒体适配行 */}
-            {/* Connected/global scenes: insert @scene name */}
-            {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
-              <>
-                <ToolbarRow className="flex-wrap justify-start gap-1">
-                  <ToolGroup className="gap-1 shrink-0">
-                    <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                  </ToolGroup>
-                  {videoUrl && (
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onDoubleClick={(event) => event.preventDefault()}
-                      onDragStart={(event) => event.preventDefault()}
-                      onClick={insertCardVideoMention}
-                      onContextMenu={openCardVideoPresentationMenu}
-                      className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
-                      title={
-                        lang === 'zh'
-                          ? '点击插入视频 Tag，右键调整场景演出'
-                          : lang === 'ja'
-                            ? 'クリックで動画タグを挿入、右クリックで演出を調整'
-                            : 'Click to insert video tag; right-click to adjust presentation'
-                      }
-                    >
-                      @{cardVideoMentionName}
-                    </button>
+                  {showRichTextTools && mentionableCharacters.length > 0 && (
+                    <ToolGroup className="flex-wrap gap-1">
+                      <div className="flex shrink-0 items-center">
+                        <User className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                      </div>
+                      {mentionableCharacters.map((char) => (
+                        <button
+                          key={char.id}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onDoubleClick={(event) => event.preventDefault()}
+                          onDragStart={(event) => event.preventDefault()}
+                          onClick={() => insertCharacterMention(char.name)}
+                          className={`${textBtnBase} select-none bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-400 border border-indigo-500/20`}
+                          title={`插入 @${char.name}`}
+                        >
+                          @{char.name}
+                        </button>
+                      ))}
+                    </ToolGroup>
                   )}
-                  {showRichTextTools &&
-                    mentionableScenes.map((scene) => (
-                      <button
-                        key={scene.id}
-                        type="button"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onDoubleClick={(event) => event.preventDefault()}
-                        onDragStart={(event) => event.preventDefault()}
-                        onClick={() => insertSceneMention(scene.name)}
-                        className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
-                        title={`插入 @${scene.name}`}
-                      >
-                        @{scene.name}
-                      </button>
-                    ))}
+                  {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
+                    <ToolGroup className="flex-wrap gap-1">
+                      <div className="flex shrink-0 items-center">
+                        <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                      </div>
+                      {videoUrl && (
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onDoubleClick={(event) => event.preventDefault()}
+                          onDragStart={(event) => event.preventDefault()}
+                          onClick={insertCardVideoMention}
+                          onContextMenu={openCardVideoPresentationMenu}
+                          className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
+                          title={
+                            lang === 'zh'
+                              ? '点击插入视频 Tag，右键调整场景演出'
+                              : lang === 'ja'
+                                ? 'クリックで動画タグを挿入、右クリックで演出を調整'
+                                : 'Click to insert video tag; right-click to adjust presentation'
+                          }
+                        >
+                          @{cardVideoMentionName}
+                        </button>
+                      )}
+                      {showRichTextTools &&
+                        mentionableScenes.map((scene) => (
+                          <button
+                            key={scene.id}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onDoubleClick={(event) => event.preventDefault()}
+                            onDragStart={(event) => event.preventDefault()}
+                            onClick={() => insertSceneMention(scene.name)}
+                            className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
+                            title={`插入 @${scene.name}`}
+                          >
+                            @{scene.name}
+                          </button>
+                        ))}
+                    </ToolGroup>
+                  )}
                 </ToolbarRow>
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
 
-            {(imageUrl || videoUrl) && (
+            {(imageUrl || videoUrl) && hasMediaToolbarActions && (
               <>
                 <ToolbarRow>
-                  <ToolGroup>
-                    <span className="text-[9px] text-[var(--text-muted)] px-1 uppercase font-black tracking-tighter shrink-0">
-                      {t.objectFit}
-                    </span>
-                  </ToolGroup>
-
-                  <Separator />
-
-                  <ToolGroup className="gap-1 flex-wrap">
-                    <button
-                      onClick={() => updateMediaDisplayMode('cover')}
-                      className={`${textBtnBase} ${objectFit === 'cover' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
-                    >
-                      {t.crop}
-                    </button>
-                    <button
-                      onClick={() => updateMediaDisplayMode('fill')}
-                      className={`${textBtnBase} ${objectFit === 'fill' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
-                    >
-                      {t.fill}
-                    </button>
-                    <button
-                      onClick={() => updateMediaDisplayMode('playtest')}
-                      className={`${textBtnBase} ${objectFit === 'playtest' ? 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white' : ''}`}
-                    >
-                      {lang === 'zh' ? '测试剧本' : lang === 'ja' ? 'テストプレイ' : 'Playtest'}
-                    </button>
-                    {objectFit === 'playtest' && (
-                      <div className="flex items-center gap-1.5 ml-1">
-                        <span className="text-[9px] font-bold text-[var(--text-muted)] shrink-0">
-                          {lang === 'zh' ? '缩放' : 'Scale'} {Math.round(activeMediaScale * 100)}%
-                        </span>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2"
-                          step="0.05"
-                          value={activeMediaScale}
-                          onChange={(event) =>
-                            updateMediaTransform({ mediaScale: Number(event.target.value) })
-                          }
-                          className="w-32 shrink-0 h-1 accent-indigo-500"
-                        />
-                      </div>
-                    )}
-                  </ToolGroup>
-
-                  <Separator />
-
                   <ToolGroup>
                     {/* NOTE: 当卡片中渲染了场景演出的照片背景时，隐藏下载图片、提取媒体以及隐藏/移除文字的按钮，以防止在此类演出状态下误操作原始媒体。 */}
                     {imageUrl && !hasScenePresentationImage && (
@@ -1898,7 +1829,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       )}
 
       <div
-        className={`w-full h-full flex flex-col items-center ${imageUrl || videoUrl || audioUrl ? 'justify-start' : 'justify-center'} shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${selected ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'border-[var(--card-border)]'}`}
+        className={`w-full h-full flex flex-col items-center ${
+          showTitleInside || imageUrl || videoUrl ? 'justify-start' : 'justify-center'
+        } shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${
+          selected
+            ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg'
+            : 'border-[var(--card-border)]'
+        }`}
         style={{
           backgroundColor: nodeBg,
           color: nodeText,
@@ -1908,10 +1845,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       >
         {showTitleInside && (
           <div
-            className={`w-full flex justify-center py-2 z-20 relative shrink-0 ${imageUrl || videoUrl || audioUrl ? 'backdrop-blur-sm border-b border-[var(--card-border)]/30' : 'mb-2'}`}
+            ref={titleBlockRef}
+            className={`absolute inset-x-0 top-0 z-20 flex h-9 w-full shrink-0 items-center justify-center px-2 pt-2 pb-1 ${
+              imageUrl || videoUrl ? 'backdrop-blur-sm border-b border-[var(--card-border)]/30' : ''
+            }`}
             style={{
               backgroundColor:
-                imageUrl || videoUrl || audioUrl
+                imageUrl || videoUrl
                   ? isDefaultColor
                     ? 'rgba(var(--card-bg-rgb), 0.6)'
                     : `${color}99`
@@ -1923,14 +1863,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               value={title}
               onChange={(e) => updateNodeData({ title: e.target.value })}
               onFocus={(e) => e.target.select()}
-              className={`nodrag w-[50%] text-[11px] font-bold uppercase tracking-widest bg-transparent px-2 rounded outline-none border border-transparent hover:border-[var(--card-border)] focus:border-blue-500 transition-colors text-center pb-0.5 cursor-text ${imageUrl || videoUrl || audioUrl ? 'py-1' : ''}`}
+              className={`nodrag w-[50%] text-[11px] font-bold uppercase tracking-widest bg-transparent px-2 rounded outline-none border border-transparent hover:border-[var(--card-border)] focus:border-blue-500 transition-colors text-center pb-0.5 cursor-text ${imageUrl || videoUrl ? 'py-1' : ''}`}
               style={{ color: nodeText }}
               placeholder="标题..."
             />
           </div>
         )}
 
-        <div className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div
+          className={`w-full flex flex-col min-h-0 overflow-hidden ${
+            isAutoSizeMode ? 'flex-none' : 'flex-1'
+          } ${showTitleInside ? 'pt-9' : ''}`}
+        >
           {(hasScenePresentationImage ||
             hasScenePresentationVideo ||
             presentedCharacters.length > 0) && (
@@ -2057,7 +2001,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               className={`w-full ${
                 data.showTextOverlay ? (isAutoSizeMode ? 'shrink-0' : 'h-1/2') : 'flex-1'
               } relative`}
-              style={isAutoSizeMode && data.showTextOverlay ? { height: autoMediaHeight } : undefined}
+              style={
+                isAutoSizeMode && data.showTextOverlay ? { height: autoMediaHeight } : undefined
+              }
             >
               {zoom < 0.3 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/10 text-slate-400">
@@ -2077,37 +2023,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 />
               )}
             </div>
-          ) : audioUrl && !showRichTextTools ? (
-            <div
-              className="w-full flex-1 flex flex-col items-center justify-center nodrag"
-              style={{ backgroundColor: nodeBg }}
-            >
-              {zoom < 0.3 ? (
-                <div className="text-2xl opacity-40">🎵</div>
-              ) : (
-                <>
-                  <div className="text-4xl mb-2">🎵</div>
-                  <audio src={audioUrl} controls preload="none" className="w-[80%]" />
-                </>
-              )}
-            </div>
           ) : null}
-
-          {audioUrl && (imageUrl || videoUrl || showRichTextTools) && (
-            <div className="order-last w-full shrink-0 px-3 py-2 border-t border-[var(--card-border)]/30 bg-[var(--card-bg)]/85 backdrop-blur-sm nodrag">
-              {zoom < 0.3 ? (
-                <div className="text-center text-lg opacity-40">Audio</div>
-              ) : (
-                <audio src={audioUrl} controls preload="metadata" className="w-full h-8" />
-              )}
-            </div>
-          )}
 
           {showRichTextTools && (
             <div
               ref={textPanelRef}
-              className={`relative z-0 w-full flex-1 flex flex-col items-center ${
-                isAutoSizeMode && hasMediaTextLayout ? 'justify-start' : 'justify-center'
+              className={`relative z-0 w-full flex flex-col items-center ${
+                isAutoSizeMode ? 'shrink-0 justify-start' : 'flex-1 justify-center'
               } ${dynamicPaddingClasses()} ${
                 (imageUrl && !hasScenePresentationImage) || (videoUrl && !hasScenePresentationVideo)
                   ? 'border-t border-[var(--card-border)]/30'
@@ -2120,10 +2042,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       ? 'rgb(var(--card-bg-rgb))'
                       : color
                     : nodeBg,
-                paddingBottom:
-                  isAutoSizeMode && hasMediaTextLayout
-                    ? AUTO_SIZE_MEDIA_TEXT_BOTTOM_SAFE
-                    : undefined,
                 ...(hasScenePresentationImage ||
                 hasScenePresentationVideo ||
                 presentedCharacters.length > 0
@@ -2148,7 +2066,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   onChange={handleTextChange}
                   pasteAsPlainText={!!data.pasteAsPlainText}
                   className={`w-full ${isAutoSizeMode ? 'overflow-visible' : 'h-full overflow-y-auto custom-scrollbar'} resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
-                  style={{ color: nodeText }}
+                  style={{
+                    color: nodeText,
+                    minHeight:
+                      isAutoSizeMode && !hasMediaTextLayout
+                        ? `${AUTO_SIZE_TEXT_MIN_LINES * 1.625}em`
+                        : undefined,
+                  }}
                   onMentionContextMenu={handleMentionContextMenu}
                 />
               </div>
@@ -2719,55 +2643,49 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             预览出场
                           </button>
                         </div>
-                        <div className="flex w-full gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'cover',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'cover'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            覆盖裁切
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'contain',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'contain'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            完整显示
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                cropMode: 'stretch',
-                              }))
-                            }
-                            className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                              current.cropMode === 'stretch'
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                            }`}
-                          >
-                            拉伸填充
-                          </button>
+                        <div className="space-y-1.5">
+                          <div className="px-0.5 text-[10px] font-bold text-[var(--text-muted)]">
+                            {t.objectFit}
+                          </div>
+                          <div className="flex w-full gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateMediaDisplayMode('cover')}
+                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                                current.cropMode === 'cover'
+                                  ? 'border-blue-500 bg-blue-500 text-white'
+                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                              }`}
+                            >
+                              {t.crop}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateMediaDisplayMode('fill')}
+                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                                current.cropMode === 'stretch'
+                                  ? 'border-blue-500 bg-blue-500 text-white'
+                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                              }`}
+                            >
+                              {t.fill}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateMediaDisplayMode('playtest')}
+                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
+                                current.cropMode === 'contain'
+                                  ? 'border-blue-500 bg-blue-500 text-white'
+                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
+                              }`}
+                            >
+                              {lang === 'zh'
+                                ? '测试剧本'
+                                : lang === 'ja'
+                                  ? 'テストプレイ'
+                                  : 'Playtest'}
+                            </button>
+                          </div>
                         </div>
                         <label className="flex items-center gap-2">
                           <span className="shrink-0 font-bold">
