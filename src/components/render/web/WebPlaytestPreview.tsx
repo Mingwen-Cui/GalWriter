@@ -1,4 +1,4 @@
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
   EyeOff,
@@ -7,12 +7,14 @@ import {
   Minimize2,
   Pause,
   Play,
+  Sparkles,
   RotateCcw,
   Settings,
   Undo2,
   X,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import type {
   CharacterNodeData,
@@ -120,6 +122,80 @@ export function WebPlaytestPreview({
     const blue = Number.parseInt(normalized.slice(5, 7), 16);
     return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
   };
+  const gradientStops =
+    renderStyle.dialogGradientStops?.length >= 2
+      ? [...renderStyle.dialogGradientStops].sort((a, b) => a.position - b.position)
+      : [
+          {
+            color: colorInputValue(renderStyle.dialogGradientStartColor),
+            alpha: 0,
+            position: 0,
+          },
+          {
+            color: colorInputValue(renderStyle.dialogGradientColor),
+            alpha: 86,
+            position: 100,
+          },
+        ];
+  const dialogueBackgroundStyle = (): React.CSSProperties => {
+    if (renderStyle.dialogBackgroundType === 'gradient') {
+      const angle = Number.isFinite(renderStyle.dialogGradientAngle)
+        ? renderStyle.dialogGradientAngle
+        : 90;
+      const stops = gradientStops
+        .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
+        .join(', ');
+      return { background: `linear-gradient(${angle}deg, ${stops})` };
+    }
+    if (renderStyle.dialogBackgroundType === 'image' && renderStyle.dialogImageUrl) {
+      return {
+        backgroundImage: `url("${renderStyle.dialogImageUrl.replace(/"/g, '\\"')}")`,
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      };
+    }
+    return {
+      backgroundColor: withAlpha(renderStyle.panelColor, (renderStyle.panelColorAlpha ?? 82) / 100),
+    };
+  };
+  const textStroke = (width: number, color: string) =>
+    width > 0 ? `${width}px ${colorInputValue(color, '#000000')}` : undefined;
+  const titleStyle: React.CSSProperties = {
+    fontFamily: renderStyle.titleFontFamily,
+    color: withAlpha(
+      colorInputValue(renderStyle.titleColor),
+      (renderStyle.titleColorAlpha ?? 100) / 100,
+    ),
+    WebkitTextStroke: textStroke(renderStyle.titleStrokeWidth, renderStyle.titleStrokeColor),
+    fontSize: renderStyle.titleFontSize,
+    letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
+    lineHeight: renderStyle.titleLineHeight,
+    textAlign: renderStyle.titleAlign,
+    overflowWrap: 'anywhere',
+    ...webAnimationStyle(renderStyle.titleAnimation),
+  };
+  const bodyStyle: React.CSSProperties = {
+    fontFamily: renderStyle.bodyFontFamily,
+    color: withAlpha(
+      colorInputValue(renderStyle.bodyColor),
+      (renderStyle.bodyColorAlpha ?? 100) / 100,
+    ),
+    WebkitTextStroke: textStroke(renderStyle.bodyStrokeWidth, renderStyle.bodyStrokeColor),
+    fontSize: renderStyle.bodyFontSize,
+    letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
+    lineHeight: renderStyle.bodyLineHeight,
+    textAlign: renderStyle.bodyAlign,
+    overflowWrap: 'anywhere',
+    ...webAnimationStyle(renderStyle.bodyAnimation),
+  };
+  const dialogueShellStyle: React.CSSProperties = {
+    ...dialogueBackgroundStyle(),
+    display: renderStyle.dialogVisible ? undefined : 'none',
+    borderRadius: renderStyle.dialogRadius,
+    maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
+    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+  };
 
   React.useEffect(() => {
     setPresentationExiting(false);
@@ -200,6 +276,7 @@ export function WebPlaytestPreview({
   const shouldShowChoices =
     !shouldHideCenteredSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
+  const hideCenteredTitle = settings.skipSingleChoicePopup && settings.choicesPosition === 'center';
 
   const recordCurrentAudio = () => {
     if (!currentNode || !audioUrl) return;
@@ -275,18 +352,30 @@ export function WebPlaytestPreview({
       return;
     }
     const source = stripHtml(text);
+    const revealUnits =
+      renderStyle.bodyTypewriterMode === 'line'
+        ? source.split(/(\n+)/)
+        : renderStyle.bodyTypewriterMode === 'sentence' || renderStyle.bodyTypewriterMode === 'word'
+          ? source.match(/[^。！？.!?\n]+[。！？.!?]*|\n+/g) || Array.from(source)
+          : Array.from(source);
     let index = 0;
     setDisplayedPreviewText('');
     const timer = window.setInterval(() => {
       index += 1;
-      setDisplayedPreviewText(source.slice(0, index));
-      if (index >= source.length) {
+      setDisplayedPreviewText(revealUnits.slice(0, index).join(''));
+      if (index >= revealUnits.length) {
         window.clearInterval(timer);
         setAnimationDone(true);
       }
     }, settings.typewriterSpeed);
     return () => window.clearInterval(timer);
-  }, [currentNodeId, settings.interactionMode, settings.typewriterSpeed, text]);
+  }, [
+    currentNodeId,
+    renderStyle.bodyTypewriterMode,
+    settings.interactionMode,
+    settings.typewriterSpeed,
+    text,
+  ]);
 
   React.useEffect(() => {
     if (!settings.autoAdvance || outEdges.length > 1) return;
@@ -396,7 +485,7 @@ export function WebPlaytestPreview({
   };
 
   const renderPreviewToolbar = (
-    titleText = projectTitle || t('未命名作品', '無題の作品', 'Untitled Project'),
+    titleText = t('测试预览窗口', 'テストプレビューウィンドウ', 'Test Preview Window'),
   ) => (
     <div
       className={`relative z-[200] flex h-12 items-center justify-between overflow-visible px-3 transition-opacity ${
@@ -449,7 +538,7 @@ export function WebPlaytestPreview({
                   <div className="mt-0.5 text-[10px] text-white/45">
                     {t(
                       '最近听过的录音排在最上方',
-                      '最近聴いた録音を上に表示',
+                      '最近聞いた録音を上に表示',
                       'Most recently heard first',
                     )}
                   </div>
@@ -458,7 +547,7 @@ export function WebPlaytestPreview({
                   type="button"
                   onClick={() => setShowAudioPlaylist(false)}
                   className="grid h-7 w-7 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white"
-                  aria-label={t('关闭', '閉じる', 'Close')}
+                aria-label={t('关闭', '閉じる', 'Close')}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -786,30 +875,47 @@ export function WebPlaytestPreview({
         <div
           className={`${
             settings.layoutMode === 'immersive'
-              ? 'pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-end justify-center'
+              ? 'pointer-events-none absolute z-20 flex items-end justify-center'
               : 'relative'
           }`}
           style={{
             width:
-              settings.layoutMode === 'immersive' ? 'min(960px, calc(100% - 112px))' : undefined,
+              settings.layoutMode === 'immersive'
+                ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
+                : `${renderStyle.dialogWidth}%`,
+            height:
+              settings.layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
             maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
+            left:
+              settings.layoutMode === 'immersive'
+                ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
+                : undefined,
+            bottom:
+              settings.layoutMode === 'immersive'
+                ? `calc(4% - ${Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.28}%)`
+                : undefined,
+            transform: settings.layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
+            justifySelf: settings.layoutMode === 'classic' ? 'center' : undefined,
           }}
         >
           <div
-            className={`pointer-events-auto relative w-full border-t border-white/10 p-4 ${
+            className={`pointer-events-auto relative w-full border-t border-white/10 py-4 ${
               settings.layoutMode === 'immersive'
-                ? 'overflow-y-auto rounded-xl border border-white/12 bg-black/38 shadow-2xl shadow-black/30 backdrop-blur-xl'
-                : 'px-12 md:px-16'
+                ? 'overflow-y-auto rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl'
+                : 'px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
             }`}
-            style={{
-              backgroundColor: (() => {
-                const alpha = renderStyle.panelColorAlpha !== undefined ? renderStyle.panelColorAlpha : 82;
-                return withAlpha(renderStyle.panelColor, alpha / 100);
-              })(),
-              maxHeight: settings.layoutMode === 'immersive' ? 'inherit' : undefined,
-            }}
+            style={dialogueShellStyle}
           >
             {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
+            {renderStyle.titleVisible && !hideCenteredTitle && (
+              <h2
+                key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
+                className="mb-2 font-black"
+                style={titleStyle}
+              >
+                {getNodeDisplayTitle(currentNode)}
+              </h2>
+            )}
             <div
               key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
               className={`mt-2 text-sm leading-relaxed text-slate-200 ${
@@ -817,11 +923,7 @@ export function WebPlaytestPreview({
                   ? 'relative'
                   : ''
               }`}
-              style={{
-                color: renderStyle.bodyColor,
-                fontSize: renderStyle.bodyFontSize,
-                ...webAnimationStyle(renderStyle.bodyAnimation),
-              }}
+              style={bodyStyle}
               onClick={continueFromText}
             >
               {settings.interactionMode === 'typewriter' &&
@@ -868,6 +970,7 @@ export function WebPlaytestPreview({
                 : 'absolute bottom-3 right-3'
             }
           />
+
         </div>
       </div>
     </div>
@@ -972,9 +1075,9 @@ function PreviewSettingsPopover({
           title={t('选项位置', '選択肢の位置', 'Choice Position')}
           columns="grid-cols-3"
           options={[
-            { value: 'center', label: t('中间', '中央', 'Center') },
-            { value: 'aboveText', label: t('上方', '上', 'Above') },
-            { value: 'belowText', label: t('下方', '下', 'Below') },
+            { value: 'aboveText', label: t('上', '上', 'Above') },
+            { value: 'center', label: t('中', '中', 'Center') },
+            { value: 'belowText', label: t('下', '下', 'Below') },
           ]}
           value={settings.choicesPosition}
           onChange={(value) =>
@@ -995,7 +1098,7 @@ function PreviewSettingsPopover({
         <PreviewOptionGroup
           title={t('自动翻页', '自動進行', 'Auto Advance')}
           options={[
-            { value: 'on', label: t('自动', 'オン', 'On') },
+            { value: 'on', label: t('自动', '自動', 'On') },
             { value: 'off', label: t('手动', '手動', 'Manual') },
           ]}
           value={settings.autoAdvance ? 'on' : 'off'}
@@ -1004,7 +1107,11 @@ function PreviewSettingsPopover({
         <PreviewOptionGroup
           title={t('显示效果', '表示効果', 'Display')}
           options={[
-            { value: 'backdrop', label: t('背景虚化', '背景ぼかし', 'Backdrop') },
+            {
+              value: 'backdrop',
+              label: t('背景虚化', '背景ぼかし', 'Backdrop'),
+              icon: <BlurGlyph />,
+            },
             { value: 'skip', label: t('隐藏单选', '単一選択を隠す', 'Skip Single') },
           ]}
           value={
@@ -1024,6 +1131,24 @@ function PreviewSettingsPopover({
           ]}
           value={settings.videoAutoPlay ? 'autoplay' : ''}
           onChange={() => onUpdateSettings('videoAutoPlay', !settings.videoAutoPlay)}
+        />
+        <PreviewOptionGroup
+          title={t('人物标签', 'キャラタグ', 'Character Tags')}
+          options={[
+            { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
+            { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
+          ]}
+          value={settings.hideCharacterTags ? 'hide' : 'show'}
+          onChange={(value) => onUpdateSettings('hideCharacterTags', value === 'hide')}
+        />
+        <PreviewOptionGroup
+          title={t('场景标签', 'シーンタグ', 'Scene Tags')}
+          options={[
+            { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
+            { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
+          ]}
+          value={settings.hideSceneTags ? 'hide' : 'show'}
+          onChange={(value) => onUpdateSettings('hideSceneTags', value === 'hide')}
         />
         <PreviewRange
           label={t('标题字号', 'タイトルサイズ', 'Title Size')}
@@ -1052,7 +1177,7 @@ function PreviewOptionGroup({
   columns = 'grid-cols-2',
 }: {
   title: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; icon?: ReactNode }[];
   value: string;
   onChange: (value: string) => void;
   columns?: string;
@@ -1068,17 +1193,62 @@ function PreviewOptionGroup({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
+            title={option.label}
             className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
               value === option.value
                 ? 'bg-sky-500 text-white'
                 : 'bg-white/10 text-white/75 hover:bg-white/16'
             }`}
           >
-            {option.label}
+            {option.icon}
+            {option.icon ? null : option.label}
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+function ChoiceTopGlyph() {
+  return (
+    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-2 rounded-full bg-white" />
+        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
+      </span>
+    </span>
+  );
+}
+
+function ChoiceMiddleGlyph() {
+  return (
+    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
+        <span className="h-0.5 w-2 rounded-full bg-white" />
+        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
+      </span>
+    </span>
+  );
+}
+
+function ChoiceBottomGlyph() {
+  return (
+    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
+        <span className="h-0.5 w-2 rounded-full bg-white" />
+      </span>
+    </span>
+  );
+}
+
+function BlurGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
+      <Sparkles className="h-2.5 w-2.5" />
+      <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-white/30 blur-[1px]" />
+    </span>
   );
 }
 

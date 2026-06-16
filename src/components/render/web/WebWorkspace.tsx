@@ -1,11 +1,29 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { FolderOpen, Play, Settings } from 'lucide-react';
+import type { ReactNode } from 'react';
+import {
+  FileText,
+  FolderOpen,
+  Gamepad2,
+  Eye,
+  EyeOff,
+  LayoutTemplate,
+  Hand,
+  MousePointerClick,
+  Palette,
+  Play,
+  Settings,
+  SkipForward,
+  Sparkles,
+  RotateCw,
+  Video,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import type { Language } from '../../../lib/i18n';
-import { DragSizeControl, RangeControl } from '../video/controls/RenderControls';
-import { TEXT_ANIMATION_OPTIONS } from '../video/shared/constants';
+import { DragSizeControl } from '../video/controls/RenderControls';
+import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
-import type { RenderStyle, TextAnimation, WebExportSettings } from '../video/shared/types';
+import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 
 type WebWorkspaceProps = {
@@ -68,12 +86,12 @@ export function WebWorkspace({
     <main className="min-h-0 grid grid-cols-[minmax(0,1fr)_minmax(300px,380px)] bg-[var(--vr-bg)]">
       <section className="min-h-0 min-w-0 bg-[var(--vr-surface-soft)] flex flex-col">
         <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-[var(--vr-border)] px-4">
-          <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-            {t('测试预览窗口', 'プレビューモニター', 'Preview Monitor')}
+            <span className="truncate">测试预览窗口</span>
           </div>
           <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black text-[var(--vr-text)]">
-            HTML
+            网页
           </div>
         </div>
         <div className="min-h-0 flex-1 p-4 xl:p-5">
@@ -95,26 +113,20 @@ export function WebWorkspace({
       <aside className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
         <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
           <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
-          <span className="truncate">{t('导出设置', '書き出し設定', 'Export Settings')}</span>
+          <span className="truncate">导出设置</span>
         </div>
+
         <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-              {t('作品题目', '作品タイトル', 'Project Title')}
-            </div>
+          <WebPanelTitle icon={FileText} title="网页导出设置" />
+          <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
             <input
               type="text"
               value={webProjectName}
               onChange={(event) => setWebProjectName(event.target.value)}
               placeholder={defaultWebProjectName || 'galwriter-web'}
-              className="h-10 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-sm font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+              className="h-10 w-full rounded-lg border border-transparent bg-[var(--vr-surface)] px-3 text-sm font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+              aria-label="Project title"
             />
-          </div>
-
-          <label className="space-y-1.5">
-            <span className="text-[11px] font-black text-[var(--vr-text-soft)]">
-              {t('导出位置', '書き出し先', 'Export location')}
-            </span>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -123,21 +135,18 @@ export function WebWorkspace({
                   setOutputDir(event.target.value);
                   setOutputDirError('');
                 }}
-                placeholder={t(
-                  '未指定时保存到系统下载目录',
-                  '未指定ならダウンロードに保存',
-                  'Defaults to Downloads',
-                )}
-                className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
-                  outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
+                placeholder="Defaults to Downloads"
+                className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface)] px-3 py-2 text-xs text-[var(--vr-text)] outline-none ${
+                  outputDirError ? 'border-rose-400/70' : 'border-transparent'
                 }`}
+                aria-label="Export location"
               />
               <button
                 type="button"
                 onClick={chooseOutputDir}
-                className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                title={t('选择导出文件夹', '書き出しフォルダーを選択', 'Choose export folder')}
-                aria-label={t('选择导出文件夹', '書き出しフォルダーを選択', 'Choose export folder')}
+                className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                title="Choose export folder"
+                aria-label="Choose export folder"
               >
                 <FolderOpen className="mx-auto h-4 w-4" />
               </button>
@@ -147,210 +156,84 @@ export function WebWorkspace({
                 {outputDirError}
               </span>
             )}
-          </label>
-
-          <WebSegmentedSetting
-            title={t('界面排版', 'レイアウト', 'Layout')}
-            options={[
-              { value: 'classic', label: t('经典排版', 'クラシック', 'Classic') },
-              { value: 'immersive', label: t('沉浸全屏', '没入表示', 'Immersive') },
-            ]}
-            value={webSettings.layoutMode}
-            onChange={(value) =>
-              updateWebSettings('layoutMode', value as WebExportSettings['layoutMode'])
-            }
-          />
-
-          <WebSegmentedSetting
-            title={t('选项按钮位置', '選択肢の位置', 'Choice Position')}
-            columns="grid-cols-3"
-            options={[
-              { value: 'center', label: t('画面中间', '中央', 'Center') },
-              { value: 'aboveText', label: t('文字上方', '本文の上', 'Above') },
-              { value: 'belowText', label: t('文字下方', '本文の下', 'Below') },
-            ]}
-            value={webSettings.choicesPosition}
-            onChange={(value) =>
-              updateWebSettings('choicesPosition', value as WebExportSettings['choicesPosition'])
-            }
-          />
-
-          <WebSegmentedSetting
-            title={t('选项弹出背景虚化', '選択肢背景ぼかし', 'Choice Backdrop Blur')}
-            options={[
-              { value: 'on', label: t('开启背景虚化', 'ぼかしオン', 'Blur On') },
-              { value: 'off', label: t('关闭背景虚化', 'ぼかしオフ', 'Blur Off') },
-            ]}
-            value={webSettings.blurBackground ? 'on' : 'off'}
-            onChange={(value) => updateWebSettings('blurBackground', value === 'on')}
-          />
-
-          <WebSegmentedSetting
-            title={t('单选项时隐藏居中弹窗', '単一選択肢の中央ポップアップ', 'Single Choice Popup')}
-            options={[
-              { value: 'hide', label: t('隐藏', '非表示', 'Hide') },
-              { value: 'show', label: t('显示弹窗选择', '表示', 'Show') },
-            ]}
-            value={webSettings.skipSingleChoicePopup ? 'hide' : 'show'}
-            onChange={(value) => updateWebSettings('skipSingleChoicePopup', value === 'hide')}
-          />
-
-          <div className="space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-              {t('剧情文本交互策略', '本文インタラクション', 'Text Interaction')}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {(['typewriter', 'immediate'] as WebExportSettings['interactionMode'][]).map(
-                (mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => updateWebSettings('interactionMode', mode)}
-                    className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
-                      webSettings.interactionMode === mode
-                        ? 'bg-[var(--vr-accent)] text-white'
-                        : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
-                    }`}
-                  >
-                    {mode === 'typewriter'
-                      ? t('打字机效果', 'タイプライター', 'Typewriter')
-                      : t('立即显示', '即時表示', 'Immediate')}
-                  </button>
-                ),
-              )}
-            </div>
-            <label className="block rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
-              <RangeControl
-                label={t('打字速度', 'タイプ速度', 'Type speed')}
-                min={10}
-                max={200}
-                step={5}
-                value={webSettings.typewriterSpeed}
-                valueLabel={`${webSettings.typewriterSpeed} ms/${t('字', '文字', 'char')}`}
-                disabled={webSettings.interactionMode !== 'typewriter'}
-                onChange={(nextValue) =>
-                  updateWebSettings('typewriterSpeed', Math.max(0, Math.round(nextValue)))
-                }
-              />
-            </label>
           </div>
 
-          <WebSegmentedSetting
-            title={t('自动翻页', '自動進行', 'Auto Advance')}
-            options={[
-              { value: 'on', label: t('自动继续', '自動', 'On') },
-              { value: 'off', label: t('手动翻页', '手動', 'Manual') },
-            ]}
-            value={webSettings.autoAdvance ? 'on' : 'off'}
-            onChange={(value) => updateWebSettings('autoAdvance', value === 'on')}
-          />
-
-          <WebSegmentedSetting
-            title={t('多媒体设置', 'メディア', 'Media')}
-            options={[
-              { value: 'auto', label: t('视频自动播放', '動画自動再生', 'Autoplay') },
-              { value: 'manual', label: t('手动播放', '手動再生', 'Manual') },
-            ]}
-            value={webSettings.videoAutoPlay ? 'auto' : 'manual'}
-            onChange={(value) => updateWebSettings('videoAutoPlay', value === 'auto')}
-          />
-
-          <WebSegmentedSetting
-            title={t('人物标签', 'キャラクタータグ', 'Character Tags')}
-            options={[
-              { value: 'hide', label: t('默认隐藏', '非表示', 'Hidden') },
-              { value: 'show', label: t('显示', '表示', 'Shown') },
-            ]}
-            value={webSettings.hideCharacterTags ? 'hide' : 'show'}
-            onChange={(value) => updateWebSettings('hideCharacterTags', value === 'hide')}
-          />
-
-          <WebSegmentedSetting
-            title={t('场景标签', 'シーンタグ', 'Scene Tags')}
-            options={[
-              { value: 'hide', label: t('默认隐藏', '非表示', 'Hidden') },
-              { value: 'show', label: t('显示', '表示', 'Shown') },
-            ]}
-            value={webSettings.hideSceneTags ? 'hide' : 'show'}
-            onChange={(value) => updateWebSettings('hideSceneTags', value === 'hide')}
-          />
-
-          <div className="space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-              {t('按钮样式', 'ボタンスタイル', 'Button Style')}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <ColorField
-                label={t('文字颜色', '文字色', 'Text color')}
-                value={webChoiceTextColor}
-                onChange={updateWebChoiceTextColor}
-              />
-              <ColorField
-                label={t('背景颜色', '背景色', 'Background color')}
-                value={webChoiceColor}
-                onChange={updateWebChoiceColor}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-              {t('正文样式', '本文スタイル', 'Body Style')}
-            </div>
-            <div className="grid grid-cols-[1fr_1fr_56px] gap-2">
-              <label className="min-w-0 space-y-1.5">
-                <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                  {t('字号', 'サイズ', 'Size')}
-                </span>
-                <DragSizeControl
-                  label={t(
-                    '拖动调整网页正文字号，单击输入精确数字',
-                    'ドラッグで Web 本文サイズを調整、クリックで数値入力',
-                    'Drag to adjust web body size, click to type an exact value',
-                  )}
-                  value={webRenderStyle.bodyFontSize}
-                  min={16}
-                  max={96}
-                  step={1}
-                  onChange={(nextValue) => updateWebRenderStyle('bodyFontSize', nextValue)}
-                />
-              </label>
-              <label className="min-w-0 space-y-1.5">
-                <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-                  {t('动画', 'アニメーション', 'Animation')}
-                </span>
-                <select
-                  value={webRenderStyle.bodyAnimation}
-                  onChange={(event) =>
-                    updateWebRenderStyle('bodyAnimation', event.target.value as TextAnimation)
+          <WebPanelTitle icon={LayoutTemplate} title="网页参数" />
+          <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
+            <div className="grid grid-cols-3 gap-2">
+              <WebSettingCard icon={LayoutTemplate}>
+                <WebPillToggleGroup
+                  value={webSettings.layoutMode}
+                  options={[
+                    { value: 'classic', label: 'Split', icon: <LayoutClassicGlyph /> },
+                    { value: 'immersive', label: 'Immersive', icon: <LayoutImmersiveGlyph /> },
+                  ]}
+                  onChange={(value) =>
+                    updateWebSettings('layoutMode', value as WebExportSettings['layoutMode'])
                   }
-                  className="w-full min-w-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2 text-xs text-[var(--vr-text)]"
-                >
-                  {TEXT_ANIMATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {renderCopy(language, option.zh, option.ja, option.en)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <ColorField
-                label={t('颜色', '色', 'Color')}
-                value={webRenderStyle.bodyColor}
-                onChange={(value) => updateWebRenderStyle('bodyColor', value)}
-              />
+                />
+              </WebSettingCard>
+              <WebSettingCard>
+                <WebSegmentedGroup
+                  value={webSettings.choicesPosition}
+                  options={[
+                    { value: 'aboveText', label: '上' },
+                    { value: 'center', label: '中' },
+                    { value: 'belowText', label: '下' },
+                  ]}
+                  onChange={(value) =>
+                    updateWebSettings('choicesPosition', value as WebExportSettings['choicesPosition'])
+                  }
+                />
+              </WebSettingCard>
+              <WebSettingCard icon={Sparkles}>
+                <WebPillToggleGroup
+                  value={webSettings.blurBackground ? 'on' : 'off'}
+                  options={[
+                    { value: 'on', label: 'Blur', icon: <BlurGlyph /> },
+                    { value: 'off', label: 'Clear', icon: <ClearGlyph /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('blurBackground', value === 'on')}
+                />
+              </WebSettingCard>
+              <WebSettingCard icon={SkipForward}>
+                <WebPillToggleGroup
+                  value={webSettings.skipSingleChoicePopup ? 'hide' : 'show'}
+                  options={[
+                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('skipSingleChoicePopup', value === 'hide')}
+                />
+              </WebSettingCard>
+              <WebSettingCard icon={Gamepad2}>
+                <WebPillToggleGroup
+                  value={webSettings.autoAdvance ? 'on' : 'off'}
+                  options={[
+                    { value: 'on', label: 'Auto', icon: <RotateCw className="h-3.5 w-3.5" /> },
+                    { value: 'off', label: 'Manual', icon: <Hand className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('autoAdvance', value === 'on')}
+                />
+              </WebSettingCard>
+              <WebSettingCard icon={VideoPointerGlyph}>
+                <WebPillToggleGroup
+                  value={webSettings.videoAutoPlay ? 'auto' : 'manual'}
+                  options={[
+                    { value: 'auto', label: 'Auto', icon: <RotateCw className="h-3.5 w-3.5" /> },
+                    { value: 'manual', label: 'Manual', icon: <Hand className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('videoAutoPlay', value === 'auto')}
+                />
+              </WebSettingCard>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-              {t('文本面板', 'テキストパネル', 'Text Panel')}
-            </div>
-            <ColorField
-              label={t('面板背景', 'パネル背景', 'Panel background')}
-              value={webRenderStyle.panelColor}
-              onChange={(value) => updateWebRenderStyle('panelColor', value)}
-            />
-          </div>
+          <WebPanelTitle icon={Palette} title="文字样式" />
+          <RenderStyleSettingsSection
+            language={language}
+            renderStyle={webRenderStyle}
+            updateRenderStyle={updateWebRenderStyle}
+          />
 
           {(progress || error) && (
             <div className="space-y-2">
@@ -363,7 +246,9 @@ export function WebWorkspace({
                 </div>
               )}
               <p
-                className={`text-xs font-bold ${error ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--vr-text-muted)]'}`}
+                className={`text-xs font-bold ${
+                  error ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--vr-text-muted)]'
+                }`}
               >
                 {error || progress}
               </p>
@@ -371,7 +256,7 @@ export function WebWorkspace({
           )}
           {savedPath && (
             <div className="rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)] break-all">
-              {t('已保存：', '保存済み: ', 'Saved: ')}
+              Saved:
               {savedPath}
             </div>
           )}
@@ -381,64 +266,229 @@ export function WebWorkspace({
   );
 }
 
-function WebSegmentedSetting({
-  title,
-  options,
-  value,
-  onChange,
-  columns = 'grid-cols-2',
-}: {
-  title: string;
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  columns?: string;
-}) {
+function WebPanelTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
-    <div className="space-y-2">
-      <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-        {title}
-      </div>
-      <div className={`grid ${columns} gap-2`}>
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            className={`h-9 rounded-lg px-2 text-xs font-black transition-colors ${
-              value === option.value
-                ? 'bg-[var(--vr-accent)] text-white'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+      <Icon className="h-3.5 w-3.5 text-[var(--vr-accent)]" />
+      <span className="truncate">{title}</span>
     </div>
   );
 }
 
-function ColorField({
-  label,
-  value,
-  onChange,
+function WebSettingCard({
+  icon: Icon,
+  children,
 }: {
-  label: string;
+  icon?: LucideIcon;
+  children: ReactNode;
+}) {
+  const hasIcon = Boolean(Icon);
+  return (
+    <div
+      className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
+        hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+      }`}
+    >
+      {Icon ? (
+        <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+      ) : null}
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+type SegmentedOption = {
   value: string;
+  label: string;
+  icon?: ReactNode;
+};
+
+function WebPillToggleGroup({
+  value,
+  options,
+  onChange,
+  columns = 'grid-cols-2',
+}: {
+  value: string;
+  options: SegmentedOption[];
   onChange: (value: string) => void;
+  columns?: string;
 }) {
   return (
-    <label className="min-w-0 space-y-1.5">
-      <span className="block truncate text-[11px] font-black text-[var(--vr-text-soft)]">
-        {label}
+    <div className={`grid h-9 w-full overflow-hidden rounded-lg ${columns} min-w-0`}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+            }`}
+            title={option.label}
+            aria-pressed={active}
+          >
+            {option.icon}
+            {option.icon ? null : <span className="truncate">{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WebSegmentedGroup({
+  value,
+  options,
+  onChange,
+  columns = 'grid-cols-3',
+}: {
+  value: string;
+  options: SegmentedOption[];
+  onChange: (value: string) => void;
+  columns?: string;
+}) {
+  return (
+    <div className={`grid h-9 w-full overflow-hidden rounded-lg ${columns} min-w-0`}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+            }`}
+            title={option.label}
+            aria-pressed={active}
+          >
+            {option.icon}
+            {option.icon ? null : <span className="truncate">{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LayoutClassicGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute inset-x-1 top-1 h-1 rounded-full bg-current/65" />
+      <span className="absolute inset-x-1 top-2.5 h-0.5 rounded-full bg-current/55" />
+      <span className="absolute inset-x-1 bottom-1 h-0.5 rounded-full bg-current/55" />
+    </span>
+  );
+}
+
+function LayoutImmersiveGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute inset-0 bg-current/15" />
+      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/75" />
+      <span className="absolute inset-x-1 bottom-1.5 h-0.5 rounded-full bg-white/80" />
+    </span>
+  );
+}
+
+function VideoPointerGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      <Video className="h-2.5 w-2.5" />
+      <MousePointerClick className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5" />
+    </span>
+  );
+}
+
+function ChoicePositionGlyph({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      {children}
+    </span>
+  );
+}
+
+function ChoiceTopGlyph() {
+  return (
+    <ChoicePositionGlyph>
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-2 rounded-full bg-current" />
+        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
       </span>
-      <input
-        type="color"
+    </ChoicePositionGlyph>
+  );
+}
+
+function ChoiceMiddleGlyph() {
+  return (
+    <ChoicePositionGlyph>
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
+        <span className="h-0.5 w-2 rounded-full bg-current" />
+        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
+      </span>
+    </ChoicePositionGlyph>
+  );
+}
+
+function ChoiceBottomGlyph() {
+  return (
+    <ChoicePositionGlyph>
+      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
+        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
+        <span className="h-0.5 w-2 rounded-full bg-current" />
+      </span>
+    </ChoicePositionGlyph>
+  );
+}
+
+function BlurGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      <Sparkles className="h-2.5 w-2.5" />
+      <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-current/30 blur-[1px]" />
+    </span>
+  );
+}
+
+function ClearGlyph() {
+  return (
+    <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      <span className="h-2.5 w-2.5 rounded-[3px] border border-current/55" />
+    </span>
+  );
+}
+
+function SpeedControl({
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <div className={disabled ? 'opacity-45' : ''}>
+      <DragSizeControl
+        label={label}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 py-1"
+        min={10}
+        max={200}
+        step={5}
+        unit="ms"
+        onChange={onChange}
       />
-    </label>
+    </div>
   );
 }

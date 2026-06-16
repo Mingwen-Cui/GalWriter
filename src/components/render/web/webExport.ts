@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 
 import { resolveRegionBackgroundMusic } from '../../../lib/regionMusic';
 import { filterMentionTags } from '../video/shared/storyNodes';
+import type { RenderStyle } from '../video/shared/types';
 
 type WebExportOptions = {
   projectName?: string;
@@ -11,14 +12,7 @@ type WebExportOptions = {
   settings?: WebExportSettings;
 };
 
-type WebExportStyle = {
-  titleFontSize: number;
-  bodyFontSize: number;
-  titleColor: string;
-  bodyColor: string;
-  panelColor: string;
-  titleAnimation: 'none' | 'fade' | 'slideUp' | 'typewriter';
-  bodyAnimation: 'none' | 'fade' | 'slideUp' | 'typewriter';
+type WebExportStyle = Partial<RenderStyle> & {
   choiceColor: string;
   choiceTextColor: string;
 };
@@ -252,6 +246,52 @@ const WEB_EXPORT_ICONS: Record<string, string> = {
   'eye-off.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.9 5.3A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.3 3.4"/><path d="M6.6 6.8C3.6 8.8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.7-1.2"/></svg>`,
 };
 
+const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
+  titleVisible: true,
+  titleFontSize: 34,
+  bodyFontSize: 18,
+  titleFontFamily: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif',
+  bodyFontFamily: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif',
+  titleColor: '#ffffff',
+  bodyColor: '#f8fafc',
+  titleColorAlpha: 100,
+  bodyColorAlpha: 100,
+  titleStrokeColor: '#000000',
+  bodyStrokeColor: '#000000',
+  titleStrokeWidth: 0,
+  bodyStrokeWidth: 0,
+  titleAlign: 'left',
+  bodyAlign: 'left',
+  titleLetterSpacing: 0,
+  bodyLetterSpacing: 0,
+  titleLineHeight: 1.25,
+  bodyLineHeight: 1.45,
+  titleAnimationLeadSeconds: 0,
+  bodyAnimationLeadSeconds: 0,
+  titleTypewriterMode: 'character',
+  bodyTypewriterMode: 'character',
+  panelColor: '#111827',
+  panelColorAlpha: 82,
+  dialogVisible: true,
+  dialogWidth: 86,
+  dialogHeight: 34,
+  dialogRadius: 24,
+  dialogOffsetX: 0,
+  dialogOffsetY: 0,
+  dialogTextPaddingX: 9,
+  dialogBackgroundType: 'solid',
+  dialogGradientAngle: 90,
+  dialogGradientStartColor: 'rgba(17, 24, 39, 0)',
+  dialogGradientColor: 'rgba(17, 24, 39, 0.86)',
+  dialogGradientStops: [
+    { id: 'start', color: '#111827', alpha: 0, position: 0 },
+    { id: 'end', color: '#111827', alpha: 86, position: 100 },
+  ],
+  dialogImageUrl: '',
+  titleAnimation: 'none',
+  bodyAnimation: 'typewriter',
+};
+
 const makeIndexHtml = (title: string, language: string, faviconPath: string) => `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
 <head>
@@ -446,6 +486,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .app.immersive .backdrop { display: none; }
     .stage {
       position: relative;
+      isolation: isolate;
       z-index: 1;
       width: 100%;
       height: 100%;
@@ -484,6 +525,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .media {
       position: relative;
       min-height: 0;
+      z-index: 0;
       width: fit-content;
       height: fit-content;
       max-width: calc(100% - clamp(28px, 5vw, 48px));
@@ -519,7 +561,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     .presentation-scale > video {
       position: relative;
-      z-index: 1;
+      z-index: 0;
       width: 100%;
       height: 100%;
       object-fit: contain;
@@ -551,27 +593,34 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       transform-origin: center center;
     }
     .dialogue {
+      position: relative;
+      z-index: 3;
+      justify-self: center;
+      width: min(var(--dialog-width, 86%), 100%);
+      display: var(--dialog-display, block);
       border-top: 1px solid rgba(255,255,255,0.14);
       height: auto;
-      max-height: min(45vh, 420px);
-      padding: clamp(14px, 2.5vw, 20px) clamp(64px, 8vw, 96px);
-      background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 18%);
+      max-height: min(var(--dialog-height, 34vh), 420px);
+      padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
+      background: var(--dialog-background, rgba(7, 10, 16, 0.82));
+      border-radius: var(--dialog-radius, 12px);
       box-shadow: 0 -14px 36px rgba(0,0,0,0.18);
       overflow: auto;
     }
     .app.immersive .dialogue {
       position: absolute;
-      left: 50%;
-      bottom: clamp(14px, 3vh, 24px);
+      left: var(--dialog-left, 50%);
+      bottom: var(--dialog-bottom, clamp(14px, 3vh, 24px));
       z-index: 4;
       margin: 0;
-      width: min(960px, calc(100% - 112px));
-      max-height: min(46vh, 430px);
-      padding: clamp(14px, 2.5vw, 20px);
+      width: min(var(--dialog-width, 86%), calc(100% - 24px));
+      height: var(--dialog-height, 34%);
+      max-height: calc(100% - 96px);
+      padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       transform: translateX(-50%);
       border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 12px;
-      background: color-mix(in srgb, var(--panel-color, rgba(7, 10, 16, 0.82)), transparent 36%);
+      border-radius: var(--dialog-radius, 12px);
+      background: var(--dialog-background, rgba(7, 10, 16, 0.82));
       box-shadow: 0 24px 80px rgba(0,0,0,0.30);
       backdrop-filter: blur(18px);
     }
@@ -579,16 +628,22 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       margin: 0 0 8px;
       color: var(--title-color, #f8fafc);
       font-size: var(--title-size, 18px);
+      font-family: var(--title-font-family, inherit);
       font-weight: 900;
-      line-height: 1.18;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: var(--title-line-height, 1.18);
+      letter-spacing: var(--title-letter-spacing, 0px);
+      text-align: var(--title-align, left);
+      -webkit-text-stroke: var(--title-stroke, 0 transparent);
+      overflow-wrap: anywhere;
     }
     .text {
       color: var(--body-color, #e5e7eb);
-      line-height: 1.55;
+      font-family: var(--body-font-family, inherit);
+      line-height: var(--body-line-height, 1.55);
       font-size: var(--body-size, 16px);
+      letter-spacing: var(--body-letter-spacing, 0px);
+      text-align: var(--body-align, left);
+      -webkit-text-stroke: var(--body-stroke, 0 transparent);
       overflow-wrap: anywhere;
     }
     .text.typewriter-reserved { position: relative; }
@@ -624,6 +679,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .text :last-child { margin-bottom: 0; }
     .choices {
       display: grid;
+      position: relative;
+      z-index: 4;
       gap: 10px;
       margin-top: 18px;
     }
@@ -632,7 +689,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       position: absolute;
       left: 50%;
       top: 50%;
-      z-index: 6;
+      z-index: 8;
       width: min(520px, calc(100% - 32px));
       max-height: min(62vh, 420px);
       transform: translate(-50%, -50%);
@@ -700,10 +757,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       .dialogue { padding: 16px; }
       .app:not(.immersive) .dialogue { padding-left: 56px; padding-right: 56px; }
       .app.immersive .dialogue {
-        width: calc(100% - 24px);
-        left: 12px;
-        right: 12px;
-        transform: none;
+        width: min(var(--dialog-width, 86%), calc(100% - 24px));
+        left: var(--dialog-left, 50%);
+        right: auto;
+        transform: translateX(-50%);
       }
     }
   </style>
@@ -751,11 +808,75 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     settings.videoAutoPlay = Boolean(settings.videoAutoPlay);
     settings.blurBackground = Boolean(settings.blurBackground);
     settings.skipSingleChoicePopup = settings.skipSingleChoicePopup !== false;
+    function colorInputValue(value, fallback) {
+      const raw = String(value || "").trim();
+      if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+      const rgba = raw.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
+      if (!rgba) return fallback || "#111827";
+      return "#" + [rgba[1], rgba[2], rgba[3]].map((channel) => Number(channel).toString(16).padStart(2, "0")).join("");
+    }
+    function withAlpha(color, alpha) {
+      const normalized = colorInputValue(color, "#111827");
+      const red = parseInt(normalized.slice(1, 3), 16);
+      const green = parseInt(normalized.slice(3, 5), 16);
+      const blue = parseInt(normalized.slice(5, 7), 16);
+      return "rgba(" + red + ", " + green + ", " + blue + ", " + Math.max(0, Math.min(1, Number(alpha))) + ")";
+    }
+    function px(value, fallback) {
+      const number = Number(value);
+      return (Number.isFinite(number) ? number : fallback) + "px";
+    }
+    function percent(value, fallback) {
+      const number = Number(value);
+      return (Number.isFinite(number) ? number : fallback) + "%";
+    }
+    function clamp(value, min, max, fallback) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return fallback;
+      return Math.min(max, Math.max(min, number));
+    }
+    function styleColor(color, alpha, fallback) {
+      const numericAlpha = Number(alpha);
+      return withAlpha(color || fallback, Number.isFinite(numericAlpha) ? numericAlpha / 100 : 1);
+    }
+    function dialogueBackground() {
+      if (style.dialogBackgroundType === "image" && style.dialogImageUrl) {
+        return 'url("' + String(style.dialogImageUrl).replace(/"/g, '\\\\"') + '") center / cover';
+      }
+      if (style.dialogBackgroundType === "gradient") {
+        const stops = Array.isArray(style.dialogGradientStops) && style.dialogGradientStops.length >= 2
+          ? style.dialogGradientStops.slice().sort((a, b) => Number(a.position) - Number(b.position))
+          : [
+              { color: colorInputValue(style.dialogGradientStartColor, "#111827"), alpha: 0, position: 0 },
+              { color: colorInputValue(style.dialogGradientColor, "#111827"), alpha: 86, position: 100 },
+            ];
+        const cssStops = stops.map((stop) => withAlpha(stop.color, Number(stop.alpha) / 100) + " " + clamp(stop.position, 0, 100, 0) + "%").join(", ");
+        return "linear-gradient(" + clamp(style.dialogGradientAngle, 0, 360, 90) + "deg, " + cssStops + ")";
+      }
+      return withAlpha(style.panelColor || "#111827", (Number(style.panelColorAlpha ?? 82) || 82) / 100);
+    }
     document.documentElement.style.setProperty("--title-size", Math.max(12, Number(style.titleFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 18) + "px");
-    document.documentElement.style.setProperty("--title-color", style.titleColor || "#f8fafc");
-    document.documentElement.style.setProperty("--body-color", style.bodyColor || "#e5e7eb");
-    document.documentElement.style.setProperty("--panel-color", style.panelColor || "rgba(7, 10, 16, 0.82)");
+    document.documentElement.style.setProperty("--title-color", styleColor(style.titleColor, style.titleColorAlpha ?? 100, "#f8fafc"));
+    document.documentElement.style.setProperty("--body-color", styleColor(style.bodyColor, style.bodyColorAlpha ?? 100, "#e5e7eb"));
+    document.documentElement.style.setProperty("--title-font-family", style.titleFontFamily || "inherit");
+    document.documentElement.style.setProperty("--body-font-family", style.bodyFontFamily || "inherit");
+    document.documentElement.style.setProperty("--title-line-height", String(Number(style.titleLineHeight) || 1.18));
+    document.documentElement.style.setProperty("--body-line-height", String(Number(style.bodyLineHeight) || 1.55));
+    document.documentElement.style.setProperty("--title-letter-spacing", px(style.titleLetterSpacing, 0));
+    document.documentElement.style.setProperty("--body-letter-spacing", px(style.bodyLetterSpacing, 0));
+    document.documentElement.style.setProperty("--title-align", style.titleAlign || "left");
+    document.documentElement.style.setProperty("--body-align", style.bodyAlign || "left");
+    document.documentElement.style.setProperty("--title-stroke", (Number(style.titleStrokeWidth) || 0) + "px " + colorInputValue(style.titleStrokeColor, "#000000"));
+    document.documentElement.style.setProperty("--body-stroke", (Number(style.bodyStrokeWidth) || 0) + "px " + colorInputValue(style.bodyStrokeColor, "#000000"));
+    document.documentElement.style.setProperty("--dialog-display", style.dialogVisible === false ? "none" : "block");
+    document.documentElement.style.setProperty("--dialog-width", percent(clamp(style.dialogWidth, 35, 100, 86), 86));
+    document.documentElement.style.setProperty("--dialog-height", percent(clamp(style.dialogHeight, 16, 75, 34), 34));
+    document.documentElement.style.setProperty("--dialog-radius", px(style.dialogRadius, 24));
+    document.documentElement.style.setProperty("--dialog-padding-x", percent(clamp(style.dialogTextPaddingX, 2, 24, 9), 9));
+    document.documentElement.style.setProperty("--dialog-left", percent(50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5, 50));
+    document.documentElement.style.setProperty("--dialog-bottom", "calc(4% - " + (clamp(style.dialogOffsetY, -100, 100, 0) * 0.28) + "%)");
+    document.documentElement.style.setProperty("--dialog-background", dialogueBackground());
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
@@ -1044,12 +1165,17 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const visible = document.createElement("span");
       visible.className = "typewriter-visible";
       element.append(placeholder, visible);
+      const units = style.bodyTypewriterMode === "line"
+        ? source.split(/(\\n+)/)
+        : (style.bodyTypewriterMode === "sentence" || style.bodyTypewriterMode === "word")
+          ? (source.match(/[^。！？.!?\\n]+[。！？.!?]*|\\n+/g) || Array.from(source))
+          : Array.from(source);
       let index = 0;
       visible.textContent = "";
       const timer = setInterval(() => {
         index += 1;
-        visible.textContent = source.slice(0, index);
-        if (index >= source.length) {
+        visible.textContent = units.slice(0, index).join("");
+        if (index >= units.length) {
           clearInterval(timer);
           typewriterTimers = typewriterTimers.filter((item) => item !== timer);
           if (revealChoices) showChoicesAndMaybeAdvance();
@@ -1141,7 +1267,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
       const hideCenteredTitle =
-        settings.skipSingleChoicePopup && choicePosition === "center";
+        style.titleVisible === false ||
+        (settings.skipSingleChoicePopup && choicePosition === "center");
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
       currentAudioEnded = !data.audioUrl;
@@ -1365,16 +1492,17 @@ export async function buildInteractiveWebZipBlob(
   const assetMap = new Map<string, string>();
   const title = options.projectName?.trim() || 'galwriter-web';
   const style: WebExportStyle = {
-    titleFontSize: options.style?.titleFontSize || 34,
-    bodyFontSize: options.style?.bodyFontSize || 18,
-    titleColor: options.style?.titleColor || '#f8fafc',
-    bodyColor: options.style?.bodyColor || '#e5e7eb',
-    panelColor: options.style?.panelColor || 'rgba(7, 10, 16, 0.82)',
-    titleAnimation: options.style?.titleAnimation || 'fade',
-    bodyAnimation: options.style?.bodyAnimation || 'typewriter',
+    ...DEFAULT_EXPORT_RENDER_STYLE,
+    ...options.style,
     choiceColor: options.style?.choiceColor || '#0ea5e9',
     choiceTextColor: options.style?.choiceTextColor || '#ffffff',
   };
+  style.dialogImageUrl = await addImageAsset(
+    zip,
+    style.dialogImageUrl,
+    `${title}-dialog-background`,
+    assetMap,
+  );
   const settings: WebExportSettings = {
     layoutMode: options.settings?.layoutMode || 'immersive',
     choicesPosition: options.settings?.choicesPosition || 'center',
