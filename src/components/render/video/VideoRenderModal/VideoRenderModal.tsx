@@ -243,7 +243,6 @@ export function VideoRenderModal({
   );
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
-  const [estimatedDuration, setEstimatedDuration] = useState(0);
   const [previewTime, setPreviewTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -432,7 +431,6 @@ export function VideoRenderModal({
     height: resolutionHeight,
   };
   const isZh = language === 'zh';
-  const fallbackEstimatedSeconds = (selectedNodes.length * defaultSeconds) / speed;
   const assetRegionOptions = useMemo(() => getAssetRegionOptions(nodes, isZh), [nodes, isZh]);
   const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth;
   const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
@@ -748,30 +746,54 @@ export function VideoRenderModal({
   };
 
   const chooseOutputDir = async () => {
-    if (!isTauriRuntime()) {
-      setOutputDirError(
-        isZh ? '选择文件夹仅在APP端可用。' : 'Folder picking is only available in the app.',
-      );
+    // NOTE: Tauri 端使用原生文件夹选择器，Web 端使用 showDirectoryPicker API（需要 HTTPS / localhost）
+    if (isTauriRuntime()) {
+      try {
+        setOutputDirError('');
+        const result = await chooseRenderOutputDir(outputDir);
+        if (result?.path) {
+          setOutputDir(result.path);
+          setOutputDirError('');
+          setError('');
+        }
+      } catch (err) {
+        setOutputDirError(
+          err instanceof Error
+            ? err.message
+            : isZh
+              ? '选择保存位置失败。'
+              : 'Failed to choose save location.',
+        );
+      }
       return;
     }
 
-    try {
-      setOutputDirError('');
-      const result = await chooseRenderOutputDir(outputDir);
-      if (result?.path) {
-        setOutputDir(result.path);
+    // Web 端：尝试使用 File System Access API
+    if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) {
+      try {
+        setOutputDirError('');
+        // @ts-ignore — showDirectoryPicker 在标准 TS lib 中可能未包含
+        const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+        setOutputDir(handle.name);
         setOutputDirError('');
         setError('');
+      } catch (err) {
+        // 用户取消选择时忽略
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setOutputDirError(
+            isZh ? '选择保存位置失败。' : 'Failed to choose save location.',
+          );
+        }
       }
-    } catch (err) {
-      setOutputDirError(
-        err instanceof Error
-          ? err.message
-          : isZh
-            ? '选择保存位置失败。'
-            : 'Failed to choose save location.',
-      );
+      return;
     }
+
+    // 降级：提示用户手动输入路径
+    setOutputDirError(
+      isZh
+        ? '请手动输入保存路径。'
+        : 'Please type the save path manually.',
+    );
   };
 
   const chooseWebOutputDir = async () => {
@@ -1300,21 +1322,7 @@ export function VideoRenderModal({
     };
   }, []);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    const measureDuration = async () => {
-      let total = 0;
-      for (const node of selectedNodes) {
-        if (cancelled) return;
-        total += await getNodeMediaDuration(node);
-      }
-      if (!cancelled) setEstimatedDuration(total / speed);
-    };
-    measureDuration();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedNodes, defaultSeconds, speed]);
+
 
   const addNodeToTimeline = (
     id: string,
@@ -1917,8 +1925,6 @@ export function VideoRenderModal({
                 setDefaultSeconds={setDefaultSeconds}
                 speed={speed}
                 setSpeed={setSpeed}
-                estimatedDuration={estimatedDuration}
-                fallbackEstimatedSeconds={fallbackEstimatedSeconds}
                 animationLeadSeconds={animationLeadSeconds}
                 setAnimationLeadSeconds={setAnimationLeadSeconds}
                 selectedSpeechNodeCount={selectedSpeechNodes.length}

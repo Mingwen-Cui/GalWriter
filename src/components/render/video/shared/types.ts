@@ -56,6 +56,7 @@ export type RenderStyle = {
   titleTypewriterMode: TypewriterMode;
   bodyTypewriterMode: TypewriterMode;
   panelColor: string;
+  panelColorAlpha?: number;
   dialogVisible: boolean;
   dialogWidth: number;
   dialogHeight: number;

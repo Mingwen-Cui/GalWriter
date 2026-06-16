@@ -53,7 +53,6 @@ import type {
   TextAnimation,
   TypewriterMode,
 } from '../shared/types';
-import { formatSeconds } from '../timeline/timelineUtils';
 import type { Language } from '../../../../lib/i18n';
 
 type VideoExportSettingsPanelProps = {
@@ -83,8 +82,6 @@ type VideoExportSettingsPanelProps = {
   setDefaultSeconds: (value: number) => void;
   speed: number;
   setSpeed: (value: number) => void;
-  estimatedDuration: number;
-  fallbackEstimatedSeconds: number;
   animationLeadSeconds: number;
   setAnimationLeadSeconds: (value: number) => void;
   selectedSpeechNodeCount: number;
@@ -163,8 +160,6 @@ export function VideoExportSettingsPanel({
   setDefaultSeconds,
   speed,
   setSpeed,
-  estimatedDuration,
-  fallbackEstimatedSeconds,
   animationLeadSeconds,
   setAnimationLeadSeconds,
   selectedSpeechNodeCount,
@@ -213,19 +208,19 @@ export function VideoExportSettingsPanel({
     renderStyle.dialogGradientStops?.length >= 2
       ? [...renderStyle.dialogGradientStops].sort((a, b) => a.position - b.position)
       : [
-          {
-            id: 'start',
-            color: colorInputValue(renderStyle.dialogGradientStartColor),
-            alpha: 0,
-            position: 0,
-          },
-          {
-            id: 'end',
-            color: colorInputValue(renderStyle.dialogGradientColor),
-            alpha: 86,
-            position: 100,
-          },
-        ];
+        {
+          id: 'start',
+          color: colorInputValue(renderStyle.dialogGradientStartColor),
+          alpha: 0,
+          position: 0,
+        },
+        {
+          id: 'end',
+          color: colorInputValue(renderStyle.dialogGradientColor),
+          alpha: 86,
+          position: 100,
+        },
+      ];
   const getVisibleGradientRange = () => {
     const boxWidth = Math.max(
       1,
@@ -235,7 +230,9 @@ export function VideoExportSettingsPanel({
       1,
       resolutionHeight * Math.min(0.75, Math.max(0.16, renderStyle.dialogHeight / 100)),
     );
-    const angle = ((renderStyle.dialogGradientAngle - 90) * Math.PI) / 180;
+    // NOTE: dialogGradientAngle 可能为 undefined（旧存档数据），需要 fallback 防止产生 NaN
+    const safeAngle = Number.isFinite(renderStyle.dialogGradientAngle) ? renderStyle.dialogGradientAngle : 90;
+    const angle = ((safeAngle - 90) * Math.PI) / 180;
     const diagonal = Math.hypot(boxWidth, boxHeight);
     const visibleHalfRange =
       (Math.abs(Math.cos(angle)) * boxWidth + Math.abs(Math.sin(angle)) * boxHeight) /
@@ -252,7 +249,7 @@ export function VideoExportSettingsPanel({
         0,
         ((position / 100 - visibleGradientRange.start) /
           (visibleGradientRange.end - visibleGradientRange.start)) *
-          100,
+        100,
       ),
     );
   const mapVisibleTrackToGradientStop = (position: number) =>
@@ -263,7 +260,7 @@ export function VideoExportSettingsPanel({
           0,
           (visibleGradientRange.start +
             (position / 100) * (visibleGradientRange.end - visibleGradientRange.start)) *
-            100,
+          100,
         ),
       ),
     );
@@ -279,6 +276,8 @@ export function VideoExportSettingsPanel({
   const [activeGradientStopId, setActiveGradientStopId] = useState<string | null>(null);
   const [openSelectId, setOpenSelectId] = useState<string | null>(null);
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
+  const [showSolidColorMenu, setShowSolidColorMenu] = useState(false);
+  const solidColorEditorRef = useRef<HTMLDivElement | null>(null);
   const activeGradientStop = activeGradientStopId
     ? gradientStops.find((stop) => stop.id === activeGradientStopId)
     : null;
@@ -292,6 +291,16 @@ export function VideoExportSettingsPanel({
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [activeGradientStopId]);
+  useEffect(() => {
+    if (!showSolidColorMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!solidColorEditorRef.current?.contains(event.target as Node)) {
+        setShowSolidColorMenu(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showSolidColorMenu]);
   const updateGradientStops = (
     updater: (
       stops: Array<{ id: string; color: string; alpha: number; position: number }>,
@@ -339,9 +348,8 @@ export function VideoExportSettingsPanel({
     updateRenderStyle(key, value);
   const iconShell = (Icon: LucideIcon, children: React.ReactNode, disabled = false) => (
     <div
-      className={`grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-        disabled ? 'opacity-40' : ''
-      }`}
+      className={`grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)] ${disabled ? 'opacity-40' : ''
+        }`}
     >
       <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
         <Icon className="h-3.5 w-3.5" />
@@ -379,9 +387,8 @@ export function VideoExportSettingsPanel({
         >
           <span className="min-w-0 truncate">{selectedLabel}</span>
           <ChevronDown
-            className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${
-              isOpen ? 'rotate-180' : ''
-            }`}
+            className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''
+              }`}
           />
         </button>
         {isOpen && (
@@ -395,11 +402,10 @@ export function VideoExportSettingsPanel({
                   onChange(option.value);
                   setOpenSelectId(null);
                 }}
-                className={`flex h-8 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${
-                  option.value === value
+                className={`flex h-8 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${option.value === value
                     ? 'bg-[var(--vr-accent)] text-white'
                     : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
-                }`}
+                  }`}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
               </button>
@@ -465,11 +471,10 @@ export function VideoExportSettingsPanel({
             onClick={() => {
               if (canToggle) setStyle(visibleKey, !visible as never);
             }}
-            className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-              visible
+            className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${visible
                 ? 'bg-white/12 text-[var(--vr-text)]'
                 : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-            } ${canToggle ? '' : 'cursor-default'}`}
+              } ${canToggle ? '' : 'cursor-default'}`}
           >
             {canToggle &&
               (visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />)}
@@ -583,11 +588,10 @@ export function VideoExportSettingsPanel({
                 key={value}
                 type="button"
                 onClick={() => setStyle(alignKey, value as never)}
-                className={`h-9 text-xs font-normal ${
-                  align === value
+                className={`h-9 text-xs font-normal ${align === value
                     ? 'bg-[var(--vr-accent)] text-white'
                     : 'text-[var(--vr-text-soft)]'
-                }`}
+                  }`}
               >
                 {value === 'left'
                   ? t('左', '左', 'L')
@@ -641,11 +645,10 @@ export function VideoExportSettingsPanel({
               key={mode}
               type="button"
               onClick={() => setExportSettingsMode(mode)}
-              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
-                exportSettingsMode === mode
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${exportSettingsMode === mode
                   ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                   : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              }`}
+                }`}
               title={
                 mode === 'video'
                   ? t('切换到导出设置', '書き出し設定を表示', 'Show export settings')
@@ -666,51 +669,11 @@ export function VideoExportSettingsPanel({
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
           <div className="flex flex-col gap-4">
-            <label className="flex items-start gap-3">
-              <span className="mt-2.5 shrink-0 text-[11px] font-black text-[var(--vr-text-soft)]">
-                {t('保存位置', '保存先', 'Save location')}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={outputDir}
-                    onChange={(e) => {
-                      setOutputDir(e.target.value);
-                      setOutputDirError('');
-                    }}
-                    placeholder={t(
-                      '默认保存到系统下载目录',
-                      '未指定ならダウンロードへ保存',
-                      'Defaults to Downloads',
-                    )}
-                    className={`min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 py-2 text-xs text-[var(--vr-text)] ${
-                      outputDirError ? 'border-rose-400/70' : 'border-[var(--vr-border)]'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={chooseOutputDir}
-                    className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                  >
-                    <FolderOpen className="mx-auto h-4 w-4" />
-                  </button>
-                </div>
-                {outputDirError && (
-                  <span className="mt-1 block text-[11px] font-bold text-rose-500 dark:text-rose-400">
-                    {outputDirError}
-                  </span>
-                )}
-              </div>
-            </label>
-
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('视频参数', '動画パラメータ', 'Video')}
               </div>
-              <div className="space-y-2 rounded-xl border border-slate-300/40 bg-slate-100/70 p-2 dark:border-white/10 dark:bg-white/5">
+              <div className="space-y-2 rounded-xl border border-slate-300/40 bg-slate-200/40 p-2 dark:border-white/10 dark:bg-white/5">
                 <div className="grid grid-cols-3 gap-2">
                   {iconSelect(
                     Monitor,
@@ -822,10 +785,34 @@ export function VideoExportSettingsPanel({
                     />,
                   )}
                 </div>
-                <div className="flex items-center justify-end gap-1 text-right text-[10px] font-normal text-[var(--vr-text-muted)]">
-                  <Timer className="h-3 w-3" />
-                  <span>{formatSeconds(estimatedDuration || fallbackEstimatedSeconds)}</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={outputDir}
+                    onChange={(e) => {
+                      setOutputDir(e.target.value);
+                      setOutputDirError('');
+                    }}
+                    placeholder={t('\u4e0b\u8f7d\u76ee\u5f55 \\Downloads', '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9 \\Downloads', '\\Downloads')}
+                    className={`h-9 min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 text-xs text-[var(--vr-text)] outline-none ${
+                      outputDirError ? 'border-rose-400/70' : 'border-transparent'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={chooseOutputDir}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
                 </div>
+                {outputDirError && (
+                  <div className="text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                    {outputDirError}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -847,11 +834,10 @@ export function VideoExportSettingsPanel({
                     <button
                       type="button"
                       onClick={() => updateRenderStyle('dialogVisible', !renderStyle.dialogVisible)}
-                      className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-                        renderStyle.dialogVisible
+                      className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${renderStyle.dialogVisible
                           ? 'bg-violet-500/15 text-violet-500'
                           : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-                      }`}
+                        }`}
                       title={t(
                         '点击显示或隐藏对话框',
                         'ダイアログ枠の表示を切替',
@@ -979,13 +965,102 @@ export function VideoExportSettingsPanel({
                       ],
                       t('底色类型', '背景タイプ', 'Background'),
                     )}
-                    {renderStyle.dialogBackgroundType === 'solid' &&
-                      iconColor(
-                        Palette,
-                        colorInputValue(renderStyle.panelColor),
-                        (value) => updateRenderStyle('panelColor', value),
-                        t('颜色', '色', 'Color'),
-                      )}
+                    {renderStyle.dialogBackgroundType === 'solid' && (
+                      <div className="relative" ref={solidColorEditorRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowSolidColorMenu(!showSolidColorMenu)}
+                          className="flex h-9 w-full items-center justify-between rounded-lg bg-[var(--vr-surface-soft)] px-2.5 text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5"
+                          title={t('对话框底色', 'ダイアログ色', 'Dialogue Color')}
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <Palette className="h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)]" />
+                            <span className="truncate">{t('底色', '背景色', 'Color')}</span>
+                          </span>
+                          <span
+                            className="h-4 w-7 shrink-0 rounded border border-white/20 shadow-sm"
+                            style={{
+                              backgroundColor: withAlpha(
+                                renderStyle.panelColor,
+                                (renderStyle.panelColorAlpha ?? 82) / 100,
+                              ),
+                            }}
+                          />
+                        </button>
+                        {showSolidColorMenu && (
+                          <div
+                            className="absolute right-0 top-[calc(100%+6px)] z-50 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 shadow-2xl shadow-black/30"
+                            style={{ width: '210px' }}
+                            onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
+                          >
+                            <div className="space-y-3">
+                              {/* 顶部的高颜值长方形色条，带网格透明度展示 */}
+                              <div
+                                className="relative h-8 w-full rounded-lg border border-[var(--vr-border)] overflow-hidden"
+                                style={{
+                                  background: `
+                                    linear-gradient(45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
+                                    linear-gradient(-45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
+                                    linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.08) 75%),
+                                    linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.08) 75%)
+                                  `,
+                                  backgroundSize: '8px 8px',
+                                  backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
+                                }}
+                              >
+                                <div
+                                  className="absolute inset-0"
+                                  style={{
+                                    backgroundColor: withAlpha(
+                                      renderStyle.panelColor,
+                                      (renderStyle.panelColorAlpha ?? 82) / 100,
+                                    ),
+                                  }}
+                                />
+                              </div>
+
+                              {/* 基础颜色选择 */}
+                              <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+                                <span className="text-[11px] font-bold text-[var(--vr-text-soft)]">
+                                  {t('基础颜色', '基本色', 'Base Color')}
+                                </span>
+                                <input
+                                  type="color"
+                                  value={colorInputValue(renderStyle.panelColor)}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onChange={(event) => updateRenderStyle('panelColor', event.target.value)}
+                                  className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                                />
+                              </div>
+
+                              {/* 底部控制Alpha值的滑动条 */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-[var(--vr-text-soft)]">
+                                  <span>{t('不透明度', '不透明度', 'Opacity')}</span>
+                                  <span>{renderStyle.panelColorAlpha ?? 82}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  value={renderStyle.panelColorAlpha ?? 82}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onChange={(event) =>
+                                    updateRenderStyle('panelColorAlpha', Number(event.target.value))
+                                  }
+                                  className="w-full h-1.5 accent-[var(--vr-accent)] rounded-lg appearance-none cursor-pointer bg-[var(--vr-surface-soft)]"
+                                  style={{
+                                    background: `linear-gradient(to right, transparent, ${colorInputValue(renderStyle.panelColor)})`
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {renderStyle.dialogBackgroundType === 'gradient' &&
                       iconNumber(
                         RotateCw,
@@ -1005,11 +1080,10 @@ export function VideoExportSettingsPanel({
                       )}
                     {renderStyle.dialogBackgroundType === 'image' && (
                       <div
-                        className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-                          renderStyle.dialogImageUrl
+                        className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${renderStyle.dialogImageUrl
                             ? 'grid-cols-[28px_1fr_1fr]'
                             : 'grid-cols-[28px_minmax(0,1fr)]'
-                        }`}
+                          }`}
                       >
                         <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
                           <ImagePlus className="h-3.5 w-3.5" />
@@ -1019,28 +1093,28 @@ export function VideoExportSettingsPanel({
                           title={
                             renderStyle.dialogImageUrl
                               ? t(
-                                  '\u66f4\u6362\u56fe\u7247',
-                                  '\u753b\u50cf\u3092\u5909\u66f4',
-                                  'Replace image',
-                                )
+                                '\u66f4\u6362\u56fe\u7247',
+                                '\u753b\u50cf\u3092\u5909\u66f4',
+                                'Replace image',
+                              )
                               : t(
-                                  '\u5bfc\u5165\u56fe\u7247',
-                                  '\u753b\u50cf\u3092\u9078\u629e',
-                                  'Import image',
-                                )
+                                '\u5bfc\u5165\u56fe\u7247',
+                                '\u753b\u50cf\u3092\u9078\u629e',
+                                'Import image',
+                              )
                           }
                           aria-label={
                             renderStyle.dialogImageUrl
                               ? t(
-                                  '\u66f4\u6362\u56fe\u7247',
-                                  '\u753b\u50cf\u3092\u5909\u66f4',
-                                  'Replace image',
-                                )
+                                '\u66f4\u6362\u56fe\u7247',
+                                '\u753b\u50cf\u3092\u5909\u66f4',
+                                'Replace image',
+                              )
                               : t(
-                                  '\u5bfc\u5165\u56fe\u7247',
-                                  '\u753b\u50cf\u3092\u9078\u629e',
-                                  'Import image',
-                                )
+                                '\u5bfc\u5165\u56fe\u7247',
+                                '\u753b\u50cf\u3092\u9078\u629e',
+                                'Import image',
+                              )
                           }
                         >
                           {renderStyle.dialogImageUrl ? (
@@ -1118,11 +1192,10 @@ export function VideoExportSettingsPanel({
                               key={stop.id}
                               type="button"
                               data-gradient-stop-id={stop.id}
-                              className={`absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${
-                                activeGradientStop?.id === stop.id
+                              className={`absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${activeGradientStop?.id === stop.id
                                   ? 'border-white ring-2 ring-[var(--vr-accent)]'
                                   : 'border-white/80'
-                              }`}
+                                }`}
                               style={{
                                 left: `${mapGradientStopToVisibleTrack(stop.position)}%`,
                                 backgroundColor: withAlpha(stop.color, stop.alpha / 100),
@@ -1310,11 +1383,10 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => setUseGpuAcceleration(false)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
-                    !useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${!useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={t(
                     '使用 2D Canvas 渲染（最稳定）',
                     '2D Canvas レンダリング（最も安定）',
@@ -1327,23 +1399,22 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => isWebGPUSupported && setUseGpuAcceleration(true)}
                   disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${
-                    useGpuAcceleration
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${useGpuAcceleration
                       ? 'bg-[var(--vr-accent)] text-white shadow-sm'
                       : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={
                     isWebGPUSupported
                       ? t(
-                          '使用 WebGPU 加速渲染（实验性）',
-                          'WebGPU 加速レンダリング（実験的）',
-                          'WebGPU accelerated rendering (experimental)',
-                        )
+                        '使用 WebGPU 加速渲染（实验性）',
+                        'WebGPU 加速レンダリング（実験的）',
+                        'WebGPU accelerated rendering (experimental)',
+                      )
                       : t(
-                          '当前浏览器不支持 WebGPU',
-                          'このブラウザは WebGPU をサポートしていません',
-                          'WebGPU is not supported in this browser',
-                        )
+                        '当前浏览器不支持 WebGPU',
+                        'このブラウザは WebGPU をサポートしていません',
+                        'WebGPU is not supported in this browser',
+                      )
                   }
                 >
                   GPU
@@ -1364,22 +1435,20 @@ export function VideoExportSettingsPanel({
                 <button
                   type="button"
                   onClick={() => setHideCharacterTags(!hideCharacterTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
-                    hideCharacterTags
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideCharacterTags
                       ? 'bg-[var(--vr-accent)] text-white'
                       : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                  }`}
+                    }`}
                 >
                   {t('隐藏人物标签', '人物タグを非表示', 'Hide character tags')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setHideSceneTags(!hideSceneTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
-                    hideSceneTags
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideSceneTags
                       ? 'bg-[var(--vr-accent)] text-white'
                       : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                  }`}
+                    }`}
                 >
                   {t('隐藏场景标签', 'シーンタグを非表示', 'Hide scene tags')}
                 </button>
@@ -1396,15 +1465,15 @@ export function VideoExportSettingsPanel({
                 <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
                   {selectedAudioClipCount > 0
                     ? t(
-                        `正在调整 ${selectedAudioClipCount} 个声音片段`,
-                        `${selectedAudioClipCount} 個の音声クリップを調整中`,
-                        `Editing ${selectedAudioClipCount} audio clip(s)`,
-                      )
+                      `正在调整 ${selectedAudioClipCount} 个声音片段`,
+                      `${selectedAudioClipCount} 個の音声クリップを調整中`,
+                      `Editing ${selectedAudioClipCount} audio clip(s)`,
+                    )
                     : t(
-                        '请在时间线中选择带声音的卡片。',
-                        'タイムラインで音声付きカードを選択してください。',
-                        'Select an audio-enabled card in the timeline.',
-                      )}
+                      '请在时间线中选择带声音的卡片。',
+                      'タイムラインで音声付きカードを選択してください。',
+                      'Select an audio-enabled card in the timeline.',
+                    )}
                 </p>
                 <RangeControl
                   label={t('音量', '音量', 'Volume')}
@@ -1485,11 +1554,10 @@ export function VideoExportSettingsPanel({
                 <button
                   type="button"
                   onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
-                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${
-                    isRecordingVoiceover
+                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${isRecordingVoiceover
                       ? 'bg-rose-500 text-white hover:bg-rose-600'
                       : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
-                  }`}
+                    }`}
                 >
                   <Mic className="h-4 w-4 shrink-0" />
                   <span className="truncate">

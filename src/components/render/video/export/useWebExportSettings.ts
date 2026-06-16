@@ -40,6 +40,7 @@ const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {
   titleTypewriterMode: 'character',
   bodyTypewriterMode: 'character',
   panelColor: '#111827',
+  panelColorAlpha: 82,
   dialogVisible: true,
   dialogWidth: 86,
   dialogHeight: 34,

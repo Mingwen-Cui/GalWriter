@@ -94,21 +94,34 @@ export const drawDialogueBox = async (
       );
     } catch {
       ctx.fillStyle = style.panelColor;
+      const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
+      ctx.globalAlpha = alpha / 100;
       ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
     }
   } else if (style.dialogBackgroundType === 'gradient') {
-    const angle = ((style.dialogGradientAngle - 90) * Math.PI) / 180;
-    const length = Math.hypot(layout.width, layout.height) / 2;
+    // NOTE: dialogGradientAngle 可能为 undefined（旧存档数据），需要 fallback 为 90 防止产生 NaN
+    const safeAngle = (Number.isFinite(style.dialogGradientAngle) ? style.dialogGradientAngle : 90);
+    const angle = ((safeAngle - 90) * Math.PI) / 180;
+    // NOTE: 当 width/height 为 0 时 length 会为 0，createLinearGradient 起终点相同会抛出异常，故至少保证 length >= 1
+    const length = Math.max(1, Math.hypot(layout.width, layout.height) / 2);
     const centerX = layout.x + layout.width / 2;
     const centerY = layout.y + layout.height / 2;
     const dx = Math.cos(angle) * length;
     const dy = Math.sin(angle) * length;
-    const gradient = ctx.createLinearGradient(
-      centerX - dx,
-      centerY - dy,
-      centerX + dx,
-      centerY + dy,
-    );
+    const x0 = centerX - dx;
+    const y0 = centerY - dy;
+    const x1 = centerX + dx;
+    const y1 = centerY + dy;
+    // NOTE: 最终防线——若任何坐标仍非有限数（如极端浮点溢出），回退为单色填充
+    if (!Number.isFinite(x0) || !Number.isFinite(y0) || !Number.isFinite(x1) || !Number.isFinite(y1)) {
+      ctx.fillStyle = style.panelColor;
+      const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
+      ctx.globalAlpha = alpha / 100;
+      ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
+      ctx.restore();
+      return layout;
+    }
+    const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
     getGradientStops(style).forEach((stop) => {
       gradient.addColorStop(
         Math.min(1, Math.max(0, stop.position / 100)),
@@ -119,7 +132,8 @@ export const drawDialogueBox = async (
     ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
   } else {
     ctx.fillStyle = style.panelColor;
-    ctx.globalAlpha = 0.82;
+    const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
+    ctx.globalAlpha = alpha / 100;
     ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
   }
 

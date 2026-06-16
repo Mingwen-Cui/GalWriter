@@ -104,6 +104,23 @@ export function WebPlaytestPreview({
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
 
+  const colorInputValue = (value: string, fallback = '#111827') => {
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+    const rgba = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!rgba) return fallback;
+    return `#${[rgba[1], rgba[2], rgba[3]]
+      .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+      .join('')}`;
+  };
+  const withAlpha = (hex: string, alpha: number) => {
+    const normalized = colorInputValue(hex);
+    const red = Number.parseInt(normalized.slice(1, 3), 16);
+    const green = Number.parseInt(normalized.slice(3, 5), 16);
+    const blue = Number.parseInt(normalized.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  };
+
   React.useEffect(() => {
     setPresentationExiting(false);
     setPresentationVisible(false);
@@ -785,10 +802,10 @@ export function WebPlaytestPreview({
                 : 'px-12 md:px-16'
             }`}
             style={{
-              backgroundColor:
-                settings.layoutMode === 'immersive'
-                  ? `${renderStyle.panelColor}cc`
-                  : renderStyle.panelColor,
+              backgroundColor: (() => {
+                const alpha = renderStyle.panelColorAlpha !== undefined ? renderStyle.panelColorAlpha : 82;
+                return withAlpha(renderStyle.panelColor, alpha / 100);
+              })(),
               maxHeight: settings.layoutMode === 'immersive' ? 'inherit' : undefined,
             }}
           >
