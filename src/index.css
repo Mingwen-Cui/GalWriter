@@ -1284,6 +1284,20 @@ input[type='range']::-moz-range-track {
   opacity: 0.45;
 }
 
+.video-render-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.video-render-color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.video-render-color-input::-moz-color-swatch {
+  border: 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
 @keyframes toolbarSlideUp {
   from {
     opacity: 0;

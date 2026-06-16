@@ -37,7 +37,7 @@ export const TEXT_ANIMATION_OPTIONS: {
   ja: string;
   en: string;
 }[] = [
-  { value: 'none', zh: '无', ja: 'なし', en: 'None' },
+  { value: 'none', zh: '无动画', ja: 'アニメなし', en: 'No animation' },
   { value: 'fade', zh: '淡入', ja: 'フェード', en: 'Fade' },
   { value: 'slideUp', zh: '上滑', ja: '上へスライド', en: 'Rise' },
   { value: 'typewriter', zh: '打字', ja: 'タイプ', en: 'Type' },

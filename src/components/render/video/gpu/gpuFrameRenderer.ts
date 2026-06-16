@@ -33,6 +33,51 @@ type GPURenderFrameInput = {
   hideSceneTags: boolean;
 };
 
+const colorWithAlpha = (color: string, alpha: number) => {
+  const safeAlpha = Math.min(1, Math.max(0, alpha / 100));
+  const hex = color.trim();
+  if (/^#[0-9a-f]{6}$/i.test(hex)) {
+    const red = Number.parseInt(hex.slice(1, 3), 16);
+    const green = Number.parseInt(hex.slice(3, 5), 16);
+    const blue = Number.parseInt(hex.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+  }
+  return color;
+};
+
+const textX = (align: RenderStyle['titleAlign'], left: number, right: number) => {
+  if (align === 'center') return (left + right) / 2;
+  if (align === 'right') return right;
+  return left;
+};
+
+const drawStyledLine = (
+  ctx: CanvasRenderingContext2D,
+  line: string,
+  x: number,
+  y: number,
+  options: {
+    align: CanvasTextAlign;
+    fillColor: string;
+    strokeColor: string;
+    strokeWidth: number;
+    letterSpacing: number;
+  },
+) => {
+  ctx.textAlign = options.align;
+  (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
+    `${options.letterSpacing}px`;
+  if (options.strokeWidth > 0) {
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = options.strokeWidth;
+    ctx.strokeStyle = options.strokeColor;
+    ctx.strokeText(line, x, y);
+  }
+  ctx.fillStyle = options.fillColor;
+  ctx.fillText(line, x, y);
+  (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0px';
+};
+
 // 文字纹理缓存：key = nodeId + 文字内容 hash，避免逐帧重绘
 const textTextureCache = new Map<string, { canvas: OffscreenCanvas; texture?: GPUTexture }>();
 
@@ -59,63 +104,85 @@ async function createTextLayerCanvas(
   ctx.clearRect(0, 0, width, height);
 
   const dialogLayout = await drawDialogueBox(ctx, width, height, style);
-  const margin = dialogLayout.x + dialogLayout.padding;
+  const paddingX = dialogLayout.paddingX ?? dialogLayout.padding;
+  const paddingY = dialogLayout.paddingY ?? dialogLayout.padding;
+  const margin = dialogLayout.x + paddingX;
   const titleSize = Math.max(18, style.titleFontSize);
   const bodySize = Math.max(16, style.bodyFontSize);
-  const titleLineHeight = Math.round(titleSize * 1.25);
-  const bodyLineHeight = Math.round(bodySize * 1.45);
-  const maxTextWidth = dialogLayout.width - dialogLayout.padding * 2;
+  const titleLineHeight = Math.round(titleSize * Math.max(0.8, style.titleLineHeight));
+  const bodyLineHeight = Math.round(bodySize * Math.max(0.8, style.bodyLineHeight));
+  const maxTextWidth = dialogLayout.width - paddingX * 2;
+  const textLeft = margin;
+  const textRight = dialogLayout.x + dialogLayout.width - paddingX;
 
   // 文字面板
-  ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
+  ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
   const titleLines = style.titleVisible
     ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
     : [];
-  ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
+  ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
   const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
   const textHeight =
     titleLines.length * titleLineHeight +
     (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     bodyLines.length * bodyLineHeight;
-  let y = dialogLayout.y + Math.max(dialogLayout.padding, (dialogLayout.height - textHeight) / 2);
+  let y = dialogLayout.y + Math.max(paddingY, (dialogLayout.height - textHeight) / 2);
 
   // 标题
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
   ctx.shadowBlur = 12;
-  ctx.font = `800 ${titleSize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-  ctx.fillStyle = style.titleColor;
+  ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
   const titleState = animatedTextState(
     style.titleAnimation,
     titleLines,
-    animationLeadSeconds,
+    style.titleAnimationLeadSeconds ?? animationLeadSeconds,
     elapsed,
     duration,
     forceFinalText,
+    style.titleTypewriterMode,
   );
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
   titleState.lines.forEach((line) => {
-    ctx.fillText(line, margin, y + titleState.offsetY);
+    drawStyledLine(
+      ctx,
+      line,
+      textX(style.titleAlign, textLeft, textRight),
+      y + titleState.offsetY,
+      {
+        align: style.titleAlign,
+        fillColor: colorWithAlpha(style.titleColor, style.titleColorAlpha),
+        strokeColor: style.titleStrokeColor,
+        strokeWidth: style.titleStrokeWidth,
+        letterSpacing: style.titleLetterSpacing,
+      },
+    );
     y += titleLineHeight;
   });
   ctx.restore();
 
   // 正文
   if (bodyLines.length) y += Math.round(bodySize * 0.6);
-  ctx.font = `500 ${bodySize}px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif`;
-  ctx.fillStyle = style.bodyColor;
+  ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
   const bodyState = animatedTextState(
     style.bodyAnimation,
     bodyLines,
-    animationLeadSeconds,
+    style.bodyAnimationLeadSeconds ?? animationLeadSeconds,
     elapsed,
     duration,
     forceFinalText,
+    style.bodyTypewriterMode,
   );
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
   bodyState.lines.forEach((line) => {
-    ctx.fillText(line, margin, y + bodyState.offsetY);
+    drawStyledLine(ctx, line, textX(style.bodyAlign, textLeft, textRight), y + bodyState.offsetY, {
+      align: style.bodyAlign,
+      fillColor: colorWithAlpha(style.bodyColor, style.bodyColorAlpha),
+      strokeColor: style.bodyStrokeColor,
+      strokeWidth: style.bodyStrokeWidth,
+      letterSpacing: style.bodyLetterSpacing,
+    });
     y += bodyLineHeight;
   });
   ctx.restore();
