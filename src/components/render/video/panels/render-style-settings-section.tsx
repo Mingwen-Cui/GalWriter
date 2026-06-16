@@ -1,4 +1,4 @@
-import {
+﻿import {
   ALargeSmall,
   Baseline,
   BetweenHorizontalStart,
@@ -84,6 +84,7 @@ interface RenderStyleSettingsSectionProps {
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   resolutionWidth?: number;
   resolutionHeight?: number;
+  showDescriptions?: boolean;
 }
 
 /**
@@ -96,6 +97,7 @@ export function RenderStyleSettingsSection({
   updateRenderStyle,
   resolutionWidth = 1920,
   resolutionHeight = 1080,
+  showDescriptions = false,
 }: RenderStyleSettingsSectionProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
 
@@ -275,16 +277,22 @@ export function RenderStyleSettingsSection({
   const setStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) =>
     updateRenderStyle(key, value);
 
-  const iconShell = (Icon: LucideIcon, children: React.ReactNode, disabled = false) => (
-    <div
-      className={`grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-        disabled ? 'opacity-40' : ''
-      }`}
-    >
-      <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      {children}
+  const iconShell = (
+    Icon: LucideIcon,
+    children: React.ReactNode,
+    disabled = false,
+    description?: string,
+  ) => (
+    <div className={`space-y-1 ${disabled ? 'opacity-40' : ''}`}>
+      {showDescriptions && description && (
+        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
+      )}
+      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-stretch rounded-lg bg-[var(--vr-surface-soft)]">
+        <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0">{children}</div>
+      </div>
     </div>
   );
 
@@ -295,6 +303,7 @@ export function RenderStyleSettingsSection({
     onChange: (value: string) => void,
     options: Array<{ value: string; label: string }>,
     title: string,
+    description?: string,
     disabled = false,
   ) => {
     const selectedLabel = options.find((option) => option.value === value)?.label || '';
@@ -313,7 +322,9 @@ export function RenderStyleSettingsSection({
           type="button"
           disabled={disabled}
           onClick={() => setOpenSelectId(isOpen ? null : id)}
-          className="flex h-9 w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5 disabled:cursor-default"
+          className={`flex w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5 disabled:cursor-default ${
+            showDescriptions ? 'h-8' : 'h-9'
+          }`}
           title={title}
         >
           <span className="min-w-0 truncate">{selectedLabel}</span>
@@ -347,17 +358,20 @@ export function RenderStyleSettingsSection({
         )}
       </div>,
       disabled,
+      title,
+      description,
     );
   };
 
-  const iconNumber = (Icon: LucideIcon, control: React.ReactNode) =>
-    iconShell(Icon, <div className="min-w-0">{control}</div>);
+  const iconNumber = (Icon: LucideIcon, control: React.ReactNode, description: string) =>
+    iconShell(Icon, <div className="min-w-0">{control}</div>, false, description);
 
   const iconColor = (
     Icon: LucideIcon,
     value: string,
     onChange: (value: string) => void,
     title: string,
+    description?: string,
   ) =>
     iconShell(
       Icon,
@@ -368,6 +382,8 @@ export function RenderStyleSettingsSection({
         className="video-render-color-input h-9 w-full cursor-pointer rounded-r-lg border-0 bg-transparent p-0"
         title={title}
       />,
+      false,
+      description || title,
     );
 
   const renderTextStyleSection = (
@@ -402,21 +418,31 @@ export function RenderStyleSettingsSection({
     return (
       <div className={`space-y-2 rounded-xl p-2 ${toneClass}`}>
         <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (canToggle) setStyle(visibleKey, !visible as never);
-            }}
-            className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-              visible
-                ? 'bg-white/12 text-[var(--vr-text)]'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-            } ${canToggle ? '' : 'cursor-default'}`}
-          >
-            {canToggle &&
-              (visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />)}
-            {label}
-          </button>
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {isTitle ? t('标题隐藏', 'タイトルを非表示', 'Title hidden') : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
+              </div>
+            )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (canToggle) setStyle(visibleKey, !visible as never);
+                }}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
+                isTitle
+                  ? 'bg-[#f7f9fc] text-[var(--vr-text)]'
+                  : visible
+                    ? 'bg-white/12 text-[var(--vr-text)]'
+                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+              } ${canToggle ? '' : 'cursor-default'}`}
+              aria-label={label}
+            >
+              {canToggle &&
+                (visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />)}
+              {label}
+            </button>
+          </div>
           {iconSelect(
             Type,
             `${kind}-font`,
@@ -424,6 +450,7 @@ export function RenderStyleSettingsSection({
             (value) => setStyle(fontFamilyKey, value as never),
             CLEAN_FONT_OPTIONS,
             t('字体', 'フォント', 'Font'),
+            t('选择字体', 'フォントを選択', 'Choose font'),
           )}
           {iconNumber(
             ALargeSmall,
@@ -435,9 +462,10 @@ export function RenderStyleSettingsSection({
               step={1}
               onChange={(value) => setStyle(fontSizeKey, value as never)}
             />,
+            t('字体大小', 'フォントサイズ', 'Font size'),
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
+          </div>
+          <div className="grid grid-cols-3 gap-2">
           {iconSelect(
             Sparkles,
             `${kind}-animation`,
@@ -448,6 +476,7 @@ export function RenderStyleSettingsSection({
               label: renderCopy(language, option.zh, option.ja, option.en),
             })),
             t('动画', 'アニメ', 'Animation'),
+            t('选择文字动画', '文字アニメを選択', 'Choose text animation'),
           )}
           {iconNumber(
             Timer,
@@ -460,6 +489,7 @@ export function RenderStyleSettingsSection({
               unit="s"
               onChange={(value) => setStyle(leadKey, value as never)}
             />,
+            t('动画提前完成时间', 'アニメーション先行完了時間', 'Finish-early time'),
           )}
           {iconSelect(
             CaseSensitive,
@@ -472,15 +502,17 @@ export function RenderStyleSettingsSection({
               { value: 'line', label: lineModeLabel },
             ],
             t('打字粒度', 'タイプ単位', 'Typewriter unit'),
+            t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
             !isTypewriter,
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
+          </div>
+          <div className="grid grid-cols-3 gap-2">
           {iconColor(
             Palette,
             colorInputValue(renderStyle[colorKey] as string),
             (value) => setStyle(colorKey, value as never),
             t('文字颜色', '文字色', 'Text color'),
+            t('选择文字颜色', '文字色を選択', 'Choose text color'),
           )}
           {iconNumber(
             Blend,
@@ -493,6 +525,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => setStyle(colorAlphaKey, value as never)}
             />,
+            t('文字透明度', '文字の透明度', 'Text alpha'),
           )}
           {iconNumber(
             Baseline,
@@ -504,22 +537,30 @@ export function RenderStyleSettingsSection({
               step={0.5}
               onChange={(value) => setStyle(strokeWidthKey, value as never)}
             />,
+            t('描边宽度', '縁取り幅', 'Stroke width'),
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
-            {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStyle(alignKey, value as never)}
-                className={`h-9 text-xs font-normal ${
-                  align === value ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'
-                }`}
-              >
-                {value === 'left' ? t('左', '左', 'L') : value === 'center' ? t('中', '中央', 'C') : t('右', '右', 'R')}
-              </button>
-            ))}
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {t('文字对齐', '文字揃え', 'Text align')}
+              </div>
+            )}
+            <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+              {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStyle(alignKey, value as never)}
+                  className={`h-9 text-xs font-normal ${
+                    align === value ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'
+                  }`}
+                >
+                  {value === 'left' ? t('左', '左', 'L') : value === 'center' ? t('中', '中央', 'C') : t('右', '右', 'R')}
+                </button>
+              ))}
+            </div>
           </div>
           {iconNumber(
             BetweenHorizontalStart,
@@ -531,6 +572,7 @@ export function RenderStyleSettingsSection({
               step={0.5}
               onChange={(value) => setStyle(spacingKey, value as never)}
             />,
+            t('字间距', '文字間隔', 'Letter spacing'),
           )}
           {iconNumber(
             BetweenVerticalStart,
@@ -543,8 +585,9 @@ export function RenderStyleSettingsSection({
               unit="x"
               onChange={(value) => setStyle(lineHeightKey, value as never)}
             />,
+            t('行距', '行間', 'Line height'),
           )}
-        </div>
+          </div>
       </div>
     );
   };
@@ -556,19 +599,26 @@ export function RenderStyleSettingsSection({
 
       <div className="space-y-2 rounded-xl bg-violet-500/5 p-2">
         <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => updateRenderStyle('dialogVisible', !renderStyle.dialogVisible)}
-            className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-              renderStyle.dialogVisible
-                ? 'bg-violet-500/15 text-violet-500'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-            }`}
-            title={t('点击显示或隐藏对话框', 'ダイアログ枠の表示を切替', 'Show or hide dialogue box')}
-          >
-            {renderStyle.dialogVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            {t('对话框', 'ダイアログ', 'Dialogue')}
-          </button>
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {t('对话框隐藏', 'ダイアログを非表示', 'Hide dialogue')}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => updateRenderStyle('dialogVisible', !renderStyle.dialogVisible)}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
+                renderStyle.dialogVisible
+                  ? 'bg-violet-500/15 text-violet-500'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+              }`}
+              title={t('点击显示或隐藏对话框', 'ダイアログ枠の表示を切替', 'Show or hide dialogue box')}
+            >
+              {renderStyle.dialogVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {t('对话框', 'ダイアログ', 'Dialogue')}
+            </button>
+          </div>
           {iconNumber(
             RectangleHorizontal,
             <DragSizeControl
@@ -580,6 +630,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogWidth', value)}
             />,
+            t('对话框宽度', 'ダイアログ幅', 'Dialogue width'),
           )}
           {iconNumber(
             RectangleVertical,
@@ -592,6 +643,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogHeight', value)}
             />,
+            t('对话框高度', 'ダイアログ高さ', 'Dialogue height'),
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -606,6 +658,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogOffsetX', value)}
             />,
+            t('左右位置', '左右位置', 'Horizontal position'),
           )}
           {iconNumber(
             MoveVertical,
@@ -618,6 +671,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogOffsetY', value)}
             />,
+            t('上下位置', '上下位置', 'Vertical position'),
           )}
           {iconNumber(
             PanelLeftRightDashed,
@@ -630,6 +684,7 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogTextPaddingX', value)}
             />,
+            t('文本左右内边距', 'テキスト左右内側余白', 'Text side padding'),
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -643,6 +698,7 @@ export function RenderStyleSettingsSection({
               step={1}
               onChange={(value) => updateRenderStyle('dialogRadius', value)}
             />,
+            t('对话框圆角', 'ダイアログ角丸', 'Dialogue radius'),
           )}
           {iconSelect(
             Palette,
@@ -658,6 +714,7 @@ export function RenderStyleSettingsSection({
               { value: 'image', label: t('导入图片', '画像', 'Image') },
             ],
             t('底色类型', '背景タイプ', 'Background'),
+            t('对话框底色', 'ダイアログ背景', 'Dialogue background'),
           )}
           {renderStyle.dialogBackgroundType === 'solid' && (
             <div className="relative" ref={solidColorEditorRef}>
@@ -679,6 +736,9 @@ export function RenderStyleSettingsSection({
                     }}
                   />
                 </button>
+                ,
+                false,
+                t('对话框底色', 'ダイアログ背景色', 'Dialogue background'),
               )}
               {showSolidColorMenu && (
                 <div
@@ -778,50 +838,58 @@ export function RenderStyleSettingsSection({
                 unit="°"
                 onChange={(value) => updateRenderStyle('dialogGradientAngle', value)}
               />,
+              t('渐变角度', 'グラデーション角度', 'Gradient angle'),
             )}
           {renderStyle.dialogBackgroundType === 'image' && (
-            <div
-              className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-                renderStyle.dialogImageUrl ? 'grid-cols-[28px_1fr_1fr]' : 'grid-cols-[28px_minmax(0,1fr)]'
-              }`}
-            >
-              <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-                <ImagePlus className="h-3.5 w-3.5" />
-              </span>
-              <label
-                className="flex h-9 min-w-0 cursor-pointer items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-white/5"
-                title={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
-                aria-label={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
-              >
-                {renderStyle.dialogImageUrl ? <RotateCw className="h-3.5 w-3.5" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      updateRenderStyle('dialogImageUrl', String(reader.result || ''));
-                      updateRenderStyle('dialogBackgroundType', 'image');
-                    };
-                    reader.readAsDataURL(file);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
-              {renderStyle.dialogImageUrl && (
-                <button
-                  type="button"
-                  onClick={() => updateRenderStyle('dialogImageUrl', '')}
-                  className="flex h-9 items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                  title={t('删除图片', '画像を削除', 'Remove image')}
-                  aria-label={t('删除图片', '画像を削除', 'Remove image')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+            <div className="space-y-1">
+              {showDescriptions && (
+                <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                  {t('导入或替换对话框背景图片', 'ダイアログ背景画像を追加/差し替え', 'Import or replace dialogue background image')}
+                </div>
               )}
+              <div
+                className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
+                  renderStyle.dialogImageUrl ? 'grid-cols-[28px_1fr_1fr]' : 'grid-cols-[28px_minmax(0,1fr)]'
+                }`}
+              >
+                <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+                  <ImagePlus className="h-3.5 w-3.5" />
+                </span>
+                <label
+                  className="flex h-9 min-w-0 cursor-pointer items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-white/5"
+                  title={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
+                  aria-label={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
+                >
+                  {renderStyle.dialogImageUrl ? <RotateCw className="h-3.5 w-3.5" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        updateRenderStyle('dialogImageUrl', String(reader.result || ''));
+                        updateRenderStyle('dialogBackgroundType', 'image');
+                      };
+                      reader.readAsDataURL(file);
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
+                {renderStyle.dialogImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => updateRenderStyle('dialogImageUrl', '')}
+                    className="flex h-9 items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                    title={t('删除图片', '画像を削除', 'Remove image')}
+                    aria-label={t('删除图片', '画像を削除', 'Remove image')}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

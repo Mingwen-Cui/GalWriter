@@ -1,4 +1,4 @@
-﻿import {
+import {
   ALargeSmall,
   Baseline,
   BetweenHorizontalStart,
@@ -16,16 +16,17 @@
   Loader2,
   Mic,
   Monitor,
+  MousePointerClick,
   MoveHorizontal,
   MoveVertical,
   Music,
   Palette,
   PanelLeftRightDashed,
   PencilLine,
+  Info,
   Radius,
   RectangleHorizontal,
   RectangleVertical,
-  RotateCw,
   Settings,
   Sparkles,
   Timer,
@@ -34,6 +35,7 @@
   Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
@@ -279,6 +281,7 @@ export function VideoExportSettingsPanel({
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
   const [showSolidColorMenu, setShowSolidColorMenu] = useState(false);
   const solidColorEditorRef = useRef<HTMLDivElement | null>(null);
+  const [showSettingDescriptions, setShowSettingDescriptions] = useState(false);
   const activeGradientStop = activeGradientStopId
     ? gradientStops.find((stop) => stop.id === activeGradientStopId)
     : null;
@@ -347,15 +350,22 @@ export function VideoExportSettingsPanel({
   };
   const setStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) =>
     updateRenderStyle(key, value);
-  const iconShell = (Icon: LucideIcon, children: React.ReactNode, disabled = false) => (
-    <div
-      className={`grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)] ${disabled ? 'opacity-40' : ''
-        }`}
-    >
-      <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      {children}
+  const iconShell = (
+    Icon: LucideIcon,
+    children: React.ReactNode,
+    disabled = false,
+    description?: string,
+  ) => (
+    <div className={`space-y-1 ${disabled ? 'opacity-40' : ''}`}>
+      {showSettingDescriptions && description && (
+        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
+      )}
+      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)]">
+        <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        {children}
+      </div>
     </div>
   );
   const iconSelect = (
@@ -365,6 +375,7 @@ export function VideoExportSettingsPanel({
     onChange: (value: string) => void,
     options: Array<{ value: string; label: string }>,
     title: string,
+    description?: string,
     disabled = false,
   ) => {
     const selectedLabel = options.find((option) => option.value === value)?.label || '';
@@ -415,15 +426,17 @@ export function VideoExportSettingsPanel({
         )}
       </div>,
       disabled,
+      description,
     );
   };
-  const iconNumber = (Icon: LucideIcon, control: React.ReactNode) =>
-    iconShell(Icon, <div className="min-w-0">{control}</div>);
+  const iconNumber = (Icon: LucideIcon, control: React.ReactNode, description?: string) =>
+    iconShell(Icon, <div className="min-w-0">{control}</div>, false, description);
   const iconColor = (
     Icon: LucideIcon,
     value: string,
     onChange: (value: string) => void,
     title: string,
+    description?: string,
   ) =>
     iconShell(
       Icon,
@@ -434,6 +447,8 @@ export function VideoExportSettingsPanel({
         className="video-render-color-input h-9 w-full cursor-pointer rounded-r-lg border-0 bg-transparent p-0"
         title={title}
       />,
+      false,
+      description || title,
     );
   const renderTextStyleSection = (
     kind: 'title' | 'body',
@@ -467,20 +482,31 @@ export function VideoExportSettingsPanel({
     return (
       <div className={`space-y-2 rounded-xl p-2 ${toneClass}`}>
         <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (canToggle) setStyle(visibleKey, !visible as never);
-            }}
-            className={`flex h-9 items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${visible
-                ? 'bg-white/12 text-[var(--vr-text)]'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {isTitle ? t('标题隐藏', 'タイトルを非表示', 'Title hidden') : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (canToggle) setStyle(visibleKey, !visible as never);
+              }}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
+                isTitle
+                  ? 'bg-[#f7f9fc] text-[var(--vr-text)]'
+                  : visible
+                    ? 'bg-white/12 text-[var(--vr-text)]'
+                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
               } ${canToggle ? '' : 'cursor-default'}`}
-          >
-            {canToggle &&
-              (visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />)}
-            {label}
-          </button>
+              aria-label={label}
+            >
+              {canToggle &&
+                (visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />)}
+              {label}
+            </button>
+          </div>
           {iconSelect(
             Type,
             `${kind}-font`,
@@ -488,6 +514,7 @@ export function VideoExportSettingsPanel({
             (value) => setStyle(fontFamilyKey, value as never),
             FONT_OPTIONS,
             t('字体', 'フォント', 'Font'),
+            t('选择字体', 'フォントを選択', 'Choose font'),
           )}
           {iconNumber(
             ALargeSmall,
@@ -512,6 +539,7 @@ export function VideoExportSettingsPanel({
               label: renderCopy(language, option.zh, option.ja, option.en),
             })),
             t('动画', 'アニメーション', 'Animation'),
+            t('选择文字动画', '文字アニメを選択', 'Choose text animation'),
           )}
           {iconNumber(
             Timer,
@@ -540,6 +568,7 @@ export function VideoExportSettingsPanel({
               { value: 'line', label: lineModeLabel },
             ],
             t('打字粒度', 'タイプ単位', 'Typewriter unit'),
+            t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
             !isTypewriter,
           )}
         </div>
@@ -549,6 +578,7 @@ export function VideoExportSettingsPanel({
             colorInputValue(renderStyle[colorKey] as string),
             (value) => setStyle(colorKey, value as never),
             t('\u6587\u5b57\u989c\u8272', '\u6587\u5b57\u8272', 'Text color'),
+            t('选择文字颜色', '文字色を選択', 'Choose text color'),
           )}
           {iconNumber(
             Blend,
@@ -583,24 +613,31 @@ export function VideoExportSettingsPanel({
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
-            {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStyle(alignKey, value as never)}
-                className={`h-9 text-xs font-normal ${align === value
-                    ? 'bg-[var(--vr-accent)] text-white'
-                    : 'text-[var(--vr-text-soft)]'
-                  }`}
-              >
-                {value === 'left'
-                  ? t('左', '左', 'L')
-                  : value === 'center'
-                    ? t('中', '中央', 'C')
-                    : t('右', '右', 'R')}
-              </button>
-            ))}
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {t('文字对齐', '文字揃え', 'Text align')}
+              </div>
+            )}
+            <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+              {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStyle(alignKey, value as never)}
+                  className={`h-9 text-xs font-normal ${align === value
+                      ? 'bg-[var(--vr-accent)] text-white'
+                      : 'text-[var(--vr-text-soft)]'
+                    }`}
+                >
+                  {value === 'left'
+                    ? t('左', '左', 'L')
+                    : value === 'center'
+                      ? t('中', '中央', 'C')
+                      : t('右', '右', 'R')}
+                </button>
+              ))}
+            </div>
           </div>
           {iconNumber(
             BetweenHorizontalStart,
@@ -639,6 +676,27 @@ export function VideoExportSettingsPanel({
         <div className="min-w-0 flex items-center gap-2">
           <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
           <span className="truncate">{t('导出设置', '書き出し設定', 'Export Settings')}</span>
+          <button
+            type="button"
+            onClick={() => setShowSettingDescriptions((current) => !current)}
+            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              showSettingDescriptions
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+            }`}
+            title={
+              showSettingDescriptions
+                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
+                : t('显示参数说明', '説明を表示', 'Show descriptions')
+            }
+            aria-label={
+              showSettingDescriptions
+                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
+                : t('显示参数说明', '説明を表示', 'Show descriptions')
+            }
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
         </div>
         <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
           {(['video', 'audio'] as ExportSettingsMode[]).map((mode) => (
@@ -708,6 +766,7 @@ export function VideoExportSettingsPanel({
                       '\u89e3\u50cf\u5ea6\u30c6\u30f3\u30d7\u30ec\u30fc\u30c8',
                       'Resolution template',
                     ),
+                    t('分辨率', '解像度', 'Resolution'),
                   )}
                   {iconNumber(
                     RectangleHorizontal,
@@ -726,6 +785,7 @@ export function VideoExportSettingsPanel({
                         setResolutionWidth(value);
                       }}
                     />,
+                    t('视频宽度', '動画幅', 'Video width'),
                   )}
                   {iconNumber(
                     RectangleVertical,
@@ -744,6 +804,7 @@ export function VideoExportSettingsPanel({
                         setResolutionHeight(value);
                       }}
                     />,
+                    t('视频高度', '動画高さ', 'Video height'),
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -757,6 +818,7 @@ export function VideoExportSettingsPanel({
                       label: `${option} fps`,
                     })),
                     t('\u5e27\u7387', '\u30d5\u30ec\u30fc\u30e0\u30ec\u30fc\u30c8', 'FPS'),
+                    t('选择帧率', 'フレームレートを選択', 'Choose frame rate'),
                   )}
                   {iconSelect(
                     FileVideo,
@@ -768,6 +830,7 @@ export function VideoExportSettingsPanel({
                       label: option.label,
                     })),
                     t('\u683c\u5f0f', '\u5f62\u5f0f', 'Format'),
+                    t('导出格式', '書き出し形式', 'Export format'),
                   )}
                   {iconNumber(
                     Gauge,
@@ -784,6 +847,7 @@ export function VideoExportSettingsPanel({
                       unit="x"
                       onChange={(value) => setSpeed(Math.max(0.25, value || 1))}
                     />,
+                    t('播放倍速', '再生速度', 'Playback speed'),
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -827,19 +891,25 @@ export function VideoExportSettingsPanel({
                 updateRenderStyle={updateRenderStyle}
                 resolutionWidth={resolutionWidth}
                 resolutionHeight={resolutionHeight}
+                showDescriptions={showSettingDescriptions}
               />
             </div>
 
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('导出细节', '書き出し詳細', 'Export Details')}
+                {t('其他', 'その他', 'Other')}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-normal text-[var(--vr-text-soft)]">
-                    {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
-                  </span>
+                <div className="space-y-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
+                      {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-[var(--vr-surface)] px-2 py-0.5 text-[10px] font-black text-[var(--vr-text-soft)]">
+                      {defaultSeconds}s
+                    </span>
+                  </div>
                   <DragSizeControl
                     label={t(
                       '左右拖动调整无音频视频长度',
@@ -853,11 +923,16 @@ export function VideoExportSettingsPanel({
                     unit="s"
                     onChange={setDefaultSeconds}
                   />
-                </label>
-                <label className="min-w-0 space-y-1.5">
-                  <span className="block truncate text-[11px] font-normal text-[var(--vr-text-soft)]">
-                    {t('提前完成动画(秒)', 'アニメーションを早めに完了(秒)', 'Finish animation early')}
-                  </span>
+                </div>
+                <div className="space-y-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
+                      {t('提前完成动画', 'アニメーションを早めに完了', 'Finish animation early')}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-[var(--vr-surface)] px-2 py-0.5 text-[10px] font-black text-[var(--vr-text-soft)]">
+                      {Number(animationLeadSeconds).toFixed(1)}s
+                    </span>
+                  </div>
                   <DragSizeControl
                     label={t(
                       '左右拖动调整动画提前完成时间',
@@ -871,89 +946,96 @@ export function VideoExportSettingsPanel({
                     unit="s"
                     onChange={(value) => setAnimationLeadSeconds(value)}
                   />
-                </label>
+                </div>
               </div>
             </div>
 
-            <div className="order-last flex items-center gap-3">
-              <div className="shrink-0 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('渲染加速', 'レンダリング加速', 'Render Acceleration')}
-              </div>
-              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2.5">
-                <button
-                  type="button"
-                  onClick={() => setUseGpuAcceleration(false)}
-                  disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${!useGpuAcceleration
-                      ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                      : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title={t(
-                    '使用 2D Canvas 渲染（最稳定）',
-                    '2D Canvas レンダリング（最も安定）',
-                    '2D Canvas rendering (most stable)',
-                  )}
-                >
-                  2D Canvas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => isWebGPUSupported && setUseGpuAcceleration(true)}
-                  disabled={!isWebGPUSupported}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-black transition-colors ${useGpuAcceleration
-                      ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                      : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                    } ${!isWebGPUSupported ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title={
-                    isWebGPUSupported
-                      ? t(
-                        '使用 WebGPU 加速渲染（实验性）',
-                        'WebGPU 加速レンダリング（実験的）',
-                        'WebGPU accelerated rendering (experimental)',
-                      )
-                      : t(
-                        '当前浏览器不支持 WebGPU',
-                        'このブラウザーは WebGPU をサポートしていません',
-                        'WebGPU is not supported in this browser',
-                      )
+            <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
+              {/* NOTE: 人物标签单按钮开关 — 点击在显示/隐藏之间切换 */}
+              <ExportSettingCard
+                icon={CharacterTagGlyph}
+                description={
+                  showSettingDescriptions
+                    ? t('隐藏人物标签', '人物タグを隠す', 'Hide character tags')
+                    : undefined
+                }
+              >
+                <ExportToggleButton
+                  active={hideCharacterTags}
+                  title={hideCharacterTags
+                    ? t('人物标签已隐藏', 'キャラクタータグ: 非表示', 'Character tags: hidden')
+                    : t('人物标签显示中', 'キャラクタータグ: 表示', 'Character tags: visible')
                   }
-                >
-                  GPU
-                  {!isWebGPUSupported && (
-                    <span className="ml-0.5 text-[9px] opacity-70">
-                      {t('(不支持)', '(未対応)', '(Unsupported)')}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('标签显示', 'タグ表示', 'Tag Display')}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
                   onClick={() => setHideCharacterTags(!hideCharacterTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideCharacterTags
-                      ? 'bg-[var(--vr-accent)] text-white'
-                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                    }`}
-                >
-                  {t('隐藏人物标签', 'キャラクタータグを非表示', 'Hide character tags')}
-                </button>
-                <button
-                  type="button"
+                  icon={hideCharacterTags
+                    ? <EyeOff className="h-3.5 w-3.5" />
+                    : <Eye className="h-3.5 w-3.5" />
+                  }
+                />
+              </ExportSettingCard>
+
+              {/* NOTE: 场景标签单按鈕开关 — 点击在显示/隐藏之间切换 */}
+              <ExportSettingCard
+                icon={SceneTagGlyph}
+                description={
+                  showSettingDescriptions
+                    ? t('隐藏场景标签', 'シーンタグを隠す', 'Hide scene tags')
+                    : undefined
+                }
+              >
+                <ExportToggleButton
+                  active={hideSceneTags}
+                  title={hideSceneTags
+                    ? t('场景标签已隐藏', 'シーンタグ: 非表示', 'Scene tags: hidden')
+                    : t('场景标签显示中', 'シーンタグ: 表示', 'Scene tags: visible')
+                  }
                   onClick={() => setHideSceneTags(!hideSceneTags)}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${hideSceneTags
-                      ? 'bg-[var(--vr-accent)] text-white'
-                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)]'
-                    }`}
-                >
-                  {t('隐藏场景标签', 'シーンタグを非表示', 'Hide scene tags')}
-                </button>
-              </div>
+                  icon={hideSceneTags
+                    ? <EyeOff className="h-3.5 w-3.5" />
+                    : <Eye className="h-3.5 w-3.5" />
+                  }
+                />
+              </ExportSettingCard>
+
+              {/* NOTE: 渲染模式单切换按钮 — 点击在 2D Canvas / WebGPU 间切换，active=GPU高亮 */}
+              <ExportSettingCard
+                icon={RenderModeGlyph}
+                description={
+                  showSettingDescriptions
+                    ? t('渲染方式', '描画方式', 'Render mode')
+                    : undefined
+                }
+              >
+                <ExportToggleButton
+                  active={useGpuAcceleration}
+                  label={useGpuAcceleration ? 'WebGPU' : '2D Canvas'}
+                  highlightActive={false}
+                  icon={null}
+                  title={useGpuAcceleration
+                    ? t(
+                        '当前：WebGPU 加速（点击切换到 2D Canvas）',
+                        '現在: WebGPU 加速（クリックで 2D Canvas に切替）',
+                        'Current: WebGPU accelerated (click to switch to 2D Canvas)',
+                      )
+                    : isWebGPUSupported
+                      ? t(
+                          '当前：2D Canvas（点击切换到 WebGPU 加速）',
+                          '現在: 2D Canvas（クリックで WebGPU 加速に切替）',
+                          'Current: 2D Canvas (click to switch to WebGPU)',
+                        )
+                      : t(
+                          '当前浏览器不支持 WebGPU，仅可使用 2D Canvas',
+                          'このブラウザーは WebGPU 非対応、2D Canvas のみ使用可能',
+                          'WebGPU not supported; 2D Canvas only',
+                        )
+                  }
+                  disabled={!isWebGPUSupported}
+                  onClick={() => {
+                    if (!isWebGPUSupported) return;
+                    setUseGpuAcceleration(!useGpuAcceleration);
+                  }}
+                />
+              </ExportSettingCard>
             </div>
           </div>
         ) : (
@@ -1080,6 +1162,7 @@ export function VideoExportSettingsPanel({
             </div>
           </div>
         )}
+
         {(progress || error) && (
           <div className="space-y-2">
             {!error && (
@@ -1105,5 +1188,162 @@ export function VideoExportSettingsPanel({
         )}
       </div>
     </aside>
+  );
+}
+
+// NOTE: 与 WebWorkspace 中 WebSettingCard 结构完全一致，支持自定义 Glyph 组件作为 icon
+function ExportSettingCard({
+  icon: Icon,
+  description,
+  children,
+}: {
+  icon?: React.ComponentType<{ className?: string }>;
+  description?: string;
+  children: ReactNode;
+}) {
+  const hasIcon = Boolean(Icon);
+  return (
+    <div className="space-y-1">
+      {description && <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>}
+      <div
+        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${
+          hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+        }`}
+      >
+        {Icon ? (
+          <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
+        <div className="min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// NOTE: 单按钮切换组件，点击在 active/inactive 间切换，active 时显示 accent 高亮；label 可选，显示在 icon 右侧
+function ExportToggleButton({
+  active,
+  onClick,
+  icon,
+  label,
+  title,
+  disabled,
+  highlightActive = true,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label?: string;
+  title?: string;
+  disabled?: boolean;
+  highlightActive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+        active && highlightActive
+          ? 'bg-[var(--vr-accent)] text-white'
+          : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+      } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+      aria-pressed={active}
+    >
+      {icon}
+      {label && <span className="truncate">{label}</span>}
+    </button>
+  );
+}
+
+type ExportSegmentedOption = {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  title?: string;
+};
+
+// NOTE: 与 WebWorkspace 中 WebPillToggleGroup 结构完全一致，额外支持 disabled/title 用于 GPU 不可用场景
+function ExportPillToggleGroup({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: ExportSegmentedOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid h-9 w-full min-w-0 overflow-hidden rounded-lg grid-cols-2">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            disabled={option.disabled}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+            } ${option.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+            title={option.title ?? option.label}
+            aria-pressed={active}
+          >
+            {option.icon}
+            {option.icon ? null : <span className="truncate">{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// NOTE: 人物标签卡片图标 — 小人剪影（圆头 + 肩部弧线）
+function CharacterTagGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 flex-col items-center justify-end gap-0 pb-[1px]">
+      {/* 圆形头部 */}
+      <span className="mb-[2px] h-[5px] w-[5px] rounded-full bg-current/70" />
+      {/* 肩部弧线 */}
+      <span className="h-[4px] w-[10px] rounded-t-[50%] bg-current/55" />
+    </span>
+  );
+}
+
+// NOTE: 场景标签卡片图标 — 带天空和地面的风景小帧
+function SceneTagGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[3px] border border-current/40 bg-current/10">
+      {/* 太阳 */}
+      <span className="absolute left-[2px] top-[2px] h-[4px] w-[4px] rounded-full bg-current/55" />
+      {/* 地平线 */}
+      <span className="absolute inset-x-0 bottom-[4px] h-[1px] bg-current/30" />
+      {/* 地面 */}
+      <span className="absolute inset-x-0 bottom-0 h-[4px] bg-current/45" />
+    </span>
+  );
+}
+
+// NOTE: 渲染模式卡片图标 — 监视器 + 底部芯片，表达「渲染输出」概念
+function RenderModeGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 flex-col items-center justify-center gap-0">
+      {/* 监视器外框 */}
+      <span className="relative h-[8px] w-[12px] rounded-[1.5px] border border-current/50 bg-current/10">
+        {/* 屏幕内部扫描线，象征渲染输出 */}
+        <span className="absolute inset-x-[2px] top-[1.5px] h-[1px] bg-current/40 rounded-full" />
+        <span className="absolute inset-x-[2px] top-[3.5px] h-[1px] bg-current/30 rounded-full" />
+        <span className="absolute inset-x-[2px] top-[5px] h-[1px] bg-current/20 rounded-full" />
+      </span>
+      {/* 底座支脚 */}
+      <span className="h-[1.5px] w-[5px] bg-current/40 rounded-full" />
+      {/* 底座底板 */}
+      <span className="h-[1px] w-[7px] bg-current/35 rounded-full" />
+    </span>
   );
 }
