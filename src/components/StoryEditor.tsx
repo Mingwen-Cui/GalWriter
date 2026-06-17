@@ -18,11 +18,15 @@
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { AgentOverlay } from '../agent/animation/AgentOverlay';
+import type {
+  AssistantCardDraft,
+  AssistantCardPlacementMode,
+  AssistantCardPlacementOptions,
+} from '../agent/planning/agentCardDraft';
+import { useAgentRuntime } from '../agent/runtime/useAgentRuntime';
 import { useAIActions } from '../editor-features/ai/useAIActions';
 import {
-  type AssistantCardDraft,
-  type AssistantCardPlacementMode,
-  type AssistantCardPlacementOptions,
   type AssistantCardPlacementResult,
   useAssistantPanel,
 } from '../editor-features/assistant/useAssistantPanel';
@@ -468,6 +472,13 @@ const getMediaDimensions = (
 export function StoryEditor() {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
+  const {
+    agentState,
+    runAgentCardPlacement,
+    startAgentWaiting,
+    stopAgentWaiting,
+    requestSkipAgent,
+  } = useAgentRuntime();
 
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>([]);
@@ -2055,7 +2066,7 @@ export function StoryEditor() {
     [runAIGenerate],
   );
 
-  const createAssistantCards = useCallback(
+  const executeAssistantCardPlacement = useCallback(
     (
       cards: AssistantCardDraft[],
       mode: AssistantCardPlacementMode = 'append',
@@ -2130,9 +2141,10 @@ export function StoryEditor() {
 
       if (validCards.length === 0) return { count: 0 };
 
+      const explicitFillTargetIds = new Set(options?.targetNodeIds || []);
       const selectedFillTargets = nodes.filter(
         (n) =>
-          n.selected &&
+          (explicitFillTargetIds.size > 0 ? explicitFillTargetIds.has(n.id) : n.selected) &&
           (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
       );
       const usedDraftIndexes = new Set<number>();
@@ -2212,9 +2224,11 @@ export function StoryEditor() {
           }),
         );
       }
+      const filledTargetNodeIds =
+        mode === 'fill-selected' ? selectedFillTargets.map((node) => node.id) : [];
 
       const remainingCards = validCards.filter((_, index) => !usedDraftIndexes.has(index));
-      if (remainingCards.length === 0) return { count: filledCount };
+      if (remainingCards.length === 0) return { count: filledCount, nodeIds: filledTargetNodeIds };
 
       const selectedStories = nodes.filter((n) => n.selected && n.type === 'storyNode');
       const selectedCanvasTarget = nodes.find(
@@ -2329,7 +2343,7 @@ export function StoryEditor() {
             id,
             type: 'characterNode',
             position,
-            selected: index === 0,
+            selected: true,
             style: { width: 280, height: 420, minHeight: 420 },
             data: {
               id,
@@ -2355,7 +2369,7 @@ export function StoryEditor() {
             id,
             type: 'sceneNode',
             position,
-            selected: index === 0,
+            selected: true,
             style: { width: 280, height: 420, minHeight: 420 },
             data: {
               id,
@@ -2378,7 +2392,7 @@ export function StoryEditor() {
           id,
           type: 'storyNode',
           position,
-          selected: index === 0,
+          selected: true,
           style: { width: 300, height: 200 },
           data: {
             id,
@@ -2463,10 +2477,309 @@ export function StoryEditor() {
       return {
         count: filledCount + remainingCards.length,
         position: { x: center.x, y: center.y, zoom: tzoom },
-        nodeIds: newNodes.map((node) => node.id),
+        nodeIds: [...filledTargetNodeIds, ...newNodes.map((node) => node.id)],
       };
     },
     [edges, nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
+  );
+
+  const getAgentDraftType = useCallback((card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+    const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+    if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
+      return card.type;
+    }
+    if (
+      cleanText(card.characterName) ||
+      cleanText(card.personality) ||
+      cleanText(card.features) ||
+      cleanText(card.background)
+    ) {
+      return 'character';
+    }
+    if (
+      cleanText(card.sceneName) ||
+      cleanText(card.location) ||
+      cleanText(card.items) ||
+      cleanText(card.atmosphere)
+    ) {
+      return 'scene';
+    }
+    return 'story';
+  }, []);
+
+  const createAgentSkeletonCards = useCallback(
+    (cards: AssistantCardDraft[]): AssistantCardDraft[] =>
+      cards.map((card) => {
+        const type = getAgentDraftType(card);
+        if (type === 'character') {
+          return {
+            type,
+            characterName: language === 'zh' ? 'AI 角色' : 'AI Character',
+            traits: '',
+          };
+        }
+        if (type === 'scene') {
+          return {
+            type,
+            sceneName: language === 'zh' ? 'AI 场景' : 'AI Scene',
+            description: '',
+          };
+        }
+        return {
+          type,
+          title: language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card',
+          text: '',
+        };
+      }),
+    [getAgentDraftType, language],
+  );
+
+  const getAgentFieldValue = useCallback(
+    (card: AssistantCardDraft, fieldKey?: string) => {
+      if (!fieldKey) return '';
+      const type = getAgentDraftType(card);
+      if (type === 'character') {
+        const values: Record<string, string | undefined> = {
+          'character-name': card.characterName || card.title,
+          traits: card.traits || card.text,
+          personality: card.personality,
+          features: card.features,
+          background: card.background,
+          other: card.other,
+        };
+        return values[fieldKey] || '';
+      }
+      if (type === 'scene') {
+        const values: Record<string, string | undefined> = {
+          'scene-name': card.sceneName || card.title,
+          description: card.description || card.text,
+          location: card.location,
+          items: card.items,
+          atmosphere: card.atmosphere,
+          other: card.other,
+        };
+        return values[fieldKey] || '';
+      }
+      const values: Record<string, string | undefined> = {
+        title: card.title,
+        'story-text': card.text,
+      };
+      return values[fieldKey] || '';
+    },
+    [getAgentDraftType],
+  );
+
+  const applyAgentFieldValue = useCallback(
+    (nodeId: string, fieldKey: string | undefined, value: string) => {
+      if (!fieldKey) return;
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => {
+          if (node.id !== nodeId) return node;
+
+          if (node.type === 'characterNode') {
+            const updates: Record<string, unknown> = {};
+            if (fieldKey === 'character-name') updates.characterName = value;
+            if (fieldKey === 'traits') updates.traits = value;
+            if (fieldKey === 'personality') {
+              updates.personality = value;
+              updates.showPersonality = true;
+            }
+            if (fieldKey === 'features') {
+              updates.features = value;
+              updates.showFeatures = true;
+            }
+            if (fieldKey === 'background') {
+              updates.background = value;
+              updates.showBackground = true;
+            }
+            if (fieldKey === 'other') {
+              updates.other = value;
+              updates.showOther = true;
+            }
+            return { ...node, data: { ...node.data, ...updates } };
+          }
+
+          if (node.type === 'sceneNode') {
+            const updates: Record<string, unknown> = {};
+            if (fieldKey === 'scene-name') updates.sceneName = value;
+            if (fieldKey === 'description') updates.description = value;
+            if (fieldKey === 'location') {
+              updates.location = value;
+              updates.showLocation = true;
+            }
+            if (fieldKey === 'items') {
+              updates.items = value;
+              updates.showItems = true;
+            }
+            if (fieldKey === 'atmosphere') {
+              updates.atmosphere = value;
+              updates.showAtmosphere = true;
+            }
+            if (fieldKey === 'other') {
+              updates.other = value;
+              updates.showOther = true;
+            }
+            return { ...node, data: { ...node.data, ...updates } };
+          }
+
+          if (node.type === 'storyNode') {
+            if (fieldKey === 'title') {
+              return { ...node, data: { ...node.data, title: value } };
+            }
+            if (fieldKey === 'story-text') {
+              return { ...node, data: { ...node.data, text: value } };
+            }
+          }
+
+          return node;
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  const prepareAgentFields = useCallback(
+    (nodeIds: string[] | undefined, cards: AssistantCardDraft[]) => {
+      if (!nodeIds || nodeIds.length === 0) return;
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => {
+          const cardIndex = nodeIds.indexOf(node.id);
+          if (cardIndex < 0) return node;
+
+          const card = cards[cardIndex];
+          if (!card) return node;
+
+          if (node.type === 'characterNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                showPersonality: !!(card.personality || node.data.showPersonality),
+                showFeatures: !!(card.features || node.data.showFeatures),
+                showBackground: !!(card.background || node.data.showBackground),
+                showOther: !!(card.other || node.data.showOther),
+              },
+            };
+          }
+
+          if (node.type === 'sceneNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                showLocation: !!(card.location || node.data.showLocation),
+                showItems: !!(card.items || node.data.showItems),
+                showAtmosphere: !!(card.atmosphere || node.data.showAtmosphere),
+                showOther: !!(card.other || node.data.showOther),
+              },
+            };
+          }
+
+          return node;
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  const typeAgentFieldValue = useCallback(
+    async (
+      nodeId: string | undefined,
+      fieldKey: string | undefined,
+      value: string,
+      shouldSkip: () => boolean,
+    ) => {
+      if (!nodeId || !fieldKey || !value) return;
+      if (shouldSkip()) {
+        applyAgentFieldValue(nodeId, fieldKey, value);
+        return;
+      }
+
+      const maxSteps = 80;
+      const stride = Math.max(1, Math.ceil(value.length / maxSteps));
+      for (let index = stride; index < value.length; index += stride) {
+        if (shouldSkip()) break;
+        applyAgentFieldValue(nodeId, fieldKey, value.slice(0, index));
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 18));
+      }
+      applyAgentFieldValue(nodeId, fieldKey, value);
+    },
+    [applyAgentFieldValue],
+  );
+
+  const createAssistantCards = useCallback(
+    async (
+      cards: AssistantCardDraft[],
+      mode: AssistantCardPlacementMode = 'append',
+      options?: AssistantCardPlacementOptions,
+    ): Promise<AssistantCardPlacementResult> => {
+      const selectedCount = options?.targetNodeIds?.length ?? nodes.filter(
+        (node) =>
+          node.selected &&
+          (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
+      ).length;
+
+      return runAgentCardPlacement({
+        cards,
+        mode,
+        options,
+        selectedCount,
+        execute: () => {
+          if (mode === 'fill-selected' && options?.targetNodeIds?.length) {
+            const placement = {
+              count: Math.min(cards.length, options.targetNodeIds.length),
+              nodeIds: options.targetNodeIds,
+            };
+            prepareAgentFields(placement.nodeIds, cards);
+            return placement;
+          }
+
+          if (mode === 'fill-selected' && selectedCount > 0) {
+            const placement = {
+              count: Math.min(cards.length, selectedCount),
+              nodeIds: nodes
+                .filter(
+                  (node) =>
+                    node.selected &&
+                    (node.type === 'storyNode' ||
+                      node.type === 'characterNode' ||
+                      node.type === 'sceneNode'),
+                )
+                .map((node) => node.id),
+            };
+            prepareAgentFields(placement.nodeIds, cards);
+            return placement;
+          }
+          const placement = executeAssistantCardPlacement(
+            createAgentSkeletonCards(cards),
+            mode,
+            options,
+          );
+          prepareAgentFields(placement.nodeIds, cards);
+          return placement;
+        },
+        applyStep: async (step, result, shouldSkip) => {
+          if (step.type !== 'type-field' || typeof step.cardIndex !== 'number') return;
+          const card = cards[step.cardIndex];
+          const value = getAgentFieldValue(card, step.fieldKey);
+          await typeAgentFieldValue(
+            result.nodeIds?.[step.cardIndex],
+            step.fieldKey,
+            value,
+            shouldSkip,
+          );
+        },
+      });
+    },
+    [
+      createAgentSkeletonCards,
+      executeAssistantCardPlacement,
+      getAgentFieldValue,
+      nodes,
+      prepareAgentFields,
+      runAgentCardPlacement,
+      typeAgentFieldValue,
+    ],
   );
 
   const handleAssistantMessagePositionClick = useCallback(
@@ -2545,6 +2858,8 @@ export function StoryEditor() {
     nodes,
     callAIForTextResult,
     createAssistantCards,
+    startAgentWaiting,
+    stopAgentWaiting,
     hasTextApiKey: !missingTextApiKey,
     onMissingTextApiKeyRequest: () => {
       requestSettingsAttention('text');
@@ -4391,6 +4706,8 @@ ${layoutConfig.label}
             );
           })()}
       </Suspense>
+
+      <AgentOverlay state={agentState} onSkip={requestSkipAgent} />
 
       {/* Global Toast Notification */}
       <EditorToast message={toast.message} visible={toast.visible} tone={toast.tone} />

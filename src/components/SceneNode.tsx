@@ -457,6 +457,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   return (
     <>
       <div
+        data-agent-node-id={id}
         className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-blue-800 ring-2 ring-blue-800/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
         style={{
           height: isMinimized ? 'auto' : '100%',
@@ -572,6 +573,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
 
                 <div className="flex-1 min-w-0">
                   <input
+                    data-agent-field="scene-name"
                     type="text"
                     value={name}
                     onChange={(e) => updateNodeData({ sceneName: e.target.value })}
@@ -674,6 +676,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         {lang === 'zh' ? '位置描写' : 'Location Description'}
                       </label>
                       <textarea
+                        data-agent-field="location"
                         value={data.location || ''}
                         onChange={(e) => updateNodeData({ location: e.target.value })}
                         placeholder={
@@ -691,6 +694,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         {lang === 'zh' ? '场景物品' : 'Scene Items'}
                       </label>
                       <textarea
+                        data-agent-field="items"
                         value={data.items || ''}
                         onChange={(e) => updateNodeData({ items: e.target.value })}
                         placeholder={
@@ -708,6 +712,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
                       </label>
                       <textarea
+                        data-agent-field="atmosphere"
                         value={data.atmosphere || ''}
                         onChange={(e) => updateNodeData({ atmosphere: e.target.value })}
                         placeholder={
@@ -725,6 +730,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         {lang === 'zh' ? '其他' : 'Other'}
                       </label>
                       <textarea
+                        data-agent-field="other"
                         value={data.other || ''}
                         onChange={(e) => updateNodeData({ other: e.target.value })}
                         placeholder={lang === 'zh' ? '其他场景细节...' : 'Other scene details...'}
@@ -742,6 +748,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                           {lang === 'zh' ? '综合描述' : 'General Description'}
                         </label>
                         <textarea
+                          data-agent-field="description"
                           value={description}
                           onChange={(e) => updateNodeData({ description: e.target.value })}
                           placeholder={

@@ -480,6 +480,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   return (
     <div
+      data-agent-node-id={id}
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
       style={{
         height: isMinimized ? 'auto' : '100%',
@@ -593,6 +594,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
               <div className="flex-1 min-w-0">
                 <input
+                  data-agent-field="character-name"
                   type="text"
                   value={name}
                   onChange={(e) => updateNodeData({ characterName: e.target.value })}
@@ -697,6 +699,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       性格
                     </label>
                     <textarea
+                      data-agent-field="personality"
                       value={data.personality || ''}
                       onChange={(e) => updateNodeData({ personality: e.target.value })}
                       placeholder="例如：傲娇，口是心非..."
@@ -710,6 +713,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       人物特点
                     </label>
                     <textarea
+                      data-agent-field="features"
                       value={data.features || ''}
                       onChange={(e) => updateNodeData({ features: e.target.value })}
                       placeholder="例如：喜欢喝红茶，左眼带有眼罩..."
@@ -723,6 +727,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       人物背景
                     </label>
                     <textarea
+                      data-agent-field="background"
                       value={data.background || ''}
                       onChange={(e) => updateNodeData({ background: e.target.value })}
                       placeholder="例如：出生于没落贵族家庭..."
@@ -736,6 +741,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       其他
                     </label>
                     <textarea
+                      data-agent-field="other"
                       value={data.other || ''}
                       onChange={(e) => updateNodeData({ other: e.target.value })}
                       placeholder="其他设定内容..."
@@ -753,6 +759,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         综合设定
                       </label>
                       <textarea
+                        data-agent-field="traits"
                         value={traits}
                         onChange={(e) => updateNodeData({ traits: e.target.value })}
                         placeholder="例如：性格傲娇，总是口是心非。喜欢喝红茶..."

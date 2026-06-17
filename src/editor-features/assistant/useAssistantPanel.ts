@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AITextResult } from '../../editor-services/aiClient';
+import type {
+  AssistantCardDraft,
+  AssistantCardPlacementMode,
+  AssistantCardPlacementOptions,
+} from '../../agent/planning/agentCardDraft';
 import {
   buildAssistantDocumentContext,
   readAssistantDocument,
@@ -13,34 +18,6 @@ import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import { htmlToSpeechText } from '../../lib/tts';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
-
-export type AssistantCardDraft = {
-  type?: 'story' | 'character' | 'scene';
-  title?: string;
-  text?: string;
-  characterName?: string;
-  traits?: string;
-  personality?: string;
-  features?: string;
-  background?: string;
-  sceneName?: string;
-  description?: string;
-  location?: string;
-  items?: string;
-  atmosphere?: string;
-  other?: string;
-};
-
-export type AssistantCardPlacementMode =
-  | 'append'
-  | 'fill-selected'
-  | 'adjacent-revision'
-  | 'future-targets'
-  | 'bridge-to-target';
-
-export type AssistantCardPlacementOptions = {
-  targetNodeId?: string;
-};
 
 type AssistantSpeechRecognitionResult = {
   transcript?: string;
@@ -179,6 +156,55 @@ const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOpti
   }
 };
 
+const parseAssistantRequestedCardCount = (text: string, fallback = 1) => {
+  const arabicCount = text.match(/(\d+)/)?.[1];
+  if (arabicCount) return Math.max(1, Math.min(8, Number(arabicCount) || fallback));
+
+  const chineseNumbers: Record<string, number> = {
+    一: 1,
+    二: 2,
+    两: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+  };
+  const chineseCount = text.match(/([一二两三四五六七八])\s*(?:张|寮犱|个|個)/)?.[1];
+  return chineseCount ? chineseNumbers[chineseCount] || fallback : fallback;
+};
+
+const buildAssistantPlaceholderCards = (
+  text: string,
+  forcedMode?: AssistantCardPlacementMode,
+): AssistantCardDraft[] => {
+  const fallbackCount = forcedMode === 'future-targets' ? 3 : 1;
+  const count = parseAssistantRequestedCardCount(text, fallbackCount);
+  const isFutureMode = forcedMode === 'future-targets' || forcedMode === 'bridge-to-target';
+  if (isFutureMode) {
+    return Array.from({ length: count }, () => ({ type: 'story' }));
+  }
+
+  const wantsCharacter = /人物|角色|人设|角色设定|character/i.test(text);
+  const wantsScene = /场景|地点|场设|场景设定|scene|location/i.test(text);
+  const wantsStory = /剧情|故事|后续|续写|分支|story|plot|continue/i.test(text);
+
+  if (wantsCharacter && wantsScene) {
+    const storyCount = wantsStory ? Math.max(1, Math.min(5, count)) : 0;
+    return [
+      { type: 'character' },
+      { type: 'scene' },
+      ...Array.from({ length: storyCount }, () => ({ type: 'story' as const })),
+    ];
+  }
+
+  if (wantsCharacter) return Array.from({ length: count }, () => ({ type: 'character' }));
+  if (wantsScene) return Array.from({ length: count }, () => ({ type: 'scene' }));
+
+  return Array.from({ length: count }, () => ({ type: 'story' }));
+};
+
 interface UseAssistantPanelParams {
   language: Language;
   isMobile: boolean;
@@ -190,7 +216,9 @@ interface UseAssistantPanelParams {
     cards: AssistantCardDraft[],
     mode?: AssistantCardPlacementMode,
     options?: AssistantCardPlacementOptions,
-  ) => AssistantCardPlacementResult;
+  ) => Promise<AssistantCardPlacementResult>;
+  startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
+  stopAgentWaiting?: () => void;
   hasTextApiKey: boolean;
   onMissingTextApiKeyRequest?: () => void;
 }
@@ -243,6 +271,8 @@ export const useAssistantPanel = ({
   nodes,
   callAIForTextResult,
   createAssistantCards,
+  startAgentWaiting,
+  stopAgentWaiting,
   hasTextApiKey,
   onMissingTextApiKeyRequest,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
@@ -806,6 +836,23 @@ ${documentContext || '无'}
 画布摘要：
 ${canvasContext || '无'}`;
 
+      let preparedPlacement: AssistantCardPlacementResult | null = null;
+      if (wantsCards && !fillSelected) {
+        const placeholders = buildAssistantPlaceholderCards(effectiveUserText, forcedMode);
+        if (placeholders.length > 0) {
+          preparedPlacement = await createAssistantCards(
+            placeholders,
+            forcedMode || 'append',
+            placementOptions,
+          );
+          startAgentWaiting?.(
+            'AI Agent 正在生成内容',
+            '卡片已打开，正在等待 AI 返回可填写的文字',
+            preparedPlacement.nodeIds,
+          );
+        }
+      }
+
       try {
         const aiResult = await callAIForTextResult(prompt);
         await playAssistantThought(aiResult.reasoning);
@@ -827,9 +874,17 @@ ${canvasContext || '无'}`;
         const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
-        const placement = shouldPlaceCards
-          ? createAssistantCards(cards, mode, placementOptions)
-          : { count: 0 };
+        if (preparedPlacement?.count && cards.length === 0) {
+          stopAgentWaiting?.();
+        }
+        const placement =
+          shouldPlaceCards && preparedPlacement?.count && cards.length > 0
+            ? await createAssistantCards(cards, 'fill-selected', {
+                targetNodeIds: preparedPlacement.nodeIds,
+              })
+            : shouldPlaceCards
+              ? await createAssistantCards(cards, mode, placementOptions)
+              : { count: 0 };
         const actionText =
           placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
 
@@ -843,6 +898,7 @@ ${canvasContext || '无'}`;
         setAssistantMessages((messages) => [...messages, assistantMessage]);
       } catch (error: any) {
         console.error('AI Assistant failed:', error);
+        stopAgentWaiting?.();
         setAssistantMessages((messages) => [
           ...messages,
           {
@@ -874,6 +930,8 @@ ${canvasContext || '无'}`;
       pushAssistantHistory,
       selectedAssistantTargetNodes,
       setAssistantMessages,
+      startAgentWaiting,
+      stopAgentWaiting,
     ],
   );
 
@@ -978,6 +1036,15 @@ options 必须正好有 3 项。`);
         const context = selectedAssistantTargetNodes
           .map((node) => `${String(node.data?.title || '')}\n${String(node.data?.text || '')}`)
           .join('\n---\n');
+        const preparedPlacement = await createAssistantCards(
+          buildAssistantPlaceholderCards('3 张后续剧情卡片', 'future-targets'),
+          'future-targets',
+        );
+        startAgentWaiting?.(
+          'AI Agent 正在生成未来目标',
+          '后续剧情卡片已打开，正在等待 AI 返回剧情内容',
+          preparedPlacement.nodeIds,
+        );
         const result =
           await callAIForTextResult(`根据当前故事，设计三个差异明显、可以作为长期写作方向的未来目标。
 当前内容：
@@ -990,7 +1057,15 @@ cards 必须正好有 3 张。`);
           cards?: AssistantCardDraft[];
         };
         const cards = (parsed.cards || []).slice(0, 3);
-        const placement = createAssistantCards(cards, 'future-targets');
+        if (preparedPlacement.count > 0 && cards.length === 0) {
+          stopAgentWaiting?.();
+        }
+        const placement =
+          preparedPlacement.count > 0 && cards.length > 0
+            ? await createAssistantCards(cards, 'fill-selected', {
+                targetNodeIds: preparedPlacement.nodeIds,
+              })
+            : await createAssistantCards(cards, 'future-targets');
         const nodeIds = placement.nodeIds || [];
         setAssistantMessages((messages) => [
           ...messages,
@@ -1009,6 +1084,7 @@ cards 必须正好有 3 张。`);
           },
         ]);
       } catch (error: any) {
+        stopAgentWaiting?.();
         setAssistantMessages((messages) => [
           ...messages,
           {
@@ -1029,6 +1105,8 @@ cards 必须正好有 3 张。`);
       onMissingTextApiKeyRequest,
       selectedAssistantTargetNodes,
       setAssistantMessages,
+      startAgentWaiting,
+      stopAgentWaiting,
     ],
   );
 

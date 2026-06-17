@@ -1900,6 +1900,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
       {showTitleOutside && (
         <input
+          data-agent-field="title"
           type="text"
           value={title}
           onChange={(e) => updateNodeData({ title: e.target.value })}
@@ -1918,6 +1919,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       )}
 
       <div
+        data-agent-node-id={id}
         className={`w-full h-full flex flex-col items-center ${
           showTitleInside || imageUrl || videoUrl ? 'justify-start' : 'justify-center'
         } shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${
@@ -1948,6 +1950,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             }}
           >
             <input
+              data-agent-field="title"
               type="text"
               value={title}
               onChange={(e) => updateNodeData({ title: e.target.value })}
@@ -2120,6 +2123,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
           {showRichTextTools && (
             <div
+              data-agent-field="story-text"
               ref={textPanelRef}
               className={`relative z-0 w-full flex flex-col items-center ${
                 isAutoSizeMode || usesPlaytestPresentationLayout
