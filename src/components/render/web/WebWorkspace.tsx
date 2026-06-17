@@ -1,4 +1,4 @@
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import {
   FileText,
@@ -6,6 +6,7 @@ import {
   Gamepad2,
   Eye,
   EyeOff,
+  Info,
   LayoutTemplate,
   Hand,
   MousePointerClick,
@@ -18,7 +19,8 @@ import {
   Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-
+import { useEffect, useState } from 'react';
+ 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
@@ -81,6 +83,19 @@ export function WebWorkspace({
   updateWebRenderStyle,
 }: WebWorkspaceProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
+    return stored === null ? true : stored === 'true';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'galwriter-web-export-setting-descriptions',
+      String(showSettingDescriptions),
+    );
+  }, [showSettingDescriptions]);
 
   return (
     <main className="min-h-0 grid grid-cols-[minmax(0,1fr)_minmax(300px,380px)] bg-[var(--vr-bg)]">
@@ -88,7 +103,7 @@ export function WebWorkspace({
         <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-[var(--vr-border)] px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-            <span className="truncate">测试预览窗口</span>
+            <span className="truncate">{webProjectName || defaultWebProjectName || t('网页标题', 'Webタイトル', 'Web Title')}</span>
           </div>
           <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black text-[var(--vr-text)]">
             网页
@@ -111,13 +126,39 @@ export function WebWorkspace({
       </section>
 
       <aside className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
-        <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
-          <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
-          <span className="truncate">导出设置</span>
+        <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+          <div className="flex min-w-0 items-center gap-2">
+            <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+            <span className="truncate">导出设置</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSettingDescriptions((current) => !current)}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              showSettingDescriptions
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+            }`}
+            title={
+              showSettingDescriptions
+                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
+                : t('显示参数说明', '説明を表示', 'Show descriptions')
+            }
+            aria-label={
+              showSettingDescriptions
+                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
+                : t('显示参数说明', '説明を表示', 'Show descriptions')
+            }
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
-          <WebPanelTitle icon={FileText} title="网页导出设置" />
+          <WebPanelTitle
+            icon={FileText}
+            title="网页导出设置"
+          />
           <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
             <input
               type="text"
@@ -161,7 +202,14 @@ export function WebWorkspace({
           <WebPanelTitle icon={LayoutTemplate} title="网页参数" />
           <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
             <div className="grid grid-cols-3 gap-2">
-              <WebSettingCard icon={LayoutTemplate}>
+              <WebSettingCard
+                icon={LayoutTemplate}
+                description={
+                  showSettingDescriptions
+                    ? t('网页布局', 'Webレイアウト', 'Web layout')
+                    : undefined
+                }
+              >
                 <WebPillToggleGroup
                   value={webSettings.layoutMode}
                   options={[
@@ -173,7 +221,13 @@ export function WebWorkspace({
                   }
                 />
               </WebSettingCard>
-              <WebSettingCard>
+              <WebSettingCard
+                description={
+                  showSettingDescriptions
+                    ? t('选项位置', '選択肢の位置', 'Choice position')
+                    : undefined
+                }
+              >
                 <WebSegmentedGroup
                   value={webSettings.choicesPosition}
                   options={[
@@ -186,7 +240,14 @@ export function WebWorkspace({
                   }
                 />
               </WebSettingCard>
-              <WebSettingCard icon={Sparkles}>
+              <WebSettingCard
+                icon={Sparkles}
+                description={
+                  showSettingDescriptions
+                    ? t('背景虚化', '背景をぼかす', 'Blur background')
+                    : undefined
+                }
+              >
                 <WebPillToggleGroup
                   value={webSettings.blurBackground ? 'on' : 'off'}
                   options={[
@@ -196,7 +257,14 @@ export function WebWorkspace({
                   onChange={(value) => updateWebSettings('blurBackground', value === 'on')}
                 />
               </WebSettingCard>
-              <WebSettingCard icon={SkipForward}>
+              <WebSettingCard
+                icon={SkipForward}
+                description={
+                  showSettingDescriptions
+                    ? t('隐藏单选弹窗', '単一選択のポップアップを隠す', 'Hide single-choice popups')
+                    : undefined
+                }
+              >
                 <WebPillToggleGroup
                   value={webSettings.skipSingleChoicePopup ? 'hide' : 'show'}
                   options={[
@@ -206,7 +274,14 @@ export function WebWorkspace({
                   onChange={(value) => updateWebSettings('skipSingleChoicePopup', value === 'hide')}
                 />
               </WebSettingCard>
-              <WebSettingCard icon={Gamepad2}>
+              <WebSettingCard
+                icon={Gamepad2}
+                description={
+                  showSettingDescriptions
+                    ? t('自动翻页', '自動で進む', 'Auto advance')
+                    : undefined
+                }
+              >
                 <WebPillToggleGroup
                   value={webSettings.autoAdvance ? 'on' : 'off'}
                   options={[
@@ -216,7 +291,14 @@ export function WebWorkspace({
                   onChange={(value) => updateWebSettings('autoAdvance', value === 'on')}
                 />
               </WebSettingCard>
-              <WebSettingCard icon={VideoPointerGlyph}>
+              <WebSettingCard
+                icon={VideoPointerGlyph}
+                description={
+                  showSettingDescriptions
+                    ? t('自动播放视频', '動画を自動再生する', 'Autoplay videos')
+                    : undefined
+                }
+              >
                 <WebPillToggleGroup
                   value={webSettings.videoAutoPlay ? 'auto' : 'manual'}
                   options={[
@@ -233,6 +315,7 @@ export function WebWorkspace({
             language={language}
             renderStyle={webRenderStyle}
             updateRenderStyle={updateWebRenderStyle}
+            showDescriptions={showSettingDescriptions}
           />
 
           {(progress || error) && (
@@ -266,35 +349,51 @@ export function WebWorkspace({
   );
 }
 
-function WebPanelTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
+function WebPanelTitle({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  action?: ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-      <Icon className="h-3.5 w-3.5 text-[var(--vr-accent)]" />
-      <span className="truncate">{title}</span>
+    <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+      <div className="flex min-w-0 items-center gap-2">
+        <Icon className="h-3.5 w-3.5 text-[var(--vr-accent)]" />
+        <span className="truncate">{title}</span>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }
 
 function WebSettingCard({
   icon: Icon,
+  description,
   children,
 }: {
   icon?: LucideIcon;
+  description?: string;
   children: ReactNode;
 }) {
   const hasIcon = Boolean(Icon);
   return (
-    <div
-      className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-        hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
-      }`}
-    >
-      {Icon ? (
-        <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-          <Icon className="h-3.5 w-3.5" />
-        </div>
-      ) : null}
-      <div className="min-w-0">{children}</div>
+    <div className="space-y-1">
+      {description && <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>}
+      <div
+        className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
+          hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+        }`}
+      >
+        {Icon ? (
+          <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
+        <div className="min-w-0">{children}</div>
+      </div>
     </div>
   );
 }
@@ -492,3 +591,5 @@ function SpeedControl({
     </div>
   );
 }
+
+

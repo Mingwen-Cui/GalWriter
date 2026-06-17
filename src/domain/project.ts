@@ -39,6 +39,7 @@ export type StoryCardVisualShape = StoryCardShape | 'trapezoid' | 'hexagon' | 'c
 export type MediaObjectFit = 'cover' | 'contain' | 'fill' | 'playtest';
 export type BatchReplaceScope = 'selected' | 'all' | 'group';
 export type PlotDetailLevel = 'brief' | 'standard' | 'detailed';
+export type PlotStructureGenerateDirection = 'up' | 'down' | 'left' | 'right';
 export type AIActionType =
   | 'continue'
   | 'creative'
@@ -229,6 +230,7 @@ export interface ProjectSettings extends PlaytestSettings {
   characterImageMode: CharacterImageMode;
   hideStoryImageButtonWithTags: boolean;
   sceneImageMode: SceneImageMode;
+  plotStructureGenerateDirection: PlotStructureGenerateDirection;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
   aiButtonsConfig: AIButtonsConfig;
@@ -265,6 +267,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setCharacterImageMode: Dispatch<SetStateAction<CharacterImageMode>>;
   setHideStoryImageButtonWithTags: Dispatch<SetStateAction<boolean>>;
   setSceneImageMode: Dispatch<SetStateAction<SceneImageMode>>;
+  setPlotStructureGenerateDirection: Dispatch<SetStateAction<PlotStructureGenerateDirection>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;

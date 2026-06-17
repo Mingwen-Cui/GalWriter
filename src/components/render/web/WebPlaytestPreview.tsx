@@ -9,7 +9,6 @@ import {
   Play,
   Sparkles,
   RotateCcw,
-  Settings,
   Undo2,
   X,
 } from 'lucide-react';
@@ -89,7 +88,6 @@ export function WebPlaytestPreview({
   const [history, setHistory] = useState<string[]>([]);
   const [animationDone, setAnimationDone] = useState(settings.interactionMode !== 'typewriter');
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
-  const [showPreviewSettings, setShowPreviewSettings] = useState(false);
   const [showAudioPlaylist, setShowAudioPlaylist] = useState(false);
   const [playedAudios, setPlayedAudios] = useState<PlayedAudio[]>([]);
   const [playlistAudioUrl, setPlaylistAudioUrl] = useState<string | null>(null);
@@ -485,7 +483,7 @@ export function WebPlaytestPreview({
   };
 
   const renderPreviewToolbar = (
-    titleText = t('测试预览窗口', 'テストプレビューウィンドウ', 'Test Preview Window'),
+    titleText = projectTitle || t('网页标题', 'Webタイトル', 'Web Title'),
   ) => (
     <div
       className={`relative z-[200] flex h-12 items-center justify-between overflow-visible px-3 transition-opacity ${
@@ -513,7 +511,6 @@ export function WebPlaytestPreview({
             type="button"
             onClick={() => {
               setShowAudioPlaylist((visible) => !visible);
-              setShowPreviewSettings(false);
             }}
             className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
               showAudioPlaylist
@@ -594,37 +591,6 @@ export function WebPlaytestPreview({
                 )}
               </div>
             </div>
-          )}
-        </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setShowPreviewSettings((prev) => !prev);
-              setShowAudioPlaylist(false);
-            }}
-            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
-              showPreviewSettings
-                ? 'bg-white/24 text-white'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-            title={t('预览设置', 'プレビュー設定', 'Preview settings')}
-            aria-label={t('预览设置', 'プレビュー設定', 'Preview settings')}
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-          {showPreviewSettings && (
-            <PreviewSettingsPopover
-              t={t}
-              settings={settings}
-              renderStyle={renderStyle}
-              reset={() => {
-                reset();
-                setShowPreviewSettings(false);
-              }}
-              onUpdateSettings={onUpdateSettings}
-              onUpdateRenderStyle={onUpdateRenderStyle}
-            />
           )}
         </div>
         <button

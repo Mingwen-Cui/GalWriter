@@ -281,7 +281,18 @@ export function VideoExportSettingsPanel({
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
   const [showSolidColorMenu, setShowSolidColorMenu] = useState(false);
   const solidColorEditorRef = useRef<HTMLDivElement | null>(null);
-  const [showSettingDescriptions, setShowSettingDescriptions] = useState(false);
+  const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = window.localStorage.getItem('galwriter-video-export-setting-descriptions');
+    return stored === null ? true : stored === 'true';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'galwriter-video-export-setting-descriptions',
+      String(showSettingDescriptions),
+    );
+  }, [showSettingDescriptions]);
   const activeGradientStop = activeGradientStopId
     ? gradientStops.find((stop) => stop.id === activeGradientStopId)
     : null;
@@ -900,52 +911,46 @@ export function VideoExportSettingsPanel({
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('其他', 'その他', 'Other')}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
-                      {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
-                    </span>
-                    <span className="shrink-0 rounded-md bg-[var(--vr-surface)] px-2 py-0.5 text-[10px] font-black text-[var(--vr-text-soft)]">
-                      {defaultSeconds}s
-                    </span>
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
+                    {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
+                  </span>
+                  <div className="w-16 shrink-0">
+                    <DragSizeControl
+                      label={t(
+                        '左右拖动调整无音频视频长度',
+                        '左右ドラッグで音声なし動画の長さを調整',
+                        'Drag horizontally to adjust no-audio video length',
+                      )}
+                      value={defaultSeconds}
+                      min={1}
+                      max={30}
+                      step={1}
+                      unit="s"
+                      onChange={setDefaultSeconds}
+                    />
                   </div>
-                  <DragSizeControl
-                    label={t(
-                      '左右拖动调整无音频视频长度',
-                      '左右ドラッグで音声なし動画の長さを調整',
-                      'Drag horizontally to adjust no-audio video length',
-                    )}
-                    value={defaultSeconds}
-                    min={1}
-                    max={30}
-                    step={1}
-                    unit="s"
-                    onChange={setDefaultSeconds}
-                  />
                 </div>
-                <div className="space-y-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
-                      {t('提前完成动画', 'アニメーションを早めに完了', 'Finish animation early')}
-                    </span>
-                    <span className="shrink-0 rounded-md bg-[var(--vr-surface)] px-2 py-0.5 text-[10px] font-black text-[var(--vr-text-soft)]">
-                      {Number(animationLeadSeconds).toFixed(1)}s
-                    </span>
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
+                    {t('提前完成动画', 'アニメーションを早めに完了', 'Finish animation early')}
+                  </span>
+                  <div className="w-16 shrink-0">
+                    <DragSizeControl
+                      label={t(
+                        '左右拖动调整动画提前完成时间',
+                        '左右ドラッグでアニメーション完了時間を調整',
+                        'Drag to adjust animation lead time',
+                      )}
+                      value={animationLeadSeconds}
+                      min={0}
+                      max={30}
+                      step={0.1}
+                      unit="s"
+                      onChange={(value) => setAnimationLeadSeconds(value)}
+                    />
                   </div>
-                  <DragSizeControl
-                    label={t(
-                      '左右拖动调整动画提前完成时间',
-                      '左右ドラッグでアニメーション完了時間を調整',
-                      'Drag to adjust animation lead time',
-                    )}
-                    value={animationLeadSeconds}
-                    min={0}
-                    max={30}
-                    step={0.1}
-                    unit="s"
-                    onChange={(value) => setAnimationLeadSeconds(value)}
-                  />
                 </div>
               </div>
             </div>

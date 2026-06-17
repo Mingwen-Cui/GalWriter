@@ -1,6 +1,8 @@
 ﻿import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   BrainCircuit,
   Check,
   Copy,
@@ -21,6 +23,7 @@ import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/edit
 import type {
   CharacterImageMode,
   ImageAIProfile,
+  PlotStructureGenerateDirection,
   SavedAIProfile,
   SceneImageMode,
   StoryTitlePlacement,
@@ -109,6 +112,8 @@ interface SettingsModalProps {
   setHideStoryImageButtonWithTags: (hidden: boolean) => void;
   sceneImageMode: SceneImageMode;
   setSceneImageMode: (mode: SceneImageMode) => void;
+  plotStructureGenerateDirection: PlotStructureGenerateDirection;
+  setPlotStructureGenerateDirection: (direction: PlotStructureGenerateDirection) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -196,6 +201,12 @@ const settingsText = {
     titleInside: '卡片内部',
     titleOutsideLeft: '卡片外部左上角',
     titleOutsideRight: '卡片外部右上角',
+    plotStructureDirection: '剧情结构卡片生成方向',
+    plotStructureDirectionDesc: '一键生成后续剧情时，卡片会朝这个方向延展。',
+    directionUp: '上方',
+    directionDown: '下方',
+    directionLeft: '左侧',
+    directionRight: '右侧',
     interactions: '交互与显示',
     showLastSavedTime: '显示上次保存时间',
     saveAssistantConversations: '保存 AI 助手对话',
@@ -301,6 +312,12 @@ const settingsText = {
     titleInside: 'Inside',
     titleOutsideLeft: 'Outside Top Left',
     titleOutsideRight: 'Outside Top Right',
+    plotStructureDirection: 'Plot Structure Card Direction',
+    plotStructureDirectionDesc: 'Generated story cards extend in this direction.',
+    directionUp: 'Up',
+    directionDown: 'Down',
+    directionLeft: 'Left',
+    directionRight: 'Right',
     interactions: 'Interactions',
     showLastSavedTime: 'Show last saved time',
     saveAssistantConversations: 'Save AI assistant chats',
@@ -410,6 +427,12 @@ const settingsText = {
     titleInside: 'カード内部',
     titleOutsideLeft: 'カードの左上（外部）',
     titleOutsideRight: 'カードの右上（外部）',
+    plotStructureDirection: 'ストーリー構造カードの生成方向',
+    plotStructureDirectionDesc: '後続カードはこの方向へ伸びます。',
+    directionUp: '上',
+    directionDown: '下',
+    directionLeft: '左',
+    directionRight: '右',
     interactions: 'インタラクションと表示',
     showLastSavedTime: '最终保存時間の表示',
     saveAssistantConversations: 'AIアシスタントの会話を保存する',
@@ -561,6 +584,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setHideStoryImageButtonWithTags,
   sceneImageMode,
   setSceneImageMode,
+  plotStructureGenerateDirection,
+  setPlotStructureGenerateDirection,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -1255,6 +1280,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </span>
                         </button>
                       ))}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <div className={settingsRowClass}>
+                      <div className="min-w-0 flex-1">
+                        <h3 className={settingsRowTitleClass}>{s.plotStructureDirection}</h3>
+                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                          {s.plotStructureDirectionDesc}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: 'up', label: s.directionUp, icon: ArrowUp },
+                        { id: 'down', label: s.directionDown, icon: ArrowDown },
+                        { id: 'left', label: s.directionLeft, icon: ArrowLeft },
+                        { id: 'right', label: s.directionRight, icon: ArrowRight },
+                      ].map((item) => {
+                        const selected = plotStructureGenerateDirection === item.id;
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              setPlotStructureGenerateDirection(
+                                item.id as PlotStructureGenerateDirection,
+                              )
+                            }
+                            className={`rounded-xl border p-3 text-left transition-all ${
+                              selected
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
+                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                                  selected
+                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                    : 'border-[var(--header-border)] text-[var(--text-muted)]'
+                                }`}
+                              >
+                                <Icon className="h-3.5 w-3.5" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-black text-[var(--text-primary)]">
+                                  {item.label}
+                                </div>
+                              </div>
+                              <span
+                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                                  selected
+                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                    : 'border-[var(--header-border)] text-transparent'
+                                }`}
+                              >
+                                <Check className="h-3 w-3" />
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </section>
 

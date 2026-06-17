@@ -378,7 +378,10 @@ const applyProjectSettings = (
   defaultPrompts: AIPromptsConfig,
   defaultButtonsConfig: AIButtonsConfig,
 ) => {
-  if (!incomingSettings) return;
+  if (!incomingSettings) {
+    setters.setPlotStructureGenerateDirection('down');
+    return;
+  }
 
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
@@ -432,6 +435,16 @@ const applyProjectSettings = (
     setters.setSceneImageMode(incomingSettings.sceneImageMode);
   } else {
     setters.setSceneImageMode('storyboard-16:9');
+  }
+  if (
+    incomingSettings.plotStructureGenerateDirection === 'up' ||
+    incomingSettings.plotStructureGenerateDirection === 'down' ||
+    incomingSettings.plotStructureGenerateDirection === 'left' ||
+    incomingSettings.plotStructureGenerateDirection === 'right'
+  ) {
+    setters.setPlotStructureGenerateDirection(incomingSettings.plotStructureGenerateDirection);
+  } else {
+    setters.setPlotStructureGenerateDirection('down');
   }
   const shouldUseCustomPrompts =
     Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;

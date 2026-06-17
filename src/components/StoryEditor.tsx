@@ -76,6 +76,7 @@ import type {
   CharacterNodeData,
   SceneNodeData,
   SceneImageMode,
+  PlotStructureGenerateDirection,
   StoryAudioClip,
   StoryTitlePlacement,
   StoryNodeData,
@@ -212,6 +213,61 @@ const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+
+const PLOT_STRUCTURE_DIRECTION_CONFIG: Record<
+  PlotStructureGenerateDirection,
+  {
+    sourceHandle: 'top' | 'right' | 'bottom' | 'left';
+    targetHandle: 'top' | 'right' | 'bottom' | 'left';
+    primaryStep: number;
+    primaryDelta: number;
+    primaryAxis: 'x' | 'y';
+    collisionStep: number;
+    collisionAxis: 'x' | 'y';
+    label: string;
+  }
+> = {
+  right: {
+    sourceHandle: 'right',
+    targetHandle: 'left',
+    primaryStep: 420,
+    primaryDelta: 420,
+    primaryAxis: 'x',
+    collisionStep: 220,
+    collisionAxis: 'y',
+    label: '向右',
+  },
+  left: {
+    sourceHandle: 'left',
+    targetHandle: 'right',
+    primaryStep: 420,
+    primaryDelta: -420,
+    primaryAxis: 'x',
+    collisionStep: 220,
+    collisionAxis: 'y',
+    label: '向左',
+  },
+  down: {
+    sourceHandle: 'bottom',
+    targetHandle: 'top',
+    primaryStep: 320,
+    primaryDelta: 320,
+    primaryAxis: 'y',
+    collisionStep: 420,
+    collisionAxis: 'x',
+    label: '向下',
+  },
+  up: {
+    sourceHandle: 'top',
+    targetHandle: 'bottom',
+    primaryStep: 320,
+    primaryDelta: -320,
+    primaryAxis: 'y',
+    collisionStep: 420,
+    collisionAxis: 'x',
+    label: '向上',
+  },
+};
 
 const buildDefaultTextProfile = (): TextAIProfile => {
   // User-created profiles remain independent from the web-only hosted proxy.
@@ -437,6 +493,8 @@ export function StoryEditor() {
     useState<CharacterImageMode>('transparent-sprite');
   const [hideStoryImageButtonWithTags, setHideStoryImageButtonWithTags] = useState(true);
   const [sceneImageMode, setSceneImageMode] = useState<SceneImageMode>('storyboard-16:9');
+  const [plotStructureGenerateDirection, setPlotStructureGenerateDirection] =
+    useState<PlotStructureGenerateDirection>('down');
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
@@ -941,6 +999,7 @@ export function StoryEditor() {
       characterImageMode,
       hideStoryImageButtonWithTags,
       sceneImageMode,
+      plotStructureGenerateDirection,
       customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
@@ -981,6 +1040,7 @@ export function StoryEditor() {
       characterImageMode,
       hideStoryImageButtonWithTags,
       sceneImageMode,
+      plotStructureGenerateDirection,
       customAiPromptsEnabled,
       edgeStyle,
       generateLength,
@@ -1054,6 +1114,7 @@ export function StoryEditor() {
       setCharacterImageMode,
       setHideStoryImageButtonWithTags,
       setSceneImageMode,
+      setPlotStructureGenerateDirection,
       setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
@@ -3247,6 +3308,8 @@ export function StoryEditor() {
   const handlePlotStructureGenerate = useCallback(
     async (params: PlotStructureGenerateParams) => {
       const { toolNodeId, cardCount, detailLevel, direction, regionStoryNodes, region } = params;
+      const layoutDirection = plotStructureGenerateDirection;
+      const layoutConfig = PLOT_STRUCTURE_DIRECTION_CONFIG[layoutDirection];
 
       if (regionStoryNodes.length === 0) {
         alert('区域内没有找到可续写的剧情卡片');
@@ -3268,6 +3331,9 @@ ${existingContent}
 
 用户希望的后续发展方向：
 ${direction}
+
+剧情卡片生成方向：
+${layoutConfig.label}
 
 请根据上述内容和发展方向，生成 ${cardCount} 张后续剧情卡片。
 详细程度要求：${detailText}
@@ -3297,9 +3363,9 @@ ${direction}
           newEdges.push({
             id: `e-${sourceId}-${newIds[i]}`,
             source: sourceId,
-            sourceHandle: 'right',
+            sourceHandle: layoutConfig.sourceHandle,
             target: newIds[i],
-            targetHandle: 'left',
+            targetHandle: layoutConfig.targetHandle,
             type: 'customEdge',
           });
           sourceId = newIds[i];
@@ -3310,9 +3376,28 @@ ${direction}
           if (!lastNode) return nds;
 
           const srcW = lastNode.measured?.width || (lastNode.style?.width as number) || 300;
+          const srcH = lastNode.measured?.height || (lastNode.style?.height as number) || 200;
+          const cardWidth = 300;
+          const cardHeight = 200;
           const offsetDist = 120;
-          let currentX = lastNode.position.x + srcW + offsetDist;
-          let currentY = lastNode.position.y;
+          const startPosition =
+            layoutConfig.primaryAxis === 'x'
+              ? {
+                  x:
+                    layoutDirection === 'left'
+                      ? lastNode.position.x - cardWidth - offsetDist
+                      : lastNode.position.x + srcW + offsetDist,
+                  y: lastNode.position.y,
+                }
+              : {
+                  x: lastNode.position.x,
+                  y:
+                    layoutDirection === 'up'
+                      ? lastNode.position.y - cardHeight - offsetDist
+                      : lastNode.position.y + srcH + offsetDist,
+                };
+          let currentX = startPosition.x;
+          let currentY = startPosition.y;
 
           const newNodes: Node[] = cards.map((card, index) => {
             const newId = newIds[index];
@@ -3321,7 +3406,11 @@ ${direction}
 
             let attempts = 0;
             while (isOccupied(currentX, currentY) && attempts < 10) {
-              currentY += 220;
+              if (layoutConfig.collisionAxis === 'x') {
+                currentX += layoutConfig.collisionStep;
+              } else {
+                currentY += layoutConfig.collisionStep;
+              }
               attempts++;
             }
 
@@ -3329,7 +3418,7 @@ ${direction}
               id: newId,
               type: 'storyNode',
               position: { x: currentX, y: currentY },
-              style: { width: 300, height: 200 },
+              style: { width: cardWidth, height: cardHeight },
               data: {
                 id: newId,
                 title: card.title,
@@ -3340,7 +3429,11 @@ ${direction}
               } satisfies StoryNodeData,
             };
 
-            currentX += 420;
+            if (layoutConfig.primaryAxis === 'x') {
+              currentX += layoutConfig.primaryDelta;
+            } else {
+              currentY += layoutConfig.primaryDelta;
+            }
             return node;
           });
 
@@ -3376,7 +3469,7 @@ ${direction}
         alert(`剧情生成失败: ${error.message || '请检查 API 密钥和网络连接'}`);
       }
     },
-    [callAIForText, generateLength, setNodes, setEdges],
+    [callAIForText, generateLength, plotStructureGenerateDirection, setNodes, setEdges],
   );
 
   const handleAIAnalyze = useCallback(
@@ -4011,6 +4104,8 @@ ${direction}
           setHideStoryImageButtonWithTags={setHideStoryImageButtonWithTags}
           sceneImageMode={sceneImageMode}
           setSceneImageMode={setSceneImageMode}
+          plotStructureGenerateDirection={plotStructureGenerateDirection}
+          setPlotStructureGenerateDirection={setPlotStructureGenerateDirection}
           customAiPromptsEnabled={customAiPromptsEnabled}
           setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}
