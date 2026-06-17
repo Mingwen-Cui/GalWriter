@@ -358,7 +358,6 @@ export function RenderStyleSettingsSection({
         )}
       </div>,
       disabled,
-      title,
       description,
     );
   };

@@ -27,6 +27,7 @@ export const snapToTimelineClipEdges = ({
   segments,
   snapTime,
   excludedNodeIds,
+  snapToTime,
 }: {
   nodeId: string;
   wantedStart: number;
@@ -36,6 +37,7 @@ export const snapToTimelineClipEdges = ({
   segments: TimelineSegmentMetric[];
   snapTime: (time: number) => number;
   excludedNodeIds?: Iterable<string>;
+  snapToTime?: number;
 }) => {
   if (!enabled) return Math.max(0, wantedStart);
   const gridStart = snapTime(wantedStart);
@@ -50,6 +52,11 @@ export const snapToTimelineClipEdges = ({
       segment.start - duration,
       segment.end - duration,
     ])
+    .concat(
+      typeof snapToTime === 'number'
+        ? [snapToTime, snapToTime - duration]
+        : [],
+    )
     .map((candidate) => Math.max(0, candidate));
   const nearestEdge = candidates.reduce<{ time: number; distance: number } | null>(
     (nearest, candidate) => {

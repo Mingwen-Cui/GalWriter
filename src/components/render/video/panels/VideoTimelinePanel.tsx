@@ -15,7 +15,7 @@ import {
 import { useRef, useState } from 'react';
 
 import { ResizeHandle } from '../controls/RenderControls';
-import { PANEL_SIZE_LIMITS, TIMELINE_LABEL_WIDTH } from '../shared/constants';
+import { TIMELINE_LABEL_WIDTH } from '../shared/constants';
 import { renderCopy } from '../shared/renderCopy';
 import type {
   RenderStatus,
@@ -175,6 +175,8 @@ export function VideoTimelinePanel({
   handleTimelineScaleHandleEnd,
 }: VideoTimelinePanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const TIMELINE_COLLAPSED_HEIGHT = 44;
+  const isCollapsed = timelineHeight <= TIMELINE_COLLAPSED_HEIGHT;
   const selectionDragRef = useRef<{
     startX: number;
     startY: number;
@@ -313,7 +315,7 @@ export function VideoTimelinePanel({
 
   return (
     <section
-      className="relative min-h-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]"
+      className="relative min-h-0 overflow-hidden border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/95 grid grid-rows-[44px_minmax(0,1fr)_24px]"
       onContextMenuCapture={suppressBoxSelectContextMenu}
       onContextMenu={handleTimelinePanelContextMenu}
     >
@@ -326,7 +328,7 @@ export function VideoTimelinePanel({
           )}
           axis="y"
           value={timelineHeight}
-          min={PANEL_SIZE_LIMITS.timeline.min}
+          min={TIMELINE_COLLAPSED_HEIGHT}
           max={timelineMax}
           reverse
           onChange={setTimelineHeight}
@@ -434,7 +436,7 @@ export function VideoTimelinePanel({
       </div>
       <div
         ref={timelineViewportRef}
-        className="min-h-0 overflow-y-auto overflow-x-hidden p-4"
+        className={isCollapsed ? 'hidden' : 'min-h-0 overflow-y-auto overflow-x-hidden p-4'}
         onScroll={syncTimelineScrollInfo}
         onDragOver={(event) => {
           event.preventDefault();
@@ -508,7 +510,7 @@ export function VideoTimelinePanel({
                 style={{ left: timelinePlayheadLeft }}
               />
             </div>
-          </div>
+      </div>
           <div
             className="relative"
             onClickCapture={suppressBoxSelectClick}

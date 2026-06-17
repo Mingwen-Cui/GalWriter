@@ -163,6 +163,7 @@ export type ResizeHandleProps = {
   min: number;
   max: number;
   onChange: (value: number) => void;
+  onDragEnd?: (value: number) => void;
   reverse?: boolean;
 };
 
@@ -173,9 +174,14 @@ export function ResizeHandle({
   min,
   max,
   onChange,
+  onDragEnd,
   reverse,
 }: ResizeHandleProps) {
-  const dragRef = useRef<{ startPosition: number; startValue: number } | null>(null);
+  const dragRef = useRef<{
+    startPosition: number;
+    startValue: number;
+    currentValue: number;
+  } | null>(null);
   const isHorizontal = axis === 'x';
 
   return (
@@ -191,6 +197,7 @@ export function ResizeHandle({
         dragRef.current = {
           startPosition: isHorizontal ? event.clientX : event.clientY,
           startValue: value,
+          currentValue: value,
         };
       }}
       onPointerMove={(event) => {
@@ -198,14 +205,20 @@ export function ResizeHandle({
         if (!drag) return;
         const position = isHorizontal ? event.clientX : event.clientY;
         const delta = (position - drag.startPosition) * (reverse ? -1 : 1);
-        onChange(clamp(Math.round(drag.startValue + delta), min, max));
+        const nextValue = clamp(Math.round(drag.startValue + delta), min, max);
+        drag.currentValue = nextValue;
+        onChange(nextValue);
       }}
       onPointerUp={(event) => {
+        const drag = dragRef.current;
         dragRef.current = null;
         event.currentTarget.releasePointerCapture(event.pointerId);
+        if (drag && onDragEnd) onDragEnd(drag.currentValue);
       }}
       onPointerCancel={() => {
+        const drag = dragRef.current;
         dragRef.current = null;
+        if (drag && onDragEnd) onDragEnd(drag.currentValue);
       }}
       onKeyDown={(event) => {
         if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;

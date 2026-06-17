@@ -494,7 +494,7 @@ export function VideoExportSettingsPanel({
       <div className={`space-y-2 rounded-xl p-2 ${toneClass}`}>
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1">
-            {showDescriptions && (
+            {showSettingDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
                 {isTitle ? t('标题隐藏', 'タイトルを非表示', 'Title hidden') : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
               </div>
@@ -625,7 +625,7 @@ export function VideoExportSettingsPanel({
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1">
-            {showDescriptions && (
+            {showSettingDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
                 {t('文字对齐', '文字揃え', 'Text align')}
               </div>
@@ -680,7 +680,7 @@ export function VideoExportSettingsPanel({
 
   return (
     <aside
-      className="min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0"
+      className="ml-auto min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0 overflow-hidden"
       style={{ width: exportPanelWidth }}
     >
       <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
@@ -692,7 +692,7 @@ export function VideoExportSettingsPanel({
             onClick={() => setShowSettingDescriptions((current) => !current)}
             className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
               showSettingDescriptions
-                ? 'bg-[var(--vr-accent)] text-white'
+                ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
                 : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
             }`}
             title={

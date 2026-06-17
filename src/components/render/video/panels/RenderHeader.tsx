@@ -6,6 +6,8 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  PanelLeftClose,
+  PanelRightClose,
   Redo2,
   Undo2,
   X,
@@ -20,6 +22,8 @@ type RenderHeaderProps = {
   workspaceMode: RenderWorkspaceMode;
   status: RenderStatus;
   isFullscreen: boolean;
+  assetPanelCollapsed: boolean;
+  exportPanelCollapsed: boolean;
   timelinePast: unknown[];
   timelineFuture: unknown[];
   webPast: unknown[];
@@ -31,6 +35,8 @@ type RenderHeaderProps = {
   setProgress: (value: string) => void;
   setSavedPath: (value: string) => void;
   toggleFullscreen: () => void;
+  toggleAssetPanel: () => void;
+  toggleExportPanel: () => void;
   undoTimeline: () => void;
   redoTimeline: () => void;
   undoWeb: () => void;
@@ -45,6 +51,8 @@ export function RenderHeader({
   workspaceMode,
   status,
   isFullscreen,
+  assetPanelCollapsed,
+  exportPanelCollapsed,
   timelinePast,
   timelineFuture,
   webPast,
@@ -56,6 +64,8 @@ export function RenderHeader({
   setProgress,
   setSavedPath,
   toggleFullscreen,
+  toggleAssetPanel,
+  toggleExportPanel,
   undoTimeline,
   redoTimeline,
   undoWeb,
@@ -73,9 +83,7 @@ export function RenderHeader({
         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]">
           <Film className="h-5 w-5" />
         </div>
-        <h2 className="truncate text-sm font-black">
-          {t('渲染剧本', 'スクリプトを書き出し', 'Render Script')}
-        </h2>
+        <h2 className="truncate text-sm font-black">渲染脚本</h2>
         <div className="flex h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
           {(['video', 'web'] as RenderWorkspaceMode[]).map((mode) => (
             <button
@@ -94,44 +102,48 @@ export function RenderHeader({
                   : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
               }`}
               aria-pressed={workspaceMode === mode}
-              title={
-                mode === 'video'
-                  ? t('切换到视频导出', '動画書き出しに切り替え', 'Switch to video export')
-                  : t('切换到网页导出', 'Web書き出しに切り替え', 'Switch to web export')
-              }
+              title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
             >
-              {mode === 'video' ? (
-                <Film className="h-3.5 w-3.5" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
-              )}
-              {mode === 'video' ? t('视频', '動画', 'Video') : t('网页', 'Web', 'Web')}
+              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+              {mode === 'video' ? '视频' : '网页'}
             </button>
           ))}
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-        title={
-          isFullscreen
-            ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
-            : t('全屏', '全画面', 'Fullscreen')
-        }
-        aria-label={
-          isFullscreen
-            ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
-            : t('全屏', '全画面', 'Fullscreen')
-        }
-      >
-        {isFullscreen ? (
-          <Minimize2 className="mx-auto h-4 w-4" />
-        ) : (
-          <Maximize2 className="mx-auto h-4 w-4" />
-        )}
-      </button>
+      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1">
+        {assetPanelCollapsed ? (
+          <button
+            type="button"
+            onClick={toggleAssetPanel}
+            className="h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+            title="显示素材栏"
+            aria-label="显示素材栏"
+          >
+            <PanelLeftClose className="mx-auto h-4 w-4" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+          title={isFullscreen ? '退出全屏' : '全屏'}
+          aria-label={isFullscreen ? '退出全屏' : '全屏'}
+        >
+          {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
+        </button>
+        {exportPanelCollapsed ? (
+          <button
+            type="button"
+            onClick={toggleExportPanel}
+            className="h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+            title="显示导出设置"
+            aria-label="显示导出设置"
+          >
+            <PanelRightClose className="mx-auto h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
 
       <div className="flex items-center gap-2">
         {workspaceMode === 'video' && (
@@ -141,11 +153,7 @@ export function RenderHeader({
               onClick={undoTimeline}
               disabled={timelinePast.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t(
-                '撤销视频渲染操作',
-                '動画書き出し操作を元に戻す',
-                'Undo render workspace change',
-              )}
+              title="撤销渲染工作区更改"
             >
               <Undo2 className="h-4 w-4" />
             </button>
@@ -154,11 +162,7 @@ export function RenderHeader({
               onClick={redoTimeline}
               disabled={timelineFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t(
-                '重做视频渲染操作',
-                '動画書き出し操作をやり直す',
-                'Redo render workspace change',
-              )}
+              title="重做渲染工作区更改"
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -171,7 +175,7 @@ export function RenderHeader({
               onClick={undoWeb}
               disabled={webPast.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t('撤销网页页面设置', 'Webページ設定を元に戻す', 'Undo web page change')}
+              title="撤销网页更改"
             >
               <Undo2 className="h-4 w-4" />
             </button>
@@ -180,7 +184,7 @@ export function RenderHeader({
               onClick={redoWeb}
               disabled={webFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
-              title={t('重做网页页面设置', 'Webページ設定をやり直す', 'Redo web page change')}
+              title="重做网页更改"
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -196,30 +200,15 @@ export function RenderHeader({
               nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
           }
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
-          title={
-            workspaceMode === 'web'
-              ? t('导出网页 ZIP', 'Web ZIPを書き出し', 'Export Web ZIP')
-              : t('一键导出视频', '動画を書き出し', 'Export Video')
-          }
         >
-          {isRendering ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">
-            {isRendering
-              ? t('渲染中...', '書き出し中...', 'Rendering...')
-              : workspaceMode === 'web'
-                ? t('导出网页', 'Webを書き出し', 'Export Web')
-                : t('导出视频', '動画を書き出し', 'Export Video')}
-          </span>
+          {isRendering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>
         </button>
         <button
           type="button"
           onClick={onClose}
           className="rounded-lg p-2 text-[var(--vr-text-muted)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
-          title={t('关闭', '閉じる', 'Close')}
+          title="关闭"
         >
           <X className="h-5 w-5" />
         </button>

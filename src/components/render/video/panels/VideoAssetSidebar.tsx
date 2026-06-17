@@ -206,7 +206,7 @@ export function VideoAssetSidebar({
 
   return (
     <aside
-      className="min-h-0 border-r border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0"
+      className="min-h-0 border-r border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0 overflow-hidden"
       style={{ width: assetPanelWidth }}
       onDragOver={handleAssetFileDragOver}
       onDrop={handleAssetFileDrop}

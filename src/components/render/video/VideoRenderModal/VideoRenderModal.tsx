@@ -1,4 +1,4 @@
-import type { Node as FlowNode } from '@xyflow/react';
+﻿import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
@@ -250,14 +250,14 @@ export function VideoRenderModal({
     clampPersistedNumber(
       persistedWorkspace?.assetPanelWidth,
       320,
-      PANEL_SIZE_LIMITS.asset.min,
+      0,
       PANEL_SIZE_LIMITS.asset.max,
     ),
   );
   const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>(() =>
     isAssetCardLayout(persistedWorkspace?.assetCardLayout)
       ? persistedWorkspace.assetCardLayout
-      : 'row',
+      : 'grid',
   );
   const [assetCardScale, setAssetCardScale] = useState(() =>
     clampPersistedNumber(
@@ -271,7 +271,7 @@ export function VideoRenderModal({
     clampPersistedNumber(
       persistedWorkspace?.exportPanelWidth,
       380,
-      PANEL_SIZE_LIMITS.export.min,
+      0,
       PANEL_SIZE_LIMITS.export.max,
     ),
   );
@@ -280,14 +280,16 @@ export function VideoRenderModal({
       ? persistedWorkspace.exportSettingsMode
       : 'video',
   );
-  const [timelineHeight, setTimelineHeight] = useState(() =>
-    clampPersistedNumber(
+  const TIMELINE_COLLAPSED_HEIGHT = 44;
+  const [timelineHeight, setTimelineHeight] = useState(() => {
+    const persistedHeight = clampPersistedNumber(
       persistedWorkspace?.timelineHeight,
       250,
-      PANEL_SIZE_LIMITS.timeline.min,
+      TIMELINE_COLLAPSED_HEIGHT,
       PANEL_SIZE_LIMITS.timeline.max,
-    ),
-  );
+    );
+    return persistedHeight < TIMELINE_COLLAPSED_HEIGHT ? TIMELINE_COLLAPSED_HEIGHT : persistedHeight;
+  });
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>(() =>
     isTimelineScaleMode(persistedWorkspace?.timelineScaleMode)
       ? persistedWorkspace.timelineScaleMode
@@ -349,6 +351,8 @@ export function VideoRenderModal({
   const [savedPath, setSavedPath] = useState('');
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const assetPanelLastWidthRef = useRef(assetPanelWidth || 320);
+  const exportPanelLastWidthRef = useRef(exportPanelWidth || 380);
   const assetUploadInputRef = useRef<HTMLInputElement>(null);
   const preservePreviewTimeOnNodeChangeRef = useRef(false);
   const timelineClipCounterRef = useRef(0);
@@ -443,9 +447,53 @@ export function VideoRenderModal({
     Math.min(PANEL_SIZE_LIMITS.export.max, viewportWidth - assetPanelWidth - MIN_PREVIEW_WIDTH),
   );
   const timelineMax = Math.max(
-    PANEL_SIZE_LIMITS.timeline.min,
+    HEADER_HEIGHT,
     Math.min(PANEL_SIZE_LIMITS.timeline.max, viewportHeight - HEADER_HEIGHT - MIN_MAIN_HEIGHT),
   );
+  const assetPanelCollapsed = assetPanelWidth === 0;
+  const exportPanelCollapsed = exportPanelWidth === 0;
+  const setAssetPanelWidthInteractive = (nextWidth: number) => {
+    const clamped = clamp(nextWidth, PANEL_SIZE_LIMITS.asset.min, assetPanelMax);
+    assetPanelLastWidthRef.current = clamped;
+    setAssetPanelWidth(clamped);
+  };
+  const commitAssetPanelWidth = (nextWidth: number) => {
+    if (nextWidth <= PANEL_SIZE_LIMITS.asset.min) {
+      setAssetPanelWidth(0);
+      return;
+    }
+    const clamped = clamp(nextWidth, PANEL_SIZE_LIMITS.asset.min, assetPanelMax);
+    assetPanelLastWidthRef.current = clamped;
+    setAssetPanelWidth(clamped);
+  };
+  const setExportPanelWidthInteractive = (nextWidth: number) => {
+    const clamped = clamp(nextWidth, PANEL_SIZE_LIMITS.export.min, exportPanelMax);
+    exportPanelLastWidthRef.current = clamped;
+    setExportPanelWidth(clamped);
+  };
+  const commitExportPanelWidth = (nextWidth: number) => {
+    if (nextWidth <= PANEL_SIZE_LIMITS.export.min) {
+      setExportPanelWidth(0);
+      return;
+    }
+    const clamped = clamp(nextWidth, PANEL_SIZE_LIMITS.export.min, exportPanelMax);
+    exportPanelLastWidthRef.current = clamped;
+    setExportPanelWidth(clamped);
+  };
+  const toggleAssetPanel = () => {
+    setAssetPanelWidth((prev) => {
+      if (prev === 0) return clamp(assetPanelLastWidthRef.current || 320, PANEL_SIZE_LIMITS.asset.min, assetPanelMax);
+      assetPanelLastWidthRef.current = prev;
+      return 0;
+    });
+  };
+  const toggleExportPanel = () => {
+    setExportPanelWidth((prev) => {
+      if (prev === 0) return clamp(exportPanelLastWidthRef.current || 380, PANEL_SIZE_LIMITS.export.min, exportPanelMax);
+      exportPanelLastWidthRef.current = prev;
+      return 0;
+    });
+  };
   const nodeRegionById = useMemo(() => {
     const entries = orderedNodes.map((node) => [node.id, getStoryNodeRegion(node, nodes)] as const);
     return new Map(entries);
@@ -746,7 +794,7 @@ export function VideoRenderModal({
   };
 
   const chooseOutputDir = async () => {
-    // NOTE: Tauri 端使用原生文件夹选择器，Web 端使用 showDirectoryPicker API（需要 HTTPS / localhost）
+    // NOTE: Tauri uses the native folder picker; web uses showDirectoryPicker on HTTPS/localhost.
     if (isTauriRuntime()) {
       try {
         setOutputDirError('');
@@ -768,17 +816,17 @@ export function VideoRenderModal({
       return;
     }
 
-    // Web 端：尝试使用 File System Access API
+    // Web fallback: try the File System Access API.
     if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) {
       try {
         setOutputDirError('');
-        // @ts-ignore — showDirectoryPicker 在标准 TS lib 中可能未包含
+        // @ts-ignore showDirectoryPicker may not exist in the bundled TS lib.
         const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
         setOutputDir(handle.name);
         setOutputDirError('');
         setError('');
       } catch (err) {
-        // 用户取消选择时忽略
+        // Ignore user cancellation.
         if (err instanceof Error && err.name !== 'AbortError') {
           setOutputDirError(
             isZh ? '选择保存位置失败。' : 'Failed to choose save location.',
@@ -788,12 +836,8 @@ export function VideoRenderModal({
       return;
     }
 
-    // 降级：提示用户手动输入路径
-    setOutputDirError(
-      isZh
-        ? '请手动输入保存路径。'
-        : 'Please type the save path manually.',
-    );
+    // Fallback: ask the user to type the path manually.
+    setOutputDirError(isZh ? '请手动输入保存路径。' : 'Please type the save path manually.');
   };
 
   const chooseWebOutputDir = async () => {
@@ -948,6 +992,7 @@ export function VideoRenderModal({
       segments: timelineMetrics.segments,
       snapTime: snapTimelineTime,
       excludedNodeIds,
+      snapToTime: activeTimelineTime,
     });
 
   const findNonOverlappingTrackStart = (
@@ -1225,15 +1270,15 @@ export function VideoRenderModal({
   }, [timelineMetrics.totalDuration]);
 
   React.useEffect(() => {
-    setAssetPanelWidth((prev) => clamp(prev, PANEL_SIZE_LIMITS.asset.min, assetPanelMax));
+    setAssetPanelWidth((prev) => (prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.asset.min, assetPanelMax)));
   }, [assetPanelMax]);
 
   React.useEffect(() => {
-    setExportPanelWidth((prev) => clamp(prev, PANEL_SIZE_LIMITS.export.min, exportPanelMax));
+    setExportPanelWidth((prev) => (prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.export.min, exportPanelMax)));
   }, [exportPanelMax]);
 
   React.useEffect(() => {
-    setTimelineHeight((prev) => clamp(prev, PANEL_SIZE_LIMITS.timeline.min, timelineMax));
+    setTimelineHeight((prev) => clamp(prev, TIMELINE_COLLAPSED_HEIGHT, timelineMax));
   }, [timelineMax]);
 
   React.useEffect(() => {
@@ -1567,7 +1612,7 @@ export function VideoRenderModal({
     setProgressValue(percent);
   };
 
-  // renderStaticFramesWithFfmpeg 和 ensureFfmpegForDesktopTranscode 已移除，
+  // renderStaticFramesWithFfmpeg �?ensureFfmpegForDesktopTranscode 已移除，
   // 统一使用 mediabunny 浏览器内编码
 
   const { drawFrame } = usePreviewRenderer({
@@ -1770,6 +1815,8 @@ export function VideoRenderModal({
           workspaceMode={workspaceMode}
           status={status}
           isFullscreen={isFullscreen}
+          assetPanelCollapsed={assetPanelCollapsed}
+          exportPanelCollapsed={exportPanelCollapsed}
           timelinePast={timelinePast}
           timelineFuture={timelineFuture}
           webPast={webPast}
@@ -1784,6 +1831,8 @@ export function VideoRenderModal({
           setProgress={setProgress}
           setSavedPath={setSavedPath}
           toggleFullscreen={toggleFullscreen}
+          toggleAssetPanel={toggleAssetPanel}
+          toggleExportPanel={toggleExportPanel}
           undoTimeline={undoTimeline}
           redoTimeline={redoTimeline}
           undoWeb={undoWeb}
@@ -1795,10 +1844,10 @@ export function VideoRenderModal({
 
         {workspaceMode === 'video' ? (
           <>
-            <main className="min-h-0 flex bg-[var(--vr-bg)]">
+            <main className="min-h-0 min-w-0 flex overflow-hidden bg-[var(--vr-bg)]">
               <VideoAssetSidebar
                 language={language}
-                assetPanelWidth={assetPanelWidth}
+                assetPanelWidth={assetPanelCollapsed ? 0 : assetPanelWidth}
                 assetCardLayout={assetCardLayout}
                 assetCardScale={assetCardScale}
                 assetRegionFilter={assetRegionFilter}
@@ -1839,20 +1888,22 @@ export function VideoRenderModal({
                 handleAssetScaleHandleMove={handleAssetScaleHandleMove}
                 handleAssetScaleHandleEnd={handleAssetScaleHandleEnd}
               />
-
-              <ResizeHandle
-                label={renderCopy(
-                  language,
-                  '调整素材卡片宽度',
-                  '素材カードの幅を調整',
-                  'Resize asset cards',
-                )}
-                axis="x"
-                value={assetPanelWidth}
-                min={PANEL_SIZE_LIMITS.asset.min}
-                max={assetPanelMax}
-                onChange={setAssetPanelWidth}
-              />
+              {!assetPanelCollapsed && (
+                <ResizeHandle
+                  label={renderCopy(
+                    language,
+                    '调整素材栏宽度',
+                    '素材欄の幅を調整',
+                    'Resize asset panel',
+                  )}
+                  axis="x"
+                  value={assetPanelWidth}
+                  min={0}
+                  max={assetPanelMax}
+                  onChange={setAssetPanelWidthInteractive}
+                  onDragEnd={commitAssetPanelWidth}
+                />
+              )}
 
               <VideoPreviewPanel
                 language={language}
@@ -1880,24 +1931,26 @@ export function VideoRenderModal({
                 openContextMenu={openContextMenu}
               />
 
-              <ResizeHandle
-                label={renderCopy(
-                  language,
-                  '调整导出设置宽度',
-                  '書き出し設定の幅を調整',
-                  'Resize export settings',
-                )}
-                axis="x"
-                value={exportPanelWidth}
-                min={PANEL_SIZE_LIMITS.export.min}
-                max={exportPanelMax}
-                reverse
-                onChange={setExportPanelWidth}
-              />
-
-              <VideoExportSettingsPanel
+              {!exportPanelCollapsed && (
+                <ResizeHandle
+                  label={renderCopy(
+                    language,
+                    '调整导出设置宽度',
+                    '書き出し設定の幅を調整',
+                    'Resize export settings',
+                  )}
+                  axis="x"
+                  value={exportPanelWidth}
+                  min={0}
+                  max={exportPanelMax}
+                  reverse
+                  onChange={setExportPanelWidthInteractive}
+                  onDragEnd={commitExportPanelWidth}
+                />
+              )}
+<VideoExportSettingsPanel
                 language={language}
-                exportPanelWidth={exportPanelWidth}
+                exportPanelWidth={exportPanelCollapsed ? 0 : exportPanelWidth}
                 exportSettingsMode={exportSettingsMode}
                 setExportSettingsMode={setExportSettingsMode}
                 status={status}
@@ -2078,3 +2131,5 @@ export function VideoRenderModal({
     </div>
   );
 }
+
+

@@ -136,7 +136,7 @@ export function WebWorkspace({
             onClick={() => setShowSettingDescriptions((current) => !current)}
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
               showSettingDescriptions
-                ? 'bg-[var(--vr-accent)] text-white'
+                ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
                 : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
             }`}
             title={
@@ -292,7 +292,7 @@ export function WebWorkspace({
                 />
               </WebSettingCard>
               <WebSettingCard
-                icon={VideoPointerGlyph}
+                icon={Video}
                 description={
                   showSettingDescriptions
                     ? t('自动播放视频', '動画を自動再生する', 'Autoplay videos')
