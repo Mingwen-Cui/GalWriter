@@ -71,8 +71,6 @@ export const findNonOverlappingTrackStart = ({
   segments,
   videoTrackByNodeId,
   audioTrackByNodeId,
-  videoTrackIds,
-  audioTrackIds,
   snapToEdges,
   snapTime,
 }: {
@@ -84,18 +82,15 @@ export const findNonOverlappingTrackStart = ({
   segments: TimelineSegmentMetric[];
   videoTrackByNodeId: Record<string, string>;
   audioTrackByNodeId: Record<string, string>;
-  videoTrackIds: string[];
-  audioTrackIds: string[];
   snapToEdges: (nodeId: string, wantedStart: number, duration: number) => number;
   snapTime: (time: number) => number;
 }) => {
   const assignedTrackByNodeId = trackKind === 'video' ? videoTrackByNodeId : audioTrackByNodeId;
-  const fallbackTrackId = trackKind === 'video' ? videoTrackIds[0] : audioTrackIds[0];
   const siblings = segments
     .filter(
       (segment) =>
         segment.node.id !== nodeId &&
-        (assignedTrackByNodeId[segment.node.id] || fallbackTrackId) === trackId,
+        assignedTrackByNodeId[segment.node.id] === trackId,
     )
     .sort((a, b) => a.start - b.start);
   let nextStart = snapToEdges(nodeId, wantedStart, duration);
@@ -120,7 +115,6 @@ export const hasTrackSpace = ({
   trackId,
   segments,
   trackByNodeId,
-  fallbackTrackId,
 }: {
   nodeId: string;
   start: number;
@@ -128,12 +122,11 @@ export const hasTrackSpace = ({
   trackId: string;
   segments: TimelineSegmentMetric[];
   trackByNodeId: Record<string, string>;
-  fallbackTrackId?: string;
 }) =>
   !segments.some(
     (segment) =>
       segment.node.id !== nodeId &&
-      (trackByNodeId[segment.node.id] || fallbackTrackId) === trackId &&
+      trackByNodeId[segment.node.id] === trackId &&
       start < segment.end - 0.001 &&
       start + duration > segment.start + 0.001,
   );

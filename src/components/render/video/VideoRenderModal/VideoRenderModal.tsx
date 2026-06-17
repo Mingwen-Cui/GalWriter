@@ -966,8 +966,6 @@ export function VideoRenderModal({
       segments: timelineMetrics.segments,
       videoTrackByNodeId,
       audioTrackByNodeId,
-      videoTrackIds,
-      audioTrackIds,
       snapToEdges: snapToTimelineClipEdges,
       snapTime: snapTimelineTime,
     });
@@ -981,7 +979,6 @@ export function VideoRenderModal({
       trackId,
       segments: timelineMetrics.segments,
       trackByNodeId: audioTrackByNodeId,
-      fallbackTrackId: audioTrackIds[0],
     });
 
   const getAudioDropTrackId = (
