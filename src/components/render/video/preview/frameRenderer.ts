@@ -3,7 +3,8 @@ import { animatedTextState } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
-import type { RenderStyle } from '../shared/types';
+import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
+import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 
 type DrawRenderFrameInput = {
   ctx: CanvasRenderingContext2D;
@@ -11,6 +12,7 @@ type DrawRenderFrameInput = {
   width: number;
   height: number;
   renderStyle: RenderStyle;
+  videoTextScaleMode: VideoTextScaleMode;
   animationLeadSeconds: number;
   isZh: boolean;
   media?: { source: CanvasImageSource; width: number; height: number };
@@ -73,6 +75,7 @@ export const drawRenderFrame = async ({
   width,
   height,
   renderStyle,
+  videoTextScaleMode,
   animationLeadSeconds,
   isZh,
   media,
@@ -88,24 +91,25 @@ export const drawRenderFrame = async ({
     filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
   );
   await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
+  const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
 
-  const dialogLayout = await drawDialogueBox(ctx, width, height, renderStyle);
+  const dialogLayout = await drawDialogueBox(ctx, width, height, videoRenderStyle);
   const paddingX = dialogLayout.paddingX ?? dialogLayout.padding;
   const paddingY = dialogLayout.paddingY ?? dialogLayout.padding;
   const margin = dialogLayout.x + paddingX;
-  const titleSize = Math.max(18, renderStyle.titleFontSize);
-  const bodySize = Math.max(16, renderStyle.bodyFontSize);
-  const titleLineHeight = Math.round(titleSize * Math.max(0.8, renderStyle.titleLineHeight));
-  const bodyLineHeight = Math.round(bodySize * Math.max(0.8, renderStyle.bodyLineHeight));
+  const titleSize = Math.max(18, videoRenderStyle.titleFontSize);
+  const bodySize = Math.max(16, videoRenderStyle.bodyFontSize);
+  const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
+  const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
   const maxTextWidth = dialogLayout.width - paddingX * 2;
   const textLeft = margin;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;
 
-  ctx.font = `800 ${titleSize}px ${renderStyle.titleFontFamily}`;
-  const titleLines = renderStyle.titleVisible
+  ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
+  const titleLines = videoRenderStyle.titleVisible
     ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
     : [];
-  ctx.font = `500 ${bodySize}px ${renderStyle.bodyFontFamily}`;
+  ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
   const textHeight =
     titleLines.length * titleLineHeight +
@@ -115,15 +119,15 @@ export const drawRenderFrame = async ({
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
   ctx.shadowBlur = 12;
-  ctx.font = `800 ${titleSize}px ${renderStyle.titleFontFamily}`;
+  ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   const titleState = animatedTextState(
-    renderStyle.titleAnimation,
+    videoRenderStyle.titleAnimation,
     titleLines,
-    renderStyle.titleAnimationLeadSeconds ?? animationLeadSeconds,
+    videoRenderStyle.titleAnimationLeadSeconds ?? animationLeadSeconds,
     elapsed,
     duration,
     forceFinalText,
-    renderStyle.titleTypewriterMode,
+    videoRenderStyle.titleTypewriterMode,
   );
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
@@ -131,14 +135,14 @@ export const drawRenderFrame = async ({
     drawStyledLine(
       ctx,
       line,
-      textX(renderStyle.titleAlign, textLeft, textRight),
+      textX(videoRenderStyle.titleAlign, textLeft, textRight),
       y + titleState.offsetY,
       {
-        align: renderStyle.titleAlign,
-        fillColor: colorWithAlpha(renderStyle.titleColor, renderStyle.titleColorAlpha),
-        strokeColor: renderStyle.titleStrokeColor,
-        strokeWidth: renderStyle.titleStrokeWidth,
-        letterSpacing: renderStyle.titleLetterSpacing,
+        align: videoRenderStyle.titleAlign,
+        fillColor: colorWithAlpha(videoRenderStyle.titleColor, videoRenderStyle.titleColorAlpha),
+        strokeColor: videoRenderStyle.titleStrokeColor,
+        strokeWidth: videoRenderStyle.titleStrokeWidth,
+        letterSpacing: videoRenderStyle.titleLetterSpacing,
       },
     );
     y += titleLineHeight;
@@ -146,15 +150,15 @@ export const drawRenderFrame = async ({
   ctx.restore();
 
   if (bodyLines.length) y += Math.round(bodySize * 0.6);
-  ctx.font = `500 ${bodySize}px ${renderStyle.bodyFontFamily}`;
+  ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const bodyState = animatedTextState(
-    renderStyle.bodyAnimation,
+    videoRenderStyle.bodyAnimation,
     bodyLines,
-    renderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+    videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
     elapsed,
     duration,
     forceFinalText,
-    renderStyle.bodyTypewriterMode,
+    videoRenderStyle.bodyTypewriterMode,
   );
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
@@ -162,14 +166,14 @@ export const drawRenderFrame = async ({
     drawStyledLine(
       ctx,
       line,
-      textX(renderStyle.bodyAlign, textLeft, textRight),
+      textX(videoRenderStyle.bodyAlign, textLeft, textRight),
       y + bodyState.offsetY,
       {
-        align: renderStyle.bodyAlign,
-        fillColor: colorWithAlpha(renderStyle.bodyColor, renderStyle.bodyColorAlpha),
-        strokeColor: renderStyle.bodyStrokeColor,
-        strokeWidth: renderStyle.bodyStrokeWidth,
-        letterSpacing: renderStyle.bodyLetterSpacing,
+        align: videoRenderStyle.bodyAlign,
+        fillColor: colorWithAlpha(videoRenderStyle.bodyColor, videoRenderStyle.bodyColorAlpha),
+        strokeColor: videoRenderStyle.bodyStrokeColor,
+        strokeWidth: videoRenderStyle.bodyStrokeWidth,
+        letterSpacing: videoRenderStyle.bodyLetterSpacing,
       },
     );
     y += bodyLineHeight;

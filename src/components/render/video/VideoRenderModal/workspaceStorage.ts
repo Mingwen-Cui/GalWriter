@@ -7,6 +7,7 @@ import type {
   RenderWorkspaceMode,
   TimelineScaleMode,
   TimelineWheelMode,
+  VideoTextScaleMode,
   WebExportSettings,
   WebHistoryState,
 } from '../shared/types';
@@ -85,6 +86,7 @@ export type PersistedRenderWorkspaceState = {
   defaultSeconds?: number;
   animationLeadSeconds?: number;
   frameRate?: number;
+  videoTextScaleMode?: VideoTextScaleMode;
   outputDir?: string;
   webOutputDir?: string;
   renderStyle?: Partial<RenderStyle>;
@@ -166,3 +168,6 @@ export const isTimelineScaleMode = (value: unknown): value is TimelineScaleMode 
 
 export const isTimelineWheelMode = (value: unknown): value is TimelineWheelMode =>
   value === 'horizontal' || value === 'vertical';
+
+export const isVideoTextScaleMode = (value: unknown): value is VideoTextScaleMode =>
+  value === 'literal' || value === 'webRatio';

@@ -45,6 +45,7 @@ import type {
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
+  VideoTextScaleMode,
   VideoRenderModalProps,
 } from '../shared/types';
 import {
@@ -53,7 +54,6 @@ import {
 } from '../timeline/timelineHistory';
 import { getTimelineTickSettings } from '../timeline/timelineUtils';
 import {
-  DEFAULT_RENDER_STYLE,
   DESKTOP_RELEASE_URL,
   clampPersistedNumber,
   isAssetCardLayout,
@@ -62,6 +62,7 @@ import {
   isRenderWorkspaceMode,
   isTimelineScaleMode,
   isTimelineWheelMode,
+  isVideoTextScaleMode,
   readRenderWorkspaceState,
   type PersistedRenderWorkspaceState,
   writeRenderWorkspaceState,
@@ -106,6 +107,8 @@ export function VideoRenderModal({
   onClose,
   language,
   workspaceKey,
+  renderStyle,
+  updateRenderStyle,
   voiceTtsConfig,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
@@ -128,13 +131,11 @@ export function VideoRenderModal({
     webChoiceColor,
     webChoiceTextColor,
     webSettings,
-    webRenderStyle,
     webPast,
     webFuture,
     undoWeb,
     redoWeb,
     updateWebSettings,
-    updateWebRenderStyle,
     updateWebChoiceColor,
     updateWebChoiceTextColor,
   } = useWebExportSettings(defaultWebProjectName, status === 'rendering', {
@@ -142,7 +143,7 @@ export function VideoRenderModal({
     choiceColor: persistedWorkspace?.webChoiceColor,
     choiceTextColor: persistedWorkspace?.webChoiceTextColor,
     settings: persistedWorkspace?.webSettings,
-    renderStyle: persistedWorkspace?.webRenderStyle,
+    renderStyle,
     past: persistedWorkspace?.webPast,
     future: persistedWorkspace?.webFuture,
   });
@@ -191,7 +192,7 @@ export function VideoRenderModal({
     () => persistedWorkspace?.assetRegionFilter || 'all',
   );
   const [resolutionIndex, setResolutionIndex] = useState(() =>
-    clampPersistedNumber(persistedWorkspace?.resolutionIndex, 0, -1, RESOLUTION_OPTIONS.length - 1),
+    clampPersistedNumber(persistedWorkspace?.resolutionIndex, 1, 0, RESOLUTION_OPTIONS.length - 1),
   );
   const [resolutionWidth, setResolutionWidth] = useState(() =>
     clampPersistedNumber(
@@ -226,12 +227,13 @@ export function VideoRenderModal({
       ? persistedWorkspace!.frameRate!
       : 30,
   );
+  const [videoTextScaleMode, setVideoTextScaleMode] = useState<VideoTextScaleMode>(() =>
+    isVideoTextScaleMode(persistedWorkspace?.videoTextScaleMode)
+      ? persistedWorkspace.videoTextScaleMode
+      : 'literal',
+  );
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
-  const [renderStyle, setRenderStyle] = useState<RenderStyle>({
-    ...DEFAULT_RENDER_STYLE,
-    ...persistedWorkspace?.renderStyle,
-  });
   const [useGpuAcceleration, setUseGpuAcceleration] = useState(() =>
     Boolean(persistedWorkspace?.useGpuAcceleration),
   );
@@ -713,6 +715,7 @@ export function VideoRenderModal({
     defaultSeconds,
     animationLeadSeconds,
     frameRate,
+    videoTextScaleMode,
     outputDir,
     webOutputDir,
     renderStyle,
@@ -739,7 +742,7 @@ export function VideoRenderModal({
     webChoiceColor,
     webChoiceTextColor,
     webSettings,
-    webRenderStyle,
+    webRenderStyle: renderStyle,
     webPast: webPast.slice(-50),
     webFuture: webFuture.slice(0, 50),
     savedAt: Date.now(),
@@ -1191,6 +1194,7 @@ export function VideoRenderModal({
     timelineSourceById,
     timelineStartById,
     timelineWheelMode,
+    videoTextScaleMode,
     videoTrackByNodeId,
     videoTrackIds,
     webChoiceColor,
@@ -1199,7 +1203,6 @@ export function VideoRenderModal({
     webOutputDir,
     webPast,
     webProjectName,
-    webRenderStyle,
     webSettings,
     workspaceKey,
     workspaceMode,
@@ -1591,10 +1594,6 @@ export function VideoRenderModal({
     return () => document.removeEventListener('keydown', handleRenderKeyDown, true);
   });
 
-  const updateRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
-    setRenderStyle((prev) => ({ ...prev, [key]: value }));
-  };
-
   const updateSelectedAudioSettings = (key: 'volume' | 'fadeIn' | 'fadeOut', value: number) => {
     if (selectedAudioNodes.length === 0) return;
     setTimelineDataOverrides((previous) => {
@@ -1627,6 +1626,7 @@ export function VideoRenderModal({
     videoTrackIds,
     resolution,
     renderStyle,
+    videoTextScaleMode,
     animationLeadSeconds,
     isZh,
     hideCharacterTags,
@@ -1651,6 +1651,7 @@ export function VideoRenderModal({
     outputDir,
     speed,
     renderStyle,
+    videoTextScaleMode,
     animationLeadSeconds,
     hideCharacterTags,
     hideSceneTags,
@@ -1671,7 +1672,7 @@ export function VideoRenderModal({
     isZh,
     webProjectName,
     defaultWebProjectName,
-    webRenderStyle,
+    webRenderStyle: renderStyle,
     webChoiceColor,
     webChoiceTextColor,
     webSettings,
@@ -1971,6 +1972,8 @@ export function VideoRenderModal({
                 chooseOutputDir={chooseOutputDir}
                 renderStyle={renderStyle}
                 updateRenderStyle={updateRenderStyle}
+                videoTextScaleMode={videoTextScaleMode}
+                setVideoTextScaleMode={setVideoTextScaleMode}
                 defaultSeconds={defaultSeconds}
                 setDefaultSeconds={setDefaultSeconds}
                 speed={speed}
@@ -2071,7 +2074,7 @@ export function VideoRenderModal({
             nodes={nodes}
             edges={edges}
             language={language}
-            webRenderStyle={webRenderStyle}
+            webRenderStyle={renderStyle}
             webChoiceColor={webChoiceColor}
             webChoiceTextColor={webChoiceTextColor}
             webSettings={webSettings}
@@ -2090,7 +2093,7 @@ export function VideoRenderModal({
             updateWebSettings={updateWebSettings}
             updateWebChoiceTextColor={updateWebChoiceTextColor}
             updateWebChoiceColor={updateWebChoiceColor}
-            updateWebRenderStyle={updateWebRenderStyle}
+            updateWebRenderStyle={updateRenderStyle}
           />
         )}
       </div>

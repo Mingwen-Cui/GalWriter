@@ -3,10 +3,12 @@ import type { ExportFormat, TextAnimation } from './types';
 export const DEFAULT_VIDEO_BITRATE = '6000k';
 
 export const RESOLUTION_OPTIONS = [
-  { label: '1920 x 1080', width: 1920, height: 1080 },
-  { label: '1280 x 720', width: 1280, height: 720 },
-  { label: '1080 x 1920', width: 1080, height: 1920 },
-  { label: '720 x 1280', width: 720, height: 1280 },
+  { label: '2K', width: 2560, height: 1440 },
+  { label: '1080p', width: 1920, height: 1080 },
+  { label: '720p', width: 1280, height: 720 },
+  { label: '2K 竖屏', width: 1440, height: 2560 },
+  { label: '1080p 竖屏', width: 1080, height: 1920 },
+  { label: '720p 竖屏', width: 720, height: 1280 },
 ];
 
 export const FRAME_RATE_OPTIONS = [25, 30, 59, 60];

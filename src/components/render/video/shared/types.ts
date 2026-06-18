@@ -14,6 +14,7 @@ export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
 export type ExportSettingsMode = 'video' | 'audio';
 export type RenderWorkspaceMode = 'video' | 'web';
+export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type TimelineSegmentMetric = {
   node: FlowNode;
   start: number;
@@ -28,6 +29,8 @@ export type VideoRenderModalProps = {
   onUpdateNodeData?: (id: string, data: Record<string, unknown>) => void;
   language: Language;
   workspaceKey?: string;
+  renderStyle: RenderStyle;
+  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   voiceTtsConfig?: TTSConfig;
 };
 

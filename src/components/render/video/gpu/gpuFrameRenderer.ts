@@ -7,7 +7,8 @@ import { animatedTextState } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
-import type { RenderStyle } from '../shared/types';
+import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
+import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 import {
   type WebGPUContext,
   initWebGPU,
@@ -22,6 +23,7 @@ type GPURenderFrameInput = {
   width: number;
   height: number;
   renderStyle: RenderStyle;
+  videoTextScaleMode: VideoTextScaleMode;
   animationLeadSeconds: number;
   isZh: boolean;
   media?: { source: CanvasImageSource; width: number; height: number };
@@ -215,6 +217,7 @@ export async function drawGPUFrame({
   width,
   height,
   renderStyle,
+  videoTextScaleMode,
   animationLeadSeconds,
   isZh,
   media,
@@ -226,6 +229,7 @@ export async function drawGPUFrame({
   hideSceneTags,
 }: GPURenderFrameInput): Promise<void> {
   const nodeId = node.id;
+  const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const body = htmlToSpeechText(
     filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
@@ -244,7 +248,7 @@ export async function drawGPUFrame({
   const bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
 
   // 2. 准备文字纹理（带缓存）
-  const cacheKey = getTextCacheKey(nodeId, title, body, renderStyle);
+  const cacheKey = getTextCacheKey(nodeId, title, body, videoRenderStyle);
   let textCanvas = textTextureCache.get(cacheKey)?.canvas;
 
   // 如果动画需要逐帧变化（elapsed 变化），不使用缓存
@@ -252,7 +256,7 @@ export async function drawGPUFrame({
     !forceFinalText &&
     elapsed !== undefined &&
     duration !== undefined &&
-    (renderStyle.titleAnimation !== 'none' || renderStyle.bodyAnimation !== 'none');
+    (videoRenderStyle.titleAnimation !== 'none' || videoRenderStyle.bodyAnimation !== 'none');
 
   if (needsAnimation || !textCanvas) {
     textCanvas = await createTextLayerCanvas(
@@ -260,7 +264,7 @@ export async function drawGPUFrame({
       height,
       title,
       body,
-      renderStyle,
+      videoRenderStyle,
       animationLeadSeconds,
       elapsed,
       duration,

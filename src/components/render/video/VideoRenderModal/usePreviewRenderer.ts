@@ -7,6 +7,7 @@ import type {
   RenderStatus,
   RenderStyle,
   TimelineSegmentMetric,
+  VideoTextScaleMode,
 } from '../shared/types';
 import { drawRenderFrame } from '../preview/frameRenderer';
 
@@ -25,6 +26,7 @@ export const usePreviewRenderer = ({
   videoTrackIds,
   resolution,
   renderStyle,
+  videoTextScaleMode,
   animationLeadSeconds,
   isZh,
   hideCharacterTags,
@@ -44,6 +46,7 @@ export const usePreviewRenderer = ({
   videoTrackIds: string[];
   resolution: Resolution;
   renderStyle: RenderStyle;
+  videoTextScaleMode: VideoTextScaleMode;
   animationLeadSeconds: number;
   isZh: boolean;
   hideCharacterTags: boolean;
@@ -76,6 +79,7 @@ export const usePreviewRenderer = ({
         duration,
         forceFinalText,
         renderStyle,
+        videoTextScaleMode,
         animationLeadSeconds,
         isZh,
         nodes,
@@ -90,6 +94,7 @@ export const usePreviewRenderer = ({
       isZh,
       nodes,
       renderStyle,
+      videoTextScaleMode,
     ],
   );
 

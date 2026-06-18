@@ -23,6 +23,8 @@ interface UseAIActionsParams {
 }
 
 const THINKING_DISPLAY_MS = 8000;
+const AI_TYPEWRITER_DELAY_MS = 16;
+const AI_TYPEWRITER_MAX_STEPS = 120;
 
 const showReasoningBriefly = (
   reasoning: string | undefined,
@@ -32,6 +34,11 @@ const showReasoningBriefly = (
   setThinkingContent(reasoning);
   window.setTimeout(() => setThinkingContent(null), THINKING_DISPLAY_MS);
 };
+
+const delay = (durationMs: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
 
 export const useAIActions = ({
   nodes,
@@ -203,6 +210,26 @@ export const useAIActions = ({
     [callAIForTextResult, setThinkingContent, thinkingMode],
   );
 
+  const typeTextIntoNode = useCallback(
+    async (nodeId: string, previousText: string, nextText: string) => {
+      if (nextText === previousText) return;
+
+      const appendedText = nextText.startsWith(previousText)
+        ? nextText.slice(previousText.length)
+        : nextText;
+      const prefix = nextText.startsWith(previousText) ? previousText : '';
+      const stride = Math.max(1, Math.ceil(appendedText.length / AI_TYPEWRITER_MAX_STEPS));
+
+      for (let index = stride; index < appendedText.length; index += stride) {
+        handleUpdateNode(nodeId, { text: `${prefix}${appendedText.slice(0, index)}` });
+        await delay(AI_TYPEWRITER_DELAY_MS);
+      }
+
+      handleUpdateNode(nodeId, { text: nextText });
+    },
+    [handleUpdateNode],
+  );
+
   const handleAIGenerate = useCallback(
     async (nodeId: string, action: AIActionType): Promise<AITextResult> => {
       const targetNode = nodes.find((node) => node.id === nodeId);
@@ -232,7 +259,7 @@ export const useAIActions = ({
       showReasoningBriefly(result.reasoning, setThinkingContent);
 
       const updatedText = currentText ? `${currentText}\n\n${result.content}` : result.content;
-      handleUpdateNode(nodeId, { text: updatedText });
+      await typeTextIntoNode(nodeId, currentText, updatedText);
 
       return result;
     },
@@ -246,6 +273,7 @@ export const useAIActions = ({
       handleUpdateNode,
       nodes,
       setThinkingContent,
+      typeTextIntoNode,
     ],
   );
 

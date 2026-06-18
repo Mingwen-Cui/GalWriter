@@ -89,6 +89,7 @@ import type {
   VoiceAIProfile,
 } from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
+import { useSharedRenderStyle } from '../editor-state/useSharedRenderStyle';
 import { Language, translations } from '../lib/i18n';
 import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
 import {
@@ -613,6 +614,8 @@ export function StoryEditor() {
     playTestHideSceneTags,
     setPlayTestHideSceneTags,
   } = usePlaytestSettings();
+  const { sharedRenderStyle, setSharedRenderStyle, updateSharedRenderStyle } =
+    useSharedRenderStyle();
 
   const t = translations[language];
   const [isDirty, setIsDirty] = useState(false);
@@ -1041,6 +1044,7 @@ export function StoryEditor() {
       playTestAutoAdvanceDelay,
       playTestHideCharacterTags,
       playTestHideSceneTags,
+      sharedRenderStyle,
     }),
     [
       aiButtonsConfig,
@@ -1079,6 +1083,7 @@ export function StoryEditor() {
       playTestHideSceneTags,
       playTestTypewriterSpeed,
       playTestVideoAutoPlay,
+      sharedRenderStyle,
       presetColors,
       projectTitle,
       saveAssistantConversations,
@@ -1156,6 +1161,7 @@ export function StoryEditor() {
       setPlayTestAutoAdvanceDelay,
       setPlayTestHideCharacterTags,
       setPlayTestHideSceneTags,
+      setSharedRenderStyle,
     }),
     [
       setCanvasBg,
@@ -1202,6 +1208,7 @@ export function StoryEditor() {
       setPlayTestAutoAdvanceDelay,
       setPlayTestHideCharacterTags,
       setPlayTestHideSceneTags,
+      setSharedRenderStyle,
     ],
   );
 
@@ -4291,7 +4298,7 @@ ${layoutConfig.label}
             onClose={() => setShowPlayTest(false)}
             language={language}
             onLanguageChange={setLanguage}
-            isDarkMode={playTestDarkMode}
+            isDarkMode={theme === 'dark'}
             setIsDarkMode={setPlayTestDarkMode}
             choicesColumns={playTestChoicesColumns}
             setChoicesColumns={setPlayTestChoicesColumns}
@@ -4321,6 +4328,8 @@ ${layoutConfig.label}
             setHideCharacterTags={setPlayTestHideCharacterTags}
             hideSceneTags={playTestHideSceneTags}
             setHideSceneTags={setPlayTestHideSceneTags}
+            renderStyle={sharedRenderStyle}
+            updateRenderStyle={updateSharedRenderStyle}
           />
         )}
       </Suspense>
@@ -4335,6 +4344,8 @@ ${layoutConfig.label}
             onUpdateNodeData={handleUpdateNode}
             language={language}
             workspaceKey={currentProjectId || currentProjectFilePath || 'draft'}
+            renderStyle={sharedRenderStyle}
+            updateRenderStyle={updateSharedRenderStyle}
             voiceTtsConfig={{
               provider: ttsProvider,
               apiUrl: ttsApiUrl,
@@ -4430,7 +4441,7 @@ ${layoutConfig.label}
           handleContactCopy={handleContactCopy}
           qqCopied={qqCopied}
           emailCopied={emailCopied}
-          playTestDarkMode={playTestDarkMode}
+          playTestDarkMode={theme === 'dark'}
           setPlayTestDarkMode={setPlayTestDarkMode}
           playTestChoicesColumns={playTestChoicesColumns}
           setPlayTestChoicesColumns={setPlayTestChoicesColumns}
@@ -4460,6 +4471,8 @@ ${layoutConfig.label}
           setPlayTestHideCharacterTags={setPlayTestHideCharacterTags}
           playTestHideSceneTags={playTestHideSceneTags}
           setPlayTestHideSceneTags={setPlayTestHideSceneTags}
+          renderStyle={sharedRenderStyle}
+          updateRenderStyle={updateSharedRenderStyle}
           onApplySettingsToOtherProjects={handleApplySettingsToOtherProjects}
         />
       </Suspense>

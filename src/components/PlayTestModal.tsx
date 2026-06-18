@@ -15,11 +15,20 @@ import {
   PlayCircle,
   RotateCcw,
   Settings,
+  Sparkles,
   Sun,
+  Timer,
+  Type,
+  Video,
   X,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
+import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
+import type { RenderStyle } from './render/video/shared/types';
+import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -154,6 +163,8 @@ interface PlayTestProps {
   setHideCharacterTags: (val: boolean) => void;
   hideSceneTags: boolean;
   setHideSceneTags: (val: boolean) => void;
+  renderStyle: RenderStyle;
+  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
 }
 
 export function PlayTestModal({
@@ -194,6 +205,8 @@ export function PlayTestModal({
   setHideCharacterTags,
   hideSceneTags,
   setHideSceneTags,
+  renderStyle,
+  updateRenderStyle,
 }: PlayTestProps) {
   const t = translations[language];
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
@@ -247,6 +260,10 @@ export function PlayTestModal({
   );
 
   const currentNode = nodes.find((n) => n.id === currentNodeId);
+  const currentTitle =
+    currentNodeId !== 'THE_END' && currentNode && typeof currentNode.data.title === 'string'
+      ? currentNode.data.title.trim()
+      : '';
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   const presentation = normalizeStoryPresentation(
     currentNode?.data.presentation as StoryPresentation | undefined,
@@ -307,6 +324,114 @@ export function PlayTestModal({
     }
     return container.innerHTML;
   }, [hideCharacterTags, hideSceneTags, rawTextHtml]);
+
+  const colorInputValue = (value: string, fallback = '#111827') => {
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+    const rgba = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!rgba) return fallback;
+    return `#${[rgba[1], rgba[2], rgba[3]]
+      .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+      .join('')}`;
+  };
+
+  const withAlpha = (hex: string, alpha: number) => {
+    const normalized = colorInputValue(hex);
+    const red = Number.parseInt(normalized.slice(1, 3), 16);
+    const green = Number.parseInt(normalized.slice(3, 5), 16);
+    const blue = Number.parseInt(normalized.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  };
+
+  const textStroke = (width: number, color: string) =>
+    width > 0 ? `${width}px ${colorInputValue(color, '#000000')}` : undefined;
+
+  const dialogueBackgroundStyle = (): React.CSSProperties => {
+    const gradientStops =
+      renderStyle.dialogGradientStops?.length >= 2
+        ? [...renderStyle.dialogGradientStops].sort((a, b) => a.position - b.position)
+        : [
+            { color: colorInputValue(renderStyle.dialogGradientStartColor), alpha: 0, position: 0 },
+            { color: colorInputValue(renderStyle.dialogGradientColor), alpha: 86, position: 100 },
+          ];
+
+    if (renderStyle.dialogBackgroundType === 'gradient') {
+      const angle = Number.isFinite(renderStyle.dialogGradientAngle)
+        ? renderStyle.dialogGradientAngle
+        : 90;
+      const stops = gradientStops
+        .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
+        .join(', ');
+      return { background: `linear-gradient(${angle}deg, ${stops})` };
+    }
+
+    if (renderStyle.dialogBackgroundType === 'image' && renderStyle.dialogImageUrl) {
+      return {
+        backgroundImage: `url("${renderStyle.dialogImageUrl.replace(/"/g, '\\"')}")`,
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      };
+    }
+
+    return {
+      backgroundColor: withAlpha(renderStyle.panelColor, (renderStyle.panelColorAlpha ?? 82) / 100),
+    };
+  };
+
+  const titleStyle: React.CSSProperties = {
+    fontFamily: renderStyle.titleFontFamily,
+    color: withAlpha(
+      colorInputValue(renderStyle.titleColor),
+      (renderStyle.titleColorAlpha ?? 100) / 100,
+    ),
+    WebkitTextStroke: textStroke(renderStyle.titleStrokeWidth, renderStyle.titleStrokeColor),
+    fontSize: renderStyle.titleFontSize,
+    letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
+    lineHeight: renderStyle.titleLineHeight,
+    textAlign: renderStyle.titleAlign,
+    overflowWrap: 'anywhere',
+  };
+
+  const bodyStyle: React.CSSProperties = {
+    fontFamily: renderStyle.bodyFontFamily,
+    color: withAlpha(
+      colorInputValue(renderStyle.bodyColor),
+      (renderStyle.bodyColorAlpha ?? 100) / 100,
+    ),
+    WebkitTextStroke: textStroke(renderStyle.bodyStrokeWidth, renderStyle.bodyStrokeColor),
+    fontSize: renderStyle.bodyFontSize,
+    letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
+    lineHeight: renderStyle.bodyLineHeight,
+    textAlign: renderStyle.bodyAlign,
+    overflowWrap: 'anywhere',
+  };
+
+  const dialogueShellStyle: React.CSSProperties = {
+    ...(renderStyle.dialogVisible
+      ? dialogueBackgroundStyle()
+      : {
+          background: 'transparent',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none',
+          borderColor: 'transparent',
+          boxShadow: 'none',
+          backdropFilter: 'none',
+        }),
+    borderRadius: renderStyle.dialogRadius,
+    width:
+      layoutMode === 'immersive'
+        ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
+        : undefined,
+    minHeight: layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
+    transform:
+      layoutMode === 'immersive'
+        ? `translate(${Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.25}%, ${
+            Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.2
+          }%)`
+        : undefined,
+    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+  };
 
   const getAudioTitle = React.useCallback(
     (node: FlowNode) => {
@@ -1068,6 +1193,281 @@ export function PlayTestModal({
     </div>
   );
 
+  const renderPlaytestSettingsPanel = () => {
+    const darkPanel = layoutMode === 'immersive' || isDarkMode;
+    const panelTone = darkPanel
+      ? 'border-white/10 bg-slate-950/45'
+      : 'border-slate-200/80 bg-slate-100/70';
+    const workspaceStyle = (darkPanel
+      ? {
+          '--vr-surface': 'rgba(32, 37, 44, 0.92)',
+          '--vr-surface-strong': '#20252c',
+          '--vr-surface-soft': 'rgba(32, 37, 44, 0.86)',
+          '--vr-panel': 'rgba(20, 20, 23, 0.9)',
+          '--vr-border': 'rgba(255, 255, 255, 0.1)',
+          '--vr-border-strong': 'rgba(255, 255, 255, 0.16)',
+          '--vr-text': '#f4f4f5',
+          '--vr-text-soft': '#c7c7cc',
+          '--vr-text-muted': '#85858c',
+          '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
+        }
+      : undefined) as React.CSSProperties | undefined;
+    const rangeClass =
+      'h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-[var(--vr-surface-soft)] accent-[var(--vr-accent)] disabled:cursor-not-allowed disabled:opacity-45';
+    const timingBox = (active: boolean, label: string, value: string, control: ReactNode) => (
+      <div
+        className={`rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2 ${
+          active ? '' : 'opacity-45'
+        }`}
+      >
+        <div className="mb-2 flex items-center justify-between gap-3 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+          <span className="min-w-0 truncate">{label}</span>
+          <span className="shrink-0 text-[var(--vr-accent)]">{value}</span>
+        </div>
+        {control}
+      </div>
+    );
+
+    return (
+      <div className="video-render-workspace space-y-4" style={workspaceStyle}>
+        <PlaytestPanelTitle
+          icon={Layout}
+          title={
+            language === 'zh'
+              ? '测试参数'
+              : language === 'ja'
+                ? 'テスト設定'
+                : 'Playtest Settings'
+          }
+        />
+
+        <div className={`rounded-xl border p-2 ${panelTone}`}>
+          <div className="grid grid-cols-3 gap-2">
+            <PlaytestSettingCard
+              icon={Layout}
+              description={language === 'zh' ? '界面布局' : 'Layout'}
+            >
+              <PlaytestPillToggleGroup
+                value={layoutMode}
+                options={[
+                  { value: 'classic', label: t.layoutClassic, icon: <LayoutClassicGlyph /> },
+                  { value: 'immersive', label: t.layoutImmersive, icon: <LayoutImmersiveGlyph /> },
+                ]}
+                onChange={(value) => setLayoutMode(value as 'classic' | 'immersive')}
+              />
+            </PlaytestSettingCard>
+
+            {layoutMode === 'classic' && (
+              <PlaytestSettingCard
+                icon={isDarkMode ? Moon : Sun}
+                description={language === 'zh' ? '测试主题' : 'Theme'}
+              >
+                <PlaytestPillToggleGroup
+                  value={isDarkMode ? 'dark' : 'light'}
+                  options={[
+                    { value: 'light', label: t.lightMode, icon: <Sun className="h-3.5 w-3.5" /> },
+                    { value: 'dark', label: t.darkMode, icon: <Moon className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => setIsDarkMode(value === 'dark')}
+                />
+              </PlaytestSettingCard>
+            )}
+
+            <PlaytestSettingCard description={language === 'zh' ? '选项位置' : 'Choice position'}>
+              <PlaytestSegmentedGroup
+                value={choicesPosition}
+                options={[
+                  { value: 'aboveText', label: language === 'zh' ? '上' : 'Top' },
+                  { value: 'center', label: language === 'zh' ? '中' : 'Center' },
+                  { value: 'belowText', label: language === 'zh' ? '下' : 'Bottom' },
+                ]}
+                onChange={(value) =>
+                  setChoicesPosition(value as 'center' | 'aboveText' | 'belowText')
+                }
+              />
+            </PlaytestSettingCard>
+
+            {choicesPosition !== 'center' && (
+              <PlaytestSettingCard description={language === 'zh' ? '选项列数' : 'Columns'}>
+                <PlaytestSegmentedGroup
+                  value={String(choicesColumns)}
+                  options={[1, 2, 3].map((cols) => ({
+                    value: String(cols),
+                    label: t[`column${cols}` as keyof typeof t] as string,
+                  }))}
+                  onChange={(value) => setChoicesColumns(Number(value) || 1)}
+                />
+              </PlaytestSettingCard>
+            )}
+
+            <PlaytestSettingCard icon={Sparkles} description={language === 'zh' ? '背景虚化' : 'Blur background'}>
+              <PlaytestPillToggleGroup
+                value={blurBackground ? 'on' : 'off'}
+                options={[
+                  { value: 'on', label: 'Blur', icon: <BlurGlyph /> },
+                  { value: 'off', label: 'Clear', icon: <ClearGlyph /> },
+                ]}
+                onChange={(value) => setBlurBackground(value === 'on')}
+              />
+            </PlaytestSettingCard>
+
+            {blurBackground && (
+              <PlaytestSettingCard icon={Type} description={language === 'zh' ? '文字虚化' : 'Blur text'}>
+                <PlaytestPillToggleGroup
+                  value={blurText ? 'blur' : 'clear'}
+                  options={[
+                    { value: 'blur', label: 'Blur', icon: <BlurGlyph /> },
+                    { value: 'clear', label: 'Clear', icon: <ClearGlyph /> },
+                  ]}
+                  onChange={(value) => setBlurText(value === 'blur')}
+                />
+              </PlaytestSettingCard>
+            )}
+
+            {choicesPosition === 'center' && (
+              <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '单选弹窗' : 'Single popup'}>
+                <PlaytestPillToggleGroup
+                  value={skipSingleChoicePopup ? 'hide' : 'show'}
+                  options={[
+                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => setSkipSingleChoicePopup(value === 'hide')}
+                />
+              </PlaytestSettingCard>
+            )}
+
+            <PlaytestSettingCard icon={FastForward} description={language === 'zh' ? '自动翻页' : 'Auto advance'}>
+              <PlaytestPillToggleGroup
+                value={autoAdvance ? 'on' : 'off'}
+                options={[
+                  { value: 'on', label: 'Auto', icon: <FastForward className="h-3.5 w-3.5" /> },
+                  { value: 'off', label: 'Manual', icon: <PlayCircle className="h-3.5 w-3.5" /> },
+                ]}
+                onChange={(value) => setAutoAdvance(value === 'on')}
+              />
+            </PlaytestSettingCard>
+
+            <PlaytestSettingCard icon={Video} description={t.videoAutoPlay}>
+              <PlaytestPillToggleGroup
+                value={videoAutoPlay ? 'auto' : 'manual'}
+                options={[
+                  { value: 'auto', label: 'Auto', icon: <FastForward className="h-3.5 w-3.5" /> },
+                  { value: 'manual', label: 'Manual', icon: <PlayCircle className="h-3.5 w-3.5" /> },
+                ]}
+                onChange={(value) => setVideoAutoPlay(value === 'auto')}
+              />
+            </PlaytestSettingCard>
+
+            <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '人物标签' : 'Character tags'}>
+              <PlaytestToggleButton
+                active={hideCharacterTags}
+                icon={hideCharacterTags ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                label={hideCharacterTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
+                onClick={() => setHideCharacterTags(!hideCharacterTags)}
+              />
+            </PlaytestSettingCard>
+
+            <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '场景标签' : 'Scene tags'}>
+              <PlaytestToggleButton
+                active={hideSceneTags}
+                icon={hideSceneTags ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                label={hideSceneTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
+                onClick={() => setHideSceneTags(!hideSceneTags)}
+              />
+            </PlaytestSettingCard>
+          </div>
+        </div>
+
+        <PlaytestPanelTitle icon={Type} title={language === 'zh' ? '文本节奏' : 'Text Timing'} />
+        <div className={`rounded-xl border p-2 ${panelTone}`}>
+          <div className="grid grid-cols-2 gap-2">
+            <PlaytestSettingCard icon={Type} description={language === 'zh' ? '显示模式' : 'Display mode'}>
+              <PlaytestSegmentedGroup
+                value={interactionMode}
+                columns="grid-cols-4"
+                options={[
+                  { value: 'immediate', label: language === 'zh' ? '即' : 'Now' },
+                  { value: 'typewriter', label: language === 'zh' ? '打' : 'Type' },
+                  { value: 'timed', label: language === 'zh' ? '延' : 'Delay' },
+                  { value: 'clickToShow', label: language === 'zh' ? '点' : 'Click' },
+                ]}
+                onChange={setInteractionMode}
+              />
+            </PlaytestSettingCard>
+
+            {timingBox(
+              interactionMode === 'typewriter',
+              language === 'zh' ? '打字速度' : 'Type speed',
+              `${typewriterSpeed}ms`,
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={typewriterSpeed}
+                disabled={interactionMode !== 'typewriter'}
+                onChange={(event) => setTypewriterSpeed(Number.parseInt(event.target.value, 10))}
+                className={rangeClass}
+              />,
+            )}
+
+            {timingBox(
+              interactionMode === 'timed',
+              language === 'zh' ? '选项延迟' : 'Choice delay',
+              `${choiceDelay}s`,
+              <input
+                type="range"
+                min={0.5}
+                max={10}
+                step={0.5}
+                value={choiceDelay}
+                disabled={interactionMode !== 'timed'}
+                onChange={(event) => setChoiceDelay(Number.parseFloat(event.target.value))}
+                className={rangeClass}
+              />,
+            )}
+
+            {timingBox(
+              autoAdvance,
+              language === 'zh' ? '翻页等待' : 'Auto delay',
+              `${autoAdvanceDelay}s`,
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={autoAdvanceDelay}
+                disabled={!autoAdvance}
+                onChange={(event) => setAutoAdvanceDelay(Number.parseInt(event.target.value, 10))}
+                className={rangeClass}
+              />,
+            )}
+          </div>
+        </div>
+
+        <PlaytestPanelTitle
+          icon={Settings}
+          title={
+            language === 'zh'
+              ? '标题 / 正文 / 文字框'
+              : language === 'ja'
+                ? 'タイトル / 本文 / テキスト枠'
+                : 'Title / Body / Text Box'
+          }
+        />
+        <div className={`rounded-xl border p-2 ${panelTone}`}>
+          <RenderStyleSettingsSection
+            language={language}
+            renderStyle={renderStyle}
+            updateRenderStyle={updateRenderStyle}
+            showDescriptions
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -1259,7 +1659,7 @@ export function PlayTestModal({
             )}
           </div>
 
-          {layoutMode === 'classic' && (
+          {false && layoutMode === 'classic' && (
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className={`p-1.5 md:p-2 rounded-full transition-colors ${
@@ -1316,14 +1716,49 @@ export function PlayTestModal({
               <div
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute right-0 mt-2 w-[min(calc(100vw-1rem),42rem)] rounded-2xl shadow-2xl border z-[110] p-3 md:p-4 scale-in max-h-[85vh] overflow-y-auto ${
-                  layoutMode === 'immersive'
-                    ? 'bg-black/85 border-white/10 text-white backdrop-blur-md'
-                    : isDarkMode
-                      ? 'bg-slate-900 border-white/10 text-white'
-                      : 'bg-white border-slate-200 text-slate-800'
+                  isDarkMode
+                    ? 'bg-slate-900 border-white/10 text-white'
+                    : 'bg-white border-slate-200 text-slate-800'
                 }`}
               >
                 {/* 界面排版选择 */}
+                  <PlaytestSettingsPanel
+                    language={language}
+                    isDarkMode={isDarkMode}
+                    choicesColumns={choicesColumns}
+                  setChoicesColumns={setChoicesColumns}
+                  videoAutoPlay={videoAutoPlay}
+                  setVideoAutoPlay={setVideoAutoPlay}
+                  layoutMode={layoutMode}
+                  setLayoutMode={setLayoutMode}
+                  interactionMode={interactionMode}
+                  setInteractionMode={setInteractionMode}
+                  typewriterSpeed={typewriterSpeed}
+                  setTypewriterSpeed={setTypewriterSpeed}
+                  choiceDelay={choiceDelay}
+                  setChoiceDelay={setChoiceDelay}
+                  choicesPosition={choicesPosition}
+                  setChoicesPosition={setChoicesPosition}
+                  blurBackground={blurBackground}
+                  setBlurBackground={setBlurBackground}
+                  blurText={blurText}
+                  setBlurText={setBlurText}
+                  skipSingleChoicePopup={skipSingleChoicePopup}
+                  setSkipSingleChoicePopup={setSkipSingleChoicePopup}
+                  autoAdvance={autoAdvance}
+                  setAutoAdvance={setAutoAdvance}
+                  autoAdvanceDelay={autoAdvanceDelay}
+                  setAutoAdvanceDelay={setAutoAdvanceDelay}
+                  hideCharacterTags={hideCharacterTags}
+                  setHideCharacterTags={setHideCharacterTags}
+                  hideSceneTags={hideSceneTags}
+                  setHideSceneTags={setHideSceneTags}
+                  renderStyle={renderStyle}
+                  updateRenderStyle={updateRenderStyle}
+                />
+
+                {false && (
+                <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div
                     className={`rounded-xl border p-3 order-0 ${
@@ -1736,6 +2171,27 @@ export function PlayTestModal({
                     </div>
                   )}
                 </div>
+
+                <div className="video-render-workspace mt-4 space-y-2">
+                  <div className="flex items-center gap-2 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                    <Settings className="h-3.5 w-3.5 text-[var(--vr-accent)]" />
+                    <span>
+                      {language === 'zh'
+                        ? '标题 / 正文 / 文字框'
+                        : language === 'ja'
+                          ? 'タイトル / 本文 / テキスト枠'
+                          : 'Title / Body / Text Box'}
+                    </span>
+                  </div>
+                  <RenderStyleSettingsSection
+                    language={language}
+                    renderStyle={renderStyle}
+                    updateRenderStyle={updateRenderStyle}
+                    showDescriptions
+                  />
+                </div>
+                </>
+                )}
               </div>
             )}
           </div>
@@ -1894,7 +2350,8 @@ export function PlayTestModal({
                   {/* 透明半透明对话框 */}
                   <div
                     onClick={handleTextContainerClick}
-                    className="w-full p-6 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 cursor-pointer overflow-hidden"
+                    className="w-full p-6 rounded-2xl backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 cursor-pointer overflow-hidden"
+                    style={dialogueShellStyle}
                   >
                     {currentNode?.data.audioUrl && (
                       <audio
@@ -1908,7 +2365,16 @@ export function PlayTestModal({
                       />
                     )}
 
-                    <div className="text-base md:text-lg lg:text-xl leading-relaxed whitespace-pre-wrap font-serif tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1">
+                    {renderStyle.titleVisible && currentTitle && (
+                      <div className="mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" style={titleStyle}>
+                        {currentTitle}
+                      </div>
+                    )}
+
+                    <div
+                      className="whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1"
+                      style={bodyStyle}
+                    >
                       <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                     </div>
 
@@ -2070,6 +2536,22 @@ export function PlayTestModal({
                         : 'z-20'
                     : 'z-20'
                 }`}
+                style={{
+                  ...(renderStyle.dialogVisible
+                    ? dialogueBackgroundStyle()
+                    : {
+                        background: 'transparent',
+                        backgroundColor: 'transparent',
+                        backgroundImage: 'none',
+                        borderColor: 'transparent',
+                        boxShadow: 'none',
+                        backdropFilter: 'none',
+                      }),
+                  borderTopLeftRadius: renderStyle.dialogRadius,
+                  borderTopRightRadius: renderStyle.dialogRadius,
+                  paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+                  paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+                }}
               >
                 {currentNode?.data.audioUrl && (
                   <audio
@@ -2082,9 +2564,12 @@ export function PlayTestModal({
                     className="hidden"
                   />
                 )}
-                <div
-                  className={`text-lg md:text-xl lg:text-2xl ${isDarkMode ? 'text-slate-100' : 'text-slate-800'} leading-relaxed whitespace-pre-wrap font-serif tracking-wide drop-shadow-sm`}
-                >
+                {renderStyle.titleVisible && currentTitle && (
+                  <div className="mb-2 drop-shadow-sm" style={titleStyle}>
+                    {currentTitle}
+                  </div>
+                )}
+                <div className="whitespace-pre-wrap drop-shadow-sm" style={bodyStyle}>
                   <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                 </div>
 
@@ -2157,5 +2642,199 @@ export function PlayTestModal({
         {isFocusMode ? <EyeOff className="w-5 h-5 animate-pulse" /> : <Eye className="w-5 h-5" />}
       </button>
     </div>
+  );
+}
+
+function PlaytestPanelTitle({
+  icon: Icon,
+  title,
+}: {
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--vr-accent)]" />
+      <span className="truncate">{title}</span>
+    </div>
+  );
+}
+
+function PlaytestSettingCard({
+  icon: Icon,
+  description,
+  children,
+}: {
+  icon?: LucideIcon;
+  description?: string;
+  children: ReactNode;
+}) {
+  const hasIcon = Boolean(Icon);
+  return (
+    <div className="space-y-1">
+      {description && (
+        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+          {description}
+        </div>
+      )}
+      <div
+        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${
+          hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+        }`}
+      >
+        {Icon ? (
+          <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
+        <div className="min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+type PlaytestSegmentedOption = {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+};
+
+function PlaytestPillToggleGroup({
+  value,
+  options,
+  onChange,
+  columns = 'grid-cols-2',
+}: {
+  value: string;
+  options: PlaytestSegmentedOption[];
+  onChange: (value: string) => void;
+  columns?: string;
+}) {
+  return (
+    <div className={`grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
+            }`}
+            title={option.label}
+            aria-pressed={active}
+          >
+            {option.icon}
+            {option.icon ? null : <span className="truncate">{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlaytestSegmentedGroup({
+  value,
+  options,
+  onChange,
+  columns = 'grid-cols-3',
+}: {
+  value: string;
+  options: PlaytestSegmentedOption[];
+  onChange: (value: string) => void;
+  columns?: string;
+}) {
+  return (
+    <div className={`grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
+            }`}
+            title={option.label}
+            aria-pressed={active}
+          >
+            {option.icon}
+            {option.icon ? null : <span className="truncate">{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlaytestToggleButton({
+  active,
+  icon,
+  label,
+  onClick,
+  highlightActive = true,
+}: {
+  active: boolean;
+  icon?: ReactNode;
+  label?: string;
+  onClick: () => void;
+  highlightActive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+        active && highlightActive
+          ? 'bg-[var(--vr-accent)] text-white'
+          : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
+      }`}
+      aria-pressed={active}
+    >
+      {icon}
+      {label ? <span className="truncate">{label}</span> : null}
+    </button>
+  );
+}
+
+function LayoutClassicGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute inset-x-1 top-1 h-1 rounded-full bg-current/65" />
+      <span className="absolute inset-x-1 top-2.5 h-0.5 rounded-full bg-current/55" />
+      <span className="absolute inset-x-1 bottom-1 h-0.5 rounded-full bg-current/55" />
+    </span>
+  );
+}
+
+function LayoutImmersiveGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute inset-0 bg-current/15" />
+      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/75" />
+      <span className="absolute inset-x-1 bottom-1.5 h-0.5 rounded-full bg-white/80" />
+    </span>
+  );
+}
+
+function BlurGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-current/30">
+      <span className="h-2 w-2 rounded-full bg-current/45 blur-[1px]" />
+    </span>
+  );
+}
+
+function ClearGlyph() {
+  return (
+    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      <span className="h-1.5 w-1.5 rounded-[2px] bg-current/70" />
+    </span>
   );
 }

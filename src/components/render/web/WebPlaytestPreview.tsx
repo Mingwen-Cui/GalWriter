@@ -187,8 +187,16 @@ export function WebPlaytestPreview({
     ...webAnimationStyle(renderStyle.bodyAnimation),
   };
   const dialogueShellStyle: React.CSSProperties = {
-    ...dialogueBackgroundStyle(),
-    display: renderStyle.dialogVisible ? undefined : 'none',
+    ...(renderStyle.dialogVisible
+      ? dialogueBackgroundStyle()
+      : {
+          background: 'transparent',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none',
+          borderColor: 'transparent',
+          boxShadow: 'none',
+          backdropFilter: 'none',
+        }),
     borderRadius: renderStyle.dialogRadius,
     maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
@@ -274,7 +282,7 @@ export function WebPlaytestPreview({
   const shouldShowChoices =
     !shouldHideCenteredSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
-  const hideCenteredTitle = settings.skipSingleChoicePopup && settings.choicesPosition === 'center';
+  const hideCenteredTitle = false;
 
   const recordCurrentAudio = () => {
     if (!currentNode || !audioUrl) return;

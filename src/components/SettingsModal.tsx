@@ -19,6 +19,9 @@
 import React, { useState } from 'react';
 
 import { AISettingsPanel } from './AISettingsPanel';
+import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
+import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
+import type { RenderStyle } from './render/video/shared/types';
 import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/editorConfig';
 import type {
   CharacterImageMode,
@@ -155,6 +158,8 @@ interface SettingsModalProps {
   setPlayTestHideCharacterTags: (val: boolean) => void;
   playTestHideSceneTags: boolean;
   setPlayTestHideSceneTags: (val: boolean) => void;
+  renderStyle: RenderStyle;
+  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
 }
 
@@ -627,6 +632,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestHideCharacterTags,
   playTestHideSceneTags,
   setPlayTestHideSceneTags,
+  renderStyle,
+  updateRenderStyle,
   onApplySettingsToOtherProjects,
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<
@@ -1129,6 +1136,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       >
                         {s.off}
                       </button>
+                    </div>
+                  </section>
+
+                  <section className="video-render-workspace space-y-3">
+                    <header className="flex items-center gap-3 mb-2">
+                      <h3 className="text-base font-black text-[var(--text-primary)]">
+                        {language === 'zh'
+                          ? '呈现样式'
+                          : language === 'ja'
+                            ? '表示スタイル'
+                            : 'Presentation Style'}
+                      </h3>
+                    </header>
+                    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-3">
+                      <RenderStyleSettingsSection
+                        language={language}
+                        renderStyle={renderStyle}
+                        updateRenderStyle={updateRenderStyle}
+                        showDescriptions
+                      />
                     </div>
                   </section>
                 </div>
@@ -1665,6 +1692,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {activeSettingsTab === 'playtest' && (
                 <div className="space-y-5 animate-in slide-in-from-right-4 duration-500 pb-8">
+                  <PlaytestSettingsPanel
+                    language={language}
+                    isDarkMode={theme === 'dark'}
+                    choicesColumns={playTestChoicesColumns}
+                    setChoicesColumns={setPlayTestChoicesColumns}
+                    videoAutoPlay={playTestVideoAutoPlay}
+                    setVideoAutoPlay={setPlayTestVideoAutoPlay}
+                    layoutMode={playTestLayoutMode}
+                    setLayoutMode={setPlayTestLayoutMode}
+                    interactionMode={playTestInteractionMode}
+                    setInteractionMode={setPlayTestInteractionMode}
+                    typewriterSpeed={playTestTypewriterSpeed}
+                    setTypewriterSpeed={setPlayTestTypewriterSpeed}
+                    choiceDelay={playTestChoiceDelay}
+                    setChoiceDelay={setPlayTestChoiceDelay}
+                    choicesPosition={playTestChoicesPosition}
+                    setChoicesPosition={setPlayTestChoicesPosition}
+                    blurBackground={playTestBlurBackground}
+                    setBlurBackground={setPlayTestBlurBackground}
+                    blurText={playTestBlurText}
+                    setBlurText={setPlayTestBlurText}
+                    skipSingleChoicePopup={playTestSkipSingleChoicePopup}
+                    setSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
+                    autoAdvance={playTestAutoAdvance}
+                    setAutoAdvance={setPlayTestAutoAdvance}
+                    autoAdvanceDelay={playTestAutoAdvanceDelay}
+                    setAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
+                    hideCharacterTags={playTestHideCharacterTags}
+                    setHideCharacterTags={setPlayTestHideCharacterTags}
+                    hideSceneTags={playTestHideSceneTags}
+                    setHideSceneTags={setPlayTestHideSceneTags}
+                    renderStyle={renderStyle}
+                    updateRenderStyle={updateRenderStyle}
+                  />
+                  {false && (
+                    <>
                   <section className="space-y-5">
                     <header className="flex items-center gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
@@ -2069,6 +2132,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   </section>
+                    </>
+                  )}
                 </div>
               )}
 

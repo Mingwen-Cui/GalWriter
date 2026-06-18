@@ -132,7 +132,7 @@ export const useAgentRuntime = () => {
         }
 
         if (!skipRequestedRef.current && step.type !== 'type-field') {
-          await delay(step.durationMs || DEFAULT_STEP_DURATION_MS);
+          await delay(step.durationMs ?? DEFAULT_STEP_DURATION_MS);
         }
       }
 

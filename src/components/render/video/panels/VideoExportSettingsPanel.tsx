@@ -55,6 +55,7 @@ import type {
   TextAlign,
   TextAnimation,
   TypewriterMode,
+  VideoTextScaleMode,
 } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
 
@@ -81,6 +82,8 @@ type VideoExportSettingsPanelProps = {
   chooseOutputDir: () => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
+  videoTextScaleMode: VideoTextScaleMode;
+  setVideoTextScaleMode: (value: VideoTextScaleMode) => void;
   defaultSeconds: number;
   setDefaultSeconds: (value: number) => void;
   speed: number;
@@ -159,6 +162,8 @@ export function VideoExportSettingsPanel({
   chooseOutputDir,
   renderStyle,
   updateRenderStyle,
+  videoTextScaleMode,
+  setVideoTextScaleMode,
   defaultSeconds,
   setDefaultSeconds,
   speed,
@@ -415,7 +420,7 @@ export function VideoExportSettingsPanel({
           />
         </button>
         {isOpen && (
-          <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-full overflow-hidden rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1 shadow-2xl shadow-black/20">
+          <div className="absolute right-0 top-[calc(100%+6px)] z-[1200] min-w-full overflow-hidden rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1 shadow-2xl shadow-black/20">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -759,14 +764,6 @@ export function VideoExportSettingsPanel({
                       }
                     },
                     [
-                      {
-                        value: '-1',
-                        label: t(
-                          `\u81ea\u5b9a\u4e49 ${resolutionWidth} x ${resolutionHeight}`,
-                          `\u30ab\u30b9\u30bf\u30e0 ${resolutionWidth} x ${resolutionHeight}`,
-                          `Custom ${resolutionWidth} x ${resolutionHeight}`,
-                        ),
-                      },
                       ...RESOLUTION_OPTIONS.map((option, index) => ({
                         value: String(index),
                         label: option.label,
@@ -792,7 +789,6 @@ export function VideoExportSettingsPanel({
                       max={7680}
                       step={2}
                       onChange={(value) => {
-                        setResolutionIndex(-1);
                         setResolutionWidth(value);
                       }}
                     />,
@@ -811,7 +807,6 @@ export function VideoExportSettingsPanel({
                       max={4320}
                       step={2}
                       onChange={(value) => {
-                        setResolutionIndex(-1);
                         setResolutionHeight(value);
                       }}
                     />,
@@ -895,6 +890,37 @@ export function VideoExportSettingsPanel({
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('文字样式', 'テキストスタイル', 'Text Style')}
+              </div>
+              <div className="rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                  {t(
+                    '\u89c6\u9891\u6587\u5b57\u5c3a\u5ea6',
+                    '\u52d5\u753b\u30c6\u30ad\u30b9\u30c8\u5c3a\u5ea6',
+                    'Video text scale',
+                  )}
+                </div>
+                <ExportPillToggleGroup
+                  value={videoTextScaleMode}
+                  options={[
+                    {
+                      value: 'literal',
+                      label: t(
+                        '\u9075\u5faa\u6570\u503c',
+                        '\u6570\u5024\u3092\u512a\u5148',
+                        'Use px values',
+                      ),
+                    },
+                    {
+                      value: 'webRatio',
+                      label: t(
+                        '\u7f51\u9875\u6bd4\u4f8b',
+                        '\u30a6\u30a7\u30d6\u6bd4\u7387',
+                        'Match web ratio',
+                      ),
+                    },
+                  ]}
+                  onChange={(value) => setVideoTextScaleMode(value as VideoTextScaleMode)}
+                />
               </div>
               <RenderStyleSettingsSection
                 language={language}

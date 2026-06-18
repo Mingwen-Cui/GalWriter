@@ -601,7 +601,7 @@ export function RenderStyleSettingsSection({
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {t('对话框隐藏', 'ダイアログを非表示', 'Hide dialogue')}
+                {t('文字框背景隐藏', 'テキスト枠背景を非表示', 'Hide text box background')}
               </div>
             )}
             <button
@@ -612,10 +612,10 @@ export function RenderStyleSettingsSection({
                   ? 'bg-violet-500/15 text-violet-500'
                   : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
               }`}
-              title={t('点击显示或隐藏对话框', 'ダイアログ枠の表示を切替', 'Show or hide dialogue box')}
+              title={t('点击显示或隐藏文字框背景', 'テキスト枠背景の表示を切替', 'Show or hide text box background')}
             >
               {renderStyle.dialogVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-              {t('对话框', 'ダイアログ', 'Dialogue')}
+              {t('背景', '背景', 'Background')}
             </button>
           </div>
           {iconNumber(

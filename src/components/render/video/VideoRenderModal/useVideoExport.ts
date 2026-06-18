@@ -17,6 +17,7 @@ import type {
   RenderStyle,
   SegmentRenderInfo,
   TimelineSegmentMetric,
+  VideoTextScaleMode,
 } from '../shared/types';
 
 type DrawFrame = (
@@ -46,6 +47,7 @@ export const useVideoExport = ({
   outputDir,
   speed,
   renderStyle,
+  videoTextScaleMode,
   animationLeadSeconds,
   hideCharacterTags,
   hideSceneTags,
@@ -73,6 +75,7 @@ export const useVideoExport = ({
   outputDir: string;
   speed: number;
   renderStyle: RenderStyle;
+  videoTextScaleMode: VideoTextScaleMode;
   animationLeadSeconds: number;
   hideCharacterTags: boolean;
   hideSceneTags: boolean;
@@ -246,6 +249,7 @@ export const useVideoExport = ({
           width: resolution.width,
           height: resolution.height,
           renderStyle,
+          videoTextScaleMode,
           animationLeadSeconds,
           isZh,
           media: await loadFrameMedia(node, localTime),

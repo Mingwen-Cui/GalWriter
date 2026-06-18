@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AgentCardPlacementRequest, AgentPlan, AgentStep } from '../core/agentTypes';
 import type { AssistantCardDraft } from './agentCardDraft';
 
+const hasValue = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+
 const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
   if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
     return card.type;
@@ -26,25 +28,6 @@ const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene
   return 'story';
 };
 
-const getCardKindLabel = (card: AssistantCardDraft) => {
-  const type = inferCardType(card);
-  if (type === 'character') return '人物卡片';
-  if (type === 'scene') return '场景卡片';
-  return '剧情卡片';
-};
-
-const getCardTitle = (card: AssistantCardDraft, index: number) =>
-  card.characterName ||
-  card.sceneName ||
-  card.title ||
-    (inferCardType(card) === 'character'
-    ? `人物 ${index + 1}`
-    : inferCardType(card) === 'scene'
-      ? `场景 ${index + 1}`
-      : `剧情 ${index + 1}`);
-
-const hasValue = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
-
 const getTypingFields = (card: AssistantCardDraft) => {
   const type = inferCardType(card);
   if (type === 'character') {
@@ -62,11 +45,17 @@ const getTypingFields = (card: AssistantCardDraft) => {
     return [
       ['scene-name', '场景名', card.sceneName || card.title],
       ['description', '综合描述', card.description || card.text],
-      ['location', '位置', card.location],
-      ['items', '物品', card.items],
-      ['atmosphere', '氛围', card.atmosphere],
-      ['other', '其他设定', card.other],
-    ].filter(([, , value]) => hasValue(value));
+      ['location', '位置'],
+      ['items', '物品'],
+      ['atmosphere', '氛围'],
+      ['other', '其他设定'],
+    ]
+      .map(([fieldKey, label]) => [
+        fieldKey,
+        label,
+        card[fieldKey === 'scene-name' ? 'sceneName' : (fieldKey as keyof AssistantCardDraft)],
+      ])
+      .filter(([, , value]) => hasValue(value));
   }
 
   return [
@@ -91,58 +80,29 @@ export const buildAgentCardPlacementPlan = (
   const cards = request.cards.filter(Boolean);
   const isFill = request.mode === 'fill-selected';
   const isFuture = request.mode === 'future-targets' || request.mode === 'bridge-to-target';
-  const title =
-    isFill && request.selectedCount > 0
-      ? 'AI Agent 正在填充选中的卡片'
-      : isFuture
-        ? 'AI Agent 正在布置后续剧情'
-        : 'AI Agent 正在创建卡片';
 
-  const steps: AgentStep[] = [
-    createStep({
-      type: 'think',
-      label: '分析用户请求与画布上下文',
-      durationMs: 420,
-      cursor: { x: 84, y: 92 },
-    }),
-  ];
+  const steps: AgentStep[] = [];
 
   if (isFill && request.selectedCount > 0) {
     steps.push(
       createStep({
         type: 'focus',
         label: `定位 ${request.selectedCount} 张选中的卡片`,
-        durationMs: 420,
-        cursor: { x: 180, y: 180 },
-      }),
-    );
-  } else {
-    steps.push(
-      createStep({
-        type: 'move-pointer',
-        label: '移动到新增卡片工具',
-        durationMs: 460,
-        cursor: { x: 72, y: 280 },
-      }),
-      createStep({
-        type: 'click',
-        label: '点击新增卡片',
-        durationMs: 240,
-        cursor: { x: 72, y: 280 },
+        durationMs: 0,
+        cardIndex: 0,
       }),
     );
   }
 
   cards.forEach((card, index) => {
-    const cardLabel = `${getCardKindLabel(card)}「${getCardTitle(card, index)}」`;
     const baseCursor = getCursorForStep(index);
 
     if (!isFill) {
       steps.push(
         createStep({
           type: 'create-card',
-          label: `创建${cardLabel}`,
-          durationMs: 360,
+          label: '创建卡片',
+          durationMs: 0,
           cursor: baseCursor,
           cardIndex: index,
         }),
@@ -151,8 +111,8 @@ export const buildAgentCardPlacementPlan = (
       steps.push(
         createStep({
           type: 'focus',
-          label: `打开${cardLabel}的可编辑区域`,
-          durationMs: 320,
+          label: '打开可编辑区域',
+          durationMs: 0,
           cursor: baseCursor,
           cardIndex: index,
         }),
@@ -179,7 +139,7 @@ export const buildAgentCardPlacementPlan = (
       steps.push(
         createStep({
           type: 'connect',
-          label: `连接第 ${index} 张与第 ${index + 1} 张剧情卡片`,
+          label: '连接剧情卡片',
           durationMs: 320,
           cursor: {
             x: baseCursor.x - 36,
@@ -207,7 +167,7 @@ export const buildAgentCardPlacementPlan = (
 
   return {
     id: uuidv4(),
-    title,
+    title: isFill ? 'AI Agent 正在填充卡片' : 'AI Agent 正在处理卡片',
     steps,
   };
 };

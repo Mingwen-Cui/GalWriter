@@ -383,6 +383,12 @@ const applyProjectSettings = (
     return;
   }
 
+  if (incomingSettings.sharedRenderStyle) {
+    setters.setSharedRenderStyle((previous) => ({
+      ...previous,
+      ...incomingSettings.sharedRenderStyle,
+    }));
+  }
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
   if (incomingSettings.pasteAsPlainText !== undefined) {

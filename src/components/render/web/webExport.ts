@@ -597,14 +597,15 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       z-index: 3;
       justify-self: center;
       width: min(var(--dialog-width, 86%), 100%);
-      display: var(--dialog-display, block);
-      border-top: 1px solid rgba(255,255,255,0.14);
+      display: block;
+      border-top: 1px solid var(--dialog-border-color, rgba(255,255,255,0.14));
       height: auto;
       max-height: min(var(--dialog-height, 34vh), 420px);
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
       border-radius: var(--dialog-radius, 12px);
-      box-shadow: 0 -14px 36px rgba(0,0,0,0.18);
+      box-shadow: var(--dialog-shadow, 0 -14px 36px rgba(0,0,0,0.18));
+      backdrop-filter: var(--dialog-backdrop-filter, none);
       overflow: auto;
     }
     .app.immersive .dialogue {
@@ -618,11 +619,11 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       max-height: calc(100% - 96px);
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       transform: translateX(-50%);
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid var(--dialog-border-color, rgba(255,255,255,0.12));
       border-radius: var(--dialog-radius, 12px);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
-      box-shadow: 0 24px 80px rgba(0,0,0,0.30);
-      backdrop-filter: blur(18px);
+      box-shadow: var(--dialog-shadow, 0 24px 80px rgba(0,0,0,0.30));
+      backdrop-filter: var(--dialog-backdrop-filter, blur(18px));
     }
     .title {
       margin: 0 0 8px;
@@ -869,14 +870,16 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--body-align", style.bodyAlign || "left");
     document.documentElement.style.setProperty("--title-stroke", (Number(style.titleStrokeWidth) || 0) + "px " + colorInputValue(style.titleStrokeColor, "#000000"));
     document.documentElement.style.setProperty("--body-stroke", (Number(style.bodyStrokeWidth) || 0) + "px " + colorInputValue(style.bodyStrokeColor, "#000000"));
-    document.documentElement.style.setProperty("--dialog-display", style.dialogVisible === false ? "none" : "block");
+    document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : "rgba(255,255,255,0.14)");
+    document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : "0 24px 80px rgba(0,0,0,0.30)");
+    document.documentElement.style.setProperty("--dialog-backdrop-filter", style.dialogVisible === false ? "none" : "blur(18px)");
     document.documentElement.style.setProperty("--dialog-width", percent(clamp(style.dialogWidth, 35, 100, 86), 86));
     document.documentElement.style.setProperty("--dialog-height", percent(clamp(style.dialogHeight, 16, 75, 34), 34));
     document.documentElement.style.setProperty("--dialog-radius", px(style.dialogRadius, 24));
     document.documentElement.style.setProperty("--dialog-padding-x", percent(clamp(style.dialogTextPaddingX, 2, 24, 9), 9));
     document.documentElement.style.setProperty("--dialog-left", percent(50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5, 50));
     document.documentElement.style.setProperty("--dialog-bottom", "calc(4% - " + (clamp(style.dialogOffsetY, -100, 100, 0) * 0.28) + "%)");
-    document.documentElement.style.setProperty("--dialog-background", dialogueBackground());
+    document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : dialogueBackground());
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
@@ -1266,9 +1269,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       syncRegionMusic(data.backgroundMusic || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
-      const hideCenteredTitle =
-        style.titleVisible === false ||
-        (settings.skipSingleChoicePopup && choicePosition === "center");
+      const hideCenteredTitle = style.titleVisible === false;
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
       currentAudioEnded = !data.audioUrl;

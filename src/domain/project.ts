@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 
+import type { RenderStyle } from '../components/render/video/shared/types';
 import type { Language } from '../lib/i18n';
 
 export type EdgeStyle = 'step' | 'bezier';
@@ -203,6 +204,7 @@ export interface ProjectAIProfilesExport {
 }
 
 export interface ProjectSettings extends PlaytestSettings {
+  sharedRenderStyle: RenderStyle;
   canvasBg: string;
   edgeStyle: EdgeStyle;
   pasteAsPlainText: boolean;
@@ -248,6 +250,7 @@ export interface ProjectSettings extends PlaytestSettings {
 }
 
 export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
+  setSharedRenderStyle: Dispatch<SetStateAction<RenderStyle>>;
   setCanvasBg: Dispatch<SetStateAction<string>>;
   setEdgeStyle: Dispatch<SetStateAction<EdgeStyle>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
