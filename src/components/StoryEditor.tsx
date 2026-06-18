@@ -1435,6 +1435,7 @@ export function StoryEditor() {
         const nextPresentation = {
           scene: nextScene,
           characters: nextCharacters,
+          inlineActions: presentation.inlineActions,
         };
         if (
           nextImageUrl === node.data.imageUrl &&
@@ -1633,12 +1634,12 @@ export function StoryEditor() {
       const node = nodes.find((item) => item.id === nodeId && item.type === 'storyNode');
       if (!node) return;
 
-      const speechText = ttsService.buildSpeechText(
+      const speechSegments = ttsService.buildSpeechSegments(
         String(node.data.title || ''),
         String(node.data.text || ''),
         ttsNarrationMode,
       );
-      if (!speechText) return;
+      if (speechSegments.length === 0) return;
       const missingVoiceApiConfig =
         !activeVoiceProfile ||
         (ttsProvider === 'youdao'
@@ -1665,17 +1666,6 @@ export function StoryEditor() {
               ? '音声を生成中'
               : 'Generating audio',
         );
-        const audio = await ttsService.generate({
-          text: speechText,
-          provider: ttsProvider,
-          apiUrl: ttsApiUrl,
-          apiKey: ttsApiKey,
-          appKey: ttsAppKey,
-          appSecret: ttsApiKey,
-          model: ttsModel,
-          voice: ttsVoice,
-        });
-
         const existingClips = Array.isArray(node.data.audioClips)
           ? node.data.audioClips
           : typeof node.data.audioUrl === 'string' && node.data.audioUrl
@@ -1694,21 +1684,36 @@ export function StoryEditor() {
                 },
               ]
             : [];
-        const generatedClip: StoryAudioClip = {
-          id: crypto.randomUUID(),
-          name:
-            language === 'zh'
-              ? `文字音频 ${existingClips.length + 1}`
-              : language === 'ja'
-                ? `テキスト音声 ${existingClips.length + 1}`
-                : `Text audio ${existingClips.length + 1}`,
-          url: audio.url,
-          source: 'tts',
-          createdAt: Date.now(),
-        };
-        const nextClips = [...existingClips, generatedClip];
+        const generatedClips: StoryAudioClip[] = [];
+        for (const [index, segment] of speechSegments.entries()) {
+          const audio = await ttsService.generate({
+            text: segment.text,
+            provider: ttsProvider,
+            apiUrl: ttsApiUrl,
+            apiKey: ttsApiKey,
+            appKey: ttsAppKey,
+            appSecret: ttsApiKey,
+            model: ttsModel,
+            voice: ttsVoice,
+          });
+          generatedClips.push({
+            id: crypto.randomUUID(),
+            name:
+              language === 'zh'
+                ? `文字音频 ${existingClips.length + index + 1}`
+                : language === 'ja'
+                  ? `テキスト音声 ${existingClips.length + index + 1}`
+                  : `Text audio ${existingClips.length + index + 1}`,
+            url: audio.url,
+            source: 'tts',
+            createdAt: Date.now() + index,
+            segmentId: segment.id,
+            order: index,
+          });
+        }
+        const nextClips = [...existingClips, ...generatedClips];
         handleUpdateNode(nodeId, {
-          audioUrl: nextClips.find((clip) => !clip.skipped)?.url || generatedClip.url,
+          audioUrl: nextClips.find((clip) => !clip.skipped)?.url || generatedClips[0]?.url,
           audioClips: nextClips,
           ttsGenerated: true,
         });

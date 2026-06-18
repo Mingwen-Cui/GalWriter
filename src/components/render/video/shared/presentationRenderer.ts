@@ -2,6 +2,7 @@ import type { Node as FlowNode } from '@xyflow/react';
 
 import type {
   CharacterNodeData,
+  InlinePresentationAction,
   PresentationMotion,
   StoryPresentation,
 } from '../../../../domain/project';
@@ -16,6 +17,25 @@ import { clamp, loadCachedImage } from './mediaUtils';
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
 
 const easeOut = (value: number) => 1 - Math.pow(1 - clamp(value, 0, 1), 3);
+
+const inlineCanvasState = (
+  action: InlinePresentationAction | null | undefined,
+  elapsed = 0,
+) => {
+  if (!action || action.action === 'none' || action.action === 'wait') {
+    return { x: 0, y: 0, scale: 1, alpha: 1 };
+  }
+  const duration = Math.max(0.08, (action.duration || 400) / 1000);
+  const progress = clamp(elapsed / duration, 0, 1);
+  const wave = Math.sin(progress * Math.PI * 6) * (1 - progress);
+  if (action.action === 'shake-x') return { x: wave * (action.strength || 10), y: 0, scale: 1, alpha: 1 };
+  if (action.action === 'shake-y') return { x: 0, y: wave * (action.strength || 10), scale: 1, alpha: 1 };
+  if (action.action === 'translate-x') return { x: (action.offsetX || action.strength || 0) * easeOut(progress), y: 0, scale: 1, alpha: 1 };
+  if (action.action === 'translate-y') return { x: 0, y: (action.offsetY || action.strength || 0) * easeOut(progress), scale: 1, alpha: 1 };
+  if (action.action === 'scale') return { x: 0, y: 0, scale: 1 + ((action.scale || 1.08) - 1) * Math.sin(progress * Math.PI), alpha: 1 };
+  if (action.action === 'pulse') return { x: 0, y: 0, scale: 1, alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 4)) * 0.45 };
+  return { x: 0, y: 0, scale: 1, alpha: 1 };
+};
 
 const motionState = (
   motion: PresentationMotion,
@@ -114,6 +134,8 @@ export const drawPresentationVisuals = async ({
   media,
   elapsed = 0,
   duration = 0,
+  activeInlineAction,
+  activeInlineActionElapsed = 0,
 }: {
   ctx: CanvasRenderingContext2D;
   node: FlowNode;
@@ -123,6 +145,8 @@ export const drawPresentationVisuals = async ({
   media?: MediaSource;
   elapsed?: number;
   duration?: number;
+  activeInlineAction?: InlinePresentationAction | null;
+  activeInlineActionElapsed?: number;
 }) => {
   const presentation = normalizeStoryPresentation(
     node.data?.presentation as StoryPresentation | undefined,
@@ -169,13 +193,17 @@ export const drawPresentationVisuals = async ({
   ctx.translate(-width / 2, -height / 2);
 
   if (background) {
+    const inlineState =
+      activeInlineAction?.kind === 'scene' && activeInlineAction.sourceNodeId === scene?.sourceNodeId
+        ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
+        : { x: 0, y: 0, scale: 1, alpha: 1 };
     const state = scene
       ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height, 0, 0)
       : { x: 0, y: 0, scale: 1, alpha: 1 };
     ctx.save();
-    ctx.globalAlpha = state.alpha;
-    ctx.translate(width / 2 + state.x, height / 2 + state.y);
-    ctx.scale(state.scale, state.scale);
+    ctx.globalAlpha = state.alpha * inlineState.alpha;
+    ctx.translate(width / 2 + state.x + inlineState.x, height / 2 + state.y + inlineState.y);
+    ctx.scale(state.scale * inlineState.scale, state.scale * inlineState.scale);
     ctx.translate(-width / 2, -height / 2);
     drawFitted(
       ctx,
@@ -231,11 +259,19 @@ export const drawPresentationVisuals = async ({
         characterEnterDelay,
         sceneExitDuration,
       );
+      const inlineState =
+        activeInlineAction?.kind === 'character' &&
+        activeInlineAction.sourceNodeId === config.sourceNodeId
+          ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
+          : { x: 0, y: 0, scale: 1, alpha: 1 };
 
       ctx.save();
-      ctx.globalAlpha = state.alpha;
-      ctx.translate(centerX + state.x, height - bottom + state.y);
-      ctx.scale(config.scale * state.scale * (config.flipX ? -1 : 1), config.scale * state.scale);
+      ctx.globalAlpha = state.alpha * inlineState.alpha;
+      ctx.translate(centerX + state.x + inlineState.x, height - bottom + state.y + inlineState.y);
+      ctx.scale(
+        config.scale * state.scale * inlineState.scale * (config.flipX ? -1 : 1),
+        config.scale * state.scale * inlineState.scale,
+      );
       ctx.drawImage(image, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
       ctx.restore();
     });

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 export type MentionKind = 'character' | 'scene' | 'video';
+export type MentionPlacement = 'start' | 'end' | 'inline';
 
 export type RichTextHandle = {
   insertText: (text: string) => void;
@@ -19,7 +20,48 @@ const escapeHtml = (text: string) =>
 
 const createMentionHtml = (kind: MentionKind, name: string) => {
   const safeName = escapeHtml(name);
-  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+};
+
+const hasMeaningfulText = (text: string) => /[\p{L}\p{N}]/u.test(text);
+
+const rangeHasMeaningfulTextOutsideMentions = (range: Range) => {
+  const fragment = range.cloneContents();
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  container.querySelectorAll('.mention-chip').forEach((node) => node.remove());
+  return hasMeaningfulText(container.textContent || '');
+};
+
+const mentionPlacement = (mention: HTMLElement): MentionPlacement => {
+  const root = mention.closest('[contenteditable="true"]');
+  if (!root) return 'inline';
+  const rangeBefore = document.createRange();
+  rangeBefore.setStart(root, 0);
+  rangeBefore.setEndBefore(mention);
+  const rangeAfter = document.createRange();
+  rangeAfter.setStartAfter(mention);
+  rangeAfter.setEnd(root, root.childNodes.length);
+  const hasBefore = rangeHasMeaningfulTextOutsideMentions(rangeBefore);
+  const hasAfter = rangeHasMeaningfulTextOutsideMentions(rangeAfter);
+  if (!hasBefore) return 'start';
+  if (!hasAfter) return 'end';
+  return 'inline';
+};
+
+const ensureMentionId = (mention: HTMLElement) => {
+  const current = mention.dataset.mentionId;
+  if (current) return { id: current, changed: false };
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  mention.dataset.mentionId = id;
+  return { id, changed: true };
 };
 
 const getMentionNearSelection = (direction: 'backward' | 'forward') => {
@@ -59,7 +101,7 @@ export const RichText = forwardRef<
     autoFocus?: boolean;
     onMentionContextMenu?: (
       event: React.MouseEvent<HTMLSpanElement>,
-      mention: { kind: MentionKind; name: string },
+      mention: { kind: MentionKind; name: string; id: string; placement: MentionPlacement },
     ) => void;
   }
 >(function RichText(
@@ -206,7 +248,14 @@ export const RichText = forwardRef<
       return;
     event.preventDefault();
     event.stopPropagation();
-    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
+    const { id, changed } = ensureMentionId(target);
+    if (changed) handleInput();
+    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, {
+      kind,
+      name,
+      id,
+      placement: mentionPlacement(target),
+    });
   };
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -223,7 +272,14 @@ export const RichText = forwardRef<
     event.preventDefault();
     event.stopPropagation();
     window.getSelection()?.removeAllRanges();
-    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, { kind, name });
+    const { id, changed } = ensureMentionId(target);
+    if (changed) handleInput();
+    onMentionContextMenu(event as unknown as React.MouseEvent<HTMLSpanElement>, {
+      kind,
+      name,
+      id,
+      placement: mentionPlacement(target),
+    });
   };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {

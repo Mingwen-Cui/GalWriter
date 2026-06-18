@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import type {
   CharacterNodeData,
   CharacterPresentation,
+  InlinePresentationAction,
   StoryPresentation,
 } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
@@ -30,6 +31,11 @@ import {
   getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
+import {
+  buildInlinePlaybackSteps,
+  inlineActionAnimation,
+  inlineActionTransform,
+} from '../../../lib/inlinePresentationPlayback';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { renderCopy } from '../video/shared/renderCopy';
 import {
@@ -103,6 +109,10 @@ export function WebPlaytestPreview({
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
+  const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
+    null,
+  );
+  const inlineActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
@@ -238,8 +248,9 @@ export function WebPlaytestPreview({
     getNodeDisplayTitle(currentNode) ||
     stripHtml(getNodeDisplayText(currentNode)).trim().replace(/\s+/g, ' ').slice(0, 42) ||
     t('未命名录音', '名称未設定の録音', 'Untitled audio');
-  const presentation = normalizeStoryPresentation(
-    currentNode?.data?.presentation as StoryPresentation | undefined,
+  const presentation = useMemo(
+    () => normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
+    [currentNode?.data?.presentation],
   );
 
   React.useEffect(() => {
@@ -272,8 +283,9 @@ export function WebPlaytestPreview({
         } => Boolean(item),
       );
   }, [presentation.characters, nodes]);
+  const rawText = getNodeDisplayText(currentNode);
   const text = filterMentionTags(
-    getNodeDisplayText(currentNode),
+    rawText,
     settings.hideCharacterTags,
     settings.hideSceneTags,
   );
@@ -352,34 +364,77 @@ export function WebPlaytestPreview({
   };
 
   React.useEffect(() => {
+    if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
+    setActiveInlineAction(null);
     setAnimationDone(settings.interactionMode !== 'typewriter');
     if (settings.interactionMode !== 'typewriter') {
       setDisplayedPreviewText(text);
       return;
     }
-    const source = stripHtml(text);
-    const revealUnits =
-      renderStyle.bodyTypewriterMode === 'line'
-        ? source.split(/(\n+)/)
-        : renderStyle.bodyTypewriterMode === 'sentence' || renderStyle.bodyTypewriterMode === 'word'
-          ? source.match(/[^。！？.!?\n]+[。！？.!?]*|\n+/g) || Array.from(source)
-          : Array.from(source);
-    let index = 0;
+    const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
+      hideCharacterTags: settings.hideCharacterTags,
+      hideSceneTags: settings.hideSceneTags,
+    });
+    let stepIndex = 0;
+    let committedHtml = '';
+    let timer = 0;
     setDisplayedPreviewText('');
-    const timer = window.setInterval(() => {
-      index += 1;
-      setDisplayedPreviewText(revealUnits.slice(0, index).join(''));
-      if (index >= revealUnits.length) {
-        window.clearInterval(timer);
+
+    const playNext = () => {
+      window.clearInterval(timer);
+      const step = playbackSteps[stepIndex];
+      if (!step) {
+        setActiveInlineAction(null);
         setAnimationDone(true);
+        setDisplayedPreviewText(committedHtml);
+        return;
       }
-    }, settings.typewriterSpeed);
-    return () => window.clearInterval(timer);
+
+      if (step.kind === 'action') {
+        setActiveInlineAction(step.action);
+        inlineActionTimerRef.current = window.setTimeout(() => {
+          setActiveInlineAction(null);
+          stepIndex += 1;
+          playNext();
+        }, Math.max(0, step.action.duration || 0));
+        return;
+      }
+
+      const source = stripHtml(step.html);
+      const revealUnits =
+        renderStyle.bodyTypewriterMode === 'line'
+          ? source.split(/(\n+)/)
+          : renderStyle.bodyTypewriterMode === 'sentence' ||
+              renderStyle.bodyTypewriterMode === 'word'
+            ? source.match(/[^。！？.!?\n]+[。！？.!?]*|\n+/g) || Array.from(source)
+            : Array.from(source);
+      let index = 0;
+      timer = window.setInterval(() => {
+        index += 1;
+        const visibleText = revealUnits.slice(0, index).join('');
+        setDisplayedPreviewText(committedHtml + visibleText);
+        if (index >= revealUnits.length) {
+          window.clearInterval(timer);
+          committedHtml += source;
+          stepIndex += 1;
+          playNext();
+        }
+      }, settings.typewriterSpeed);
+    };
+    playNext();
+    return () => {
+      window.clearInterval(timer);
+      if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
+    };
   }, [
     currentNodeId,
+    presentation,
     renderStyle.bodyTypewriterMode,
     settings.interactionMode,
+    settings.hideCharacterTags,
+    settings.hideSceneTags,
     settings.typewriterSpeed,
+    rawText,
     text,
   ]);
 
@@ -672,6 +727,11 @@ export function WebPlaytestPreview({
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive =
     settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible);
+  const activeSceneInlineAction =
+    activeInlineAction?.kind === 'scene' &&
+    activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
+      ? activeInlineAction
+      : null;
   const presentationScale = presentation.scene?.scale || 1;
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
@@ -694,7 +754,8 @@ export function WebPlaytestPreview({
     transform:
       sceneAnimationActive && sceneMotion
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : 'none',
+        : inlineActionTransform(activeSceneInlineAction) || 'none',
+    animation: inlineActionAnimation(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration:
       settings.layoutMode === 'classic'
@@ -804,6 +865,11 @@ export function WebPlaytestPreview({
                       animationActive && motion
                         ? getPresentationTransform(motion.type, presentationExiting)
                         : '';
+                    const inlineAction =
+                      activeInlineAction?.kind === 'character' &&
+                      activeInlineAction.sourceNodeId === config.sourceNodeId
+                        ? activeInlineAction
+                        : null;
                     return (
                       <img
                         key={config.sourceNodeId}
@@ -816,8 +882,8 @@ export function WebPlaytestPreview({
                           ...getCharacterStagePosition(config),
                           zIndex: clampCharacterLayer(config.layer),
                           opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-                          translate: '-50% 0',
-                          transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                          transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+                          animation: inlineActionAnimation(inlineAction),
                           transformOrigin: 'center center',
                           transitionProperty: 'opacity, transform',
                           transitionDuration:
@@ -906,12 +972,13 @@ export function WebPlaytestPreview({
                     <span className="invisible block whitespace-pre-wrap" aria-hidden="true">
                       {stripHtml(text) || ' '}
                     </span>
-                    <span className="absolute inset-0 block whitespace-pre-wrap">
-                      {displayedPreviewText || ''}
-                    </span>
+                    <span
+                      className="absolute inset-0 block whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: displayedPreviewText || '' }}
+                    />
                   </>
                 ) : (
-                  displayedPreviewText || ''
+                  <span dangerouslySetInnerHTML={{ __html: displayedPreviewText || '' }} />
                 ))}
               {settings.interactionMode !== 'typewriter' && (
                 <span

@@ -1,4 +1,7 @@
 import { htmlToSpeechText } from '../../../../lib/tts';
+import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
+import { normalizeStoryPresentation } from '../../../../lib/presentation';
+import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
@@ -87,10 +90,29 @@ export const drawRenderFrame = async ({
   hideSceneTags,
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
+  const rawBodyHtml = String(node.data?.text || '');
+  const inlineState = inlinePlaybackStateAtTime({
+    html: rawBodyHtml,
+    presentation: normalizeStoryPresentation(node.data?.presentation as StoryPresentation | undefined),
+    elapsed,
+    duration,
+    options: { hideCharacterTags, hideSceneTags },
+  });
   const body = htmlToSpeechText(
-    filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
+    filterMentionTags(inlineState.html, hideCharacterTags, hideSceneTags),
   );
-  await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
+  await drawPresentationVisuals({
+    ctx,
+    node,
+    nodes,
+    width,
+    height,
+    media,
+    elapsed,
+    duration,
+    activeInlineAction: inlineState.activeAction,
+    activeInlineActionElapsed: inlineState.activeActionElapsed,
+  });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
 
   const dialogLayout = await drawDialogueBox(ctx, width, height, videoRenderStyle);

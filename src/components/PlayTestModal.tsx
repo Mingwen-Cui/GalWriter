@@ -32,6 +32,7 @@ import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import type {
   CharacterNodeData,
   CharacterPresentation,
+  InlinePresentationAction,
   SceneNodeData,
   StoryPresentation,
 } from '../domain/project';
@@ -45,6 +46,11 @@ import {
   getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../lib/presentation';
+import {
+  buildInlinePlaybackSteps,
+  inlineActionAnimation,
+  inlineActionTransform,
+} from '../lib/inlinePresentationPlayback';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
@@ -239,7 +245,11 @@ export function PlayTestModal({
   const [timeLeft, setTimeLeft] = useState(0);
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
+  const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
+    null,
+  );
   const typewriterTimerRef = useRef<any>(null);
+  const inlineActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timedTimerRef = useRef<any>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,8 +275,9 @@ export function PlayTestModal({
       ? currentNode.data.title.trim()
       : '';
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
-  const presentation = normalizeStoryPresentation(
-    currentNode?.data.presentation as StoryPresentation | undefined,
+  const presentation = React.useMemo(
+    () => normalizeStoryPresentation(currentNode?.data.presentation as StoryPresentation | undefined),
+    [currentNode?.data.presentation],
   );
   const sceneSource = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
@@ -569,11 +580,13 @@ export function PlayTestModal({
   // 触发打字机或延时逻辑
   useEffect(() => {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+    if (inlineActionTimerRef.current) clearTimeout(inlineActionTimerRef.current);
     if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
     if (autoAdvanceTimerRef.current) {
       clearTimeout(autoAdvanceTimerRef.current);
       autoAdvanceTimerRef.current = null;
     }
+    setActiveInlineAction(null);
 
     if (currentNodeId === 'THE_END' || !currentNode) {
       setDisplayedHtml('');
@@ -586,25 +599,68 @@ export function PlayTestModal({
       setAnimationCompleted(true);
     } else if (interactionMode === 'typewriter') {
       setAnimationCompleted(false);
-      const { totalTextLength } = sliceHtmlByTextLength(textHtml, 9999);
+      const playbackSteps = buildInlinePlaybackSteps(rawTextHtml, presentation, {
+        hideCharacterTags,
+        hideSceneTags,
+      });
+      const fullHtml = playbackSteps
+        .filter((step): step is { kind: 'text'; html: string } => step.kind === 'text')
+        .map((step) => step.html)
+        .join('');
+      const { totalTextLength } = sliceHtmlByTextLength(fullHtml, 9999);
       if (totalTextLength === 0) {
-        setDisplayedHtml(textHtml);
+        setDisplayedHtml(fullHtml);
         setAnimationCompleted(true);
         return;
       }
 
-      let currentLen = 0;
-      setDisplayedHtml(sliceHtmlByTextLength(textHtml, 0).slicedHtml);
+      let stepIndex = 0;
+      let currentSegmentLen = 0;
+      let committedHtml = '';
+      setDisplayedHtml('');
 
-      typewriterTimerRef.current = setInterval(() => {
-        currentLen += 1;
-        const { slicedHtml, totalTextLength: len } = sliceHtmlByTextLength(textHtml, currentLen);
-        setDisplayedHtml(slicedHtml);
-        if (currentLen >= len) {
-          if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+      const playNext = () => {
+        if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+        const step = playbackSteps[stepIndex];
+        if (!step) {
+          setActiveInlineAction(null);
+          setDisplayedHtml(committedHtml);
           setAnimationCompleted(true);
+          return;
         }
-      }, typewriterSpeed);
+
+        if (step.kind === 'action') {
+          setActiveInlineAction(step.action);
+          inlineActionTimerRef.current = setTimeout(() => {
+            setActiveInlineAction(null);
+            stepIndex += 1;
+            playNext();
+          }, Math.max(0, step.action.duration || 0));
+          return;
+        }
+
+        const { totalTextLength: segmentLength } = sliceHtmlByTextLength(step.html, 9999);
+        if (segmentLength === 0) {
+          committedHtml += step.html;
+          stepIndex += 1;
+          playNext();
+          return;
+        }
+        currentSegmentLen = 0;
+        typewriterTimerRef.current = setInterval(() => {
+          currentSegmentLen += 1;
+          const { slicedHtml } = sliceHtmlByTextLength(step.html, currentSegmentLen);
+          setDisplayedHtml(committedHtml + slicedHtml);
+          if (currentSegmentLen >= segmentLength) {
+            if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+            committedHtml += step.html;
+            stepIndex += 1;
+            playNext();
+          }
+        }, typewriterSpeed);
+      };
+
+      playNext();
     } else if (interactionMode === 'timed') {
       setDisplayedHtml(textHtml);
       setAnimationCompleted(false);
@@ -636,13 +692,24 @@ export function PlayTestModal({
 
     return () => {
       if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+      if (inlineActionTimerRef.current) clearTimeout(inlineActionTimerRef.current);
       if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
       if (autoAdvanceTimerRef.current) {
         clearTimeout(autoAdvanceTimerRef.current);
         autoAdvanceTimerRef.current = null;
       }
     };
-  }, [currentNodeId, textHtml, interactionMode, typewriterSpeed, choiceDelay]);
+  }, [
+    currentNodeId,
+    rawTextHtml,
+    textHtml,
+    interactionMode,
+    typewriterSpeed,
+    choiceDelay,
+    hideCharacterTags,
+    hideSceneTags,
+    presentation,
+  ]);
 
   useEffect(() => {
     if (autoAdvanceTimerRef.current) {
@@ -1129,6 +1196,11 @@ export function PlayTestModal({
   const hasMedia = !!(sceneImageUrl || sceneVideoUrl || presentedCharacters.length);
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive = presentationExiting || !presentationVisible;
+  const activeSceneInlineAction =
+    activeInlineAction?.kind === 'scene' &&
+    activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
+      ? activeInlineAction
+      : null;
   const presentationScale = presentation.scene?.scale || 1;
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
@@ -1145,7 +1217,8 @@ export function PlayTestModal({
     transform:
       sceneAnimationActive && sceneMotion
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : 'none',
+        : inlineActionTransform(activeSceneInlineAction) || 'none',
+    animation: inlineActionAnimation(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
@@ -1167,6 +1240,11 @@ export function PlayTestModal({
           animationActive && motion
             ? getPresentationTransform(motion.type, presentationExiting)
             : '';
+        const inlineAction =
+          activeInlineAction?.kind === 'character' &&
+          activeInlineAction.sourceNodeId === config.sourceNodeId
+            ? activeInlineAction
+            : null;
         return (
           <img
             key={config.sourceNodeId}
@@ -1179,8 +1257,8 @@ export function PlayTestModal({
               ...getCharacterStagePosition(config),
               zIndex: clampCharacterLayer(config.layer),
               opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-              translate: '-50% 0',
-              transform: `${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+              transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+              animation: inlineActionAnimation(inlineAction),
               transformOrigin: 'center center',
               transitionProperty: 'opacity, transform',
               transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,

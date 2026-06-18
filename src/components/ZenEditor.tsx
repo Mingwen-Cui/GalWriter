@@ -27,6 +27,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import type {
   CharacterPresentation,
+  InlinePresentationAction,
   PresentationAnimation,
   PresentationMotion,
   ScenePresentation,
@@ -39,6 +40,7 @@ import {
   copyCharacterPresentationSettings,
   copyScenePresentationSettings,
   createCharacterPresentation,
+  createInlinePresentationAction,
   createScenePresentation,
   getCharacterStagePosition,
   getPresentationTransform,
@@ -48,6 +50,8 @@ import {
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
+import { inlineActionTransform } from '../lib/inlinePresentationPlayback';
+import { InlineActionEditor } from './InlineActionEditor';
 import { RichText, RichTextHandle } from './RichText';
 import { DurationInput } from './DurationInput';
 import { DraggableNumberInput } from './DraggableNumberInput';
@@ -122,7 +126,7 @@ export function ZenEditor({
   const [waveformLevels, setWaveformLevels] = useState<number[]>(() => Array(24).fill(0.08));
   const [toolbarMenu, setToolbarMenu] = useState<'colors' | 'sizes' | null>(null);
   const [presentationMenu, setPresentationMenu] = useState<
-    (ZenTag & { kind: 'character' | 'scene' }) | null
+    (ZenTag & { kind: 'character' | 'scene'; mentionId?: string; placement?: 'start' | 'end' | 'inline' }) | null
   >(null);
   const [preview, setPreview] = useState<{
     kind: 'character' | 'scene';
@@ -130,6 +134,11 @@ export function ZenEditor({
     phase: 'enter' | 'exit';
     visible: boolean;
   } | null>(null);
+  const [inlineActionPreview, setInlineActionPreview] = useState<{
+    action: InlinePresentationAction;
+    mode: 'before' | 'after';
+  } | null>(null);
+  const [autoPreviewInlineAction, setAutoPreviewInlineAction] = useState(true);
   const [presentationResetUndo, setPresentationResetUndo] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId: string;
@@ -328,7 +337,7 @@ export function ZenEditor({
 
   // NOTE: 应用角色模板
   const handleApplyCharacterTemplate = (tpl: CharacterTemplate) => {
-    if (!presentationMenu) return;
+    if (!presentationMenu || presentationMenu.placement === 'inline') return;
     updateCharacter(
       presentationMenu.id,
       (current) => ({
@@ -341,7 +350,7 @@ export function ZenEditor({
 
   // NOTE: 应用场景模板
   const handleApplySceneTemplate = (tpl: SceneTemplate) => {
-    if (!presentationMenu) return;
+    if (!presentationMenu || presentationMenu.placement === 'inline') return;
     updateScene(
       presentationMenu.id,
       (current) => ({
@@ -455,15 +464,55 @@ export function ZenEditor({
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
-  const openCharacterMenu = (tag: ZenTag) => {
+  const updateInlineAction = (action: InlinePresentationAction) => {
+    onPresentationChange?.({
+      ...normalizedPresentation,
+      inlineActions: [
+        ...(normalizedPresentation.inlineActions || []).filter((item) => item.id !== action.id),
+        action,
+      ],
+    });
+  };
+
+  const deleteInlineAction = (actionId: string) => {
+    onPresentationChange?.({
+      ...normalizedPresentation,
+      inlineActions: (normalizedPresentation.inlineActions || []).filter(
+        (item) => item.id !== actionId,
+      ),
+    });
+  };
+
+  const getInlineAction = (tag: ZenTag & { kind: 'character' | 'scene'; mentionId?: string }) => {
+    const id = tag.mentionId || `${tag.kind}:${tag.id}`;
+    return (
+      normalizedPresentation.inlineActions?.find((item) => item.id === id) ||
+      createInlinePresentationAction({
+        id,
+        kind: tag.kind,
+        sourceNodeId: tag.id,
+        name: tag.name,
+      })
+    );
+  };
+
+  const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
+    setPreview(null);
+    setInlineActionPreview({ action, mode });
+  };
+
+  const openCharacterMenu = (
+    tag: ZenTag,
+    options: { mentionId?: string; placement?: 'start' | 'end' | 'inline' } = {},
+  ) => {
     if (!normalizedPresentation.characters.some((item) => item.sourceNodeId === tag.id)) {
       onPresentationChange?.({
         ...normalizedPresentation,
         characters: [...normalizedPresentation.characters, createCharacterPresentation(tag.id)],
       });
     }
-    setPresentationMenu({ ...tag, kind: 'character' });
-    replayCharacter(tag.id);
+    setPresentationMenu({ ...tag, kind: 'character', ...options });
+    if (options.placement !== 'inline') replayCharacter(tag.id);
   };
 
   const replayScene = (
@@ -506,15 +555,18 @@ export function ZenEditor({
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
-  const openSceneMenu = (tag: ZenTag) => {
+  const openSceneMenu = (
+    tag: ZenTag,
+    options: { mentionId?: string; placement?: 'start' | 'end' | 'inline' } = {},
+  ) => {
     if (normalizedPresentation.scene?.sourceNodeId !== tag.id) {
       onPresentationChange?.({
         ...normalizedPresentation,
         scene: createScenePresentation(tag.id, imageUrl),
       });
     }
-    setPresentationMenu({ ...tag, kind: 'scene' });
-    replayScene(tag.id);
+    setPresentationMenu({ ...tag, kind: 'scene', ...options });
+    if (options.placement !== 'inline') replayScene(tag.id);
   };
 
   const cardVideoMentionName = '卡片视频';
@@ -804,6 +856,18 @@ export function ZenEditor({
     { label: 'L', val: '6' },
   ];
 
+  const inlinePreviewTransformFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionTransform(inlineActionPreview.action)
+      : '';
+
+  const inlinePreviewDurationFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? Math.max(80, inlineActionPreview.action.duration || 300)
+      : 0;
+
   return (
     <div className="fixed inset-0 z-[200] grid grid-cols-[76px_minmax(0,1fr)_320px] gap-3 bg-[var(--app-bg)] p-3 animate-in fade-in duration-200">
       <aside className="relative z-[80] flex min-h-0 flex-col items-center gap-3 overflow-visible rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-2 shadow-sm">
@@ -1087,13 +1151,21 @@ export function ZenEditor({
                               50 + (scene?.offsetY || 0)
                             }%`,
                             opacity: animated && motion?.type === 'fade' ? 0 : 1,
-                            transform: `${
-                              animated && motion
-                                ? getPresentationTransform(motion.type, phase === 'exit')
-                                : 'none'
-                            }`,
+                            transform:
+                              [
+                                animated && motion
+                                  ? getPresentationTransform(motion.type, phase === 'exit')
+                                  : '',
+                                inlinePreviewTransformFor('scene', scene?.sourceNodeId),
+                              ]
+                                .filter(Boolean)
+                                .join(' ') || 'none',
                             transitionProperty: 'opacity, transform',
-                            transitionDuration: `${previewMatches ? motion?.duration || 0 : 0}ms`,
+                            transitionDuration: `${
+                              previewMatches
+                                ? motion?.duration || 0
+                                : inlinePreviewDurationFor('scene', scene?.sourceNodeId)
+                            }ms`,
                             transitionTimingFunction: 'ease-out',
                           };
                           return imageUrl ? (
@@ -1167,16 +1239,20 @@ export function ZenEditor({
                               ...getCharacterStagePosition(config),
                               zIndex: clampCharacterLayer(config.layer),
                               opacity: animated && motion.type === 'fade' ? 0 : 1,
-                              translate: '-50% 0',
-                              transform: `${
+                              transform: `translate(-50%, 0) ${
                                 animated
                                   ? getPresentationTransform(motion.type, phase === 'exit')
                                   : ''
-                              } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                              } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
+                                'character',
+                                config.sourceNodeId,
+                              )}`,
                               transformOrigin: 'center center',
                               transition:
                                 previewMatches && motion.type !== 'none' && motion.duration > 0
                                   ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                                  : inlinePreviewDurationFor('character', config.sourceNodeId)
+                                    ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
                                   : undefined,
                             }}
                           />
@@ -1198,8 +1274,9 @@ export function ZenEditor({
                 const tags = mention.kind === 'character' ? characterTags : sceneTags;
                 const tag = tags.find((item) => item.name === mention.name);
                 if (!tag) return;
-                if (mention.kind === 'character') openCharacterMenu(tag);
-                else openSceneMenu(tag);
+                const options = { mentionId: mention.id, placement: mention.placement };
+                if (mention.kind === 'character') openCharacterMenu(tag, options);
+                else openSceneMenu(tag, options);
               }}
               className="w-full min-h-full text-lg md:text-xl leading-[1.8] text-[var(--text-primary)] font-serif break-words focus:outline-none"
             />
@@ -1320,6 +1397,25 @@ export function ZenEditor({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {rightPanel === 'presentation' &&
+            presentationMenu?.placement === 'inline' &&
+            (() => {
+              const action = getInlineAction(presentationMenu);
+              return (
+                <InlineActionEditor
+                  action={action}
+                  targetName={presentationMenu.name}
+                  targetKind={presentationMenu.kind}
+                  onChange={updateInlineAction}
+                  onDelete={() => deleteInlineAction(action.id)}
+                  onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
+                  onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
+                  autoPreview={autoPreviewInlineAction}
+                  onAutoPreviewChange={setAutoPreviewInlineAction}
+                />
+              );
+            })()}
+          {rightPanel === 'presentation' &&
+            presentationMenu?.placement !== 'inline' &&
             presentationMenu?.kind === 'character' &&
             (() => {
               const current =
@@ -1664,6 +1760,7 @@ export function ZenEditor({
               );
             })()}
           {rightPanel === 'presentation' &&
+            presentationMenu?.placement !== 'inline' &&
             presentationMenu?.kind === 'scene' &&
             (() => {
               const current =

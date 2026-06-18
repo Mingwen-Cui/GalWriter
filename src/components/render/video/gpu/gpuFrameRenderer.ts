@@ -3,6 +3,9 @@
 // 在 GPU 上完成最终合成。
 
 import { htmlToSpeechText } from '../../../../lib/tts';
+import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
+import { normalizeStoryPresentation } from '../../../../lib/presentation';
+import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
@@ -202,11 +205,24 @@ async function createBackgroundCanvas(
   nodes: import('@xyflow/react').Node[] = [],
   elapsed?: number,
   duration?: number,
+  activeInlineAction?: import('../../../../domain/project').InlinePresentationAction | null,
+  activeInlineActionElapsed = 0,
 ): Promise<OffscreenCanvas> {
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
 
-  await drawPresentationVisuals({ ctx, node, nodes, width, height, media, elapsed, duration });
+  await drawPresentationVisuals({
+    ctx,
+    node,
+    nodes,
+    width,
+    height,
+    media,
+    elapsed,
+    duration,
+    activeInlineAction,
+    activeInlineActionElapsed,
+  });
 
   return canvas;
 }
@@ -231,8 +247,15 @@ export async function drawGPUFrame({
   const nodeId = node.id;
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
   const title = htmlToSpeechText(String(node.data?.title || ''));
+  const inlineState = inlinePlaybackStateAtTime({
+    html: String(node.data?.text || ''),
+    presentation: normalizeStoryPresentation(node.data?.presentation as StoryPresentation | undefined),
+    elapsed,
+    duration,
+    options: { hideCharacterTags, hideSceneTags },
+  });
   const body = htmlToSpeechText(
-    filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
+    filterMentionTags(inlineState.html, hideCharacterTags, hideSceneTags),
   );
 
   // 1. 准备背景纹理
@@ -244,6 +267,8 @@ export async function drawGPUFrame({
     nodes,
     elapsed,
     duration,
+    inlineState.activeAction,
+    inlineState.activeActionElapsed,
   );
   const bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
 

@@ -1,5 +1,7 @@
 import type {
   CharacterPresentation,
+  InlinePresentationAction,
+  InlinePresentationActionType,
   PresentationAnimation,
   PresentationMotion,
   ScenePresentation,
@@ -57,12 +59,50 @@ export const createScenePresentation = (
   previousShowTextOverlay,
 });
 
+const EMPTY_CHARACTERS: CharacterPresentation[] = [];
+const EMPTY_INLINE_ACTIONS: InlinePresentationAction[] = [];
+
+export const createInlinePresentationAction = ({
+  id,
+  kind,
+  sourceNodeId,
+  name,
+}: {
+  id: string;
+  kind: 'character' | 'scene';
+  sourceNodeId: string;
+  name?: string;
+}): InlinePresentationAction => ({
+  id,
+  kind,
+  sourceNodeId,
+  name,
+  action: 'shake-x',
+  duration: 420,
+  strength: 10,
+  offsetX: kind === 'scene' ? 18 : 12,
+  offsetY: kind === 'scene' ? 10 : 8,
+  scale: kind === 'scene' ? 1.04 : 1.08,
+});
+
 export const normalizeStoryPresentation = (
   value: StoryPresentation | undefined,
 ): StoryPresentation => ({
   scene: value?.scene,
-  characters: Array.isArray(value?.characters) ? value.characters : [],
+  characters: Array.isArray(value?.characters) ? value.characters : EMPTY_CHARACTERS,
+  inlineActions: Array.isArray(value?.inlineActions) ? value.inlineActions : EMPTY_INLINE_ACTIONS,
 });
+
+export const inlinePresentationActionLabel = (action: InlinePresentationActionType) => {
+  if (action === 'shake-x') return '左右抖动';
+  if (action === 'shake-y') return '上下抖动';
+  if (action === 'translate-x') return '水平平移';
+  if (action === 'translate-y') return '垂直平移';
+  if (action === 'scale') return '缩放';
+  if (action === 'pulse') return '闪烁';
+  if (action === 'wait') return '停顿';
+  return '无动作';
+};
 
 export const getCharacterStagePosition = (config: CharacterPresentation) => {
   const basePosition = config.position === 'left' ? 24 : config.position === 'right' ? 76 : 50;

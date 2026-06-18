@@ -325,9 +325,32 @@ export type PresentationAnimation =
   | 'slide-down'
   | 'zoom';
 
+export type InlinePresentationActionType =
+  | 'none'
+  | 'shake-x'
+  | 'shake-y'
+  | 'translate-x'
+  | 'translate-y'
+  | 'scale'
+  | 'pulse'
+  | 'wait';
+
 export interface PresentationMotion {
   type: PresentationAnimation;
   duration: number;
+}
+
+export interface InlinePresentationAction {
+  id: string;
+  kind: 'character' | 'scene';
+  sourceNodeId: string;
+  name?: string;
+  action: InlinePresentationActionType;
+  duration: number;
+  strength: number;
+  offsetX: number;
+  offsetY: number;
+  scale: number;
 }
 
 export interface CharacterPresentation {
@@ -366,6 +389,7 @@ export interface ScenePresentation {
 export interface StoryPresentation {
   scene?: ScenePresentation;
   characters: CharacterPresentation[];
+  inlineActions?: InlinePresentationAction[];
 }
 
 export interface CharacterPresentationTemplate {
@@ -400,6 +424,8 @@ export interface StoryAudioClip {
   source: 'tts' | 'recording' | 'imported';
   createdAt: number;
   skipped?: boolean;
+  segmentId?: string;
+  order?: number;
 }
 
 export type HullPoint = {

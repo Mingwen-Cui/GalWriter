@@ -45,6 +45,7 @@ import { createPortal } from 'react-dom';
 import type {
   CharacterNodeData,
   CharacterPresentation,
+  InlinePresentationAction,
   PresentationAnimation,
   PresentationMotion,
   SceneFlowNode,
@@ -60,6 +61,7 @@ import {
   copyCharacterPresentationSettings,
   copyScenePresentationSettings,
   createCharacterPresentation,
+  createInlinePresentationAction,
   createScenePresentation,
   getCharacterStagePosition,
   getPresentationTransform,
@@ -69,9 +71,11 @@ import {
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
+import { inlineActionTransform } from '../lib/inlinePresentationPlayback';
 import { NumberInput } from './NumberInput';
 import { DurationInput } from './DurationInput';
 import { DraggableNumberInput } from './DraggableNumberInput';
+import { InlineActionEditor } from './InlineActionEditor';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
@@ -245,6 +249,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     name: string;
     x: number;
     y: number;
+    mentionId?: string;
+    placement?: 'start' | 'end' | 'inline';
   } | null>(null);
   const presentationMenuRef = useRef<HTMLDivElement>(null);
   const [presentationMenuPosition, setPresentationMenuPosition] = useState({ left: 12, top: 12 });
@@ -256,6 +262,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     active: boolean;
     nonce: number;
   } | null>(null);
+  const [inlineActionPreview, setInlineActionPreview] = useState<{
+    action: InlinePresentationAction;
+    mode: 'before' | 'after';
+  } | null>(null);
+  const [autoPreviewInlineAction, setAutoPreviewInlineAction] = useState(true);
   const [presentationResetUndo, setPresentationResetUndo] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId: string;
@@ -322,9 +333,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       if (!menu) return;
       const margin = 12;
       const { width, height } = menu.getBoundingClientRect();
-      setPresentationMenuPosition({
+      const nextPosition = {
         left: Math.max(margin, Math.min(presentationMenu.x, window.innerWidth - width - margin)),
         top: Math.max(margin, Math.min(presentationMenu.y, window.innerHeight - height - margin)),
+      };
+      setPresentationMenuPosition((current) => {
+        if (
+          Math.abs(current.left - nextPosition.left) < 1 &&
+          Math.abs(current.top - nextPosition.top) < 1
+        ) {
+          return current;
+        }
+        return nextPosition;
       });
     };
 
@@ -744,35 +764,39 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       Math.abs(previous - targetHeight) < 1 ? previous : targetHeight,
     );
 
+    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+    if (!currentNode) return;
+    const currentHeight =
+      getNumericSize(currentNode.style?.height) ??
+      getNumericSize((currentNode as any).height) ??
+      getNumericSize((currentNode as any).measured?.height) ??
+      rootHeight;
+    const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
+    const nextHeight = targetHeight;
+    lastAutoHeightRef.current = targetHeight;
+    const changed =
+      Math.abs(currentHeight - nextHeight) >= 1 ||
+      Math.abs((currentMinHeight ?? 0) - targetHeight) >= 1;
+    if (!changed) return;
+
     setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id !== id) return node;
-        const currentHeight =
-          getNumericSize(node.style?.height) ??
-          getNumericSize((node as any).height) ??
-          getNumericSize((node as any).measured?.height) ??
-          rootHeight;
-        const currentMinHeight = getNumericSize(node.style?.minHeight);
-        const nextHeight = targetHeight;
-        lastAutoHeightRef.current = targetHeight;
-        if (
-          Math.abs(currentHeight - nextHeight) < 1 &&
-          Math.abs((currentMinHeight ?? 0) - targetHeight) < 1
-        ) {
-          return node;
-        }
-        return {
-          ...node,
-          style: {
-            ...node.style,
-            height: nextHeight,
-            minHeight: targetHeight,
-          },
-        };
-      }),
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              style: {
+                ...node.style,
+                height: nextHeight,
+                minHeight: targetHeight,
+              },
+            }
+          : node,
+      ),
     );
 
-    requestAnimationFrame(() => updateNodeInternals(id));
+    requestAnimationFrame(() => {
+      if (changed) updateNodeInternals(id);
+    });
   }, [
     computeAutoMinHeight,
     hasMediaTextLayout,
@@ -781,6 +805,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     setNodes,
     showRichTextTools,
     showTitleInside,
+    storeApi,
     updateNodeInternals,
   ]);
 
@@ -872,55 +897,54 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       )
         return;
 
+      const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+      if (!currentNode) return;
+      const currentWidth =
+        getNumericSize(currentNode.style?.width) ??
+        getNumericSize((currentNode as any).width) ??
+        getNumericSize((currentNode as any).measured?.width) ??
+        300;
+      const currentHeight =
+        getNumericSize(currentNode.style?.height) ??
+        getNumericSize((currentNode as any).height) ??
+        getNumericSize((currentNode as any).measured?.height) ??
+        200;
+      const imageHeight = (dimensions.height / dimensions.width) * currentWidth;
+      const targetHeight = Math.max(
+        AUTO_SIZE_MIN_HEIGHT,
+        Math.ceil(
+          imageHeight +
+            (showTitleInside && titleBlockRef.current
+              ? titleBlockRef.current.getBoundingClientRect().height
+              : 0),
+        ),
+      );
+      const titleHeightAdded = showTitleInside;
+      const changed =
+        Math.abs(currentHeight - targetHeight) >= 1 ||
+        currentNode.data?.titleHeightAdded !== titleHeightAdded;
+      if (!changed) return;
+
       setNodes((nodes) =>
-        nodes.map((node) => {
-          if (node.id !== id) return node;
-
-          const currentWidth =
-            getNumericSize(node.style?.width) ??
-            getNumericSize((node as any).width) ??
-            getNumericSize((node as any).measured?.width) ??
-            300;
-          const currentHeight =
-            getNumericSize(node.style?.height) ??
-            getNumericSize((node as any).height) ??
-            getNumericSize((node as any).measured?.height) ??
-            200;
-          const imageHeight = (dimensions.height / dimensions.width) * currentWidth;
-          const targetHeight = Math.max(
-            AUTO_SIZE_MIN_HEIGHT,
-            Math.ceil(
-              imageHeight +
-                (showTitleInside && titleBlockRef.current
-                  ? titleBlockRef.current.getBoundingClientRect().height
-                  : 0),
-            ),
-          );
-          const titleHeightAdded = showTitleInside;
-
-          if (
-            Math.abs(currentHeight - targetHeight) < 1 &&
-            node.data?.titleHeightAdded === titleHeightAdded
-          ) {
-            return node;
-          }
-
-          return {
-            ...node,
-            style: {
-              ...node.style,
-              height: targetHeight,
-            },
-            data: {
-              ...node.data,
-              titleHeightAdded,
-            },
-          };
-        }),
+        nodes.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                style: {
+                  ...node.style,
+                  height: targetHeight,
+                },
+                data: {
+                  ...node.data,
+                  titleHeightAdded,
+                },
+              }
+            : node,
+        ),
       );
 
       requestAnimationFrame(() => {
-        updateNodeInternals(id);
+        if (changed) updateNodeInternals(id);
       });
     },
     [
@@ -930,6 +954,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       imageUrl,
       setNodes,
       showTitleInside,
+      storeApi,
       updateNodeInternals,
     ],
   );
@@ -1078,9 +1103,55 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
+  const updateInlineAction = (action: InlinePresentationAction) => {
+    const presentation = getPresentation();
+    updateNodeData({
+      presentation: {
+        ...presentation,
+        inlineActions: [
+          ...(presentation.inlineActions || []).filter((item) => item.id !== action.id),
+          action,
+        ],
+      },
+    });
+  };
+
+  const deleteInlineAction = (actionId: string) => {
+    const presentation = getPresentation();
+    updateNodeData({
+      presentation: {
+        ...presentation,
+        inlineActions: (presentation.inlineActions || []).filter((item) => item.id !== actionId),
+      },
+    });
+  };
+
+  const getInlineAction = (menu: NonNullable<typeof presentationMenu>) => {
+    const actionId = menu.mentionId || `${menu.kind}:${menu.sourceNodeId}`;
+    return (
+      getPresentation().inlineActions?.find((item) => item.id === actionId) ||
+      createInlinePresentationAction({
+        id: actionId,
+        kind: menu.kind,
+        sourceNodeId: menu.sourceNodeId,
+        name: menu.name,
+      })
+    );
+  };
+
+  const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
+    setPresentationPreview(null);
+    setInlineActionPreview({ action, mode });
+  };
+
   const handleMentionContextMenu = (
     event: React.MouseEvent<HTMLSpanElement>,
-    mention: { kind: 'character' | 'scene' | 'video'; name: string },
+    mention: {
+      kind: 'character' | 'scene' | 'video';
+      name: string;
+      id?: string;
+      placement?: 'start' | 'end' | 'inline';
+    },
   ) => {
     if (mention.kind === 'video') {
       if (videoUrl) openCardVideoPresentationMenu(event);
@@ -1109,7 +1180,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       );
     if (!sourceNode) return;
 
-    if (mention.kind === 'scene') {
+    if (mention.placement !== 'inline' && mention.kind === 'scene') {
       if (presentation.scene?.sourceNodeId !== sourceNode.id) {
         updateNodeData({
           imageUrl: (sourceNode.data.coverImageUrl as string | undefined) || imageUrl,
@@ -1123,7 +1194,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           },
         });
       }
-    } else {
+    } else if (mention.placement !== 'inline') {
       if (!presentation.characters.some((item) => item.sourceNodeId === sourceNode.id)) {
         updateNodeData({
           presentation: {
@@ -1140,8 +1211,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       name: mention.name,
       x: event.clientX,
       y: event.clientY,
+      mentionId: mention.id,
+      placement: mention.placement,
     });
-    replayPresentation(mention.kind, sourceNode.id, 'enter');
+    if (mention.placement !== 'inline') replayPresentation(mention.kind, sourceNode.id, 'enter');
   };
 
   const handleGenerateImage = async () => {
@@ -1465,6 +1538,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       ? presentationPreview.active
       : !presentationPreview.active;
   };
+
+  const inlinePreviewTransformFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionTransform(inlineActionPreview.action)
+      : '';
+
+  const inlinePreviewDurationFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? Math.max(80, inlineActionPreview.action.duration || 300)
+      : 0;
 
   const mediaToolbarButtons = (imageUrl || videoUrl) &&
     hasMediaToolbarActions &&
@@ -2006,6 +2091,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 presentationPreview?.phase === 'exit',
                               )
                             : '',
+                          storyPresentation.scene
+                            ? inlinePreviewTransformFor('scene', storyPresentation.scene.sourceNodeId)
+                            : '',
                         ]
                           .filter(Boolean)
                           .join(' ') || 'none',
@@ -2022,6 +2110,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         presentationPreview?.kind === 'scene' &&
                         presentationPreview.sourceNodeId === storyPresentation.scene.sourceNodeId
                           ? `transform ${storyPresentation.scene[presentationPreview.phase].duration}ms ease, opacity ${storyPresentation.scene[presentationPreview.phase].duration}ms ease`
+                          : storyPresentation.scene &&
+                              inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)
+                            ? `transform ${inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)}ms ease`
                           : undefined,
                     }}
                     alt=""
@@ -2056,14 +2147,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         ...getCharacterStagePosition(config),
                         zIndex: clampCharacterLayer(config.layer),
                         opacity: animated && motion.type === 'fade' ? 0 : 1,
-                        translate: '-50% 0',
-                        transform: `${
+                        transform: `translate(-50%, 0) ${
                           animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
-                        } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1})`,
+                        } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
+                          'character',
+                          config.sourceNodeId,
+                        )}`,
                         transformOrigin: 'center center',
                         transition:
                           previewMatches && motion.type !== 'none' && motion.duration > 0
                             ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                            : inlinePreviewDurationFor('character', config.sourceNodeId)
+                              ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
                             : undefined,
                       }}
                     />
@@ -2293,6 +2388,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   }
                 }}
                 className={`absolute right-3 top-3 rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${
+                  presentationMenu.placement === 'inline'
+                    ? 'hidden'
+                    : ''
+                } ${
                   presentationResetUndo?.kind === presentationMenu.kind &&
                   presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -2315,7 +2414,25 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 {presentationMenu.name}
               </div>
 
-              {presentationMenu.kind === 'character'
+              {presentationMenu.placement === 'inline' &&
+                (() => {
+                  const action = getInlineAction(presentationMenu);
+                  return (
+                    <InlineActionEditor
+                      action={action}
+                      targetName={presentationMenu.name}
+                      targetKind={presentationMenu.kind}
+                      onChange={updateInlineAction}
+                      onDelete={() => deleteInlineAction(action.id)}
+                      onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
+                      onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
+                      autoPreview={autoPreviewInlineAction}
+                      onAutoPreviewChange={setAutoPreviewInlineAction}
+                    />
+                  );
+                })()}
+
+              {presentationMenu.placement !== 'inline' && presentationMenu.kind === 'character'
                 ? (() => {
                     const presentation = getPresentation();
                     const current =
@@ -2625,7 +2742,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       </div>
                     );
                   })()
-                : (() => {
+                : presentationMenu.placement !== 'inline'
+                  ? (() => {
                     const presentation = getPresentation();
                     const current =
                       presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
@@ -2887,7 +3005,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         ))}
                       </div>
                     );
-                  })()}
+                    })()
+                  : null}
             </div>
           </div>,
           document.body,

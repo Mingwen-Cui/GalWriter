@@ -3,6 +3,56 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+@keyframes galInlineShakeX {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: -10px 0;
+  }
+  40% {
+    translate: 10px 0;
+  }
+  60% {
+    translate: -6px 0;
+  }
+  80% {
+    translate: 6px 0;
+  }
+}
+
+@keyframes galInlineShakeY {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: 0 -10px;
+  }
+  40% {
+    translate: 0 10px;
+  }
+  60% {
+    translate: 0 -6px;
+  }
+  80% {
+    translate: 0 6px;
+  }
+}
+
+@keyframes galInlinePulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  45% {
+    opacity: 0.45;
+    filter: brightness(1.35);
+  }
+}
+
 :root {
   --app-bg: #f9fafb;
   --card-bg: #ffffff;

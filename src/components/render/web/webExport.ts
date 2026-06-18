@@ -40,6 +40,7 @@ type WebExportNode = {
     imageUrl?: string;
     videoUrl?: string;
     audioUrl?: string;
+    rawText?: string;
     backgroundMusic?: {
       url: string;
       loop: boolean;
@@ -61,6 +62,18 @@ type WebExportNode = {
         layer: number;
         imageUrl?: string;
         name?: string;
+      }[];
+      inlineActions?: {
+        id: string;
+        kind: 'character' | 'scene';
+        sourceNodeId: string;
+        name?: string;
+        action: string;
+        duration: number;
+        strength: number;
+        offsetX: number;
+        offsetY: number;
+        scale: number;
       }[];
     };
   };
@@ -715,6 +728,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .anim-fade { animation: fadeIn 360ms ease both; }
     .anim-slideUp { animation: slideUp 360ms ease both; }
     .anim-typewriter { animation: fadeIn 180ms ease both; }
+    .inline-shake-x { animation: inlineShakeX var(--inline-action-duration, 400ms) ease both; }
+    .inline-shake-y { animation: inlineShakeY var(--inline-action-duration, 400ms) ease both; }
+    .inline-pulse { animation: inlinePulse var(--inline-action-duration, 400ms) ease both; }
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -722,6 +738,24 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes inlineShakeX {
+      0%, 100% { translate: 0 0; }
+      20% { translate: calc(var(--inline-action-strength, 14px) * -1) 0; }
+      40% { translate: var(--inline-action-strength, 14px) 0; }
+      60% { translate: calc(var(--inline-action-strength, 14px) * -0.7) 0; }
+      80% { translate: calc(var(--inline-action-strength, 14px) * 0.7) 0; }
+    }
+    @keyframes inlineShakeY {
+      0%, 100% { translate: 0 0; }
+      20% { translate: 0 calc(var(--inline-action-strength, 14px) * -1); }
+      40% { translate: 0 var(--inline-action-strength, 14px); }
+      60% { translate: 0 calc(var(--inline-action-strength, 14px) * -0.7); }
+      80% { translate: 0 calc(var(--inline-action-strength, 14px) * 0.7); }
+    }
+    @keyframes inlinePulse {
+      0%, 100% { scale: 1; }
+      50% { scale: var(--inline-action-scale, 1.08); }
     }
     .end {
       min-height: 100%;
@@ -1148,7 +1182,144 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       return animation && animation !== "none" ? " anim-" + animation : "";
     }
 
-    function applyTypewriter(element, html, enabled, revealChoices) {
+    function stripHtml(html) {
+      const temp = document.createElement("div");
+      temp.innerHTML = html || "";
+      return temp.textContent || "";
+    }
+
+    function filterInlineMentionTags(html) {
+      if (!html) return "";
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
+      temp.querySelectorAll('[data-mention-kind="video"]').forEach((node) => node.remove());
+      if (settings.hideCharacterTags) {
+        temp.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
+      }
+      if (settings.hideSceneTags) {
+        temp.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
+      }
+      return temp.innerHTML;
+    }
+
+    function findInlineAction(mention, presentation) {
+      if (!presentation || !Array.isArray(presentation.inlineActions)) return null;
+      const kind = mention.dataset.mentionKind;
+      if (kind !== "character" && kind !== "scene") return null;
+      const mentionId = mention.dataset.mentionId || "";
+      const name = mention.dataset.mentionName || (mention.textContent || "").replace(/^@/, "");
+      const sourceNodeId = mention.dataset.sourceNodeId || mention.dataset.mentionSourceNodeId || "";
+      return presentation.inlineActions.find((item) => item.id === mentionId) ||
+        presentation.inlineActions.find((item) => sourceNodeId && item.kind === kind && item.sourceNodeId === sourceNodeId) ||
+        presentation.inlineActions.find((item) => name && item.kind === kind && item.name === name) ||
+        null;
+    }
+
+    function buildInlinePlaybackSteps(rawHtml, displayHtml, presentation) {
+      if (!rawHtml || !presentation || !Array.isArray(presentation.inlineActions) || !presentation.inlineActions.length) {
+        return [{ kind: "text", html: displayHtml || rawHtml || "" }];
+      }
+      const temp = document.createElement("div");
+      temp.innerHTML = rawHtml || "";
+      const steps = [];
+      let buffer = "";
+      const hasMeaningfulTextOutsideMentions = (html) => {
+        const probe = document.createElement("div");
+        probe.innerHTML = html || "";
+        probe.querySelectorAll(".mention-chip").forEach((node) => node.remove());
+        return /[\p{L}\p{N}]/u.test(probe.textContent || "");
+      };
+      const mentionPlacement = (mention) => {
+        const beforeRange = document.createRange();
+        beforeRange.setStart(temp, 0);
+        beforeRange.setEndBefore(mention);
+        const afterRange = document.createRange();
+        afterRange.setStartAfter(mention);
+        afterRange.setEnd(temp, temp.childNodes.length);
+        const before = document.createElement("div");
+        const after = document.createElement("div");
+        before.appendChild(beforeRange.cloneContents());
+        after.appendChild(afterRange.cloneContents());
+        if (!hasMeaningfulTextOutsideMentions(before.innerHTML)) return "start";
+        if (!hasMeaningfulTextOutsideMentions(after.innerHTML)) return "end";
+        return "inline";
+      };
+      const flush = () => {
+        const html = filterInlineMentionTags(buffer);
+        if (stripHtml(html).trim()) steps.push({ kind: "text", html });
+        buffer = "";
+      };
+      Array.from(temp.childNodes).forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("mention-chip")) {
+          if (mentionPlacement(node) !== "inline") {
+            buffer += node.outerHTML || "";
+            return;
+          }
+          const action = findInlineAction(node, presentation);
+          if (action) {
+            flush();
+            steps.push({ kind: "action", action });
+            return;
+          }
+        }
+        buffer += node.nodeType === Node.ELEMENT_NODE ? node.outerHTML : (node.textContent || "");
+      });
+      flush();
+      return steps.length ? steps : [{ kind: "text", html: displayHtml || rawHtml || "" }];
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(String(value || ""));
+      return String(value || "").replace(/["\\]/g, "\\$&");
+    }
+
+    function clearInlineActionElement(element) {
+      if (!element) return;
+      element.classList.remove("inline-shake-x", "inline-shake-y", "inline-pulse");
+      element.style.removeProperty("--inline-action-duration");
+      element.style.removeProperty("--inline-action-strength");
+      element.style.removeProperty("--inline-action-scale");
+      const baseTransform = element.dataset.baseTransform || "";
+      if (baseTransform) element.style.transform = baseTransform;
+    }
+
+    function inlineActionTransform(action) {
+      if (!action || action.action === "none" || action.action === "pulse" || action.action === "wait") return "";
+      if (action.action === "translate-x") return "translateX(" + (action.offsetX || action.strength || 0) + "px)";
+      if (action.action === "translate-y") return "translateY(" + (action.offsetY || action.strength || 0) + "px)";
+      if (action.action === "scale") return "scale(" + (action.scale || 1.08) + ")";
+      return "";
+    }
+
+    function applyInlineAction(action) {
+      if (!action || action.action === "none") return;
+      const duration = Math.max(0, action.duration || 0);
+      const target =
+        action.kind === "scene"
+          ? stageEl.querySelector('.scene-image, #nodeVideo')
+          : stageEl.querySelector('.character-img[data-source-id="' + cssEscape(action.sourceNodeId || "") + '"]') ||
+            Array.from(stageEl.querySelectorAll(".character-img")).find((img) => (img.getAttribute("alt") || "") === (action.name || ""));
+      if (!target) return;
+      clearInlineActionElement(target);
+      target.style.setProperty("--inline-action-duration", duration + "ms");
+      target.style.setProperty("--inline-action-strength", Math.max(1, action.strength || 14) + "px");
+      target.style.setProperty("--inline-action-scale", action.scale || 1.08);
+      const baseTransform = target.dataset.baseTransform || target.style.transform || "";
+      target.dataset.baseTransform = baseTransform;
+      const transform = inlineActionTransform(action);
+      if (transform) {
+        target.style.transition = "transform " + duration + "ms ease";
+        target.style.transform = (baseTransform ? baseTransform + " " : "") + transform;
+      } else {
+        if (action.action === "shake-x") target.classList.add("inline-shake-x");
+        if (action.action === "shake-y") target.classList.add("inline-shake-y");
+        if (action.action === "pulse") target.classList.add("inline-pulse");
+      }
+      const resetTimer = setTimeout(() => clearInlineActionElement(target), duration);
+      typewriterTimers.push(resetTimer);
+    }
+
+    function applyTypewriter(element, html, rawHtml, presentation, enabled, revealChoices) {
       if (!element) return;
       if (!enabled) {
         element.classList.remove("typewriter-reserved");
@@ -1156,9 +1327,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         if (revealChoices) showChoicesAndMaybeAdvance();
         return;
       }
-      const temp = document.createElement("div");
-      temp.innerHTML = html || "";
-      const source = temp.textContent || "";
+      const playbackSteps = buildInlinePlaybackSteps(rawHtml || html || "", html || "", presentation);
+      const source = playbackSteps.filter((step) => step.kind === "text").map((step) => stripHtml(step.html)).join("");
       element.classList.add("typewriter-reserved");
       element.innerHTML = "";
       const placeholder = document.createElement("span");
@@ -1168,6 +1338,48 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const visible = document.createElement("span");
       visible.className = "typewriter-visible";
       element.append(placeholder, visible);
+      let stepIndex = 0;
+      let committedText = "";
+      let segmentTimer = 0;
+      visible.textContent = "";
+      const playNextStep = () => {
+        clearInterval(segmentTimer);
+        const step = playbackSteps[stepIndex];
+        if (!step) {
+          visible.textContent = committedText;
+          if (revealChoices) showChoicesAndMaybeAdvance();
+          return;
+        }
+        if (step.kind === "action") {
+          applyInlineAction(step.action);
+          const waitTimer = setTimeout(() => {
+            stepIndex += 1;
+            playNextStep();
+          }, Math.max(0, step.action.duration || 0));
+          typewriterTimers.push(waitTimer);
+          return;
+        }
+        const segmentText = stripHtml(step.html);
+        const segmentUnits = style.bodyTypewriterMode === "line"
+          ? segmentText.split(/(\\n+)/)
+          : (style.bodyTypewriterMode === "sentence" || style.bodyTypewriterMode === "word")
+            ? (segmentText.match(/[^銆傦紒锛?!?\\n]+[銆傦紒锛?!?]*|\\n+/g) || Array.from(segmentText))
+            : Array.from(segmentText);
+        let segmentIndex = 0;
+        segmentTimer = setInterval(() => {
+          segmentIndex += 1;
+          visible.textContent = committedText + segmentUnits.slice(0, segmentIndex).join("");
+          if (segmentIndex >= segmentUnits.length) {
+            clearInterval(segmentTimer);
+            committedText += segmentText;
+            stepIndex += 1;
+            playNextStep();
+          }
+        }, settings.typewriterSpeed);
+        typewriterTimers.push(segmentTimer);
+      };
+      playNextStep();
+      return;
       const units = style.bodyTypewriterMode === "line"
         ? source.split(/(\\n+)/)
         : (style.bodyTypewriterMode === "sentence" || style.bodyTypewriterMode === "word")
@@ -1322,7 +1534,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
             const initCharOpacity = (hasCharEnter && charEnter.type === 'fade') ? 0 : 1;
             const initCharTransform = 'translate(-50%, 0) ' + (hasCharEnter ? getPresentationTransform(charEnter.type, false) : '') + ' scale(' + scale + ') scaleX(' + flipScale + ')';
             
-            return '<img class="character-img" src="' + escapeAttr(char.imageUrl) + '" alt="' + escapeAttr(char.name || "") + '" ' +
+            return '<img class="character-img" src="' + escapeAttr(char.imageUrl) + '" alt="' + escapeAttr(char.name || "") + '" data-source-id="' + escapeAttr(char.sourceNodeId || "") + '" ' +
               'style="' +
                 'left: ' + left + '; ' +
                 'bottom: ' + bottom + '; ' +
@@ -1357,6 +1569,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         if (mediaEl) {
           mediaEl.style.opacity = '1';
           mediaEl.style.transform = 'none';
+          mediaEl.dataset.baseTransform = 'none';
         }
         
         if (data.presentation && Array.isArray(data.presentation.characters)) {
@@ -1367,7 +1580,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
               imgEl.style.opacity = '1';
               const flipScale = char.flipX ? -1 : 1;
               const scale = char.scale || 1;
-              imgEl.style.transform = 'translate(-50%, 0) scale(' + scale + ') scaleX(' + flipScale + ')';
+              const baseTransform = 'translate(-50%, 0) scale(' + scale + ') scaleX(' + flipScale + ')';
+              imgEl.style.transform = baseTransform;
+              imgEl.dataset.baseTransform = baseTransform;
             }
           });
         }
@@ -1394,7 +1609,14 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         element.hidden = hideChoicesDuringTypewriter;
       });
       if (!hideChoicesDuringTypewriter) bindChoices();
-      applyTypewriter(document.getElementById("nodeText"), data.text || "", settings.interactionMode === "typewriter" || style.bodyAnimation === "typewriter", true);
+      applyTypewriter(
+        document.getElementById("nodeText"),
+        data.text || "",
+        data.rawText || data.text || "",
+        data.presentation || null,
+        settings.interactionMode === "typewriter" || style.bodyAnimation === "typewriter",
+        true
+      );
       if (settings.interactionMode !== "typewriter" && style.bodyAnimation !== "typewriter") showChoicesAndMaybeAdvance();
     }
 
@@ -1586,6 +1808,9 @@ export async function buildInteractiveWebZipBlob(
       webPresentation = {
         scene: rawPresentation.scene ? structuredClone(rawPresentation.scene) : undefined,
         characters: packedChars,
+        inlineActions: Array.isArray(rawPresentation.inlineActions)
+          ? structuredClone(rawPresentation.inlineActions)
+          : [],
       };
     }
 
@@ -1595,6 +1820,7 @@ export async function buildInteractiveWebZipBlob(
       data: {
         title: titleText,
         text: filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags),
+        rawText: nodeText(node),
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,
         imageUrl,
         videoUrl,
