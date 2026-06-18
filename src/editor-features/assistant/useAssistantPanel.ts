@@ -48,6 +48,7 @@ type AssistantHistorySnapshot = {
 
 type AssistantWorkflowState =
   | { type: 'idle' }
+  | { type: 'idea-awaiting' }
   | { type: 'starter-theme' }
   | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
   | { type: 'starter-supplement'; theme: string; style: string }
@@ -93,6 +94,121 @@ const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
 type AssistantGeneratedOption = {
   label: string;
   description?: string;
+};
+
+const ASSISTANT_VISUALIZE_OPTION_PREFIX = '__assistant_visualize__:';
+
+const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
+
+const normalizeAssistantPlainText = (value: unknown) =>
+  htmlToSpeechText(String(value || ''))
+    .replace(/\s+/g, '')
+    .replace(/[.。…]+$/g, '');
+
+const isDefaultRootStoryNode = (node: Node) =>
+  node.type === 'storyNode' &&
+  node.id === 'root' &&
+  String(node.data?.title || '') === '开头' &&
+  normalizeAssistantPlainText(node.data?.text) === DEFAULT_ROOT_STORY_TEXT;
+
+const isNarrativeSceneRequest = (text: string) =>
+  /(?:表白|告白|相遇|重逢|争吵|和好|离别|约会|亲吻|牵手|毕业|课堂|放学|雨天|天台|图书馆|校园|爱情|恋爱).{0,12}场景/.test(
+    text,
+  ) || /场景.{0,12}(?:片段|桥段|剧情|故事|正文|对话|表白|告白|爱情|恋爱)/.test(text);
+
+const shouldCreateStoryBundle = (text: string) => {
+  const asksSpecificCardOnly =
+    /只(?:要|生成|添加|创建|做)?(?:人物|角色|人设|场景设定|地点设定|场设|剧情)卡?/.test(text) ||
+    /(?:只|仅|单独).{0,8}(?:人物|角色|人设|场景设定|地点设定|场设|剧情)/.test(text);
+  if (asksSpecificCardOnly) return false;
+
+  return (
+    isNarrativeSceneRequest(text) ||
+    /脑洞|完整故事|故事大纲|故事开端|短篇故事|剧情片段|桥段|开场|开篇|梗概|扩展成.*故事|生成.*故事|写.*故事|构思.*故事/i.test(
+      text,
+    )
+  );
+};
+
+const isGenericStoryIdeaRequest = (text: string) => {
+  const normalized = text
+    .toLowerCase()
+    .replace(/[\s,，.。!！?？;；:"“”'‘’、]/g, '');
+
+  return (
+    normalized === '我有一个新脑洞想让你帮我扩展成一个完整故事' ||
+    normalized === '我有一个新脑洞想让你帮我扩展成完整故事' ||
+    normalized === '我有一个脑洞想让你帮我扩展成一个完整故事' ||
+    normalized === '我有一个脑洞想让你帮我扩展成完整故事' ||
+    normalized === 'ihaveanewideahelpmeexpanditintoacompletestory' ||
+    normalized === 'ihaveanewideahelpmeexpandintoacompletestory'
+  );
+};
+
+const normalizeAssistantStoryDraftText = (value: string) =>
+  value
+    .split(/\r?\n/)
+    .map((line) => {
+      let nextLine = line.trim();
+      nextLine = nextLine.replace(/^[@＠]\s*/, '');
+      const wrappedAction = nextLine.match(/^[（(]\s*([\s\S]*?)\s*[）)]$/);
+      if (wrappedAction) nextLine = wrappedAction[1].trim();
+      nextLine = nextLine.replace(
+        /^([^：:\n]{1,36})\s*[：:]\s*[“"‘']?([\s\S]*?)[”"’']?$/,
+        (_, speaker: string, speech: string) => `${speaker.trim()}${speech.trim()}`,
+      );
+      return nextLine.replace(/[“”‘']/g, '');
+    })
+    .filter((line) => line.length > 0)
+    .join('\n');
+
+const getAssistantDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+  const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
+    return card.type;
+  }
+  if (
+    cleanText(card.characterName) ||
+    cleanText(card.traits) ||
+    cleanText(card.personality) ||
+    cleanText(card.features) ||
+    cleanText(card.background)
+  ) {
+    return 'character';
+  }
+  if (
+    cleanText(card.sceneName) ||
+    cleanText(card.description) ||
+    cleanText(card.location) ||
+    cleanText(card.items) ||
+    cleanText(card.atmosphere)
+  ) {
+    return 'scene';
+  }
+  return 'story';
+};
+
+const alignAssistantCardsToPlaceholders = (
+  cards: AssistantCardDraft[],
+  placeholders: AssistantCardDraft[],
+) => {
+  if (cards.length === 0 || placeholders.length === 0) return cards;
+
+  const usedIndexes = new Set<number>();
+  const alignedCards = placeholders
+    .map((placeholder) => {
+      const expectedType = getAssistantDraftType(placeholder);
+      const matchingIndex = cards.findIndex(
+        (card, index) => !usedIndexes.has(index) && getAssistantDraftType(card) === expectedType,
+      );
+      if (matchingIndex < 0) return null;
+      usedIndexes.add(matchingIndex);
+      return { ...cards[matchingIndex], type: expectedType };
+    })
+    .filter((card) => Boolean(card)) as AssistantCardDraft[];
+
+  const remainingCards = cards.filter((_, index) => !usedIndexes.has(index));
+  return [...alignedCards, ...remainingCards];
 };
 
 const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOption[] => {
@@ -158,7 +274,7 @@ const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOpti
 
 const parseAssistantRequestedCardCount = (text: string, fallback = 1) => {
   const arabicCount = text.match(/(\d+)/)?.[1];
-  if (arabicCount) return Math.max(1, Math.min(8, Number(arabicCount) || fallback));
+  if (arabicCount) return Math.max(1, Math.min(16, Number(arabicCount) || fallback));
 
   const chineseNumbers: Record<string, number> = {
     一: 1,
@@ -170,8 +286,10 @@ const parseAssistantRequestedCardCount = (text: string, fallback = 1) => {
     六: 6,
     七: 7,
     八: 8,
+    九: 9,
+    十: 10,
   };
-  const chineseCount = text.match(/([一二两三四五六七八])\s*(?:张|寮犱|个|個)/)?.[1];
+  const chineseCount = text.match(/([一二两三四五六七八九十])\s*(?:张|寮犱|个|個)/)?.[1];
   return chineseCount ? chineseNumbers[chineseCount] || fallback : fallback;
 };
 
@@ -184,6 +302,15 @@ const buildAssistantPlaceholderCards = (
   const isFutureMode = forcedMode === 'future-targets' || forcedMode === 'bridge-to-target';
   if (isFutureMode) {
     return Array.from({ length: count }, () => ({ type: 'story' }));
+  }
+
+  if (shouldCreateStoryBundle(text)) {
+    const storyCardCount = parseAssistantRequestedCardCount(text, 8);
+    return [
+      { type: 'character' },
+      { type: 'scene' },
+      ...Array.from({ length: storyCardCount }, () => ({ type: 'story' as const })),
+    ];
   }
 
   const wantsCharacter = /人物|角色|人设|角色设定|character/i.test(text);
@@ -217,6 +344,7 @@ interface UseAssistantPanelParams {
     mode?: AssistantCardPlacementMode,
     options?: AssistantCardPlacementOptions,
   ) => Promise<AssistantCardPlacementResult>;
+  onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting?: () => void;
   hasTextApiKey: boolean;
@@ -248,7 +376,7 @@ interface UseAssistantPanelResult {
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
-  handleStartAssistantFlow: (flow: 'starter' | 'revision' | 'future') => Promise<void>;
+  handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
@@ -271,6 +399,7 @@ export const useAssistantPanel = ({
   nodes,
   callAIForTextResult,
   createAssistantCards,
+  onGenerateAssistantImagesRequest,
   startAgentWaiting,
   stopAgentWaiting,
   hasTextApiKey,
@@ -307,6 +436,7 @@ export const useAssistantPanel = ({
   const assistantHistoryPastRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantHistoryFutureRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantWorkflowRef = useRef<AssistantWorkflowState>({ type: 'idle' });
+  const assistantVisualizationRequestsRef = useRef(new Map<string, string[]>());
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
 
   const assistantPanelWidth = Math.min(
@@ -672,6 +802,7 @@ export const useAssistantPanel = ({
       setAssistantMessages((messages) => [...messages, userMessage]);
 
       const workflow = assistantWorkflowRef.current;
+      const isIdeaWorkflow = workflow.type === 'idea-awaiting';
       if (workflow.type === 'starter-theme') {
         assistantWorkflowRef.current = { type: 'starter-style', theme: userText };
         setAssistantMessages((messages) => [
@@ -732,6 +863,25 @@ export const useAssistantPanel = ({
         return;
       }
 
+      if (workflow.type === 'idle' && isGenericStoryIdeaRequest(userText)) {
+        assistantWorkflowRef.current = { type: 'idea-awaiting' };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? '先把你的脑洞告诉我：可以是一句话、一个角色、一个场景，或者一个冲突。我拿到具体内容后，再帮你扩展成故事设定、人物、场景和剧情卡。'
+                : language === 'ja'
+                  ? 'まず、そのアイデアの中身を教えてください。一文、キャラクター、場面、対立のどれでも大丈夫です。具体的な内容を受け取ってから、物語設定・人物・場面・プロットカードへ広げます。'
+                  : 'Tell me the actual idea first: one sentence, a character, a setting, or a conflict. Once I have that, I will expand it into story premise, characters, scenes, and plot cards.',
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+
       if (!hasTextApiKey) {
         onMissingTextApiKeyRequest?.();
         setAssistantMessages((messages) => [
@@ -762,13 +912,17 @@ export const useAssistantPanel = ({
       };
 
       const selectedContext = selectedAssistantTargetNodes
+        .filter((node) => !isDefaultRootStoryNode(node))
         .map((node, index) => describeAssistantNode(node, index))
         .join('\n\n---\n\n');
 
       const canvasContext = nodes
         .filter(
           (node) =>
-            node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode',
+            (node.type === 'storyNode' ||
+              node.type === 'characterNode' ||
+              node.type === 'sceneNode') &&
+            !isDefaultRootStoryNode(node),
         )
         .slice(0, 20)
         .map((node, index) => {
@@ -787,7 +941,10 @@ export const useAssistantPanel = ({
       let effectiveUserText = userText;
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
-      if (workflow.type === 'revision-awaiting-opinion') {
+      if (isIdeaWorkflow) {
+        effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'revision-awaiting-opinion') {
         effectiveUserText = `请根据用户的修改意见改写选中的卡片。保留原卡片，并返回一张同类型、已经修改好的新卡片。修改意见：${userText}`;
         forcedMode = 'adjacent-revision';
         assistantWorkflowRef.current = { type: 'idle' };
@@ -806,9 +963,23 @@ export const useAssistantPanel = ({
           effectiveUserText,
         );
       const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
+      const recentConversationContext = [...assistantMessages, userMessage]
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .slice(-8)
+        .map(
+          (message) =>
+            `${message.role === 'user' ? '用户' : '助手'}：${message.content.replace(/\s+/g, ' ').slice(0, 500)}`,
+        )
+        .join('\n');
 
       const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
+如果用户只说“重新生成”“再来一次”“重写”等简短指令，请结合最近对话理解要重新生成的内容，不要把它当成缺少上下文的新请求。
+当用户要扩展脑洞、生成故事、写完整故事片段、开场、桥段或剧情场面时，请按创作需要返回组合卡片；通常至少包含 type=character 的人物卡、type=scene 的场景卡、type=story 的剧情卡。只有用户明确要求只生成某一种卡片时，才只返回该类型。
+组合卡片必须互相对应：人物卡要写剧情里实际出场的人，场景卡要写剧情实际发生的地点，剧情卡正文要使用这些人物和场景。不要返回空字段或只有几个字的设定。
+剧情卡正文要按视觉小说台本来写：对白优先，少写大段环境描写和心理散文。不要手写裸 @ 前缀，不要写“角色名：台词”，不要用冒号表示说话范围，不要用引号包裹台词，不要把动作或神态放进中文/英文括号里。
+剧情正文必须明确写出主要人物名和场景名；人物第一次出场、靠近/转身/沉默/离开等关键动作处，都要再次写人物名或场景名，方便系统自动插入人物/场景 tag 并控制入场、中场动作和出场动画。系统自动插入的 tag 是必要的，可以保留；tag 在正文开头或结尾用于入场/出场动画，在正文中央用于角色中场动画。中场人物 tag 要少用，只在需要表现明显神态或情绪反应时使用，例如紧张、惊讶、害怕、激动、兴奋等可以通过抖动或反应动画表达的瞬间；普通叙述和普通台词不要频繁插入中场 tag。人物名或场景名应自然放在句首或句中，例如“艾琳低声说，隐藏附录怎么可能”，不要写成“@艾琳：‘隐藏附录怎么可能？’”。
+拆卡粒度要求：不要把一整个场景塞进一张 story 卡。一个角色的一次发言、一次沉默、一次靠近/离开/转身等短动作，尽量单独写成一张 story 卡。不同人说的话必须拆到不同的 story 卡里；每张 story 卡只承载一个角色的一句或一小组连续台词，或一个短动作节拍。不要害怕生成很多剧情卡，完整片段通常生成 6 到 12 张 story 卡。
 
 必须只返回 JSON，不要使用 Markdown 代码块：
 {
@@ -822,10 +993,14 @@ export const useAssistantPanel = ({
 }
 
 当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
+字段质量要求：character 的 traits/personality/features/background 至少各写一句具体内容；scene 的 description/location/items/atmosphere 至少各写一句具体内容；单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，只写一个角色的一次发言或一个短动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景。
 如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
 
 用户请求：
 ${effectiveUserText}
+
+最近对话：
+${recentConversationContext || '无'}
 
 选中卡片：
 ${selectedContext || '无'}
@@ -837,9 +1012,11 @@ ${documentContext || '无'}
 ${canvasContext || '无'}`;
 
       let preparedPlacement: AssistantCardPlacementResult | null = null;
+      let preparedPlaceholderCards: AssistantCardDraft[] = [];
       if (wantsCards && !fillSelected) {
         const placeholders = buildAssistantPlaceholderCards(effectiveUserText, forcedMode);
         if (placeholders.length > 0) {
+          preparedPlaceholderCards = placeholders;
           preparedPlacement = await createAssistantCards(
             placeholders,
             forcedMode || 'append',
@@ -871,29 +1048,88 @@ ${canvasContext || '无'}`;
           parsed = { reply: raw, cards: [] };
         }
 
-        const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+        const cards = alignAssistantCardsToPlaceholders(
+          Array.isArray(parsed.cards)
+            ? parsed.cards.map((card) =>
+                getAssistantDraftType(card) === 'story'
+                  ? { ...card, text: normalizeAssistantStoryDraftText(card.text || '') }
+                  : card,
+              )
+            : [],
+          preparedPlaceholderCards,
+        );
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
         if (preparedPlacement?.count && cards.length === 0) {
           stopAgentWaiting?.();
         }
-        const placement =
-          shouldPlaceCards && preparedPlacement?.count && cards.length > 0
-            ? await createAssistantCards(cards, 'fill-selected', {
-                targetNodeIds: preparedPlacement.nodeIds,
-              })
-            : shouldPlaceCards
-              ? await createAssistantCards(cards, mode, placementOptions)
-              : { count: 0 };
+        let placement: AssistantCardPlacementResult = { count: 0 };
+        if (shouldPlaceCards && preparedPlacement?.count && cards.length > 0) {
+          const targetNodeIds = preparedPlacement.nodeIds || [];
+          const fillCards = cards.slice(0, targetNodeIds.length || cards.length);
+          const extraCards = targetNodeIds.length > 0 ? cards.slice(targetNodeIds.length) : [];
+          const filledPlacement = await createAssistantCards(fillCards, 'fill-selected', {
+            targetNodeIds,
+          });
+          if (extraCards.length > 0) {
+            const appendedPlacement = await createAssistantCards(extraCards, 'append', placementOptions);
+            placement = {
+              count: filledPlacement.count + appendedPlacement.count,
+              position: appendedPlacement.position || filledPlacement.position,
+              nodeIds: [
+                ...(filledPlacement.nodeIds || []),
+                ...(appendedPlacement.nodeIds || []),
+              ],
+            };
+          } else {
+            placement = filledPlacement;
+          }
+        } else if (shouldPlaceCards) {
+          placement = await createAssistantCards(cards, mode, placementOptions);
+        }
         const actionText =
           placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
+
+        const visualNodeIds = (placement.nodeIds || []).filter((_, index) => {
+          const card = cards[index];
+          if (!card) return false;
+          const type = getAssistantDraftType(card);
+          return type === 'character' || type === 'scene';
+        });
+        const visualizationRequestId =
+          visualNodeIds.length > 0 && onGenerateAssistantImagesRequest ? uuidv4() : '';
+        if (visualizationRequestId) {
+          assistantVisualizationRequestsRef.current.set(visualizationRequestId, visualNodeIds);
+        }
 
         const assistantMessage: AssistantMessage = {
           id: uuidv4(),
           role: 'assistant',
-          content: `${parsed.reply || raw}${actionText}`,
+          content: `${parsed.reply || raw}${actionText}${
+            visualizationRequestId
+              ? language === 'zh'
+                ? '\n\n要继续为这批人物和场景生成对应图片，完成可视化搭建吗？'
+                : language === 'ja'
+                  ? '\n\nこの人物とシーンに対応する画像を生成して、ビジュアルを組み立てますか？'
+                  : '\n\nGenerate matching images for these characters and scenes to build the visual setup?'
+              : ''
+          }`,
           cardPosition: placement.position,
           cardNodeIds: placement.nodeIds,
+          options: visualizationRequestId
+            ? [
+                {
+                  id: uuidv4(),
+                  label:
+                    language === 'zh'
+                      ? '生成人物/场景图片'
+                      : language === 'ja'
+                        ? '人物/シーン画像を生成'
+                        : 'Generate character/scene images',
+                  value: `${ASSISTANT_VISUALIZE_OPTION_PREFIX}${visualizationRequestId}`,
+                },
+              ]
+            : undefined,
         };
         setAssistantMessages((messages) => [...messages, assistantMessage]);
       } catch (error: any) {
@@ -920,11 +1156,13 @@ ${canvasContext || '无'}`;
       assistantInput,
       assistantLoading,
       assistantDocuments,
+      assistantMessages,
       callAIForTextResult,
       createAssistantCards,
       hasTextApiKey,
       language,
       nodes,
+      onGenerateAssistantImagesRequest,
       onMissingTextApiKeyRequest,
       playAssistantThought,
       pushAssistantHistory,
@@ -986,8 +1224,26 @@ options 必须正好有 3 项。`);
   );
 
   const handleStartAssistantFlow = useCallback(
-    async (flow: 'starter' | 'revision' | 'future') => {
+    async (flow: 'idea' | 'starter' | 'revision' | 'future') => {
       if (assistantLoading) return;
+
+      if (flow === 'idea') {
+        assistantWorkflowRef.current = { type: 'idea-awaiting' };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? '你有一个新脑洞吗？\n从一句灵感开始，我可以帮你扩展成故事设定、角色和冲突。把那句灵感发给我就行。'
+                : language === 'ja'
+                  ? '新しいアイデアがありますか？\n一文のひらめきから、物語設定・キャラクター・葛藤へ広げます。そのひらめきを送ってください。'
+                  : 'Do you have a new idea?\nStart with one spark, and I can expand it into story premise, characters, and conflict. Send me that spark.',
+          },
+        ]);
+        return;
+      }
 
       if (flow === 'starter') {
         assistantWorkflowRef.current = { type: 'starter-theme' };
@@ -1034,6 +1290,7 @@ options 必须正好有 3 项。`);
       setAssistantLoading(true);
       try {
         const context = selectedAssistantTargetNodes
+          .filter((node) => !isDefaultRootStoryNode(node))
           .map((node) => `${String(node.data?.title || '')}\n${String(node.data?.text || '')}`)
           .join('\n---\n');
         const preparedPlacement = await createAssistantCards(
@@ -1056,7 +1313,9 @@ cards 必须正好有 3 张。`);
           reply?: string;
           cards?: AssistantCardDraft[];
         };
-        const cards = (parsed.cards || []).slice(0, 3);
+        const cards = (parsed.cards || [])
+          .slice(0, 3)
+          .map((card) => ({ ...card, text: normalizeAssistantStoryDraftText(card.text || '') }));
         if (preparedPlacement.count > 0 && cards.length === 0) {
           stopAgentWaiting?.();
         }
@@ -1102,6 +1361,7 @@ cards 必须正好有 3 张。`);
       callAIForTextResult,
       createAssistantCards,
       hasTextApiKey,
+      language,
       onMissingTextApiKeyRequest,
       selectedAssistantTargetNodes,
       setAssistantMessages,
@@ -1112,6 +1372,34 @@ cards 必须正好有 3 张。`);
 
   const handleAssistantOptionSelect = useCallback(
     async (value: string) => {
+      if (value.startsWith(ASSISTANT_VISUALIZE_OPTION_PREFIX)) {
+        const requestId = value.slice(ASSISTANT_VISUALIZE_OPTION_PREFIX.length);
+        const nodeIds = assistantVisualizationRequestsRef.current.get(requestId) || [];
+        if (nodeIds.length === 0 || !onGenerateAssistantImagesRequest) return;
+
+        assistantVisualizationRequestsRef.current.delete(requestId);
+        setAssistantLoading(true);
+        try {
+          await onGenerateAssistantImagesRequest(nodeIds);
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                language === 'zh'
+                  ? `已开始为 ${nodeIds.length} 张人物/场景卡生成图片。`
+                  : language === 'ja'
+                    ? `${nodeIds.length} 枚の人物/シーンカード画像生成を開始しました。`
+                    : `Started generating images for ${nodeIds.length} character/scene cards.`,
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
       if (value === '__starter_topics__') {
         await requestAssistantOptions(
           '为视觉小说或互动故事提供三个差异明显、有冲突潜力的主题。',
@@ -1233,7 +1521,13 @@ cards 必须正好有 3 张。`);
         await handleAssistantSend(`使用 ${count} 张卡片连接未来目标`);
       }
     },
-    [handleAssistantSend, requestAssistantOptions, setAssistantMessages],
+    [
+      handleAssistantSend,
+      language,
+      onGenerateAssistantImagesRequest,
+      requestAssistantOptions,
+      setAssistantMessages,
+    ],
   );
 
   const handleAssistantVoiceInput = useCallback(() => {

@@ -189,6 +189,33 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const videoUrl = data.videoUrl;
   const audioUrl = data.audioUrl;
   const storyPresentation = normalizeStoryPresentation(data.presentation);
+  const presentedCharacters = useStore(
+    useCallback(
+      (state) =>
+        storyPresentation.characters
+          .map((config) => {
+            const source = state.nodes.find((node) => node.id === config.sourceNodeId);
+            if (!source || source.type !== 'characterNode') return null;
+            const characterData = source.data as CharacterNodeData;
+            const outfit = config.outfitId
+              ? characterData.outfits?.find((item) => item.id === config.outfitId)
+              : characterData.outfits?.find((item) => item.imageUrl);
+            const characterImageUrl = outfit?.imageUrl || characterData.avatarUrl;
+            if (!characterImageUrl) return null;
+            return {
+              config,
+              imageUrl: characterImageUrl,
+              name: characterData.characterName,
+            };
+          })
+          .filter(Boolean) as {
+          config: CharacterPresentation;
+          imageUrl: string;
+          name: string;
+        }[],
+      [storyPresentation.characters],
+    ),
+  );
   const hasCharacterOrSceneTag = /data-mention-kind=(?:"|')(?:character|scene)(?:"|')/i.test(
     String(text),
   );
@@ -199,6 +226,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const hasScenePresentationImage = Boolean(storyPresentation.scene && imageUrl);
   const hasScenePresentationVideo = Boolean(
     videoUrl && !imageUrl && (storyPresentation.scene || storyPresentation.characters.length > 0),
+  );
+  const hasPresentationVisualMedia = Boolean(
+    hasScenePresentationImage || hasScenePresentationVideo || presentedCharacters.length > 0,
   );
   const hasVisualMedia = !!(
     (imageUrl && !hasScenePresentationImage) ||
@@ -216,8 +246,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const mediaScale = typeof data.mediaScale === 'number' ? data.mediaScale : 1;
   const activeMediaScale = storyPresentation.scene?.scale ?? mediaScale;
   const usesPlaytestPresentationLayout =
-    objectFit === 'playtest' &&
-    Boolean(storyPresentation.scene || storyPresentation.characters.length > 0);
+    objectFit === 'playtest' && hasPresentationVisualMedia;
   const mediaStyle: React.CSSProperties = {
     objectFit: objectFit === 'fill' ? 'fill' : objectFit === 'cover' ? 'cover' : 'contain',
     objectPosition: '50% 50%',
@@ -604,9 +633,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const hasCardVisualContent = Boolean(
     imageUrl ||
     videoUrl ||
-    hasScenePresentationImage ||
-    hasScenePresentationVideo ||
-    storyPresentation.characters.length > 0,
+    hasPresentationVisualMedia,
   );
   const hasMediaTextLayout = showRichTextTools && hasCardVisualContent;
   const getAutoMediaHeight = useCallback(
@@ -1498,34 +1525,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     replayPresentation('scene', id, 'enter');
   };
 
-  const presentedCharacters = useStore(
-    useCallback(
-      (state) =>
-        storyPresentation.characters
-          .map((config) => {
-            const source = state.nodes.find((node) => node.id === config.sourceNodeId);
-            if (!source || source.type !== 'characterNode') return null;
-            const characterData = source.data as CharacterNodeData;
-            const outfit = config.outfitId
-              ? characterData.outfits?.find((item) => item.id === config.outfitId)
-              : characterData.outfits?.find((item) => item.imageUrl);
-            const characterImageUrl = outfit?.imageUrl || characterData.avatarUrl;
-            if (!characterImageUrl) return null;
-            return {
-              config,
-              imageUrl: characterImageUrl,
-              name: characterData.characterName,
-            };
-          })
-          .filter(Boolean) as {
-          config: CharacterPresentation;
-          imageUrl: string;
-          name: string;
-        }[],
-      [storyPresentation.characters],
-    ),
-  );
-
   const isPreviewAnimatedState = (kind: 'character' | 'scene', sourceNodeId: string) => {
     if (
       !presentationPreview ||
@@ -1964,8 +1963,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 )}
               </ToolGroup>
 
-              {!isRoot && (
-                <>
+              <>
                   <Separator />
                   <ToolGroup>
                     <button
@@ -1976,8 +1974,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </ToolGroup>
-                </>
-              )}
+              </>
             </ToolbarRow>
           </div>
         </div>

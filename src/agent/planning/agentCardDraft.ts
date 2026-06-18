@@ -13,6 +13,7 @@ export type AssistantCardDraft = {
   items?: string;
   atmosphere?: string;
   other?: string;
+  generateImage?: boolean;
 };
 
 export type AssistantCardPlacementMode =

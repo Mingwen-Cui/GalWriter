@@ -82,6 +82,8 @@ interface SettingsModalProps {
   setShowLastSavedTime: (val: boolean) => void;
   saveAssistantConversations: boolean;
   setSaveAssistantConversations: (val: boolean) => void;
+  allowAssistantImageGeneration: boolean;
+  setAllowAssistantImageGeneration: (val: boolean) => void;
   showMiniMap: boolean;
   setShowMiniMap: (val: boolean) => void;
   miniMapPosition: 'left' | 'right';
@@ -215,6 +217,7 @@ const settingsText = {
     interactions: '交互与显示',
     showLastSavedTime: '显示上次保存时间',
     saveAssistantConversations: '保存 AI 助手对话',
+    allowAssistantImageGeneration: '允许 AI 助手调用图片生成 API',
     playtestThemeLayout: '剧情测试主题与排版',
     playtestTheme: '测试界面主题',
     choicePosition: '选项按钮位置',
@@ -326,6 +329,7 @@ const settingsText = {
     interactions: 'Interactions',
     showLastSavedTime: 'Show last saved time',
     saveAssistantConversations: 'Save AI assistant chats',
+    allowAssistantImageGeneration: 'Allow AI assistant to call image generation API',
     playtestThemeLayout: 'Playtest Theme & Layout',
     playtestTheme: 'Playtest Theme',
     choicePosition: 'Choice Position',
@@ -441,6 +445,7 @@ const settingsText = {
     interactions: 'インタラクションと表示',
     showLastSavedTime: '最终保存時間の表示',
     saveAssistantConversations: 'AIアシスタントの会話を保存する',
+    allowAssistantImageGeneration: 'AIアシスタントの画像生成API呼び出しを許可',
     playtestThemeLayout: 'テストプレイのテーマとレイアウト',
     playtestTheme: 'テストUIのテーマ',
     choicePosition: '選択肢ボタンの位置',
@@ -559,6 +564,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setShowLastSavedTime,
   saveAssistantConversations,
   setSaveAssistantConversations,
+  allowAssistantImageGeneration,
+  setAllowAssistantImageGeneration,
   showMiniMap,
   setShowMiniMap,
   miniMapPosition,
@@ -987,6 +994,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         label: s.saveAssistantConversations,
                         value: saveAssistantConversations,
                         setter: setSaveAssistantConversations,
+                      },
+                      {
+                        id: 'allowAssistantImageGeneration',
+                        label: s.allowAssistantImageGeneration,
+                        value: allowAssistantImageGeneration,
+                        setter: setAllowAssistantImageGeneration,
                       },
                       {
                         id: 'showMiniMap',

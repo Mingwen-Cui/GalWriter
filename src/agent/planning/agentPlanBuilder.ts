@@ -28,7 +28,7 @@ const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene
   return 'story';
 };
 
-const getTypingFields = (card: AssistantCardDraft) => {
+const getTypingFields = (card: AssistantCardDraft): Array<[string, string, string]> => {
   const type = inferCardType(card);
   if (type === 'character') {
     return [
@@ -38,7 +38,7 @@ const getTypingFields = (card: AssistantCardDraft) => {
       ['features', '人物特点', card.features],
       ['background', '人物背景', card.background],
       ['other', '其他设定', card.other],
-    ].filter(([, , value]) => hasValue(value));
+    ].filter((field): field is [string, string, string] => hasValue(field[2]));
   }
 
   if (type === 'scene') {
@@ -55,13 +55,13 @@ const getTypingFields = (card: AssistantCardDraft) => {
         label,
         card[fieldKey === 'scene-name' ? 'sceneName' : (fieldKey as keyof AssistantCardDraft)],
       ])
-      .filter(([, , value]) => hasValue(value));
+      .filter((field): field is [string, string, string] => hasValue(field[2]));
   }
 
   return [
     ['title', '标题', card.title],
     ['story-text', '正文', card.text],
-  ].filter(([, , value]) => hasValue(value));
+  ].filter((field): field is [string, string, string] => hasValue(field[2]));
 };
 
 const getCursorForStep = (index: number) => ({

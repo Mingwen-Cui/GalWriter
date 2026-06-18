@@ -35,7 +35,7 @@ export const useNodeActions = ({
     (shape: 'square' | 'diamond' | 'rounded-rectangle') => {
       const center = getCenterPosition();
       let newX = center.x - 150;
-      let newY = center.y - 100;
+      let newY = center.y - 110;
 
       const isOccupied = (x: number, y: number, currentNodes: Node[]) =>
         currentNodes.some(
@@ -54,7 +54,7 @@ export const useNodeActions = ({
         id: newId,
         type: 'storyNode',
         position: { x: newX, y: newY },
-        style: { width: 300, height: 200 },
+        style: { width: 300, height: 220 },
         data: {
           id: newId,
           title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',

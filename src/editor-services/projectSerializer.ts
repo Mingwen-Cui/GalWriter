@@ -401,6 +401,7 @@ const applyProjectSettings = (
   if (incomingSettings.saveAssistantConversations !== undefined) {
     setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);
   }
+  setters.setAllowAssistantImageGeneration(incomingSettings.allowAssistantImageGeneration !== false);
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
   if (incomingSettings.showPresetColors !== undefined) {
     setters.setShowPresetColors(incomingSettings.showPresetColors);

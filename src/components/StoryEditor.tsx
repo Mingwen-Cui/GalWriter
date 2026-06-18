@@ -78,6 +78,8 @@ import type {
   ProjectAIProfilesExport,
   SavedAIProfile,
   CharacterNodeData,
+  CharacterPresentation,
+  InlinePresentationActionType,
   SceneNodeData,
   SceneImageMode,
   PlotStructureGenerateDirection,
@@ -94,6 +96,8 @@ import { Language, translations } from '../lib/i18n';
 import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
 import {
   createCharacterPresentation,
+  createInlinePresentationAction,
+  createPresentationMotion,
   createScenePresentation,
   normalizeStoryPresentation,
 } from '../lib/presentation';
@@ -126,11 +130,239 @@ type CloseButtonBehavior = 'minimize' | 'quit';
 const APP_TITLE = '交互式剧本编辑器';
 const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 const DEFAULT_PROJECT_FILE_NAME = '新建项目';
+const AI_STORY_CARD_WIDTH = 300;
+const AI_STORY_CARD_HEIGHT = 220;
+const DEFAULT_ROOT_STORY_TITLE = '开始';
+const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
+const DEFAULT_ROOT_STORY_TEXT_VARIANTS = new Set([DEFAULT_ROOT_STORY_TEXT, '从前有一座山']);
+
+const normalizeStoryPlainText = (value: unknown) =>
+  String(value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[.。…]+$/g, '');
+
+const isDefaultInitialStoryNode = (node: Node) =>
+  node.type === 'storyNode' &&
+  node.id === 'root' &&
+  String(node.data?.title || '') === DEFAULT_ROOT_STORY_TITLE &&
+  DEFAULT_ROOT_STORY_TEXT_VARIANTS.has(normalizeStoryPlainText(node.data?.text));
 type PendingProjectAction =
   | { type: 'create' }
   | { type: 'open'; projectId: string }
   | { type: 'import-new' }
   | { type: 'close-window' };
+
+type AssistantMentionReference = {
+  id: string;
+  kind: 'character' | 'scene';
+  name: string;
+  prependIfMissing?: boolean;
+};
+
+type AssistantMentionUsage = {
+  id: string;
+  reference: AssistantMentionReference;
+  placement: 'start' | 'end' | 'inline';
+};
+
+const escapeAssistantStoryText = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\r?\n/g, '<br />');
+
+const createAssistantMentionHtml = (
+  kind: AssistantMentionReference['kind'],
+  name: string,
+  id: string,
+) => {
+  const safeName = escapeAssistantStoryText(name);
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+};
+
+const hasAssistantPlainText = (value: string) => /[\p{L}\p{N}]/u.test(value);
+
+const insertAssistantMentionTags = (
+  rawText: string,
+  references: AssistantMentionReference[],
+) => {
+  const text = rawText.trim();
+  const uniqueReferences = references
+    .filter((reference) => reference.name.trim())
+    .filter(
+      (reference, index, list) =>
+        list.findIndex((item) => item.kind === reference.kind && item.name === reference.name) ===
+        index,
+    )
+    .sort((left, right) => right.name.length - left.name.length);
+
+  if (!text || uniqueReferences.length === 0) {
+    return {
+      html: text,
+      usedReferences: [] as AssistantMentionReference[],
+      mentionUsages: [] as AssistantMentionUsage[],
+    };
+  }
+
+  if (/data-mention-kind=/i.test(text)) {
+    const usedReferences = uniqueReferences.filter((reference) =>
+      text.includes(`data-mention-name="${reference.name}"`),
+    );
+    return { html: text, usedReferences, mentionUsages: [] as AssistantMentionUsage[] };
+  }
+
+  const usedReferences: AssistantMentionReference[] = [];
+  const mentionUsages: AssistantMentionUsage[] = [];
+  let cursor = 0;
+  let html = '';
+
+  while (cursor < text.length) {
+    const match = uniqueReferences
+      .map((reference) => ({ reference, index: text.indexOf(reference.name, cursor) }))
+      .filter((candidate) => candidate.index >= 0)
+      .sort((left, right) => left.index - right.index || right.reference.name.length - left.reference.name.length)[0];
+
+    if (!match) {
+      html += escapeAssistantStoryText(text.slice(cursor));
+      break;
+    }
+
+    html += escapeAssistantStoryText(text.slice(cursor, match.index));
+    const id = uuidv4();
+    html += createAssistantMentionHtml(match.reference.kind, match.reference.name, id);
+    if (
+      !usedReferences.some(
+        (used) => used.kind === match.reference.kind && used.name === match.reference.name,
+      )
+    ) {
+      usedReferences.push(match.reference);
+    }
+    mentionUsages.push({
+      id,
+      reference: match.reference,
+      placement: hasAssistantPlainText(text.slice(0, match.index))
+        ? hasAssistantPlainText(text.slice(match.index + match.reference.name.length))
+          ? 'inline'
+          : 'end'
+        : 'start',
+    });
+    cursor = match.index + match.reference.name.length;
+  }
+
+  const unusedReferences = references.filter(
+    (reference) =>
+      reference.prependIfMissing &&
+      !usedReferences.some((used) => used.kind === reference.kind && used.name === reference.name),
+  );
+  const leadingTags = unusedReferences
+    .slice(0, 4)
+    .map((reference) => {
+      const id = uuidv4();
+      usedReferences.push(reference);
+      mentionUsages.push({ id, reference, placement: 'start' });
+      return createAssistantMentionHtml(reference.kind, reference.name, id);
+    })
+    .join('');
+
+  return {
+    html: leadingTags ? `${leadingTags}${html}` : html,
+    usedReferences,
+    mentionUsages,
+  };
+};
+
+const buildAssistantMentionReferencesFromNodes = (nodes: Node[]): AssistantMentionReference[] =>
+  nodes
+    .map((node): AssistantMentionReference | null => {
+      if (node.type === 'characterNode') {
+        const name =
+          typeof node.data?.characterName === 'string' ? node.data.characterName.trim() : '';
+        return name ? { id: node.id, kind: 'character', name } : null;
+      }
+      if (node.type === 'sceneNode') {
+        const name = typeof node.data?.sceneName === 'string' ? node.data.sceneName.trim() : '';
+        return name ? { id: node.id, kind: 'scene', name } : null;
+      }
+      return null;
+    })
+    .filter((reference): reference is AssistantMentionReference => Boolean(reference));
+
+const buildAssistantStoryPresentation = (
+  taggedStoryText: ReturnType<typeof insertAssistantMentionTags>,
+) => {
+  const taggedCharacters = taggedStoryText.usedReferences.filter(
+    (reference) => reference.kind === 'character',
+  );
+  const taggedScene = taggedStoryText.usedReferences.find((reference) => reference.kind === 'scene');
+  const characterPresentations: CharacterPresentation[] = taggedCharacters.map(
+    (reference, characterIndex) => {
+      const presentation = createCharacterPresentation(reference.id);
+      const position =
+        taggedCharacters.length === 1
+          ? 'center'
+          : characterIndex % 2 === 0
+            ? 'left'
+            : 'right';
+      const enterType = position === 'right' ? 'slide-left' : 'slide-right';
+      const exitType = position === 'right' ? 'slide-right' : 'slide-left';
+      return {
+        ...presentation,
+        position,
+        enter: createPresentationMotion(enterType, 520),
+        exit: createPresentationMotion(exitType, 420),
+      };
+    },
+  );
+  const scenePresentation = taggedScene
+    ? {
+        ...createScenePresentation(taggedScene.id),
+        enter: createPresentationMotion('fade', 500),
+        exit: createPresentationMotion('fade', 420),
+      }
+    : undefined;
+  const inlineActions = taggedStoryText.mentionUsages
+    .filter((usage) => usage.placement === 'inline')
+    .filter((usage) =>
+      usage.reference.kind === 'character'
+        ? characterPresentations.some((item) => item.sourceNodeId === usage.reference.id)
+        : scenePresentation?.sourceNodeId === usage.reference.id,
+    )
+    .slice(0, 12)
+    .map((usage, actionIndex) => ({
+      ...createInlinePresentationAction({
+        id: usage.id,
+        kind: usage.reference.kind,
+        sourceNodeId: usage.reference.id,
+        name: usage.reference.name,
+      }),
+      action:
+        usage.reference.kind === 'character'
+          ? actionIndex % 3 === 0
+            ? 'pulse'
+            : 'shake-x'
+          : 'scale' as InlinePresentationActionType,
+    }));
+
+  return characterPresentations.length > 0 || scenePresentation
+    ? {
+        characters: characterPresentations,
+        ...(scenePresentation ? { scene: scenePresentation } : {}),
+        inlineActions,
+      }
+    : undefined;
+};
+
+const applyAssistantStoryTags = (text: string, references: AssistantMentionReference[]) => {
+  const taggedStoryText = insertAssistantMentionTags(text, references);
+  return {
+    text: taggedStoryText.html,
+    presentation: buildAssistantStoryPresentation(taggedStoryText),
+  };
+};
 
 const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
   try {
@@ -194,11 +426,11 @@ const INITIAL_NODES: Node[] = [
     id: 'root',
     type: 'storyNode',
     position: { x: 400, y: 250 },
-    style: { width: 300, height: 200 },
+    style: { width: 300, height: AI_STORY_CARD_HEIGHT },
     data: {
       id: 'root',
-      title: '开头',
-      text: '从前有座山...',
+      title: DEFAULT_ROOT_STORY_TITLE,
+      text: DEFAULT_ROOT_STORY_TEXT,
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
@@ -550,6 +782,7 @@ export function StoryEditor() {
   const [showLastSavedTime, setShowLastSavedTime] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
+  const [allowAssistantImageGeneration, setAllowAssistantImageGeneration] = useState(true);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
@@ -992,6 +1225,7 @@ export function StoryEditor() {
       showNodeActions,
       showStats,
       saveAssistantConversations,
+      allowAssistantImageGeneration,
       opaqueAssistantMessagesInGlass,
       opaqueFooterInGlass,
       presetColors,
@@ -1050,6 +1284,7 @@ export function StoryEditor() {
       aiButtonsConfig,
       aiPrompts,
       aiProvider,
+      allowAssistantImageGeneration,
       bubbleStyle,
       canvasBg,
       characterImageMode,
@@ -1117,6 +1352,7 @@ export function StoryEditor() {
       setShowNodeActions,
       setShowStats,
       setSaveAssistantConversations,
+      setAllowAssistantImageGeneration,
       setOpaqueAssistantMessagesInGlass,
       setOpaqueFooterInGlass,
       setPresetColors,
@@ -1170,6 +1406,7 @@ export function StoryEditor() {
       setShowNodeActions,
       setShowStats,
       setSaveAssistantConversations,
+      setAllowAssistantImageGeneration,
       setOpaqueAssistantMessagesInGlass,
       setOpaqueFooterInGlass,
       setPresetColors,
@@ -1254,11 +1491,10 @@ export function StoryEditor() {
 
   const handleDeleteNode = useCallback(
     (id: string) => {
-      if (nodes.find((node) => node.id === id)?.data.isRoot === true) return;
       setNodes((nds) => nds.filter((node) => node.id !== id));
       setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
     },
-    [nodes, setEdges, setNodes],
+    [setEdges, setNodes],
   );
 
   const handleDeleteNodeOutputEdges = useCallback(
@@ -1829,13 +2065,13 @@ export function StoryEditor() {
         if (!sourceNode) return nds;
 
         const srcW = sourceNode.measured?.width || 300;
-        const srcH = sourceNode.measured?.height || 200;
+        const srcH = sourceNode.measured?.height || AI_STORY_CARD_HEIGHT;
 
         let newX = sourceNode.position.x;
         let newY = sourceNode.position.y;
 
         if (side === 'top') {
-          newY -= 200 + offsetDist;
+          newY -= AI_STORY_CARD_HEIGHT + offsetDist;
           targetHandle = 'bottom';
         } else if (side === 'bottom') {
           newY += srcH + offsetDist;
@@ -1865,7 +2101,7 @@ export function StoryEditor() {
           id: newId,
           type: 'storyNode',
           position: { x: newX, y: newY },
-          style: { width: 300, height: 200 },
+          style: { width: 300, height: AI_STORY_CARD_HEIGHT },
           data: {
             id: newId,
             title: '分支',
@@ -2154,11 +2390,21 @@ export function StoryEditor() {
       if (validCards.length === 0) return { count: 0 };
 
       const explicitFillTargetIds = new Set(options?.targetNodeIds || []);
-      const selectedFillTargets = nodes.filter(
+      let selectedFillTargets = nodes.filter(
         (n) =>
           (explicitFillTargetIds.size > 0 ? explicitFillTargetIds.has(n.id) : n.selected) &&
           (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
       );
+      const defaultInitialRootNode = nodes.find(isDefaultInitialStoryNode);
+      const hasNonDefaultStoryNode = nodes.some(
+        (node) => node.type === 'storyNode' && !isDefaultInitialStoryNode(node),
+      );
+      const shouldReplaceInitialRoot =
+        mode === 'append' &&
+        edges.length === 0 &&
+        Boolean(defaultInitialRootNode) &&
+        !hasNonDefaultStoryNode &&
+        validCards.some((draft) => draft.type === 'story');
       const usedDraftIndexes = new Set<number>();
       const usedTargetIds = new Set<string>();
       let filledCount = 0;
@@ -2229,7 +2475,7 @@ export function StoryEditor() {
               ...node,
               data: {
                 ...node.data,
-                title: draft.title || node.data.title,
+                title: node.data.isRoot ? node.data.title : draft.title || node.data.title,
                 text: draft.text || node.data.text || '',
               },
             };
@@ -2257,6 +2503,7 @@ export function StoryEditor() {
         (node) =>
           node.type === 'storyNode' &&
           node.id !== targetNode?.id &&
+          !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node)) &&
           node.data?.assistantFutureGoal !== true &&
           !edges.some(
             (edge) =>
@@ -2268,12 +2515,16 @@ export function StoryEditor() {
       );
       const sourceNode =
         (mode === 'adjacent-revision' ? selectedCanvasTarget : null) ||
-        selectedStories.find((node) => node.id !== targetNode?.id) ||
+        selectedStories.find(
+          (node) =>
+            node.id !== targetNode?.id &&
+            !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node)),
+        ) ||
         terminalStories[terminalStories.length - 1] ||
         null;
       const cardLayouts = remainingCards.map((card) => ({
-        width: card.type === 'story' ? 300 : 280,
-        height: card.type === 'story' ? 200 : 420,
+        width: card.type === 'story' ? AI_STORY_CARD_WIDTH : 280,
+        height: card.type === 'story' ? AI_STORY_CARD_HEIGHT : 420,
       }));
       const characterIndexes = remainingCards
         .map((card, index) => (card.type === 'character' ? index : -1))
@@ -2284,47 +2535,89 @@ export function StoryEditor() {
       const storyIndexes = remainingCards
         .map((card, index) => (card.type === 'story' ? index : -1))
         .filter((index) => index >= 0);
-      const settingRowCount =
-        (characterIndexes.length > 0 ? 1 : 0) + (sceneIndexes.length > 0 ? 1 : 0);
-      const storyColumnHeight =
-        storyIndexes.length > 0 ? storyIndexes.length * 200 + (storyIndexes.length - 1) * 80 : 0;
-      const totalLayoutHeight =
-        settingRowCount * 420 +
-        Math.max(0, settingRowCount - 1) * 100 +
-        (settingRowCount > 0 && storyColumnHeight > 0 ? 140 : 0) +
-        storyColumnHeight;
-      const layoutTop = center.y - totalLayoutHeight / 2;
-      const characterRowY = layoutTop;
-      const sceneRowY =
-        layoutTop + (characterIndexes.length > 0 && sceneIndexes.length > 0 ? 520 : 0);
-      const storyColumnY =
-        layoutTop +
-        (settingRowCount > 0
-          ? settingRowCount * 420 + Math.max(0, settingRowCount - 1) * 100 + 140
-          : 0);
-      const getHorizontalRowPosition = (rowIndexes: number[], cardIndex: number, y: number) => {
-        const rowIndex = rowIndexes.indexOf(cardIndex);
-        const gap = 60;
-        const cardWidth = 280;
-        const rowWidth = rowIndexes.length * cardWidth + Math.max(0, rowIndexes.length - 1) * gap;
-        return {
-          x: center.x - rowWidth / 2 + rowIndex * (cardWidth + gap),
-          y,
-        };
+      const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
+      const columnGap = 90;
+      const rowGap = 72;
+      const layoutColumns = [
+        { type: 'character' as const, indexes: characterIndexes, width: 280 },
+        { type: 'scene' as const, indexes: sceneIndexes, width: 280 },
+        { type: 'story' as const, indexes: storyIndexes, width: 300 },
+      ].filter((column) => column.indexes.length > 0);
+      const getColumnHeight = (indexes: number[]) =>
+        indexes.reduce(
+          (height, cardIndex, rowIndex) =>
+            height + cardLayouts[cardIndex].height + (rowIndex > 0 ? rowGap : 0),
+          0,
+        );
+      const totalLayoutWidth =
+        layoutColumns.reduce((width, column) => width + column.width, 0) +
+        Math.max(0, layoutColumns.length - 1) * columnGap;
+      const maxColumnHeight = Math.max(0, ...layoutColumns.map((column) => getColumnHeight(column.indexes)));
+      const layoutLeft = center.x - totalLayoutWidth / 2;
+      const layoutTop = center.y - maxColumnHeight / 2;
+      const columnXByType = new Map<'character' | 'scene' | 'story', number>();
+      layoutColumns.reduce((x, column) => {
+        columnXByType.set(column.type, x);
+        return x + column.width + columnGap;
+      }, layoutLeft);
+      const getVerticalColumnPosition = (
+        columnIndexes: number[],
+        cardIndex: number,
+        x: number,
+      ) => {
+        const rowIndex = Math.max(0, columnIndexes.indexOf(cardIndex));
+        const y =
+          layoutTop +
+          columnIndexes
+            .slice(0, rowIndex)
+            .reduce((offset, previousIndex) => offset + cardLayouts[previousIndex].height + rowGap, 0);
+        return { x, y };
       };
 
+      const cardIds = remainingCards.map(() => uuidv4());
+      const existingMentionReferences = buildAssistantMentionReferencesFromNodes(nodes);
+      const generatedMentionReferences: AssistantMentionReference[] = remainingCards
+        .map((card, index): AssistantMentionReference | null => {
+          if (card.type === 'character') {
+            const name =
+              card.characterName ||
+              card.title ||
+              (language === 'zh' ? 'AI 角色' : 'AI Character');
+            return { id: cardIds[index], kind: 'character' as const, name, prependIfMissing: true };
+          }
+          if (card.type === 'scene') {
+            const name = card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene');
+            return { id: cardIds[index], kind: 'scene' as const, name, prependIfMissing: true };
+          }
+          return null;
+        })
+        .filter((reference): reference is AssistantMentionReference => Boolean(reference));
+      const assistantMentionReferences = [
+        ...generatedMentionReferences,
+        ...existingMentionReferences,
+      ];
+
       const newNodes: Node[] = remainingCards.map((card, index) => {
-        const id = uuidv4();
+        const id = cardIds[index];
         const layout = cardLayouts[index];
         let position =
           card.type === 'character'
-            ? getHorizontalRowPosition(characterIndexes, index, characterRowY)
+            ? getVerticalColumnPosition(
+                characterIndexes,
+                index,
+                columnXByType.get('character') ?? center.x - layout.width / 2,
+              )
             : card.type === 'scene'
-              ? getHorizontalRowPosition(sceneIndexes, index, sceneRowY)
-              : {
-                  x: center.x - layout.width / 2,
-                  y: storyColumnY + storyIndexes.indexOf(index) * 280,
-                };
+              ? getVerticalColumnPosition(
+                  sceneIndexes,
+                  index,
+                  columnXByType.get('scene') ?? center.x - layout.width / 2,
+                )
+              : getVerticalColumnPosition(
+                  storyIndexes,
+                  index,
+                  columnXByType.get('story') ?? center.x - layout.width / 2,
+                );
         if (mode === 'adjacent-revision' && sourceNode) {
           position = {
             x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
@@ -2400,20 +2693,24 @@ export function StoryEditor() {
           };
         }
 
+        const taggedStory = applyAssistantStoryTags(card.text, assistantMentionReferences);
+
         return {
           id,
           type: 'storyNode',
           position,
           selected: true,
-          style: { width: 300, height: 200 },
+          style: { width: AI_STORY_CARD_WIDTH, height: AI_STORY_CARD_HEIGHT },
           data: {
             id,
             title: card.title || (language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card'),
-            text: card.text,
+            text: taggedStory.text,
             shape: 'square',
             color: '#ffffff',
             sizeMode: 'auto',
+            isRoot: index === rootReplacementStoryIndex,
             assistantFutureGoal: mode === 'future-targets',
+            presentation: taggedStory.presentation,
           } satisfies StoryNodeData,
         };
       });
@@ -2478,11 +2775,12 @@ export function StoryEditor() {
         ...nds.map((node) => ({
           ...node,
           selected: false,
+          data: shouldReplaceInitialRoot ? { ...node.data, isRoot: false } : node.data,
           position:
             bridgeTargetPosition && node.id === targetNode?.id
               ? bridgeTargetPosition
               : node.position,
-        })),
+        })).filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
         ...newNodes,
       ]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
@@ -2582,7 +2880,7 @@ export function StoryEditor() {
   );
 
   const applyAgentFieldValue = useCallback(
-    (nodeId: string, fieldKey: string | undefined, value: string) => {
+    (nodeId: string, fieldKey: string | undefined, value: string, finalized = false) => {
       if (!fieldKey) return;
       setNodes((currentNodes) =>
         currentNodes.map((node) => {
@@ -2639,7 +2937,21 @@ export function StoryEditor() {
               return { ...node, data: { ...node.data, title: value } };
             }
             if (fieldKey === 'story-text') {
-              return { ...node, data: { ...node.data, text: value } };
+              if (!finalized) {
+                return { ...node, data: { ...node.data, text: value } };
+              }
+              const taggedStory = applyAssistantStoryTags(
+                value,
+                buildAssistantMentionReferencesFromNodes(currentNodes),
+              );
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  text: taggedStory.text,
+                  ...(taggedStory.presentation ? { presentation: taggedStory.presentation } : {}),
+                },
+              };
             }
           }
 
@@ -2703,7 +3015,7 @@ export function StoryEditor() {
     ) => {
       if (!nodeId || !fieldKey || !value) return;
       if (shouldSkip()) {
-        applyAgentFieldValue(nodeId, fieldKey, value);
+        applyAgentFieldValue(nodeId, fieldKey, value, true);
         return;
       }
 
@@ -2714,7 +3026,7 @@ export function StoryEditor() {
         applyAgentFieldValue(nodeId, fieldKey, value.slice(0, index));
         await new Promise<void>((resolve) => window.setTimeout(resolve, 18));
       }
-      applyAgentFieldValue(nodeId, fieldKey, value);
+      applyAgentFieldValue(nodeId, fieldKey, value, true);
     },
     [applyAgentFieldValue],
   );
@@ -2731,7 +3043,7 @@ export function StoryEditor() {
           (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
       ).length;
 
-      return runAgentCardPlacement({
+      const placement = await runAgentCardPlacement({
         cards,
         mode,
         options,
@@ -2782,15 +3094,110 @@ export function StoryEditor() {
           );
         },
       });
+      const imageRequests = cards
+        .map((card, index) => ({ card, index, type: getAgentDraftType(card) }))
+        .filter(({ card }) => card.generateImage === true);
+
+      if (imageRequests.length > 0 && !allowAssistantImageGeneration) {
+        showToast(
+          language === 'zh'
+            ? 'AI 助手图片生成已在设置中关闭'
+            : language === 'ja'
+              ? 'AIアシスタントの画像生成は設定で無効になっています'
+              : 'AI assistant image generation is disabled in settings',
+        );
+      } else if (imageRequests.length > 0 && missingImageApiKey) {
+        requestSettingsAttention('image');
+        showToast(
+          language === 'zh'
+            ? '请先在设置 > AI 配置 > 图片 AI 中连接图片 API'
+            : language === 'ja'
+              ? '設定 > AI設定 > Image AI で画像APIを接続してください'
+              : 'Connect an Image AI API in Settings > AI Settings > Image AI first',
+        );
+      } else if (imageRequests.length > 0) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        for (const request of imageRequests) {
+          const nodeId = placement.nodeIds?.[request.index];
+          if (!nodeId) continue;
+          if (request.type === 'character' || request.type === 'scene') {
+            await handleGenerateSettingNodeImage(nodeId, request.type);
+          } else {
+            await handleGenerateStoryNodeImage(nodeId);
+          }
+        }
+      }
+
+      return placement;
     },
     [
+      allowAssistantImageGeneration,
       createAgentSkeletonCards,
       executeAssistantCardPlacement,
       getAgentFieldValue,
+      getAgentDraftType,
+      handleGenerateSettingNodeImage,
+      handleGenerateStoryNodeImage,
+      language,
+      missingImageApiKey,
       nodes,
       prepareAgentFields,
+      requestSettingsAttention,
       runAgentCardPlacement,
+      showToast,
       typeAgentFieldValue,
+    ],
+  );
+
+  const handleGenerateAssistantImagesForNodes = useCallback(
+    async (nodeIds: string[]) => {
+      const visualNodes = nodeIds
+        .map((nodeId) => nodes.find((node) => node.id === nodeId))
+        .filter(
+          (node): node is Node =>
+            Boolean(node) && (node?.type === 'characterNode' || node?.type === 'sceneNode'),
+        );
+
+      if (visualNodes.length === 0) return;
+
+      if (!allowAssistantImageGeneration) {
+        showToast(
+          language === 'zh'
+            ? 'AI 助手图片生成已在设置中关闭'
+            : language === 'ja'
+              ? 'AIアシスタントの画像生成は設定で無効になっています'
+              : 'AI assistant image generation is disabled in settings',
+        );
+        return;
+      }
+
+      if (missingImageApiKey) {
+        requestSettingsAttention('image');
+        showToast(
+          language === 'zh'
+            ? '请先在设置 > AI 配置 > 图片 AI 中连接图片 API'
+            : language === 'ja'
+              ? '設定 > AI設定 > Image AI で画像APIを接続してください'
+              : 'Connect an Image AI API in Settings > AI Settings > Image AI first',
+        );
+        return;
+      }
+
+      for (const node of visualNodes) {
+        await handleGenerateSettingNodeImage(
+          node.id,
+          node.type === 'characterNode' ? 'character' : 'scene',
+        );
+      }
+    },
+    [
+      allowAssistantImageGeneration,
+      handleGenerateSettingNodeImage,
+      language,
+      missingImageApiKey,
+      nodes,
+      requestSettingsAttention,
+      showToast,
     ],
   );
 
@@ -2870,6 +3277,7 @@ export function StoryEditor() {
     nodes,
     callAIForTextResult,
     createAssistantCards,
+    onGenerateAssistantImagesRequest: handleGenerateAssistantImagesForNodes,
     startAgentWaiting,
     stopAgentWaiting,
     hasTextApiKey: !missingTextApiKey,
@@ -4405,6 +4813,8 @@ ${layoutConfig.label}
           setShowLastSavedTime={setShowLastSavedTime}
           saveAssistantConversations={saveAssistantConversations}
           setSaveAssistantConversations={setSaveAssistantConversations}
+          allowAssistantImageGeneration={allowAssistantImageGeneration}
+          setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
           showMiniMap={showMiniMap}
           setShowMiniMap={setShowMiniMap}
           miniMapPosition={miniMapPosition}

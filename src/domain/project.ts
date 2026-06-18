@@ -211,6 +211,7 @@ export interface ProjectSettings extends PlaytestSettings {
   showNodeActions: boolean;
   showStats: boolean;
   saveAssistantConversations: boolean;
+  allowAssistantImageGeneration: boolean;
   opaqueAssistantMessagesInGlass: boolean;
   opaqueFooterInGlass: boolean;
   presetColors: string[];
@@ -257,6 +258,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
+  setAllowAssistantImageGeneration: Dispatch<SetStateAction<boolean>>;
   setOpaqueAssistantMessagesInGlass: Dispatch<SetStateAction<boolean>>;
   setOpaqueFooterInGlass: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;

@@ -18,13 +18,70 @@ const escapeHtml = (text: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const createMentionHtml = (kind: MentionKind, name: string) => {
+export const createMentionHtml = (kind: MentionKind, name: string) => {
   const safeName = escapeHtml(name);
   const id =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+};
+
+const sanitizePastedMentionHtml = (html: string) => {
+  if (!html || !/mention-chip|data-mention-kind/i.test(html)) return null;
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  container.querySelectorAll('script, style, link, meta').forEach((node) => node.remove());
+  container.querySelectorAll<HTMLElement>('.mention-chip, [data-mention-kind]').forEach((node) => {
+    const kind = node.dataset.mentionKind;
+    const name = node.dataset.mentionName || node.textContent?.replace(/^@/, '').trim();
+    if (kind !== 'character' && kind !== 'scene' && kind !== 'video') {
+      node.replaceWith(document.createTextNode(node.textContent || ''));
+      return;
+    }
+    if (!name) {
+      node.remove();
+      return;
+    }
+    const replacement = document.createElement('span');
+    replacement.className = `mention-chip mention-chip-${kind}`;
+    replacement.dataset.mentionKind = kind;
+    replacement.dataset.mentionName = name;
+    replacement.dataset.mentionId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    replacement.contentEditable = 'false';
+    replacement.draggable = false;
+    replacement.textContent = `@${name}`;
+    node.replaceWith(replacement, document.createTextNode('\u00a0'));
+  });
+
+  container.querySelectorAll<HTMLElement>('*').forEach((node) => {
+    if (node.classList.contains('mention-chip')) {
+      Array.from(node.attributes).forEach((attr) => {
+        if (
+          ![
+            'class',
+            'data-mention-kind',
+            'data-mention-name',
+            'data-mention-id',
+            'contenteditable',
+            'draggable',
+          ].includes(attr.name)
+        ) {
+          node.removeAttribute(attr.name);
+        }
+      });
+      return;
+    }
+    Array.from(node.attributes).forEach((attr) => {
+      if (attr.name.startsWith('on') || attr.name === 'style') node.removeAttribute(attr.name);
+    });
+  });
+
+  return container.innerHTML;
 };
 
 const hasMeaningfulText = (text: string) => /[\p{L}\p{N}]/u.test(text);
@@ -193,6 +250,15 @@ export const RichText = forwardRef<
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
+    const html = e.clipboardData.getData('text/html');
+    const mentionHtml = sanitizePastedMentionHtml(html);
+    if (mentionHtml) {
+      e.preventDefault();
+      document.execCommand('insertHTML', false, mentionHtml);
+      handleInput();
+      return;
+    }
+
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {

@@ -29,6 +29,38 @@ interface UseSelectionActionsParams {
   showToast: (message: string) => void;
 }
 
+type NodeClipboard = { nodes: Node[]; edges: Edge[] };
+
+type SerializedNodeClipboard = NodeClipboard & {
+  kind: 'galwriter-node-clipboard';
+  version: 1;
+};
+
+const serializeNodeClipboard = (clipboard: NodeClipboard) =>
+  JSON.stringify({
+    kind: 'galwriter-node-clipboard',
+    version: 1,
+    nodes: clipboard.nodes,
+    edges: clipboard.edges,
+  } satisfies SerializedNodeClipboard);
+
+const parseNodeClipboard = (text: string): NodeClipboard | null => {
+  try {
+    const parsed = JSON.parse(text) as Partial<SerializedNodeClipboard>;
+    if (
+      parsed?.kind !== 'galwriter-node-clipboard' ||
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.nodes) ||
+      !Array.isArray(parsed.edges)
+    ) {
+      return null;
+    }
+    return { nodes: parsed.nodes as Node[], edges: parsed.edges as Edge[] };
+  } catch {
+    return null;
+  }
+};
+
 export const useSelectionActions = ({
   nodes,
   edges,
@@ -58,7 +90,11 @@ export const useSelectionActions = ({
       (edge) => selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target),
     );
 
-    setNodeClipboard({ nodes: selectedNodes, edges: selectedEdges });
+    const clipboard = { nodes: selectedNodes, edges: selectedEdges };
+    setNodeClipboard(clipboard);
+    navigator.clipboard?.writeText?.(serializeNodeClipboard(clipboard)).catch((error) => {
+      console.warn('Failed to write node clipboard', error);
+    });
     showToast(
       language === 'zh'
         ? selectedNodes.length === 1
@@ -70,8 +106,9 @@ export const useSelectionActions = ({
     );
   }, [edges, language, nodes, setNodeClipboard, showToast]);
 
-  const handlePaste = useCallback(async () => {
-    if (nodeClipboard && nodeClipboard.nodes.length > 0) {
+  const pasteNodeClipboard = useCallback(
+    (clipboard: NodeClipboard) => {
+      if (clipboard.nodes.length === 0) return false;
       const idMap: Record<string, string> = {};
       const center = getCenterPosition();
 
@@ -79,7 +116,7 @@ export const useSelectionActions = ({
       let minY = Infinity;
       let maxX = -Infinity;
       let maxY = -Infinity;
-      nodeClipboard.nodes.forEach((node) => {
+      clipboard.nodes.forEach((node) => {
         minX = Math.min(minX, node.position.x);
         minY = Math.min(minY, node.position.y);
         maxX = Math.max(maxX, node.position.x + (node.measured?.width || 300));
@@ -91,7 +128,7 @@ export const useSelectionActions = ({
       const offsetX = center.x - groupCenterX;
       const offsetY = center.y - groupCenterY;
 
-      const newNodes: Node[] = nodeClipboard.nodes.map((node) => {
+      const newNodes: Node[] = clipboard.nodes.map((node) => {
         const newId = uuidv4();
         idMap[node.id] = newId;
         return {
@@ -136,7 +173,7 @@ export const useSelectionActions = ({
         };
       });
 
-      const newEdges = nodeClipboard.edges.map((edge) => ({
+      const newEdges = clipboard.edges.map((edge) => ({
         ...edge,
         id: uuidv4(),
         source: idMap[edge.source],
@@ -145,6 +182,14 @@ export const useSelectionActions = ({
 
       setNodes((nds) => [...nds.map((node) => ({ ...node, selected: false })), ...newNodes]);
       setEdges((eds) => [...eds, ...newEdges]);
+      return true;
+    },
+    [getCenterPosition, setEdges, setNodes],
+  );
+
+  const handlePaste = useCallback(async () => {
+    if (nodeClipboard && nodeClipboard.nodes.length > 0) {
+      pasteNodeClipboard(nodeClipboard);
       return;
     }
 
@@ -160,14 +205,19 @@ export const useSelectionActions = ({
         return;
       }
       const text = await navigator.clipboard.readText();
+      const parsedClipboard = parseNodeClipboard(text);
+      if (parsedClipboard && pasteNodeClipboard(parsedClipboard)) {
+        setNodeClipboard(parsedClipboard);
+        return;
+      }
       if (text && text.trim()) {
         const center = getCenterPosition();
         const newId = uuidv4();
         const newNode: Node = {
           id: newId,
           type: 'storyNode',
-          position: { x: center.x - 150, y: center.y - 100 },
-          style: { width: 300, height: 200 },
+          position: { x: center.x - 150, y: center.y - 110 },
+          style: { width: 300, height: 220 },
           data: {
             id: newId,
             title: '粘贴卡片',
@@ -182,7 +232,7 @@ export const useSelectionActions = ({
     } catch (error) {
       console.warn('Failed to read system clipboard', error);
     }
-  }, [getCenterPosition, language, nodeClipboard, setEdges, setNodes, showToast]);
+  }, [getCenterPosition, language, nodeClipboard, pasteNodeClipboard, setNodeClipboard, setNodes, showToast]);
 
   const deleteSelected = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);
@@ -190,9 +240,7 @@ export const useSelectionActions = ({
 
     if (selectedNodes.length === 0 && selectedEdges.length === 0) return;
 
-    const nodeIdsToDelete = new Set(
-      selectedNodes.filter((node) => !node.data?.isRoot).map((node) => node.id),
-    );
+    const nodeIdsToDelete = new Set(selectedNodes.map((node) => node.id));
     const edgeIdsToDelete = new Set(selectedEdges.map((edge) => edge.id));
 
     if (nodeIdsToDelete.size === 0 && edgeIdsToDelete.size === 0) {

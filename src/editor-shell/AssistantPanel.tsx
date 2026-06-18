@@ -55,7 +55,7 @@ interface AssistantPanelProps {
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
-  handleStartAssistantFlow: (flow: 'starter' | 'revision' | 'future') => Promise<void>;
+  handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
@@ -254,6 +254,64 @@ export function AssistantPanel({
     setSuggestMenuOpen(true);
   };
 
+  const welcomePrompts =
+    language === 'zh'
+      ? [
+          {
+            icon: <Lightbulb className="h-4 w-4" />,
+            title: '我有一个新脑洞',
+            description: '从一句灵感开始，帮你扩展成故事设定、角色和冲突。',
+            prompt: '我有一个新脑洞，想让你帮我扩展成一个完整故事。',
+          },
+          {
+            icon: <PencilLine className="h-4 w-4" />,
+            title: '我想继续写下去',
+            description: '接着当前剧情，帮你推进下一幕、对白或分镜。',
+            prompt: '我想继续写下去，请帮我接着当前内容推进剧情。',
+          },
+          {
+            icon: <SearchCheck className="h-4 w-4" />,
+            title: '我卡在剧情里了',
+            description: '一起拆卡点，找冲突、节奏、转折和解决方向。',
+            prompt: '我卡在剧情里了，请帮我分析问题并给我几个可写下去的方向。',
+          },
+        ]
+      : [
+          {
+            icon: <Lightbulb className="h-4 w-4" />,
+            title: 'I have a new idea',
+            description: 'Turn one spark into a story premise, cast, and conflict.',
+            prompt: 'I have a new idea. Help me expand it into a complete story.',
+          },
+          {
+            icon: <PencilLine className="h-4 w-4" />,
+            title: 'I want to keep writing',
+            description: 'Continue the current plot with the next scene, dialogue, or storyboard.',
+            prompt: 'I want to continue writing. Help me move the current story forward.',
+          },
+          {
+            icon: <SearchCheck className="h-4 w-4" />,
+            title: 'I am stuck',
+            description: 'Break down the problem and find conflict, rhythm, and new directions.',
+            prompt: 'I am stuck in the plot. Help me analyze the problem and suggest ways forward.',
+          },
+        ];
+
+  const isLegacyAssistantWelcomeMessage = (message: AssistantMessage) =>
+    message.role === 'assistant' &&
+    (message.content.includes('生成故事') ||
+      message.content.includes('整理设定') ||
+      message.content.includes('续写剧情') ||
+      message.content.includes('generate stories') ||
+      message.content.includes('organize settings') ||
+      message.content.includes('continue writing plots'));
+
+  const visibleAssistantMessages = assistantMessages.filter(
+    (message) => !isLegacyAssistantWelcomeMessage(message),
+  );
+  const showTransparentWelcomeGradient =
+    visibleAssistantMessages.length === 0 && assistantInput.trim().length === 0;
+
   useEffect(() => {
     if (!cardGenerateOpen) return undefined;
 
@@ -287,6 +345,10 @@ export function AssistantPanel({
           ? 'assistant-panel-mobile fixed inset-y-0 left-6 right-0 z-[220] shadow-sm'
           : `assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm ${showStats ? '' : 'assistant-panel-full-height'}`
       } assistant-panel-shell ${
+        showTransparentWelcomeGradient
+          ? 'assistant-panel-transparent-gradient'
+          : 'assistant-panel-chat-surface'
+      } ${
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
       style={isMobile ? undefined : { width: assistantPanelWidth }}
@@ -441,7 +503,47 @@ export function AssistantPanel({
         ref={assistantMessagesRef}
         className="assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
-        {assistantMessages.map((message) =>
+        {visibleAssistantMessages.length === 0 && !assistantLoading && (
+          <section className="assistant-welcome-card">
+            <div className="assistant-welcome-hero">
+              <div className="assistant-welcome-copy">
+                <p className="assistant-welcome-kicker">
+                  {language === 'zh' ? '我是你的 AI 剧本搭子' : 'Your AI story partner'}
+                </p>
+                <h2>{language === 'zh' ? '随时陪你把脑洞写成作品' : 'Ready to turn ideas into finished work'}</h2>
+              </div>
+              <img src="/glass.png" alt="" className="assistant-welcome-logo" />
+            </div>
+            <div className="assistant-welcome-prompts">
+              <div className="assistant-welcome-prompt-title">
+                {language === 'zh' ? '试试可以这样问我：' : 'Try asking me:'}
+              </div>
+              <div className="assistant-welcome-options">
+                {welcomePrompts.map((item, index) => (
+                  <button
+                    key={item.title}
+                    type="button"
+                    onClick={() =>
+                      index === 0
+                        ? void handleStartAssistantFlow('idea')
+                        : void handleAssistantSend(item.prompt)
+                    }
+                    disabled={assistantLoading}
+                    className="assistant-welcome-option"
+                  >
+                    <span className="assistant-welcome-option-icon">{item.icon}</span>
+                    <span className="assistant-welcome-option-copy">
+                      <span className="assistant-welcome-option-title">{item.title}</span>
+                      <span className="assistant-welcome-option-desc">{item.description}</span>
+                    </span>
+                    <ChevronDown className="assistant-welcome-option-arrow h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+        {visibleAssistantMessages.map((message) =>
           message.role === 'thought' ? (
             <div key={message.id} className="flex justify-start">
               <button
