@@ -211,6 +211,14 @@ const alignAssistantCardsToPlaceholders = (
   return [...alignedCards, ...remainingCards];
 };
 
+const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
+  const priority = { character: 0, scene: 1, story: 2 } as const;
+  return cards
+    .map((card, index) => ({ card, index, type: getAssistantDraftType(card) }))
+    .sort((left, right) => priority[left.type] - priority[right.type] || left.index - right.index)
+    .map(({ card, type }) => ({ ...card, type }));
+};
+
 const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOption[] => {
   const normalized = content
     .replace(/```(?:json)?/gi, '')
@@ -1014,7 +1022,11 @@ ${canvasContext || '无'}`;
       let preparedPlacement: AssistantCardPlacementResult | null = null;
       let preparedPlaceholderCards: AssistantCardDraft[] = [];
       if (wantsCards && !fillSelected) {
-        const placeholders = buildAssistantPlaceholderCards(effectiveUserText, forcedMode);
+        startAgentWaiting?.(
+          'AI Agent 正在生成内容',
+          '正在设计人物、场景和剧情卡片',
+        );
+        const placeholders: AssistantCardDraft[] = [];
         if (placeholders.length > 0) {
           preparedPlaceholderCards = placeholders;
           preparedPlacement = await createAssistantCards(
@@ -1048,7 +1060,7 @@ ${canvasContext || '无'}`;
           parsed = { reply: raw, cards: [] };
         }
 
-        const cards = alignAssistantCardsToPlaceholders(
+        const cards = orderAssistantCardsForCreation(alignAssistantCardsToPlaceholders(
           Array.isArray(parsed.cards)
             ? parsed.cards.map((card) =>
                 getAssistantDraftType(card) === 'story'
@@ -1057,7 +1069,7 @@ ${canvasContext || '无'}`;
               )
             : [],
           preparedPlaceholderCards,
-        );
+        ));
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
         if (preparedPlacement?.count && cards.length === 0) {
