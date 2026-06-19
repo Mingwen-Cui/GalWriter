@@ -132,6 +132,8 @@ const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 const AI_STORY_CARD_WIDTH = 300;
 const AI_STORY_CARD_HEIGHT = 220;
+const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
+const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
 const DEFAULT_ROOT_STORY_TITLE = '开始';
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 const DEFAULT_ROOT_STORY_TEXT_VARIANTS = new Set([DEFAULT_ROOT_STORY_TEXT, '从前有一座山']);
@@ -710,7 +712,6 @@ export function StoryEditor() {
     runAgentCardPlacement,
     startAgentWaiting,
     stopAgentWaiting,
-    requestSkipAgent,
   } = useAgentRuntime();
 
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
@@ -783,6 +784,9 @@ export function StoryEditor() {
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [allowAssistantImageGeneration, setAllowAssistantImageGeneration] = useState(true);
+  const [skipAssistantAgentAnimation, setSkipAssistantAgentAnimation] = useState(false);
+  const [assistantMemorySkillEnabled, setAssistantMemorySkillEnabled] = useState(false);
+  const [assistantMemoryNotes, setAssistantMemoryNotes] = useState<string[]>([]);
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
@@ -1115,6 +1119,39 @@ export function StoryEditor() {
     });
   };
 
+  const handleDownloadAssistantMemory = useCallback(() => {
+    const payload = {
+      kind: 'galwriter-assistant-memory',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      projectTitle: getProjectDisplayName(projectTitle, saveFileName) || DEFAULT_PROJECT_FILE_NAME,
+      enabled: assistantMemorySkillEnabled,
+      notes: assistantMemoryNotes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = (payload.projectTitle || 'galwriter')
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, '-');
+    link.href = url;
+    link.download = `${safeTitle}-assistant-memory.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(language === 'zh' ? '偏好记忆已下载' : 'Assistant memory downloaded');
+  }, [
+    assistantMemoryNotes,
+    assistantMemorySkillEnabled,
+    language,
+    projectTitle,
+    saveFileName,
+    showToast,
+  ]);
+
   // 卡片剪贴板
   const [nodeClipboard, setNodeClipboard] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
 
@@ -1226,6 +1263,9 @@ export function StoryEditor() {
       showStats,
       saveAssistantConversations,
       allowAssistantImageGeneration,
+      skipAssistantAgentAnimation,
+      assistantMemorySkillEnabled,
+      assistantMemoryNotes,
       opaqueAssistantMessagesInGlass,
       opaqueFooterInGlass,
       presetColors,
@@ -1285,6 +1325,9 @@ export function StoryEditor() {
       aiPrompts,
       aiProvider,
       allowAssistantImageGeneration,
+      assistantMemoryNotes,
+      assistantMemorySkillEnabled,
+      skipAssistantAgentAnimation,
       bubbleStyle,
       canvasBg,
       characterImageMode,
@@ -1353,6 +1396,9 @@ export function StoryEditor() {
       setShowStats,
       setSaveAssistantConversations,
       setAllowAssistantImageGeneration,
+      setSkipAssistantAgentAnimation,
+      setAssistantMemorySkillEnabled,
+      setAssistantMemoryNotes,
       setOpaqueAssistantMessagesInGlass,
       setOpaqueFooterInGlass,
       setPresetColors,
@@ -1407,6 +1453,8 @@ export function StoryEditor() {
       setShowStats,
       setSaveAssistantConversations,
       setAllowAssistantImageGeneration,
+      setAssistantMemorySkillEnabled,
+      setAssistantMemoryNotes,
       setOpaqueAssistantMessagesInGlass,
       setOpaqueFooterInGlass,
       setPresetColors,
@@ -2522,9 +2570,38 @@ export function StoryEditor() {
         ) ||
         terminalStories[terminalStories.length - 1] ||
         null;
+      const getSettingCardLayoutHeight = (card: (typeof remainingCards)[number]) => {
+        if (card.type === 'character') {
+          const expandedFieldCount = [
+            card.personality,
+            card.features,
+            card.background,
+            card.other,
+          ].filter(Boolean).length;
+          return (
+            AI_SETTING_CARD_LAYOUT_HEIGHT +
+            Math.max(0, expandedFieldCount - 1) * AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT
+          );
+        }
+
+        if (card.type === 'scene') {
+          const expandedFieldCount = [
+            card.location,
+            card.items,
+            card.atmosphere,
+            card.other,
+          ].filter(Boolean).length;
+          return (
+            AI_SETTING_CARD_LAYOUT_HEIGHT +
+            Math.max(0, expandedFieldCount - 1) * AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT
+          );
+        }
+
+        return AI_STORY_CARD_HEIGHT;
+      };
       const cardLayouts = remainingCards.map((card) => ({
         width: card.type === 'story' ? AI_STORY_CARD_WIDTH : 280,
-        height: card.type === 'story' ? AI_STORY_CARD_HEIGHT : 420,
+        height: getSettingCardLayoutHeight(card),
       }));
       const characterIndexes = remainingCards
         .map((card, index) => (card.type === 'character' ? index : -1))
@@ -2536,8 +2613,8 @@ export function StoryEditor() {
         .map((card, index) => (card.type === 'story' ? index : -1))
         .filter((index) => index >= 0);
       const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
-      const columnGap = 90;
-      const rowGap = 72;
+      const columnGap = 150;
+      const rowGap = 200;
       const layoutColumns = [
         { type: 'character' as const, indexes: characterIndexes, width: 280 },
         { type: 'scene' as const, indexes: sceneIndexes, width: 280 },
@@ -2649,7 +2726,6 @@ export function StoryEditor() {
             type: 'characterNode',
             position,
             selected: true,
-            style: { width: 280, height: 420, minHeight: 420 },
             data: {
               id,
               characterName:
@@ -2675,7 +2751,6 @@ export function StoryEditor() {
             type: 'sceneNode',
             position,
             selected: true,
-            style: { width: 280, height: 420, minHeight: 420 },
             data: {
               id,
               sceneName:
@@ -3048,6 +3123,7 @@ export function StoryEditor() {
         mode,
         options,
         selectedCount,
+        skipAnimation: skipAssistantAgentAnimation,
         execute: () => {
           if (mode === 'fill-selected' && options?.targetNodeIds?.length) {
             const placement = {
@@ -3094,6 +3170,7 @@ export function StoryEditor() {
           );
         },
       });
+
       const imageRequests = cards
         .map((card, index) => ({ card, index, type: getAgentDraftType(card) }))
         .filter(({ card }) => card.generateImage === true);
@@ -3144,6 +3221,7 @@ export function StoryEditor() {
       prepareAgentFields,
       requestSettingsAttention,
       runAgentCardPlacement,
+      skipAssistantAgentAnimation,
       showToast,
       typeAgentFieldValue,
     ],
@@ -3278,12 +3356,15 @@ export function StoryEditor() {
     callAIForTextResult,
     createAssistantCards,
     onGenerateAssistantImagesRequest: handleGenerateAssistantImagesForNodes,
-    startAgentWaiting,
+    startAgentWaiting: skipAssistantAgentAnimation ? undefined : startAgentWaiting,
     stopAgentWaiting,
     hasTextApiKey: !missingTextApiKey,
     onMissingTextApiKeyRequest: () => {
       requestSettingsAttention('text');
     },
+    assistantMemorySkillEnabled,
+    assistantMemoryNotes,
+    setAssistantMemoryNotes,
   });
   const miniMapOverlayStyle =
     !isMobile && bubbleStyle === 'glass' && assistantOpen && miniMapPosition === 'right'
@@ -4815,6 +4896,12 @@ ${layoutConfig.label}
           setSaveAssistantConversations={setSaveAssistantConversations}
           allowAssistantImageGeneration={allowAssistantImageGeneration}
           setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
+          skipAssistantAgentAnimation={skipAssistantAgentAnimation}
+          setSkipAssistantAgentAnimation={setSkipAssistantAgentAnimation}
+          assistantMemorySkillEnabled={assistantMemorySkillEnabled}
+          setAssistantMemorySkillEnabled={setAssistantMemorySkillEnabled}
+          assistantMemoryNotes={assistantMemoryNotes}
+          onDownloadAssistantMemory={handleDownloadAssistantMemory}
           showMiniMap={showMiniMap}
           setShowMiniMap={setShowMiniMap}
           miniMapPosition={miniMapPosition}
@@ -5135,7 +5222,7 @@ ${layoutConfig.label}
           })()}
       </Suspense>
 
-      <AgentOverlay state={agentState} onSkip={requestSkipAgent} />
+      <AgentOverlay state={agentState} language={language} />
 
       {/* Global Toast Notification */}
       <EditorToast message={toast.message} visible={toast.visible} tone={toast.tone} />

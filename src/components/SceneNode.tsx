@@ -150,7 +150,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
   const syncNodeHeightToMinimum = useCallback(
-    (nextMinHeight = effectiveMinHeight) => {
+    (nextMinHeight = effectiveMinHeight, allowShrink = false) => {
       if (isMinimized) return;
 
       const heightToApply = Math.ceil(nextMinHeight);
@@ -165,10 +165,11 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
             getNumericSize((node as any).measured?.height);
 
           const currentMinHeight = getNumericSize(node.style?.minHeight);
-          const shouldGrowHeight = currentHeight === undefined || currentHeight < heightToApply - 1;
+          const shouldApplyHeight =
+            allowShrink || currentHeight === undefined || currentHeight < heightToApply - 1;
           const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
 
-          if (!shouldGrowHeight && !shouldUpdateMinHeight) {
+          if (!shouldApplyHeight && !shouldUpdateMinHeight) {
             return node;
           }
 
@@ -176,7 +177,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
             ...node,
             style: {
               ...node.style,
-              ...(shouldGrowHeight ? { height: heightToApply } : {}),
+              ...(shouldApplyHeight ? { height: heightToApply } : {}),
               minHeight: heightToApply,
             },
           };
@@ -280,6 +281,11 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     measureContentMinHeight,
     syncNodeHeightToMinimum,
   ]);
+
+  useLayoutEffect(() => {
+    if (!data.assistantAutoHeightNonce) return;
+    syncNodeHeightToMinimum(calculatedMinHeight, true);
+  }, [calculatedMinHeight, data.assistantAutoHeightNonce, syncNodeHeightToMinimum]);
 
   useLayoutEffect(() => {
     updateNodeInternals(id);

@@ -59,6 +59,7 @@ const resolveStepCursor = (
 interface RunAgentCardPlacementParams
   extends AgentCardPlacementRequest<AssistantCardDraft> {
   execute: () => AgentCardPlacementResult;
+  skipAnimation?: boolean;
   applyStep?: (
     step: AgentStep,
     result: AgentCardPlacementResult,
@@ -90,9 +91,11 @@ export const useAgentRuntime = () => {
       options,
       selectedCount,
       execute,
+      skipAnimation = false,
       applyStep,
     }: RunAgentCardPlacementParams): Promise<AgentCardPlacementResult> => {
       if (cards.length === 0) return execute();
+      if (skipAnimation) return execute();
 
       const plan = buildAgentCardPlacementPlan({ cards, mode, options, selectedCount });
       skipRequestedRef.current = false;

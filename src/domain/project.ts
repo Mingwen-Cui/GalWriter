@@ -212,6 +212,9 @@ export interface ProjectSettings extends PlaytestSettings {
   showStats: boolean;
   saveAssistantConversations: boolean;
   allowAssistantImageGeneration: boolean;
+  skipAssistantAgentAnimation: boolean;
+  assistantMemorySkillEnabled: boolean;
+  assistantMemoryNotes: string[];
   opaqueAssistantMessagesInGlass: boolean;
   opaqueFooterInGlass: boolean;
   presetColors: string[];
@@ -259,6 +262,9 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setShowStats: Dispatch<SetStateAction<boolean>>;
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setAllowAssistantImageGeneration: Dispatch<SetStateAction<boolean>>;
+  setSkipAssistantAgentAnimation: Dispatch<SetStateAction<boolean>>;
+  setAssistantMemorySkillEnabled: Dispatch<SetStateAction<boolean>>;
+  setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
   setOpaqueAssistantMessagesInGlass: Dispatch<SetStateAction<boolean>>;
   setOpaqueFooterInGlass: Dispatch<SetStateAction<boolean>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;

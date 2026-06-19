@@ -14,6 +14,7 @@
   MessageCircle,
   PlayCircle,
   ShieldAlert,
+  Download,
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
@@ -84,6 +85,12 @@ interface SettingsModalProps {
   setSaveAssistantConversations: (val: boolean) => void;
   allowAssistantImageGeneration: boolean;
   setAllowAssistantImageGeneration: (val: boolean) => void;
+  skipAssistantAgentAnimation: boolean;
+  setSkipAssistantAgentAnimation: (val: boolean) => void;
+  assistantMemorySkillEnabled: boolean;
+  setAssistantMemorySkillEnabled: (val: boolean) => void;
+  assistantMemoryNotes: string[];
+  onDownloadAssistantMemory: () => void;
   showMiniMap: boolean;
   setShowMiniMap: (val: boolean) => void;
   miniMapPosition: 'left' | 'right';
@@ -218,6 +225,13 @@ const settingsText = {
     showLastSavedTime: '显示上次保存时间',
     saveAssistantConversations: '保存 AI 助手对话',
     allowAssistantImageGeneration: '允许 AI 助手调用图片生成 API',
+    skipAssistantAgentAnimation: '跳过 AI 助手动画',
+    skipAssistantAgentAnimationDesc: '默认关闭。开启后，AI 助手生成卡片时会直接完成，不显示等待指针和逐步输入动画。',
+    assistantMemorySkill: 'AI 偏好记忆 skill',
+    assistantMemorySkillDesc:
+      '默认关闭。开启后，AI 助手会记录你明确表达的创作习惯，并在后续生成卡片时作为偏好参考。',
+    downloadAssistantMemory: '下载偏好记忆',
+    assistantMemoryCount: '已记录偏好',
     playtestThemeLayout: '剧情测试主题与排版',
     playtestTheme: '测试界面主题',
     choicePosition: '选项按钮位置',
@@ -330,6 +344,14 @@ const settingsText = {
     showLastSavedTime: 'Show last saved time',
     saveAssistantConversations: 'Save AI assistant chats',
     allowAssistantImageGeneration: 'Allow AI assistant to call image generation API',
+    skipAssistantAgentAnimation: 'Skip AI assistant animation',
+    skipAssistantAgentAnimationDesc:
+      'Off by default. When enabled, card generation finishes directly without the waiting cursor or step-by-step typing animation.',
+    assistantMemorySkill: 'AI preference memory skill',
+    assistantMemorySkillDesc:
+      'Off by default. When enabled, the assistant records explicit writing preferences and uses them as generation guidance.',
+    downloadAssistantMemory: 'Download memory',
+    assistantMemoryCount: 'Saved preferences',
     playtestThemeLayout: 'Playtest Theme & Layout',
     playtestTheme: 'Playtest Theme',
     choicePosition: 'Choice Position',
@@ -446,6 +468,14 @@ const settingsText = {
     showLastSavedTime: '最终保存時間の表示',
     saveAssistantConversations: 'AIアシスタントの会話を保存する',
     allowAssistantImageGeneration: 'AIアシスタントの画像生成API呼び出しを許可',
+    skipAssistantAgentAnimation: 'AIアシスタントのアニメーションをスキップ',
+    skipAssistantAgentAnimationDesc:
+      'デフォルトはオフです。オンにすると、カード生成時の待機カーソルと段階的な入力アニメーションを表示せず、直接完了します。',
+    assistantMemorySkill: 'AI嗜好メモリ skill',
+    assistantMemorySkillDesc:
+      'デフォルトはオフです。オンにすると、明示された創作上の好みを記録し、以後のカード生成の参考にします。',
+    downloadAssistantMemory: 'メモリをダウンロード',
+    assistantMemoryCount: '保存済みの好み',
     playtestThemeLayout: 'テストプレイのテーマとレイアウト',
     playtestTheme: 'テストUIのテーマ',
     choicePosition: '選択肢ボタンの位置',
@@ -566,6 +596,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setSaveAssistantConversations,
   allowAssistantImageGeneration,
   setAllowAssistantImageGeneration,
+  skipAssistantAgentAnimation,
+  setSkipAssistantAgentAnimation,
+  assistantMemorySkillEnabled,
+  setAssistantMemorySkillEnabled,
+  assistantMemoryNotes,
+  onDownloadAssistantMemory,
   showMiniMap,
   setShowMiniMap,
   miniMapPosition,
@@ -650,6 +686,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
   const [selectedApplyProjectIds, setSelectedApplyProjectIds] = useState<string[]>([]);
+  const [assistantHintOpen, setAssistantHintOpen] = useState<
+    'agentAnimation' | 'memorySkill' | null
+  >(null);
   React.useEffect(() => {
     if (showSettings && settingsAttentionTarget) {
       setActiveSettingsTab('ai');
@@ -689,6 +728,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const settingsRowClass = 'flex items-center gap-4';
   const settingsRowTitleClass =
     'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
+  const renderAssistantHintButton = (
+    key: 'agentAnimation' | 'memorySkill',
+    label: string,
+    description: string,
+  ) => (
+    <div className="relative inline-flex items-center gap-2">
+      <h3 className="text-sm font-black text-[var(--text-primary)]">{label}</h3>
+      <button
+        type="button"
+        onClick={() => setAssistantHintOpen((current) => (current === key ? null : key))}
+        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
+        aria-label={description}
+      >
+        !
+      </button>
+      {assistantHintOpen === key && (
+        <div className="absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl">
+          {description}
+        </div>
+      )}
+    </div>
+  );
   const segmentedControlClass =
     'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
   const applyTargetProjects = projectSummaries.filter((project) => project.id !== currentProjectId);
@@ -1152,25 +1213,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </section>
 
-                  <section className="video-render-workspace space-y-3">
-                    <header className="flex items-center gap-3 mb-2">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {language === 'zh'
-                          ? '呈现样式'
-                          : language === 'ja'
-                            ? '表示スタイル'
-                            : 'Presentation Style'}
-                      </h3>
-                    </header>
-                    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-3">
-                      <RenderStyleSettingsSection
-                        language={language}
-                        renderStyle={renderStyle}
-                        updateRenderStyle={updateRenderStyle}
-                        showDescriptions
-                      />
-                    </div>
-                  </section>
                 </div>
               )}
 
@@ -2151,26 +2193,89 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'ai' && (
-                <AISettingsPanel
-                  language={language}
-                  savedAIProfiles={savedAIProfiles}
-                  activeTextProfileId={activeTextProfileId}
-                  activeImageProfileId={activeImageProfileId}
-                  activeVoiceProfileId={activeVoiceProfileId}
-                  missingTextApiKey={missingTextApiKey}
-                  settingsAttentionTarget={settingsAttentionTarget}
-                  onAcknowledgeSettingsAttention={onAcknowledgeSettingsAttention}
-                  onCreateAIProfile={onCreateAIProfile}
-                  onUpdateAIProfile={onUpdateAIProfile}
-                  onSelectAIProfile={onSelectAIProfile}
-                  onDeleteAIProfile={onDeleteAIProfile}
-                  customAiPromptsEnabled={customAiPromptsEnabled}
-                  setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
-                  aiPrompts={aiPrompts}
-                  setAiPrompts={setAiPrompts}
-                  aiButtonsConfig={aiButtonsConfig}
-                  setAiButtonsConfig={setAiButtonsConfig}
-                />
+                <div className="space-y-6">
+                  <AISettingsPanel
+                    language={language}
+                    savedAIProfiles={savedAIProfiles}
+                    activeTextProfileId={activeTextProfileId}
+                    activeImageProfileId={activeImageProfileId}
+                    activeVoiceProfileId={activeVoiceProfileId}
+                    missingTextApiKey={missingTextApiKey}
+                    settingsAttentionTarget={settingsAttentionTarget}
+                    onAcknowledgeSettingsAttention={onAcknowledgeSettingsAttention}
+                    onCreateAIProfile={onCreateAIProfile}
+                    onUpdateAIProfile={onUpdateAIProfile}
+                    onSelectAIProfile={onSelectAIProfile}
+                    onDeleteAIProfile={onDeleteAIProfile}
+                    customAiPromptsEnabled={customAiPromptsEnabled}
+                    setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
+                    aiPrompts={aiPrompts}
+                    setAiPrompts={setAiPrompts}
+                    aiButtonsConfig={aiButtonsConfig}
+                    setAiButtonsConfig={setAiButtonsConfig}
+                    assistantOptionsSlot={
+                      <div className="grid gap-4">
+                        <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              {renderAssistantHintButton(
+                                'agentAnimation',
+                                s.skipAssistantAgentAnimation,
+                                s.skipAssistantAgentAnimationDesc,
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSkipAssistantAgentAnimation(!skipAssistantAgentAnimation)
+                              }
+                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${skipAssistantAgentAnimation ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                            >
+                              <div
+                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${skipAssistantAgentAnimation ? 'left-6' : 'left-1'}`}
+                              />
+                            </button>
+                          </div>
+                        </section>
+
+                        <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              {renderAssistantHintButton(
+                                'memorySkill',
+                                s.assistantMemorySkill,
+                                s.assistantMemorySkillDesc,
+                              )}
+                              <p className="mt-2 text-[11px] font-bold text-[var(--text-secondary)]">
+                                {s.assistantMemoryCount}: {assistantMemoryNotes.length}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAssistantMemorySkillEnabled(!assistantMemorySkillEnabled)
+                              }
+                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${assistantMemorySkillEnabled ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                            >
+                              <div
+                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${assistantMemorySkillEnabled ? 'left-6' : 'left-1'}`}
+                              />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={onDownloadAssistantMemory}
+                            disabled={assistantMemoryNotes.length === 0}
+                            className="mt-4 inline-flex h-8 items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-3 text-xs font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {s.downloadAssistantMemory}
+                          </button>
+                        </section>
+                      </div>
+                    }
+                  />
+                </div>
               )}
 
               {activeSettingsTab === 'about' && aboutPage === 'contact' && (

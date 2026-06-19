@@ -2,11 +2,12 @@ import { MousePointer2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { AgentCursorTarget, AgentRunState, AgentStep } from '../core/agentTypes';
+import type { Language } from '../../lib/i18n';
 import '../styles/agent.css';
 
 interface AgentOverlayProps {
   state: AgentRunState;
-  onSkip: () => void;
+  language: Language;
 }
 
 interface AgentNodeRect {
@@ -72,12 +73,19 @@ const readNodeRects = (nodeIds: string[]): AgentNodeRect[] =>
     })
     .filter((rect): rect is AgentNodeRect => Boolean(rect));
 
-export function AgentOverlay({ state, onSkip }: AgentOverlayProps) {
+const agentLabelByLanguage: Record<Language, string> = {
+  zh: 'AI 助手',
+  ja: 'AIエージェント',
+  en: 'AI Agent',
+};
+
+export function AgentOverlay({ state, language }: AgentOverlayProps) {
   const [nodeRects, setNodeRects] = useState<AgentNodeRect[]>([]);
   const [displayCursor, setDisplayCursor] = useState<AgentCursorTarget>(state.cursor);
   const activeStep = state.plan?.steps[state.activeStepIndex];
   const isWaiting = state.phase === 'waiting';
   const isTyping = activeStep?.type === 'type-field';
+  const agentLabel = agentLabelByLanguage[language];
   const badgeText = isWaiting
     ? '正在生成...'
     : activeStep?.type === 'type-field'
@@ -130,11 +138,6 @@ export function AgentOverlay({ state, onSkip }: AgentOverlayProps) {
             <div className="agent-card-badge">
               <span className="agent-card-badge-dot" />
               <span>{badgeText}</span>
-              {!isWaiting && (
-                <button type="button" onClick={onSkip}>
-                  跳过
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -150,10 +153,20 @@ export function AgentOverlay({ state, onSkip }: AgentOverlayProps) {
       >
         {isTyping ? (
           <i className="agent-text-caret" aria-hidden="true" />
+        ) : isWaiting ? (
+          <>
+            <MousePointer2 size={24} strokeWidth={2.5} />
+            <div className="agent-waiting-stack" aria-label={agentLabel}>
+              <span className="agent-loader" aria-hidden="true" />
+              <span className="agent-waiting-pill">
+                <span className="agent-waiting-label">{agentLabel}</span>
+              </span>
+            </div>
+          </>
         ) : (
           <MousePointer2 size={24} strokeWidth={2.5} />
         )}
-        {!isWaiting && <span>AI Agent</span>}
+        {!isWaiting && <span>{agentLabel}</span>}
       </div>
     </div>
   );

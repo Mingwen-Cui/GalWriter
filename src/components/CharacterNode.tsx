@@ -166,7 +166,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
   const syncNodeHeightToMinimum = useCallback(
-    (nextMinHeight = effectiveMinHeight) => {
+    (nextMinHeight = effectiveMinHeight, allowShrink = false) => {
       if (isMinimized) return;
 
       const heightToApply = Math.ceil(nextMinHeight);
@@ -181,10 +181,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             getNumericSize((node as any).measured?.height);
 
           const currentMinHeight = getNumericSize(node.style?.minHeight);
-          const shouldGrowHeight = currentHeight === undefined || currentHeight < heightToApply - 1;
+          const shouldApplyHeight =
+            allowShrink || currentHeight === undefined || currentHeight < heightToApply - 1;
           const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
 
-          if (!shouldGrowHeight && !shouldUpdateMinHeight) {
+          if (!shouldApplyHeight && !shouldUpdateMinHeight) {
             return node;
           }
 
@@ -192,7 +193,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             ...node,
             style: {
               ...node.style,
-              ...(shouldGrowHeight ? { height: heightToApply } : {}),
+              ...(shouldApplyHeight ? { height: heightToApply } : {}),
               minHeight: heightToApply,
             },
           };
@@ -311,6 +312,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     measureContentMinHeight,
     syncNodeHeightToMinimum,
   ]);
+
+  useLayoutEffect(() => {
+    if (!data.assistantAutoHeightNonce) return;
+    syncNodeHeightToMinimum(calculatedMinHeight, true);
+  }, [calculatedMinHeight, data.assistantAutoHeightNonce, syncNodeHeightToMinimum]);
 
   /**
    * React Flow 会缓存每个 Handle 的位置。

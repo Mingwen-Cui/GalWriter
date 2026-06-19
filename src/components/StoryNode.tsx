@@ -234,6 +234,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     (imageUrl && !hasScenePresentationImage) ||
     (videoUrl && !hasScenePresentationVideo)
   );
+  const hasDirectCardMedia = Boolean(imageUrl || videoUrl);
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
@@ -630,11 +631,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   // 判断是否显示富文本工具（只有在显示文本编辑器时才显示）
   const showRichTextTools = !hasVisualMedia || data.showTextOverlay;
-  const hasCardVisualContent = Boolean(
-    imageUrl ||
-    videoUrl ||
-    hasPresentationVisualMedia,
-  );
+  const hasCardVisualContent = hasDirectCardMedia;
   const hasMediaTextLayout = showRichTextTools && hasCardVisualContent;
   const getAutoMediaHeight = useCallback(
     (width: number) => {
@@ -858,11 +855,37 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     showRichTextTools,
     showTitleInside,
     data.presentation,
+    data.assistantAutoHeightNonce,
     syncAutoSizeHeight,
     text,
     title,
     videoUrl,
   ]);
+
+  useLayoutEffect(() => {
+    if (!isAutoSizeMode || !data.assistantAutoHeightNonce) return;
+
+    let timeoutId = 0;
+    const frameIds: number[] = [];
+    const schedule = (callback: () => void) => {
+      const id = requestAnimationFrame(callback);
+      frameIds.push(id);
+    };
+
+    schedule(() => {
+      syncAutoSizeHeight();
+      schedule(() => {
+        syncAutoSizeHeight();
+        schedule(syncAutoSizeHeight);
+      });
+    });
+    timeoutId = window.setTimeout(syncAutoSizeHeight, 120);
+
+    return () => {
+      frameIds.forEach((id) => cancelAnimationFrame(id));
+      window.clearTimeout(timeoutId);
+    };
+  }, [data.assistantAutoHeightNonce, isAutoSizeMode, syncAutoSizeHeight]);
 
   useEffect(() => {
     if (!isAutoSizeMode || !nodeRootRef.current) return;

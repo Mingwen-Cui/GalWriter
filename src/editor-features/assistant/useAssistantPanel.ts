@@ -340,6 +340,29 @@ const buildAssistantPlaceholderCards = (
   return Array.from({ length: count }, () => ({ type: 'story' }));
 };
 
+const inferAssistantMemoryNote = (text: string) => {
+  const normalized = text.trim().replace(/\s+/g, ' ');
+  if (normalized.length < 4) return '';
+
+  const looksLikePreference =
+    /(?:我|用户|以后|之后|请|希望|尽量|不要|少|多|更|偏好|习惯|喜欢|讨厌|prefer|avoid|more|less)/i.test(
+      normalized,
+    ) &&
+    /(?:对话|动作|描写|剧情|卡片|风格|节奏|台词|对白|生成|写法|习惯|偏好|dialogue|action|style|card|plot)/i.test(
+      normalized,
+    );
+
+  if (!looksLikePreference) return '';
+  return normalized.slice(0, 180);
+};
+
+const mergeAssistantMemoryNote = (notes: string[], note: string) => {
+  const cleanNote = note.trim();
+  if (!cleanNote) return notes;
+  const deduped = notes.filter((item) => item.trim() && item.trim() !== cleanNote);
+  return [cleanNote, ...deduped].slice(0, 24);
+};
+
 interface UseAssistantPanelParams {
   language: Language;
   isMobile: boolean;
@@ -357,6 +380,9 @@ interface UseAssistantPanelParams {
   stopAgentWaiting?: () => void;
   hasTextApiKey: boolean;
   onMissingTextApiKeyRequest?: () => void;
+  assistantMemorySkillEnabled: boolean;
+  assistantMemoryNotes: string[];
+  setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
 }
 
 interface UseAssistantPanelResult {
@@ -412,6 +438,9 @@ export const useAssistantPanel = ({
   stopAgentWaiting,
   hasTextApiKey,
   onMissingTextApiKeyRequest,
+  assistantMemorySkillEnabled,
+  assistantMemoryNotes,
+  setAssistantMemoryNotes,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantWidth, setAssistantWidth] = useState(360);
@@ -945,6 +974,21 @@ export const useAssistantPanel = ({
         .join('\n');
 
       const documentContext = buildAssistantDocumentContext(assistantDocuments);
+      const memoryNote = assistantMemorySkillEnabled ? inferAssistantMemoryNote(userText) : '';
+      const effectiveMemoryNotes =
+        assistantMemorySkillEnabled && memoryNote
+          ? mergeAssistantMemoryNote(assistantMemoryNotes, memoryNote)
+          : assistantMemoryNotes;
+      const assistantMemoryContext =
+        assistantMemorySkillEnabled && effectiveMemoryNotes.length > 0
+          ? effectiveMemoryNotes
+              .slice(0, 12)
+              .map((note, index) => `${index + 1}. ${note}`)
+              .join('\n')
+          : '';
+      if (assistantMemorySkillEnabled && memoryNote) {
+        setAssistantMemoryNotes((notes) => mergeAssistantMemoryNote(notes, memoryNote));
+      }
 
       let effectiveUserText = userText;
       let forcedMode: AssistantCardPlacementMode | undefined;
@@ -1001,8 +1045,12 @@ export const useAssistantPanel = ({
 }
 
 当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
-字段质量要求：character 的 traits/personality/features/background 至少各写一句具体内容；scene 的 description/location/items/atmosphere 至少各写一句具体内容；单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，只写一个角色的一次发言或一个短动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景。
+字段质量要求：character 的 traits/personality/features/background 至少各写一句具体内容；scene 的 description/location/items/atmosphere 至少各写一句具体内容；单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，优先写一个角色的一句或一小组连续台词；尽量避免动作描写、神态描写和环境描写，只有在承接关系必须交代时才写极短的动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景，整体以对话推进为主。
 如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
+
+用户偏好记忆 skill：
+${assistantMemoryContext || '未启用或暂无记录。'}
+如果上方有偏好记录，请优先遵守；这些记录只作为写作习惯参考，不要在 reply 中复述“我记得你的习惯”。
 
 用户请求：
 ${effectiveUserText}
@@ -1172,6 +1220,8 @@ ${canvasContext || '无'}`;
       callAIForTextResult,
       createAssistantCards,
       hasTextApiKey,
+      assistantMemorySkillEnabled,
+      assistantMemoryNotes,
       language,
       nodes,
       onGenerateAssistantImagesRequest,
@@ -1180,6 +1230,7 @@ ${canvasContext || '无'}`;
       pushAssistantHistory,
       selectedAssistantTargetNodes,
       setAssistantMessages,
+      setAssistantMemoryNotes,
       startAgentWaiting,
       stopAgentWaiting,
     ],

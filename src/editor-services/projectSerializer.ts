@@ -402,6 +402,15 @@ const applyProjectSettings = (
     setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);
   }
   setters.setAllowAssistantImageGeneration(incomingSettings.allowAssistantImageGeneration !== false);
+  setters.setSkipAssistantAgentAnimation(incomingSettings.skipAssistantAgentAnimation === true);
+  setters.setAssistantMemorySkillEnabled(incomingSettings.assistantMemorySkillEnabled === true);
+  setters.setAssistantMemoryNotes(
+    Array.isArray(incomingSettings.assistantMemoryNotes)
+      ? incomingSettings.assistantMemoryNotes
+          .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
+          .slice(0, 24)
+      : [],
+  );
   if (incomingSettings.presetColors) setters.setPresetColors(incomingSettings.presetColors);
   if (incomingSettings.showPresetColors !== undefined) {
     setters.setShowPresetColors(incomingSettings.showPresetColors);

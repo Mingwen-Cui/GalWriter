@@ -626,6 +626,7 @@ interface AISettingsPanelProps {
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
   setAiButtonsConfig: (config: AIButtonsConfig) => void;
+  assistantOptionsSlot?: React.ReactNode;
 }
 
 export function AISettingsPanel({
@@ -647,6 +648,7 @@ export function AISettingsPanel({
   setAiPrompts,
   aiButtonsConfig,
   setAiButtonsConfig,
+  assistantOptionsSlot,
 }: AISettingsPanelProps) {
   const t = translations[language];
   const [editorState, setEditorState] = React.useState<EditorState | null>(null);
@@ -1944,6 +1946,8 @@ export function AISettingsPanel({
                 ))}
               </div>
             </section>
+
+            {assistantOptionsSlot}
 
             <section className="space-y-5 border-t border-[var(--header-border)] pt-5">
               <div className="mb-2 flex items-start justify-between gap-4">
