@@ -3095,12 +3095,7 @@ export function StoryEditor() {
         });
       };
 
-      if (
-        inferredBranchSource &&
-        inferredEndingNodes.length >= 2 &&
-        mode !== 'future-targets' &&
-        mode !== 'adjacent-revision'
-      ) {
+      if (inferredBranchSource && inferredEndingNodes.length >= 2 && mode !== 'adjacent-revision') {
         const preBranchNodes = flowNodesToLink.filter((node) => {
           const nodeIndex = newNodes.findIndex((candidate) => candidate.id === node.id);
           return nodeIndex >= 0 && nodeIndex < firstEndingIndex && node.id !== inferredBranchSource.id;
@@ -3130,7 +3125,7 @@ export function StoryEditor() {
             (endingNode.data.title as string | undefined) || `${language === 'zh' ? '结局' : 'Ending'} ${index + 1}`,
           );
         });
-      } else if (hasExplicitConnections && mode !== 'future-targets' && mode !== 'adjacent-revision') {
+      } else if (hasExplicitConnections && mode !== 'adjacent-revision') {
         if (sourceNode && flowNodesToLink[0]) {
           pushFlowEdge(sourceNode, flowNodesToLink[0], 'bottom');
         }
@@ -3240,10 +3235,21 @@ export function StoryEditor() {
     [edges, nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
   );
 
-  const getAgentDraftType = useCallback((card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+  const getAgentDraftType = useCallback((card: AssistantCardDraft): 'story' | 'character' | 'scene' | 'number-condition' => {
     const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-    if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
+    if (
+      card.type === 'character' ||
+      card.type === 'scene' ||
+      card.type === 'story' ||
+      card.type === 'number-condition'
+    ) {
       return card.type;
+    }
+    if (
+      typeof card.threshold === 'number' ||
+      (Array.isArray(card.ranges) && card.ranges.length > 0)
+    ) {
+      return 'number-condition';
     }
     if (
       cleanText(card.characterName) ||
@@ -3268,9 +3274,15 @@ export function StoryEditor() {
     (cards: AssistantCardDraft[]): AssistantCardDraft[] =>
       cards.map((card) => {
         const type = getAgentDraftType(card);
+        const graphMetadata = {
+          key: card.key || card.title,
+          connectTo: card.connectTo,
+          branchTargets: card.branchTargets,
+        };
         if (type === 'character') {
           return {
             type,
+            ...graphMetadata,
             characterName: language === 'zh' ? 'AI 角色' : 'AI Character',
             traits: '',
           };
@@ -3278,12 +3290,23 @@ export function StoryEditor() {
         if (type === 'scene') {
           return {
             type,
+            ...graphMetadata,
             sceneName: language === 'zh' ? 'AI 场景' : 'AI Scene',
             description: '',
           };
         }
+        if (type === 'number-condition') {
+          return {
+            type,
+            ...graphMetadata,
+            title: card.title,
+            threshold: card.threshold,
+            ranges: card.ranges,
+          };
+        }
         return {
           type,
+          ...graphMetadata,
           title: language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card',
           text: '',
         };
