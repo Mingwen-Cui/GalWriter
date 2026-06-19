@@ -58,7 +58,7 @@ export function CustomEdge({
         fill="none"
         stroke="transparent"
         strokeWidth={20}
-        className="react-flow__edge-interaction cursor-pointer"
+        className="react-flow__edge-interaction"
       />
       <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
     </g>

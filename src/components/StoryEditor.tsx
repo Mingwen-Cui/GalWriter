@@ -2166,6 +2166,7 @@ export function StoryEditor() {
   const {
     callAIForText,
     callAIForTextResult,
+    callAIForTextStream,
     generateSetting,
     handleAIGenerate: runAIGenerate,
     handleAIAnalyze: runAIAnalyze,
@@ -3627,6 +3628,95 @@ export function StoryEditor() {
     ],
   );
 
+  const updateStreamingAssistantCards = useCallback(
+    (nodeIds: string[] | undefined, cards: AssistantCardDraft[]) => {
+      if (!nodeIds || nodeIds.length === 0 || cards.length === 0) return;
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => {
+          const cardIndex = nodeIds.indexOf(node.id);
+          if (cardIndex < 0) return node;
+          const card = cards[cardIndex];
+          if (!card) return node;
+          const type = getAgentDraftType(card);
+
+          if (node.type === 'characterNode' && type === 'character') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                characterName: card.characterName || card.title || node.data.characterName,
+                traits: card.traits || card.text || node.data.traits || '',
+                personality: card.personality || node.data.personality || '',
+                features: card.features || node.data.features || '',
+                background: card.background || node.data.background || '',
+                other: card.other || node.data.other || '',
+                showPersonality: !!(card.personality || node.data.showPersonality),
+                showFeatures: !!(card.features || node.data.showFeatures),
+                showBackground: !!(card.background || node.data.showBackground),
+                showOther: !!(card.other || node.data.showOther),
+              },
+            };
+          }
+
+          if (node.type === 'sceneNode' && type === 'scene') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                sceneName: card.sceneName || card.title || node.data.sceneName,
+                description: card.description || card.text || node.data.description || '',
+                location: card.location || node.data.location || '',
+                items: card.items || node.data.items || '',
+                atmosphere: card.atmosphere || node.data.atmosphere || '',
+                other: card.other || node.data.other || '',
+                showLocation: !!(card.location || node.data.showLocation),
+                showItems: !!(card.items || node.data.showItems),
+                showAtmosphere: !!(card.atmosphere || node.data.showAtmosphere),
+                showOther: !!(card.other || node.data.showOther),
+              },
+            };
+          }
+
+          if (node.type === 'numberConditionNode' && type === 'number-condition') {
+            const currentData = node.data as NumberConditionNodeData;
+            return {
+              ...node,
+              data: {
+                ...currentData,
+                threshold: card.threshold ?? currentData.threshold ?? 0,
+                ranges: card.ranges?.map((range) => ({
+                  id: uuidv4(),
+                  min: range.min,
+                  max: range.max,
+                })) || currentData.ranges,
+              } satisfies NumberConditionNodeData,
+            };
+          }
+
+          if (node.type !== 'storyNode' || type !== 'story') return node;
+
+          const taggedStory = applyAssistantStoryTags(
+            card.text || '',
+            buildAssistantMentionReferencesFromNodes(currentNodes),
+          );
+          const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, currentNodes);
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              title: card.title || node.data.title,
+              text: taggedStory.text,
+              nodeValue: card.nodeValue,
+              ...(taggedStory.presentation ? { presentation: taggedStory.presentation } : {}),
+              ...sceneMedia,
+            },
+          };
+        }),
+      );
+    },
+    [getAgentDraftType, setNodes],
+  );
+
   const handleGenerateAssistantImagesForNodes = useCallback(
     async (nodeIds: string[]) => {
       const visualNodes = nodeIds
@@ -3754,7 +3844,9 @@ export function StoryEditor() {
     selectedAssistantTargetNodes,
     nodes,
     callAIForTextResult,
+    callAIForTextStream,
     createAssistantCards,
+    updateStreamingAssistantCards,
     onGenerateAssistantImagesRequest: handleGenerateAssistantImagesForNodes,
     startAgentWaiting: skipAssistantAgentAnimation ? undefined : startAgentWaiting,
     stopAgentWaiting,
@@ -4988,6 +5080,7 @@ ${layoutConfig.label}
               style={{ display: 'none' }}
             />
             <ReactFlow
+              className="story-canvas-flow"
               nodes={nodesWithCallbacks}
               edges={edgesWithData}
               onNodesChange={onNodesChange}

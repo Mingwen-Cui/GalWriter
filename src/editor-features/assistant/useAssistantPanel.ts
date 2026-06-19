@@ -3,7 +3,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { AITextResult } from '../../editor-services/aiClient';
+import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
@@ -224,6 +224,28 @@ const alignAssistantCardsToPlaceholders = (
   return [...alignedCards, ...remainingCards];
 };
 
+type AssistantCardStreamEvent =
+  | { type: 'reply_delta'; delta?: string }
+  | { type: 'card_start'; index: number; card?: AssistantCardDraft }
+  | { type: 'field_delta'; index: number; field: keyof AssistantCardDraft; delta?: string }
+  | { type: 'field_set'; index: number; field: keyof AssistantCardDraft; value?: unknown }
+  | { type: 'card_end'; index: number }
+  | { type: 'done' };
+
+const assistantCardStreamProtocol = `Streaming card protocol:
+For this streaming request, ignore any earlier instruction that asks for one complete JSON object.
+Return ONLY newline-delimited JSON events, one JSON object per line. Do not wrap in Markdown.
+Allowed events:
+{"type":"reply_delta","delta":"visible assistant reply text"}
+{"type":"card_start","index":0,"card":{"type":"story","key":"stable_key"}}
+{"type":"field_delta","index":0,"field":"title","delta":"partial title"}
+{"type":"field_delta","index":0,"field":"text","delta":"partial body"}
+{"type":"field_set","index":0,"field":"connectTo","value":["next_key"]}
+{"type":"field_set","index":0,"field":"branchTargets","value":[{"target":"ending_a","label":"Ending A"}]}
+{"type":"card_end","index":0}
+{"type":"done"}
+Use card indexes starting at 0. For character cards stream characterName, traits, personality, features, background, other. For scene cards stream sceneName, description, location, items, atmosphere, other. For story cards stream title and text.`;
+
 const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
   const priority = { character: 0, scene: 1, story: 2 } as const;
   return cards
@@ -383,11 +405,16 @@ interface UseAssistantPanelParams {
   selectedAssistantTargetNodes: Node[];
   nodes: Node[];
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
+  callAIForTextStream?: (
+    prompt: string,
+    handlers?: AITextStreamHandlers,
+  ) => Promise<AITextResult>;
   createAssistantCards: (
     cards: AssistantCardDraft[],
     mode?: AssistantCardPlacementMode,
     options?: AssistantCardPlacementOptions,
   ) => Promise<AssistantCardPlacementResult>;
+  updateStreamingAssistantCards?: (nodeIds: string[] | undefined, cards: AssistantCardDraft[]) => void;
   onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting?: () => void;
@@ -445,7 +472,9 @@ export const useAssistantPanel = ({
   selectedAssistantTargetNodes,
   nodes,
   callAIForTextResult,
+  callAIForTextStream,
   createAssistantCards,
+  updateStreamingAssistantCards,
   onGenerateAssistantImagesRequest,
   startAgentWaiting,
   stopAgentWaiting,
@@ -840,6 +869,176 @@ export const useAssistantPanel = ({
     [setAssistantMessages],
   );
 
+  const runStructuredCardStream = useCallback(
+    async ({
+      prompt,
+      userText,
+      mode,
+      placementOptions,
+    }: {
+      prompt: string;
+      userText: string;
+      mode: AssistantCardPlacementMode;
+      placementOptions?: AssistantCardPlacementOptions;
+    }): Promise<{ reply: string; cards: AssistantCardDraft[]; placement: AssistantCardPlacementResult }> => {
+      if (!callAIForTextStream || !updateStreamingAssistantCards) {
+        throw new Error('Streaming card generation is not available.');
+      }
+
+      const placeholderCards = buildAssistantPlaceholderCards(userText, mode).slice(0, 12);
+      if (placeholderCards.length === 0) {
+        throw new Error('No placeholder cards available for streaming.');
+      }
+
+      const placement = await createAssistantCards(placeholderCards, mode, placementOptions);
+      const nodeIds = placement.nodeIds || [];
+      if (nodeIds.length === 0) {
+        throw new Error('Failed to create streaming placeholder cards.');
+      }
+
+      startAgentWaiting?.(
+        'AI Agent is streaming cards',
+        'Cards are ready; receiving live API content',
+        nodeIds,
+      );
+
+      const cards = placeholderCards.map((card) => ({ ...card }));
+      let reply = '';
+      let lineBuffer = '';
+
+      const coerceEvent = (line: string): AssistantCardStreamEvent | null => {
+        try {
+          const parsed = JSON.parse(line) as AssistantCardStreamEvent;
+          return parsed && typeof parsed.type === 'string' ? parsed : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const applyEvent = (event: AssistantCardStreamEvent) => {
+        if (event.type === 'reply_delta') {
+          reply += event.delta || '';
+          return;
+        }
+        if (event.type === 'done' || event.type === 'card_end') return;
+
+        const index = Number(event.index);
+        if (!Number.isInteger(index) || index < 0 || index >= cards.length) return;
+
+        if (event.type === 'card_start') {
+          cards[index] = { ...cards[index], ...(event.card || {}) };
+          updateStreamingAssistantCards(nodeIds, cards);
+          return;
+        }
+
+        const field = event.field;
+        if (!field) return;
+        if (event.type === 'field_delta') {
+          const previous = cards[index][field];
+          const previousText = typeof previous === 'string' ? previous : '';
+          cards[index] = {
+            ...cards[index],
+            [field]: `${previousText}${event.delta || ''}`,
+          };
+        } else if (event.type === 'field_set') {
+          cards[index] = {
+            ...cards[index],
+            [field]: event.value,
+          };
+        }
+        updateStreamingAssistantCards(nodeIds, cards);
+      };
+
+      const consumeText = (text: string) => {
+        lineBuffer += text;
+        const lines = lineBuffer.split(/\r?\n/);
+        lineBuffer = lines.pop() || '';
+        lines.map((line) => line.trim()).filter(Boolean).forEach((line) => {
+          const event = coerceEvent(line);
+          if (event) applyEvent(event);
+        });
+      };
+
+      const streamPrompt = `${prompt}
+
+${assistantCardStreamProtocol}`;
+      const result = await callAIForTextStream(streamPrompt, {
+        onDelta: consumeText,
+        onReasoningDelta: (delta) => {
+          if (!delta.trim()) return;
+          setAssistantMessages((messages) => {
+            const last = messages[messages.length - 1];
+            if (last?.role === 'thought' && !last.collapsed) {
+              return messages.map((message) =>
+                message.id === last.id
+                  ? { ...message, content: `${message.content}${delta}` }
+                  : message,
+              );
+            }
+            return [...messages, { id: uuidv4(), role: 'thought', content: delta, collapsed: false }];
+          });
+        },
+      });
+      if (lineBuffer.trim()) {
+        const event = coerceEvent(lineBuffer.trim());
+        if (event) applyEvent(event);
+      }
+
+      const hasStreamedCardContent = cards.some((card) =>
+        [
+          card.title,
+          card.text,
+          card.characterName,
+          card.traits,
+          card.sceneName,
+          card.description,
+        ].some((value) => typeof value === 'string' && value.trim().length > 0),
+      );
+      if (!hasStreamedCardContent) {
+        try {
+          const jsonText = result.content.match(/\{[\s\S]*\}/)?.[0] || result.content;
+          const parsed = JSON.parse(jsonText) as {
+            reply?: string;
+            cards?: AssistantCardDraft[];
+          };
+          if (Array.isArray(parsed.cards) && parsed.cards.length > 0) {
+            parsed.cards.slice(0, cards.length).forEach((card, index) => {
+              cards[index] = { ...cards[index], ...card };
+            });
+            updateStreamingAssistantCards(nodeIds, cards);
+          }
+          if (parsed.reply) reply = parsed.reply;
+        } catch {
+          // The stream was not valid fallback JSON either; keep whatever partial state exists.
+        }
+      }
+
+      if (!reply.trim()) {
+        const fallbackReply = result.content
+          .split(/\r?\n/)
+          .map((line) => coerceEvent(line.trim()))
+          .filter((event): event is Extract<AssistantCardStreamEvent, { type: 'reply_delta' }> =>
+            Boolean(event && event.type === 'reply_delta'),
+          )
+          .map((event) => event.delta || '')
+          .join('');
+        reply = fallbackReply || '已实时生成卡片。';
+      }
+
+      updateStreamingAssistantCards(nodeIds, cards);
+      stopAgentWaiting?.();
+      return { reply, cards, placement };
+    },
+    [
+      callAIForTextStream,
+      createAssistantCards,
+      setAssistantMessages,
+      startAgentWaiting,
+      stopAgentWaiting,
+      updateStreamingAssistantCards,
+    ],
+  );
+
   const handleAssistantSend = useCallback(
     async (overrideText?: string) => {
       const userText = (overrideText ?? assistantInput).trim();
@@ -1107,6 +1306,55 @@ ${canvasContext || '无'}`;
       }
 
       try {
+        if (wantsCards && !fillSelected && callAIForTextStream && updateStreamingAssistantCards) {
+          const streamed = await runStructuredCardStream({
+            prompt,
+            userText: effectiveUserText,
+            mode: forcedMode || 'append',
+            placementOptions,
+          });
+          const actionText =
+            streamed.placement.count > 0
+              ? `\n\nGenerated ${streamed.placement.count} card(s) on the canvas in real time.`
+              : '';
+          const visualNodeIds = (streamed.placement.nodeIds || []).filter((_, index) => {
+            const card = streamed.cards[index];
+            if (!card) return false;
+            const type = getAssistantDraftType(card);
+            return type === 'character' || type === 'scene';
+          });
+          const visualizationRequestId =
+            visualNodeIds.length > 0 && onGenerateAssistantImagesRequest ? uuidv4() : '';
+          if (visualizationRequestId) {
+            assistantVisualizationRequestsRef.current.set(visualizationRequestId, visualNodeIds);
+          }
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: `${streamed.reply}${actionText}${
+                visualizationRequestId
+                  ? '\n\nGenerate matching images for these characters and scenes?'
+                  : ''
+              }`,
+              cardPosition: streamed.placement.position,
+              cardNodeIds: streamed.placement.nodeIds,
+              options: visualizationRequestId
+                ? [
+                    {
+                      id: uuidv4(),
+                      label: 'Generate images',
+                      value: `__generate_visuals__:${visualizationRequestId}`,
+                    },
+                  ]
+                : undefined,
+            },
+          ]);
+          pushAssistantHistory();
+          return;
+        }
+
         const aiResult = await callAIForTextResult(prompt);
         await playAssistantThought(aiResult.reasoning);
         const raw = aiResult.content;
@@ -1234,6 +1482,7 @@ ${canvasContext || '无'}`;
       assistantDocuments,
       assistantMessages,
       callAIForTextResult,
+      callAIForTextStream,
       createAssistantCards,
       hasTextApiKey,
       assistantMemorySkillEnabled,
@@ -1244,11 +1493,13 @@ ${canvasContext || '无'}`;
       onMissingTextApiKeyRequest,
       playAssistantThought,
       pushAssistantHistory,
+      runStructuredCardStream,
       selectedAssistantTargetNodes,
       setAssistantMessages,
       setAssistantMemoryNotes,
       startAgentWaiting,
       stopAgentWaiting,
+      updateStreamingAssistantCards,
     ],
   );
 

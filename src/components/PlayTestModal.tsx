@@ -1550,7 +1550,7 @@ export function PlayTestModal({
     <div
       ref={containerRef}
       onClick={handleTextContainerClick}
-      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] flex flex-col transition-colors duration-300 overflow-hidden cursor-pointer`}
+      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] flex flex-col transition-colors duration-300 overflow-hidden`}
     >
       {/* Header */}
       <div
@@ -2428,7 +2428,7 @@ export function PlayTestModal({
                   {/* 透明半透明对话框 */}
                   <div
                     onClick={handleTextContainerClick}
-                    className="w-full p-6 rounded-2xl backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 cursor-pointer overflow-hidden"
+                    className="w-full p-6 rounded-2xl backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 overflow-hidden"
                     style={dialogueShellStyle}
                   >
                     {currentNode?.data.audioUrl && (
@@ -2603,7 +2603,7 @@ export function PlayTestModal({
               {/* 2. Text Area */}
               <div
                 onClick={handleTextContainerClick}
-                className={`${hasMedia ? 'h-32 md:h-48 shrink-0' : 'flex-1'} overflow-y-auto px-6 py-4 md:px-12 md:py-8 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 cursor-pointer overflow-hidden transition-all duration-300 relative ${
+                className={`${hasMedia ? 'h-32 md:h-48 shrink-0' : 'flex-1'} overflow-y-auto px-6 py-4 md:px-12 md:py-8 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 overflow-hidden transition-all duration-300 relative ${
                   choicesPosition === 'center' && choicesReady && blurBackground
                     ? isFullscreen
                       ? blurText

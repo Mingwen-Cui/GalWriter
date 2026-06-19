@@ -3,7 +3,11 @@ import { useCallback } from 'react';
 
 import type { AIPromptsConfig } from '../../editor-state/editorConfig';
 import type { AiProvider, CharacterNodeData, SceneNodeData } from '../../domain/project';
-import { createAIClient, type AITextResult } from '../../editor-services/aiClient';
+import {
+  createAIClient,
+  type AITextResult,
+  type AITextStreamHandlers,
+} from '../../editor-services/aiClient';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import type { AIActionType } from '../../domain/project';
 
@@ -199,6 +203,12 @@ export const useAIActions = ({
     [aiClient],
   );
 
+  const callAIForTextStream = useCallback(
+    async (prompt: string, handlers: AITextStreamHandlers = {}): Promise<AITextResult> =>
+      aiClient.generateTextStream(prompt, handlers),
+    [aiClient],
+  );
+
   const callAIForText = useCallback(
     async (prompt: string): Promise<string> => {
       const result = await callAIForTextResult(prompt);
@@ -390,6 +400,7 @@ export const useAIActions = ({
     buildContextText,
     buildPrompt,
     callAIForText,
+    callAIForTextStream,
     callAIForTextResult,
     generateSetting,
     handleAIGenerate,

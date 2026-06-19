@@ -106,6 +106,17 @@
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
+button:not(:disabled),
+a[href],
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: default;
+}
+
 [data-theme='dark'] .bg-slate-950,
 [data-theme='dark'] .dark\:bg-slate-950 {
   background-color: #0d0d0f !important;
@@ -226,6 +237,25 @@ body,
 
 .xyflow {
   background-color: transparent;
+}
+
+.story-canvas-flow,
+.story-canvas-flow .react-flow__pane,
+.story-canvas-flow .react-flow__pane.selection,
+.story-canvas-flow .react-flow__pane.draggable,
+.story-canvas-flow .react-flow__node,
+.story-canvas-flow .react-flow__node.selectable,
+.story-canvas-flow .react-flow__node.draggable,
+.story-canvas-flow .react-flow__edge,
+.story-canvas-flow .react-flow__edge.selectable,
+.story-canvas-flow .react-flow__edge-interaction {
+  cursor: default;
+}
+
+.story-canvas-flow .react-flow__pane.dragging,
+.story-canvas-flow .react-flow__node.draggable.dragging,
+.story-canvas-flow .react-flow__nodesselection-rect {
+  cursor: grabbing;
 }
 
 .xyflow .react-flow__edge-path {
