@@ -168,6 +168,12 @@ const restoreStoredPresentationTemplates = (templates: PresentationTemplates | u
   window.dispatchEvent(new Event('galwriter-templates-changed'));
 };
 
+const stripAutoStoryNodeRuntimeStyle = (style: Node['style'] | undefined): Node['style'] => {
+  if (!style) return style;
+  const { height: _height, minHeight: _minHeight, ...rest } = style;
+  return rest;
+};
+
 const isEmbeddableMediaUrl = (value: string) =>
   value.startsWith('data:') ||
   value.startsWith('blob:') ||
@@ -564,7 +570,13 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
       const restoredNode: Node = {
         ...node,
-        ...(isAutoSizedStoryNode ? { height: undefined, measured: undefined } : {}),
+        ...(isAutoSizedStoryNode
+          ? {
+              height: undefined,
+              measured: undefined,
+              style: stripAutoStoryNodeRuntimeStyle(node.style),
+            }
+          : {}),
         data: { ...node.data },
         dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
       };
@@ -648,14 +660,16 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       const isAutoSizedStoryNode =
         node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
 
-      return {
-        id: node.id,
-        position: node.position,
-        type: node.type,
-        style: node.style,
-        data: { ...node.data },
-        width: node.measured?.width || node.width,
-        height: isAutoSizedStoryNode ? undefined : node.measured?.height || node.height,
+        return {
+          id: node.id,
+          position: node.position,
+          type: node.type,
+          style: isAutoSizedStoryNode
+            ? stripAutoStoryNodeRuntimeStyle(node.style)
+            : node.style,
+          data: { ...node.data },
+          width: node.measured?.width || node.width,
+          height: isAutoSizedStoryNode ? undefined : node.measured?.height || node.height,
         dragHandle: node.dragHandle,
       };
     }) as StoryNode[];
