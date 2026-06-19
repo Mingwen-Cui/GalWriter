@@ -107,9 +107,53 @@
   width: 60px;
   aspect-ratio: 4;
   background: radial-gradient(circle closest-side, #2563eb 90%, #0000) 0 50% /
-    calc(100% / 3) 50% space;
+    calc(100% / 3) 50% space no-repeat;
   clip-path: inset(0 100% 0 0);
   animation: agent-loader-dots 1s steps(4) infinite;
+}
+
+.agent-cursor-offscreen {
+  visibility: hidden;
+}
+
+.agent-offscreen-indicator {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(37 99 235 / 0.24);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.94);
+  color: #2563eb;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 0.18);
+  filter: none;
+  z-index: 3;
+}
+
+.agent-offscreen-arrow {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: #2563eb;
+  transform-origin: center;
+}
+
+.agent-offscreen-arrow::after {
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid #2563eb;
+  border-right: 2px solid #2563eb;
+  content: '';
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .agent-waiting-pill {

@@ -2437,18 +2437,49 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               {presentationMenu.placement === 'inline' &&
                 (() => {
                   const action = getInlineAction(presentationMenu);
+                  const presentation = getPresentation();
+                  const currentCharacter =
+                    presentationMenu.kind === 'character'
+                      ? presentation.characters.find(
+                          (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
+                        ) || createCharacterPresentation(presentationMenu.sourceNodeId)
+                      : null;
                   return (
-                    <InlineActionEditor
-                      action={action}
-                      targetName={presentationMenu.name}
-                      targetKind={presentationMenu.kind}
-                      onChange={updateInlineAction}
-                      onDelete={() => deleteInlineAction(action.id)}
-                      onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
-                      onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
-                      autoPreview={autoPreviewInlineAction}
-                      onAutoPreviewChange={setAutoPreviewInlineAction}
-                    />
+                    <div className="space-y-3">
+                      <InlineActionEditor
+                        action={action}
+                        targetName={presentationMenu.name}
+                        targetKind={presentationMenu.kind}
+                        onChange={updateInlineAction}
+                        onDelete={() => deleteInlineAction(action.id)}
+                        onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
+                        onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
+                        autoPreview={autoPreviewInlineAction}
+                        onAutoPreviewChange={setAutoPreviewInlineAction}
+                      />
+                      {currentCharacter && (
+                        <label className="flex items-center gap-2 text-xs">
+                          <span className="shrink-0 font-bold">Z轴</span>
+                          <div className="w-20">
+                            <DraggableNumberInput
+                              value={clampCharacterLayer(currentCharacter.layer)}
+                              min={1}
+                              max={20}
+                              unit={null}
+                              onChange={(value) =>
+                                updateCharacterPresentation(
+                                  presentationMenu.sourceNodeId,
+                                  (item) => ({
+                                    ...item,
+                                    layer: clampCharacterLayer(value),
+                                  }),
+                                )
+                              }
+                            />
+                          </div>
+                        </label>
+                      )}
+                    </div>
                   );
                 })()}
 
@@ -2664,28 +2695,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             />
                           </div>
                         </div>
-                        {presentation.characters.length > 1 && (
-                          <label className="flex items-center gap-2">
-                            <span className="shrink-0 font-bold">Z轴</span>
-                            <div className="w-20">
-                              <DraggableNumberInput
-                                value={clampCharacterLayer(current.layer)}
-                                min={1}
-                                max={20}
-                                unit={null}
-                                onChange={(value) =>
-                                  updateCharacterPresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      layer: clampCharacterLayer(value),
-                                    }),
-                                  )
-                                }
-                              />
-                            </div>
-                          </label>
-                        )}
+                        <label className="flex items-center gap-2">
+                          <span className="shrink-0 font-bold">Z轴</span>
+                          <div className="w-20">
+                            <DraggableNumberInput
+                              value={clampCharacterLayer(current.layer)}
+                              min={1}
+                              max={20}
+                              unit={null}
+                              onChange={(value) =>
+                                updateCharacterPresentation(
+                                  presentationMenu.sourceNodeId,
+                                  (item) => ({
+                                    ...item,
+                                    layer: clampCharacterLayer(value),
+                                  }),
+                                )
+                              }
+                            />
+                          </div>
+                        </label>
                         <label className="flex items-center gap-2">
                           <span className="shrink-0 font-bold">
                             缩放：{Math.round(current.scale * 100)}%

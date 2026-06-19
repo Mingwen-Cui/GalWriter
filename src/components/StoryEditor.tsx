@@ -366,6 +366,42 @@ const applyAssistantStoryTags = (text: string, references: AssistantMentionRefer
   };
 };
 
+const resolveAssistantStorySceneMedia = (
+  presentation: ReturnType<typeof buildAssistantStoryPresentation>,
+  nodes: Node[],
+) => {
+  const sceneSourceNodeId = presentation?.scene?.sourceNodeId;
+  if (!sceneSourceNodeId) return {};
+
+  const sceneNode = nodes.find((node) => node.id === sceneSourceNodeId && node.type === 'sceneNode');
+  if (!sceneNode) return {};
+
+  const sceneImages = Array.isArray(sceneNode.data.images)
+    ? (sceneNode.data.images as Array<{
+        id: string;
+        imageUrl?: string;
+        videoUrl?: string;
+      }>)
+    : [];
+  const selectedMedia = presentation.scene?.imageId
+    ? sceneImages.find((image) => image.id === presentation.scene?.imageId)
+    : undefined;
+  const firstVisualMedia = sceneImages.find((image) => image.imageUrl || image.videoUrl);
+  const imageUrl =
+    selectedMedia?.imageUrl ||
+    (typeof sceneNode.data.coverImageUrl === 'string' ? sceneNode.data.coverImageUrl : undefined) ||
+    firstVisualMedia?.imageUrl;
+  const videoUrl = selectedMedia?.videoUrl || (!imageUrl ? firstVisualMedia?.videoUrl : undefined);
+
+  return imageUrl || videoUrl
+    ? {
+        imageUrl,
+        videoUrl,
+        showTextOverlay: true,
+      }
+    : {};
+};
+
 const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
   try {
     if (!isTauriRuntime()) return;
@@ -1693,6 +1729,13 @@ export function StoryEditor() {
           nextVideoUrl = nextScene.previousVideoUrl;
           nextShowTextOverlay = nextScene.previousShowTextOverlay;
           nextScene = undefined;
+        } else if (nextScene) {
+          const taggedSceneMedia = resolveAssistantStorySceneMedia(presentation, currentNodes);
+          if (taggedSceneMedia.imageUrl || taggedSceneMedia.videoUrl) {
+            nextImageUrl = taggedSceneMedia.imageUrl;
+            nextVideoUrl = taggedSceneMedia.videoUrl;
+            nextShowTextOverlay = taggedSceneMedia.showTextOverlay;
+          }
         }
 
         const connectedCharacterIds = new Set(connectedCharacterById.keys());
@@ -2769,6 +2812,7 @@ export function StoryEditor() {
         }
 
         const taggedStory = applyAssistantStoryTags(card.text, assistantMentionReferences);
+        const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, nodes);
 
         return {
           id,
@@ -2786,6 +2830,7 @@ export function StoryEditor() {
             isRoot: index === rootReplacementStoryIndex,
             assistantFutureGoal: mode === 'future-targets',
             presentation: taggedStory.presentation,
+            ...sceneMedia,
           } satisfies StoryNodeData,
         };
       });
@@ -3019,12 +3064,17 @@ export function StoryEditor() {
                 value,
                 buildAssistantMentionReferencesFromNodes(currentNodes),
               );
+              const sceneMedia = resolveAssistantStorySceneMedia(
+                taggedStory.presentation,
+                currentNodes,
+              );
               return {
                 ...node,
                 data: {
                   ...node.data,
                   text: taggedStory.text,
                   ...(taggedStory.presentation ? { presentation: taggedStory.presentation } : {}),
+                  ...sceneMedia,
                 },
               };
             }

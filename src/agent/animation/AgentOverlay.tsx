@@ -18,13 +18,18 @@ interface AgentNodeRect {
   height: number;
 }
 
+interface ViewportSize {
+  width: number;
+  height: number;
+}
+
 const escapeAttributeValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 const getElementPoint = (element: Element): AgentCursorTarget => {
   const rect = element.getBoundingClientRect();
   return {
-    x: Math.max(8, rect.left + Math.min(22, rect.width / 2)),
-    y: Math.max(8, rect.top + rect.height / 2),
+    x: rect.left + Math.min(22, rect.width / 2),
+    y: rect.top + rect.height / 2,
   };
 };
 
@@ -79,9 +84,34 @@ const agentLabelByLanguage: Record<Language, string> = {
   en: 'AI Agent',
 };
 
+const EDGE_INDICATOR_MARGIN = 30;
+
+const isCursorInViewport = (cursor: AgentCursorTarget, viewport: ViewportSize) =>
+  cursor.x >= 0 &&
+  cursor.y >= 0 &&
+  cursor.x <= Math.max(0, viewport.width - EDGE_INDICATOR_MARGIN) &&
+  cursor.y <= Math.max(0, viewport.height - EDGE_INDICATOR_MARGIN);
+
+const getOffscreenIndicator = (cursor: AgentCursorTarget, viewport: ViewportSize) => {
+  const x = Math.min(
+    Math.max(cursor.x, EDGE_INDICATOR_MARGIN),
+    Math.max(EDGE_INDICATOR_MARGIN, viewport.width - EDGE_INDICATOR_MARGIN),
+  );
+  const y = Math.min(
+    Math.max(cursor.y, EDGE_INDICATOR_MARGIN),
+    Math.max(EDGE_INDICATOR_MARGIN, viewport.height - EDGE_INDICATOR_MARGIN),
+  );
+  const angle = (Math.atan2(cursor.y - y, cursor.x - x) * 180) / Math.PI;
+  return { x, y, angle };
+};
+
 export function AgentOverlay({ state, language }: AgentOverlayProps) {
   const [nodeRects, setNodeRects] = useState<AgentNodeRect[]>([]);
   const [displayCursor, setDisplayCursor] = useState<AgentCursorTarget>(state.cursor);
+  const [viewport, setViewport] = useState<ViewportSize>(() => ({
+    width: typeof window === 'undefined' ? 0 : window.innerWidth,
+    height: typeof window === 'undefined' ? 0 : window.innerHeight,
+  }));
   const activeStep = state.plan?.steps[state.activeStepIndex];
   const isWaiting = state.phase === 'waiting';
   const isTyping = activeStep?.type === 'type-field';
@@ -96,6 +126,19 @@ export function AgentOverlay({ state, language }: AgentOverlayProps) {
           ? '正在整理...'
           : '正在处理...';
   const lockedNodeIdsKey = useMemo(() => state.lockedNodeIds.join('|'), [state.lockedNodeIds]);
+  const cursorVisible = isCursorInViewport(displayCursor, viewport);
+  const offscreenIndicator = cursorVisible
+    ? null
+    : getOffscreenIndicator(displayCursor, viewport);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   useEffect(() => {
     if (!state.running || state.lockedNodeIds.length === 0) {
@@ -146,7 +189,7 @@ export function AgentOverlay({ state, language }: AgentOverlayProps) {
       <div
         className={`agent-cursor ${isWaiting ? 'agent-cursor-waiting' : ''} ${
           isTyping ? 'agent-cursor-typing' : ''
-        }`}
+        } ${cursorVisible ? '' : 'agent-cursor-offscreen'}`}
         style={{
           transform: `translate3d(${displayCursor.x}px, ${displayCursor.y}px, 0)`,
         }}
@@ -168,6 +211,22 @@ export function AgentOverlay({ state, language }: AgentOverlayProps) {
         )}
         {!isWaiting && <span>{agentLabel}</span>}
       </div>
+
+      {offscreenIndicator && (
+        <div
+          className="agent-offscreen-indicator"
+          style={{
+            transform: `translate3d(${offscreenIndicator.x}px, ${offscreenIndicator.y}px, 0) translate(-50%, -50%)`,
+          }}
+          aria-label={agentLabel}
+        >
+          <span
+            className="agent-offscreen-arrow"
+            style={{ transform: `rotate(${offscreenIndicator.angle}deg)` }}
+            aria-hidden="true"
+          />
+        </div>
+      )}
     </div>
   );
 }
