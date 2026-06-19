@@ -605,6 +605,16 @@ export function ZenEditor({
     richTextRef.current?.insertMention(kind, name);
   };
 
+  const insertCharacterMention = (tag: ZenTag) => {
+    insertMention('character', tag.name);
+    openCharacterMenu(tag);
+  };
+
+  const insertSceneMention = (tag: ZenTag) => {
+    insertMention('scene', tag.name);
+    openSceneMenu(tag);
+  };
+
   const handleGenerateImage = async () => {
     if (!onGenerateImage || isGeneratingImage) return;
     setIsGeneratingImage(true);
@@ -1055,7 +1065,7 @@ export function ZenEditor({
                         onMouseDown={(event) => event.preventDefault()}
                         onDoubleClick={(event) => event.preventDefault()}
                         onDragStart={(event) => event.preventDefault()}
-                        onClick={() => insertMention('character', tag.name)}
+                        onClick={() => insertCharacterMention(tag)}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           openCharacterMenu(tag);
@@ -1078,7 +1088,7 @@ export function ZenEditor({
                         onMouseDown={(event) => event.preventDefault()}
                         onDoubleClick={(event) => event.preventDefault()}
                         onDragStart={(event) => event.preventDefault()}
-                        onClick={() => insertMention('scene', tag.name)}
+                        onClick={() => insertSceneMention(tag)}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           openSceneMenu(tag);
@@ -1333,7 +1343,7 @@ export function ZenEditor({
                     key={tag.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => openCharacterMenu(tag)}
+                    onClick={() => insertCharacterMention(tag)}
                     className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
                       presentationMenu?.kind === 'character' && presentationMenu.id === tag.id
                         ? 'bg-indigo-500 text-white'
@@ -1377,7 +1387,7 @@ export function ZenEditor({
                       key={tag.id}
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => openSceneMenu(tag)}
+                      onClick={() => insertSceneMention(tag)}
                       className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
                         presentationMenu?.kind === 'scene' && presentationMenu.id === tag.id
                           ? 'bg-blue-500 text-white'

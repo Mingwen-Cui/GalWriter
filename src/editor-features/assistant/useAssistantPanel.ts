@@ -162,10 +162,23 @@ const normalizeAssistantStoryDraftText = (value: string) =>
     .filter((line) => line.length > 0)
     .join('\n');
 
-const getAssistantDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+const getAssistantDraftType = (
+  card: AssistantCardDraft,
+): 'story' | 'character' | 'scene' | 'number-condition' => {
   const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-  if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
+  if (
+    card.type === 'character' ||
+    card.type === 'scene' ||
+    card.type === 'story' ||
+    card.type === 'number-condition'
+  ) {
     return card.type;
+  }
+  if (
+    typeof card.threshold === 'number' ||
+    (Array.isArray(card.ranges) && card.ranges.length > 0)
+  ) {
+    return 'number-condition';
   }
   if (
     cleanText(card.characterName) ||
@@ -1011,7 +1024,7 @@ export const useAssistantPanel = ({
       }
 
       const wantsCards =
-        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|地点|设定|修改|更新|layout|card|node|continue|character|scene|setting/i.test(
+        /卡片|节点|生成|布置|填充|续写|创建|安排|人物|角色|场景|地点|设定|修改|更新|\u597d\u611f\u5ea6|\u6570\u503c|\u6570\u5b57|\u6761\u4ef6|\u5206\u652f|\u5224\u65ad|\u590d\u6742\u903b\u8f91|layout|card|node|continue|character|scene|setting|affection|value|condition|branch/i.test(
           effectiveUserText,
         );
       const fillSelected = /填充|改写选中|覆盖|补全选中|fill/i.test(userText);
@@ -1024,7 +1037,10 @@ export const useAssistantPanel = ({
         )
         .join('\n');
 
+      const numberLogicInstruction = `Number logic rule: Only create {"type":"number-condition"} cards when the user explicitly asks for affection, numeric values, value changes, conditional branches, route logic, hidden endings, or other complex logic. Do not use number-condition cards for ordinary story generation or normal setting cards. To control affection or another score, set "nodeValue" on relevant story cards, for example {"type":"story","title":"Affection rises","text":"...","nodeValue":5}. A number-condition card reads the accumulated upstream story nodeValue and may use {"type":"number-condition","key":"check","title":"Affection check","threshold":10,"ranges":[{"min":0,"max":9},{"min":10,"max":99}],"branchTargets":[{"handle":"less","target":"bad_end","label":"low affection"},{"handle":"greater","target":"good_end","label":"high affection"}]}. For any branching story, give cards stable "key" values and use "connectTo":["next_key"] or "branchTargets":[{"target":"ending_a"},{"target":"ending_b"}] so one card can connect to multiple later cards. Use multiple ending cards when the user asks for several endings.`;
+
       const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
+${numberLogicInstruction}
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
 如果用户只说“重新生成”“再来一次”“重写”等简短指令，请结合最近对话理解要重新生成的内容，不要把它当成缺少上下文的新请求。
 当用户要扩展脑洞、生成故事、写完整故事片段、开场、桥段或剧情场面时，请按创作需要返回组合卡片；通常至少包含 type=character 的人物卡、type=scene 的场景卡、type=story 的剧情卡。只有用户明确要求只生成某一种卡片时，才只返回该类型。

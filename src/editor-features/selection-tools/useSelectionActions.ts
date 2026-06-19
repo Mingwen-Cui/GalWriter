@@ -367,9 +367,19 @@ export const useSelectionActions = ({
     const characters = ordered.filter((node) => node.type === 'characterNode');
     const scenes = ordered.filter((node) => node.type === 'sceneNode');
     const stories = ordered.filter((node) => node.type === 'storyNode');
+    const numberConditions = ordered.filter((node) => node.type === 'numberConditionNode');
+    const flowCards =
+      numberConditions.length > 0
+        ? [...stories, ...numberConditions].sort(
+            (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
+          )
+        : stories;
     const others = ordered.filter(
       (node) =>
-        node.type !== 'characterNode' && node.type !== 'sceneNode' && node.type !== 'storyNode',
+        node.type !== 'characterNode' &&
+        node.type !== 'sceneNode' &&
+        node.type !== 'storyNode' &&
+        node.type !== 'numberConditionNode',
     );
 
     const minX = Math.min(...movableNodes.map((node) => node.position.x));
@@ -415,11 +425,11 @@ export const useSelectionActions = ({
     placeHorizontalRow(characters, 280, 420);
     placeHorizontalRow(scenes, 280, 420);
 
-    if (stories.length > 0) {
-      const storyIds = new Set(stories.map((node) => node.id));
-      const storyById = new Map(stories.map((node) => [node.id, node]));
+    if (flowCards.length > 0) {
+      const storyIds = new Set(flowCards.map((node) => node.id));
+      const storyById = new Map(flowCards.map((node) => [node.id, node]));
       const outgoing = new Map<string, string[]>();
-      const incomingCount = new Map(stories.map((node) => [node.id, 0]));
+      const incomingCount = new Map(flowCards.map((node) => [node.id, 0]));
 
       edges.forEach((edge) => {
         if (!storyIds.has(edge.source) || !storyIds.has(edge.target)) return;
@@ -434,10 +444,10 @@ export const useSelectionActions = ({
         ),
       );
 
-      const roots = stories
+      const roots = flowCards
         .filter((node) => (incomingCount.get(node.id) || 0) === 0)
         .sort((a, b) => a.position.x - b.position.x);
-      if (roots.length === 0) roots.push(stories[0]);
+      if (roots.length === 0) roots.push(flowCards[0]);
 
       const depthById = new Map<string, number>();
       const depthQueue = roots.map((node) => ({ id: node.id, depth: 0 }));
@@ -446,7 +456,7 @@ export const useSelectionActions = ({
         const current = depthQueue.shift()!;
         const visits = (depthVisits.get(current.id) || 0) + 1;
         depthVisits.set(current.id, visits);
-        if (visits > stories.length) continue;
+        if (visits > flowCards.length) continue;
         depthById.set(current.id, Math.max(depthById.get(current.id) || 0, current.depth));
         (outgoing.get(current.id) || []).forEach((targetId) => {
           depthQueue.push({ id: targetId, depth: current.depth + 1 });
@@ -480,10 +490,18 @@ export const useSelectionActions = ({
         return column;
       };
       roots.forEach((node) => assignColumn(node.id));
-      stories.forEach((node) => {
+      flowCards.forEach((node) => {
         if (!columnById.has(node.id)) {
           depthById.set(node.id, depthById.get(node.id) || 0);
           assignColumn(node.id);
+        }
+      });
+      numberConditions.forEach((node) => {
+        const childColumns = (outgoing.get(node.id) || [])
+          .map((targetId) => columnById.get(targetId))
+          .filter((column): column is number => typeof column === 'number');
+        if (childColumns.length > 0) {
+          columnById.set(node.id, Math.min(...childColumns) - 1);
         }
       });
 
@@ -494,9 +512,12 @@ export const useSelectionActions = ({
       const graphWidth = (maxColumn - minColumn) * columnWidth;
       const graphLeft = selectionCenterX - graphWidth / 2;
       const levelHeights = new Map<number, number>();
-      stories.forEach((node) => {
+      flowCards.forEach((node) => {
         const depth = depthById.get(node.id) || 0;
-        const height = node.measured?.height || (node.style?.height as number) || 200;
+        const height =
+          node.measured?.height ||
+          (node.style?.height as number) ||
+          (node.type === 'numberConditionNode' ? 240 : 200);
         levelHeights.set(depth, Math.max(levelHeights.get(depth) || 0, height));
       });
       const levelY = new Map<number, number>();
@@ -508,7 +529,7 @@ export const useSelectionActions = ({
       }
 
       const occupiedByDepth = new Map<number, number[]>();
-      stories.forEach((node) => {
+      flowCards.forEach((node) => {
         const depth = depthById.get(node.id) || 0;
         const width = node.measured?.width || (node.style?.width as number) || 300;
         let column = columnById.get(node.id) || 0;

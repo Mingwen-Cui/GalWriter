@@ -1,7 +1,9 @@
 export type AssistantCardDraft = {
-  type?: 'story' | 'character' | 'scene';
+  type?: 'story' | 'character' | 'scene' | 'number-condition';
+  key?: string;
   title?: string;
   text?: string;
+  nodeValue?: number;
   characterName?: string;
   traits?: string;
   personality?: string;
@@ -13,6 +15,10 @@ export type AssistantCardDraft = {
   items?: string;
   atmosphere?: string;
   other?: string;
+  threshold?: number;
+  ranges?: Array<{ min: number; max: number }>;
+  connectTo?: string[];
+  branchTargets?: Array<{ target: string; handle?: string; label?: string }>;
   generateImage?: boolean;
 };
 

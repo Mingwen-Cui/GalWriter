@@ -5,9 +5,20 @@ import type { AssistantCardDraft } from './agentCardDraft';
 
 const hasValue = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
 
-const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
-  if (card.type === 'character' || card.type === 'scene' || card.type === 'story') {
+const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' | 'number-condition' => {
+  if (
+    card.type === 'character' ||
+    card.type === 'scene' ||
+    card.type === 'story' ||
+    card.type === 'number-condition'
+  ) {
     return card.type;
+  }
+  if (
+    typeof card.threshold === 'number' ||
+    (Array.isArray(card.ranges) && card.ranges.length > 0)
+  ) {
+    return 'number-condition';
   }
   if (
     hasValue(card.characterName) ||
@@ -56,6 +67,20 @@ const getTypingFields = (card: AssistantCardDraft): Array<[string, string, strin
         card[fieldKey === 'scene-name' ? 'sceneName' : (fieldKey as keyof AssistantCardDraft)],
       ])
       .filter((field): field is [string, string, string] => hasValue(field[2]));
+  }
+
+  if (type === 'number-condition') {
+    return [
+      ['title', '数字判断', card.title],
+      ['threshold', '阈值', String(card.threshold ?? '')],
+      [
+        'ranges',
+        '范围分支',
+        Array.isArray(card.ranges)
+          ? card.ranges.map((range) => `${range.min}-${range.max}`).join(', ')
+          : '',
+      ],
+    ].filter((field): field is [string, string, string] => hasValue(field[2]));
   }
 
   return [

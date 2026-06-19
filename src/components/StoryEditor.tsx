@@ -82,6 +82,7 @@ import type {
   InlinePresentationActionType,
   SceneNodeData,
   SceneImageMode,
+  NumberConditionNodeData,
   PlotStructureGenerateDirection,
   StoryAudioClip,
   StoryTitlePlacement,
@@ -214,6 +215,19 @@ const insertAssistantMentionTags = (
     const usedReferences = uniqueReferences.filter((reference) =>
       text.includes(`data-mention-name="${reference.name}"`),
     );
+    const hasCharacterTag = usedReferences.some((reference) => reference.kind === 'character');
+    const hasSceneTag = usedReferences.some((reference) => reference.kind === 'scene');
+    const fallbackScene = uniqueReferences.find(
+      (reference) => reference.kind === 'scene' && reference.prependIfMissing,
+    ) || uniqueReferences.find((reference) => reference.kind === 'scene');
+    if (hasCharacterTag && !hasSceneTag && fallbackScene) {
+      const id = uuidv4();
+      return {
+        html: `${createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id)}${text}`,
+        usedReferences: [fallbackScene, ...usedReferences],
+        mentionUsages: [{ id, reference: fallbackScene, placement: 'start' }],
+      };
+    }
     return { html: text, usedReferences, mentionUsages: [] as AssistantMentionUsage[] };
   }
 
@@ -255,6 +269,30 @@ const insertAssistantMentionTags = (
     cursor = match.index + match.reference.name.length;
   }
 
+  const hasCharacterTag = usedReferences.some((reference) => reference.kind === 'character');
+  const hasSceneTag = usedReferences.some((reference) => reference.kind === 'scene');
+  const fallbackScene =
+    references.find(
+      (reference) =>
+        reference.kind === 'scene' &&
+        reference.prependIfMissing &&
+        !usedReferences.some((used) => used.kind === 'scene' && used.name === reference.name),
+    ) ||
+    references.find(
+      (reference) =>
+        reference.kind === 'scene' &&
+        !usedReferences.some((used) => used.kind === 'scene' && used.name === reference.name),
+    );
+  const forcedSceneTags =
+    hasCharacterTag && !hasSceneTag && fallbackScene
+      ? (() => {
+          const id = uuidv4();
+          usedReferences.push(fallbackScene);
+          mentionUsages.push({ id, reference: fallbackScene, placement: 'start' });
+          return createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id);
+        })()
+      : '';
+
   const unusedReferences = references.filter(
     (reference) =>
       reference.prependIfMissing &&
@@ -271,7 +309,7 @@ const insertAssistantMentionTags = (
     .join('');
 
   return {
-    html: leadingTags ? `${leadingTags}${html}` : html,
+    html: leadingTags || forcedSceneTags ? `${forcedSceneTags}${leadingTags}${html}` : html,
     usedReferences,
     mentionUsages,
   };
@@ -400,6 +438,52 @@ const resolveAssistantStorySceneMedia = (
         showTextOverlay: true,
       }
     : {};
+};
+
+const readStoryMentionNames = (html: string, kind: 'character' | 'scene') => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  return new Set(
+    Array.from(container.querySelectorAll<HTMLElement>(`[data-mention-kind="${kind}"]`))
+      .map((element) => element.dataset.mentionName?.trim())
+      .filter((name): name is string => Boolean(name)),
+  );
+};
+
+const syncPresentationWithStoryMentions = (
+  text: string,
+  presentation: ReturnType<typeof normalizeStoryPresentation>,
+  nodes: Node[],
+) => {
+  const characterMentionNames = readStoryMentionNames(text, 'character');
+  const sceneMentionNames = readStoryMentionNames(text, 'scene');
+  const remainingCharacters = presentation.characters.filter((character) => {
+    const sourceNode = nodes.find((node) => node.id === character.sourceNodeId);
+    if (!sourceNode || sourceNode.type !== 'characterNode') return false;
+    const name =
+      typeof sourceNode.data.characterName === 'string' ? sourceNode.data.characterName.trim() : '';
+    return Boolean(name && characterMentionNames.has(name));
+  });
+  const sceneSourceNode = presentation.scene
+    ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
+    : undefined;
+  const sceneName =
+    sceneSourceNode?.type === 'sceneNode' && typeof sceneSourceNode.data.sceneName === 'string'
+      ? sceneSourceNode.data.sceneName.trim()
+      : '';
+  const removedScene =
+    presentation.scene && sceneName && !sceneMentionNames.has(sceneName)
+      ? presentation.scene
+      : undefined;
+
+  return {
+    presentation: {
+      ...presentation,
+      scene: removedScene ? undefined : presentation.scene,
+      characters: remainingCharacters,
+    },
+    removedScene,
+  };
 };
 
 const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
@@ -2412,9 +2496,17 @@ export function StoryEditor() {
       options?: AssistantCardPlacementOptions,
     ): AssistantCardPlacementResult => {
       const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-      const getDraftType = (card: AssistantCardDraft): 'story' | 'character' | 'scene' => {
+      const getDraftType = (
+        card: AssistantCardDraft,
+      ): 'story' | 'character' | 'scene' | 'number-condition' => {
         if (card.type === 'character' || card.type === 'scene' || card.type === 'story')
           return card.type;
+        if (card.type === 'number-condition') return card.type;
+        if (
+          typeof card.threshold === 'number' ||
+          (Array.isArray(card.ranges) && card.ranges.length > 0)
+        )
+          return 'number-condition';
         if (
           cleanText(card.characterName) ||
           cleanText(card.personality) ||
@@ -2436,8 +2528,13 @@ export function StoryEditor() {
         .map((card) => ({
           ...card,
           type: getDraftType(card),
+          key: cleanText(card.key),
           title: cleanText(card.title),
           text: cleanText(card.text),
+          nodeValue:
+            typeof card.nodeValue === 'number' && Number.isFinite(card.nodeValue)
+              ? card.nodeValue
+              : undefined,
           characterName: cleanText(card.characterName),
           traits: cleanText(card.traits),
           personality: cleanText(card.personality),
@@ -2449,6 +2546,30 @@ export function StoryEditor() {
           items: cleanText(card.items),
           atmosphere: cleanText(card.atmosphere),
           other: cleanText(card.other),
+          threshold:
+            typeof card.threshold === 'number' && Number.isFinite(card.threshold)
+              ? card.threshold
+              : undefined,
+          ranges: Array.isArray(card.ranges)
+            ? card.ranges
+                .map((range) => ({
+                  min: typeof range.min === 'number' && Number.isFinite(range.min) ? range.min : 0,
+                  max: typeof range.max === 'number' && Number.isFinite(range.max) ? range.max : 0,
+                }))
+                .filter((range) => range.min <= range.max)
+            : undefined,
+          connectTo: Array.isArray(card.connectTo)
+            ? card.connectTo.map(cleanText).filter(Boolean)
+            : undefined,
+          branchTargets: Array.isArray(card.branchTargets)
+            ? card.branchTargets
+                .map((branch) => ({
+                  target: cleanText(branch.target),
+                  handle: cleanText(branch.handle),
+                  label: cleanText(branch.label),
+                }))
+                .filter((branch) => branch.target)
+            : undefined,
         }))
         .filter((card) => {
           if (card.type === 'character') {
@@ -2473,6 +2594,13 @@ export function StoryEditor() {
               card.other ||
               card.title ||
               card.text
+            );
+          }
+          if (card.type === 'number-condition') {
+            return (
+              typeof card.threshold === 'number' ||
+              (Array.isArray(card.ranges) && card.ranges.length > 0) ||
+              card.title
             );
           }
           return card.text || card.title;
@@ -2640,10 +2768,19 @@ export function StoryEditor() {
           );
         }
 
+        if (card.type === 'number-condition') {
+          return 260 + Math.max(0, (card.ranges?.length || 0) - 1) * 56;
+        }
+
         return AI_STORY_CARD_HEIGHT;
       };
       const cardLayouts = remainingCards.map((card) => ({
-        width: card.type === 'story' ? AI_STORY_CARD_WIDTH : 280,
+        width:
+          card.type === 'story'
+            ? AI_STORY_CARD_WIDTH
+            : card.type === 'number-condition'
+              ? 300
+              : 280,
         height: getSettingCardLayoutHeight(card),
       }));
       const characterIndexes = remainingCards
@@ -2655,6 +2792,9 @@ export function StoryEditor() {
       const storyIndexes = remainingCards
         .map((card, index) => (card.type === 'story' ? index : -1))
         .filter((index) => index >= 0);
+      const numberConditionIndexes = remainingCards
+        .map((card, index) => (card.type === 'number-condition' ? index : -1))
+        .filter((index) => index >= 0);
       const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
       const columnGap = 150;
       const rowGap = 200;
@@ -2662,6 +2802,7 @@ export function StoryEditor() {
         { type: 'character' as const, indexes: characterIndexes, width: 280 },
         { type: 'scene' as const, indexes: sceneIndexes, width: 280 },
         { type: 'story' as const, indexes: storyIndexes, width: 300 },
+        { type: 'number-condition' as const, indexes: numberConditionIndexes, width: 300 },
       ].filter((column) => column.indexes.length > 0);
       const getColumnHeight = (indexes: number[]) =>
         indexes.reduce(
@@ -2675,7 +2816,7 @@ export function StoryEditor() {
       const maxColumnHeight = Math.max(0, ...layoutColumns.map((column) => getColumnHeight(column.indexes)));
       const layoutLeft = center.x - totalLayoutWidth / 2;
       const layoutTop = center.y - maxColumnHeight / 2;
-      const columnXByType = new Map<'character' | 'scene' | 'story', number>();
+      const columnXByType = new Map<'character' | 'scene' | 'story' | 'number-condition', number>();
       layoutColumns.reduce((x, column) => {
         columnXByType.set(column.type, x);
         return x + column.width + columnGap;
@@ -2733,11 +2874,17 @@ export function StoryEditor() {
                   index,
                   columnXByType.get('scene') ?? center.x - layout.width / 2,
                 )
-              : getVerticalColumnPosition(
-                  storyIndexes,
-                  index,
-                  columnXByType.get('story') ?? center.x - layout.width / 2,
-                );
+              : card.type === 'number-condition'
+                ? getVerticalColumnPosition(
+                    numberConditionIndexes,
+                    index,
+                    columnXByType.get('number-condition') ?? center.x - layout.width / 2,
+                  )
+                : getVerticalColumnPosition(
+                    storyIndexes,
+                    index,
+                    columnXByType.get('story') ?? center.x - layout.width / 2,
+                  );
         if (mode === 'adjacent-revision' && sourceNode) {
           position = {
             x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
@@ -2811,6 +2958,24 @@ export function StoryEditor() {
           };
         }
 
+        if (card.type === 'number-condition') {
+          return {
+            id,
+            type: 'numberConditionNode',
+            position,
+            selected: true,
+            data: {
+              id,
+              threshold: card.threshold ?? 0,
+              ranges: card.ranges?.map((range) => ({
+                id: uuidv4(),
+                min: range.min,
+                max: range.max,
+              })),
+            } satisfies NumberConditionNodeData,
+          };
+        }
+
         const taggedStory = applyAssistantStoryTags(card.text, assistantMentionReferences);
         const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, nodes);
 
@@ -2828,6 +2993,7 @@ export function StoryEditor() {
             color: '#ffffff',
             sizeMode: 'auto',
             isRoot: index === rootReplacementStoryIndex,
+            nodeValue: card.nodeValue,
             assistantFutureGoal: mode === 'future-targets',
             presentation: taggedStory.presentation,
             ...sceneMedia,
@@ -2836,46 +3002,207 @@ export function StoryEditor() {
       });
 
       const storyNodesToLink = newNodes.filter((node) => node.type === 'storyNode');
+      const numberConditionNodesToLink = newNodes.filter((node) => node.type === 'numberConditionNode');
+      const flowNodesToLink =
+        numberConditionNodesToLink.length > 0
+          ? newNodes.filter((node) => node.type === 'storyNode' || node.type === 'numberConditionNode')
+          : storyNodesToLink;
+      const getFlowSourceHandle = (node: Node) =>
+        node.type === 'numberConditionNode' ? 'out-greater' : 'bottom';
+      const getFlowTargetHandle = (source: Node | null, target: Node) => {
+        if (target.type === 'numberConditionNode') return 'in-top';
+        if (source?.type === 'numberConditionNode') return 'left';
+        return 'top';
+      };
       const newEdges: Edge[] = [];
+      const hasExplicitConnections = remainingCards.some(
+        (card) => (card.connectTo?.length || 0) > 0 || (card.branchTargets?.length || 0) > 0,
+      );
+      const isEndingDraft = (card: (typeof remainingCards)[number]) => {
+        if (card.type !== 'story') return false;
+        const searchable = `${card.key || ''} ${card.title || ''} ${card.text || ''}`;
+        return /ending|good\s*end|bad\s*end|true\s*end|\u7ed3\u5c40|\u771f\u7ed3\u5c40|\u597d\u7ed3\u5c40|\u574f\u7ed3\u5c40/i.test(searchable);
+      };
+      const inferredEndingIndexes = remainingCards
+        .map((card, index) => (isEndingDraft(card) ? index : -1))
+        .filter((index) => index >= 0);
+      const inferredEndingNodes = inferredEndingIndexes
+        .map((index) => newNodes[index])
+        .filter((node): node is Node => Boolean(node) && node.type === 'storyNode');
+      const firstEndingIndex = inferredEndingIndexes[0] ?? -1;
+      const inferredBranchSource =
+        !hasExplicitConnections && inferredEndingNodes.length >= 2
+          ? newNodes
+              .slice(0, Math.max(0, firstEndingIndex))
+              .reverse()
+              .find((node) => node.type === 'storyNode') || sourceNode
+          : null;
+      if (inferredBranchSource && inferredEndingNodes.length >= 2) {
+        const branchWidth = 380;
+        const branchTop =
+          inferredBranchSource.position.y +
+          (inferredBranchSource.measured?.height ||
+            (inferredBranchSource.style?.height as number) ||
+            200) +
+          260;
+        const branchLeft =
+          inferredBranchSource.position.x -
+          ((inferredEndingNodes.length - 1) * branchWidth) / 2;
+        inferredEndingNodes.forEach((node, index) => {
+          node.position = {
+            x: branchLeft + index * branchWidth,
+            y: branchTop,
+          };
+        });
+      }
+      const nodeByDraftRef = new Map<string, Node>();
+      remainingCards.forEach((card, index) => {
+        const node = newNodes[index];
+        if (!node || (node.type !== 'storyNode' && node.type !== 'numberConditionNode')) return;
+        [card.key, card.title].filter(Boolean).forEach((ref) => {
+          nodeByDraftRef.set(String(ref).trim().toLowerCase(), node);
+        });
+      });
+      const resolveDraftNode = (ref: string) => nodeByDraftRef.get(ref.trim().toLowerCase()) || null;
+      const normalizeBranchHandle = (source: Node, handle?: string) => {
+        if (source.type !== 'numberConditionNode') return handle === 'right' ? 'right' : 'bottom';
+        const normalized = (handle || '').trim().toLowerCase();
+        if (normalized === 'less' || normalized === 'less-equal' || normalized === 'lt') {
+          return 'out-less-equal';
+        }
+        if (normalized.startsWith('range:')) {
+          const rangeIndex = Number.parseInt(normalized.slice(6), 10);
+          const ranges = (source.data.ranges as Array<{ id: string }> | undefined) || [];
+          return ranges[rangeIndex]?.id ? `out-range-${ranges[rangeIndex].id}` : 'out-greater';
+        }
+        if (normalized.startsWith('out-')) return normalized;
+        return 'out-greater';
+      };
+      const pushFlowEdge = (
+        source: Node,
+        target: Node,
+        sourceHandle: string,
+        label?: string,
+      ) => {
+        newEdges.push({
+          id: `e-${source.id}-${target.id}-${newEdges.length}`,
+          source: source.id,
+          sourceHandle,
+          target: target.id,
+          targetHandle: getFlowTargetHandle(source, target),
+          type: 'customEdge',
+          data: label ? { label } : undefined,
+        });
+      };
+
       if (
-        sourceNode &&
-        storyNodesToLink[0] &&
+        inferredBranchSource &&
+        inferredEndingNodes.length >= 2 &&
         mode !== 'future-targets' &&
         mode !== 'adjacent-revision'
       ) {
-        newEdges.push({
-          id: `e-${sourceNode.id}-${storyNodesToLink[0].id}`,
-          source: sourceNode.id,
-          sourceHandle: 'bottom',
-          target: storyNodesToLink[0].id,
-          targetHandle: 'top',
-          type: 'customEdge',
+        const preBranchNodes = flowNodesToLink.filter((node) => {
+          const nodeIndex = newNodes.findIndex((candidate) => candidate.id === node.id);
+          return nodeIndex >= 0 && nodeIndex < firstEndingIndex && node.id !== inferredBranchSource.id;
         });
-      }
-      for (
-        let i = 0;
-        mode !== 'future-targets' &&
-        mode !== 'adjacent-revision' &&
-        i < storyNodesToLink.length - 1;
-        i += 1
-      ) {
-        newEdges.push({
-          id: `e-${storyNodesToLink[i].id}-${storyNodesToLink[i + 1].id}`,
-          source: storyNodesToLink[i].id,
-          sourceHandle: 'bottom',
-          target: storyNodesToLink[i + 1].id,
-          targetHandle: 'top',
-          type: 'customEdge',
+        if (sourceNode && preBranchNodes[0]) {
+          pushFlowEdge(sourceNode, preBranchNodes[0], 'bottom');
+        }
+        for (let index = 0; index < preBranchNodes.length - 1; index += 1) {
+          pushFlowEdge(
+            preBranchNodes[index],
+            preBranchNodes[index + 1],
+            getFlowSourceHandle(preBranchNodes[index]),
+          );
+        }
+        if (
+          sourceNode &&
+          inferredBranchSource.id !== sourceNode.id &&
+          preBranchNodes.length === 0
+        ) {
+          pushFlowEdge(sourceNode, inferredBranchSource, 'bottom');
+        }
+        inferredEndingNodes.forEach((endingNode, index) => {
+          pushFlowEdge(
+            inferredBranchSource,
+            endingNode,
+            inferredBranchSource.type === 'storyNode' ? 'bottom' : getFlowSourceHandle(inferredBranchSource),
+            (endingNode.data.title as string | undefined) || `${language === 'zh' ? '结局' : 'Ending'} ${index + 1}`,
+          );
         });
+      } else if (hasExplicitConnections && mode !== 'future-targets' && mode !== 'adjacent-revision') {
+        if (sourceNode && flowNodesToLink[0]) {
+          pushFlowEdge(sourceNode, flowNodesToLink[0], 'bottom');
+        }
+        remainingCards.forEach((card, index) => {
+          const sourceFlowNode = newNodes[index];
+          if (
+            !sourceFlowNode ||
+            (sourceFlowNode.type !== 'storyNode' && sourceFlowNode.type !== 'numberConditionNode')
+          ) {
+            return;
+          }
+          (card.connectTo || []).forEach((targetRef) => {
+            const targetFlowNode = resolveDraftNode(targetRef);
+            if (targetFlowNode) {
+              pushFlowEdge(sourceFlowNode, targetFlowNode, getFlowSourceHandle(sourceFlowNode));
+            }
+          });
+          (card.branchTargets || []).forEach((branch) => {
+            const targetFlowNode = resolveDraftNode(branch.target);
+            if (targetFlowNode) {
+              pushFlowEdge(
+                sourceFlowNode,
+                targetFlowNode,
+                normalizeBranchHandle(sourceFlowNode, branch.handle),
+                branch.label,
+              );
+            }
+          });
+        });
+      } else {
+        if (
+          sourceNode &&
+          flowNodesToLink[0] &&
+          mode !== 'future-targets' &&
+          mode !== 'adjacent-revision'
+        ) {
+          newEdges.push({
+            id: `e-${sourceNode.id}-${flowNodesToLink[0].id}`,
+            source: sourceNode.id,
+            sourceHandle: 'bottom',
+            target: flowNodesToLink[0].id,
+            targetHandle: getFlowTargetHandle(sourceNode, flowNodesToLink[0]),
+            type: 'customEdge',
+          });
+        }
+        for (
+          let i = 0;
+          mode !== 'future-targets' &&
+          mode !== 'adjacent-revision' &&
+          i < flowNodesToLink.length - 1;
+          i += 1
+        ) {
+          const sourceFlowNode = flowNodesToLink[i];
+          const targetFlowNode = flowNodesToLink[i + 1];
+          newEdges.push({
+            id: `e-${sourceFlowNode.id}-${targetFlowNode.id}`,
+            source: sourceFlowNode.id,
+            sourceHandle: getFlowSourceHandle(sourceFlowNode),
+            target: targetFlowNode.id,
+            targetHandle: getFlowTargetHandle(sourceFlowNode, targetFlowNode),
+            type: 'customEdge',
+          });
+        }
       }
-      if (mode === 'bridge-to-target' && targetNode && storyNodesToLink.length > 0) {
-        const lastBridgeNode = storyNodesToLink[storyNodesToLink.length - 1];
+      if (mode === 'bridge-to-target' && targetNode && flowNodesToLink.length > 0) {
+        const lastBridgeNode = flowNodesToLink[flowNodesToLink.length - 1];
         newEdges.push({
           id: `e-${lastBridgeNode.id}-${targetNode.id}`,
           source: lastBridgeNode.id,
-          sourceHandle: 'bottom',
+          sourceHandle: getFlowSourceHandle(lastBridgeNode),
           target: targetNode.id,
-          targetHandle: 'top',
+          targetHandle: getFlowTargetHandle(lastBridgeNode, targetNode),
           type: 'customEdge',
         });
       }
@@ -2888,7 +3215,7 @@ export function StoryEditor() {
                 sourceNode.position.y +
                 (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
                 100 +
-                storyNodesToLink.length * 280,
+              storyNodesToLink.length * 280,
             }
           : null;
       setNodes((nds) => [
@@ -5236,6 +5563,35 @@ ${layoutConfig.label}
                 (typeof presentationScene?.data.coverImageUrl === 'string'
                   ? presentationScene.data.coverImageUrl
                   : '');
+            const handleZenPresentationChange = (presentation: StoryPresentation) => {
+              const nextPresentation = normalizeStoryPresentation(presentation);
+              const updates: Partial<StoryNodeData> = { presentation: nextPresentation };
+              if (nextPresentation.scene) {
+                Object.assign(updates, resolveAssistantStorySceneMedia(nextPresentation, nodes));
+              } else if (zenPresentation.scene) {
+                updates.imageUrl = zenPresentation.scene.previousImageUrl;
+                updates.videoUrl = zenPresentation.scene.previousVideoUrl;
+                updates.showTextOverlay =
+                  zenPresentation.scene.previousShowTextOverlay ??
+                  (node?.data.showTextOverlay as boolean | undefined);
+              }
+              handleUpdateNode(zenModeNodeId, updates);
+            };
+            const handleZenTextChange = (val: string) => {
+              const synced = syncPresentationWithStoryMentions(val, zenPresentation, nodes);
+              const updates: Partial<StoryNodeData> = {
+                text: val,
+                presentation: synced.presentation,
+              };
+              if (synced.removedScene) {
+                updates.imageUrl = synced.removedScene.previousImageUrl;
+                updates.videoUrl = synced.removedScene.previousVideoUrl;
+                updates.showTextOverlay =
+                  synced.removedScene.previousShowTextOverlay ??
+                  (node?.data.showTextOverlay as boolean | undefined);
+              }
+              handleUpdateNode(zenModeNodeId, updates);
+            };
             return (
               <ZenEditor
                 nodeId={zenModeNodeId}
@@ -5262,10 +5618,8 @@ ${layoutConfig.label}
                     audioUrl: firstPlayable?.url,
                   });
                 }}
-                onChange={(val) => handleUpdateNode(zenModeNodeId, { text: val })}
-                onPresentationChange={(presentation) =>
-                  handleUpdateNode(zenModeNodeId, { presentation })
-                }
+                onChange={handleZenTextChange}
+                onPresentationChange={handleZenPresentationChange}
                 onClose={() => setZenModeNodeId(null)}
               />
             );
