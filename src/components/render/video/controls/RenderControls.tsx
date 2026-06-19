@@ -12,6 +12,13 @@ export type DragSizeControlProps = {
   onChange: (value: number) => void;
 };
 
+const getStepDecimals = (step: number) => {
+  if (!Number.isFinite(step)) return 0;
+  const text = step.toString();
+  if (!text.includes('.')) return 0;
+  return text.split('.')[1]?.length ?? 0;
+};
+
 export function DragSizeControl({
   label,
   value,
@@ -24,16 +31,21 @@ export function DragSizeControl({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const dragRef = useRef<{ startX: number; startValue: number; moved: boolean } | null>(null);
+  const decimals = getStepDecimals(step);
 
   React.useEffect(() => {
-    if (!editing) setDraft(String(value));
-  }, [editing, value]);
+    if (!editing) setDraft(value.toFixed(decimals));
+  }, [decimals, editing, value]);
 
-  const clampValue = (nextValue: number) => Math.min(max, Math.max(min, nextValue));
+  const normalizeValue = (nextValue: number) => {
+    const stepped = Math.round(nextValue / step) * step;
+    const bounded = Math.min(max, Math.max(min, stepped));
+    return Number(bounded.toFixed(decimals));
+  };
   const commitDraft = () => {
     const parsed = Number(draft);
-    if (Number.isFinite(parsed)) onChange(clampValue(parsed));
-    else setDraft(String(value));
+    if (Number.isFinite(parsed)) onChange(normalizeValue(parsed));
+    else setDraft(value.toFixed(decimals));
     setEditing(false);
   };
 
@@ -44,12 +56,12 @@ export function DragSizeControl({
         inputMode="numeric"
         autoFocus
         value={draft}
-        onChange={(event) => setDraft(event.target.value.replace(/[^\d.]/g, ''))}
+        onChange={(event) => setDraft(event.target.value.replace(/[^\d.-]/g, ''))}
         onBlur={commitDraft}
         onKeyDown={(event) => {
           if (event.key === 'Enter') commitDraft();
           if (event.key === 'Escape') {
-            setDraft(String(value));
+            setDraft(value.toFixed(decimals));
             setEditing(false);
           }
         }}
@@ -71,8 +83,7 @@ export function DragSizeControl({
         const delta = event.clientX - drag.startX;
         if (Math.abs(delta) > 3) drag.moved = true;
         if (!drag.moved) return;
-        const nextValue = Math.round((drag.startValue + delta * step) / step) * step;
-        onChange(clampValue(nextValue));
+        onChange(normalizeValue(drag.startValue + delta * step));
       }}
       onPointerUp={(event) => {
         const drag = dragRef.current;
@@ -84,7 +95,7 @@ export function DragSizeControl({
       title={label}
     >
       <span className="font-normal tabular-nums">
-        {value}
+        {value.toFixed(decimals)}
         {unit}
       </span>
     </button>

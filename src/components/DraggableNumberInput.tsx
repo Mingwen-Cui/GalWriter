@@ -5,17 +5,26 @@ export function DraggableNumberInput({
   onChange,
   min,
   max,
+  step = 1,
+  decimals,
   unit = 'PX',
 }: {
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  step?: number;
+  decimals?: number;
   unit?: string | null;
 }) {
   const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
-  const commitValue = (nextValue: number) =>
-    onChange(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, nextValue)));
+  const resolvedDecimals =
+    decimals ?? (step.toString().includes('.') ? step.toString().split('.')[1]?.length || 0 : 0);
+  const commitValue = (nextValue: number) => {
+    const stepped = Math.round(nextValue / step) * step;
+    const bounded = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, stepped));
+    onChange(Number(bounded.toFixed(resolvedDecimals)));
+  };
 
   return (
     <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
@@ -23,7 +32,8 @@ export function DraggableNumberInput({
         type="number"
         min={min}
         max={max}
-        value={value}
+        step={step}
+        value={Number(value).toFixed(resolvedDecimals)}
         title="可直接输入，或按住鼠标左右拖动调整"
         onChange={(event) => commitValue(Number(event.target.value))}
         onPointerDown={(event) => {
@@ -41,7 +51,7 @@ export function DraggableNumberInput({
           const delta = Math.round((event.clientX - drag.startX) / 4);
           if (delta !== 0) {
             event.preventDefault();
-            commitValue(drag.startValue + delta);
+            commitValue(drag.startValue + delta * step);
           }
         }}
         onPointerUp={(event) => {

@@ -17,10 +17,10 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
 
 const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {
   titleVisible: true,
-  titleFontSize: 34,
+  titleFontSize: 28,
   bodyFontSize: 18,
-  titleFontFamily: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif',
-  bodyFontFamily: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif',
+  titleFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
+  bodyFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
   titleColor: '#ffffff',
   bodyColor: '#f8fafc',
   titleColorAlpha: 100,

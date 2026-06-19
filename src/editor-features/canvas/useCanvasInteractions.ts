@@ -79,6 +79,60 @@ const getNumericSize = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+const isNumberConditionOutputHandle = (handleId?: string | null) =>
+  handleId === 'out-greater' ||
+  handleId === 'out-less-equal' ||
+  Boolean(handleId?.startsWith('out-range-'));
+
+const isNumberConditionInputHandle = (handleId?: string | null) =>
+  handleId === 'in-top' || handleId === 'in-left';
+
+const isOutputOnlyNode = (node?: Node) =>
+  node?.type === 'characterNode' || node?.type === 'sceneNode';
+
+const normalizeConnectionDirection = (connection: Connection, nodes: Node[]): Connection => {
+  const sourceNode = nodes.find((node) => node.id === connection.source);
+  const targetNode = nodes.find((node) => node.id === connection.target);
+
+  if (isOutputOnlyNode(targetNode)) {
+    return {
+      ...connection,
+      source: connection.target,
+      target: connection.source,
+      sourceHandle: connection.targetHandle,
+      targetHandle: connection.sourceHandle,
+    };
+  }
+
+  if (
+    targetNode?.type === 'numberConditionNode' &&
+    isNumberConditionOutputHandle(connection.targetHandle)
+  ) {
+    return {
+      ...connection,
+      source: connection.target,
+      target: connection.source,
+      sourceHandle: connection.targetHandle,
+      targetHandle: connection.sourceHandle,
+    };
+  }
+
+  if (
+    sourceNode?.type === 'numberConditionNode' &&
+    isNumberConditionInputHandle(connection.sourceHandle)
+  ) {
+    return {
+      ...connection,
+      source: connection.target,
+      target: connection.source,
+      sourceHandle: connection.targetHandle,
+      targetHandle: connection.sourceHandle,
+    };
+  }
+
+  return connection;
+};
+
 export const useCanvasInteractions = ({
   nodes,
   interactionMode,
@@ -262,10 +316,44 @@ export const useCanvasInteractions = ({
     [setEdges],
   );
 
+  const isValidConnection = useCallback(
+    (connection: Connection) => {
+      const normalizedConnection = normalizeConnectionDirection(connection, nodes);
+      const sourceNode = nodes.find((node) => node.id === normalizedConnection.source);
+      const targetNode = nodes.find((node) => node.id === normalizedConnection.target);
+
+      if (isOutputOnlyNode(targetNode)) {
+        return false;
+      }
+
+      if (
+        targetNode?.type === 'numberConditionNode' &&
+        isNumberConditionOutputHandle(normalizedConnection.targetHandle)
+      ) {
+        return false;
+      }
+
+      if (
+        sourceNode?.type === 'numberConditionNode' &&
+        isNumberConditionInputHandle(normalizedConnection.sourceHandle)
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+    [nodes],
+  );
+
   const onConnect = useCallback(
-    (connection: Connection) =>
-      setEdges((eds) => addEdge({ ...connection, id: uuidv4(), ...defaultEdgeOptions }, eds)),
-    [defaultEdgeOptions, setEdges],
+    (connection: Connection) => {
+      const normalizedConnection = normalizeConnectionDirection(connection, nodes);
+      if (!isValidConnection(normalizedConnection)) return;
+      setEdges((eds) =>
+        addEdge({ ...normalizedConnection, id: uuidv4(), ...defaultEdgeOptions }, eds),
+      );
+    },
+    [defaultEdgeOptions, isValidConnection, nodes, setEdges],
   );
 
   const onEdgeContextMenu = useCallback(
@@ -281,17 +369,24 @@ export const useCanvasInteractions = ({
       setEdges((eds) =>
         eds.map((item) => {
           if (item.id !== edge.id) return item;
+          const reversedConnection = normalizeConnectionDirection(
+            {
+              source: item.target,
+              target: item.source,
+              sourceHandle: item.targetHandle,
+              targetHandle: item.sourceHandle,
+            },
+            nodes,
+          );
+          if (!isValidConnection(reversedConnection)) return item;
           return {
             ...item,
-            source: item.target,
-            target: item.source,
-            sourceHandle: item.targetHandle,
-            targetHandle: item.sourceHandle,
+            ...reversedConnection,
           };
         }),
       );
     },
-    [setEdges],
+    [isValidConnection, nodes, setEdges],
   );
 
   const onNodeDragStop = useCallback(
@@ -605,6 +700,7 @@ export const useCanvasInteractions = ({
     onNodesChange,
     onEdgesChange,
     onConnect,
+    isValidConnection,
     onEdgeContextMenu,
     onEdgeDoubleClick,
     onNodeDragStop,

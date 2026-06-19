@@ -267,7 +267,7 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
       {/* 内部包装器用于实现 overflow-hidden 效果 */}
       <div className="flex flex-col w-full h-full rounded-xl overflow-hidden">
         {/* Header */}
-        <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10">
+        <div className="bg-[var(--header-bg)] border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 cursor-grab active:cursor-grabbing">
           <div className="flex items-center gap-2">
             <Calculator className="w-4 h-4 text-amber-500" />
             <span className="text-xs font-bold text-[var(--text-primary)]">

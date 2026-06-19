@@ -4798,6 +4798,7 @@ ${layoutConfig.label}
     onNodesChange,
     onEdgesChange,
     onConnect,
+    isValidConnection,
     onEdgeContextMenu,
     onEdgeDoubleClick,
     onNodeDragStop,
@@ -5086,6 +5087,7 @@ ${layoutConfig.label}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              isValidConnection={isValidConnection}
               onEdgeDoubleClick={onEdgeDoubleClick}
               onNodeClick={handleNodeClick}
               onEdgeContextMenu={onEdgeContextMenu}

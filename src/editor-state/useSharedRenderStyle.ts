@@ -4,6 +4,7 @@ import type { RenderStyle } from '../components/render/video/shared/types';
 import { DEFAULT_RENDER_STYLE } from '../components/render/video/VideoRenderModal/workspaceStorage';
 
 const STORAGE_KEY = 'galwriter-shared-render-style';
+const LEGACY_DEFAULT_FONT = '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif';
 
 const readStoredRenderStyle = (): Partial<RenderStyle> => {
   if (typeof window === 'undefined') return {};
@@ -11,7 +12,21 @@ const readStoredRenderStyle = (): Partial<RenderStyle> => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    const stored = parsed as Partial<RenderStyle>;
+    return {
+      ...stored,
+      titleFontSize: stored.titleFontSize === 56 ? DEFAULT_RENDER_STYLE.titleFontSize : stored.titleFontSize,
+      bodyFontSize: stored.bodyFontSize === 38 ? DEFAULT_RENDER_STYLE.bodyFontSize : stored.bodyFontSize,
+      titleFontFamily:
+        stored.titleFontFamily === LEGACY_DEFAULT_FONT
+          ? DEFAULT_RENDER_STYLE.titleFontFamily
+          : stored.titleFontFamily,
+      bodyFontFamily:
+        stored.bodyFontFamily === LEGACY_DEFAULT_FONT
+          ? DEFAULT_RENDER_STYLE.bodyFontFamily
+          : stored.bodyFontFamily,
+    };
   } catch {
     return {};
   }

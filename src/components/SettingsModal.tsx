@@ -205,7 +205,6 @@ const settingsText = {
     toolbarBubbleStyle: '工具栏气泡质感',
     hoverButtonAnimations: '悬浮按钮动画',
     hoverButtonAnimationsDesc: '开启后，鼠标悬浮在部分工具按钮上会播放 Lottie 引导动画。',
-    glassReadability: '玻璃可读性',
     opaqueAssistantMessagesInGlass: 'AI 助手对话不透明',
     opaqueFooterInGlass: '底部状态栏不透明',
     glass: '玻璃',
@@ -324,7 +323,6 @@ const settingsText = {
     toolbarBubbleStyle: 'Toolbar Bubble Style',
     hoverButtonAnimations: 'Hover Button Animations',
     hoverButtonAnimationsDesc: 'Play Lottie guides when hovering over supported toolbar buttons.',
-    glassReadability: 'Glass Readability',
     opaqueAssistantMessagesInGlass: 'Opaque AI assistant messages',
     opaqueFooterInGlass: 'Opaque bottom footer',
     glass: 'Glass',
@@ -447,7 +445,6 @@ const settingsText = {
     hoverButtonAnimations: 'ホバーボタンのアニメーション',
     hoverButtonAnimationsDesc:
       '対応するツールボタンにマウスを合わせると、Lottie ガイドを再生します。',
-    glassReadability: 'ガラス表示の可読性',
     opaqueAssistantMessagesInGlass: 'AIアシスタント会話を不透明にする',
     opaqueFooterInGlass: '下部フッターを不透明にする',
     glass: 'ガラス',
@@ -974,11 +971,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {bubbleStyle === 'glass' && (
                     <section className="space-y-2">
-                      <header className="flex items-center gap-3">
-                        <h3 className="text-base font-black text-[var(--text-primary)]">
-                          {s.glassReadability}
-                        </h3>
-                      </header>
                       <div className="grid grid-cols-2 gap-x-8 gap-y-0">
                         {[
                           {

@@ -18,6 +18,23 @@ import type {
 } from '../editor-state/editorConfig';
 
 export type ProjectSnapshotData = StoryProject;
+const LEGACY_RENDER_STYLE_FONT = '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif';
+const NEXT_RENDER_STYLE_FONT = 'SimHei, "Noto Sans SC", sans-serif';
+
+const migrateLegacyRenderStyleDefaults = (
+  style: ImportedProjectSettings['sharedRenderStyle'],
+): ImportedProjectSettings['sharedRenderStyle'] => {
+  if (!style) return style;
+  return {
+    ...style,
+    titleFontSize: style.titleFontSize === 56 ? 28 : style.titleFontSize,
+    bodyFontSize: style.bodyFontSize === 38 ? 18 : style.bodyFontSize,
+    titleFontFamily:
+      style.titleFontFamily === LEGACY_RENDER_STYLE_FONT ? NEXT_RENDER_STYLE_FONT : style.titleFontFamily,
+    bodyFontFamily:
+      style.bodyFontFamily === LEGACY_RENDER_STYLE_FONT ? NEXT_RENDER_STYLE_FONT : style.bodyFontFamily,
+  };
+};
 
 export type ProjectSerializerEdgeDefaults = {
   markerEnd: {
@@ -390,9 +407,10 @@ const applyProjectSettings = (
   }
 
   if (incomingSettings.sharedRenderStyle) {
+    const sharedRenderStyle = migrateLegacyRenderStyleDefaults(incomingSettings.sharedRenderStyle);
     setters.setSharedRenderStyle((previous) => ({
       ...previous,
-      ...incomingSettings.sharedRenderStyle,
+      ...sharedRenderStyle,
     }));
   }
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
