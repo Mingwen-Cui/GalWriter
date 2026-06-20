@@ -118,7 +118,7 @@ export function AIActionModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800 md:px-6">
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950">
               <Sparkles className="h-5 w-5" />
             </div>
@@ -126,9 +126,6 @@ export function AIActionModal({
               <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
                 {t.aiAssistant}
               </h3>
-              <p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">
-                {t.aiChooseMethod}
-              </p>
             </div>
           </div>
           <button
@@ -145,7 +142,7 @@ export function AIActionModal({
               key={button.key}
               id={button.id}
               onClick={() => onGenerate(pendingAINodeId, button.key)}
-              className="group flex min-h-28 w-full items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70 active:translate-y-0 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:shadow-black/20"
+              className="group flex min-h-[88px] w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70 active:translate-y-0 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:shadow-black/20"
             >
               <span
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 transition-colors ${button.toneClass}`}
@@ -156,7 +153,7 @@ export function AIActionModal({
                 <div className="text-sm font-bold leading-5 text-slate-900 dark:text-slate-100">
                   {t[button.titleKey]}
                 </div>
-                <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                <div className="mt-1 overflow-hidden text-xs leading-5 text-slate-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] dark:text-slate-400">
                   {t[button.descKey]}
                 </div>
               </div>

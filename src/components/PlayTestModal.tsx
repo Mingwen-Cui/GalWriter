@@ -429,19 +429,25 @@ export function PlayTestModal({
           backdropFilter: 'none',
         }),
     borderRadius: renderStyle.dialogRadius,
+    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+  };
+  const dialogueFrameStyle: React.CSSProperties = {
     width:
       layoutMode === 'immersive'
         ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
-        : undefined,
-    minHeight: layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
-    transform:
+        : `${renderStyle.dialogWidth}%`,
+    height: layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
+    maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
+    left:
       layoutMode === 'immersive'
-        ? `translate(${Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.25}%, ${
-            Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.2
-          }%)`
+        ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
         : undefined,
-    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    bottom:
+      layoutMode === 'immersive'
+        ? `calc(4% - ${Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.28}%)`
+        : undefined,
+    transform: layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
   };
 
   const getAudioTitle = React.useCallback(
@@ -1203,9 +1209,7 @@ export function PlayTestModal({
       : null;
   const presentationScale = presentation.scene?.scale || 1;
   const sceneObjectFit =
-    presentation.scene?.cropMode === 'contain'
-      ? 'contain'
-      : presentation.scene?.cropMode === 'stretch'
+    presentation.scene?.cropMode === 'stretch'
         ? 'fill'
         : 'cover';
   const sceneStyle: React.CSSProperties = {
@@ -1272,7 +1276,7 @@ export function PlayTestModal({
   );
 
   const renderPlaytestSettingsPanel = () => {
-    const darkPanel = layoutMode === 'immersive' || isDarkMode;
+    const darkPanel = isDarkMode;
     const panelTone = darkPanel
       ? 'border-white/10 bg-slate-950/45'
       : 'border-slate-200/80 bg-slate-100/70';
@@ -1372,6 +1376,7 @@ export function PlayTestModal({
                   options={[1, 2, 3].map((cols) => ({
                     value: String(cols),
                     label: t[`column${cols}` as keyof typeof t] as string,
+                    icon: <ColumnDotsGlyph count={cols} />,
                   }))}
                   onChange={(value) => setChoicesColumns(Number(value) || 1)}
                 />
@@ -1437,19 +1442,25 @@ export function PlayTestModal({
               />
             </PlaytestSettingCard>
 
-            <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '人物标签' : 'Character tags'}>
+            <PlaytestSettingCard
+              icon={<CharacterTagGlyph />}
+              description={language === 'zh' ? '人物标签' : 'Character tags'}
+            >
               <PlaytestToggleButton
                 active={hideCharacterTags}
-                icon={hideCharacterTags ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                icon={<CharacterVisibilityGlyph hidden={hideCharacterTags} />}
                 label={hideCharacterTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
                 onClick={() => setHideCharacterTags(!hideCharacterTags)}
               />
             </PlaytestSettingCard>
 
-            <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '场景标签' : 'Scene tags'}>
+            <PlaytestSettingCard
+              icon={<SceneTagGlyph />}
+              description={language === 'zh' ? '场景标签' : 'Scene tags'}
+            >
               <PlaytestToggleButton
                 active={hideSceneTags}
-                icon={hideSceneTags ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                icon={<SceneVisibilityGlyph hidden={hideSceneTags} />}
                 label={hideSceneTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
                 onClick={() => setHideSceneTags(!hideSceneTags)}
               />
@@ -1549,9 +1560,30 @@ export function PlayTestModal({
   return (
     <div
       ref={containerRef}
-      onClick={handleTextContainerClick}
-      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] flex flex-col transition-colors duration-300 overflow-hidden`}
+      onClick={() => {
+        if (showSettings) {
+          setShowSettings(false);
+          return;
+        }
+        handleTextContainerClick();
+      }}
+      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] overflow-hidden transition-colors duration-300`}
     >
+      <div
+        onClick={(event) => {
+          event.stopPropagation();
+          handleTextContainerClick();
+        }}
+        className={`absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
+          showSettings ? 'scale-75' : 'scale-100'
+        } ${
+          showSettings
+            ? isDarkMode
+              ? 'border-white/15 shadow-black/40'
+              : 'border-slate-200 shadow-slate-300/40'
+            : 'border-transparent'
+        }`}
+      >
       {/* Header */}
       <div
         onClick={(e) => e.stopPropagation()}
@@ -1790,7 +1822,7 @@ export function PlayTestModal({
               <Settings className="w-5 h-5" />
             </button>
 
-            {showSettings && (
+            {false && (
               <div
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute right-0 mt-2 w-[min(calc(100vw-1rem),42rem)] rounded-2xl shadow-2xl border z-[110] p-3 md:p-4 scale-in max-h-[85vh] overflow-y-auto ${
@@ -2413,7 +2445,7 @@ export function PlayTestModal({
 
               {/* 2. 悬浮的选项与对话框 */}
               <div
-                className={`absolute inset-0 flex flex-col justify-end p-4 md:p-6 lg:pb-10 lg:px-48 xl:px-64 pointer-events-none ${
+                className={`absolute inset-0 pointer-events-none ${
                   choicesPosition === 'center' && choicesReady && blurBackground
                     ? blurText
                       ? 'z-20'
@@ -2421,14 +2453,17 @@ export function PlayTestModal({
                     : 'z-20'
                 }`}
               >
-                <div className="w-full flex flex-col gap-4 max-w-4xl mx-auto pointer-events-auto">
+                <div
+                  className="pointer-events-auto absolute flex flex-col items-stretch justify-end gap-4"
+                  style={dialogueFrameStyle}
+                >
                   {/* 选项区域 - 文字上方 */}
                   {choicesPosition === 'aboveText' && renderChoices(true)}
 
                   {/* 透明半透明对话框 */}
                   <div
                     onClick={handleTextContainerClick}
-                    className="w-full p-6 rounded-2xl backdrop-blur-md border border-white/10 text-white shadow-2xl relative animate-in slide-in-from-bottom-6 duration-500 overflow-hidden"
+                    className="pointer-events-auto relative w-full overflow-y-auto rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500"
                     style={dialogueShellStyle}
                   >
                     {currentNode?.data.audioUrl && (
@@ -2523,7 +2558,10 @@ export function PlayTestModal({
                   </div>
 
                   {/* Shared 1920x1080 presentation stage */}
-                  <VirtualPresentationStage className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500">
+                  <VirtualPresentationStage
+                    fit="cover"
+                    className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500"
+                  >
                     <div
                       className="absolute inset-0 overflow-hidden"
                       style={{
@@ -2706,7 +2744,7 @@ export function PlayTestModal({
           e.stopPropagation();
           setIsFocusMode(!isFocusMode);
         }}
-        className={`absolute bottom-6 right-6 z-[120] p-3.5 rounded-full shadow-xl backdrop-blur-lg transition-all duration-300 hover:scale-110 active:scale-95 border ${
+        className={`fixed bottom-6 right-6 z-[260] p-3.5 rounded-full shadow-xl backdrop-blur-lg transition-all duration-300 hover:scale-110 active:scale-95 border ${
           isFocusMode
             ? isDarkMode
               ? 'bg-slate-800/80 hover:bg-slate-800 text-sky-400 border-sky-500/40 shadow-sky-950/20'
@@ -2719,6 +2757,22 @@ export function PlayTestModal({
       >
         {isFocusMode ? <EyeOff className="w-5 h-5 animate-pulse" /> : <Eye className="w-5 h-5" />}
       </button>
+      </div>
+
+      {showSettings && (
+        <aside
+          onClick={(event) => event.stopPropagation()}
+          className={`absolute bottom-0 right-0 top-0 z-[130] w-[25vw] min-w-[360px] max-w-[520px] border-l p-4 shadow-2xl ${
+            isDarkMode
+              ? 'border-white/10 bg-slate-950/96 text-white shadow-black/35'
+              : 'border-slate-200 bg-white text-slate-800 shadow-slate-300/35'
+          }`}
+        >
+          <div className="video-render-scroll h-full overflow-y-auto pr-1">
+            {renderPlaytestSettingsPanel()}
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
@@ -2743,7 +2797,7 @@ function PlaytestSettingCard({
   description,
   children,
 }: {
-  icon?: LucideIcon;
+  icon?: LucideIcon | ReactNode;
   description?: string;
   children: ReactNode;
 }) {
@@ -2762,7 +2816,9 @@ function PlaytestSettingCard({
       >
         {Icon ? (
           <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-            <Icon className="h-3.5 w-3.5" />
+            {React.isValidElement(Icon)
+              ? Icon
+              : React.createElement(Icon as React.ElementType, { className: 'h-3.5 w-3.5' })}
           </div>
         ) : null}
         <div className="min-w-0">{children}</div>
@@ -2883,20 +2939,68 @@ function PlaytestToggleButton({
 
 function LayoutClassicGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-x-1 top-1 h-1 rounded-full bg-current/65" />
-      <span className="absolute inset-x-1 top-2.5 h-0.5 rounded-full bg-current/55" />
-      <span className="absolute inset-x-1 bottom-1 h-0.5 rounded-full bg-current/55" />
+    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/40 bg-current/10">
+      <span className="absolute inset-x-1 top-1 h-1.5 rounded-[2px] border border-current/45 bg-current/15" />
+      <span className="absolute inset-x-1 bottom-1 h-1 rounded-[2px] bg-current/75" />
+      <span className="absolute left-1.5 right-1.5 bottom-[6px] h-px bg-current/35" />
     </span>
   );
 }
 
 function LayoutImmersiveGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-0 bg-current/15" />
-      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/75" />
-      <span className="absolute inset-x-1 bottom-1.5 h-0.5 rounded-full bg-white/80" />
+    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/40 bg-current/10">
+      <span className="absolute inset-0 bg-current/18" />
+      <span className="absolute inset-x-1 bottom-1 h-1.5 rounded-[3px] bg-current/75" />
+      <span className="absolute left-1.5 top-1.5 h-1 w-1 rounded-full bg-current/60" />
+      <span className="absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-current/35" />
+    </span>
+  );
+}
+
+function ColumnDotsGlyph({ count }: { count: number }) {
+  return (
+    <span className="flex h-4 w-8 shrink-0 items-center justify-center gap-1">
+      {Array.from({ length: count }).map((_, index) => (
+        <span key={index} className="h-1.5 w-1.5 rounded-full bg-current" />
+      ))}
+    </span>
+  );
+}
+
+function CharacterTagGlyph() {
+  return (
+    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute top-1 h-1.5 w-1.5 rounded-full bg-current/70" />
+      <span className="absolute bottom-1 h-1.5 w-2.5 rounded-t-full bg-current/45" />
+    </span>
+  );
+}
+
+function SceneTagGlyph() {
+  return (
+    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
+      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/45" />
+      <span className="absolute left-1 bottom-1 h-2 w-2 rotate-45 rounded-[2px] bg-current/65" />
+      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-current/55" />
+    </span>
+  );
+}
+
+function CharacterVisibilityGlyph({ hidden }: { hidden: boolean }) {
+  return (
+    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
+      <CharacterTagGlyph />
+      {hidden && <span className="absolute h-px w-5 -rotate-45 rounded-full bg-current" />}
+    </span>
+  );
+}
+
+function SceneVisibilityGlyph({ hidden }: { hidden: boolean }) {
+  return (
+    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
+      <SceneTagGlyph />
+      {hidden && <span className="absolute h-px w-5 -rotate-45 rounded-full bg-current" />}
     </span>
   );
 }

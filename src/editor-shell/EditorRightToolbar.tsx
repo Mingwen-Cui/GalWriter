@@ -71,11 +71,9 @@ export function EditorRightToolbar({
   redo,
   t,
 }: EditorRightToolbarProps) {
-  if (isMobile) return null;
-
   return (
     <div
-      className={`toolbar-bubble-surface glass-toolbar absolute right-6 top-4 z-20 flex ${
+      className={`toolbar-bubble-surface glass-toolbar absolute right-6 top-4 z-20 flex max-[510px]:top-20 ${
         toolbarLayout === 'horizontal' ? 'h-[52px] flex-row-reverse' : 'w-[52px] flex-col'
       } overflow-hidden rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1.5 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
         rightToolbarCollapsed

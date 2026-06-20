@@ -121,6 +121,12 @@ export function AssistantPanel({
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
+  const [welcomeGradientState, setWelcomeGradientState] = useState<
+    'visible' | 'exiting' | 'hidden'
+  >('visible');
+  const [welcomeGradientDismissedTaskId, setWelcomeGradientDismissedTaskId] = useState<
+    string | null
+  >(null);
   const [cardGenerateMenuPosition, setCardGenerateMenuPosition] = useState({
     left: 0,
     top: 0,
@@ -134,6 +140,7 @@ export function AssistantPanel({
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeAnimationTimerRef = useRef<number | null>(null);
+  const welcomeGradientTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
@@ -309,8 +316,67 @@ export function AssistantPanel({
   const visibleAssistantMessages = assistantMessages.filter(
     (message) => !isLegacyAssistantWelcomeMessage(message),
   );
-  const showTransparentWelcomeGradient =
-    visibleAssistantMessages.length === 0 && assistantInput.trim().length === 0;
+  const showTransparentWelcomeGradient = welcomeGradientState !== 'hidden';
+
+  useEffect(() => {
+    if (
+      visibleAssistantMessages.length === 0 &&
+      !assistantLoading &&
+      welcomeGradientDismissedTaskId !== activeAssistantTaskId
+    ) {
+      if (welcomeGradientTimerRef.current) {
+        window.clearTimeout(welcomeGradientTimerRef.current);
+        welcomeGradientTimerRef.current = null;
+      }
+      setWelcomeGradientState('visible');
+      return;
+    }
+
+    if (visibleAssistantMessages.length > 0 && welcomeGradientState !== 'exiting') {
+      setWelcomeGradientState('hidden');
+    }
+  }, [
+    activeAssistantTaskId,
+    assistantLoading,
+    visibleAssistantMessages.length,
+    welcomeGradientDismissedTaskId,
+    welcomeGradientState,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (welcomeGradientTimerRef.current) {
+        window.clearTimeout(welcomeGradientTimerRef.current);
+        welcomeGradientTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const fadeOutWelcomeGradient = () => {
+    if (welcomeGradientState !== 'visible') return;
+
+    if (welcomeGradientTimerRef.current) {
+      window.clearTimeout(welcomeGradientTimerRef.current);
+    }
+
+    setWelcomeGradientDismissedTaskId(activeAssistantTaskId);
+    setWelcomeGradientState('exiting');
+    welcomeGradientTimerRef.current = window.setTimeout(() => {
+      setWelcomeGradientState('hidden');
+      welcomeGradientTimerRef.current = null;
+    }, 520);
+  };
+
+  const sendAssistantMessage = (overrideText?: string) => {
+    fadeOutWelcomeGradient();
+    return handleAssistantSend(overrideText);
+  };
+
+  const startAssistantFlowWithGradientExit = (flow: 'idea' | 'starter' | 'revision' | 'future') => {
+    fadeOutWelcomeGradient();
+    return handleStartAssistantFlow(flow);
+  };
 
   useEffect(() => {
     if (!cardGenerateOpen) return undefined;
@@ -342,13 +408,9 @@ export function AssistantPanel({
     <aside
       className={`${
         isMobile
-          ? 'assistant-panel-mobile fixed inset-y-0 left-6 right-0 z-[220] shadow-sm'
+          ? 'assistant-panel-mobile fixed inset-y-0 right-0 z-[220] w-[min(26rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] shadow-sm'
           : `assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm ${showStats ? '' : 'assistant-panel-full-height'}`
-      } assistant-panel-shell ${
-        showTransparentWelcomeGradient
-          ? 'assistant-panel-transparent-gradient'
-          : 'assistant-panel-chat-surface'
-      } ${
+      } assistant-panel-shell assistant-panel-chat-surface ${
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
       style={isMobile ? undefined : { width: assistantPanelWidth }}
@@ -501,7 +563,11 @@ export function AssistantPanel({
 
       <div
         ref={assistantMessagesRef}
-        className="assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        className={`assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4 ${
+          showTransparentWelcomeGradient
+            ? `assistant-message-transparent-gradient assistant-message-gradient-${welcomeGradientState}`
+            : ''
+        }`}
       >
         {visibleAssistantMessages.length === 0 && !assistantLoading && (
           <section className="assistant-welcome-card">
@@ -525,8 +591,8 @@ export function AssistantPanel({
                     type="button"
                     onClick={() =>
                       index === 0
-                        ? void handleStartAssistantFlow('idea')
-                        : void handleAssistantSend(item.prompt)
+                        ? void startAssistantFlowWithGradientExit('idea')
+                        : void sendAssistantMessage(item.prompt)
                     }
                     disabled={assistantLoading}
                     className="assistant-welcome-option"
@@ -762,7 +828,7 @@ export function AssistantPanel({
           </div>
           <button
             onClick={() =>
-              handleAssistantSend(
+              sendAssistantMessage(
                 language === 'zh'
                   ? '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。回复格式：按【已填字段】【补全理由】【可继续扩写】说明修改结果。'
                   : language === 'ja'
@@ -803,7 +869,7 @@ export function AssistantPanel({
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
-                void handleAssistantSend();
+                void sendAssistantMessage();
               }
             }}
             placeholder={
@@ -829,7 +895,7 @@ export function AssistantPanel({
             <Mic className="h-4 w-4" />
           </button>
           <button
-            onClick={() => void handleAssistantSend()}
+            onClick={() => void sendAssistantMessage()}
             disabled={assistantLoading || !assistantInput.trim()}
             className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
             title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}

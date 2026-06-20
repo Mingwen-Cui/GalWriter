@@ -869,6 +869,9 @@ export function StoryEditor() {
   const [tx, ty, tzoom] = useStore((s) => s.transform);
   const flowWidth = useStore((s) => s.width);
   const flowHeight = useStore((s) => s.height);
+  const viewportWidth =
+    typeof window === 'undefined' ? 1024 : window.visualViewport?.width || window.innerWidth;
+  const effectiveFlowWidth = flowWidth > 0 ? flowWidth : viewportWidth;
 
   const getCenterPosition = useCallback(() => {
     return {
@@ -1073,7 +1076,7 @@ export function StoryEditor() {
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
 
-  const isMobile = flowWidth < 768;
+  const isMobile = effectiveFlowWidth < 768;
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
@@ -3840,7 +3843,7 @@ export function StoryEditor() {
   } = useAssistantPanel({
     language,
     isMobile,
-    flowWidth,
+    flowWidth: effectiveFlowWidth,
     selectedAssistantTargetNodes,
     nodes,
     callAIForTextResult,

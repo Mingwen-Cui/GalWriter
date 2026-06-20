@@ -247,11 +247,49 @@ Allowed events:
 Use card indexes starting at 0. For character cards stream characterName, traits, personality, features, background, other. For scene cards stream sceneName, description, location, items, atmosphere, other. For story cards stream title and text.`;
 
 const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
-  const priority = { character: 0, scene: 1, story: 2 } as const;
+  const priority = { character: 0, scene: 1, story: 2, 'number-condition': 3 } as const;
   return cards
     .map((card, index) => ({ card, index, type: getAssistantDraftType(card) }))
     .sort((left, right) => priority[left.type] - priority[right.type] || left.index - right.index)
     .map(({ card, type }) => ({ ...card, type }));
+};
+
+const hasAssistantCardContent = (card: AssistantCardDraft) => {
+  const type = getAssistantDraftType(card);
+  if (type === 'character') {
+    return [
+      card.characterName,
+      card.traits,
+      card.personality,
+      card.features,
+      card.background,
+      card.other,
+      card.title,
+      card.text,
+    ].some((value) => typeof value === 'string' && value.trim().length > 0);
+  }
+  if (type === 'scene') {
+    return [
+      card.sceneName,
+      card.description,
+      card.location,
+      card.items,
+      card.atmosphere,
+      card.other,
+      card.title,
+      card.text,
+    ].some((value) => typeof value === 'string' && value.trim().length > 0);
+  }
+  if (type === 'number-condition') {
+    return (
+      typeof card.threshold === 'number' ||
+      (Array.isArray(card.ranges) && card.ranges.length > 0) ||
+      (typeof card.title === 'string' && card.title.trim().length > 0)
+    );
+  }
+  return [card.title, card.text].some(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  );
 };
 
 const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOption[] => {
@@ -959,9 +997,13 @@ export const useAssistantPanel = ({
         });
       };
 
+      const placeholderPlan = placeholderCards
+        .map((card, index) => `${index}: ${getAssistantDraftType(card)}`)
+        .join(', ');
       const streamPrompt = `${prompt}
 
-${assistantCardStreamProtocol}`;
+${assistantCardStreamProtocol}
+You must fill every placeholder card index exactly once. Placeholder card plan: ${placeholderPlan}. Keep each card's type aligned with the placeholder type for that same index.`;
       const result = await callAIForTextStream(streamPrompt, {
         onDelta: consumeText,
         onReasoningDelta: (delta) => {
@@ -984,17 +1026,8 @@ ${assistantCardStreamProtocol}`;
         if (event) applyEvent(event);
       }
 
-      const hasStreamedCardContent = cards.some((card) =>
-        [
-          card.title,
-          card.text,
-          card.characterName,
-          card.traits,
-          card.sceneName,
-          card.description,
-        ].some((value) => typeof value === 'string' && value.trim().length > 0),
-      );
-      if (!hasStreamedCardContent) {
+      const hasIncompleteStreamedCards = cards.some((card) => !hasAssistantCardContent(card));
+      if (hasIncompleteStreamedCards) {
         try {
           const jsonText = result.content.match(/\{[\s\S]*\}/)?.[0] || result.content;
           const parsed = JSON.parse(jsonText) as {
@@ -1002,7 +1035,11 @@ ${assistantCardStreamProtocol}`;
             cards?: AssistantCardDraft[];
           };
           if (Array.isArray(parsed.cards) && parsed.cards.length > 0) {
-            parsed.cards.slice(0, cards.length).forEach((card, index) => {
+            const alignedParsedCards = alignAssistantCardsToPlaceholders(
+              parsed.cards,
+              placeholderCards,
+            );
+            alignedParsedCards.slice(0, cards.length).forEach((card, index) => {
               cards[index] = { ...cards[index], ...card };
             });
             updateStreamingAssistantCards(nodeIds, cards);
@@ -1010,6 +1047,34 @@ ${assistantCardStreamProtocol}`;
           if (parsed.reply) reply = parsed.reply;
         } catch {
           // The stream was not valid fallback JSON either; keep whatever partial state exists.
+        }
+      }
+
+      if (cards.some((card) => !hasAssistantCardContent(card))) {
+        try {
+          const retryResult = await callAIForTextResult(`${prompt}
+
+The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`);
+          const jsonText = retryResult.content.match(/\{[\s\S]*\}/)?.[0] || retryResult.content;
+          const parsed = JSON.parse(jsonText) as {
+            reply?: string;
+            cards?: AssistantCardDraft[];
+          };
+          if (Array.isArray(parsed.cards) && parsed.cards.length > 0) {
+            const alignedParsedCards = alignAssistantCardsToPlaceholders(
+              parsed.cards,
+              placeholderCards,
+            );
+            alignedParsedCards.slice(0, cards.length).forEach((card, index) => {
+              if (!hasAssistantCardContent(cards[index])) {
+                cards[index] = { ...cards[index], ...card };
+              }
+            });
+            updateStreamingAssistantCards(nodeIds, cards);
+          }
+          if (!reply.trim() && parsed.reply) reply = parsed.reply;
+        } catch {
+          // Keep the visible partial result if the recovery request is unavailable.
         }
       }
 
@@ -1031,6 +1096,7 @@ ${assistantCardStreamProtocol}`;
     },
     [
       callAIForTextStream,
+      callAIForTextResult,
       createAssistantCards,
       setAssistantMessages,
       startAgentWaiting,

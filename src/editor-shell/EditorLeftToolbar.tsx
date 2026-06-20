@@ -7,11 +7,9 @@ import {
   FileText,
   Image as ImageIcon,
   MapPin,
-  Redo2,
   Replace,
   Square,
   Type,
-  Undo2,
   UserCircle2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -264,9 +262,7 @@ export function EditorLeftToolbar({
   return (
     <>
       <div
-        className={`toolbar-bubble-surface glass-toolbar absolute ${
-          isMobile ? 'left-4 top-20' : 'left-6 top-20'
-        } z-20 flex w-[52px] flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
+        className={`toolbar-bubble-surface glass-toolbar absolute left-6 top-20 z-20 flex w-[52px] flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
           toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
         }`}
       >
@@ -398,27 +394,6 @@ export function EditorLeftToolbar({
               <ImageIcon strokeWidth={2.5} className="h-5 w-5" />
             </button>
 
-            {isMobile && (
-              <>
-                <div className="my-1 h-px w-full bg-slate-100" />
-                <button
-                  onClick={undo}
-                  disabled={historyPastLength === 0}
-                  className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  title="Undo"
-                >
-                  <Undo2 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={redo}
-                  disabled={historyFutureLength === 0}
-                  className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  title="Redo"
-                >
-                  <Redo2 className="h-5 w-5" />
-                </button>
-              </>
-            )}
           </div>
         )}
 
