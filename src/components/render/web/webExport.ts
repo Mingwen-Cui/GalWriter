@@ -628,8 +628,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       z-index: 4;
       margin: 0;
       width: min(var(--dialog-width, 86%), calc(100% - 24px));
-      height: var(--dialog-height, 34%);
-      max-height: calc(100% - 96px);
+      max-height: min(var(--dialog-height, 34%), calc(100% - 96px));
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       transform: translateX(-50%);
       border: 1px solid var(--dialog-border-color, rgba(255,255,255,0.12));
@@ -675,7 +674,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .zen-toggle {
       position: absolute;
       right: 24px;
-      bottom: 24px;
+      bottom: var(--zen-toggle-bottom, 24px);
       z-index: 18;
       width: 44px;
       height: 44px;
@@ -686,6 +685,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       box-shadow: 0 18px 48px rgba(0,0,0,0.28);
       backdrop-filter: blur(14px);
       cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
     }
     .zen-toggle:hover { background: rgba(0,0,0,0.62); }
     .zen-toggle img { width: 20px; height: 20px; display: block; margin: auto; }
@@ -959,6 +959,49 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
+    let zenPositionFrame = 0;
+    let zenPositionObserver = null;
+
+    function hasZenBottomRightSpace() {
+      if (settings.layoutMode !== "immersive") return true;
+      const dialogOffsetX = clamp(style.dialogOffsetX, -100, 100, 0);
+      const dialogCenter = 50 + dialogOffsetX * 0.5;
+      const dialogWidth = clamp(style.dialogWidth, 0, 100, 86);
+      return Math.max(0, 100 - (dialogCenter + dialogWidth / 2)) >= 12;
+    }
+
+    function updateZenButtonPosition() {
+      if (zenPositionFrame) cancelAnimationFrame(zenPositionFrame);
+      zenPositionFrame = requestAnimationFrame(() => {
+        if (!zenButton) return;
+        if (hasZenBottomRightSpace()) {
+          zenButton.style.setProperty("--zen-toggle-bottom", "24px");
+          return;
+        }
+        const main = stageEl.closest("main");
+        const dialogue = stageEl.querySelector(".dialogue");
+        if (!main || !dialogue) {
+          zenButton.style.setProperty("--zen-toggle-bottom", "24px");
+          return;
+        }
+        const mainRect = main.getBoundingClientRect();
+        const dialogueRect = dialogue.getBoundingClientRect();
+        const nextBottom = Math.max(24, Math.ceil(mainRect.bottom - dialogueRect.top + 20));
+        zenButton.style.setProperty("--zen-toggle-bottom", nextBottom + "px");
+      });
+    }
+
+    function watchZenButtonPosition() {
+      if (zenPositionObserver) zenPositionObserver.disconnect();
+      zenPositionObserver = null;
+      const main = stageEl.closest("main");
+      const dialogue = stageEl.querySelector(".dialogue");
+      updateZenButtonPosition();
+      if (!main || !dialogue || typeof ResizeObserver === "undefined") return;
+      zenPositionObserver = new ResizeObserver(updateZenButtonPosition);
+      zenPositionObserver.observe(main);
+      zenPositionObserver.observe(dialogue);
+    }
 
     function fadeRegionAudio(audio, from, to, seconds, done) {
       cancelAnimationFrame(regionFadeFrame);
@@ -1270,7 +1313,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
     function cssEscape(value) {
       if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(String(value || ""));
-      return String(value || "").replace(/["\\]/g, "\\$&");
+      return String(value || "").replace(/["\\\\]/g, "\\\\$&");
     }
 
     function clearInlineActionElement(element) {
@@ -1562,6 +1605,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
+      watchZenButtonPosition();
 
       // 在下一个渲染帧中触发入场动画过渡到正常状态
       setTimeout(() => {
@@ -1654,6 +1698,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     playlistAudio.addEventListener("play", renderPlaylist);
     playlistAudio.addEventListener("pause", renderPlaylist);
     playlistAudio.addEventListener("ended", renderPlaylist);
+    window.addEventListener("resize", updateZenButtonPosition);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", updateZenButtonPosition);
     zenButton.addEventListener("click", () => {
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);

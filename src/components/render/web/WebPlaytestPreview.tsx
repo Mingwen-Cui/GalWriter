@@ -103,6 +103,7 @@ export function WebPlaytestPreview({
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
+  const dialogueBoxRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement>(null);
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
@@ -212,6 +213,69 @@ export function WebPlaytestPreview({
     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
     paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
   };
+  const dialogueOffsetX = Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0));
+  const dialogueCenter = 50 + dialogueOffsetX * 0.5;
+  const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
+  const dialogueRightSpace = Math.max(0, 100 - (dialogueCenter + dialogWidth / 2));
+  const hasBottomRightSpace = settings.layoutMode !== 'immersive' || dialogueRightSpace >= 12;
+  const [controlsToggleBottom, setControlsToggleBottom] = useState(24);
+  const controlsToggleStyle: React.CSSProperties =
+    settings.layoutMode === 'immersive'
+      ? {
+          right: 24,
+          bottom: hasBottomRightSpace ? 24 : controlsToggleBottom,
+        }
+      : {};
+
+  React.useLayoutEffect(() => {
+    if (settings.layoutMode !== 'immersive' || hasBottomRightSpace) {
+      setControlsToggleBottom(24);
+      return;
+    }
+    const root = previewRootRef.current;
+    const dialogue = dialogueBoxRef.current;
+    if (!root || !dialogue) return;
+
+    let frame = 0;
+    const updatePosition = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const rootRect = root.getBoundingClientRect();
+        const dialogueRect = dialogue.getBoundingClientRect();
+        const nextBottom = Math.max(24, Math.ceil(rootRect.bottom - dialogueRect.top + 20));
+        setControlsToggleBottom((current) =>
+          Math.abs(current - nextBottom) > 1 ? nextBottom : current,
+        );
+      });
+    };
+
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(root);
+    observer.observe(dialogue);
+    window.addEventListener('resize', updatePosition);
+    window.visualViewport?.addEventListener('resize', updatePosition);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', updatePosition);
+      window.visualViewport?.removeEventListener('resize', updatePosition);
+    };
+  }, [
+    settings.layoutMode,
+    settings.choicesPosition,
+    hasBottomRightSpace,
+    currentNodeId,
+    displayedPreviewText,
+    renderStyle.dialogWidth,
+    renderStyle.dialogHeight,
+    renderStyle.dialogOffsetX,
+    renderStyle.dialogOffsetY,
+    renderStyle.dialogTextPaddingX,
+    renderStyle.bodyFontSize,
+    renderStyle.titleFontSize,
+    renderStyle.titleVisible,
+  ]);
 
   React.useEffect(() => {
     setPresentationExiting(false);
@@ -923,8 +987,6 @@ export function WebPlaytestPreview({
               settings.layoutMode === 'immersive'
                 ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
                 : `${renderStyle.dialogWidth}%`,
-            height:
-              settings.layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
             maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
             left:
               settings.layoutMode === 'immersive'
@@ -939,6 +1001,7 @@ export function WebPlaytestPreview({
           }}
         >
           <div
+            ref={dialogueBoxRef}
             className={`pointer-events-auto relative w-full border-t border-white/10 py-4 ${
               settings.layoutMode === 'immersive'
                 ? 'overflow-y-auto rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl'
@@ -1001,18 +1064,18 @@ export function WebPlaytestPreview({
             )}
             {settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
           </div>
-          <ControlsToggle
-            label={controlsLabel}
-            hidden={previewControlsHidden}
-            onClick={() => setPreviewControlsHidden((prev) => !prev)}
-            positionClass={
-              settings.layoutMode === 'immersive'
-                ? 'pointer-events-auto static ml-3 shrink-0'
-                : 'absolute bottom-3 right-3'
-            }
-          />
-
         </div>
+        <ControlsToggle
+          label={controlsLabel}
+          hidden={previewControlsHidden}
+          onClick={() => setPreviewControlsHidden((prev) => !prev)}
+          positionClass={
+            settings.layoutMode === 'immersive'
+              ? 'absolute pointer-events-auto'
+              : 'absolute bottom-3 right-3'
+          }
+          style={controlsToggleStyle}
+        />
       </div>
     </div>
   );
@@ -1050,17 +1113,20 @@ function ControlsToggle({
   hidden,
   onClick,
   positionClass,
+  style,
 }: {
   label: string;
   hidden: boolean;
   onClick: () => void;
   positionClass: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${positionClass} z-30 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-black/35 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-all hover:bg-black/55 active:scale-95`}
+      className={`${positionClass} z-30 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-black/35 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/55 active:scale-95`}
+      style={style}
       title={label}
       aria-label={label}
     >

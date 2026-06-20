@@ -236,8 +236,10 @@ export function PlayTestModal({
   const [mediaStatusNodeId, setMediaStatusNodeId] = useState<string | null>(currentNodeId);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const immersiveDialogueRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [focusButtonBottom, setFocusButtonBottom] = useState(24);
 
   // 新增：文本呈现打字机与定时显现状态
   const [displayedHtml, setDisplayedHtml] = useState('');
@@ -437,8 +439,10 @@ export function PlayTestModal({
       layoutMode === 'immersive'
         ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
         : `${renderStyle.dialogWidth}%`,
-    height: layoutMode === 'immersive' ? `${renderStyle.dialogHeight}%` : undefined,
-    maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
+    maxHeight:
+      layoutMode === 'immersive'
+        ? `min(${Math.max(16, Math.min(75, renderStyle.dialogHeight || 34))}%, calc(100% - 96px))`
+        : undefined,
     left:
       layoutMode === 'immersive'
         ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
@@ -449,6 +453,67 @@ export function PlayTestModal({
         : undefined,
     transform: layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
   };
+  const dialogueOffsetX = Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0));
+  const dialogueCenter = 50 + dialogueOffsetX * 0.5;
+  const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
+  const dialogueRightSpace = Math.max(0, 100 - (dialogueCenter + dialogWidth / 2));
+  const hasBottomRightSpace = layoutMode !== 'immersive' || dialogueRightSpace >= 12;
+  const focusButtonStyle: React.CSSProperties = hasBottomRightSpace
+    ? {
+        right: '24px',
+        bottom: '24px',
+      }
+    : {
+        right: '24px',
+        bottom: `${focusButtonBottom}px`,
+      };
+
+  React.useLayoutEffect(() => {
+    if (layoutMode !== 'immersive' || hasBottomRightSpace) {
+      setFocusButtonBottom(24);
+      return;
+    }
+    const element = immersiveDialogueRef.current;
+    if (!element) return;
+
+    let frame = 0;
+    const updatePosition = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const rect = element.getBoundingClientRect();
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+        const nextBottom = Math.max(24, Math.ceil(viewportHeight - rect.top + 20));
+        setFocusButtonBottom((current) =>
+          Math.abs(current - nextBottom) > 1 ? nextBottom : current,
+        );
+      });
+    };
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(element);
+    window.addEventListener('resize', updatePosition);
+    window.visualViewport?.addEventListener('resize', updatePosition);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', updatePosition);
+      window.visualViewport?.removeEventListener('resize', updatePosition);
+    };
+  }, [
+    layoutMode,
+    hasBottomRightSpace,
+    currentNodeId,
+    displayedHtml,
+    choicesPosition,
+    renderStyle.dialogWidth,
+    renderStyle.dialogHeight,
+    renderStyle.dialogOffsetX,
+    renderStyle.dialogOffsetY,
+    renderStyle.dialogTextPaddingX,
+    renderStyle.bodyFontSize,
+    renderStyle.titleFontSize,
+    renderStyle.titleVisible,
+  ]);
 
   const getAudioTitle = React.useCallback(
     (node: FlowNode) => {
@@ -2462,6 +2527,7 @@ export function PlayTestModal({
 
                   {/* 透明半透明对话框 */}
                   <div
+                    ref={immersiveDialogueRef}
                     onClick={handleTextContainerClick}
                     className="pointer-events-auto relative w-full overflow-y-auto rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500"
                     style={dialogueShellStyle}
@@ -2491,7 +2557,7 @@ export function PlayTestModal({
                       <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                     </div>
 
-                    {!animationCompleted && (
+                    {false && !animationCompleted && (
                       <div className="absolute right-4 bottom-2 text-[10px] text-white/50 animate-pulse select-none">
                         {interactionMode === 'typewriter' &&
                           (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
@@ -2689,7 +2755,7 @@ export function PlayTestModal({
                   <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                 </div>
 
-                {!animationCompleted && (
+                {false && !animationCompleted && (
                   <div className="absolute right-4 bottom-2 text-[10px] opacity-40 animate-pulse select-none">
                     {interactionMode === 'typewriter' &&
                       (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
@@ -2744,7 +2810,7 @@ export function PlayTestModal({
           e.stopPropagation();
           setIsFocusMode(!isFocusMode);
         }}
-        className={`fixed bottom-6 right-6 z-[260] p-3.5 rounded-full shadow-xl backdrop-blur-lg transition-all duration-300 hover:scale-110 active:scale-95 border ${
+        className={`fixed z-[260] p-3.5 rounded-full shadow-xl backdrop-blur-lg transition-colors duration-200 active:scale-95 border ${
           isFocusMode
             ? isDarkMode
               ? 'bg-slate-800/80 hover:bg-slate-800 text-sky-400 border-sky-500/40 shadow-sky-950/20'
@@ -2753,6 +2819,7 @@ export function PlayTestModal({
               ? 'bg-slate-900/20 hover:bg-slate-900/40 text-slate-100 hover:text-white border-white/10 shadow-slate-950/30'
               : 'bg-white/20 hover:bg-white/40 text-slate-400 hover:text-slate-900 border-black/10 shadow-slate-200/30'
         }`}
+        style={focusButtonStyle}
         title={isFocusMode ? t.exitZenMode : t.enterZenMode}
       >
         {isFocusMode ? <EyeOff className="w-5 h-5 animate-pulse" /> : <Eye className="w-5 h-5" />}
