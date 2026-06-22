@@ -177,7 +177,8 @@ export const createAIClient = (config: AIClientConfig) => {
   };
 
   const callHostedProxy = async (prompt: string): Promise<AITextResult> => {
-    const response = await fetch(configuredUrl() || '/api/proxy.php', {
+    const proxyUrl = configuredUrl() || 'api/proxy.php';
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -193,6 +194,11 @@ export const createAIClient = (config: AIClientConfig) => {
       data = JSON.parse(rawText) as Record<string, unknown>;
     } catch {
       const preview = rawText.slice(0, 120).replace(/\n/g, ' ');
+      if (response.status === 404) {
+        throw new Error(
+          `服务端代理不存在（404）：请确认已将 dist/api/proxy.php 上传到网站服务器，或在“代理地址”中填写正确路径。当前请求地址：${proxyUrl}`,
+        );
+      }
       throw new Error(`服务端代理返回了非 JSON 响应（${response.status}）：${preview}`);
     }
 

@@ -68,6 +68,7 @@ import { SaveProjectModal } from '../editor-shell/SaveProjectModal';
 import {
   type AssistantTask,
   type AIButtonsConfig,
+  type AIGenerationBalance,
   type AIPromptsConfig,
   defaultAIButtonsConfig,
   defaultAIPrompts,
@@ -863,6 +864,8 @@ export function StoryEditor() {
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
+  const [aiGenerationBalance, setAiGenerationBalance] =
+    useState<AIGenerationBalance>('dialogue');
   const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
   const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
@@ -1411,6 +1414,7 @@ export function StoryEditor() {
       hideStoryImageButtonWithTags,
       sceneImageMode,
       plotStructureGenerateDirection,
+      aiGenerationBalance,
       customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
@@ -1445,6 +1449,7 @@ export function StoryEditor() {
     }),
     [
       aiButtonsConfig,
+      aiGenerationBalance,
       aiPrompts,
       aiProvider,
       allowAssistantImageGeneration,
@@ -1536,6 +1541,7 @@ export function StoryEditor() {
       setHideStoryImageButtonWithTags,
       setSceneImageMode,
       setPlotStructureGenerateDirection,
+      setAiGenerationBalance,
       setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
@@ -2183,6 +2189,7 @@ export function StoryEditor() {
     textModel: activeTextProfile?.model ?? DEFAULT_TEXT_MODEL,
     thinkingMode,
     generateLength,
+    aiGenerationBalance,
     handleUpdateNode,
     setNodes,
     setThinkingContent,
@@ -5432,6 +5439,8 @@ ${layoutConfig.label}
           setSceneImageMode={setSceneImageMode}
           plotStructureGenerateDirection={plotStructureGenerateDirection}
           setPlotStructureGenerateDirection={setPlotStructureGenerateDirection}
+          aiGenerationBalance={aiGenerationBalance}
+          setAiGenerationBalance={setAiGenerationBalance}
           customAiPromptsEnabled={customAiPromptsEnabled}
           setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}

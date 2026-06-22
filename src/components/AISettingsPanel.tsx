@@ -36,6 +36,7 @@ import {
 import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
 import {
   type AIButtonsConfig,
+  type AIGenerationBalance,
   type AIPromptsConfig,
   defaultAIButtonsConfig,
   defaultAIPrompts,
@@ -626,6 +627,8 @@ interface AISettingsPanelProps {
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
   setAiButtonsConfig: (config: AIButtonsConfig) => void;
+  aiGenerationBalance: AIGenerationBalance;
+  setAiGenerationBalance: (balance: AIGenerationBalance) => void;
   assistantOptionsSlot?: React.ReactNode;
 }
 
@@ -648,6 +651,8 @@ export function AISettingsPanel({
   setAiPrompts,
   aiButtonsConfig,
   setAiButtonsConfig,
+  aiGenerationBalance,
+  setAiGenerationBalance,
   assistantOptionsSlot,
 }: AISettingsPanelProps) {
   const t = translations[language];
@@ -729,6 +734,37 @@ export function AISettingsPanel({
       activeProfile: activeVoiceProfile,
     },
   ];
+  const optionButtonClass = (active: boolean) =>
+    `group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    }`;
+  const optionIconClass = (active: boolean) =>
+    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+      active
+        ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
+        : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+    }`;
+  const optionDetailButtonClass = (active: boolean) =>
+    `flex min-h-[84px] items-start gap-3 rounded-lg px-3 py-3 text-left transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    }`;
+  const renderInfoHint = (description: string) => (
+    <span className="group relative inline-flex">
+      <span
+        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
+        aria-label={description}
+      >
+        !
+      </span>
+      <span className="pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+        {description}
+      </span>
+    </span>
+  );
 
   const updateDraft = React.useCallback((updates: Partial<ProfileDraft>) => {
     setEditorState((current) => {
@@ -1082,8 +1118,8 @@ export function AISettingsPanel({
                       placeholder={
                         isHosted
                           ? language === 'zh'
-                            ? '留空使用默认 /api/proxy.php'
-                            : 'Leave empty for default /api/proxy.php'
+                            ? '留空使用默认 api/proxy.php'
+                            : 'Leave empty for default api/proxy.php'
                           : undefined
                       }
                       className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
@@ -1572,7 +1608,6 @@ export function AISettingsPanel({
       </div>
     );
   };
-
   return (
     <>
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
@@ -1586,9 +1621,9 @@ export function AISettingsPanel({
                   <div>
                     <h3 className="text-base font-black text-[var(--text-primary)]">
                       {language === 'zh'
-                        ? 'AI 接口配置'
+                        ? '\u0041\u0049 \u63a5\u53e3\u914d\u7f6e'
                         : language === 'ja'
-                          ? 'AIプロバイダー設定'
+                          ? 'AI Provider Profiles'
                           : 'AI Provider Profiles'}
                     </h3>
                   </div>
@@ -1597,7 +1632,6 @@ export function AISettingsPanel({
 
               <div className="grid gap-5">
                 {sections.map((section) => {
-                  // NOTE: 网页托管环境下，在文本 AI 列表顶部注入只读虚拟代理配置
                   const isWeb = !isTauriRuntime();
                   const virtualProfiles: SavedAIProfile[] =
                     isWeb && section.kind === 'text' ? [HOSTED_PROXY_PROFILE] : [];
@@ -1608,50 +1642,51 @@ export function AISettingsPanel({
                   const canAcknowledgeMissingApiHint =
                     section.kind === settingsAttentionTarget &&
                     Boolean(onAcknowledgeSettingsAttention);
-                  const totalCount = virtualProfiles.length + section.profiles.length;
+                  const allProfiles = [...virtualProfiles, ...section.profiles];
+                  const totalCount = allProfiles.length;
                   const profileCountLabel =
                     language === 'zh'
-                      ? `${totalCount} 个配置`
-                      : language === 'ja'
-                        ? `${totalCount} 個の設定`
-                        : `${totalCount} profile${totalCount === 1 ? '' : 's'}`;
+                      ? String(totalCount) + ' \u4e2a\u914d\u7f6e'
+                      : String(totalCount) + ' profile' + (totalCount === 1 ? '' : 's');
+
                   return (
                     <div
                       key={section.kind}
-                      className={`overflow-hidden rounded-lg border bg-[var(--card-bg)]/90 shadow-sm ${
-                        showMissingApiHint
+                      className={
+                        'overflow-hidden rounded-lg border bg-[var(--card-bg)]/90 shadow-sm ' +
+                        (showMissingApiHint
                           ? 'border-rose-400 ring-2 ring-rose-400/30'
-                          : 'border-[var(--card-border)]'
-                      }`}
+                          : 'border-[var(--card-border)]')
+                      }
                     >
                       <div className="flex items-start justify-between gap-4 border-b border-[var(--header-border)] px-5 py-4">
                         <div className="flex min-w-0 items-start gap-3">
                           <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${
-                              showMissingApiHint
+                            className={
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ' +
+                              (showMissingApiHint
                                 ? 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300'
-                                : meta.accent
-                            }`}
+                                : meta.accent)
+                            }
                           >
                             <meta.icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h4
-                                className={`text-base font-black ${
-                                  showMissingApiHint
+                                className={
+                                  'text-base font-black ' +
+                                  (showMissingApiHint
                                     ? 'text-rose-600 dark:text-rose-300'
-                                    : 'text-[var(--text-primary)]'
-                                }`}
+                                    : 'text-[var(--text-primary)]')
+                                }
                               >
                                 {meta.title}
                               </h4>
                               {showMissingApiHint && (
                                 <span className="h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
                               )}
-                              <span
-                                className={`rounded px-2 py-0.5 text-[10px] font-black ${meta.badge}`}
-                              >
+                              <span className={'rounded px-2 py-0.5 text-[10px] font-black ' + meta.badge}>
                                 {profileCountLabel}
                               </span>
                             </div>
@@ -1668,11 +1703,7 @@ export function AISettingsPanel({
                               className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              {language === 'zh'
-                                ? '我已知晓'
-                                : language === 'ja'
-                                  ? '了解しました'
-                                  : 'Got it'}
+                              {language === 'zh' ? '\u6211\u5df2\u77e5\u6653' : 'Got it'}
                             </button>
                           )}
                           <button
@@ -1681,40 +1712,34 @@ export function AISettingsPanel({
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
                           >
                             <Plus className="h-3.5 w-3.5" />
-                            {language === 'zh'
-                              ? '新建配置'
-                              : language === 'ja'
-                                ? '新規設定'
-                                : 'New Profile'}
+                            {language === 'zh' ? '\u65b0\u5efa\u914d\u7f6e' : 'New Profile'}
                           </button>
                         </div>
                       </div>
 
                       <div className="max-h-[260px] overflow-y-auto px-4 py-3 custom-scrollbar">
-                        {/* NOTE: 只有在虚拟配置和用户配置都为空时才显示空状态提示 */}
-                        {virtualProfiles.length + section.profiles.length === 0 ? (
+                        {allProfiles.length === 0 ? (
                           <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
-                              {language === 'zh'
-                                ? '还没有保存的配置'
-                                : language === 'ja'
-                                  ? '保存された設定はまだありません'
-                                  : 'No saved profiles yet'}
+                              {language === 'zh' ? '\u8fd8\u6ca1\u6709\u4fdd\u5b58\u7684\u914d\u7f6e' : 'No saved profiles yet'}
                             </p>
                             <p className="mt-2 text-xs font-medium leading-relaxed text-[var(--text-muted)]">
                               {language === 'zh'
-                                ? '点击右上角新建，先填写配置，再按保存。'
-                                : language === 'ja'
-                                  ? '右上端の新規作成ボタンをクリックし、設定を入力してから保存してください。'
-                                  : 'Create one from the top-right button, then save it.'}
+                                ? '\u70b9\u51fb\u53f3\u4e0a\u89d2\u65b0\u5efa\uff0c\u5148\u586b\u5199\u914d\u7f6e\uff0c\u518d\u6309\u4fdd\u5b58\u3002'
+                                : 'Create one from the top-right button, then save it.'}
                             </p>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {[...virtualProfiles, ...section.profiles].map((profile) => {
+                            {allProfiles.map((profile) => {
                               const isActive = profile.id === section.activeId;
-                              // NOTE: 虚拟托管代理配置为只读，不允许编辑
                               const isReadOnly = profile.id === HOSTED_PROXY_PROFILE_ID;
+                              const profileSummary = isReadOnly
+                                ? language === 'zh'
+                                  ? '\u0041\u0049 \u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\u3002\u6bcf\u4eba\u6bcf\u5929\u53ef\u514d\u8d39\u4f7f\u7528 30 \u6b21 \u0041\u0049 \u5bf9\u8bdd\u3002'
+                                  : 'AI requests are forwarded through the hosted proxy.'
+                                : (profile.provider || 'custom').toUpperCase() + ' / ' +
+                                  (profile.model || (language === 'zh' ? '\u672a\u6307\u5b9a\u6a21\u578b' : 'No model selected'));
                               return (
                                 <button
                                   key={profile.id}
@@ -1722,60 +1747,45 @@ export function AISettingsPanel({
                                   onClick={() => {
                                     void onSelectAIProfile(section.kind, profile.id);
                                   }}
-                                  className={`w-full rounded-md border px-3.5 py-3 text-left transition-all ${
-                                    isActive
+                                  className={
+                                    'w-full rounded-md border px-3.5 py-3 text-left transition-all ' +
+                                    (isActive
                                       ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm ring-1 ring-[var(--accent)]/15'
-                                      : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35 hover:bg-[var(--app-bg)]/55'
-                                  }`}
+                                      : 'border-[var(--card-border)] bg-[var(--app-bg)]/35 hover:border-[var(--accent)]/35 hover:bg-[var(--app-bg)]/55')
+                                  }
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2.5">
                                         <span
-                                          className={`h-2 w-2 rounded-full ${
-                                            isActive ? 'bg-[var(--accent)]' : 'bg-slate-300'
-                                          }`}
+                                          className={
+                                            'h-2 w-2 rounded-full ' +
+                                            (isActive ? 'bg-[var(--accent)]' : 'bg-slate-300')
+                                          }
                                         />
                                         <p className="truncate text-sm font-black text-[var(--text-primary)]">
                                           {profile.name}
                                         </p>
                                       </div>
                                       <p
-                                        className={`mt-1 pl-4.5 text-[11px] font-medium text-[var(--text-muted)] ${
-                                          isReadOnly ? 'leading-5' : 'truncate'
-                                        }`}
+                                        className={
+                                          'mt-1 pl-4.5 text-[11px] font-medium text-[var(--text-muted)] ' +
+                                          (isReadOnly ? 'leading-5' : 'truncate')
+                                        }
                                       >
-                                        {isReadOnly
-                                          ? 'AI请求将通过网站服务端代理转发。每人每天可免费使用 30 次 AI 对话。'
-                                          : `${(profile.provider || 'custom').toUpperCase()} / ${
-                                              profile.model ||
-                                              (language === 'zh'
-                                                ? '未指定模型'
-                                                : language === 'ja'
-                                                  ? '未指定モデル'
-                                                  : 'No model selected')
-                                            }`}
+                                        {profileSummary}
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-2">
                                       {isActive && (
                                         <span className="rounded bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
-                                          {language === 'zh'
-                                            ? '正在使用'
-                                            : language === 'ja'
-                                              ? '使用中'
-                                              : 'Active'}
+                                          {language === 'zh' ? '\u6b63\u5728\u4f7f\u7528' : 'Active'}
                                         </span>
                                       )}
                                       {isReadOnly ? (
-                                        // NOTE: 只读配置仅显示锁图标，不提供编辑入口
                                         <span className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-muted)] opacity-60">
                                           <Lock className="h-3 w-3" />
-                                          {language === 'zh'
-                                            ? '托管锁定'
-                                            : language === 'ja'
-                                              ? 'ロック済み'
-                                              : 'Locked'}
+                                          {language === 'zh' ? '\u6258\u7ba1\u9501\u5b9a' : 'Locked'}
                                         </span>
                                       ) : (
                                         <span
@@ -1786,11 +1796,7 @@ export function AISettingsPanel({
                                           className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                         >
                                           <Pencil className="h-3 w-3" />
-                                          {language === 'zh'
-                                            ? '编辑'
-                                            : language === 'ja'
-                                              ? '編集'
-                                              : 'Edit'}
+                                          {language === 'zh' ? '\u7f16\u8f91' : 'Edit'}
                                         </span>
                                       )}
                                     </div>
@@ -1807,36 +1813,38 @@ export function AISettingsPanel({
               </div>
             </section>
 
+
+
             <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="flex items-center gap-2">
                   <h3 className="text-base font-black text-[var(--text-primary)]">
                     {language === 'zh'
-                      ? 'AI 续写弹窗按钮'
+                      ? '\u0041\u0049 \u7eed\u5199\u5f39\u7a97\u6309\u94ae'
                       : language === 'ja'
-                        ? 'AI執筆アクションボタン'
+                        ? 'AI writing buttons'
                         : 'AI Action Buttons'}
                   </h3>
-                  <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                    {language === 'zh'
-                      ? '控制 AI 续写选择弹窗中显示哪些功能按钮。'
+                  {renderInfoHint(
+                    language === 'zh'
+                      ? '\u63a7\u5236 \u0041\u0049 \u7eed\u5199\u9009\u62e9\u5f39\u7a97\u4e2d\u663e\u793a\u54ea\u4e9b\u529f\u80fd\u6309\u94ae\u3002'
                       : language === 'ja'
-                        ? 'AI執筆ダイアログに表示するアクションボタンを設定します。'
-                        : 'Control which action buttons appear in the AI writing modal.'}
-                  </p>
+                        ? 'AI writing dialog features.'
+                        : 'Control which action buttons appear in the AI writing modal.'
+                  )}
                 </div>
                 <button
                   onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
-                  className="shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  className="shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
                   {language === 'zh'
-                    ? '全部恢复'
+                    ? '\u5168\u90e8\u6062\u590d'
                     : language === 'ja'
-                      ? 'すべてリセット'
+                      ? 'Reset All'
                       : 'Reset All'}
                 </button>
               </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5 sm:grid-cols-2">
                 {(
                   [
                     {
@@ -1844,9 +1852,9 @@ export function AISettingsPanel({
                       Icon: PenLine,
                       label:
                         language === 'zh'
-                          ? '根据前文续写'
+                          ? '\u6839\u636e\u524d\u6587\u7eed\u5199'
                           : language === 'ja'
-                            ? '文脈から執筆'
+                            ? 'Continue from context'
                             : 'Continue from context',
                     },
                     {
@@ -1854,9 +1862,9 @@ export function AISettingsPanel({
                       Icon: Lightbulb,
                       label:
                         language === 'zh'
-                          ? '提供不同创意'
+                          ? '\u63d0\u4f9b\u4e0d\u540c\u521b\u610f'
                           : language === 'ja'
-                            ? '異なるアイデア'
+                            ? 'Creative alternatives'
                             : 'Creative alternatives',
                     },
                     {
@@ -1864,9 +1872,9 @@ export function AISettingsPanel({
                       Icon: RefreshCw,
                       label:
                         language === 'zh'
-                          ? '改写当前内容'
+                          ? '\u6539\u5199\u5f53\u524d\u5185\u5bb9'
                           : language === 'ja'
-                            ? '選択範囲を書き換え'
+                            ? 'Rewrite current content'
                             : 'Rewrite current content',
                     },
                     {
@@ -1874,9 +1882,9 @@ export function AISettingsPanel({
                       Icon: PanelTopDashed,
                       label:
                         language === 'zh'
-                          ? '补充中间内容'
+                          ? '\u8865\u5145\u4e2d\u95f4\u5185\u5bb9'
                           : language === 'ja'
-                            ? '中間の内容を補完'
+                            ? 'Fill in the gap'
                             : 'Fill in the gap',
                     },
                     {
@@ -1884,9 +1892,9 @@ export function AISettingsPanel({
                       Icon: Feather,
                       label:
                         language === 'zh'
-                          ? '仅增加场景描写'
+                          ? '\u4ec5\u589e\u52a0\u573a\u666f\u63cf\u5199'
                           : language === 'ja'
-                            ? '描写を増やす'
+                            ? 'Scene description only'
                             : 'Scene description only',
                     },
                     {
@@ -1894,9 +1902,9 @@ export function AISettingsPanel({
                       Icon: MessageCircle,
                       label:
                         language === 'zh'
-                          ? '仅增加对话'
+                          ? '\u4ec5\u589e\u52a0\u5bf9\u8bdd'
                           : language === 'ja'
-                            ? '会話を増やす'
+                            ? 'Dialogue only'
                             : 'Dialogue only',
                     },
                   ] as const
@@ -1909,43 +1917,101 @@ export function AISettingsPanel({
                         [item.key]: !aiButtonsConfig[item.key],
                       })
                     }
-                    className={`group flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
-                      aiButtonsConfig[item.key]
-                        ? 'border-[var(--accent)]/45 bg-[var(--accent)]/5 shadow-sm'
-                        : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 opacity-70 hover:opacity-100'
-                    }`}
+                    className={optionButtonClass(aiButtonsConfig[item.key])}
                   >
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                        aiButtonsConfig[item.key]
-                          ? 'bg-[var(--accent)] text-white'
-                          : 'bg-[var(--card-bg)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
-                      }`}
-                    >
+                    <span className={optionIconClass(aiButtonsConfig[item.key])}>
                       <item.Icon className="h-4 w-4" />
                     </span>
-                    <span
-                      className={`flex-1 text-sm font-semibold ${
-                        aiButtonsConfig[item.key]
-                          ? 'text-[var(--text-primary)]'
-                          : 'text-[var(--text-muted)]'
-                      }`}
-                    >
+                    <span className="flex-1 text-sm font-semibold">
                       {item.label}
                     </span>
-                    <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${
-                        aiButtonsConfig[item.key]
-                          ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                          : 'border-[var(--header-border)] bg-[var(--card-bg)] text-transparent'
-                      }`}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
                   </div>
                 ))}
               </div>
             </section>
+
+            <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-[var(--text-primary)]">
+                  {language === 'zh'
+                    ? '\u0041\u0049 \u5199\u4f5c\u503e\u5411'
+                    : language === 'ja'
+                      ? 'AI writing balance'
+                      : 'AI Writing Balance'}
+                </h3>
+                {renderInfoHint(
+                  language === 'zh'
+                    ? '\u63a7\u5236\u7efc\u5408\u7eed\u5199\u65f6\u66f4\u504f\u5411\u4eba\u7269\u5bf9\u8bdd\uff0c\u8fd8\u662f\u66f4\u504f\u5411\u52a8\u4f5c\u4e0e\u4e8b\u4ef6\u63a8\u8fdb\u3002'
+                    : language === 'ja'
+                      ? 'General writing can lean toward character dialogue or action-driven progress.'
+                      : 'Choose whether general generation leans toward dialogue or action-driven progress.'
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      value: 'dialogue' as const,
+                      Icon: MessageCircle,
+                      label:
+                        language === 'zh'
+                          ? '\u66f4\u591a\u5bf9\u8bdd'
+                          : language === 'ja'
+                            ? 'More Dialogue'
+                            : 'More Dialogue',
+                      description:
+                        language === 'zh'
+                          ? '\u9ed8\u8ba4\uff1a\u8ba9\u4eba\u7269\u4ea4\u6d41\u3001\u53f0\u8bcd\u548c\u60c5\u7eea\u53cd\u5e94\u66f4\u591a\u3002'
+                          : language === 'ja'
+                            ? 'Default: more character speech and emotional response.'
+                            : 'Default: more character speech and emotional response.',
+                    },
+                    {
+                      value: 'action' as const,
+                      Icon: Feather,
+                      label:
+                        language === 'zh'
+                          ? '\u66f4\u591a\u52a8\u4f5c'
+                          : language === 'ja'
+                            ? 'More Action'
+                            : 'More Action',
+                      description:
+                        language === 'zh'
+                          ? '\u8ba9\u80a2\u4f53\u52a8\u4f5c\u3001\u573a\u9762\u8c03\u5ea6\u548c\u4e8b\u4ef6\u63a8\u8fdb\u66f4\u591a\u3002'
+                          : language === 'ja'
+                            ? 'More physical action, staging, and plot movement.'
+                            : 'More physical action, staging, and plot movement.',
+                    },
+                  ] satisfies Array<{
+                    value: AIGenerationBalance;
+                    Icon: typeof MessageCircle;
+                    label: string;
+                    description: string;
+                  }>
+                ).map((item) => {
+                  const selected = aiGenerationBalance === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setAiGenerationBalance(item.value)}
+                      className={optionDetailButtonClass(selected)}
+                    >
+                      <span className={optionIconClass(selected)}>
+                        <item.Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2 text-sm font-black">
+                          {item.label}
+                          {renderInfoHint(item.description)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
 
             {assistantOptionsSlot}
 

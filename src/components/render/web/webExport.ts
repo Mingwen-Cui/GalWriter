@@ -391,23 +391,29 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .tool img { width: 18px; height: 18px; display: block; }
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
     .playlist-wrap { position: relative; }
-    .playlist-panel {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      z-index: 40;
-      width: min(340px, calc(100vw - 24px));
-      height: 360px;
+    .playlist-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
       display: none;
+      place-items: center;
+      padding: 24px 16px;
+      background: rgba(0,0,0,0.42);
+      backdrop-filter: blur(4px);
+    }
+    .playlist-backdrop.open { display: grid; }
+    .playlist-panel {
+      width: min(512px, calc(100vw - 32px));
+      height: min(416px, calc(100vh - 64px));
+      display: flex;
       flex-direction: column;
-      padding: 12px;
+      padding: 16px;
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 16px;
       background: rgba(8, 12, 20, 0.94);
       box-shadow: 0 24px 70px rgba(0,0,0,0.5);
       backdrop-filter: blur(18px);
     }
-    .playlist-panel.open { display: flex; }
     .playlist-head {
       display: flex;
       align-items: flex-start;
@@ -810,7 +816,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         <button class="tool" id="autoButton" type="button"></button>
         <div class="playlist-wrap">
           <button class="tool" id="playlistButton" type="button" aria-expanded="false"></button>
-          <div class="playlist-panel" id="playlistPanel">
+          <div class="playlist-backdrop" id="playlistBackdrop">
+          <div class="playlist-panel" id="playlistPanel" role="dialog" aria-modal="true">
             <div class="playlist-head">
               <div>
                 <div class="playlist-title" id="playlistTitle"></div>
@@ -819,6 +826,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
               <button class="playlist-close" id="playlistClose" type="button" aria-label="Close">&#10005;</button>
             </div>
             <div class="playlist-items" id="playlistItems"></div>
+          </div>
           </div>
         </div>
         <a class="tool" id="makeButton" href="https://mingwencui.com/AIwriter/?lang=zh" target="_blank" rel="noopener noreferrer"></a>
@@ -933,6 +941,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const resetButton = document.getElementById("resetButton");
     const autoButton = document.getElementById("autoButton");
     const playlistButton = document.getElementById("playlistButton");
+    const playlistBackdrop = document.getElementById("playlistBackdrop");
     const playlistPanel = document.getElementById("playlistPanel");
     const playlistClose = document.getElementById("playlistClose");
     const playlistTitle = document.getElementById("playlistTitle");
@@ -1687,12 +1696,17 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       render();
     });
     playlistButton.addEventListener("click", () => {
-      const open = !playlistPanel.classList.contains("open");
-      playlistPanel.classList.toggle("open", open);
+      const open = !playlistBackdrop.classList.contains("open");
+      playlistBackdrop.classList.toggle("open", open);
       playlistButton.setAttribute("aria-expanded", String(open));
     });
     playlistClose.addEventListener("click", () => {
-      playlistPanel.classList.remove("open");
+      playlistBackdrop.classList.remove("open");
+      playlistButton.setAttribute("aria-expanded", "false");
+    });
+    playlistBackdrop.addEventListener("click", (event) => {
+      if (event.target !== playlistBackdrop) return;
+      playlistBackdrop.classList.remove("open");
       playlistButton.setAttribute("aria-expanded", "false");
     });
     playlistAudio.addEventListener("play", renderPlaylist);
@@ -1711,7 +1725,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       if (
         target instanceof Element &&
         target.closest(
-          "header, button, a, video, audio, input, select, textarea, .playlist-panel"
+          "header, button, a, video, audio, input, select, textarea, .playlist-backdrop"
         )
       ) {
         return;

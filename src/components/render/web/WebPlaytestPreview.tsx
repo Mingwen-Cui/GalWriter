@@ -5,16 +5,14 @@ import {
   ListMusic,
   Maximize2,
   Minimize2,
-  Pause,
-  Play,
   Sparkles,
   RotateCcw,
   Undo2,
-  X,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -649,76 +647,6 @@ export function WebPlaytestPreview({
           >
             <ListMusic className="h-4 w-4" />
           </button>
-          {showAudioPlaylist && (
-            <div
-              className="absolute right-0 top-10 z-[300] flex h-80 w-[min(320px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/12 bg-slate-950/94 p-3 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                <div>
-                  <div className="text-sm font-black">
-                    {t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-white/45">
-                    {t(
-                      '最近听过的录音排在最上方',
-                      '最近聞いた録音を上に表示',
-                      'Most recently heard first',
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAudioPlaylist(false)}
-                  className="grid h-7 w-7 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white"
-                aria-label={t('关闭', '閉じる', 'Close')}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-                {playedAudios.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-white/15 px-6 text-center text-xs text-white/40">
-                    {t(
-                      '听过的录音会显示在这里',
-                      '再生した録音がここに表示されます',
-                      'Audio you have heard will appear here',
-                    )}
-                  </div>
-                ) : (
-                  playedAudios.map((audio) => {
-                    const isActive = playlistAudioUrl === audio.url && isPlaylistAudioPlaying;
-                    return (
-                      <div
-                        key={`${audio.nodeId}-${audio.url}`}
-                        className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 ${
-                          isActive
-                            ? 'border-sky-400/50 bg-sky-500/15'
-                            : 'border-white/10 bg-white/[0.05]'
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate text-center text-xs font-bold text-white/85">
-                          {audio.title}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => togglePlaylistAudio(audio)}
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-500 text-white transition hover:bg-sky-400 active:scale-95"
-                          aria-label={isActive ? 'Pause' : 'Play'}
-                        >
-                          {isActive ? (
-                            <Pause className="h-3.5 w-3.5" />
-                          ) : (
-                            <Play className="ml-0.5 h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
         </div>
         <button
           type="button"
@@ -756,6 +684,31 @@ export function WebPlaytestPreview({
     </div>
   );
 
+  const renderAudioPlaylistModal = () => (
+    <AudioPlaylistModal
+      open={showAudioPlaylist}
+      items={playedAudios}
+      activeUrl={playlistAudioUrl}
+      isPlaying={isPlaylistAudioPlaying}
+      title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
+      hint={t(
+        '最近听过的录音排在最上方',
+        '最近聞いた録音を上に表示',
+        'Most recently heard first',
+      )}
+      emptyText={t(
+        '听过的录音会显示在这里',
+        '再生した録音がここに表示されます',
+        'Audio you have heard will appear here',
+      )}
+      closeLabel={t('关闭', '閉じる', 'Close')}
+      dark
+      scope="container"
+      onClose={() => setShowAudioPlaylist(false)}
+      onToggleAudio={togglePlaylistAudio}
+    />
+  );
+
   if (!root) {
     return (
       <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
@@ -775,6 +728,7 @@ export function WebPlaytestPreview({
         className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
       >
         {renderPreviewToolbar()}
+        {renderAudioPlaylistModal()}
         <ControlsToggle
           label={controlsLabel}
           hidden={previewControlsHidden}
@@ -855,6 +809,7 @@ export function WebPlaytestPreview({
         }`}
       >
         {renderPreviewToolbar()}
+        {renderAudioPlaylistModal()}
         <div
           className={settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 p-4'}
         >

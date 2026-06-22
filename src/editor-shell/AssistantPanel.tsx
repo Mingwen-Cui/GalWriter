@@ -578,7 +578,7 @@ export function AssistantPanel({
                 </p>
                 <h2>{language === 'zh' ? '随时陪你把脑洞写成作品' : 'Ready to turn ideas into finished work'}</h2>
               </div>
-              <img src="/glass.png" alt="" className="assistant-welcome-logo" />
+              <img src="./glass.png" alt="" className="assistant-welcome-logo" />
             </div>
             <div className="assistant-welcome-prompts">
               <div className="assistant-welcome-prompt-title">

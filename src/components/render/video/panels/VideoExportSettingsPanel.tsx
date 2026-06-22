@@ -1,4 +1,4 @@
-import {
+﻿import {
   ALargeSmall,
   Baseline,
   BetweenHorizontalStart,
@@ -238,7 +238,6 @@ export function VideoExportSettingsPanel({
       1,
       resolutionHeight * Math.min(0.75, Math.max(0.16, renderStyle.dialogHeight / 100)),
     );
-    // NOTE: dialogGradientAngle 鍙兘涓?undefined锛堟棫瀛樻。鏁版嵁锛夛紝闇€瑕?fallback 闃叉浜х敓 NaN
     const safeAngle = Number.isFinite(renderStyle.dialogGradientAngle) ? renderStyle.dialogGradientAngle : 90;
     const angle = ((safeAngle - 90) * Math.PI) / 180;
     const diagonal = Math.hypot(boxWidth, boxHeight);
@@ -431,8 +430,8 @@ export function VideoExportSettingsPanel({
                   setOpenSelectId(null);
                 }}
                 className={`flex h-8 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${option.value === value
-                    ? 'bg-[var(--vr-accent)] text-white'
-                    : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
+                  ? 'bg-[var(--vr-accent)] text-white'
+                  : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
                   }`}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
@@ -509,13 +508,12 @@ export function VideoExportSettingsPanel({
               onClick={() => {
                 if (canToggle) setStyle(visibleKey, !visible as never);
               }}
-              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-                isTitle
-                  ? 'bg-[#f7f9fc] text-[var(--vr-text)]'
-                  : visible
-                    ? 'bg-white/12 text-[var(--vr-text)]'
-                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-              } ${canToggle ? '' : 'cursor-default'}`}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${isTitle
+                ? 'bg-[#f7f9fc] text-[var(--vr-text)]'
+                : visible
+                  ? 'bg-white/12 text-[var(--vr-text)]'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+                } ${canToggle ? '' : 'cursor-default'}`}
               aria-label={label}
             >
               {canToggle &&
@@ -642,8 +640,8 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={() => setStyle(alignKey, value as never)}
                   className={`h-9 text-xs font-normal ${align === value
-                      ? 'bg-[var(--vr-accent)] text-white'
-                      : 'text-[var(--vr-text-soft)]'
+                    ? 'bg-[var(--vr-accent)] text-white'
+                    : 'text-[var(--vr-text-soft)]'
                     }`}
                 >
                   {value === 'left'
@@ -695,11 +693,10 @@ export function VideoExportSettingsPanel({
           <button
             type="button"
             onClick={() => setShowSettingDescriptions((current) => !current)}
-            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-              showSettingDescriptions
-                ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-            }`}
+            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${showSettingDescriptions
+              ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
+              : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              }`}
             title={
               showSettingDescriptions
                 ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
@@ -721,8 +718,8 @@ export function VideoExportSettingsPanel({
               type="button"
               onClick={() => setExportSettingsMode(mode)}
               className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${exportSettingsMode === mode
-                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
                 }`}
               title={
                 mode === 'video'
@@ -865,9 +862,8 @@ export function VideoExportSettingsPanel({
                       setOutputDirError('');
                     }}
                     placeholder={t('\u4e0b\u8f7d\u76ee\u5f55 \\Downloads', '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9 \\Downloads', '\\Downloads')}
-                    className={`h-9 min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 text-xs text-[var(--vr-text)] outline-none ${
-                      outputDirError ? 'border-rose-400/70' : 'border-transparent'
-                    }`}
+                    className={`h-9 min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 text-xs text-[var(--vr-text)] outline-none ${outputDirError ? 'border-rose-400/70' : 'border-transparent'
+                      }`}
                   />
                   <button
                     type="button"
@@ -891,36 +887,38 @@ export function VideoExportSettingsPanel({
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('文字样式', 'テキストスタイル', 'Text Style')}
               </div>
-              <div className="rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+              <div className="flex items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+                <div className="shrink-0 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                   {t(
                     '\u89c6\u9891\u6587\u5b57\u5c3a\u5ea6',
                     '\u52d5\u753b\u30c6\u30ad\u30b9\u30c8\u5c3a\u5ea6',
                     'Video text scale',
                   )}
                 </div>
-                <ExportPillToggleGroup
-                  value={videoTextScaleMode}
-                  options={[
-                    {
-                      value: 'literal',
-                      label: t(
-                        '\u9075\u5faa\u6570\u503c',
-                        '\u6570\u5024\u3092\u512a\u5148',
-                        'Use px values',
-                      ),
-                    },
-                    {
-                      value: 'webRatio',
-                      label: t(
-                        '\u7f51\u9875\u6bd4\u4f8b',
-                        '\u30a6\u30a7\u30d6\u6bd4\u7387',
-                        'Match web ratio',
-                      ),
-                    },
-                  ]}
-                  onChange={(value) => setVideoTextScaleMode(value as VideoTextScaleMode)}
-                />
+                <div className="min-w-[156px] flex-1">
+                  <ExportPillToggleGroup
+                    value={videoTextScaleMode}
+                    options={[
+                      {
+                        value: 'literal',
+                        label: t(
+                          '\u9075\u5faa\u6570\u503c',
+                          '\u6570\u5024\u3092\u512a\u5148',
+                          'Use px values',
+                        ),
+                      },
+                      {
+                        value: 'webRatio',
+                        label: t(
+                          '\u7f51\u9875\u6bd4\u4f8b',
+                          '\u30a6\u30a7\u30d6\u6bd4\u7387',
+                          'Match web ratio',
+                        ),
+                      },
+                    ]}
+                    onChange={(value) => setVideoTextScaleMode(value as VideoTextScaleMode)}
+                  />
+                </div>
               </div>
               <RenderStyleSettingsSection
                 language={language}
@@ -1044,21 +1042,21 @@ export function VideoExportSettingsPanel({
                   icon={null}
                   title={useGpuAcceleration
                     ? t(
-                        '当前：WebGPU 加速（点击切换到 2D Canvas）',
-                        '現在: WebGPU 加速（クリックで 2D Canvas に切替）',
-                        'Current: WebGPU accelerated (click to switch to 2D Canvas)',
-                      )
+                      '当前：WebGPU 加速（点击切换到 2D Canvas）',
+                      '現在: WebGPU 加速（クリックで 2D Canvas に切替）',
+                      'Current: WebGPU accelerated (click to switch to 2D Canvas)',
+                    )
                     : isWebGPUSupported
                       ? t(
-                          '当前：2D Canvas（点击切换到 WebGPU 加速）',
-                          '現在: 2D Canvas（クリックで WebGPU 加速に切替）',
-                          'Current: 2D Canvas (click to switch to WebGPU)',
-                        )
+                        '当前：2D Canvas（点击切换到 WebGPU 加速）',
+                        '現在: 2D Canvas（クリックで WebGPU 加速に切替）',
+                        'Current: 2D Canvas (click to switch to WebGPU)',
+                      )
                       : t(
-                          '当前浏览器不支持 WebGPU，仅可使用 2D Canvas',
-                          'このブラウザーは WebGPU 非対応、2D Canvas のみ使用可能',
-                          'WebGPU not supported; 2D Canvas only',
-                        )
+                        '当前浏览器不支持 WebGPU，仅可使用 2D Canvas',
+                        'このブラウザーは WebGPU 非対応、2D Canvas のみ使用可能',
+                        'WebGPU not supported; 2D Canvas only',
+                      )
                   }
                   disabled={!isWebGPUSupported}
                   onClick={() => {
@@ -1169,8 +1167,8 @@ export function VideoExportSettingsPanel({
                   type="button"
                   onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
                   className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${isRecordingVoiceover
-                      ? 'bg-rose-500 text-white hover:bg-rose-600'
-                      : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+                    ? 'bg-rose-500 text-white hover:bg-rose-600'
+                    : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
                     }`}
                 >
                   <Mic className="h-4 w-4 shrink-0" />
@@ -1237,9 +1235,8 @@ function ExportSettingCard({
     <div className="space-y-1">
       {description && <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>}
       <div
-        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${
-          hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
-        }`}
+        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+          }`}
       >
         {Icon ? (
           <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
@@ -1276,11 +1273,10 @@ function ExportToggleButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
-        active && highlightActive
-          ? 'bg-[var(--vr-accent)] text-white'
-          : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-      } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${active && highlightActive
+        ? 'bg-[var(--vr-accent)] text-white'
+        : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
       aria-pressed={active}
     >
       {icon}
@@ -1317,11 +1313,10 @@ function ExportPillToggleGroup({
             type="button"
             onClick={() => onChange(option.value)}
             disabled={option.disabled}
-            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
-              active
-                ? 'bg-[var(--vr-accent)] text-white'
-                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-            } ${option.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${active
+              ? 'bg-[var(--vr-accent)] text-white'
+              : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+              } ${option.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
             title={option.title ?? option.label}
             aria-pressed={active}
           >

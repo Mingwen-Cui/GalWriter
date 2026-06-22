@@ -230,7 +230,7 @@ export function VideoRenderModal({
   const [videoTextScaleMode, setVideoTextScaleMode] = useState<VideoTextScaleMode>(() =>
     isVideoTextScaleMode(persistedWorkspace?.videoTextScaleMode)
       ? persistedWorkspace.videoTextScaleMode
-      : 'literal',
+      : 'webRatio',
   );
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');

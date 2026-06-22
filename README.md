@@ -62,6 +62,16 @@ Release 构建只会随 Full 版携带 `ffmpeg.exe`，不会打包 `ffprobe.exe`
 
 Web 版适合演示和快速试用。由于浏览器限制，Web 端视频导出只直接支持 **WebM**。如果需要 **MP4 / MOV / MKV** 等常见格式，请使用桌面版；推荐下载内置 FFmpeg 的 Full 版。
 
+#### 网站托管 API
+
+如果 Web 版选择“网络托管代理”，前端会请求同域名下的 `/api/proxy.php`。部署时请确认：
+
+1. 运行 `npm run build` 后，把整个 `dist/` 上传到服务器，包含 `dist/api/proxy.php`。
+2. 在服务器配置环境变量 `DEEPSEEK_API_KEY`，或把 `dist/api/config.example.php` 复制为 `dist/api/config.local.php` 并填写真实 Key。
+3. 服务器需要能执行 PHP，并允许 PHP 访问 `https://api.deepseek.com`。
+
+如果浏览器报 “服务端代理不存在（404）”，通常是 `api/proxy.php` 没上传、站点根目录不对，或 nginx/Apache 没把 PHP 请求交给 PHP-FPM。
+
 ## 快速开始
 
 1. 打开 GalWriter AI。

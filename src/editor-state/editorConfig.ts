@@ -1,5 +1,6 @@
 export type {
   AIButtonsConfig,
+  AIGenerationBalance,
   AIPromptsConfig,
   AssistantMessage,
   AssistantMessageOption,

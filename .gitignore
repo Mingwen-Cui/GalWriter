@@ -8,6 +8,7 @@ public/downloads/
 examples/
 scripts/
 api/
+public/api/config.local.php
 
 # Tauri/Rust generated output
 src-tauri/gen/

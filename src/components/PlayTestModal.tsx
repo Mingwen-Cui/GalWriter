@@ -10,8 +10,6 @@ import {
   Maximize2,
   Minimize2,
   Moon,
-  Pause,
-  Play,
   PlayCircle,
   RotateCcw,
   Settings,
@@ -26,6 +24,7 @@ import type { LucideIcon } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { AudioPlaylistModal } from './AudioPlaylistModal';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
 import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
@@ -1739,99 +1738,37 @@ export function PlayTestModal({
               <ListMusic className="w-5 h-5" />
             </button>
 
-            {showAudioPlaylist && (
-              <div
-                onClick={(event) => event.stopPropagation()}
-                className={`absolute right-0 mt-2 flex h-96 w-[min(22rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border p-3 shadow-2xl ${
-                  layoutMode === 'immersive'
-                    ? 'border-white/10 bg-black/85 text-white backdrop-blur-md'
-                    : isDarkMode
-                      ? 'border-white/10 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-800'
-                }`}
-              >
-                <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                  <div>
-                    <div className="text-sm font-bold">
-                      {language === 'zh'
-                        ? '录音播放列表'
-                        : language === 'ja'
-                          ? '録音プレイリスト'
-                          : 'Audio playlist'}
-                    </div>
-                    <div className="mt-0.5 text-[11px] opacity-55">
-                      {language === 'zh'
-                        ? '最近听过的录音排在最上方'
-                        : language === 'ja'
-                          ? '最近聴いた録音が上に表示されます'
-                          : 'Most recently heard first'}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowAudioPlaylist(false)}
-                    className="rounded-lg p-1.5 opacity-60 transition hover:bg-white/10 hover:opacity-100"
-                    aria-label={t.close}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-                  {playedAudios.length === 0 ? (
-                    <div
-                      className={`flex h-full items-center justify-center rounded-xl border border-dashed px-6 text-center text-xs ${
-                        isDarkMode || layoutMode === 'immersive'
-                          ? 'border-white/15 text-slate-400'
-                          : 'border-slate-200 text-slate-400'
-                      }`}
-                    >
-                      {language === 'zh'
-                        ? '听过的录音会显示在这里'
-                        : language === 'ja'
-                          ? '再生した録音がここに表示されます'
-                          : 'Audio you have heard will appear here'}
-                    </div>
-                  ) : (
-                    playedAudios.map((audio) => {
-                      const isActive = playlistAudioUrl === audio.url && isPlaylistAudioPlaying;
-                      return (
-                        <div
-                          key={`${audio.nodeId}-${audio.url}`}
-                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 ${
-                            isActive
-                              ? isDarkMode || layoutMode === 'immersive'
-                                ? 'border-sky-400/50 bg-sky-500/15'
-                                : 'border-indigo-300 bg-indigo-50'
-                              : isDarkMode || layoutMode === 'immersive'
-                                ? 'border-white/10 bg-white/5'
-                                : 'border-slate-200 bg-slate-50'
-                          }`}
-                        >
-                          <span className="min-w-0 flex-1 truncate text-center text-sm">
-                            {audio.title}
-                          </span>
-                          <button
-                            onClick={() => togglePlaylistAudio(audio)}
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
-                              isDarkMode || layoutMode === 'immersive'
-                                ? 'bg-sky-500 text-white hover:bg-sky-400'
-                                : 'bg-indigo-600 text-white hover:bg-indigo-500'
-                            }`}
-                            aria-label={isActive ? 'Pause' : 'Play'}
-                          >
-                            {isActive ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="ml-0.5 h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            )}
+            <AudioPlaylistModal
+              open={showAudioPlaylist}
+              items={playedAudios}
+              activeUrl={playlistAudioUrl}
+              isPlaying={isPlaylistAudioPlaying}
+              title={
+                language === 'zh'
+                  ? '录音播放列表'
+                  : language === 'ja'
+                    ? '録音プレイリスト'
+                    : 'Audio playlist'
+              }
+              hint={
+                language === 'zh'
+                  ? '最近听过的录音排在最上方'
+                  : language === 'ja'
+                    ? '最近聞いた録音を上に表示'
+                    : 'Most recently heard first'
+              }
+              emptyText={
+                language === 'zh'
+                  ? '听过的录音会显示在这里'
+                  : language === 'ja'
+                    ? '再生した録音がここに表示されます'
+                    : 'Audio you have heard will appear here'
+              }
+              closeLabel={t.close}
+              dark={isDarkMode || layoutMode === 'immersive'}
+              onClose={() => setShowAudioPlaylist(false)}
+              onToggleAudio={togglePlaylistAudio}
+            />
           </div>
 
           {false && layoutMode === 'classic' && (

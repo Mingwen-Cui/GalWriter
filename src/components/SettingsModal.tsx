@@ -23,7 +23,11 @@ import { AISettingsPanel } from './AISettingsPanel';
 import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
-import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/editorConfig';
+import {
+  type AIButtonsConfig,
+  type AIGenerationBalance,
+  type AIPromptsConfig,
+} from '../editor-state/editorConfig';
 import type {
   CharacterImageMode,
   ImageAIProfile,
@@ -126,6 +130,8 @@ interface SettingsModalProps {
   setSceneImageMode: (mode: SceneImageMode) => void;
   plotStructureGenerateDirection: PlotStructureGenerateDirection;
   setPlotStructureGenerateDirection: (direction: PlotStructureGenerateDirection) => void;
+  aiGenerationBalance: AIGenerationBalance;
+  setAiGenerationBalance: (balance: AIGenerationBalance) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -266,7 +272,7 @@ const settingsText = {
     qqPersonal: 'QQ群',
     visitAuthorWebsite: '访问作者的网站',
     helpUsageNotice: '帮助和使用须知',
-    aboutProductTitle: '交互式 AI 小说创作工具',
+    aboutProductTitle: 'AI 交互式小说创作工具',
     aboutProductDesc: '致力于构建下一代 AI 交互式小说创作工具，让每一颗想象力的种子都能开花结果。',
     desktopCloseButton: '桌面端关闭按钮',
     minimizeToTray: '最小化到后台',
@@ -631,6 +637,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setSceneImageMode,
   plotStructureGenerateDirection,
   setPlotStructureGenerateDirection,
+  aiGenerationBalance,
+  setAiGenerationBalance,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -722,6 +730,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
     }`;
+  const optionCardButtonClass = (active: boolean) =>
+    `rounded-lg px-3 py-3 text-left transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    }`;
   const settingsRowClass = 'flex items-center gap-4';
   const settingsRowTitleClass =
     'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
@@ -730,7 +744,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     label: string,
     description: string,
   ) => (
-    <div className="relative inline-flex items-center gap-2">
+    <div className="group relative inline-flex items-center gap-2">
       <h3 className="text-sm font-black text-[var(--text-primary)]">{label}</h3>
       <button
         type="button"
@@ -740,12 +754,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       >
         !
       </button>
-      {assistantHintOpen === key && (
-        <div className="absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl">
-          {description}
-        </div>
-      )}
+      <div
+        className={`pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100 ${
+          assistantHintOpen === key ? 'opacity-100' : ''
+        }`}
+      >
+        {description}
+      </div>
     </div>
+  );
+  const renderSettingHint = (description: string) => (
+    <span className="group relative inline-flex">
+      <span
+        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
+        aria-label={description}
+      >
+        !
+      </span>
+      <span className="pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+        {description}
+      </span>
+    </span>
   );
   const segmentedControlClass =
     'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
@@ -1279,7 +1308,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           className={`flex min-w-0 flex-col items-center gap-2 rounded-lg px-2 py-2.5 transition-all ${
                             storyTitlePlacement === item.id
                               ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-                              : 'text-[var(--text-muted)] hover:bg-[var(--card-bg)]/60 hover:text-[var(--text-primary)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                           }`}
                         >
                           <svg
@@ -1463,119 +1492,104 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="border-t border-[var(--header-border)]" />
 
-                  <section className="space-y-4">
-                    <div>
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
+                  <section className="space-y-3">
+                    <div className={settingsRowClass}>
+                      <div className={`${settingsRowTitleClass} flex items-center gap-2`}>
                         {language === 'zh'
                           ? '人物图片类型'
                           : language === 'ja'
                             ? 'キャラクター画像タイプ'
                             : 'Character Image Type'}
-                      </h3>
-                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                        {language === 'zh'
-                          ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
-                          : language === 'ja'
-                            ? 'キャラクターカードの画像生成形式を選択します。'
-                            : 'Choose the format used by character card image generation.'}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {[
-                        {
-                          value: 'three-view' as const,
-                          title:
-                            language === 'zh'
-                              ? '三视图'
-                              : language === 'ja'
-                                ? '三面図'
-                                : 'Three-view',
-                          description:
-                            language === 'zh'
-                              ? '在一张图中生成正面、侧面和背面设定图。'
-                              : language === 'ja'
-                                ? '正面・側面・背面を1枚に生成します。'
-                                : 'Front, side, and back views in one image.',
-                        },
-                        {
-                          value: 'transparent-sprite' as const,
-                          title:
-                            language === 'zh'
-                              ? '透明背景立绘'
-                              : language === 'ja'
-                                ? '透過背景立ち絵'
-                                : 'Transparent Sprite',
-                          description:
-                            language === 'zh'
-                              ? '生成单人全身立绘，并要求透明背景。'
-                              : language === 'ja'
-                                ? '透過背景の全身立ち絵を生成します。'
-                                : 'A single full-body character on a transparent background.',
-                        },
-                      ].map((option) => {
-                        const selected = characterImageMode === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setCharacterImageMode(option.value)}
-                            className={`rounded-xl border p-4 text-left transition-all ${
-                              selected
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
-                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-black text-[var(--text-primary)]">
-                                {option.title}
-                              </span>
-                              <span
-                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                                  selected
-                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                                    : 'border-[var(--header-border)] text-transparent'
-                                }`}
-                              >
-                                <Check className="h-3 w-3" />
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                              {option.description}
-                            </p>
-                          </button>
-                        );
-                      })}
+                        {renderSettingHint(
+                          language === 'zh'
+                            ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
+                            : language === 'ja'
+                              ? 'キャラクターカードの画像生成形式を選択します。'
+                              : 'Choose the format used by character card image generation.',
+                        )}
+                      </div>
+                      <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
+                        {[
+                          {
+                            value: 'three-view' as const,
+                            title:
+                              language === 'zh'
+                                ? '三视图'
+                                : language === 'ja'
+                                  ? '三面図'
+                                  : 'Three-view',
+                            description:
+                              language === 'zh'
+                                ? '在一张图中生成正面、侧面和背面设定图。'
+                                : language === 'ja'
+                                  ? '正面・側面・背面を1枚に生成します。'
+                                  : 'Front, side, and back views in one image.',
+                          },
+                          {
+                            value: 'transparent-sprite' as const,
+                            title:
+                              language === 'zh'
+                                ? '透明背景立绘'
+                                : language === 'ja'
+                                  ? '透過背景立ち絵'
+                                  : 'Transparent Sprite',
+                            description:
+                              language === 'zh'
+                                ? '生成单人全身立绘，并要求透明背景。'
+                                : language === 'ja'
+                                  ? '透過背景の全身立ち絵を生成します。'
+                                  : 'A single full-body character on a transparent background.',
+                          },
+                        ].map((option) => {
+                          const selected = characterImageMode === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setCharacterImageMode(option.value)}
+                              className={optionCardButtonClass(selected)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-black">
+                                  {option.title}
+                                </span>
+                                {renderSettingHint(option.description)}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)}
-                      className={`flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition-all ${
+                      onClick={() =>
+                        setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)
+                      }
+                      className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left transition-all ${
                         hideStoryImageButtonWithTags
-                          ? 'border-[var(--accent)] bg-[var(--accent)]/5'
-                          : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                          ? 'text-[var(--text-primary)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                       }`}
                     >
-                      <div>
-                        <div className="text-sm font-black text-[var(--text-primary)]">
-                          {language === 'zh'
-                            ? '有 Tag 时隐藏剧情卡生图按钮'
-                            : language === 'ja'
-                              ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
-                              : 'Hide story image button when tags exist'}
-                        </div>
-                        <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                          {language === 'zh'
+                      <div className="flex items-center gap-2 text-sm font-black">
+                        {language === 'zh'
+                          ? '有 Tag 时隐藏剧情卡生图按钮'
+                          : language === 'ja'
+                            ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
+                            : 'Hide story image button when tags exist'}
+                        {renderSettingHint(
+                          language === 'zh'
                             ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
                             : language === 'ja'
                               ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
-                              : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.'}
-                        </p>
+                              : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
+                        )}
                       </div>
                       <span
                         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
                           hideStoryImageButtonWithTags
-                            ? 'bg-[var(--accent)]'
-                            : 'bg-[var(--header-border)]'
+                            ? 'bg-[var(--accent)] shadow-md'
+                            : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
                         }`}
                       >
                         <span
@@ -1587,24 +1601,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   </section>
 
-                  <section className="space-y-4">
-                    <div>
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
+                  <section className={settingsRowClass}>
+                    <div className={`${settingsRowTitleClass} flex items-center gap-2`}>
                         {language === 'zh'
                           ? '场景图片比例'
                           : language === 'ja'
                             ? 'シーン画像比率'
                             : 'Scene Image Ratio'}
-                      </h3>
-                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                        {language === 'zh'
+                      {renderSettingHint(
+                        language === 'zh'
                           ? '只影响场景卡片的一键生图，优先级高于图片 API 配置中的尺寸。'
                           : language === 'ja'
                             ? 'シーンカードの画像生成にのみ適用され、画像 API のサイズ設定より優先されます。'
-                            : 'Only affects scene card generation and overrides the image API size.'}
-                      </p>
+                          : 'Only affects scene card generation and overrides the image API size.',
+                      )}
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                       {[
                         {
                           value: 'storyboard-16:9' as const,
@@ -1643,29 +1655,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             key={option.value}
                             type="button"
                             onClick={() => setSceneImageMode(option.value)}
-                            className={`rounded-xl border p-4 text-left transition-all ${
-                              selected
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
-                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
-                            }`}
+                            className={optionCardButtonClass(selected)}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-black text-[var(--text-primary)]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black">
                                 {option.title}
                               </span>
-                              <span
-                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                                  selected
-                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                                    : 'border-[var(--header-border)] text-transparent'
-                                }`}
-                              >
-                                <Check className="h-3 w-3" />
-                              </span>
+                              {renderSettingHint(option.description)}
                             </div>
-                            <p className="mt-2 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                              {option.description}
-                            </p>
                           </button>
                         );
                       })}
@@ -2205,6 +2202,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAiPrompts={setAiPrompts}
                     aiButtonsConfig={aiButtonsConfig}
                     setAiButtonsConfig={setAiButtonsConfig}
+                    aiGenerationBalance={aiGenerationBalance}
+                    setAiGenerationBalance={setAiGenerationBalance}
                     assistantOptionsSlot={
                       <div className="grid gap-4">
                         <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
@@ -2350,12 +2349,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className="bg-white dark:bg-black rounded-2xl p-10 text-center relative overflow-hidden group border border-slate-100 dark:border-white/5 shadow-sm dark:shadow-none">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                    <BrainCircuit className="w-12 h-12 text-indigo-500 dark:text-sky-400 mx-auto mb-6 relative z-10" />
+                    <img
+                      src="./glass.png"
+                      alt=""
+                      className="mx-auto mb-6 h-14 w-14 relative z-10 object-contain"
+                    />
                     <h4 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">
                       {s.aboutProductTitle}
                     </h4>
                     <p className="text-indigo-600/40 dark:text-sky-400/40 text-xs font-bold uppercase tracking-[0.4em] mb-6 relative z-10">
-                      AIGC x Narrative Architecture
+                      GalWriter AI
                     </p>
                     <div className="h-px bg-slate-200 dark:bg-white/10 w-24 mx-auto mb-6 relative z-10" />
                     <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed max-w-[320px] mx-auto relative z-10 font-medium">

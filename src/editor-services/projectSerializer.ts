@@ -403,6 +403,7 @@ const applyProjectSettings = (
 ) => {
   if (!incomingSettings) {
     setters.setPlotStructureGenerateDirection('down');
+    setters.setAiGenerationBalance('dialogue');
     return;
   }
 
@@ -485,6 +486,14 @@ const applyProjectSettings = (
     setters.setPlotStructureGenerateDirection(incomingSettings.plotStructureGenerateDirection);
   } else {
     setters.setPlotStructureGenerateDirection('down');
+  }
+  if (
+    incomingSettings.aiGenerationBalance === 'dialogue' ||
+    incomingSettings.aiGenerationBalance === 'action'
+  ) {
+    setters.setAiGenerationBalance(incomingSettings.aiGenerationBalance);
+  } else {
+    setters.setAiGenerationBalance('dialogue');
   }
   const shouldUseCustomPrompts =
     Boolean(incomingSettings.aiPrompts) || incomingSettings.customAiPromptsEnabled === true;
