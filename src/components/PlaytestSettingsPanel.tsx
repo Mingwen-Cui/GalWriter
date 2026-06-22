@@ -600,20 +600,42 @@ function PlaytestToggleButton({
 
 function LayoutClassicGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-x-1 top-1 h-2 rounded-[3px] bg-current/60" />
-      <span className="absolute inset-x-1 bottom-1 h-1.5 rounded-[3px] bg-current/35" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="8" rx="2.5" />
+      <path d="M7 15h10" />
+      <path d="M7 18h7" />
+      <path d="M7 21h9" />
+    </svg>
   );
 }
 
 function LayoutImmersiveGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-0 bg-current/20" />
-      <span className="absolute inset-x-1 bottom-1 h-2 rounded-[3px] bg-current/70" />
-      <span className="absolute inset-x-2 bottom-2 h-0.5 rounded-full bg-white/80" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="17" rx="3" />
+      <path d="M7 14.5h10" />
+      <path d="M7 17.5h7" />
+      <path d="M8.5 7.5h7" />
+      <path d="M8.5 10.5h4" />
+    </svg>
   );
 }
 

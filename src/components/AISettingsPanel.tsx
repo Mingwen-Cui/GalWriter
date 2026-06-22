@@ -15,6 +15,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 import type {
   ImageAIProfile,
@@ -78,6 +79,66 @@ type DeleteState =
       profileId: string;
       name: string;
     };
+
+function FloatingHint({
+  label,
+  description,
+  className = '',
+}: {
+  label: React.ReactNode;
+  description: string;
+  className?: string;
+}) {
+  const anchorRef = React.useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = React.useState<{
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+  } | null>(null);
+
+  const showHint = () => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 256;
+    const left = Math.min(window.innerWidth - width - 12, Math.max(12, rect.left));
+    const shouldPlaceAbove = rect.bottom + 112 > window.innerHeight && rect.top > 112;
+    setPosition({
+      left,
+      top: shouldPlaceAbove ? rect.top - 8 : rect.bottom + 8,
+      placement: shouldPlaceAbove ? 'above' : 'below',
+    });
+  };
+
+  return (
+    <span
+      ref={anchorRef}
+      className={`relative inline-flex min-w-0 cursor-help ${className}`}
+      aria-label={description}
+      onMouseEnter={showHint}
+      onMouseLeave={() => setPosition(null)}
+      onFocus={showHint}
+      onBlur={() => setPosition(null)}
+      tabIndex={0}
+    >
+      {label}
+      {position
+        ? createPortal(
+            <span
+              className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
+              style={{
+                left: position.left,
+                top: position.top,
+                transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
+              }}
+            >
+              {description}
+            </span>,
+            document.body,
+          )
+        : null}
+    </span>
+  );
+}
 
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
@@ -746,24 +807,8 @@ export function AISettingsPanel({
         ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
         : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
     }`;
-  const optionDetailButtonClass = (active: boolean) =>
-    `flex min-h-[84px] items-start gap-3 rounded-lg px-3 py-3 text-left transition-all ${
-      active
-        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-    }`;
-  const renderInfoHint = (description: string) => (
-    <span className="group relative inline-flex">
-      <span
-        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
-        aria-label={description}
-      >
-        !
-      </span>
-      <span className="pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-        {description}
-      </span>
-    </span>
+  const renderInfoHint = (label: React.ReactNode, description: string, className = '') => (
+    <FloatingHint label={label} description={description} className={className} />
   );
 
   const updateDraft = React.useCallback((updates: Partial<ProfileDraft>) => {
@@ -1818,14 +1863,14 @@ export function AISettingsPanel({
             <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh'
-                      ? '\u0041\u0049 \u7eed\u5199\u5f39\u7a97\u6309\u94ae'
-                      : language === 'ja'
-                        ? 'AI writing buttons'
-                        : 'AI Action Buttons'}
-                  </h3>
                   {renderInfoHint(
+                    <h3 className="text-base font-black text-[var(--text-primary)]">
+                      {language === 'zh'
+                        ? '\u0041\u0049 \u7eed\u5199\u5f39\u7a97\u6309\u94ae'
+                        : language === 'ja'
+                          ? 'AI writing buttons'
+                          : 'AI Action Buttons'}
+                    </h3>,
                     language === 'zh'
                       ? '\u63a7\u5236 \u0041\u0049 \u7eed\u5199\u9009\u62e9\u5f39\u7a97\u4e2d\u663e\u793a\u54ea\u4e9b\u529f\u80fd\u6309\u94ae\u3002'
                       : language === 'ja'
@@ -1930,24 +1975,25 @@ export function AISettingsPanel({
               </div>
             </section>
 
-            <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-[var(--text-primary)]">
-                  {language === 'zh'
-                    ? '\u0041\u0049 \u5199\u4f5c\u503e\u5411'
-                    : language === 'ja'
-                      ? 'AI writing balance'
-                      : 'AI Writing Balance'}
-                </h3>
-                {renderInfoHint(
-                  language === 'zh'
-                    ? '\u63a7\u5236\u7efc\u5408\u7eed\u5199\u65f6\u66f4\u504f\u5411\u4eba\u7269\u5bf9\u8bdd\uff0c\u8fd8\u662f\u66f4\u504f\u5411\u52a8\u4f5c\u4e0e\u4e8b\u4ef6\u63a8\u8fdb\u3002'
-                    : language === 'ja'
-                      ? 'General writing can lean toward character dialogue or action-driven progress.'
-                      : 'Choose whether general generation leans toward dialogue or action-driven progress.'
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5 sm:grid-cols-2">
+            <section className="border-t border-[var(--header-border)] pt-5">
+              <div className="grid items-center gap-3 md:grid-cols-[minmax(132px,auto)_minmax(0,1fr)]">
+                <div className="flex items-center gap-2">
+                  {renderInfoHint(
+                    <h3 className="whitespace-nowrap text-base font-black text-[var(--text-primary)]">
+                      {language === 'zh'
+                        ? '\u0041\u0049 \u5199\u4f5c\u503e\u5411'
+                        : language === 'ja'
+                          ? 'AI writing balance'
+                          : 'AI Writing Balance'}
+                    </h3>,
+                    language === 'zh'
+                      ? '\u63a7\u5236\u7efc\u5408\u7eed\u5199\u65f6\u66f4\u504f\u5411\u4eba\u7269\u5bf9\u8bdd\uff0c\u8fd8\u662f\u66f4\u504f\u5411\u52a8\u4f5c\u4e0e\u4e8b\u4ef6\u63a8\u8fdb\u3002'
+                      : language === 'ja'
+                        ? 'General writing can lean toward character dialogue or action-driven progress.'
+                        : 'Choose whether general generation leans toward dialogue or action-driven progress.'
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                 {(
                   [
                     {
@@ -1995,20 +2041,25 @@ export function AISettingsPanel({
                       key={item.value}
                       type="button"
                       onClick={() => setAiGenerationBalance(item.value)}
-                      className={optionDetailButtonClass(selected)}
+                      className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
+                        selected
+                          ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                      }`}
                     >
                       <span className={optionIconClass(selected)}>
                         <item.Icon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-sm font-black">
-                          {item.label}
-                          {renderInfoHint(item.description)}
-                        </span>
+                        {renderInfoHint(
+                          <span className="text-sm font-black leading-tight">{item.label}</span>,
+                          item.description,
+                        )}
                       </span>
                     </button>
                   );
                 })}
+                </div>
               </div>
             </section>
 

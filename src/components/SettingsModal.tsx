@@ -18,6 +18,7 @@
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { AISettingsPanel } from './AISettingsPanel';
 import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
@@ -46,6 +47,66 @@ import type { LocalProjectSummary } from '../lib/db';
 type AIProfileKind = 'text' | 'image' | 'voice';
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+
+function FloatingHint({
+  label,
+  description,
+  className = '',
+}: {
+  label: React.ReactNode;
+  description: string;
+  className?: string;
+}) {
+  const anchorRef = React.useRef<HTMLSpanElement | null>(null);
+  const [position, setPosition] = React.useState<{
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+  } | null>(null);
+
+  const showHint = () => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 256;
+    const left = Math.min(window.innerWidth - width - 12, Math.max(12, rect.left));
+    const shouldPlaceAbove = rect.bottom + 112 > window.innerHeight && rect.top > 112;
+    setPosition({
+      left,
+      top: shouldPlaceAbove ? rect.top - 8 : rect.bottom + 8,
+      placement: shouldPlaceAbove ? 'above' : 'below',
+    });
+  };
+
+  return (
+    <span
+      ref={anchorRef}
+      className={`relative inline-flex min-w-0 cursor-help ${className}`}
+      aria-label={description}
+      onMouseEnter={showHint}
+      onMouseLeave={() => setPosition(null)}
+      onFocus={showHint}
+      onBlur={() => setPosition(null)}
+      tabIndex={0}
+    >
+      {label}
+      {position
+        ? createPortal(
+            <span
+              className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
+              style={{
+                left: position.left,
+                top: position.top,
+                transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
+              }}
+            >
+              {description}
+            </span>,
+            document.body,
+          )
+        : null}
+    </span>
+  );
+}
 
 interface SettingsModalProps {
   showSettings: boolean;
@@ -691,9 +752,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
   const [selectedApplyProjectIds, setSelectedApplyProjectIds] = useState<string[]>([]);
-  const [assistantHintOpen, setAssistantHintOpen] = useState<
-    'agentAnimation' | 'memorySkill' | null
-  >(null);
   React.useEffect(() => {
     if (showSettings && settingsAttentionTarget) {
       setActiveSettingsTab('ai');
@@ -719,13 +777,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ? `${selectedApplyProjectIds.length} 件のプロジェクトに適用`
         : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`;
   const compactSegmentButtonClass = (active: boolean) =>
-    `flex-1 rounded-md py-2.5 text-xs font-bold transition-all ${
+    `min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
       active
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
     }`;
   const compactTextButtonClass = (active: boolean) =>
-    `flex-1 rounded-md py-2.5 text-xs font-bold transition-all ${
+    `min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
       active
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
@@ -736,7 +794,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
     }`;
-  const settingsRowClass = 'flex items-center gap-4';
+  const settingsRowClass = 'flex min-w-0 items-center gap-4';
   const settingsRowTitleClass =
     'w-36 shrink-0 whitespace-nowrap text-sm font-black text-[var(--text-primary)]';
   const renderAssistantHintButton = (
@@ -744,40 +802,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     label: string,
     description: string,
   ) => (
-    <div className="group relative inline-flex items-center gap-2">
-      <h3 className="text-sm font-black text-[var(--text-primary)]">{label}</h3>
-      <button
-        type="button"
-        onClick={() => setAssistantHintOpen((current) => (current === key ? null : key))}
-        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
-        aria-label={description}
-      >
-        !
-      </button>
-      <div
-        className={`pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100 ${
-          assistantHintOpen === key ? 'opacity-100' : ''
-        }`}
-      >
-        {description}
-      </div>
-    </div>
+    <FloatingHint
+      key={key}
+      label={<h3 className="text-sm font-black text-[var(--text-primary)]">{label}</h3>}
+      description={description}
+    />
   );
-  const renderSettingHint = (description: string) => (
-    <span className="group relative inline-flex">
-      <span
-        className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--header-border)] bg-[var(--app-bg)] text-[11px] font-black leading-none text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-white"
-        aria-label={description}
-      >
-        !
-      </span>
-      <span className="pointer-events-none absolute left-0 top-7 z-20 w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-        {description}
-      </span>
-    </span>
+  const renderSettingHint = (label: React.ReactNode, description: string, className = '') => (
+    <FloatingHint label={label} description={description} className={className} />
   );
   const segmentedControlClass =
-    'flex flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
+    'flex min-w-0 flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
   const applyTargetProjects = projectSummaries.filter((project) => project.id !== currentProjectId);
   const allApplyTargetsSelected =
     applyTargetProjects.length > 0 &&
@@ -903,9 +938,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col h-full bg-transparent overflow-y-auto p-8 pt-7 custom-scrollbar">
+            <div className="min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto p-8 pt-7 custom-scrollbar">
               {activeSettingsTab === 'appearance' && (
-                <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
+                <div className="min-w-0 space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section>
                     <header className="hidden">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
@@ -1494,13 +1529,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
-                      <div className={`${settingsRowTitleClass} flex items-center gap-2`}>
-                        {language === 'zh'
-                          ? '人物图片类型'
-                          : language === 'ja'
-                            ? 'キャラクター画像タイプ'
-                            : 'Character Image Type'}
+                      <div className={settingsRowTitleClass}>
                         {renderSettingHint(
+                          language === 'zh'
+                            ? '人物图片类型'
+                            : language === 'ja'
+                              ? 'キャラクター画像タイプ'
+                              : 'Character Image Type',
                           language === 'zh'
                             ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
                             : language === 'ja'
@@ -1549,12 +1584,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               onClick={() => setCharacterImageMode(option.value)}
                               className={optionCardButtonClass(selected)}
                             >
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-black">
-                                  {option.title}
-                                </span>
-                                {renderSettingHint(option.description)}
-                              </div>
+                              {renderSettingHint(
+                                <span className="text-sm font-black">{option.title}</span>,
+                                option.description,
+                              )}
                             </button>
                           );
                         })}
@@ -1571,20 +1604,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                       }`}
                     >
-                      <div className="flex items-center gap-2 text-sm font-black">
-                        {language === 'zh'
-                          ? '有 Tag 时隐藏剧情卡生图按钮'
-                          : language === 'ja'
-                            ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
-                            : 'Hide story image button when tags exist'}
-                        {renderSettingHint(
+                      {renderSettingHint(
+                        <div className="text-sm font-black">
+                          {language === 'zh'
+                            ? '有 Tag 时隐藏剧情卡生图按钮'
+                            : language === 'ja'
+                              ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
+                              : 'Hide story image button when tags exist'}
+                        </div>,
                           language === 'zh'
                             ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
                             : language === 'ja'
                               ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
                               : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
-                        )}
-                      </div>
+                      )}
                       <span
                         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
                           hideStoryImageButtonWithTags
@@ -1602,13 +1635,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </section>
 
                   <section className={settingsRowClass}>
-                    <div className={`${settingsRowTitleClass} flex items-center gap-2`}>
-                        {language === 'zh'
+                    <div className={settingsRowTitleClass}>
+                      {renderSettingHint(
+                        language === 'zh'
                           ? '场景图片比例'
                           : language === 'ja'
                             ? 'シーン画像比率'
-                            : 'Scene Image Ratio'}
-                      {renderSettingHint(
+                            : 'Scene Image Ratio',
                         language === 'zh'
                           ? '只影响场景卡片的一键生图，优先级高于图片 API 配置中的尺寸。'
                           : language === 'ja'
@@ -1657,12 +1690,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onClick={() => setSceneImageMode(option.value)}
                             className={optionCardButtonClass(selected)}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-black">
-                                {option.title}
-                              </span>
-                              {renderSettingHint(option.description)}
-                            </div>
+                            {renderSettingHint(
+                              <span className="text-sm font-black">{option.title}</span>,
+                              option.description,
+                            )}
                           </button>
                         );
                       })}
