@@ -1,4 +1,4 @@
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   ChevronRight,
   Eye,
@@ -1358,22 +1358,6 @@ export function PlayTestModal({
           '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
         }
       : undefined) as React.CSSProperties | undefined;
-    const rangeClass =
-      'h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-[var(--vr-surface-soft)] accent-[var(--vr-accent)] disabled:cursor-not-allowed disabled:opacity-45';
-    const timingBox = (active: boolean, label: string, value: string, control: ReactNode) => (
-      <div
-        className={`rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2 ${
-          active ? '' : 'opacity-45'
-        }`}
-      >
-        <div className="mb-2 flex items-center justify-between gap-3 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-          <span className="min-w-0 truncate">{label}</span>
-          <span className="shrink-0 text-[var(--vr-accent)]">{value}</span>
-        </div>
-        {control}
-      </div>
-    );
-
     return (
       <div className="video-render-workspace space-y-4" style={workspaceStyle}>
         <PlaytestPanelTitle
@@ -1472,7 +1456,10 @@ export function PlayTestModal({
             )}
 
             {choicesPosition === 'center' && (
-              <PlaytestSettingCard icon={EyeOff} description={language === 'zh' ? '单选弹窗' : 'Single popup'}>
+              <PlaytestSettingCard
+                icon={<SingleChoicePopupGlyph />}
+                description={language === 'zh' ? '单选弹窗' : 'Single popup'}
+              >
                 <PlaytestPillToggleGroup
                   value={skipSingleChoicePopup ? 'hide' : 'show'}
                   options={[
@@ -1512,7 +1499,13 @@ export function PlayTestModal({
             >
               <PlaytestToggleButton
                 active={hideCharacterTags}
-                icon={<CharacterVisibilityGlyph hidden={hideCharacterTags} />}
+                icon={
+                  hideCharacterTags ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )
+                }
                 label={hideCharacterTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
                 onClick={() => setHideCharacterTags(!hideCharacterTags)}
               />
@@ -1524,78 +1517,17 @@ export function PlayTestModal({
             >
               <PlaytestToggleButton
                 active={hideSceneTags}
-                icon={<SceneVisibilityGlyph hidden={hideSceneTags} />}
+                icon={
+                  hideSceneTags ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )
+                }
                 label={hideSceneTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
                 onClick={() => setHideSceneTags(!hideSceneTags)}
               />
             </PlaytestSettingCard>
-          </div>
-        </div>
-
-        <PlaytestPanelTitle icon={Type} title={language === 'zh' ? '文本节奏' : 'Text Timing'} />
-        <div className={`rounded-xl border p-2 ${panelTone}`}>
-          <div className="grid grid-cols-2 gap-2">
-            <PlaytestSettingCard icon={Type} description={language === 'zh' ? '显示模式' : 'Display mode'}>
-              <PlaytestSegmentedGroup
-                value={interactionMode}
-                columns="grid-cols-4"
-                options={[
-                  { value: 'immediate', label: language === 'zh' ? '即' : 'Now' },
-                  { value: 'typewriter', label: language === 'zh' ? '打' : 'Type' },
-                  { value: 'timed', label: language === 'zh' ? '延' : 'Delay' },
-                  { value: 'clickToShow', label: language === 'zh' ? '点' : 'Click' },
-                ]}
-                onChange={setInteractionMode}
-              />
-            </PlaytestSettingCard>
-
-            {timingBox(
-              interactionMode === 'typewriter',
-              language === 'zh' ? '打字速度' : 'Type speed',
-              `${typewriterSpeed}ms`,
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={typewriterSpeed}
-                disabled={interactionMode !== 'typewriter'}
-                onChange={(event) => setTypewriterSpeed(Number.parseInt(event.target.value, 10))}
-                className={rangeClass}
-              />,
-            )}
-
-            {timingBox(
-              interactionMode === 'timed',
-              language === 'zh' ? '选项延迟' : 'Choice delay',
-              `${choiceDelay}s`,
-              <input
-                type="range"
-                min={0.5}
-                max={10}
-                step={0.5}
-                value={choiceDelay}
-                disabled={interactionMode !== 'timed'}
-                onChange={(event) => setChoiceDelay(Number.parseFloat(event.target.value))}
-                className={rangeClass}
-              />,
-            )}
-
-            {timingBox(
-              autoAdvance,
-              language === 'zh' ? '翻页等待' : 'Auto delay',
-              `${autoAdvanceDelay}s`,
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={1}
-                value={autoAdvanceDelay}
-                disabled={!autoAdvance}
-                onChange={(event) => setAutoAdvanceDelay(Number.parseInt(event.target.value, 10))}
-                className={rangeClass}
-              />,
-            )}
           </div>
         </div>
 
@@ -2943,22 +2875,42 @@ function PlaytestToggleButton({
 
 function LayoutClassicGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/40 bg-current/10">
-      <span className="absolute inset-x-1 top-1 h-1.5 rounded-[2px] border border-current/45 bg-current/15" />
-      <span className="absolute inset-x-1 bottom-1 h-1 rounded-[2px] bg-current/75" />
-      <span className="absolute left-1.5 right-1.5 bottom-[6px] h-px bg-current/35" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="8" rx="2.5" />
+      <path d="M7 15h10" />
+      <path d="M7 18h7" />
+      <path d="M7 21h9" />
+    </svg>
   );
 }
 
 function LayoutImmersiveGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/40 bg-current/10">
-      <span className="absolute inset-0 bg-current/18" />
-      <span className="absolute inset-x-1 bottom-1 h-1.5 rounded-[3px] bg-current/75" />
-      <span className="absolute left-1.5 top-1.5 h-1 w-1 rounded-full bg-current/60" />
-      <span className="absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-current/35" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="17" rx="3" />
+      <path d="M7 14.5h10" />
+      <path d="M7 17.5h7" />
+      <path d="M8.5 7.5h7" />
+      <path d="M8.5 10.5h4" />
+    </svg>
   );
 }
 
@@ -2972,40 +2924,61 @@ function ColumnDotsGlyph({ count }: { count: number }) {
   );
 }
 
+function SingleChoicePopupGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="11.5" rx="2.5" />
+      <path d="M9 20l3-3.5 3 3.5" />
+      <path d="M8.5 9h7" />
+      <path d="M8.5 12.5h4" />
+    </svg>
+  );
+}
+
 function CharacterTagGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute top-1 h-1.5 w-1.5 rounded-full bg-current/70" />
-      <span className="absolute bottom-1 h-1.5 w-2.5 rounded-t-full bg-current/45" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
+      <circle cx="12" cy="10" r="2" />
+      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
+    </svg>
   );
 }
 
 function SceneTagGlyph() {
   return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/45" />
-      <span className="absolute left-1 bottom-1 h-2 w-2 rotate-45 rounded-[2px] bg-current/65" />
-      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-current/55" />
-    </span>
-  );
-}
-
-function CharacterVisibilityGlyph({ hidden }: { hidden: boolean }) {
-  return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
-      <CharacterTagGlyph />
-      {hidden && <span className="absolute h-px w-5 -rotate-45 rounded-full bg-current" />}
-    </span>
-  );
-}
-
-function SceneVisibilityGlyph({ hidden }: { hidden: boolean }) {
-  return (
-    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
-      <SceneTagGlyph />
-      {hidden && <span className="absolute h-px w-5 -rotate-45 rounded-full bg-current" />}
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.4" />
+      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
+    </svg>
   );
 }
 
@@ -3024,3 +2997,4 @@ function ClearGlyph() {
     </span>
   );
 }
+

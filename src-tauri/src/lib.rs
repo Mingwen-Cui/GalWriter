@@ -1241,7 +1241,10 @@ pub fn run() {
 
         if minimize_on_close {
           api.prevent_close();
-          let _ = window.minimize();
+          #[cfg(not(any(target_os = "android", target_os = "ios")))]
+          {
+            let _ = window.minimize();
+          }
         } else {
           window.app_handle().exit(0);
         }

@@ -13,13 +13,12 @@ import {
   Palette,
   Play,
   Settings,
-  SkipForward,
   Sparkles,
   RotateCw,
   Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { createElement, isValidElement, useEffect, useState } from 'react';
  
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
@@ -258,7 +257,7 @@ export function WebWorkspace({
                 />
               </WebSettingCard>
               <WebSettingCard
-                icon={SkipForward}
+                icon={<SingleChoicePopupGlyph />}
                 description={
                   showSettingDescriptions
                     ? t('隐藏单选弹窗', '単一選択のポップアップを隠す', 'Hide single-choice popups')
@@ -349,6 +348,30 @@ export function WebWorkspace({
   );
 }
 
+const isReactNodeIcon = (icon: LucideIcon | ReactNode): icon is ReactNode => isValidElement(icon);
+
+const createIconElement = (Icon: LucideIcon) => createElement(Icon, { className: 'h-3.5 w-3.5' });
+
+function SingleChoicePopupGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="11.5" rx="2.5" />
+      <path d="M9 20l3-3.5 3 3.5" />
+      <path d="M8.5 9h7" />
+      <path d="M8.5 12.5h4" />
+    </svg>
+  );
+}
+
 function WebPanelTitle({
   icon: Icon,
   title,
@@ -374,7 +397,7 @@ function WebSettingCard({
   description,
   children,
 }: {
-  icon?: LucideIcon;
+  icon?: LucideIcon | ReactNode;
   description?: string;
   children: ReactNode;
 }) {
@@ -389,7 +412,9 @@ function WebSettingCard({
       >
         {Icon ? (
           <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-            <Icon className="h-3.5 w-3.5" />
+            {isReactNodeIcon(Icon)
+              ? Icon
+              : createIconElement(Icon as LucideIcon)}
           </div>
         ) : null}
         <div className="min-w-0">{children}</div>
@@ -480,21 +505,42 @@ function WebSegmentedGroup({
 
 function LayoutClassicGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-x-1 top-1 h-1 rounded-full bg-current/65" />
-      <span className="absolute inset-x-1 top-2.5 h-0.5 rounded-full bg-current/55" />
-      <span className="absolute inset-x-1 bottom-1 h-0.5 rounded-full bg-current/55" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="8" rx="2.5" />
+      <path d="M7 15h10" />
+      <path d="M7 18h7" />
+      <path d="M7 21h9" />
+    </svg>
   );
 }
 
 function LayoutImmersiveGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[4px] border border-current/35 bg-current/10">
-      <span className="absolute inset-0 bg-current/15" />
-      <span className="absolute inset-x-0 bottom-0 h-1.5 bg-current/75" />
-      <span className="absolute inset-x-1 bottom-1.5 h-0.5 rounded-full bg-white/80" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4" y="3.5" width="16" height="17" rx="3" />
+      <path d="M7 14.5h10" />
+      <path d="M7 17.5h7" />
+      <path d="M8.5 7.5h7" />
+      <path d="M8.5 10.5h4" />
+    </svg>
   );
 }
 

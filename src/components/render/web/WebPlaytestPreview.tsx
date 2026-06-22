@@ -1174,7 +1174,11 @@ function PreviewSettingsPopover({
               label: t('背景虚化', '背景ぼかし', 'Backdrop'),
               icon: <BlurGlyph />,
             },
-            { value: 'skip', label: t('隐藏单选', '単一選択を隠す', 'Skip Single') },
+            {
+              value: 'skip',
+              label: t('隐藏单选', '単一選択を隠す', 'Skip Single'),
+              icon: <SingleChoicePopupGlyph />,
+            },
           ]}
           value={
             settings.blurBackground ? 'backdrop' : settings.skipSingleChoicePopup ? 'skip' : ''
@@ -1196,6 +1200,7 @@ function PreviewSettingsPopover({
         />
         <PreviewOptionGroup
           title={t('人物标签', 'キャラタグ', 'Character Tags')}
+          titleIcon={<CharacterTagGlyph />}
           options={[
             { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
             { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
@@ -1205,6 +1210,7 @@ function PreviewSettingsPopover({
         />
         <PreviewOptionGroup
           title={t('场景标签', 'シーンタグ', 'Scene Tags')}
+          titleIcon={<SceneTagGlyph />}
           options={[
             { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
             { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
@@ -1233,12 +1239,14 @@ function PreviewSettingsPopover({
 
 function PreviewOptionGroup({
   title,
+  titleIcon,
   options,
   value,
   onChange,
   columns = 'grid-cols-2',
 }: {
   title: string;
+  titleIcon?: ReactNode;
   options: { value: string; label: string; icon?: ReactNode }[];
   value: string;
   onChange: (value: string) => void;
@@ -1246,7 +1254,8 @@ function PreviewOptionGroup({
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-      <div className="mb-2 text-[10px] font-black uppercase tracking-wide text-white/45">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-white/45">
+        {titleIcon}
         {title}
       </div>
       <div className={`grid ${columns} gap-2`}>
@@ -1302,6 +1311,64 @@ function ChoiceBottomGlyph() {
         <span className="h-0.5 w-2 rounded-full bg-white" />
       </span>
     </span>
+  );
+}
+
+function CharacterTagGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
+      <circle cx="12" cy="10" r="2" />
+      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
+    </svg>
+  );
+}
+
+function SingleChoicePopupGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="11.5" rx="2.5" />
+      <path d="M9 20l3-3.5 3 3.5" />
+      <path d="M8.5 9h7" />
+      <path d="M8.5 12.5h4" />
+    </svg>
+  );
+}
+
+function SceneTagGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.4" />
+      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
+    </svg>
   );
 }
 

@@ -1332,26 +1332,40 @@ function ExportPillToggleGroup({
 // NOTE: 人物标签卡片图标 — 小人剪影（圆头 + 肩部弧线）
 function CharacterTagGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 flex-col items-center justify-end gap-0 pb-[1px]">
-      {/* 圆形头部 */}
-      <span className="mb-[2px] h-[5px] w-[5px] rounded-full bg-current/70" />
-      {/* 肩部弧线 */}
-      <span className="h-[4px] w-[10px] rounded-t-[50%] bg-current/55" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
+      <circle cx="12" cy="10" r="2" />
+      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
+    </svg>
   );
 }
 
 // NOTE: 场景标签卡片图标 — 带天空和地面的风景小帧
 function SceneTagGlyph() {
   return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 overflow-hidden rounded-[3px] border border-current/40 bg-current/10">
-      {/* 太阳 */}
-      <span className="absolute left-[2px] top-[2px] h-[4px] w-[4px] rounded-full bg-current/55" />
-      {/* 地平线 */}
-      <span className="absolute inset-x-0 bottom-[4px] h-[1px] bg-current/30" />
-      {/* 地面 */}
-      <span className="absolute inset-x-0 bottom-0 h-[4px] bg-current/45" />
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.4" />
+      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
+    </svg>
   );
 }
 

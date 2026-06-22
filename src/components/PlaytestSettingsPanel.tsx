@@ -26,12 +26,6 @@ type PlaytestSettingsPanelProps = {
   setVideoAutoPlay: (value: boolean) => void;
   layoutMode: 'classic' | 'immersive';
   setLayoutMode: (value: 'classic' | 'immersive') => void;
-  interactionMode: string;
-  setInteractionMode: (value: string) => void;
-  typewriterSpeed: number;
-  setTypewriterSpeed: (value: number) => void;
-  choiceDelay: number;
-  setChoiceDelay: (value: number) => void;
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   setChoicesPosition: (value: 'center' | 'aboveText' | 'belowText') => void;
   blurBackground: boolean;
@@ -42,8 +36,6 @@ type PlaytestSettingsPanelProps = {
   setSkipSingleChoicePopup: (value: boolean) => void;
   autoAdvance: boolean;
   setAutoAdvance: (value: boolean) => void;
-  autoAdvanceDelay: number;
-  setAutoAdvanceDelay: (value: number) => void;
   hideCharacterTags: boolean;
   setHideCharacterTags: (value: boolean) => void;
   hideSceneTags: boolean;
@@ -61,12 +53,6 @@ export function PlaytestSettingsPanel({
   setVideoAutoPlay,
   layoutMode,
   setLayoutMode,
-  interactionMode,
-  setInteractionMode,
-  typewriterSpeed,
-  setTypewriterSpeed,
-  choiceDelay,
-  setChoiceDelay,
   choicesPosition,
   setChoicesPosition,
   blurBackground,
@@ -77,8 +63,6 @@ export function PlaytestSettingsPanel({
   setSkipSingleChoicePopup,
   autoAdvance,
   setAutoAdvance,
-  autoAdvanceDelay,
-  setAutoAdvanceDelay,
   hideCharacterTags,
   setHideCharacterTags,
   hideSceneTags,
@@ -117,9 +101,6 @@ export function PlaytestSettingsPanel({
         '--vr-text-muted': '#8290a3',
         '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 12%, transparent)',
       }) as React.CSSProperties;
-  const rangeClass =
-    'h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-[var(--vr-surface-soft)] accent-[var(--vr-accent)] disabled:cursor-not-allowed disabled:opacity-45';
-
   const uiCopy = {
     settingsTitle:
       language === 'zh' ? '\u6d4b\u8bd5\u53c2\u6570' : language === 'ja' ? 'Test Settings' : 'Playtest Settings',
@@ -150,38 +131,11 @@ export function PlaytestSettingsPanel({
     sceneTags: language === 'zh' ? '\u573a\u666f\u6807\u7b7e' : 'Scene tags',
     hide: language === 'zh' ? '\u9690\u85cf' : 'Hide',
     show: language === 'zh' ? '\u663e\u793a' : 'Show',
-    textTiming:
-      language === 'zh' ? '\u6587\u672c\u8282\u594f' : 'Text Timing',
-    displayMode:
-      language === 'zh' ? '\u663e\u793a\u6a21\u5f0f' : 'Display mode',
-    now: language === 'zh' ? '\u7acb\u5373' : 'Now',
-    type: language === 'zh' ? '\u6253\u5b57' : 'Type',
-    delay: language === 'zh' ? '\u5ef6\u8fdf' : 'Delay',
-    click: language === 'zh' ? '\u70b9\u51fb' : 'Click',
-    typeSpeed: language === 'zh' ? '\u6253\u5b57\u901f\u5ea6' : 'Type speed',
-    choiceDelay:
-      language === 'zh' ? '\u9009\u9879\u5ef6\u8fdf' : 'Choice delay',
-    autoDelay:
-      language === 'zh' ? '\u7ffb\u9875\u7b49\u5f85' : 'Auto delay',
     styleTitle:
       language === 'zh'
         ? '\u6807\u9898 / \u6b63\u6587 / \u6587\u5b57\u6846'
         : 'Title / Body / Text Box',
   };
-
-  const timingBox = (active: boolean, label: string, value: string, control: ReactNode) => (
-    <div
-      className={`rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2 ${
-        active ? '' : 'opacity-45'
-      }`}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-        <span className="min-w-0 truncate">{label}</span>
-        <span className="shrink-0 text-[var(--vr-accent)]">{value}</span>
-      </div>
-      {control}
-    </div>
-  );
 
   return (
     <div className="video-render-workspace space-y-4" style={workspaceStyle}>
@@ -263,7 +217,7 @@ export function PlaytestSettingsPanel({
           )}
 
           {choicesPosition === 'center' && (
-            <PlaytestSettingCard icon={EyeOff} description={uiCopy.singlePopup}>
+            <PlaytestSettingCard icon={<SingleChoicePopupGlyph />} description={uiCopy.singlePopup}>
               <PlaytestPillToggleGroup
                 value={skipSingleChoicePopup ? 'hide' : 'show'}
                 options={[
@@ -297,7 +251,7 @@ export function PlaytestSettingsPanel({
             />
           </PlaytestSettingCard>
 
-          <PlaytestSettingCard icon={EyeOff} description={uiCopy.characterTags}>
+          <PlaytestSettingCard icon={<CharacterTagGlyph />} description={uiCopy.characterTags}>
             <PlaytestToggleButton
               active={hideCharacterTags}
               icon={
@@ -312,7 +266,7 @@ export function PlaytestSettingsPanel({
             />
           </PlaytestSettingCard>
 
-          <PlaytestSettingCard icon={EyeOff} description={uiCopy.sceneTags}>
+          <PlaytestSettingCard icon={<SceneTagGlyph />} description={uiCopy.sceneTags}>
             <PlaytestToggleButton
               active={hideSceneTags}
               icon={
@@ -326,73 +280,6 @@ export function PlaytestSettingsPanel({
               onClick={() => setHideSceneTags(!hideSceneTags)}
             />
           </PlaytestSettingCard>
-        </div>
-      </div>
-
-      <PlaytestPanelTitle icon={Type} title={uiCopy.textTiming} />
-      <div className={`rounded-xl border p-2 ${panelTone}`}>
-        <div className="grid grid-cols-2 gap-2">
-          <PlaytestSettingCard icon={Type} description={uiCopy.displayMode}>
-            <PlaytestSegmentedGroup
-              value={interactionMode}
-              columns="grid-cols-4"
-              options={[
-                { value: 'immediate', label: uiCopy.now },
-                { value: 'typewriter', label: uiCopy.type },
-                { value: 'timed', label: uiCopy.delay },
-                { value: 'clickToShow', label: uiCopy.click },
-              ]}
-              onChange={setInteractionMode}
-            />
-          </PlaytestSettingCard>
-
-          {timingBox(
-            interactionMode === 'typewriter',
-            uiCopy.typeSpeed,
-            `${typewriterSpeed}ms`,
-            <input
-              type="range"
-              min={10}
-              max={100}
-              step={5}
-              value={typewriterSpeed}
-              disabled={interactionMode !== 'typewriter'}
-              onChange={(event) => setTypewriterSpeed(Number.parseInt(event.target.value, 10))}
-              className={rangeClass}
-            />,
-          )}
-
-          {timingBox(
-            interactionMode === 'timed',
-            uiCopy.choiceDelay,
-            `${choiceDelay}s`,
-            <input
-              type="range"
-              min={0.5}
-              max={10}
-              step={0.5}
-              value={choiceDelay}
-              disabled={interactionMode !== 'timed'}
-              onChange={(event) => setChoiceDelay(Number.parseFloat(event.target.value))}
-              className={rangeClass}
-            />,
-          )}
-
-          {timingBox(
-            autoAdvance,
-            uiCopy.autoDelay,
-            `${autoAdvanceDelay}s`,
-            <input
-              type="range"
-              min={1}
-              max={10}
-              step={1}
-              value={autoAdvanceDelay}
-              disabled={!autoAdvance}
-              onChange={(event) => setAutoAdvanceDelay(Number.parseInt(event.target.value, 10))}
-              className={rangeClass}
-            />,
-          )}
         </div>
       </div>
 
@@ -464,7 +351,7 @@ function PlaytestSettingCard({
   description,
   children,
 }: {
-  icon?: LucideIcon;
+  icon?: LucideIcon | ReactNode;
   description?: string;
   children: ReactNode;
 }) {
@@ -481,7 +368,9 @@ function PlaytestSettingCard({
       >
         {Icon ? (
           <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-            <Icon className="h-3.5 w-3.5" />
+            {React.isValidElement(Icon)
+              ? Icon
+              : React.createElement(Icon as React.ElementType, { className: 'h-3.5 w-3.5' })}
           </div>
         ) : null}
         <div className="min-w-0">{children}</div>
@@ -635,6 +524,64 @@ function LayoutImmersiveGlyph() {
       <path d="M7 17.5h7" />
       <path d="M8.5 7.5h7" />
       <path d="M8.5 10.5h4" />
+    </svg>
+  );
+}
+
+function SingleChoicePopupGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="11.5" rx="2.5" />
+      <path d="M9 20l3-3.5 3 3.5" />
+      <path d="M8.5 9h7" />
+      <path d="M8.5 12.5h4" />
+    </svg>
+  );
+}
+
+function CharacterTagGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
+      <circle cx="12" cy="10" r="2" />
+      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
+    </svg>
+  );
+}
+
+function SceneTagGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.4" />
+      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
     </svg>
   );
 }
