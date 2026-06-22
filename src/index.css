@@ -55,6 +55,7 @@
 
 :root {
   --app-bg: #f9fafb;
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
   --card-bg: #ffffff;
   --card-bg-rgb: 255, 255, 255;
   --card-border: #e2e8f0;
@@ -233,6 +234,11 @@ body,
   transition:
     background-color var(--transition-speed) ease,
     color var(--transition-speed) ease;
+}
+
+#root {
+  box-sizing: border-box;
+  padding-top: var(--app-safe-area-top);
 }
 
 .xyflow {

@@ -9,6 +9,7 @@ examples/
 scripts/
 api/
 public/api/config.local.php
+ANDROID_BUILD_GUIDE.md
 
 # Tauri/Rust generated output
 src-tauri/gen/
