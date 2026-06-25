@@ -1,13 +1,26 @@
-import * as mammoth from 'mammoth/mammoth.browser';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import JSZip from 'jszip';
-import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+import type JSZip from 'jszip';
 
 const MAX_DOCUMENT_CHARS = 24000;
 const MAX_PDF_PAGES = 80;
 const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024;
+
+let pdfWorkerConfigured = false;
+
+const loadJSZip = async () => (await import('jszip')).default;
+
+const loadPdfJs = async () => {
+  const [pdfjsLib, workerModule] = await Promise.all([
+    import('pdfjs-dist/legacy/build/pdf.mjs'),
+    import('pdfjs-dist/legacy/build/pdf.worker.mjs?url'),
+  ]);
+
+  if (!pdfWorkerConfigured) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+    pdfWorkerConfigured = true;
+  }
+
+  return pdfjsLib;
+};
 
 export type AssistantDocument = {
   id: string;
@@ -72,6 +85,7 @@ const limitDocumentText = (text: string) => {
 };
 
 const extractPdfText = async (file: File) => {
+  const pdfjsLib = await loadPdfJs();
   const data = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
   const pageCount = Math.min(pdf.numPages, MAX_PDF_PAGES);
@@ -96,6 +110,7 @@ const extractPdfText = async (file: File) => {
 };
 
 const extractDocxText = async (file: File) => {
+  const mammoth = await import('mammoth/mammoth.browser');
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
   return result.value;
@@ -117,6 +132,7 @@ const readZipText = async (zip: JSZip, path: string) => {
 };
 
 const extractXlsxText = async (file: File) => {
+  const JSZip = await loadJSZip();
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const sharedStringsXml = await readZipText(zip, 'xl/sharedStrings.xml');
   const sharedStrings = Array.from(sharedStringsXml.matchAll(/<si[\s\S]*?<\/si>/g)).map((match) =>
@@ -150,6 +166,7 @@ const extractXlsxText = async (file: File) => {
 };
 
 const extractPptxText = async (file: File) => {
+  const JSZip = await loadJSZip();
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const slides = zip
     .file(/^ppt\/slides\/slide\d+\.xml$/)

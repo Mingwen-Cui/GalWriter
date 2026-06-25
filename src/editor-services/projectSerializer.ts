@@ -1,5 +1,5 @@
 import type { Edge, MarkerType, Node } from '@xyflow/react';
-import JSZip from 'jszip';
+import type JSZip from 'jszip';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type {
@@ -112,6 +112,8 @@ const base64ToBlob = (base64: string) => {
 
   return new Blob(byteArrays, { type: contentType });
 };
+
+const loadJSZip = async () => (await import('jszip')).default;
 
 const urlToBlob = async (url: string) => {
   if (!url) return null;
@@ -770,6 +772,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     thumbnailDataUrl,
     defaultSaveDir,
   }: ExportZipParams): Promise<ProjectExportResult> => {
+    const JSZip = await loadJSZip();
     const zip = new JSZip();
     const exportProject = await writeProjectToZip(zip, projectData, thumbnailDataUrl);
 
@@ -802,6 +805,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     fileName,
     defaultSaveDir,
   }: ExportProjectBundleParams): Promise<ProjectExportResult> => {
+    const JSZip = await loadJSZip();
     const zip = new JSZip();
     const usedFolders = new Set<string>();
 
@@ -856,6 +860,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       ];
     }
 
+    const JSZip = await loadJSZip();
     const zip = await JSZip.loadAsync(file);
     const projectJsonFile = zip.file('project.json');
     if (!projectJsonFile) {

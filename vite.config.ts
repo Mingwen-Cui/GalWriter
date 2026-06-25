@@ -96,9 +96,11 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-ui': ['@xyflow/react', 'motion', 'lucide-react'],
-            'vendor-utils': ['@google/genai', 'jszip', 'idb'],
+            'vendor-flow': ['@xyflow/react'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-ai': ['@google/genai'],
+            'vendor-zip': ['jszip'],
+            'vendor-storage': ['idb'],
           },
         },
       },

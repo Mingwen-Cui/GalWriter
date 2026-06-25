@@ -15,7 +15,7 @@ import {
   useReactFlow,
   useStore,
 } from '@xyflow/react';
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { AgentOverlay } from '../agent/animation/AgentOverlay';
@@ -86,6 +86,7 @@ import type {
   NumberConditionNodeData,
   PlotStructureGenerateDirection,
   StoryAudioClip,
+  StoryPresentation,
   StoryTitlePlacement,
   StoryNodeData,
   TextAIProfile,
@@ -116,20 +117,13 @@ import {
   parseGeneratedPlotCards,
 } from '../lib/plotStructure';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
-import { MemoizedAINode } from './AINode';
-import { MemoizedBackgroundNode } from './BackgroundNode';
-import { MemoizedBatchReplaceNode } from './BatchReplaceNode';
-import { MemoizedCharacterNode } from './CharacterNode';
-import { CustomEdge } from './CustomEdge';
-import { MemoizedGroupNode } from './GroupNode';
-import { MemoizedNumberConditionNode } from './NumberConditionNode';
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
-import { MemoizedPlotStructureNode } from './PlotStructureNode';
 import { ProjectPickerModal } from './ProjectPickerModal';
-import { MemoizedSceneNode } from './SceneNode';
-import { MemoizedStoryNode } from './StoryNode';
-import { MemoizedSummaryNode } from './SummaryNode';
-import { MemoizedTextNode } from './TextNode';
+import { nodeTypes, edgeTypes } from './story-editor/flowTypes';
+import { PlayTestModal, SettingsModal, VideoRenderModal, ZenEditor } from './story-editor/lazyModals';
+import { getSettingRename, replaceMentionNameInText } from './story-editor/nodeRename';
+import { SmartGuides } from './story-editor/SmartGuides';
+import { syncCloseButtonBehavior } from './story-editor/windowBehavior';
 
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
@@ -413,7 +407,7 @@ const applyAssistantStoryTags = (text: string, references: AssistantMentionRefer
 };
 
 const resolveAssistantStorySceneMedia = (
-  presentation: ReturnType<typeof buildAssistantStoryPresentation>,
+  presentation: StoryPresentation | undefined,
   nodes: Node[],
 ) => {
   const sceneSourceNodeId = presentation?.scene?.sourceNodeId;
@@ -494,52 +488,7 @@ const syncPresentationWithStoryMentions = (
   };
 };
 
-const syncCloseButtonBehavior = async (behavior: CloseButtonBehavior) => {
-  try {
-    if (!isTauriRuntime()) return;
-
-    const invoke = await getTauriInvoke();
-    await invoke('set_close_button_minimizes', {
-      minimizeOnClose: behavior === 'minimize',
-    });
-  } catch (error) {
-    if (isTauriRuntime()) {
-      console.error('Failed to sync close button behavior:', error);
-    }
-  }
-};
 // 使用懒加载减少首屏体验
-const PlayTestModal = lazy(() =>
-  import('./PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
-);
-const ZenEditor = lazy(() =>
-  import('./ZenEditor').then((module) => ({ default: module.ZenEditor })),
-);
-const SettingsModal = lazy(() =>
-  import('./SettingsModal').then((module) => ({ default: module.SettingsModal })),
-);
-const VideoRenderModal = lazy(() =>
-  import('./VideoRenderModal').then((module) => ({ default: module.VideoRenderModal })),
-);
-
-const nodeTypes = {
-  storyNode: MemoizedStoryNode,
-  backgroundNode: MemoizedBackgroundNode,
-  groupNode: MemoizedGroupNode,
-  aiNode: MemoizedAINode,
-  textNode: MemoizedTextNode,
-  summaryNode: MemoizedSummaryNode,
-  numberConditionNode: MemoizedNumberConditionNode,
-  batchReplaceNode: MemoizedBatchReplaceNode,
-  plotStructureNode: MemoizedPlotStructureNode,
-  characterNode: MemoizedCharacterNode,
-  sceneNode: MemoizedSceneNode,
-};
-
-const edgeTypes = {
-  customEdge: CustomEdge,
-};
-
 const defaultEdgeOptions = {
   type: 'customEdge',
   markerEnd: {
@@ -713,101 +662,7 @@ const updateProfileList = (
 
 const TITLE_HEIGHT = 36;
 
-const replaceMentionNameInText = (html: string, oldName: string, newName: string) => {
-  if (!oldName || oldName === newName || !html.includes(`@${oldName}`)) return html;
 
-  const oldMention = `@${oldName}`;
-  const newMention = `@${newName}`;
-
-  if (typeof document === 'undefined') {
-    return html.split(oldMention).join(newMention);
-  }
-
-  const container = document.createElement('div');
-  container.innerHTML = html;
-
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  let current = walker.nextNode();
-
-  while (current) {
-    textNodes.push(current as Text);
-    current = walker.nextNode();
-  }
-
-  textNodes.forEach((textNode) => {
-    if (textNode.nodeValue?.includes(oldMention)) {
-      textNode.nodeValue = textNode.nodeValue.split(oldMention).join(newMention);
-    }
-  });
-
-  container.querySelectorAll<HTMLElement>('.mention-chip').forEach((mention) => {
-    if (mention.dataset.mentionName === oldName) {
-      mention.dataset.mentionName = newName;
-    }
-  });
-
-  return container.innerHTML;
-};
-
-const getSettingRename = (node: Node, data: Record<string, unknown>) => {
-  if (node.type === 'characterNode' && typeof data.characterName === 'string') {
-    const oldName = ((node.data?.characterName as string) || '').trim();
-    const newName = data.characterName.trim();
-    if (oldName && newName && oldName !== newName) return { oldName, newName };
-  }
-
-  if (node.type === 'sceneNode' && typeof data.sceneName === 'string') {
-    const oldName = ((node.data?.sceneName as string) || '').trim();
-    const newName = data.sceneName.trim();
-    if (oldName && newName && oldName !== newName) return { oldName, newName };
-  }
-
-  return null;
-};
-
-function SmartGuides({ hLines, vLines }: { hLines: number[]; vLines: number[] }) {
-  const transform = useStore((state) => state.transform);
-  if (vLines.length === 0 && hLines.length === 0) return null;
-  return (
-    <svg
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        zIndex: 1000,
-      }}
-    >
-      {vLines.map((vLine, i) => (
-        <line
-          key={`v-${i}`}
-          x1={vLine * transform[2] + transform[0]}
-          y1={0}
-          x2={vLine * transform[2] + transform[0]}
-          y2="100%"
-          stroke="#f43f5e"
-          strokeWidth="1.5"
-          strokeDasharray="5,5"
-        />
-      ))}
-      {hLines.map((hLine, i) => (
-        <line
-          key={`h-${i}`}
-          x1={0}
-          y1={hLine * transform[2] + transform[1]}
-          x2="100%"
-          y2={hLine * transform[2] + transform[1]}
-          stroke="#f43f5e"
-          strokeWidth="1.5"
-          strokeDasharray="5,5"
-        />
-      ))}
-    </svg>
-  );
-}
 
 /**
  * 获取媒体文件的原始尺尺寸 * @param url 媒体 URL (data: blob:)
@@ -905,7 +760,7 @@ export function StoryEditor() {
 
   const [scrollMode, setScrollMode] = useState<'zoom' | 'pan'>('zoom');
   const [showMiniMap, setShowMiniMap] = useState(true);
-  const [miniMapPosition, setMiniMapPosition] = useState<'left' | 'right'>('left');
+  const [miniMapPosition, setMiniMapPosition] = useState<'left' | 'right'>('right');
   const [showControls, setShowControls] = useState(true);
   const [showHoverButtonAnimations, setShowHoverButtonAnimations] = useState(true);
   const [highlightedPath, setHighlightedPath] = useState<{
@@ -1107,13 +962,6 @@ export function StoryEditor() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('mobile') === '1';
   const isMobile = forceMobileUi || effectiveFlowWidth < 768;
-  const appliedMobileDefaultsRef = useRef(false);
-
-  useEffect(() => {
-    if (!isMobile || appliedMobileDefaultsRef.current) return;
-    appliedMobileDefaultsRef.current = true;
-    setShowMiniMap(false);
-  }, [isMobile]);
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);

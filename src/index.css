@@ -2399,8 +2399,8 @@ input[type='range']::-moz-range-track {
 
 /* 顶部 Header 按钮：glass-action 首尾圆角 */
 .bubble-glass-mode .header-glass-action:first-of-type {
-  border-top-left-radius: 16px !important;
-  border-bottom-left-radius: 16px !important;
+  /* border-top-left-radius: 16px !important; */
+  /* border-bottom-left-radius: 16px !important; */
 }
 
 .bubble-glass-mode .header-glass-action:last-of-type {

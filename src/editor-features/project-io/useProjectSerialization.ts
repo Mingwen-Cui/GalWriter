@@ -1,5 +1,5 @@
 import type { Edge, MarkerType, Node } from '@xyflow/react';
-import JSZip from 'jszip';
+import type JSZip from 'jszip';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 

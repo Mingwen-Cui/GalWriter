@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-
 import type {
   AIPromptsConfig,
   AiProvider,
@@ -267,6 +265,7 @@ export const createAIClient = (config: AIClientConfig) => {
       };
     }
 
+    const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: key() });
     const response = await ai.models.generateContent({
       model:
