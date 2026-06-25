@@ -42,7 +42,7 @@ export interface LocalEditorSecrets extends ApiKeySettings {
   thinkingMode: boolean;
 }
 
-export interface LocalAIProfilesSnapshot extends LocalAIProfilesState {}
+export type LocalAIProfilesSnapshot = LocalAIProfilesState;
 
 export interface ResumeState {
   project: LocalProjectSnapshot | null;

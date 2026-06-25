@@ -1,4 +1,4 @@
-﻿import {
+import {
   Background,
   BackgroundVariant,
   ConnectionMode,
@@ -15,7 +15,7 @@
   useReactFlow,
   useStore,
 } from '@xyflow/react';
-import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { AgentOverlay } from '../agent/animation/AgentOverlay';
@@ -294,11 +294,11 @@ const insertAssistantMentionTags = (
   const forcedSceneTags =
     hasCharacterTag && !hasSceneTag && fallbackScene
       ? (() => {
-          const id = uuidv4();
-          usedReferences.push(fallbackScene);
-          mentionUsages.push({ id, reference: fallbackScene, placement: 'start' });
-          return createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id);
-        })()
+        const id = uuidv4();
+        usedReferences.push(fallbackScene);
+        mentionUsages.push({ id, reference: fallbackScene, placement: 'start' });
+        return createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id);
+      })()
       : '';
 
   const unusedReferences = references.filter(
@@ -367,10 +367,10 @@ const buildAssistantStoryPresentation = (
   );
   const scenePresentation = taggedScene
     ? {
-        ...createScenePresentation(taggedScene.id),
-        enter: createPresentationMotion('fade', 500),
-        exit: createPresentationMotion('fade', 420),
-      }
+      ...createScenePresentation(taggedScene.id),
+      enter: createPresentationMotion('fade', 500),
+      exit: createPresentationMotion('fade', 420),
+    }
     : undefined;
   const inlineActions = taggedStoryText.mentionUsages
     .filter((usage) => usage.placement === 'inline')
@@ -397,10 +397,10 @@ const buildAssistantStoryPresentation = (
 
   return characterPresentations.length > 0 || scenePresentation
     ? {
-        characters: characterPresentations,
-        ...(scenePresentation ? { scene: scenePresentation } : {}),
-        inlineActions,
-      }
+      characters: characterPresentations,
+      ...(scenePresentation ? { scene: scenePresentation } : {}),
+      inlineActions,
+    }
     : undefined;
 };
 
@@ -424,10 +424,10 @@ const resolveAssistantStorySceneMedia = (
 
   const sceneImages = Array.isArray(sceneNode.data.images)
     ? (sceneNode.data.images as Array<{
-        id: string;
-        imageUrl?: string;
-        videoUrl?: string;
-      }>)
+      id: string;
+      imageUrl?: string;
+      videoUrl?: string;
+    }>)
     : [];
   const selectedMedia = presentation.scene?.imageId
     ? sceneImages.find((image) => image.id === presentation.scene?.imageId)
@@ -441,10 +441,10 @@ const resolveAssistantStorySceneMedia = (
 
   return imageUrl || videoUrl
     ? {
-        imageUrl,
-        videoUrl,
-        showTextOverlay: true,
-      }
+      imageUrl,
+      videoUrl,
+      showTextOverlay: true,
+    }
     : {};
 };
 
@@ -1402,10 +1402,10 @@ export function StoryEditor() {
     (!activeVoiceProfile ||
       (activeVoiceProfile.provider === 'youdao'
         ? !(activeVoiceProfile.appKey || activeVoiceProfile.model || '').trim() ||
-          !activeVoiceProfile.apiKey.trim()
+        !activeVoiceProfile.apiKey.trim()
         : activeVoiceProfile.provider !== 'system' &&
-          activeVoiceProfile.provider !== 'hosted-voice' &&
-          !activeVoiceProfile.apiKey.trim()));
+        activeVoiceProfile.provider !== 'hosted-voice' &&
+        !activeVoiceProfile.apiKey.trim()));
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback((target: 'text' | 'image' | 'voice') => {
     setSettingsAttentionTarget(target);
@@ -1771,15 +1771,15 @@ export function StoryEditor() {
             const imageId = sceneHandle?.match(/^image-(?:in|out)-(.+)$/)?.[1];
             const sceneImages = Array.isArray(connected.data.images)
               ? (connected.data.images as Array<{
-                  id: string;
-                  imageUrl?: string;
-                  videoUrl?: string;
-                }>)
+                id: string;
+                imageUrl?: string;
+                videoUrl?: string;
+              }>)
               : [];
             const selectedMedia = imageId
               ? sceneImages.find(
-                  (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
-                )
+                (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
+              )
               : undefined;
             const imageUrl =
               selectedMedia?.imageUrl ||
@@ -1848,11 +1848,11 @@ export function StoryEditor() {
             ...(nextScene?.sourceNodeId === connectedScene.id
               ? nextScene
               : createScenePresentation(
-                  connectedScene.id,
-                  previousImageUrl,
-                  true,
-                  nextShowTextOverlay,
-                )),
+                connectedScene.id,
+                previousImageUrl,
+                true,
+                nextShowTextOverlay,
+              )),
             sourceNodeId: connectedScene.id,
             linkedByEdge: true,
             imageId: connectedSceneBinding.imageId,
@@ -2139,19 +2139,19 @@ export function StoryEditor() {
           ? node.data.audioClips
           : typeof node.data.audioUrl === 'string' && node.data.audioUrl
             ? [
-                {
-                  id: crypto.randomUUID(),
-                  name:
-                    language === 'zh'
-                      ? '已有音频'
-                      : language === 'ja'
-                        ? '既存の音声'
-                        : 'Existing audio',
-                  url: node.data.audioUrl,
-                  source: 'imported' as const,
-                  createdAt: Date.now() - 1,
-                },
-              ]
+              {
+                id: crypto.randomUUID(),
+                name:
+                  language === 'zh'
+                    ? '已有音频'
+                    : language === 'ja'
+                      ? '既存の音声'
+                      : 'Existing audio',
+                url: node.data.audioUrl,
+                source: 'imported' as const,
+                createdAt: Date.now() - 1,
+              },
+            ]
             : [];
         const generatedClips: StoryAudioClip[] = [];
         for (const [index, segment] of speechSegments.entries()) {
@@ -2615,23 +2615,23 @@ export function StoryEditor() {
               : undefined,
           ranges: Array.isArray(card.ranges)
             ? card.ranges
-                .map((range) => ({
-                  min: typeof range.min === 'number' && Number.isFinite(range.min) ? range.min : 0,
-                  max: typeof range.max === 'number' && Number.isFinite(range.max) ? range.max : 0,
-                }))
-                .filter((range) => range.min <= range.max)
+              .map((range) => ({
+                min: typeof range.min === 'number' && Number.isFinite(range.min) ? range.min : 0,
+                max: typeof range.max === 'number' && Number.isFinite(range.max) ? range.max : 0,
+              }))
+              .filter((range) => range.min <= range.max)
             : undefined,
           connectTo: Array.isArray(card.connectTo)
             ? card.connectTo.map(cleanText).filter(Boolean)
             : undefined,
           branchTargets: Array.isArray(card.branchTargets)
             ? card.branchTargets
-                .map((branch) => ({
-                  target: cleanText(branch.target),
-                  handle: cleanText(branch.handle),
-                  label: cleanText(branch.label),
-                }))
-                .filter((branch) => branch.target)
+              .map((branch) => ({
+                target: cleanText(branch.target),
+                handle: cleanText(branch.handle),
+                label: cleanText(branch.label),
+              }))
+              .filter((branch) => branch.target)
             : undefined,
         }))
         .filter((card) => {
@@ -2927,27 +2927,27 @@ export function StoryEditor() {
         let position =
           card.type === 'character'
             ? getVerticalColumnPosition(
-                characterIndexes,
-                index,
-                columnXByType.get('character') ?? center.x - layout.width / 2,
-              )
+              characterIndexes,
+              index,
+              columnXByType.get('character') ?? center.x - layout.width / 2,
+            )
             : card.type === 'scene'
               ? getVerticalColumnPosition(
-                  sceneIndexes,
-                  index,
-                  columnXByType.get('scene') ?? center.x - layout.width / 2,
-                )
+                sceneIndexes,
+                index,
+                columnXByType.get('scene') ?? center.x - layout.width / 2,
+              )
               : card.type === 'number-condition'
                 ? getVerticalColumnPosition(
-                    numberConditionIndexes,
-                    index,
-                    columnXByType.get('number-condition') ?? center.x - layout.width / 2,
-                  )
+                  numberConditionIndexes,
+                  index,
+                  columnXByType.get('number-condition') ?? center.x - layout.width / 2,
+                )
                 : getVerticalColumnPosition(
-                    storyIndexes,
-                    index,
-                    columnXByType.get('story') ?? center.x - layout.width / 2,
-                  );
+                  storyIndexes,
+                  index,
+                  columnXByType.get('story') ?? center.x - layout.width / 2,
+                );
         if (mode === 'adjacent-revision' && sourceNode) {
           position = {
             x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
@@ -3096,9 +3096,9 @@ export function StoryEditor() {
       const inferredBranchSource =
         !hasExplicitConnections && inferredEndingNodes.length >= 2
           ? newNodes
-              .slice(0, Math.max(0, firstEndingIndex))
-              .reverse()
-              .find((node) => node.type === 'storyNode') || sourceNode
+            .slice(0, Math.max(0, firstEndingIndex))
+            .reverse()
+            .find((node) => node.type === 'storyNode') || sourceNode
           : null;
       if (inferredBranchSource && inferredEndingNodes.length >= 2) {
         const branchWidth = 380;
@@ -3268,13 +3268,13 @@ export function StoryEditor() {
       const bridgeTargetPosition =
         mode === 'bridge-to-target' && sourceNode && targetNode
           ? {
-              x: sourceNode.position.x,
-              y:
-                sourceNode.position.y +
-                (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
-                100 +
+            x: sourceNode.position.x,
+            y:
+              sourceNode.position.y +
+              (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
+              100 +
               storyNodesToLink.length * 280,
-            }
+          }
           : null;
       setNodes((nds) => [
         ...nds.map((node) => ({
@@ -3962,10 +3962,10 @@ export function StoryEditor() {
       }) => {
         const restoredProjectData = zip
           ? await createProjectSerializer({
-              defaultEdgeOptions,
-              defaultAIPrompts,
-              defaultAIButtonsConfig,
-            }).restoreImportedProject(projectData, zip)
+            defaultEdgeOptions,
+            defaultAIPrompts,
+            defaultAIButtonsConfig,
+          }).restoreImportedProject(projectData, zip)
           : projectData;
         const shouldReplaceCurrentProject =
           replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
@@ -4621,57 +4621,57 @@ export function StoryEditor() {
     const hints: Record<string, string> =
       language === 'zh'
         ? {
-            storyNode:
-              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
-            characterNode:
-              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
-            sceneNode:
-              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
-            plotStructureNode:
-              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
-            summaryNode:
-              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
-            batchReplaceNode:
-              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
-            numberConditionNode:
-              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
-            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
-            backgroundNode:
-              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
-            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
-            aiNode:
-              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
-            multi:
-              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
-            default: t.footerHint,
-          }
+          storyNode:
+            '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
+          characterNode:
+            '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
+          sceneNode:
+            '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
+          plotStructureNode:
+            '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+          summaryNode:
+            '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
+          batchReplaceNode:
+            '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
+          numberConditionNode:
+            '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
+          textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
+          backgroundNode:
+            '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
+          groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
+          aiNode:
+            'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
+          multi:
+            '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
+          default: t.footerHint,
+        }
         : {
-            storyNode:
-              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
-            characterNode:
-              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
-            sceneNode:
-              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
-            plotStructureNode:
-              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
-            summaryNode:
-              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
-            batchReplaceNode:
-              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
-            numberConditionNode:
-              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
-            textNode:
-              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
-            backgroundNode:
-              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
-            groupNode:
-              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
-            aiNode:
-              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
-            multi:
-              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
-            default: t.footerHint,
-          };
+          storyNode:
+            'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
+          characterNode:
+            'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
+          sceneNode:
+            'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
+          plotStructureNode:
+            'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+          summaryNode:
+            'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
+          batchReplaceNode:
+            'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
+          numberConditionNode:
+            'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
+          textNode:
+            'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
+          backgroundNode:
+            'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
+          groupNode:
+            'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
+          aiNode:
+            'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
+          multi:
+            'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
+          default: t.footerHint,
+        };
 
     return hints[selectedType || 'default'] || hints.default;
   }, [assistantOpen, language, selectedNodes, t.footerHint]);
@@ -4761,19 +4761,19 @@ ${layoutConfig.label}
           const startPosition =
             layoutConfig.primaryAxis === 'x'
               ? {
-                  x:
-                    layoutDirection === 'left'
-                      ? lastNode.position.x - cardWidth - offsetDist
-                      : lastNode.position.x + srcW + offsetDist,
-                  y: lastNode.position.y,
-                }
+                x:
+                  layoutDirection === 'left'
+                    ? lastNode.position.x - cardWidth - offsetDist
+                    : lastNode.position.x + srcW + offsetDist,
+                y: lastNode.position.y,
+              }
               : {
-                  x: lastNode.position.x,
-                  y:
-                    layoutDirection === 'up'
-                      ? lastNode.position.y - cardHeight - offsetDist
-                      : lastNode.position.y + srcH + offsetDist,
-                };
+                x: lastNode.position.x,
+                y:
+                  layoutDirection === 'up'
+                    ? lastNode.position.y - cardHeight - offsetDist
+                    : lastNode.position.y + srcH + offsetDist,
+              };
           let currentX = startPosition.x;
           let currentY = startPosition.y;
 
@@ -5008,7 +5008,10 @@ ${layoutConfig.label}
           ...e.data,
           edgeStyle,
           onDelete: handleEdgeDelete,
+          onReverse: () => onEdgeDoubleClick(null as any, e),
           isHighlighted,
+          // NOTE: 传递 isMobile，以便 CustomEdge 能识别并执行手机端长按删除逻辑
+          isMobile,
         },
         style: {
           ...e.style,
@@ -5022,7 +5025,7 @@ ${layoutConfig.label}
         animated: isHighlighted || e.animated,
       };
     });
-  }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath]);
+  }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath, isMobile]);
 
   return (
     <div
@@ -5187,7 +5190,7 @@ ${layoutConfig.label}
               edgeTypes={edgeTypesMemo}
               connectionMode={ConnectionMode.Loose}
               defaultEdgeOptions={defaultEdgeOptions}
-              panOnDrag={isRightDragging ? false : interactionMode === 'select' ? [0] : false}
+              panOnDrag={isRightDragging ? false : (interactionMode === 'select' && !isMobile) ? [0] : false}
               selectionOnDrag={false}
               selectionMode={SelectionMode.Partial}
               panOnScroll={scrollMode === 'pan'}
@@ -5625,14 +5628,12 @@ ${layoutConfig.label}
               ? `确定要删除这 ${projectIdsPendingDeletion.length} 个项目吗？此操作不可撤销。`
               : `Delete these ${projectIdsPendingDeletion.length} projects? This cannot be undone.`
             : language === 'zh'
-              ? `确定要删除项目「${
-                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                    ?.projectName || '未命名项目'
-                }」吗？此操作不可撤销。`
-              : `Delete "${
-                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                    ?.projectName || 'Untitled project'
-                }"? This cannot be undone.`
+              ? `确定要删除项目「${projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                ?.projectName || '未命名项目'
+              }」吗？此操作不可撤销。`
+              : `Delete "${projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                ?.projectName || 'Untitled project'
+              }"? This cannot be undone.`
         }
         confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
         onCancel={() => setProjectIdsPendingDeletion([])}
@@ -5654,14 +5655,12 @@ ${layoutConfig.label}
         title={language === 'zh' ? '关闭对话？' : 'Close conversation?'}
         description={
           language === 'zh'
-            ? `确定要关闭「${
-                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-                '这个对话'
-              }」吗？`
-            : `Close "${
-                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-                'this conversation'
-              }"?`
+            ? `确定要关闭「${assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+            '这个对话'
+            }」吗？`
+            : `Close "${assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+            'this conversation'
+            }"?`
         }
         confirmLabel={language === 'zh' ? '关闭对话' : 'Close conversation'}
         tone="warning"
@@ -5677,70 +5676,70 @@ ${layoutConfig.label}
             const zenPresentation = normalizeStoryPresentation(node?.data.presentation as any);
             const characterTags = node
               ? nodes
-                  .filter(
-                    (n) =>
-                      n.type === 'characterNode' &&
-                      typeof n.data.characterName === 'string' &&
-                      n.data.characterName.trim().length > 0,
-                  )
-                  .filter((n) => {
-                    const isGlobal = n.data?.isGlobal !== false;
-                    const isConnected = edges.some(
-                      (e) =>
-                        (e.source === n.id && e.target === node.id) ||
-                        (e.target === n.id && e.source === node.id),
-                    );
-                    const isPresented = zenPresentation.characters.some(
-                      (item) => item.sourceNodeId === n.id,
-                    );
-                    return isGlobal || isConnected || isPresented;
-                  })
-                  .map((n) => {
-                    const config = zenPresentation.characters.find(
-                      (item) => item.sourceNodeId === n.id,
-                    );
-                    const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
-                    const outfit = config?.outfitId
-                      ? outfits.find((item: any) => item.id === config.outfitId)
-                      : outfits.find((item: any) => item.imageUrl);
-                    return {
-                      id: n.id,
-                      name: String(n.data.characterName).trim(),
-                      imageUrl:
-                        (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
-                        (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
-                    };
-                  })
+                .filter(
+                  (n) =>
+                    n.type === 'characterNode' &&
+                    typeof n.data.characterName === 'string' &&
+                    n.data.characterName.trim().length > 0,
+                )
+                .filter((n) => {
+                  const isGlobal = n.data?.isGlobal !== false;
+                  const isConnected = edges.some(
+                    (e) =>
+                      (e.source === n.id && e.target === node.id) ||
+                      (e.target === n.id && e.source === node.id),
+                  );
+                  const isPresented = zenPresentation.characters.some(
+                    (item) => item.sourceNodeId === n.id,
+                  );
+                  return isGlobal || isConnected || isPresented;
+                })
+                .map((n) => {
+                  const config = zenPresentation.characters.find(
+                    (item) => item.sourceNodeId === n.id,
+                  );
+                  const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
+                  const outfit = config?.outfitId
+                    ? outfits.find((item: any) => item.id === config.outfitId)
+                    : outfits.find((item: any) => item.imageUrl);
+                  return {
+                    id: n.id,
+                    name: String(n.data.characterName).trim(),
+                    imageUrl:
+                      (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
+                      (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
+                  };
+                })
               : [];
             const sceneTags = node
               ? nodes
-                  .filter(
-                    (n) =>
-                      n.type === 'sceneNode' &&
-                      typeof n.data.sceneName === 'string' &&
-                      n.data.sceneName.trim().length > 0,
-                  )
-                  .filter((n) => {
-                    const isGlobal = n.data?.isGlobal !== false;
-                    const isConnected = edges.some(
-                      (e) =>
-                        (e.source === n.id && e.target === node.id) ||
-                        (e.target === n.id && e.source === node.id),
-                    );
-                    const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
-                    return isGlobal || isConnected || isPresented;
-                  })
-                  .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
+                .filter(
+                  (n) =>
+                    n.type === 'sceneNode' &&
+                    typeof n.data.sceneName === 'string' &&
+                    n.data.sceneName.trim().length > 0,
+                )
+                .filter((n) => {
+                  const isGlobal = n.data?.isGlobal !== false;
+                  const isConnected = edges.some(
+                    (e) =>
+                      (e.source === n.id && e.target === node.id) ||
+                      (e.target === n.id && e.source === node.id),
+                  );
+                  const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
+                  return isGlobal || isConnected || isPresented;
+                })
+                .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
               : [];
             const presentationScene = zenPresentation.scene
               ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
               : undefined;
             const presentationSceneImages = Array.isArray(presentationScene?.data.images)
               ? (presentationScene.data.images as Array<{
-                  id: string;
-                  imageUrl?: string;
-                  videoUrl?: string;
-                }>)
+                id: string;
+                imageUrl?: string;
+                videoUrl?: string;
+              }>)
               : [];
             const selectedPresentationSceneMedia = zenPresentation.scene?.imageId
               ? presentationSceneImages.find((image) => image.id === zenPresentation.scene?.imageId)
@@ -5751,10 +5750,10 @@ ${layoutConfig.label}
             const zenImageUrl = zenVideoUrl
               ? undefined
               : (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
-                selectedPresentationSceneMedia?.imageUrl ||
-                (typeof presentationScene?.data.coverImageUrl === 'string'
-                  ? presentationScene.data.coverImageUrl
-                  : '');
+              selectedPresentationSceneMedia?.imageUrl ||
+              (typeof presentationScene?.data.coverImageUrl === 'string'
+                ? presentationScene.data.coverImageUrl
+                : '');
             const handleZenPresentationChange = (presentation: StoryPresentation) => {
               const nextPresentation = normalizeStoryPresentation(presentation);
               const updates: Partial<StoryNodeData> = { presentation: nextPresentation };

@@ -1,4 +1,4 @@
-﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   ChevronRight,
   Eye,
@@ -1775,12 +1775,6 @@ export function PlayTestModal({
                   setVideoAutoPlay={setVideoAutoPlay}
                   layoutMode={layoutMode}
                   setLayoutMode={setLayoutMode}
-                  interactionMode={interactionMode}
-                  setInteractionMode={setInteractionMode}
-                  typewriterSpeed={typewriterSpeed}
-                  setTypewriterSpeed={setTypewriterSpeed}
-                  choiceDelay={choiceDelay}
-                  setChoiceDelay={setChoiceDelay}
                   choicesPosition={choicesPosition}
                   setChoicesPosition={setChoicesPosition}
                   blurBackground={blurBackground}
@@ -1791,8 +1785,6 @@ export function PlayTestModal({
                   setSkipSingleChoicePopup={setSkipSingleChoicePopup}
                   autoAdvance={autoAdvance}
                   setAutoAdvance={setAutoAdvance}
-                  autoAdvanceDelay={autoAdvanceDelay}
-                  setAutoAdvanceDelay={setAutoAdvanceDelay}
                   hideCharacterTags={hideCharacterTags}
                   setHideCharacterTags={setHideCharacterTags}
                   hideSceneTags={hideSceneTags}

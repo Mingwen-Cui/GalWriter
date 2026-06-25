@@ -77,15 +77,15 @@ type EditorState = {
 };
 type DeleteState =
   | {
-      mode: 'draft';
-      name: string;
-    }
+    mode: 'draft';
+    name: string;
+  }
   | {
-      mode: 'saved';
-      kind: ProfileKind;
-      profileId: string;
-      name: string;
-    };
+    mode: 'saved';
+    kind: ProfileKind;
+    profileId: string;
+    name: string;
+  };
 
 function FloatingHint({
   label,
@@ -130,18 +130,18 @@ function FloatingHint({
       {label}
       {position
         ? createPortal(
-            <span
-              className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
-              style={{
-                left: position.left,
-                top: position.top,
-                transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
-              }}
-            >
-              {description}
-            </span>,
-            document.body,
-          )
+          <span
+            className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
+            style={{
+              left: position.left,
+              top: position.top,
+              transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
+            }}
+          >
+            {description}
+          </span>,
+          document.body,
+        )
         : null}
     </span>
   );
@@ -629,16 +629,16 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     const sdDefaults =
       provider === LOCAL_STABLE_DIFFUSION_PROVIDER
         ? {
-            negativePrompt: draft.negativePrompt ?? '',
-            steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
-            cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
-            sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
-            seed: draft.seed ?? -1,
-            restoreFaces: draft.restoreFaces ?? false,
-            enableHr: draft.enableHr ?? false,
-            hrScale: draft.hrScale ?? 2,
-            denoisingStrength: draft.denoisingStrength ?? 0.7,
-          }
+          negativePrompt: draft.negativePrompt ?? '',
+          steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
+          cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+          sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
+          seed: draft.seed ?? -1,
+          restoreFaces: draft.restoreFaces ?? false,
+          enableHr: draft.enableHr ?? false,
+          hrScale: draft.hrScale ?? 2,
+          denoisingStrength: draft.denoisingStrength ?? 0.7,
+        }
         : {};
     return {
       ...draft,
@@ -825,16 +825,14 @@ export function AISettingsPanel({
     },
   ];
   const optionButtonClass = (active: boolean) =>
-    `group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-all ${
-      active
-        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    `group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-all ${active
+      ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
     }`;
   const optionIconClass = (active: boolean) =>
-    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
-      active
-        ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
-        : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${active
+      ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
+      : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
     }`;
   const renderInfoHint = (label: React.ReactNode, description: string, className = '') => (
     <FloatingHint label={label} description={description} className={className} />
@@ -1229,16 +1227,14 @@ export function AISettingsPanel({
                   <button
                     type="button"
                     onClick={() => updateDraft({ thinkingMode: !draft.thinkingMode })}
-                    className={`relative h-7 w-14 rounded-full transition-all ${
-                      draft.thinkingMode
+                    className={`relative h-7 w-14 rounded-full transition-all ${draft.thinkingMode
                         ? 'bg-[var(--accent)]'
                         : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
-                        draft.thinkingMode ? 'left-8' : 'left-1'
-                      }`}
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${draft.thinkingMode ? 'left-8' : 'left-1'
+                        }`}
                     />
                   </button>
                 </div>
@@ -1269,11 +1265,10 @@ export function AISettingsPanel({
                   </div>
                   {imageTemplateImportStatus !== 'idle' && (
                     <p
-                      className={`text-xs font-bold ${
-                        imageTemplateImportStatus === 'success'
+                      className={`text-xs font-bold ${imageTemplateImportStatus === 'success'
                           ? 'text-emerald-500'
                           : 'text-amber-500'
-                      }`}
+                        }`}
                     >
                       {imageTemplateImportStatus === 'success'
                         ? language === 'zh'
@@ -1354,16 +1349,14 @@ export function AISettingsPanel({
                       className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                     >
                       <div
-                        className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
-                          (draft as ImageAIProfile).removeBackground
+                        className={`relative h-6 w-11 rounded-full transition-all duration-300 ${(draft as ImageAIProfile).removeBackground
                             ? 'bg-[var(--accent)] shadow-lg'
                             : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                        }`}
+                          }`}
                       >
                         <div
-                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
-                            (draft as ImageAIProfile).removeBackground ? 'left-6' : 'left-1'
-                          }`}
+                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${(draft as ImageAIProfile).removeBackground ? 'left-6' : 'left-1'
+                            }`}
                         />
                       </div>
                     </button>
@@ -1690,26 +1683,26 @@ export function AISettingsPanel({
 
                     {!isHostedVoice && (
                       <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel(
-                        draft.provider === 'youdao' && language === 'zh'
-                          ? '接口地址（API URL）'
-                          : 'API URL',
-                      )}
-                      <input
-                        type="text"
-                        name="ai-voice-api-url"
-                        autoComplete="off"
-                        spellCheck={false}
-                        value={draft.apiUrl}
-                        onChange={(e) => updateDraft({ apiUrl: e.target.value })}
-                        placeholder={draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined}
-                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                      {draft.provider === 'youdao' && language === 'zh' && (
-                        <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                          默认地址是有道官方语音合成接口，普通接入不用改。
-                        </p>
-                      )}
+                        {renderFieldLabel(
+                          draft.provider === 'youdao' && language === 'zh'
+                            ? '接口地址（API URL）'
+                            : 'API URL',
+                        )}
+                        <input
+                          type="text"
+                          name="ai-voice-api-url"
+                          autoComplete="off"
+                          spellCheck={false}
+                          value={draft.apiUrl}
+                          onChange={(e) => updateDraft({ apiUrl: e.target.value })}
+                          placeholder={draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                        {draft.provider === 'youdao' && language === 'zh' && (
+                          <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                            默认地址是有道官方语音合成接口，普通接入不用改。
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1775,20 +1768,20 @@ export function AISettingsPanel({
                   mode: editorState.mode === 'create' ? 'draft' : 'saved',
                   ...(editorState.mode === 'create'
                     ? {
-                        name:
-                          draft.name.trim() ||
-                          (language === 'zh'
-                            ? '未保存配置'
-                            : language === 'ja'
-                              ? '未保存の設定'
-                              : 'Unsaved profile'),
-                      }
+                      name:
+                        draft.name.trim() ||
+                        (language === 'zh'
+                          ? '未保存配置'
+                          : language === 'ja'
+                            ? '未保存の設定'
+                            : 'Unsaved profile'),
+                    }
                     : {
-                        kind: editorState.kind,
-                        profileId: editorState.profileId || '',
-                        name:
-                          draft.name.trim() || buildFallbackProfileName(editorState.kind, language),
-                      }),
+                      kind: editorState.kind,
+                      profileId: editorState.profileId || '',
+                      name:
+                        draft.name.trim() || buildFallbackProfileName(editorState.kind, language),
+                    }),
                 } as DeleteState)
               }
               className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 text-sm font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-[0.99] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
@@ -1818,6 +1811,9 @@ export function AISettingsPanel({
                           ? 'AI Provider Profiles'
                           : 'AI Provider Profiles'}
                     </h3>
+                    <p className="mt-1 text-[11px] font-medium italic text-[var(--text-muted)]">
+                      {t.apiKeyLocalOnly}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1940,7 +1936,7 @@ export function AISettingsPanel({
                                   ? '\u0041\u0049 \u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\u3002\u6bcf\u4eba\u6bcf\u5929\u53ef\u514d\u8d39\u4f7f\u7528 30 \u6b21 \u0041\u0049 \u5bf9\u8bdd\u3002'
                                   : 'AI requests are forwarded through the hosted proxy.'
                                 : (profile.provider || 'custom').toUpperCase() + ' / ' +
-                                  (profile.model || (language === 'zh' ? '\u672a\u6307\u5b9a\u6a21\u578b' : 'No model selected'));
+                                (profile.model || (language === 'zh' ? '\u672a\u6307\u5b9a\u6a21\u578b' : 'No model selected'));
                               return (
                                 <button
                                   key={profile.id}
@@ -2150,71 +2146,70 @@ export function AISettingsPanel({
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
-                {(
-                  [
-                    {
-                      value: 'dialogue' as const,
-                      Icon: MessageCircle,
-                      label:
-                        language === 'zh'
-                          ? '\u66f4\u591a\u5bf9\u8bdd'
-                          : language === 'ja'
-                            ? 'More Dialogue'
-                            : 'More Dialogue',
-                      description:
-                        language === 'zh'
-                          ? '\u9ed8\u8ba4\uff1a\u8ba9\u4eba\u7269\u4ea4\u6d41\u3001\u53f0\u8bcd\u548c\u60c5\u7eea\u53cd\u5e94\u66f4\u591a\u3002'
-                          : language === 'ja'
-                            ? 'Default: more character speech and emotional response.'
-                            : 'Default: more character speech and emotional response.',
-                    },
-                    {
-                      value: 'action' as const,
-                      Icon: Feather,
-                      label:
-                        language === 'zh'
-                          ? '\u66f4\u591a\u52a8\u4f5c'
-                          : language === 'ja'
-                            ? 'More Action'
-                            : 'More Action',
-                      description:
-                        language === 'zh'
-                          ? '\u8ba9\u80a2\u4f53\u52a8\u4f5c\u3001\u573a\u9762\u8c03\u5ea6\u548c\u4e8b\u4ef6\u63a8\u8fdb\u66f4\u591a\u3002'
-                          : language === 'ja'
-                            ? 'More physical action, staging, and plot movement.'
-                            : 'More physical action, staging, and plot movement.',
-                    },
-                  ] satisfies Array<{
-                    value: AIGenerationBalance;
-                    Icon: typeof MessageCircle;
-                    label: string;
-                    description: string;
-                  }>
-                ).map((item) => {
-                  const selected = aiGenerationBalance === item.value;
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => setAiGenerationBalance(item.value)}
-                      className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
-                        selected
-                          ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      <span className={optionIconClass(selected)}>
-                        <item.Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        {renderInfoHint(
-                          <span className="text-sm font-black leading-tight">{item.label}</span>,
-                          item.description,
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
+                  {(
+                    [
+                      {
+                        value: 'dialogue' as const,
+                        Icon: MessageCircle,
+                        label:
+                          language === 'zh'
+                            ? '\u66f4\u591a\u5bf9\u8bdd'
+                            : language === 'ja'
+                              ? 'More Dialogue'
+                              : 'More Dialogue',
+                        description:
+                          language === 'zh'
+                            ? '\u9ed8\u8ba4\uff1a\u8ba9\u4eba\u7269\u4ea4\u6d41\u3001\u53f0\u8bcd\u548c\u60c5\u7eea\u53cd\u5e94\u66f4\u591a\u3002'
+                            : language === 'ja'
+                              ? 'Default: more character speech and emotional response.'
+                              : 'Default: more character speech and emotional response.',
+                      },
+                      {
+                        value: 'action' as const,
+                        Icon: Feather,
+                        label:
+                          language === 'zh'
+                            ? '\u66f4\u591a\u52a8\u4f5c'
+                            : language === 'ja'
+                              ? 'More Action'
+                              : 'More Action',
+                        description:
+                          language === 'zh'
+                            ? '\u8ba9\u80a2\u4f53\u52a8\u4f5c\u3001\u573a\u9762\u8c03\u5ea6\u548c\u4e8b\u4ef6\u63a8\u8fdb\u66f4\u591a\u3002'
+                            : language === 'ja'
+                              ? 'More physical action, staging, and plot movement.'
+                              : 'More physical action, staging, and plot movement.',
+                      },
+                    ] satisfies Array<{
+                      value: AIGenerationBalance;
+                      Icon: typeof MessageCircle;
+                      label: string;
+                      description: string;
+                    }>
+                  ).map((item) => {
+                    const selected = aiGenerationBalance === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setAiGenerationBalance(item.value)}
+                        className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${selected
+                            ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                          }`}
+                      >
+                        <span className={optionIconClass(selected)}>
+                          <item.Icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          {renderInfoHint(
+                            <span className="text-sm font-black leading-tight">{item.label}</span>,
+                            item.description,
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -2241,16 +2236,14 @@ export function AISettingsPanel({
                 <button
                   type="button"
                   onClick={() => setAllowAssistantImageGeneration(!allowAssistantImageGeneration)}
-                  className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${
-                    allowAssistantImageGeneration
+                  className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${allowAssistantImageGeneration
                       ? 'bg-[var(--accent)] shadow-md'
                       : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${
-                      allowAssistantImageGeneration ? 'left-6' : 'left-1'
-                    }`}
+                    className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${allowAssistantImageGeneration ? 'left-6' : 'left-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -2281,16 +2274,14 @@ export function AISettingsPanel({
                   className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                 >
                   <div
-                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
-                      customAiPromptsEnabled
+                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${customAiPromptsEnabled
                         ? 'bg-[var(--accent)] shadow-lg'
                         : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
-                        customAiPromptsEnabled ? 'left-6' : 'left-1'
-                      }`}
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${customAiPromptsEnabled ? 'left-6' : 'left-1'
+                        }`}
                     />
                   </div>
                 </button>

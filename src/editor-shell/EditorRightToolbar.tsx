@@ -166,8 +166,6 @@ export function EditorRightToolbar({
             )}
           </button>
 
-          {!isMobile && (
-            <>
               <button
                 onClick={() => setShowTitles((value) => !value)}
                 className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -180,7 +178,7 @@ export function EditorRightToolbar({
                 )}
               </button>
 
-              <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
+              <div className={`my-1 h-px w-full bg-[var(--toolbar-border)]/50 ${toolbarLayout === 'horizontal' ? 'hidden' : ''}`} />
 
               <button
                 onClick={undo}
@@ -199,8 +197,6 @@ export function EditorRightToolbar({
               >
                 <Redo2 className="h-5 w-5" />
               </button>
-            </>
-          )}
 
           {!isMobile && showPresetColors && (
             <>

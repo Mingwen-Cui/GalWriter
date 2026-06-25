@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -2296,8 +2296,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         {t.contactTitle}
                       </h3>
                     </header>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium px-4">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 leading-relaxed font-medium px-4">
                       {t.contactDesc}
+                    </p>
+                    <p className="text-sm font-bold leading-relaxed px-4 py-3 mb-5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
+                      {t.freeNotice}
                     </p>
                     <div className="grid grid-cols-2 gap-6">
                       {[

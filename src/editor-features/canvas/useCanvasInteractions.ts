@@ -611,7 +611,13 @@ export const useCanvasInteractions = ({
         return;
       }
       if (!isRightDragging) return;
-      event.preventDefault();
+      if (event.cancelable) {
+        try {
+          event.preventDefault();
+        } catch (e) {
+          console.warn('Unable to preventDefault on touchmove:', e);
+        }
+      }
       updateSelection(touch.clientX, touch.clientY);
     },
     [clearTouchLongPress, isRightDragging, updateSelection],

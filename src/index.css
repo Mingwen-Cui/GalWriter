@@ -290,7 +290,8 @@ body,
 
 .bubble-glass-mode .toolbar-bubble-surface {
   isolation: isolate;
-  overflow: hidden;
+  /* NOTE: overflow must be visible so active ring/shadow on buttons is not clipped */
+  overflow: visible;
   background: rgba(255, 255, 255, 0.6) !important;
   border-color: rgba(255, 255, 255, 0.42) !important;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
@@ -422,13 +423,19 @@ body,
   .glass-toolbar.absolute.left-6 {
     left: 10px !important;
     top: calc(72px + var(--app-safe-area-top)) !important;
-    width: 50px !important;
+    /* NOTE: overflow:visible is needed for ring/shadow overflow, but must not override overflow-hidden when toolbar is collapsed */
+    width: 52px !important;
+  }
+
+  .glass-toolbar.absolute.left-6:not(.overflow-hidden) {
+    overflow: visible !important;
   }
 
   .glass-toolbar.absolute.right-6 {
     right: 10px !important;
     top: calc(72px + var(--app-safe-area-top)) !important;
-    width: 50px !important;
+    width: 52px !important;
+    overflow: visible !important;
   }
 
   .toolbar-flat-content {
@@ -2265,3 +2272,55 @@ input[type='range']::-moz-range-track {
   /* 优化：不再使用强制黑白化，而是使用反色并增强亮度，保留更多细节 */
   filter: invert(1) brightness(1.2);
 }
+
+/* 手机端选择/框选激活状态的图标与背景颜色设定 */
+.glass-toolbar button.mobile-action-active-brand {
+  background: rgba(79, 57, 246, 0.12) !important;
+  color: #4f39f6 !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 0 0 1px rgba(79, 57, 246, 0.25) !important;
+}
+
+[data-theme='dark'] .glass-toolbar button.mobile-action-active-brand {
+  background: rgba(79, 57, 246, 0.22) !important;
+  color: #4f39f6 !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 0 0 1px rgba(79, 57, 246, 0.5) !important;
+}
+
+.glass-toolbar button.mobile-action-active-brand svg {
+  color: #4f39f6 !important;
+  stroke: #4f39f6 !important;
+}
+
+/* 手机端卡片浮动工具栏宽度拓宽 */
+@media (max-width: 767px) {
+  .card-floating-toolbar {
+    width: 430px !important;
+    max-width: none !important;
+  }
+}
+
+/* 解决卡片浮动工具栏按钮 hover 背景超出圆角的问题 */
+.toolbar-bubble-surface button:not(.rounded-full) {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+.toolbar-bubble-surface button.rounded-full {
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+}
+
+/* 连线手机端长按即将删除的颤动提示动画 */
+.edge-long-press-shake {
+  animation: edge-shake 0.12s ease-in-out infinite;
+}
+
+@keyframes edge-shake {
+  0% { transform: translate(0, 0) scale(1.01); filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)); }
+  25% { transform: translate(-0.5px, 0.5px); }
+  50% { transform: translate(0.5px, -0.5px); }
+  75% { transform: translate(-0.5px, -0.5px); }
+  100% { transform: translate(0.5px, 0.5px) scale(1.01); filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)); }
+}
+

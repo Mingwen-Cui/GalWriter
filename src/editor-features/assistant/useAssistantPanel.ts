@@ -522,7 +522,7 @@ export const useAssistantPanel = ({
   assistantMemoryNotes,
   setAssistantMemoryNotes,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
-  const [assistantOpen, setAssistantOpen] = useState(true);
+  const [assistantOpen, setAssistantOpen] = useState(!isMobile);
   const [assistantWidth, setAssistantWidth] = useState(360);
   const [assistantResizing, setAssistantResizing] = useState(false);
   const assistantResizeRef = useRef<{

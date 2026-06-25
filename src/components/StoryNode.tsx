@@ -151,7 +151,7 @@ const ToolGroup = ({
 const Separator = () => <div className="w-px h-4 bg-[var(--toolbar-border)]/50 mx-0.5 shrink-0" />;
 
 const btnBase =
-  'h-7 flex items-center justify-center rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] disabled:opacity-50';
+  'h-7 flex items-center justify-center rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)] disabled:opacity-50 shrink-0';
 const iconBtnBase = `${btnBase} w-7 p-1.5`;
 const textBtnBase = `${btnBase} px-2 text-xs font-medium`;
 const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
@@ -303,6 +303,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     value: CharacterPresentation | ScenePresentation;
   } | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      const forceMobileUi = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mobile') === '1';
+      setIsMobileDevice(forceMobileUi || window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // NOTE: 演出设置模板接口定义
   interface CharacterTemplate {
@@ -1428,8 +1438,24 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   };
 
   const showNodeActions = data.showNodeActions !== false;
-  const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${showNodeActions ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`;
-  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all z-50 flex items-center justify-center ${showNodeActions ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`;
+  const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${
+    showNodeActions
+      ? isMobileDevice
+        ? selected
+          ? 'opacity-100 pointer-events-auto'
+          : 'opacity-0 pointer-events-none'
+        : 'opacity-0 group-hover:opacity-100'
+      : 'opacity-0 pointer-events-none'
+  }`;
+  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all z-50 flex items-center justify-center ${
+    showNodeActions
+      ? isMobileDevice
+        ? selected
+          ? 'opacity-100 scale-100 pointer-events-auto'
+          : 'opacity-0 scale-50 pointer-events-none'
+        : 'opacity-0 group-hover:opacity-100'
+      : 'opacity-0 pointer-events-none'
+  }`;
 
   const getClipPath = (s: StoryCardVisualShape) => {
     switch (s) {
@@ -1645,7 +1671,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
         <div style={{ transform: `scale(${zoom * 0.6})`, transformOrigin: 'bottom center' }}>
           <div
-            className="toolbar-bubble-surface nodrag nopan nowheel bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
+            className="card-floating-toolbar toolbar-bubble-surface nodrag nopan nowheel bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
             onPointerDown={(event) => event.stopPropagation()}
             onPointerMove={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}

@@ -1,4 +1,4 @@
-﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
   EyeOff,
@@ -111,7 +111,7 @@ export function WebPlaytestPreview({
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
     null,
   );
-  const inlineActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inlineActionTimerRef = useRef<any>(null);
 
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();

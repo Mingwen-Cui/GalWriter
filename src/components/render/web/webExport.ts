@@ -1279,7 +1279,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         const probe = document.createElement("div");
         probe.innerHTML = html || "";
         probe.querySelectorAll(".mention-chip").forEach((node) => node.remove());
-        return /[\p{L}\p{N}]/u.test(probe.textContent || "");
+        return /[\\p{L}\\p{N}]/u.test(probe.textContent || "");
       };
       const mentionPlacement = (mention) => {
         const beforeRange = document.createRange();

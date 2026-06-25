@@ -150,94 +150,86 @@ export function EditorHeader({
           : 'absolute left-4 top-3'
       }`}
     >
-      <div
-        className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${
-          isMobile ? 'mobile-editor-header-bar' : 'rounded-2xl'
-        } ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}
-      >
-        <img
-          src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
-          className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
-          alt="Logo"
-        />
+      {/* NOTE: 移动端使用三列布局（relative 容器 + 绝对居中的保存时间），桌面端保持原有内联布局 */}
+      {isMobile ? (
         <div
-          className={`min-w-0 flex items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-4'}`}
+          className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto relative flex w-full items-center mobile-editor-header-bar border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 ${bubbleStyle === 'glass' ? '' : 'px-2 py-1.5'}`}
         >
-          <div
-            className={`min-w-0 flex shrink items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-3'}`}
-          >
-            <div className="flex items-center gap-2 px-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingProjectName(projectName);
-                  setIsEditingProjectName(true);
-                }}
-                className={`min-w-0 rounded-md px-1 py-0.5 text-left text-sm md:text-base font-bold transition-colors ${
-                  projectName.trim()
-                    ? 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
-                    : 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
-                title={displayProjectName}
-              >
-                {isEditingProjectName ? (
-                  <input
-                    ref={projectNameInputRef}
-                    value={editingProjectName}
-                    onChange={(event) => {
-                      setEditingProjectName(event.target.value);
-                      onProjectNameChange(event.target.value);
-                    }}
-                    onBlur={() => {
+          {/* 左侧：Logo + 项目名 */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <img
+              src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
+              className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
+              alt="Logo"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingProjectName(projectName);
+                setIsEditingProjectName(true);
+              }}
+              className="min-w-0 rounded-md px-1 py-0.5 text-left text-sm font-bold transition-colors text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200"
+              title={displayProjectName}
+            >
+              {isEditingProjectName ? (
+                <input
+                  ref={projectNameInputRef}
+                  value={editingProjectName}
+                  onChange={(event) => {
+                    setEditingProjectName(event.target.value);
+                    onProjectNameChange(event.target.value);
+                  }}
+                  onBlur={() => {
+                    void commitProjectName();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
                       void commitProjectName();
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        void commitProjectName();
-                        (event.currentTarget as HTMLInputElement).blur();
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault();
-                        setEditingProjectName(projectName);
-                        onProjectNameChange(projectName);
-                        setIsEditingProjectName(false);
-                        (event.currentTarget as HTMLInputElement).blur();
-                      }
-                    }}
-                    placeholder={defaultProjectName}
-                    className="bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
-                    style={{ width: `${projectNameWidth}px` }}
-                  />
-                ) : (
-                  <span className="inline-block max-w-[220px] truncate align-middle">
-                    {projectName.trim() ? projectName : defaultProjectName}
-                  </span>
-                )}
-              </button>
-              <span
-                ref={projectNameSizerRef}
-                className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold md:text-base"
-                aria-hidden="true"
-              >
-                {editingProjectName || defaultProjectName}
-              </span>
-              {showLastSavedTime && (
-                <span className="text-xs text-slate-500 whitespace-nowrap ml-2">
-                  {lastSavedTime
-                    ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
-                    : language === 'zh'
-                      ? '尚未保存'
-                      : language === 'ja'
-                        ? '未保存'
-                        : 'Not saved yet'}
+                      (event.currentTarget as HTMLInputElement).blur();
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      setEditingProjectName(projectName);
+                      onProjectNameChange(projectName);
+                      setIsEditingProjectName(false);
+                      (event.currentTarget as HTMLInputElement).blur();
+                    }
+                  }}
+                  placeholder={defaultProjectName}
+                  className="bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+                  style={{ width: `${projectNameWidth}px` }}
+                />
+              ) : (
+                <span className="inline-block max-w-[130px] truncate align-middle">
+                  {projectName.trim() ? projectName : defaultProjectName}
                 </span>
               )}
-            </div>
+            </button>
+            <span
+              ref={projectNameSizerRef}
+              className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold"
+              aria-hidden="true"
+            >
+              {editingProjectName || defaultProjectName}
+            </span>
           </div>
-          <div
-            className={`flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
-          >
+
+          {/* 中间：保存时间（绝对居中，不占用两侧空间） */}
+          {showLastSavedTime && (
+            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-xs text-slate-500 whitespace-nowrap">
+              {lastSavedTime
+                ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
+                : language === 'zh'
+                  ? '尚未保存'
+                  : language === 'ja'
+                    ? '未保存'
+                    : 'Not saved yet'}
+            </span>
+          )}
+
+          {/* 右侧：操作按钮组 */}
+          <div className={`ml-auto flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-0.5'}`}>
             <button
               type="button"
               onClick={handleSaveProject}
@@ -268,24 +260,6 @@ export function EditorHeader({
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
               )}
             </button>
-
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={handleExportProject}
-                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                title={
-                  language === 'zh'
-                    ? '导出 ZIP 备份文件'
-                    : language === 'ja'
-                      ? 'ZIPバックアップファイルをエクスポート'
-                      : 'Export ZIP backup file'
-                }
-              >
-                <Download className="h-4 w-4" />
-              </button>
-            )}
-
             <button
               onClick={openProjectHome}
               className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -306,7 +280,6 @@ export function EditorHeader({
             >
               <PlayCircle className="h-4 w-4" />
             </button>
-
             {canRenderVideo && (
               <button
                 onClick={() => setShowVideoRender(true)}
@@ -323,15 +296,191 @@ export function EditorHeader({
               </button>
             )}
           </div>
+          <input
+            type="file"
+            accept=".zip,.json"
+            className="hidden"
+            ref={jsonInputRef}
+            onChange={handleImportZIP}
+          />
         </div>
-        <input
-          type="file"
-          accept=".zip,.json"
-          className="hidden"
-          ref={jsonInputRef}
-          onChange={handleImportZIP}
-        />
-      </div>
+      ) : (
+        <div
+          className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center rounded-2xl border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}
+        >
+          <img
+            src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
+            className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
+            alt="Logo"
+          />
+          <div
+            className={`min-w-0 flex items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-4'}`}
+          >
+            <div
+              className={`min-w-0 flex shrink items-center overflow-hidden ${bubbleStyle === 'glass' ? '' : 'gap-3'}`}
+            >
+              <div className="flex items-center gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProjectName(projectName);
+                    setIsEditingProjectName(true);
+                  }}
+                  className={`min-w-0 rounded-md px-1 py-0.5 text-left text-sm md:text-base font-bold transition-colors ${
+                    projectName.trim()
+                      ? 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
+                      : 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'
+                  }`}
+                  title={displayProjectName}
+                >
+                  {isEditingProjectName ? (
+                    <input
+                      ref={projectNameInputRef}
+                      value={editingProjectName}
+                      onChange={(event) => {
+                        setEditingProjectName(event.target.value);
+                        onProjectNameChange(event.target.value);
+                      }}
+                      onBlur={() => {
+                        void commitProjectName();
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void commitProjectName();
+                          (event.currentTarget as HTMLInputElement).blur();
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          setEditingProjectName(projectName);
+                          onProjectNameChange(projectName);
+                          setIsEditingProjectName(false);
+                          (event.currentTarget as HTMLInputElement).blur();
+                        }
+                      }}
+                      placeholder={defaultProjectName}
+                      className="bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+                      style={{ width: `${projectNameWidth}px` }}
+                    />
+                  ) : (
+                    <span className="inline-block max-w-[220px] truncate align-middle">
+                      {projectName.trim() ? projectName : defaultProjectName}
+                    </span>
+                  )}
+                </button>
+                <span
+                  ref={projectNameSizerRef}
+                  className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold md:text-base"
+                  aria-hidden="true"
+                >
+                  {editingProjectName || defaultProjectName}
+                </span>
+                {showLastSavedTime && (
+                  <span className="text-xs text-slate-500 whitespace-nowrap ml-2">
+                    {lastSavedTime
+                      ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
+                      : language === 'zh'
+                        ? '尚未保存'
+                        : language === 'ja'
+                          ? '未保存'
+                          : 'Not saved yet'}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div
+              className={`flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
+            >
+              <button
+                type="button"
+                onClick={handleSaveProject}
+                disabled={isSavingProject}
+                className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                  isDirty
+                    ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
+                    : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
+                } ${isSavingProject ? 'cursor-wait opacity-70' : ''}`}
+                title={
+                  isSavingProject
+                    ? language === 'zh'
+                      ? '正在保存...'
+                      : language === 'ja'
+                        ? '保存中...'
+                        : 'Saving...'
+                    : isDirty
+                      ? language === 'zh'
+                        ? '有未保存的更改 - 点击保存'
+                        : language === 'ja'
+                          ? '未保存の変更があります - クリックして保存'
+                          : 'Unsaved changes - Click to save'
+                      : t.save
+                }
+              >
+                <Save className="h-4 w-4" />
+                {isDirty && (
+                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportProject}
+                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                title={
+                  language === 'zh'
+                    ? '导出 ZIP 备份文件'
+                    : language === 'ja'
+                      ? 'ZIPバックアップファイルをエクスポート'
+                      : 'Export ZIP backup file'
+                }
+              >
+                <Download className="h-4 w-4" />
+              </button>
+              <button
+                onClick={openProjectHome}
+                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                title={
+                  language === 'zh'
+                    ? '项目列表'
+                    : language === 'ja'
+                      ? 'プロジェクト一覧'
+                      : 'Project home'
+                }
+              >
+                <FolderOpen className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setShowPlayTest(true)}
+                className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
+                title={t.playTest}
+              >
+                <PlayCircle className="h-4 w-4" />
+              </button>
+              {canRenderVideo && (
+                <button
+                  onClick={() => setShowVideoRender(true)}
+                  className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
+                  title={
+                    language === 'zh'
+                      ? '导出为视频'
+                      : language === 'ja'
+                        ? '動画としてエクスポート'
+                        : 'Export Video'
+                  }
+                >
+                  <Film className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          <input
+            type="file"
+            accept=".zip,.json"
+            className="hidden"
+            ref={jsonInputRef}
+            onChange={handleImportZIP}
+          />
+        </div>
+      )}
       <div className="hidden">
         <div className="toolbar-bubble-surface pointer-events-auto flex items-center gap-1.5 rounded-2xl border border-[var(--header-border)] bg-white/80 px-2 py-1 shadow-sm backdrop-blur-xl dark:bg-slate-900/80">
           <button

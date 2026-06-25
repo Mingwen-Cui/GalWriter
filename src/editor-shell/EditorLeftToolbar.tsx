@@ -170,7 +170,7 @@ export function EditorLeftToolbar({
   );
 
   const showCardHoverGuide = (kind: HoverGuideKind, button: HTMLButtonElement) => {
-    if (!showHoverButtonAnimations) return;
+    if (!showHoverButtonAnimations || isMobile) return;
 
     const requestId = guideRequestIdRef.current + 1;
     guideRequestIdRef.current = requestId;
@@ -268,74 +268,125 @@ export function EditorLeftToolbar({
     <>
       <div
         className={`toolbar-bubble-surface glass-toolbar absolute left-6 top-20 z-20 flex w-[52px] flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
-          toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
+          // NOTE: 移动端折叠时保留3个按钮（选择+框选+最小化），高度约156px；桌面端仅显示最小化按钮52px
+          isMobile && toolbarCollapsed ? 'h-[156px] overflow-hidden' : !isMobile && toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
         }`}
       >
-        <button
-          onClick={() => setToolbarCollapsed((value) => !value)}
-          className="mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
-          title={
-            toolbarCollapsed
-              ? language === 'zh'
-                ? '展开工具栏'
-                : language === 'ja'
-                  ? 'ツールバーを展開'
-                  : 'Expand Toolbar'
-              : language === 'zh'
-                ? '折叠工具栏'
-                : language === 'ja'
-                  ? 'ツールバーを折りたたむ'
-                  : 'Collapse Toolbar'
-          }
-        >
-          <div
-            className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}
+        {/* 桌面端：最小化按钮在最顶部（原始位置） */}
+        {!isMobile && (
+          <button
+            onClick={() => setToolbarCollapsed((value) => !value)}
+            className="mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
+            title={
+              toolbarCollapsed
+                ? language === 'zh'
+                  ? '展开工具栏'
+                  : language === 'ja'
+                    ? 'ツールバーを展開'
+                    : 'Expand Toolbar'
+                : language === 'zh'
+                  ? '折叠工具栏'
+                  : language === 'ja'
+                    ? 'ツールバーを折りたたむ'
+                    : 'Collapse Toolbar'
+            }
           >
-            <ChevronDown className="h-6 w-6" />
-          </div>
-        </button>
+            <div
+              className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}
+            >
+              <ChevronDown className="h-6 w-6" />
+            </div>
+          </button>
+        )}
+
+        {/* 移动端：选择/框选按钮始终显示，不受折叠影响 */}
+        {isMobile && (
+          <>
+            <button
+              className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-300 ${
+                interactionMode === 'select'
+                  ? 'mobile-action-active-brand'
+                  : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+              onClick={() => setInteractionMode('select')}
+              title={
+                language === 'zh'
+                  ? '选择/连接卡片'
+                  : language === 'ja'
+                    ? '選択/接続'
+                    : 'Select / connect cards'
+              }
+            >
+              <MousePointer2 strokeWidth={2.5} className="h-5 w-5" />
+            </button>
+            <button
+              className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-all duration-300 ${
+                interactionMode === 'box'
+                  ? 'mobile-action-active-brand'
+                  : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+              onClick={() => setInteractionMode('box')}
+              title={
+                language === 'zh'
+                  ? '框选卡片'
+                  : language === 'ja'
+                    ? '範囲選択'
+                    : 'Box select cards'
+              }
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                {/* 虚线选择区域 */}
+                <rect x="3" y="3" width="13" height="13" rx="2" strokeDasharray="3 2" />
+                {/* 选区右下角的鼠标指针 */}
+                <path
+                  d="M12 12l3 9 2-4 4-2z"
+                  fill="currentColor"
+                  stroke="currentColor"
+                  strokeWidth={1}
+                />
+              </svg>
+            </button>
+            {/* 移动端：最小化按钮在框选下方 */}
+            <button
+              onClick={() => setToolbarCollapsed((value) => !value)}
+              className="mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
+              title={
+                toolbarCollapsed
+                  ? language === 'zh'
+                    ? '展开工具栏'
+                    : language === 'ja'
+                      ? 'ツールバーを展開'
+                      : 'Expand Toolbar'
+                  : language === 'zh'
+                    ? '折叠工具栏'
+                    : language === 'ja'
+                      ? 'ツールバーを折りたたむ'
+                      : 'Collapse Toolbar'
+              }
+            >
+              <div
+                className={`transition-transform duration-500 ${toolbarCollapsed ? 'rotate-0' : 'rotate-180'}`}
+              >
+                <ChevronDown className="h-6 w-6" />
+              </div>
+            </button>
+          </>
+        )}
 
         {!toolbarCollapsed && (
           <div className="toolbar-flat-content animate-in fade-in slide-in-from-top-2 flex flex-col duration-300">
-            {isMobile && (
-              <>
-                <button
-                  className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-colors ${
-                    interactionMode === 'select'
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                  onClick={() => setInteractionMode('select')}
-                  title={
-                    language === 'zh'
-                      ? '选择/连接卡片'
-                      : language === 'ja'
-                        ? '選択/接続'
-                        : 'Select / connect cards'
-                  }
-                >
-                  <MousePointer2 strokeWidth={2.5} className="h-5 w-5" />
-                </button>
-                <button
-                  className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-colors ${
-                    interactionMode === 'box'
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                  onClick={() => setInteractionMode('box')}
-                  title={
-                    language === 'zh'
-                      ? '框选卡片'
-                      : language === 'ja'
-                        ? '範囲選択'
-                        : 'Box select cards'
-                  }
-                >
-                  <Square strokeWidth={2.5} className="h-5 w-5" />
-                </button>
-                <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
-              </>
-            )}
+            {/* 移动端的选择/框选已在上方始终渲染，这里加分隔线即可 */}
+            {isMobile && <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />}
+
             <button
               className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => addNewShape('square')}
@@ -380,19 +431,29 @@ export function EditorLeftToolbar({
               <MapPin strokeWidth={2.5} className="h-5 w-5" />
             </button>
 
-            {!isMobile && (
-              <button
-                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={addNewPlotStructureNode}
-                onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-                onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-                aria-label={hoverGuideText.plotStructure}
-              >
-                <BookOpen strokeWidth={2.5} className="h-5 w-5" />
-              </button>
-            )}
+            <button
+              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={addNewPlotStructureNode}
+              onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+              onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.plotStructure}
+            >
+              <BookOpen strokeWidth={2.5} className="h-5 w-5" />
+            </button>
+
+            <button
+              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={addNewNumberConditionNode}
+              onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+              onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+              aria-label={hoverGuideText.numberCondition}
+            >
+              <Calculator strokeWidth={2.5} className="h-5 w-5" />
+            </button>
 
             {!isMobile && <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />}
 
@@ -421,20 +482,6 @@ export function EditorLeftToolbar({
                 aria-label={hoverGuideText.batchReplace}
               >
                 <Replace strokeWidth={2.5} className="h-5 w-5" />
-              </button>
-            )}
-
-            {!isMobile && (
-              <button
-                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={addNewNumberConditionNode}
-                onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
-                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-                onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
-                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-                aria-label={hoverGuideText.numberCondition}
-              >
-                <Calculator strokeWidth={2.5} className="h-5 w-5" />
               </button>
             )}
 
@@ -474,6 +521,7 @@ export function EditorLeftToolbar({
       </div>
 
       {showHoverButtonAnimations &&
+        !isMobile &&
         shouldRenderHoverGuide &&
         activeHoverGuide &&
         activeHoverGuideConfig &&
