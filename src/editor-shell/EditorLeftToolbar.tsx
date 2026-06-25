@@ -300,13 +300,15 @@ export function EditorLeftToolbar({
               <Square strokeWidth={3} className="h-5 w-5" />
             </button>
 
-            <button
-              className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewTextNode}
-              title={t.toolText}
-            >
-              <Type strokeWidth={2.5} className="h-5 w-5" />
-            </button>
+            {!isMobile && (
+              <button
+                className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={addNewTextNode}
+                title={t.toolText}
+              >
+                <Type strokeWidth={2.5} className="h-5 w-5" />
+              </button>
+            )}
 
             <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 
@@ -334,55 +336,63 @@ export function EditorLeftToolbar({
               <MapPin strokeWidth={2.5} className="h-5 w-5" />
             </button>
 
-            <button
-              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewPlotStructureNode}
-              onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-              onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
-              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-              aria-label={hoverGuideText.plotStructure}
-            >
-              <BookOpen strokeWidth={2.5} className="h-5 w-5" />
-            </button>
+            {!isMobile && (
+              <button
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={addNewPlotStructureNode}
+                onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
+                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+                onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
+                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+                aria-label={hoverGuideText.plotStructure}
+              >
+                <BookOpen strokeWidth={2.5} className="h-5 w-5" />
+              </button>
+            )}
 
-            <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
+            {!isMobile && <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />}
 
-            <button
-              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewSummaryNode}
-              onMouseEnter={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
-              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-              onFocus={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
-              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-              aria-label={hoverGuideText.textSummary}
-            >
-              <FileText strokeWidth={2.5} className="h-5 w-5" />
-            </button>
+            {!isMobile && (
+              <button
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={addNewSummaryNode}
+                onMouseEnter={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
+                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+                onFocus={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
+                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+                aria-label={hoverGuideText.textSummary}
+              >
+                <FileText strokeWidth={2.5} className="h-5 w-5" />
+              </button>
+            )}
 
-            <button
-              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewBatchReplaceNode}
-              onMouseEnter={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
-              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-              onFocus={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
-              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-              aria-label={hoverGuideText.batchReplace}
-            >
-              <Replace strokeWidth={2.5} className="h-5 w-5" />
-            </button>
+            {!isMobile && (
+              <button
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={addNewBatchReplaceNode}
+                onMouseEnter={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
+                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+                onFocus={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
+                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+                aria-label={hoverGuideText.batchReplace}
+              >
+                <Replace strokeWidth={2.5} className="h-5 w-5" />
+              </button>
+            )}
 
-            <button
-              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewNumberConditionNode}
-              onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
-              onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
-              onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
-              onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
-              aria-label={hoverGuideText.numberCondition}
-            >
-              <Calculator strokeWidth={2.5} className="h-5 w-5" />
-            </button>
+            {!isMobile && (
+              <button
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={addNewNumberConditionNode}
+                onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+                onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
+                onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
+                onBlur={(event) => hideCardHoverGuide(event.currentTarget)}
+                aria-label={hoverGuideText.numberCondition}
+              >
+                <Calculator strokeWidth={2.5} className="h-5 w-5" />
+              </button>
+            )}
 
             <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 

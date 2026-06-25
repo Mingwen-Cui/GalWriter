@@ -1,4 +1,4 @@
-import { Download, Film, FolderOpen, PlayCircle, Save, Sparkles, Upload } from 'lucide-react';
+import { Download, Film, FolderOpen, PlayCircle, Save, Sparkles } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -261,20 +261,22 @@ export function EditorHeader({
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={handleExportProject}
-              className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              title={
-                language === 'zh'
-                  ? '导出 ZIP 备份文件'
-                  : language === 'ja'
-                    ? 'ZIPバックアップファイルをエクスポート'
-                    : 'Export ZIP backup file'
-              }
-            >
-              <Download className="h-4 w-4" />
-            </button>
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={handleExportProject}
+                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                title={
+                  language === 'zh'
+                    ? '导出 ZIP 备份文件'
+                    : language === 'ja'
+                      ? 'ZIPバックアップファイルをエクスポート'
+                      : 'Export ZIP backup file'
+                }
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
 
             <button
               onClick={openProjectHome}

@@ -166,39 +166,43 @@ export function EditorRightToolbar({
             )}
           </button>
 
-          <button
-            onClick={() => setShowTitles((value) => !value)}
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-            title={showTitles ? t.hideTitles : t.showTitles}
-          >
-            {showTitles ? (
-              <CaptionsOff className="h-5 w-5" />
-            ) : (
-              <Captions className="h-5 w-5" />
-            )}
-          </button>
+          {!isMobile && (
+            <>
+              <button
+                onClick={() => setShowTitles((value) => !value)}
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                title={showTitles ? t.hideTitles : t.showTitles}
+              >
+                {showTitles ? (
+                  <CaptionsOff className="h-5 w-5" />
+                ) : (
+                  <Captions className="h-5 w-5" />
+                )}
+              </button>
 
-          <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
+              <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 
-          <button
-            onClick={undo}
-            disabled={historyPastLength === 0}
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-            title="撤销 (Ctrl+Z)"
-          >
-            <Undo2 className="h-5 w-5" />
-          </button>
+              <button
+                onClick={undo}
+                disabled={historyPastLength === 0}
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
+                title="撤销 (Ctrl+Z)"
+              >
+                <Undo2 className="h-5 w-5" />
+              </button>
 
-          <button
-            onClick={redo}
-            disabled={historyFutureLength === 0}
-            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-            title="重做 (Ctrl+Y)"
-          >
-            <Redo2 className="h-5 w-5" />
-          </button>
+              <button
+                onClick={redo}
+                disabled={historyFutureLength === 0}
+                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
+                title="重做 (Ctrl+Y)"
+              >
+                <Redo2 className="h-5 w-5" />
+              </button>
+            </>
+          )}
 
-          {showPresetColors && (
+          {!isMobile && showPresetColors && (
             <>
               <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
 

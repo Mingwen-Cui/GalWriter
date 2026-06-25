@@ -358,6 +358,67 @@ body,
   flex-shrink: 0;
 }
 
+@media (max-width: 767px), (pointer: coarse) and (max-width: 900px) {
+  .editor-header-bubble {
+    max-width: calc(100vw - 1rem) !important;
+    min-height: 52px;
+    gap: 0.25rem !important;
+    padding: 6px !important;
+  }
+
+  .editor-header-logo {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .editor-header-bubble .header-glass-action,
+  .glass-toolbar button {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  .editor-header-bubble .header-glass-action svg,
+  .glass-toolbar button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .editor-header-bubble input,
+  .editor-header-bubble button {
+    touch-action: manipulation;
+  }
+
+  .editor-header-bubble [title] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .editor-header-bubble .truncate {
+    max-width: min(34vw, 150px) !important;
+  }
+
+  .glass-toolbar {
+    border-radius: 16px !important;
+    padding: 6px !important;
+  }
+
+  .glass-toolbar.absolute.left-6 {
+    left: 12px !important;
+    top: 86px !important;
+    width: 58px !important;
+  }
+
+  .glass-toolbar.absolute.right-6 {
+    right: 12px !important;
+    top: 86px !important;
+    width: 58px !important;
+  }
+
+  .toolbar-flat-content {
+    gap: 4px;
+  }
+}
+
 .bubble-flat-mode .glass-toolbar {
   padding: 6px !important;
   overflow: visible !important;
