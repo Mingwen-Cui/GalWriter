@@ -246,7 +246,7 @@ const makeContentScript = (payload: {
   settings: WebExportSettings;
   nodes: WebExportNode[];
   edges: WebExportEdge[];
-}) => `window.GALWRITER_CONTENT = ${JSON.stringify(payload, null, 2)};\n`;
+}) => `window.GALWRITER_CONTENT=${JSON.stringify(payload)};\n`;
 
 const WEB_EXPORT_ICONS: Record<string, string> = {
   'app.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0ea5e9"/><path d="M18 16h28a4 4 0 0 1 4 4v26a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4Z" fill="#082f49"/><path d="M23 26h18M23 34h13M23 42h20" stroke="#e0f2fe" stroke-width="4" stroke-linecap="round"/></svg>`,

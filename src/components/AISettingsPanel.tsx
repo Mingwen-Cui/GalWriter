@@ -715,6 +715,8 @@ interface AISettingsPanelProps {
   setAiButtonsConfig: (config: AIButtonsConfig) => void;
   aiGenerationBalance: AIGenerationBalance;
   setAiGenerationBalance: (balance: AIGenerationBalance) => void;
+  allowAssistantImageGeneration: boolean;
+  setAllowAssistantImageGeneration: (enabled: boolean) => void;
   assistantOptionsSlot?: React.ReactNode;
 }
 
@@ -739,6 +741,8 @@ export function AISettingsPanel({
   setAiButtonsConfig,
   aiGenerationBalance,
   setAiGenerationBalance,
+  allowAssistantImageGeneration,
+  setAllowAssistantImageGeneration,
   assistantOptionsSlot,
 }: AISettingsPanelProps) {
   const t = translations[language];
@@ -2215,6 +2219,42 @@ export function AISettingsPanel({
               </div>
             </section>
 
+
+            <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-[var(--text-primary)]">
+                    {language === 'zh'
+                      ? '\u5141\u8bb8 AI \u52a9\u624b\u8c03\u7528\u56fe\u7247\u751f\u6210 API'
+                      : language === 'ja'
+                        ? 'AI\u30a2\u30b7\u30b9\u30bf\u30f3\u30c8\u306e\u753b\u50cf\u751f\u6210API\u547c\u3073\u51fa\u3057\u3092\u8a31\u53ef'
+                        : 'Allow AI assistant to call image generation API'}
+                  </h3>
+                  <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                    {language === 'zh'
+                      ? '\u5f00\u542f\u540e\uff0cAI \u52a9\u624b\u53ef\u4ee5\u5728\u5bf9\u8bdd\u4e2d\u8c03\u7528\u5f53\u524d\u56fe\u7247 AI \u914d\u7f6e\u751f\u6210\u89d2\u8272\u3001\u573a\u666f\u6216\u5176\u4ed6\u56fe\u50cf\u3002'
+                      : language === 'ja'
+                        ? '有効にすると、AIアシスタントは現在の画像AI設定を使って画像を生成できます。'
+                        : 'When enabled, the assistant can use the active Image AI profile to generate images from chat.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllowAssistantImageGeneration(!allowAssistantImageGeneration)}
+                  className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${
+                    allowAssistantImageGeneration
+                      ? 'bg-[var(--accent)] shadow-md'
+                      : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                      allowAssistantImageGeneration ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </section>
 
             {assistantOptionsSlot}
 

@@ -752,7 +752,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
       nodes: processedNodes,
     };
 
-    zip.file('project.json', JSON.stringify(exportProject, null, 2));
+    zip.file('project.json', JSON.stringify(exportProject));
     if (thumbnailDataUrl) {
       const thumbnailBlob = await urlToBlob(thumbnailDataUrl);
       if (thumbnailBlob) {
@@ -822,16 +822,12 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
 
     zip.file(
       'galwriter-project-bundle.json',
-      JSON.stringify(
-        {
-          type: 'galwriter-project-bundle',
-          version: 1,
-          projectCount: projects.length,
-          exportedAt: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
+      JSON.stringify({
+        type: 'galwriter-project-bundle',
+        version: 1,
+        projectCount: projects.length,
+        exportedAt: new Date().toISOString(),
+      }),
     );
 
     const content = await zip.generateAsync({ type: 'blob' });

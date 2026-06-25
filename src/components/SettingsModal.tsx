@@ -331,7 +331,7 @@ const settingsText = {
     disableOverlay: '关闭遮罩',
     multimediaSettings: '多媒体设置',
     qqPersonal: 'QQ群',
-    visitAuthorWebsite: '访问作者的网站',
+    visitAuthorWebsite: '访问介绍网站',
     helpUsageNotice: '帮助和使用须知',
     aboutProductTitle: 'AI 交互式小说创作工具',
     aboutProductDesc: '致力于构建下一代 AI 交互式小说创作工具，让每一颗想象力的种子都能开花结果。',
@@ -1111,12 +1111,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         label: s.saveAssistantConversations,
                         value: saveAssistantConversations,
                         setter: setSaveAssistantConversations,
-                      },
-                      {
-                        id: 'allowAssistantImageGeneration',
-                        label: s.allowAssistantImageGeneration,
-                        value: allowAssistantImageGeneration,
-                        setter: setAllowAssistantImageGeneration,
                       },
                       {
                         id: 'showMiniMap',
@@ -2227,6 +2221,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAiButtonsConfig={setAiButtonsConfig}
                     aiGenerationBalance={aiGenerationBalance}
                     setAiGenerationBalance={setAiGenerationBalance}
+                    allowAssistantImageGeneration={allowAssistantImageGeneration}
+                    setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
                     assistantOptionsSlot={
                       <div className="grid gap-4">
                         <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
@@ -2351,7 +2347,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       ))}
                       <a
-                        href="https://mingwencui.com"
+                        href="https://mingwencui.com/AIwriter/?lang=zh"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="col-span-1 flex min-h-14 items-center justify-center gap-2 px-4 py-4 bg-[var(--accent)] text-white rounded-xl text-sm font-black shadow-xl transition-all hover:shadow-2xl hover:-translate-y-0.5 active:scale-95"
