@@ -142,6 +142,16 @@ export function EditorHeader({
   const defaultProjectName =
     language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
+  const mobileLastSavedLabel =
+    language === 'zh' ? '上次保存' : language === 'ja' ? '最終保存' : 'Last saved';
+  const mobileLastSavedValue = lastSavedTime
+    ? formatLastSavedTime(lastSavedTime)
+    : language === 'zh'
+      ? '尚未保存'
+      : language === 'ja'
+        ? '未保存'
+        : 'Not saved';
+
   return (
     <div
       className={`pointer-events-none z-30 md:left-6 ${
@@ -217,7 +227,7 @@ export function EditorHeader({
 
           {/* 中间：保存时间（绝对居中，不占用两侧空间） */}
           {showLastSavedTime && (
-            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-xs text-slate-500 whitespace-nowrap">
+            <span className="hidden">
               {lastSavedTime
                 ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
                 : language === 'zh'
@@ -229,6 +239,13 @@ export function EditorHeader({
           )}
 
           {/* 右侧：操作按钮组 */}
+          {showLastSavedTime && (
+            <span className="pointer-events-none absolute left-1/2 flex max-w-[72px] -translate-x-1/2 flex-col items-center justify-center text-center text-[10px] font-semibold leading-[11px] text-slate-500 dark:text-slate-400">
+              <span className="block max-w-[72px] truncate">{mobileLastSavedLabel}</span>
+              <span className="block max-w-[72px] truncate">{mobileLastSavedValue}</span>
+            </span>
+          )}
+
           <div className={`ml-auto flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-0.5'}`}>
             <button
               type="button"

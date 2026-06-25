@@ -10,6 +10,7 @@ import {
   MousePointer2,
   Replace,
   Square,
+  SquareDashedMousePointer,
   Type,
   UserCircle2,
 } from 'lucide-react';
@@ -334,26 +335,7 @@ export function EditorLeftToolbar({
                     : 'Box select cards'
               }
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                {/* 虚线选择区域 */}
-                <rect x="3" y="3" width="13" height="13" rx="2" strokeDasharray="3 2" />
-                {/* 选区右下角的鼠标指针 */}
-                <path
-                  d="M12 12l3 9 2-4 4-2z"
-                  fill="currentColor"
-                  stroke="currentColor"
-                  strokeWidth={1}
-                />
-              </svg>
+              <SquareDashedMousePointer strokeWidth={2.5} className="h-5 w-5" />
             </button>
             {/* 移动端：最小化按钮在框选下方 */}
             <button

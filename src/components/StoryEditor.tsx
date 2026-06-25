@@ -4519,7 +4519,7 @@ export function StoryEditor() {
         if (cancelled) return;
         setProjectSummaries(projects);
         setProjectListLoading(false);
-        setShowProjectHome(projects.length > 0);
+        setShowProjectHome(!isMobile && projects.length > 0);
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
 
         setSavedAIProfiles(savedProfilesState.profiles);
@@ -5218,7 +5218,7 @@ ${layoutConfig.label}
               edgeTypes={edgeTypesMemo}
               connectionMode={ConnectionMode.Loose}
               defaultEdgeOptions={defaultEdgeOptions}
-              panOnDrag={isRightDragging ? false : (interactionMode === 'select' && !isMobile) ? [0] : false}
+              panOnDrag={isRightDragging ? false : interactionMode === 'select' ? [0] : false}
               selectionOnDrag={false}
               selectionMode={SelectionMode.Partial}
               panOnScroll={scrollMode === 'pan'}
@@ -5242,26 +5242,28 @@ ${layoutConfig.label}
                   className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
                   style={miniMapOverlayStyle}
                 >
-                  <MiniMap
-                    pannable={true}
-                    zoomable={true}
-                    className="!static !bg-transparent !border-none !m-0"
-                    nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'}
-                    nodeStrokeColor={
-                      bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : '#4f46e5'
-                    }
-                    nodeBorderRadius={6}
-                    maskColor={
-                      bubbleStyle === 'glass'
-                        ? theme === 'dark'
-                          ? 'rgba(0, 0, 0, 0.3)'
-                          : 'rgba(0, 0, 0, 0.08)'
-                        : theme === 'dark'
-                          ? 'rgba(84, 185, 251, 0.12)'
-                          : 'rgba(79, 70, 229, 0.08)'
-                    }
-                    style={{ height: 120, width: 160 }}
-                  />
+                  <div className="minimap-clip w-full overflow-hidden rounded-t-xl">
+                    <MiniMap
+                      pannable={true}
+                      zoomable={true}
+                      className="!static !block !bg-transparent !border-none !m-0"
+                      nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'}
+                      nodeStrokeColor={
+                        bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : '#4f46e5'
+                      }
+                      nodeBorderRadius={6}
+                      maskColor={
+                        bubbleStyle === 'glass'
+                          ? theme === 'dark'
+                            ? 'rgba(0, 0, 0, 0.3)'
+                            : 'rgba(0, 0, 0, 0.08)'
+                          : theme === 'dark'
+                            ? 'rgba(84, 185, 251, 0.12)'
+                            : 'rgba(79, 70, 229, 0.08)'
+                      }
+                      style={{ height: 120, width: 160 }}
+                    />
+                  </div>
                   {showControls && (
                     <div className="border-t border-[var(--toolbar-border)] flex items-center h-8 w-full bg-transparent">
                       <Controls
@@ -5622,6 +5624,7 @@ ${layoutConfig.label}
         language={language}
         projects={projectSummaries}
         loading={projectListLoading}
+        isMobile={isMobile}
         showCloseButton={Boolean(currentProjectId)}
         defaultProjectSaveDir={defaultProjectSaveDir}
         onClose={() => setShowProjectHome(false)}

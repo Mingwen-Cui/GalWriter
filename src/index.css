@@ -711,6 +711,18 @@ body,
     auto !important;
 }
 
+.canvas-bottom-overlay.toolbar-bubble-surface {
+  overflow: hidden !important;
+  border-radius: 12px !important;
+}
+
+.canvas-bottom-overlay .minimap-clip,
+.canvas-bottom-overlay .react-flow__minimap {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  overflow: hidden !important;
+}
+
 .bubble-flat-mode .react-flow__minimap-node {
   fill: #dbeafe !important;
   fill-opacity: 0.96;
@@ -2301,7 +2313,7 @@ input[type='range']::-moz-range-track {
 /* 手机端卡片浮动工具栏宽度拓宽 */
 @media (max-width: 767px) {
   .card-floating-toolbar {
-    width: 430px !important;
+    width: max-content !important;
     max-width: none !important;
   }
 }
@@ -2371,6 +2383,20 @@ input[type='range']::-moz-range-track {
 }
 
 /* 连线手机端长按即将删除的颤动提示动画 */
+@media (max-width: 767px), (pointer: coarse) and (max-width: 900px) {
+  .bubble-glass-mode .mobile-editor-header .header-glass-action,
+  .bubble-glass-mode .mobile-editor-header .header-glass-action:hover,
+  [data-theme='dark'] .bubble-glass-mode .mobile-editor-header .header-glass-action:hover,
+  .bubble-glass-mode .mobile-editor-header .header-glass-action:first-of-type,
+  .bubble-glass-mode .mobile-editor-header .header-glass-action:last-of-type {
+    min-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+  }
+}
+
 .edge-long-press-shake {
   animation: edge-shake 0.12s ease-in-out infinite;
 }
@@ -2382,4 +2408,3 @@ input[type='range']::-moz-range-track {
   75% { transform: translate(-0.5px, -0.5px); }
   100% { transform: translate(0.5px, 0.5px) scale(1.01); filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)); }
 }
-
