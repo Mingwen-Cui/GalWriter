@@ -4894,6 +4894,37 @@ ${layoutConfig.label}
     handleUpdateNode,
   });
 
+  // NOTE: 手机端上框选时，为了防止默认的页面滚动/缩放，需要阻止默认行为 (preventDefault)。
+  // 由于现代浏览器在 React 事件系统中默认将 Touch 监听器注册为被动监听器 (passive: true)，
+  // 导致在 onTouchMoveCapture 里 preventDefault() 会报错。
+  // 因此，此处采用原生 addEventListener 并设置 passive: false 强制允许 preventDefault() 阻止滚动。
+  useEffect(() => {
+    const element = canvasWrapperRef.current;
+    if (!element) return;
+
+    const onTouchStart = (event: TouchEvent) => {
+      handleTouchStart(event);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      handleTouchMove(event);
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      handleTouchEnd(event);
+    };
+
+    element.addEventListener('touchstart', onTouchStart, { capture: true, passive: false });
+    element.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+    element.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
+
+    return () => {
+      element.removeEventListener('touchstart', onTouchStart, { capture: true });
+      element.removeEventListener('touchmove', onTouchMove, { capture: true });
+      element.removeEventListener('touchend', onTouchEnd, { capture: true });
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (!event.shiftKey) return;
@@ -5144,9 +5175,6 @@ ${layoutConfig.label}
             onMouseDownCapture={handleMouseDown}
             onMouseMoveCapture={handleMouseMove}
             onMouseUpCapture={handleMouseUp}
-            onTouchStartCapture={handleTouchStart}
-            onTouchMoveCapture={handleTouchMove}
-            onTouchEndCapture={handleTouchEnd}
             style={{ touchAction: canvasTouchAction }}
           >
             {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}

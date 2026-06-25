@@ -309,6 +309,8 @@ body,
 .bubble-glass-mode .editor-header-bubble {
   gap: 0 !important;
   padding: 0 !important;
+  /* NOTE: overflow:hidden 确保首尾 header-glass-action 按钮 hover 背景不超出气泡圆角 */
+  overflow: hidden !important;
 }
 
 .bubble-glass-mode .editor-header-logo {
@@ -2142,6 +2144,9 @@ input[type='range']::-moz-range-track {
 .bubble-glass-mode .glass-toolbar {
   gap: 0 !important;
   padding: 0 !important;
+  /* NOTE: overflow:hidden 确保边缘按钮 hover/active 背景不超出父容器圆角；
+           此处玻璃模式下按钮已强制 box-shadow:none + border:none，不存在需要 visible 的阴影溢出 */
+  overflow: hidden !important;
 }
 
 .bubble-glass-mode .glass-toolbar button:not(.exclude-glass) {
@@ -2309,6 +2314,60 @@ input[type='range']::-moz-range-track {
 .toolbar-bubble-surface button.rounded-full {
   border-radius: 9999px !important;
   overflow: hidden !important;
+}
+
+/* NOTE: 玻璃模式下，边缘按钮需要与父容器 rounded-2xl(16px) 匹配的圆角，
+         防止 hover/active 背景色超出气泡边框。
+         对于 flex-col 布局（左/右竖向工具栏），首尾按钮设置上/下角圆角；
+         对于 flex-row / flex-row-reverse 布局（横向工具栏），首尾按钮设置左/右角圆角；
+         对于 header-glass-action（顶部 Header 按钮组），首尾同理。*/
+
+/* 竖向工具栏（左/右工具栏） */
+.bubble-glass-mode .glass-toolbar.flex-col > button:not(.exclude-glass):first-child,
+.bubble-glass-mode .glass-toolbar.flex-col > *:first-child button:not(.exclude-glass):only-child {
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
+}
+
+.bubble-glass-mode .glass-toolbar.flex-col > button:not(.exclude-glass):last-child,
+.bubble-glass-mode .glass-toolbar.flex-col > *:last-child button:not(.exclude-glass):only-child {
+  border-bottom-left-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
+}
+
+/* 正向横向工具栏（flex-row）:
+   DOM :first-child 在视觉左侧，需要左侧圆角；:last-child 在视觉右侧，需要右侧圆角 */
+.bubble-glass-mode .glass-toolbar.flex-row > button:not(.exclude-glass):first-child {
+  border-top-left-radius: 16px !important;
+  border-bottom-left-radius: 16px !important;
+}
+
+.bubble-glass-mode .glass-toolbar.flex-row > button:not(.exclude-glass):last-child {
+  border-top-right-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
+}
+
+/* 反向横向工具栏（flex-row-reverse，如右侧工具栏）:
+   DOM :first-child 在视觉右侧，需要右侧圆角；:last-child 在视觉左侧，需要左侧圆角 */
+.bubble-glass-mode .glass-toolbar.flex-row-reverse > button:not(.exclude-glass):first-child {
+  border-top-right-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
+}
+
+.bubble-glass-mode .glass-toolbar.flex-row-reverse > button:not(.exclude-glass):last-child {
+  border-top-left-radius: 16px !important;
+  border-bottom-left-radius: 16px !important;
+}
+
+/* 顶部 Header 按钮：glass-action 首尾圆角 */
+.bubble-glass-mode .header-glass-action:first-of-type {
+  border-top-left-radius: 16px !important;
+  border-bottom-left-radius: 16px !important;
+}
+
+.bubble-glass-mode .header-glass-action:last-of-type {
+  border-top-right-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
 }
 
 /* 连线手机端长按即将删除的颤动提示动画 */

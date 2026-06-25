@@ -569,7 +569,7 @@ export const useCanvasInteractions = ({
   );
 
   const handleTouchStart = useCallback(
-    (event: ReactTouchEvent) => {
+    (event: ReactTouchEvent | TouchEvent) => {
       if (event.touches.length !== 1) {
         clearTouchLongPress();
         return;
@@ -595,7 +595,7 @@ export const useCanvasInteractions = ({
   );
 
   const handleTouchMove = useCallback(
-    (event: ReactTouchEvent) => {
+    (event: ReactTouchEvent | TouchEvent) => {
       if (event.touches.length !== 1) {
         clearTouchLongPress();
         return;
@@ -624,7 +624,7 @@ export const useCanvasInteractions = ({
   );
 
   const handleTouchEnd = useCallback(
-    (event: ReactTouchEvent) => {
+    (event: ReactTouchEvent | TouchEvent) => {
       clearTouchLongPress();
       if (!(isRightDragging && event.changedTouches.length > 0)) return;
       const touch = event.changedTouches[0];
