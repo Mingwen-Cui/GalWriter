@@ -8,9 +8,7 @@ public/downloads/
 examples/
 scripts/
 api/
-!public/api/
-!public/api/*.php
-public/api/config.local.php
+public/api/
 ANDROID_BUILD_GUIDE.md
 
 # Tauri/Rust generated output
