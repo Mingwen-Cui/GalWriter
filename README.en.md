@@ -206,7 +206,6 @@ Debug APKs are for local testing. Release builds are for distribution or later s
 ├── build-scripts/               # Release installer and portable package helper scripts
 ├── public/                      # Web static assets
 ├── docs/                        # Project docs and release notes
-├── landingpage/                 # Standalone website / landing page assets
 ├── release/                     # Local package output directory
 ├── dist/                        # Web build output directory
 ├── package.json                 # npm scripts, dependencies, and version metadata
