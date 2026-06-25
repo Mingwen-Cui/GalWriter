@@ -529,6 +529,12 @@ const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 const buildProfileId = () => uuidv4();
 type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
 type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type ThemePreference = 'light' | 'dark' | 'system';
+
+const resolveSystemTheme = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
 
 const PLOT_STRUCTURE_DIRECTION_CONFIG: Record<
   PlotStructureGenerateDirection,
@@ -801,7 +807,8 @@ export function StoryEditor() {
   );
   const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
   const [projectIdsPendingDeletion, setProjectIdsPendingDeletion] = useState<string[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<ThemePreference>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveSystemTheme());
   const [closeButtonBehavior, setCloseButtonBehavior] = useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
@@ -1521,11 +1528,34 @@ export function StoryEditor() {
     ],
   );
 
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateResolvedTheme = () => {
+      setResolvedTheme(theme === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : theme);
+    };
+
+    updateResolvedTheme();
+    mediaQuery.addEventListener('change', updateResolvedTheme);
+    return () => {
+      mediaQuery.removeEventListener('change', updateResolvedTheme);
+    };
+  }, [theme]);
+
   // Update document theme attribute
   React.useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+    document.documentElement.style.colorScheme = resolvedTheme;
+
+    const themeColor = resolvedTheme === 'dark' ? '#0d0d0f' : '#ffffff';
+    let themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!themeColorMeta) {
+      themeColorMeta = document.createElement('meta');
+      themeColorMeta.name = 'theme-color';
+      document.head.appendChild(themeColorMeta);
+    }
+    themeColorMeta.content = themeColor;
+  }, [resolvedTheme]);
 
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
@@ -1783,7 +1813,7 @@ export function StoryEditor() {
   // 页面关闭/刷新前的提醒
   React.useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (isDirty || isMobile) {
         e.preventDefault();
         e.returnValue = t.dirtyWarning;
         return e.returnValue;
@@ -1791,7 +1821,7 @@ export function StoryEditor() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
+  }, [isDirty, isMobile, t.dirtyWarning]);
 
   useCanvasDnD({
     canvasWrapperRef,
@@ -4387,11 +4417,7 @@ export function StoryEditor() {
             : savedProfilesState.activeVoiceProfileId,
         );
 
-        if (appSettings.theme) {
-          setTheme(appSettings.theme);
-        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          setTheme('dark');
-        }
+        setTheme(appSettings.theme ?? 'system');
         setCloseButtonBehavior(appSettings.closeButtonBehavior);
         void syncCloseButtonBehavior(appSettings.closeButtonBehavior);
       } catch (error) {
@@ -4919,11 +4945,11 @@ ${layoutConfig.label}
         background: transparent;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
+        background: ${resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
         border-radius: 10px;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: ${theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
+        background: ${resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
       }
     `}</style>
       <EditorHeader
@@ -5081,7 +5107,7 @@ ${layoutConfig.label}
             >
               <Background
                 variant={BackgroundVariant.Dots}
-                color={theme === 'dark' ? '#334155' : '#cbd5e1'}
+                color={resolvedTheme === 'dark' ? '#334155' : '#cbd5e1'}
                 gap={24}
                 size={1}
               />
@@ -5102,10 +5128,10 @@ ${layoutConfig.label}
                       nodeBorderRadius={6}
                       maskColor={
                         bubbleStyle === 'glass'
-                          ? theme === 'dark'
+                          ? resolvedTheme === 'dark'
                             ? 'rgba(0, 0, 0, 0.3)'
                             : 'rgba(0, 0, 0, 0.08)'
-                          : theme === 'dark'
+                          : resolvedTheme === 'dark'
                             ? 'rgba(84, 185, 251, 0.12)'
                             : 'rgba(79, 70, 229, 0.08)'
                       }
@@ -5241,7 +5267,7 @@ ${layoutConfig.label}
             onClose={() => setShowPlayTest(false)}
             language={language}
             onLanguageChange={setLanguage}
-            isDarkMode={theme === 'dark'}
+            isDarkMode={playTestDarkMode}
             setIsDarkMode={setPlayTestDarkMode}
             choicesColumns={playTestChoicesColumns}
             setChoicesColumns={setPlayTestChoicesColumns}
@@ -5394,7 +5420,7 @@ ${layoutConfig.label}
           handleContactCopy={handleContactCopy}
           qqCopied={qqCopied}
           emailCopied={emailCopied}
-          playTestDarkMode={theme === 'dark'}
+          playTestDarkMode={playTestDarkMode}
           setPlayTestDarkMode={setPlayTestDarkMode}
           playTestChoicesColumns={playTestChoicesColumns}
           setPlayTestChoicesColumns={setPlayTestChoicesColumns}

@@ -369,7 +369,7 @@ body,
   .mobile-editor-header-bar {
     width: 100vw !important;
     max-width: 100vw !important;
-    min-height: 56px;
+    min-height: 96px;
     border-left: 0 !important;
     border-right: 0 !important;
     border-top: 0 !important;
@@ -381,9 +381,19 @@ body,
 
   .editor-header-bubble {
     max-width: 100vw !important;
-    min-height: 52px;
+    min-height: 96px;
+    align-content: center;
+    align-items: flex-start !important;
+    flex-wrap: wrap;
     gap: 0.25rem !important;
-    padding: 6px 8px !important;
+    padding: 8px 8px 6px !important;
+  }
+
+  .mobile-editor-header-actions {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    gap: 8px !important;
   }
 
   .editor-header-logo {
@@ -424,7 +434,7 @@ body,
 
   .glass-toolbar.absolute.left-6 {
     left: 10px !important;
-    top: calc(72px + var(--app-safe-area-top)) !important;
+    top: calc(112px + var(--app-safe-area-top)) !important;
     /* NOTE: overflow:visible is needed for ring/shadow overflow, but must not override overflow-hidden when toolbar is collapsed */
     width: 52px !important;
   }
@@ -435,7 +445,7 @@ body,
 
   .glass-toolbar.absolute.right-6 {
     right: 10px !important;
-    top: calc(72px + var(--app-safe-area-top)) !important;
+    top: calc(112px + var(--app-safe-area-top)) !important;
     width: 52px !important;
     overflow: visible !important;
   }
@@ -2423,6 +2433,34 @@ input[type='range']::-moz-range-track {
   .mobile-editor-header .header-glass-action-save:focus-visible {
     outline: 2px solid rgba(99, 102, 241, 0.42) !important;
     outline-offset: 2px !important;
+  }
+
+  .playtest-modal-root {
+    padding-top: var(--app-safe-area-top);
+  }
+
+  .playtest-header {
+    min-height: 104px !important;
+    padding: 8px 12px 10px !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .playtest-header-actions {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    gap: 8px !important;
+  }
+
+  .playtest-header-actions button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .playtest-header-actions button:first-child {
+    flex: 1 1 120px;
+    max-width: 180px;
   }
 
   .bubble-glass-mode .mobile-editor-header .header-glass-action,

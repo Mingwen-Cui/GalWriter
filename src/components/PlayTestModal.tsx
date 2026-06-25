@@ -239,6 +239,15 @@ export function PlayTestModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [focusButtonBottom, setFocusButtonBottom] = useState(24);
+  const [backExitHintVisible, setBackExitHintVisible] = useState(false);
+  const lastSystemBackRef = useRef(0);
+  const systemBackStateRef = useRef({
+    showSettings: false,
+    showAudioPlaylist: false,
+    historyLength: 0,
+    handleBack: () => {},
+    onClose: () => {},
+  });
 
   // 新增：文本呈现打字机与定时显现状态
   const [displayedHtml, setDisplayedHtml] = useState('');
@@ -1073,6 +1082,85 @@ export function PlayTestModal({
     setHistory([]);
   }, []);
 
+  const handleBack = React.useCallback(() => {
+    if (history.length === 0) return;
+
+    const newHistory = [...history];
+    let prev = newHistory.pop();
+
+    // Skip auto-jump nodes when going back, so Back lands on a visible story step.
+    while (prev) {
+      const prevNode = nodes.find((n) => n.id === prev);
+      if (prevNode?.type === 'numberConditionNode' || prevNode?.data.skip === true) {
+        if (newHistory.length > 0) {
+          prev = newHistory.pop();
+        } else {
+          const rootNode = nodes.find((n) => n.data.isRoot) || nodes[0];
+          prev = rootNode?.id;
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    setHistory(newHistory);
+    navigateToNode(prev!);
+  }, [history, navigateToNode, nodes]);
+
+  useEffect(() => {
+    systemBackStateRef.current = {
+      showSettings,
+      showAudioPlaylist,
+      historyLength: history.length,
+      handleBack,
+      onClose,
+    };
+  }, [handleBack, history.length, onClose, showAudioPlaylist, showSettings]);
+
+  useEffect(() => {
+    const stateKey = 'galwriter-playtest-back-stop';
+    window.history.pushState({ [stateKey]: true }, '');
+
+    const handlePopState = () => {
+      const latest = systemBackStateRef.current;
+
+      if (latest.showSettings) {
+        setShowSettings(false);
+        window.history.pushState({ [stateKey]: true }, '');
+        return;
+      }
+
+      if (latest.showAudioPlaylist) {
+        setShowAudioPlaylist(false);
+        window.history.pushState({ [stateKey]: true }, '');
+        return;
+      }
+
+      if (latest.historyLength > 0) {
+        latest.handleBack();
+        window.history.pushState({ [stateKey]: true }, '');
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastSystemBackRef.current < 1600) {
+        latest.onClose();
+        return;
+      }
+
+      lastSystemBackRef.current = now;
+      setBackExitHintVisible(true);
+      window.history.pushState({ [stateKey]: true }, '');
+      window.setTimeout(() => setBackExitHintVisible(false), 1600);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   useEffect(() => {
     if (
       currentNodeId !== 'THE_END' &&
@@ -1235,32 +1323,6 @@ export function PlayTestModal({
 
   const handleChoiceClick = (targetId: string) => {
     advanceToTarget(targetId);
-  };
-
-  const handleBack = () => {
-    if (history.length > 0) {
-      const newHistory = [...history];
-      let prev = newHistory.pop();
-
-      // 跳过自动跳转的节点，避免回退后又自动前进
-      while (prev) {
-        const prevNode = nodes.find((n) => n.id === prev);
-        if (prevNode?.type === 'numberConditionNode' || prevNode?.data.skip === true) {
-          if (newHistory.length > 0) {
-            prev = newHistory.pop();
-          } else {
-            const rootNode = nodes.find((n) => n.data.isRoot) || nodes[0];
-            prev = rootNode?.id;
-            break;
-          }
-        } else {
-          break;
-        }
-      }
-
-      setHistory(newHistory);
-      navigateToNode(prev!);
-    }
   };
 
   const hasMedia = !!(sceneImageUrl || sceneVideoUrl || presentedCharacters.length);
@@ -1570,7 +1632,7 @@ export function PlayTestModal({
           event.stopPropagation();
           handleTextContainerClick();
         }}
-        className={`absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
+        className={`playtest-modal-root absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
           showSettings ? 'scale-75' : 'scale-100'
         } ${
           showSettings
@@ -1583,7 +1645,7 @@ export function PlayTestModal({
       {/* Header */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`h-14 flex items-center justify-between px-4 md:px-6 shrink-0 z-50 transition-all duration-300 ${
+        className={`playtest-header flex min-h-14 items-center justify-between px-4 md:px-6 shrink-0 z-50 transition-all duration-300 ${
           isFocusMode ? 'hidden' : ''
         } ${
           layoutMode === 'immersive'
@@ -1603,7 +1665,7 @@ export function PlayTestModal({
             {t.playTestTitle}
           </span>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="playtest-header-actions flex items-center gap-2 md:gap-4">
           <button
             onClick={handleBack}
             disabled={history.length === 0}
@@ -2250,6 +2312,18 @@ export function PlayTestModal({
           </button>
         </div>
       </div>
+
+      {backExitHintVisible && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[320] flex justify-center px-4">
+          <div className="rounded-full bg-slate-950/88 px-4 py-2 text-xs font-bold text-white shadow-xl backdrop-blur-md">
+            {language === 'zh'
+              ? '再按一次返回退出测试'
+              : language === 'ja'
+                ? 'もう一度戻るとテストを終了します'
+                : 'Press Back again to exit preview'}
+          </div>
+        </div>
+      )}
 
       {playlistAudioUrl && (
         <audio

@@ -30,7 +30,10 @@ const getStoredString = <T extends string>(key: string, fallback: T, allowed?: r
 
 export const usePlaytestSettings = (): PlaytestSettingsState => {
   const [playTestDarkMode, setPlayTestDarkMode] = useState(() =>
-    getStoredBoolean('playtest-dark-mode', false),
+    getStoredBoolean(
+      'playtest-dark-mode',
+      typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches,
+    ),
   );
   const [playTestChoicesColumns, setPlayTestChoicesColumns] = useState(() =>
     getStoredNumber('playtest-columns', 1),

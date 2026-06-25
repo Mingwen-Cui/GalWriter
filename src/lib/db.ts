@@ -28,7 +28,7 @@ export interface LocalProjectSummary {
 }
 
 export interface LocalAppSettings {
-  theme: 'light' | 'dark' | null;
+  theme: 'light' | 'dark' | 'system' | null;
   lastProjectId: string | null;
   closeButtonBehavior: 'minimize' | 'quit';
   projectFilePaths: Record<string, string>;

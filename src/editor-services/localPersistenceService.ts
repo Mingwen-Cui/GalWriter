@@ -46,7 +46,7 @@ export type LocalAIProfilesSnapshot = LocalAIProfilesState;
 
 export interface ResumeState {
   project: LocalProjectSnapshot | null;
-  theme: 'light' | 'dark' | null;
+  theme: 'light' | 'dark' | 'system' | null;
 }
 
 const toProjectRecord = (snapshot: LocalProjectSnapshot) => ({
@@ -99,7 +99,7 @@ export const localPersistenceService = {
     return toProjectSnapshot(await getLocalProject(projectId));
   },
 
-  async saveTheme(theme: 'light' | 'dark') {
+  async saveTheme(theme: 'light' | 'dark' | 'system') {
     await saveAppSettings({ theme });
   },
 

@@ -114,8 +114,8 @@ interface SettingsModalProps {
   missingTextApiKey: boolean;
   language: Language;
   setLanguage: (lang: Language) => void;
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
+  theme: 'light' | 'dark' | 'system';
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
   closeButtonBehavior: 'minimize' | 'quit';
   setCloseButtonBehavior: (behavior: 'minimize' | 'quit') => void;
   bubbleStyle: 'glass' | 'flat';
@@ -951,6 +951,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className={settingsRowClass}>
                         <h3 className={settingsRowTitleClass}>{t.theme}</h3>
                         <div className={segmentedControlClass}>
+                          <button
+                            onClick={() => {
+                              setTheme('system');
+                            }}
+                            className={compactTextButtonClass(theme === 'system')}
+                          >
+                            {language === 'zh'
+                              ? '跟随系统'
+                              : language === 'ja'
+                                ? 'システム'
+                                : 'System'}
+                          </button>
                           <button
                             onClick={() => {
                               setTheme('light');

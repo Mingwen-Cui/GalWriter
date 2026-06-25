@@ -262,7 +262,9 @@ export function EditorHeader({
             </span>
           )}
 
-          <div className={`ml-auto flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-0.5'}`}>
+          <div
+            className={`mobile-editor-header-actions ml-auto flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-0.5'}`}
+          >
             <button
               type="button"
               onClick={handleSaveProject}
