@@ -2236,6 +2236,32 @@ input[type='range']::-moz-range-track {
 
 .bubble-glass-mode .header-glass-action-save {
   color: #4f46e5 !important;
+  border-radius: 0 !important;
+}
+
+.bubble-glass-mode .header-glass-action-save:hover {
+  background: rgba(79, 70, 229, 0.08) !important;
+  border-radius: 0 !important;
+}
+
+.bubble-glass-mode .header-glass-action-save:active {
+  background: rgba(79, 70, 229, 0.14) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-save {
+  color: #c4b5fd !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-save:hover {
+  background: rgba(129, 140, 248, 0.12) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .header-glass-action-save:active {
+  background: rgba(129, 140, 248, 0.2) !important;
+  border-radius: 0 !important;
 }
 
 .bubble-glass-mode .header-glass-action-import {
@@ -2384,6 +2410,21 @@ input[type='range']::-moz-range-track {
 
 /* 连线手机端长按即将删除的颤动提示动画 */
 @media (max-width: 767px), (pointer: coarse) and (max-width: 900px) {
+  .mobile-editor-header .header-glass-action,
+  .mobile-editor-header .header-glass-action:hover,
+  .mobile-editor-header .header-glass-action:active,
+  .mobile-editor-header .header-glass-action:focus-visible,
+  .mobile-editor-header .header-glass-action.header-glass-action-active {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background-clip: padding-box !important;
+  }
+
+  .mobile-editor-header .header-glass-action-save:focus-visible {
+    outline: 2px solid rgba(99, 102, 241, 0.42) !important;
+    outline-offset: 2px !important;
+  }
+
   .bubble-glass-mode .mobile-editor-header .header-glass-action,
   .bubble-glass-mode .mobile-editor-header .header-glass-action:hover,
   [data-theme='dark'] .bubble-glass-mode .mobile-editor-header .header-glass-action:hover,

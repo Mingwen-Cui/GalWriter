@@ -251,7 +251,7 @@ export function EditorHeader({
               type="button"
               onClick={handleSaveProject}
               disabled={isSavingProject}
-              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-none transition-colors ${
                 isDirty
                   ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
                   : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -297,7 +297,7 @@ export function EditorHeader({
             >
               <PlayCircle className="h-4 w-4" />
             </button>
-            {canRenderVideo && (
+            {canRenderVideo && !isMobile && (
               <button
                 onClick={() => setShowVideoRender(true)}
                 className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
@@ -412,7 +412,7 @@ export function EditorHeader({
                 type="button"
                 onClick={handleSaveProject}
                 disabled={isSavingProject}
-                className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-none transition-colors ${
                   isDirty
                     ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
                     : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -472,7 +472,7 @@ export function EditorHeader({
               >
                 <PlayCircle className="h-4 w-4" />
               </button>
-              {canRenderVideo && (
+              {canRenderVideo && !isMobile && (
                 <button
                   onClick={() => setShowVideoRender(true)}
                   className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
