@@ -174,6 +174,7 @@ export const RichText = forwardRef<
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const lastTouchEditTapRef = useRef(0);
 
   useEffect(() => {
     if (autoFocus && editorRef.current) {
@@ -356,6 +357,24 @@ export const RichText = forwardRef<
     window.getSelection()?.removeAllRanges();
   };
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') return;
+    const target = event.target;
+    if (target instanceof HTMLSpanElement && target.classList.contains('mention-chip')) return;
+    const hasCoarsePointer =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+    if (!hasCoarsePointer || document.activeElement === editorRef.current) return;
+
+    const now = Date.now();
+    const isDoubleTap = now - lastTouchEditTapRef.current < 420;
+    lastTouchEditTapRef.current = now;
+    if (!isDoubleTap) {
+      event.preventDefault();
+    }
+  };
+
   const preventMentionSelection = (
     event:
       | React.MouseEvent<HTMLDivElement>
@@ -377,6 +396,7 @@ export const RichText = forwardRef<
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       onDrop={handleDrop}
+      onPointerDown={handlePointerDown}
       onMouseDown={handleMouseDown}
       onDoubleClick={preventMentionSelection}
       onDragStart={preventMentionSelection}

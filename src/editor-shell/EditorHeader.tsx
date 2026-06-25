@@ -1,6 +1,7 @@
 import { Download, Film, FolderOpen, PlayCircle, Save, Sparkles } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
@@ -139,6 +140,24 @@ export function EditorHeader({
     setIsEditingProjectName(false);
   };
 
+  const focusProjectNameInput = () => {
+    const input = projectNameInputRef.current;
+    if (!input) return false;
+    input.focus({ preventScroll: true });
+    input.select();
+    return true;
+  };
+
+  const startEditingProjectName = () => {
+    flushSync(() => {
+      setEditingProjectName(projectName);
+      setIsEditingProjectName(true);
+    });
+    if (!focusProjectNameInput()) {
+      requestAnimationFrame(focusProjectNameInput);
+    }
+  };
+
   const defaultProjectName =
     language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
@@ -174,10 +193,7 @@ export function EditorHeader({
             />
             <button
               type="button"
-              onClick={() => {
-                setEditingProjectName(projectName);
-                setIsEditingProjectName(true);
-              }}
+              onClick={startEditingProjectName}
               className="min-w-0 rounded-md px-1 py-0.5 text-left text-sm font-bold transition-colors text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200"
               title={displayProjectName}
             >
@@ -339,10 +355,7 @@ export function EditorHeader({
               <div className="flex items-center gap-2 px-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingProjectName(projectName);
-                    setIsEditingProjectName(true);
-                  }}
+                  onClick={startEditingProjectName}
                   className={`min-w-0 rounded-md px-1 py-0.5 text-left text-sm md:text-base font-bold transition-colors ${
                     projectName.trim()
                       ? 'text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200'

@@ -806,7 +806,7 @@ export function StoryEditor() {
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
-    'horizontal',
+    () => (effectiveFlowWidth < 768 ? 'vertical' : 'horizontal'),
   );
   const {
     playTestDarkMode,
@@ -5147,6 +5147,7 @@ ${layoutConfig.label}
             <SelectionMenu
               selectionMenuRef={selectionMenuRef}
               selectionMenuLayout={selectionMenuLayout}
+              isMobile={isMobile}
               language={language}
               ttsLoading={ttsLoading}
               onWrapDynamicGroup={wrapWithDynamicGroup}

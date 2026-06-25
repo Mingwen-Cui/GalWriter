@@ -7,6 +7,7 @@ import { translations } from '../../lib/i18n';
 interface SelectionMenuProps {
   selectionMenuRef: RefObject<HTMLDivElement | null>;
   selectionMenuLayout: 'horizontal' | 'vertical';
+  isMobile?: boolean;
   language: Language;
   ttsLoading: boolean;
   onWrapDynamicGroup: () => void;
@@ -19,16 +20,19 @@ interface SelectionMenuProps {
   onHide: () => void;
 }
 
-const Divider = ({ horizontal }: { horizontal: boolean }) =>
-  horizontal ? (
-    <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
+const Divider = ({ horizontal, isMobile }: { horizontal: boolean; isMobile: boolean }) =>
+  isMobile && !horizontal ? null : horizontal ? (
+    <div
+      className={`${isMobile ? 'h-3' : 'h-4'} w-px shrink-0 bg-slate-200 dark:bg-slate-700 ${isMobile ? 'mx-0.5' : 'mx-1'}`}
+    />
   ) : (
-    <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-0.5" />
+    <div className="my-0.5 h-px w-full bg-slate-200 dark:bg-slate-700" />
   );
 
 export function SelectionMenu({
   selectionMenuRef,
   selectionMenuLayout,
+  isMobile = false,
   language,
   ttsLoading,
   onWrapDynamicGroup,
@@ -42,13 +46,36 @@ export function SelectionMenu({
 }: SelectionMenuProps) {
   const t = translations[language];
   const isHorizontal = selectionMenuLayout === 'horizontal';
-  const itemWidthClass = isHorizontal ? '' : 'w-full';
-  const nowrapClass = isHorizontal ? 'whitespace-nowrap' : '';
+  const isMobileGrid = isMobile && !isHorizontal;
+  const itemWidthClass = isHorizontal || isMobileGrid ? '' : 'w-full';
+  const nowrapClass = isHorizontal || isMobileGrid ? 'whitespace-nowrap' : '';
+  const shellLayoutClass = isHorizontal
+    ? `flex flex-row items-center flex-nowrap shrink-0 ${isMobile ? 'h-11' : 'h-[52px]'}`
+    : isMobileGrid
+      ? 'grid w-56 grid-cols-2 gap-0.5'
+      : 'flex flex-col w-40';
+  const shellSizeClass = isMobile ? 'p-1 rounded-lg' : 'p-1.5 rounded-xl';
+  const buttonSizeClass = isMobile
+    ? 'px-1.5 py-1 text-[10px] gap-1 rounded-md'
+    : 'px-3 py-1.5 text-xs gap-2 rounded-lg';
+  const iconSizeClass = isMobile ? 'h-3 w-3' : 'h-4 w-4';
+  const buttonBaseClass = `${buttonSizeClass} flex items-center font-bold transition-all shrink-0 ${itemWidthClass}`;
+
+  const dynamicWrapLabel = language === 'zh' ? '\u52a8\u6001\u5305\u88f9' : t.dynamicWrap;
+  const bgCardLabel = language === 'zh' ? '\u80cc\u666f\u5361\u7247' : t.bgCard;
+  const batchExportLabel = language === 'zh' ? '\u6279\u91cf\u6587\u672c\u5bfc\u51fa' : 'Batch Export';
+  const narrationLabel = language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Narration';
+  const narrationTitle = language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Generate narration audio';
+  const arrangeLabel = language === 'zh' ? '\u6574\u7406\u5361\u7247' : 'Arrange';
+  const arrangeTitle = language === 'zh' ? '\u6574\u7406\u9009\u4e2d\u7684\u5361\u7247' : 'Arrange selected cards';
+  const deleteLabel = language === 'zh' ? '\u5220\u9664' : 'Delete';
+  const copyLabel = language === 'zh' ? '\u590d\u5236' : 'Copy';
+  const hideLabel = language === 'zh' ? '\u9690\u85cf' : 'Hide';
 
   return (
     <div
       ref={selectionMenuRef}
-      className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] flex ${isHorizontal ? 'flex-row items-center flex-nowrap shrink-0 h-[52px]' : 'flex-col w-40'} bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
+      className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] ${shellLayoutClass} bg-[var(--toolbar-bg)] backdrop-blur-md ${shellSizeClass} shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
       style={{
         transform:
           'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)',
@@ -57,83 +84,83 @@ export function SelectionMenu({
     >
       <button
         onClick={onWrapDynamicGroup}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={t.dynamicWrap}
+        className={`${buttonBaseClass} text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30`}
+        title={dynamicWrapLabel}
       >
-        <Layers className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{t.dynamicWrap}</span>
+        <Layers className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{dynamicWrapLabel}</span>
       </button>
 
-      <Divider horizontal={isHorizontal} />
+      <Divider horizontal={isHorizontal} isMobile={isMobile} />
 
       <button
         onClick={onWrapBackground}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={t.bgCard}
+        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        title={bgCardLabel}
       >
-        <Square className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{t.bgCard}</span>
+        <Square className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{bgCardLabel}</span>
       </button>
 
-      <Divider horizontal={isHorizontal} />
+      <Divider horizontal={isHorizontal} isMobile={isMobile} />
 
       <button
         onClick={onBatchExport}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-[var(--icon-color)] hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={language === 'zh' ? '批量文本导出' : 'Batch Export'}
+        className={`${buttonBaseClass} text-[var(--icon-color)] hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        title={batchExportLabel}
       >
-        <FileText className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{language === 'zh' ? '批量文本导出' : 'Batch Export'}</span>
+        <FileText className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{batchExportLabel}</span>
       </button>
 
-      <Divider horizontal={isHorizontal} />
+      <Divider horizontal={isHorizontal} isMobile={isMobile} />
 
       <button
         onClick={onNarrate}
         disabled={ttsLoading}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all shrink-0 disabled:opacity-50 ${itemWidthClass}`}
-        title={language === 'zh' ? '生成朗读音频' : 'Generate narration audio'}
+        className={`${buttonBaseClass} text-sky-600 hover:bg-sky-50 disabled:opacity-50 dark:text-sky-400 dark:hover:bg-sky-900/30`}
+        title={narrationTitle}
       >
-        <Volume2 className={`w-4 h-4 shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
-        <span className={nowrapClass}>{language === 'zh' ? '生成朗读音频' : 'Narration'}</span>
+        <Volume2 className={`${iconSizeClass} shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
+        <span className={nowrapClass}>{narrationLabel}</span>
       </button>
 
-      <Divider horizontal={isHorizontal} />
+      <Divider horizontal={isHorizontal} isMobile={isMobile} />
 
       <button
         onClick={onArrange}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={language === 'zh' ? '整理选中的卡片' : 'Arrange selected cards'}
+        className={`${buttonBaseClass} text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30`}
+        title={arrangeTitle}
       >
-        <Grid3X3 className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{language === 'zh' ? '整理卡片' : 'Arrange'}</span>
+        <Grid3X3 className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{arrangeLabel}</span>
       </button>
 
       <button
         onClick={onDelete}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={language === 'zh' ? '删除' : 'Delete'}
+        className={`${buttonBaseClass} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30`}
+        title={deleteLabel}
       >
-        <Trash2 className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{language === 'zh' ? '删除' : 'Delete'}</span>
+        <Trash2 className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{deleteLabel}</span>
       </button>
 
       <button
         onClick={onCopy}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={language === 'zh' ? '复制' : 'Copy'}
+        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        title={copyLabel}
       >
-        <Copy className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{language === 'zh' ? '复制' : 'Copy'}</span>
+        <Copy className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{copyLabel}</span>
       </button>
 
       <button
         onClick={onHide}
-        className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-white hover:text-indigo-600 dark:hover:text-[var(--accent)] hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all shrink-0 ${itemWidthClass}`}
-        title={language === 'zh' ? '隐藏' : 'Hide'}
+        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        title={hideLabel}
       >
-        <EyeOff className="w-4 h-4 shrink-0" />
-        <span className={nowrapClass}>{language === 'zh' ? '隐藏' : 'Hide'}</span>
+        <EyeOff className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{hideLabel}</span>
       </button>
     </div>
   );

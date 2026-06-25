@@ -8,6 +8,8 @@ public/downloads/
 examples/
 scripts/
 api/
+!public/api/
+!public/api/*.php
 public/api/config.local.php
 ANDROID_BUILD_GUIDE.md
 

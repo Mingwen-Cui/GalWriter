@@ -86,6 +86,19 @@ type DeleteState =
     profileId: string;
     name: string;
   };
+type HostedQuotaType = 'chat' | 'image' | 'voice';
+type HostedQuotaInfo = {
+  used: number;
+  limit: number;
+  remaining: number | null;
+};
+type HostedProxyUsage = Partial<Record<HostedQuotaType, HostedQuotaInfo>>;
+
+const DEFAULT_HOSTED_PROXY_USAGE: Record<HostedQuotaType, HostedQuotaInfo> = {
+  chat: { used: 0, limit: 30, remaining: 30 },
+  image: { used: 0, limit: 10, remaining: 10 },
+  voice: { used: 0, limit: 30, remaining: 30 },
+};
 
 function FloatingHint({
   label,
@@ -534,6 +547,33 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
   return `${prefix}_${formatTimestamp(Date.now())}`;
 };
 
+const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
+  kind === 'image' ? 'image' : kind === 'voice' ? 'voice' : 'chat';
+
+const normalizeHostedUsage = (data: unknown): HostedProxyUsage => {
+  const source = (data as { usage?: unknown })?.usage;
+  if (!source || typeof source !== 'object') return {};
+  return (['chat', 'image', 'voice'] as HostedQuotaType[]).reduce<HostedProxyUsage>(
+    (result, type) => {
+      const item = (source as Record<string, unknown>)[type];
+      if (!item || typeof item !== 'object') return result;
+      const record = item as Record<string, unknown>;
+      const used = Number(record.used);
+      const limit = Number(record.limit);
+      const remaining = record.remaining === null ? null : Number(record.remaining);
+      if (Number.isFinite(used) && Number.isFinite(limit)) {
+        result[type] = {
+          used: Math.max(0, used),
+          limit: Math.max(0, limit),
+          remaining: Number.isFinite(remaining) ? Math.max(0, remaining) : null,
+        };
+      }
+      return result;
+    },
+    {},
+  );
+};
+
 const isLikelyUrlProfileName = (name: string) => /^https?:\/\//i.test(name.trim());
 
 const buildDefaultTextDraft = (): TextAIProfile => {
@@ -752,6 +792,33 @@ export function AISettingsPanel({
     'idle' | 'success' | 'empty' | 'blocked'
   >('idle');
   const [localOllamaModels, setLocalOllamaModels] = React.useState<ModelOption[]>([]);
+  const [hostedProxyUsage, setHostedProxyUsage] = React.useState<HostedProxyUsage>({});
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || isTauriRuntime()) return;
+    let cancelled = false;
+    const fetchHostedProxyUsage = async () => {
+      try {
+        const response = await fetch('api/proxy.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'usage' }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) {
+          setHostedProxyUsage(normalizeHostedUsage(data));
+        }
+      } catch {
+        // Hosted usage is optional; keep the default quota display if the proxy is unavailable.
+      }
+    };
+
+    void fetchHostedProxyUsage();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (editorState?.kind === 'text' && editorState.draft.provider === 'ollama') {
@@ -837,6 +904,35 @@ export function AISettingsPanel({
   const renderInfoHint = (label: React.ReactNode, description: string, className = '') => (
     <FloatingHint label={label} description={description} className={className} />
   );
+  const getHostedQuotaInfo = (kind: ProfileKind) => {
+    const type = getHostedQuotaType(kind);
+    return hostedProxyUsage[type] || DEFAULT_HOSTED_PROXY_USAGE[type];
+  };
+  const formatHostedQuotaText = (kind: ProfileKind) => {
+    const quota = getHostedQuotaInfo(kind);
+    const label =
+      language === 'zh'
+        ? kind === 'image'
+          ? '图片'
+          : kind === 'voice'
+            ? '语音'
+            : 'AI 对话'
+        : kind === 'image'
+          ? 'image'
+          : kind === 'voice'
+            ? 'voice'
+            : 'AI chat';
+    if (language === 'zh') {
+      return `今日已使用 ${quota.used}/${quota.limit} 次${label}额度。`;
+    }
+    return `Used ${quota.used}/${quota.limit} ${label} requests today.`;
+  };
+  const formatHostedSummary = (kind: ProfileKind) => {
+    const quotaText = formatHostedQuotaText(kind);
+    return language === 'zh'
+      ? `AI 请求将通过网站服务端代理转发。${quotaText}`
+      : `AI requests are forwarded through the hosted proxy. ${quotaText}`;
+  };
 
   const updateDraft = React.useCallback((updates: Partial<ProfileDraft>) => {
     setEditorState((current) => {
@@ -1154,8 +1250,8 @@ export function AISettingsPanel({
                       </p>
                       <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         {language === 'zh'
-                          ? 'AI 请求将通过网站服务端代理转发，密钥由网站管理员统一持有。每人每天可免费使用 30 次 AI 对话。'
-                          : 'AI requests are proxied through the server. The API key is managed by the site admin. Each user gets 30 free AI calls per day.'}
+                          ? `AI 请求将通过网站服务端代理转发，密钥由网站管理员统一持有。${formatHostedQuotaText('text')}`
+                          : `AI requests are proxied through the server. The API key is managed by the site admin. ${formatHostedQuotaText('text')}`}
                       </p>
                     </div>
                   ) : (
@@ -1811,7 +1907,7 @@ export function AISettingsPanel({
                           ? 'AI Provider Profiles'
                           : 'AI Provider Profiles'}
                     </h3>
-                    <p className="mt-1 text-[11px] font-medium italic text-[var(--text-muted)]">
+                    <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
                       {t.apiKeyLocalOnly}
                     </p>
                   </div>
@@ -1932,9 +2028,7 @@ export function AISettingsPanel({
                                 profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
                                 profile.id === HOSTED_VOICE_PROXY_PROFILE_ID;
                               const profileSummary = isReadOnly
-                                ? language === 'zh'
-                                  ? '\u0041\u0049 \u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\u3002\u6bcf\u4eba\u6bcf\u5929\u53ef\u514d\u8d39\u4f7f\u7528 30 \u6b21 \u0041\u0049 \u5bf9\u8bdd\u3002'
-                                  : 'AI requests are forwarded through the hosted proxy.'
+                                ? formatHostedSummary(section.kind)
                                 : (profile.provider || 'custom').toUpperCase() + ' / ' +
                                 (profile.model || (language === 'zh' ? '\u672a\u6307\u5b9a\u6a21\u578b' : 'No model selected'));
                               return (
