@@ -180,6 +180,9 @@ export interface ImageAIProfile {
   enableHr?: boolean;
   hrScale?: number;
   denoisingStrength?: number;
+  removeBackground?: boolean;
+  subjectSegmentationApiUrl?: string;
+  subjectSegmentationApiKey?: string;
 }
 
 export interface VoiceAIProfile {

@@ -4,6 +4,7 @@ export const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 export const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 export const DEFAULT_IMAGE_SIZE = '2K';
 export const LOCAL_STABLE_DIFFUSION_PROVIDER = 'local-stable-diffusion';
+export const HOSTED_IMAGE_PROXY_PROVIDER = 'hosted-image';
 export const DEFAULT_STABLE_DIFFUSION_API_URL = 'http://127.0.0.1:7860';
 export const DEFAULT_STABLE_DIFFUSION_MODEL = 'stable-diffusion-webui';
 export const DEFAULT_STABLE_DIFFUSION_SAMPLER = 'DPM++ 2M Karras';
@@ -31,6 +32,9 @@ export type StableDiffusionOptions = {
 
 export const isLocalStableDiffusionProvider = (provider = '') =>
   provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
+
+export const isHostedImageProxyProvider = (provider = '') =>
+  provider === HOSTED_IMAGE_PROXY_PROVIDER;
 
 const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
   const numberValue = typeof value === 'number' ? value : Number(value);
@@ -343,6 +347,12 @@ export const buildImageGenerationRequest = (
   referenceImages: string[] = [],
   transparentBackground = false,
 ) => {
+  const hostedProxyUrl = (() => {
+    const configuredProxyUrl = url.trim();
+    if (configuredProxyUrl && isHostedImageProxyProvider(provider)) return configuredProxyUrl;
+    return 'api/proxy.php';
+  })();
+
   if (isLocalStableDiffusionProvider(provider)) {
     const dimensions = parseImageDimensions(size);
     return {
@@ -394,20 +404,63 @@ export const buildImageGenerationRequest = (
   const normalizedSize = usesSeedream ? normalizeSeedreamSize(size) : size.trim() || '1024x1024';
 
   if (usesSeedream) {
+    const seedreamBody = {
+      model: normalizedModel,
+      prompt,
+      ...(referenceImages.length > 0 ? { image: referenceImages } : {}),
+      sequential_image_generation: 'disabled',
+      response_format: 'url',
+      size: normalizedSize,
+      stream: false,
+      watermark: true,
+    };
+
+    if (isHostedImageProxyProvider(provider)) {
+      return {
+        url: hostedProxyUrl,
+        provider,
+        usesSeedream: true,
+        usesStableDiffusion: false,
+        body: {
+          type: 'image',
+          provider: 'doubao',
+          payload: seedreamBody,
+        },
+      };
+    }
+
     return {
       url: requestUrl,
       provider,
       usesSeedream: true,
       usesStableDiffusion: false,
+      body: seedreamBody,
+    };
+  }
+
+  const genericBody = {
+    model: normalizedModel,
+    prompt,
+    size: normalizedSize,
+    n: 1,
+    ...(transparentBackground && /gpt-image/i.test(normalizedModel)
+      ? {
+          background: 'transparent',
+          output_format: 'png',
+        }
+      : {}),
+  };
+
+  if (isHostedImageProxyProvider(provider)) {
+    return {
+      url: hostedProxyUrl,
+      provider,
+      usesSeedream: false,
+      usesStableDiffusion: false,
       body: {
-        model: normalizedModel,
-        prompt,
-        ...(referenceImages.length > 0 ? { image: referenceImages } : {}),
-        sequential_image_generation: 'disabled',
-        response_format: 'url',
-        size: normalizedSize,
-        stream: false,
-        watermark: true,
+        type: 'image',
+        provider: 'image',
+        payload: genericBody,
       },
     };
   }
@@ -417,20 +470,72 @@ export const buildImageGenerationRequest = (
     provider,
     usesSeedream: false,
     usesStableDiffusion: false,
-    body: {
-      model: normalizedModel,
-      prompt,
-      size: normalizedSize,
-      n: 1,
-      ...(transparentBackground && /gpt-image/i.test(normalizedModel)
-        ? {
-            background: 'transparent',
-            output_format: 'png',
-          }
-        : {}),
-    },
+    body: genericBody,
   };
 };
+
+const buildSubjectSegmentationPayload = (imageUrl: string) => {
+  const dataUrlMatch = imageUrl.match(/^data:image\/[a-z0-9.+-]+;base64,(.+)$/i);
+  if (dataUrlMatch) return { image_base64: dataUrlMatch[1] };
+  if (/^https?:\/\//i.test(imageUrl)) return { image_url: imageUrl };
+  return { image_base64: imageUrl };
+};
+
+export const requestSubjectSegmentation = async (
+  imageUrl: string,
+  options: {
+    apiUrl?: string;
+    apiKey?: string;
+    useHostedProxy?: boolean;
+  } = {},
+) => {
+  const useHostedProxy = Boolean(options.useHostedProxy);
+  const url = useHostedProxy ? options.apiUrl?.trim() || 'api/proxy.php' : options.apiUrl?.trim();
+  if (!url) {
+    throw new Error('Subject segmentation API URL is required.');
+  }
+  const body = useHostedProxy
+    ? {
+        type: 'segment',
+        image: imageUrl,
+      }
+    : buildSubjectSegmentationPayload(imageUrl);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.apiKey?.trim() ? { Authorization: `Bearer ${options.apiKey.trim()}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `HTTP ${response.status}`);
+  }
+
+  const result = await response.json();
+  const image =
+    result?.image ||
+    result?.image_url ||
+    result?.url ||
+    result?.data?.[0]?.b64_json ||
+    result?.data?.[0]?.url ||
+    result?.Result?.Image ||
+    result?.Result?.ImageUrl ||
+    result?.Result?.image ||
+    result?.Result?.image_url;
+
+  if (!image || typeof image !== 'string') {
+    throw new Error('Subject segmentation returned no usable image.');
+  }
+
+  if (/^data:image\//i.test(image) || /^https?:\/\//i.test(image)) return image;
+  return `data:image/png;base64,${image}`;
+};
+
+export const requestHostedSubjectSegmentation = (imageUrl: string, apiUrl = '') =>
+  requestSubjectSegmentation(imageUrl, { apiUrl, useHostedProxy: true });
 
 const loadImageSource = async (imageUrl: string) => {
   const response = await fetch(imageUrl);

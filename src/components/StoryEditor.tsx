@@ -95,7 +95,14 @@ import type {
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { useSharedRenderStyle } from '../editor-state/useSharedRenderStyle';
 import { Language, translations } from '../lib/i18n';
-import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
+import {
+  HOSTED_IMAGE_PROXY_PROFILE,
+  HOSTED_IMAGE_PROXY_PROFILE_ID,
+  HOSTED_PROXY_PROFILE,
+  HOSTED_PROXY_PROFILE_ID,
+  HOSTED_VOICE_PROXY_PROFILE,
+  HOSTED_VOICE_PROXY_PROFILE_ID,
+} from '../lib/hostedProxy';
 import {
   createCharacterPresentation,
   createInlinePresentationAction,
@@ -661,6 +668,9 @@ const buildDefaultImageProfile = (): ImageAIProfile => ({
   enableHr: false,
   hrScale: 2,
   denoisingStrength: 0.7,
+  removeBackground: false,
+  subjectSegmentationApiUrl: '',
+  subjectSegmentationApiKey: '',
 });
 
 const buildDefaultVoiceProfile = (): VoiceAIProfile => ({
@@ -998,22 +1008,30 @@ export function StoryEditor() {
       ) ?? null
     );
   }, [activeTextProfileId, savedAIProfiles]);
-  const activeImageProfile = useMemo(
-    () =>
+  const activeImageProfile = useMemo(() => {
+    if (!isTauriRuntime() && activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID) {
+      return HOSTED_IMAGE_PROXY_PROFILE;
+    }
+
+    return (
       savedAIProfiles.find(
         (profile): profile is ImageAIProfile =>
           profile.kind === 'image' && profile.id === activeImageProfileId,
-      ) ?? null,
-    [activeImageProfileId, savedAIProfiles],
-  );
-  const activeVoiceProfile = useMemo(
-    () =>
+      ) ?? null
+    );
+  }, [activeImageProfileId, savedAIProfiles]);
+  const activeVoiceProfile = useMemo(() => {
+    if (!isTauriRuntime() && activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID) {
+      return HOSTED_VOICE_PROXY_PROFILE;
+    }
+
+    return (
       savedAIProfiles.find(
         (profile): profile is VoiceAIProfile =>
           profile.kind === 'voice' && profile.id === activeVoiceProfileId,
-      ) ?? null,
-    [activeVoiceProfileId, savedAIProfiles],
-  );
+      ) ?? null
+    );
+  }, [activeVoiceProfileId, savedAIProfiles]);
 
   const aiProvider = activeTextProfile?.provider ?? 'deepseek';
   const thinkingMode = activeTextProfile?.thinkingMode ?? false;
@@ -1032,6 +1050,9 @@ export function StoryEditor() {
   const imageEnableHr = activeImageProfile?.enableHr ?? false;
   const imageHrScale = activeImageProfile?.hrScale ?? 2;
   const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
+  const imageRemoveBackground = activeImageProfile?.removeBackground ?? false;
+  const imageSubjectSegmentationApiUrl = activeImageProfile?.subjectSegmentationApiUrl ?? '';
+  const imageSubjectSegmentationApiKey = activeImageProfile?.subjectSegmentationApiKey ?? '';
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
@@ -1045,7 +1066,10 @@ export function StoryEditor() {
   const getExportedAIProfiles = useCallback((): ProjectAIProfilesExport | null => {
     const profiles = [activeTextProfile, activeImageProfile, activeVoiceProfile].filter(
       (profile): profile is SavedAIProfile =>
-        Boolean(profile) && profile?.id !== HOSTED_PROXY_PROFILE_ID,
+        Boolean(profile) &&
+        profile?.id !== HOSTED_PROXY_PROFILE_ID &&
+        profile?.id !== HOSTED_IMAGE_PROXY_PROFILE_ID &&
+        profile?.id !== HOSTED_VOICE_PROXY_PROFILE_ID,
     );
 
     if (profiles.length === 0) return null;
@@ -1130,7 +1154,12 @@ export function StoryEditor() {
 
   const handleUpdateAIProfile = useCallback(
     async (profileId: string, updates: AIProfileUpdates) => {
-      if (profileId === HOSTED_PROXY_PROFILE_ID) return;
+      if (
+        profileId === HOSTED_PROXY_PROFILE_ID ||
+        profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+        profileId === HOSTED_VOICE_PROXY_PROFILE_ID
+      )
+        return;
       setSavedAIProfiles((current) =>
         updateProfileList(current, profileId, (profile) => Object.assign({}, profile, updates)),
       );
@@ -1149,7 +1178,12 @@ export function StoryEditor() {
 
   const handleDeleteAIProfile = useCallback(
     async (profileId: string) => {
-      if (profileId === HOSTED_PROXY_PROFILE_ID) return;
+      if (
+        profileId === HOSTED_PROXY_PROFILE_ID ||
+        profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+        profileId === HOSTED_VOICE_PROXY_PROFILE_ID
+      )
+        return;
       setSavedAIProfiles((current) => {
         const nextProfiles = current.filter((profile) => profile.id !== profileId);
         if (activeTextProfileId === profileId) {
@@ -1175,7 +1209,7 @@ export function StoryEditor() {
 
   const setImageSize = useCallback(
     (value: React.SetStateAction<string>) => {
-      if (!activeImageProfileId) return;
+      if (!activeImageProfileId || activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID) return;
 
       setSavedAIProfiles((currentProfiles) => {
         const targetProfile = currentProfiles.find(
@@ -1351,6 +1385,7 @@ export function StoryEditor() {
     didHydrateLocalState &&
     (!activeImageProfile ||
       (!isLocalStableDiffusionProvider(activeImageProfile.provider) &&
+        activeImageProfile.provider !== 'hosted-image' &&
         !activeImageProfile.apiKey.trim()));
   const missingVoiceApiKey =
     didHydrateLocalState &&
@@ -1358,7 +1393,9 @@ export function StoryEditor() {
       (activeVoiceProfile.provider === 'youdao'
         ? !(activeVoiceProfile.appKey || activeVoiceProfile.model || '').trim() ||
           !activeVoiceProfile.apiKey.trim()
-        : activeVoiceProfile.provider !== 'system' && !activeVoiceProfile.apiKey.trim()));
+        : activeVoiceProfile.provider !== 'system' &&
+          activeVoiceProfile.provider !== 'hosted-voice' &&
+          !activeVoiceProfile.apiKey.trim()));
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback((target: 'text' | 'image' | 'voice') => {
     setSettingsAttentionTarget(target);
@@ -1652,8 +1689,10 @@ export function StoryEditor() {
       profiles: savedAIProfiles,
       activeTextProfileId:
         activeTextProfileId === HOSTED_PROXY_PROFILE_ID ? null : activeTextProfileId,
-      activeImageProfileId,
-      activeVoiceProfileId,
+      activeImageProfileId:
+        activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID ? null : activeImageProfileId,
+      activeVoiceProfileId:
+        activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID ? null : activeVoiceProfileId,
     });
   }, [
     didHydrateLocalState,
@@ -2064,7 +2103,7 @@ export function StoryEditor() {
         !activeVoiceProfile ||
         (ttsProvider === 'youdao'
           ? !ttsAppKey.trim() || !ttsApiKey.trim()
-          : ttsProvider !== 'system' && !ttsApiKey.trim());
+          : ttsProvider !== 'system' && ttsProvider !== 'hosted-voice' && !ttsApiKey.trim());
       if (missingVoiceApiConfig) {
         requestSettingsAttention('voice');
         showToast(
@@ -2219,6 +2258,9 @@ export function StoryEditor() {
     imageEnableHr,
     imageHrScale,
     imageDenoisingStrength,
+    imageRemoveBackground,
+    imageSubjectSegmentationApiUrl,
+    imageSubjectSegmentationApiKey,
     characterImageMode,
     sceneImageMode,
     showTitles: showTitles && storyTitlePlacement === 'inside',
@@ -4476,8 +4518,16 @@ export function StoryEditor() {
         setActiveTextProfileId(
           shouldUseHostedProxyByDefault ? HOSTED_PROXY_PROFILE_ID : savedTextProfileId,
         );
-        setActiveImageProfileId(savedProfilesState.activeImageProfileId);
-        setActiveVoiceProfileId(savedProfilesState.activeVoiceProfileId);
+        setActiveImageProfileId(
+          shouldUseHostedProxyByDefault
+            ? HOSTED_IMAGE_PROXY_PROFILE_ID
+            : savedProfilesState.activeImageProfileId,
+        );
+        setActiveVoiceProfileId(
+          shouldUseHostedProxyByDefault
+            ? HOSTED_VOICE_PROXY_PROFILE_ID
+            : savedProfilesState.activeVoiceProfileId,
+        );
 
         if (appSettings.theme) {
           setTheme(appSettings.theme);

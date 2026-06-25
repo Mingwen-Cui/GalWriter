@@ -11,7 +11,9 @@ import {
   ensureImageAspectRatio,
   ensureTransparentImageBackground,
   getConnectedImageReferences,
+  isHostedImageProxyProvider,
   isLocalStableDiffusionProvider,
+  requestSubjectSegmentation,
   type ImageReference,
   toApiImageReference,
 } from './imageGeneration';
@@ -35,6 +37,9 @@ interface UseMediaActionsParams {
   imageEnableHr?: boolean;
   imageHrScale?: number;
   imageDenoisingStrength?: number;
+  imageRemoveBackground?: boolean;
+  imageSubjectSegmentationApiUrl?: string;
+  imageSubjectSegmentationApiKey?: string;
   characterImageMode: CharacterImageMode;
   sceneImageMode: SceneImageMode;
   showTitles: boolean;
@@ -118,6 +123,9 @@ export const useMediaActions = ({
   imageEnableHr,
   imageHrScale,
   imageDenoisingStrength,
+  imageRemoveBackground,
+  imageSubjectSegmentationApiUrl,
+  imageSubjectSegmentationApiKey,
   characterImageMode,
   sceneImageMode,
   showTitles,
@@ -151,6 +159,7 @@ export const useMediaActions = ({
     ],
   );
   const isLocalStableDiffusion = isLocalStableDiffusionProvider(imageProvider);
+  const isHostedImageProxy = isHostedImageProxyProvider(imageProvider);
 
   const handleAddTextToImage = useCallback(
     (id: string) => {
@@ -230,7 +239,7 @@ export const useMediaActions = ({
               .join(', '),
           }
         : stableDiffusionOptions;
-      if (!isLocalStableDiffusion && !imageApiKey.trim()) {
+      if (!isLocalStableDiffusion && !isHostedImageProxy && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
         alert(
           language === 'zh'
@@ -242,16 +251,20 @@ export const useMediaActions = ({
         return null;
       }
 
+      const shouldRemoveBackground = transparentBackground || Boolean(imageRemoveBackground);
+      const finalPrompt = shouldRemoveBackground
+        ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
+        : prompt;
       const imageRequest = buildImageGenerationRequest(
         imageApiUrl,
         imageModel,
         sizeOverride || imageSize,
-        prompt,
+        finalPrompt,
         imageApiKey,
         imageProvider,
         requestStableDiffusionOptions,
         [],
-        transparentBackground,
+        shouldRemoveBackground,
       );
       const imageRequestBody = JSON.stringify(imageRequest.body);
       const imageRequestHeaders = {
@@ -322,12 +335,12 @@ export const useMediaActions = ({
             imageApiUrl,
             imageModel,
             imageSize,
-            prompt,
+            finalPrompt,
             imageApiKey,
             imageProvider,
             requestStableDiffusionOptions,
             [],
-            transparentBackground,
+            shouldRemoveBackground,
           );
           response = await fetch(fallbackRequest.url, {
             method: 'POST',
@@ -364,9 +377,13 @@ export const useMediaActions = ({
 
       let processedImageSrc = imageSrc as string;
 
-      if (transparentBackground) {
+      if (shouldRemoveBackground) {
         try {
-          processedImageSrc = await ensureTransparentImageBackground(processedImageSrc);
+          processedImageSrc = await requestSubjectSegmentation(processedImageSrc, {
+            apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
+            apiKey: imageSubjectSegmentationApiKey,
+            useHostedProxy: isHostedImageProxy,
+          });
         } catch (error) {
           console.error('Transparent background processing failed:', error);
           throw new Error(
@@ -404,6 +421,10 @@ export const useMediaActions = ({
       imageProvider,
       stableDiffusionOptions,
       isLocalStableDiffusion,
+      isHostedImageProxy,
+      imageRemoveBackground,
+      imageSubjectSegmentationApiKey,
+      imageSubjectSegmentationApiUrl,
       language,
       onMissingImageApiKeyRequest,
       setImageSize,
@@ -603,7 +624,7 @@ export const useMediaActions = ({
         );
         return;
       }
-      if (!isLocalStableDiffusion && !imageApiKey.trim()) {
+      if (!isLocalStableDiffusion && !isHostedImageProxy && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
         alert(
           language === 'zh'
@@ -631,7 +652,10 @@ export const useMediaActions = ({
           )
           .map((result) => result.value);
         const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
-        const prompt = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
+        const promptBase = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
+        const prompt = imageRemoveBackground
+          ? `${promptBase}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
+          : promptBase;
         const imageRequest = buildImageGenerationRequest(
           imageApiUrl,
           imageModel,
@@ -710,7 +734,7 @@ export const useMediaActions = ({
         const result = await response.json();
         const imageData = result?.data?.[0];
         const stableDiffusionImage = Array.isArray(result?.images) ? result.images[0] : '';
-        const imageSrc = stableDiffusionImage
+        let imageSrc = stableDiffusionImage
           ? `data:image/png;base64,${stableDiffusionImage}`
           : imageData?.b64_json
             ? `data:image/png;base64,${imageData.b64_json}`
@@ -724,6 +748,14 @@ export const useMediaActions = ({
                 ? '画像APIが利用可能な画像を返しませんでした。'
                 : 'Image API returned no usable image.',
           );
+        }
+
+        if (imageRemoveBackground) {
+          imageSrc = await requestSubjectSegmentation(imageSrc as string, {
+            apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
+            apiKey: imageSubjectSegmentationApiKey,
+            useHostedProxy: isHostedImageProxy,
+          });
         }
 
         const currentHeight = (node.style?.height as number) || 200;
@@ -802,6 +834,10 @@ export const useMediaActions = ({
       imageProvider,
       stableDiffusionOptions,
       isLocalStableDiffusion,
+      isHostedImageProxy,
+      imageRemoveBackground,
+      imageSubjectSegmentationApiKey,
+      imageSubjectSegmentationApiUrl,
       language,
       nodes,
       onMissingImageApiKeyRequest,

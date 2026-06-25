@@ -43,7 +43,14 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import { Language, translations } from '../lib/i18n';
-import { HOSTED_PROXY_PROFILE, HOSTED_PROXY_PROFILE_ID } from '../lib/hostedProxy';
+import {
+  HOSTED_IMAGE_PROXY_PROFILE,
+  HOSTED_IMAGE_PROXY_PROFILE_ID,
+  HOSTED_PROXY_PROFILE,
+  HOSTED_PROXY_PROFILE_ID,
+  HOSTED_VOICE_PROXY_PROFILE,
+  HOSTED_VOICE_PROXY_PROFILE_ID,
+} from '../lib/hostedProxy';
 import { isTauriRuntime } from '../lib/tauriRuntime';
 
 type ProfileKind = 'text' | 'image' | 'voice';
@@ -222,6 +229,13 @@ const IMAGE_PROVIDER_OPTIONS: ProviderOption[] = [
     size: DEFAULT_IMAGE_SIZE,
   },
   {
+    value: 'hosted-image',
+    label: '网络托管代理',
+    apiUrl: '',
+    model: DEFAULT_IMAGE_MODEL,
+    size: DEFAULT_IMAGE_SIZE,
+  },
+  {
     value: 'gemini',
     label: 'Gemini',
     apiUrl: '',
@@ -284,6 +298,13 @@ const VOICE_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'openai',
     label: 'OpenAI',
     apiUrl: 'https://api.openai.com/v1/audio/speech',
+    model: 'gpt-4o-mini-tts',
+    voice: 'alloy',
+  },
+  {
+    value: 'hosted-voice',
+    label: '\u7f51\u7edc\u6258\u7ba1\u4ee3\u7406',
+    apiUrl: '',
     model: 'gpt-4o-mini-tts',
     voice: 'alloy',
   },
@@ -421,6 +442,7 @@ const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'tts-1', label: 'TTS-1' },
     { value: 'tts-1-hd', label: 'TTS-1 HD' },
   ],
+  'hosted-voice': [{ value: 'gpt-4o-mini-tts', label: 'GPT-4o Mini TTS' }],
   doubao: [
     { value: 'speech-02-hd', label: 'Speech 02 HD' },
     { value: 'doubao-tts', label: 'Doubao TTS' },
@@ -545,6 +567,9 @@ const buildDefaultImageDraft = (): ImageAIProfile => ({
   enableHr: false,
   hrScale: 2,
   denoisingStrength: 0.7,
+  removeBackground: false,
+  subjectSegmentationApiUrl: '',
+  subjectSegmentationApiKey: '',
 });
 
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
@@ -843,7 +868,12 @@ export function AISettingsPanel({
 
   const openEdit = (profile: SavedAIProfile) => {
     // NOTE: 虚拟托管代理配置不允许编辑，直接拦截
-    if (profile.id === HOSTED_PROXY_PROFILE_ID) return;
+    if (
+      profile.id === HOSTED_PROXY_PROFILE_ID ||
+      profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+      profile.id === HOSTED_VOICE_PROXY_PROFILE_ID
+    )
+      return;
     setImageTemplateImportStatus('idle');
     setEditorState({
       mode: 'edit',
@@ -906,6 +936,12 @@ export function AISettingsPanel({
       payload.apiUrl = payload.apiUrl?.trim() || DEFAULT_TTS_API_URL;
     }
 
+    if (payload.kind === 'voice' && payload.provider === 'hosted-voice') {
+      payload.apiKey = '';
+      payload.apiUrl = '';
+      payload.appKey = '';
+    }
+
     if (editorState.mode === 'create') {
       const createdId = await onCreateAIProfile(editorState.kind, payload);
       if (typeof createdId === 'string') {
@@ -944,7 +980,11 @@ export function AISettingsPanel({
     if (!editorState) return null;
 
     const draft = editorState.draft;
-    const providerOptions = getProviderOptions(editorState.kind);
+    const providerOptions = getProviderOptions(editorState.kind).filter(
+      (option) =>
+        !(editorState.kind === 'image' && option.value === 'hosted-image' && isTauriRuntime()) &&
+        !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()),
+    );
     const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
     const modelOptions =
       draft.kind === 'text' && draft.provider === 'ollama' && localOllamaModels.length > 0
@@ -957,6 +997,7 @@ export function AISettingsPanel({
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
+    const isHostedVoice = draft.kind === 'voice' && draft.provider === 'hosted-voice';
     const showModelSelect =
       draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao');
 
@@ -1287,6 +1328,95 @@ export function AISettingsPanel({
                   </div>
                 </div>
 
+                <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-black text-[var(--text-primary)]">
+                        {language === 'zh' ? '主体分割 / 扣背景' : 'Subject Segmentation'}
+                      </p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
+                        {language === 'zh'
+                          ? '开启后，图片生成完成会自动继续调用扣背景 API，最终保存透明 PNG。'
+                          : 'When enabled, generated images are sent to a background removal API and saved as transparent PNG.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateDraft({
+                          removeBackground: !Boolean((draft as ImageAIProfile).removeBackground),
+                        })
+                      }
+                      className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
+                    >
+                      <div
+                        className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
+                          (draft as ImageAIProfile).removeBackground
+                            ? 'bg-[var(--accent)] shadow-lg'
+                            : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
+                        }`}
+                      >
+                        <div
+                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                            (draft as ImageAIProfile).removeBackground ? 'left-6' : 'left-1'
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  </div>
+
+                  {Boolean((draft as ImageAIProfile).removeBackground) && (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2 md:col-span-2">
+                        {renderFieldLabel(
+                          language === 'zh' ? '主体分割 API URL' : 'Segmentation API URL',
+                        )}
+                        <select
+                          value=""
+                          onChange={(event) => {
+                            if (!event.target.value) return;
+                            updateDraft({ subjectSegmentationApiUrl: event.target.value });
+                          }}
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        >
+                          <option value="">
+                            {language === 'zh' ? '选择 URL 模板' : 'Choose URL template'}
+                          </option>
+                          <option value="https://visual.volcengineapi.com">
+                            https://visual.volcengineapi.com
+                          </option>
+                        </select>
+                        <input
+                          type="text"
+                          name="ai-image-subject-segmentation-api-url"
+                          autoComplete="off"
+                          spellCheck={false}
+                          value={(draft as ImageAIProfile).subjectSegmentationApiUrl ?? ''}
+                          onChange={(event) =>
+                            updateDraft({ subjectSegmentationApiUrl: event.target.value })
+                          }
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        {renderFieldLabel(
+                          language === 'zh' ? '主体分割 API Key' : 'Segmentation API Key',
+                        )}
+                        <input
+                          type="password"
+                          name="ai-image-subject-segmentation-api-key"
+                          autoComplete="new-password"
+                          value={(draft as ImageAIProfile).subjectSegmentationApiKey ?? ''}
+                          onChange={(event) =>
+                            updateDraft({ subjectSegmentationApiKey: event.target.value })
+                          }
+                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {isLocalStableDiffusion && (
                   <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-4">
                     <div className="mb-4">
@@ -1444,7 +1574,18 @@ export function AISettingsPanel({
                   </div>
                 ) : (
                   <div className="grid gap-5 md:grid-cols-2">
-                    {draft.provider === 'youdao' ? (
+                    {isHostedVoice ? (
+                      <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4 md:col-span-2">
+                        <p className="text-sm font-black text-[var(--text-primary)]">
+                          {language === 'zh' ? '\u7f51\u7ad9\u6258\u7ba1\u8bed\u97f3' : 'Hosted voice'}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                          {language === 'zh'
+                            ? '\u8bed\u97f3\u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\uff0c\u7528\u6237\u65e0\u9700\u586b\u5199 API Key\u3002'
+                            : 'Voice requests are forwarded through the hosted server proxy. No user API key is required.'}
+                        </p>
+                      </div>
+                    ) : draft.provider === 'youdao' ? (
                       <>
                         <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100 md:col-span-2">
                           <p>
@@ -1543,7 +1684,8 @@ export function AISettingsPanel({
                       </div>
                     )}
 
-                    <div className="space-y-2 md:col-span-2">
+                    {!isHostedVoice && (
+                      <div className="space-y-2 md:col-span-2">
                       {renderFieldLabel(
                         draft.provider === 'youdao' && language === 'zh'
                           ? '接口地址（API URL）'
@@ -1564,7 +1706,8 @@ export function AISettingsPanel({
                           默认地址是有道官方语音合成接口，普通接入不用改。
                         </p>
                       )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1679,7 +1822,13 @@ export function AISettingsPanel({
                 {sections.map((section) => {
                   const isWeb = !isTauriRuntime();
                   const virtualProfiles: SavedAIProfile[] =
-                    isWeb && section.kind === 'text' ? [HOSTED_PROXY_PROFILE] : [];
+                    isWeb && section.kind === 'text'
+                      ? [HOSTED_PROXY_PROFILE]
+                      : isWeb && section.kind === 'image'
+                        ? [HOSTED_IMAGE_PROXY_PROFILE]
+                        : isWeb && section.kind === 'voice'
+                          ? [HOSTED_VOICE_PROXY_PROFILE]
+                          : [];
                   const meta = getProfileKindMeta(section.kind, language);
                   const showMissingApiHint =
                     (section.kind === 'text' && missingTextApiKey) ||
@@ -1778,7 +1927,10 @@ export function AISettingsPanel({
                           <div className="space-y-2">
                             {allProfiles.map((profile) => {
                               const isActive = profile.id === section.activeId;
-                              const isReadOnly = profile.id === HOSTED_PROXY_PROFILE_ID;
+                              const isReadOnly =
+                                profile.id === HOSTED_PROXY_PROFILE_ID ||
+                                profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+                                profile.id === HOSTED_VOICE_PROXY_PROFILE_ID;
                               const profileSummary = isReadOnly
                                 ? language === 'zh'
                                   ? '\u0041\u0049 \u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\u3002\u6bcf\u4eba\u6bcf\u5929\u53ef\u514d\u8d39\u4f7f\u7528 30 \u6b21 \u0041\u0049 \u5bf9\u8bdd\u3002'

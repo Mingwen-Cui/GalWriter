@@ -12,6 +12,7 @@ export type TTSConfig = {
 
 const DEFAULT_TTS_ENDPOINT = 'https://api.openai.com/v1/audio/speech';
 const YOUDAO_TTS_ENDPOINT = 'https://openapi.youdao.com/ttsapi';
+const HOSTED_TTS_PROXY_ENDPOINT = 'api/proxy.php';
 
 export const normalizeTtsApiUrl = (apiUrl: string) => {
   const raw = apiUrl.trim();
@@ -191,6 +192,80 @@ const generateSystemSpeechAudio = async (input: string) => {
   };
 };
 
+const dataUrlToBlob = async (dataUrl: string) => {
+  const response = await fetch(dataUrl);
+  return response.blob();
+};
+
+const normalizeHostedAudio = async (audio: string) => {
+  const value = audio.trim();
+  if (!value) {
+    throw new Error('Hosted TTS proxy returned no audio.');
+  }
+
+  if (/^data:audio\//i.test(value)) {
+    const blob = await dataUrlToBlob(value);
+    return {
+      blob,
+      url: URL.createObjectURL(blob),
+    };
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    const response = await fetch(value);
+    if (!response.ok) {
+      throw new Error(`Hosted TTS audio download failed with HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    return {
+      blob,
+      url: URL.createObjectURL(blob),
+    };
+  }
+
+  const dataUrl = `data:audio/mpeg;base64,${value}`;
+  const blob = await dataUrlToBlob(dataUrl);
+  return {
+    blob,
+    url: URL.createObjectURL(blob),
+  };
+};
+
+const generateHostedSpeechAudio = async (input: string, config: TTSConfig) => {
+  const response = await fetch(config.apiUrl.trim() || HOSTED_TTS_PROXY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'voice',
+      text: input,
+      payload: {
+        model: config.model.trim() || 'gpt-4o-mini-tts',
+        voice: config.voice.trim() || 'alloy',
+        response_format: 'mp3',
+      },
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data?.error || `Hosted TTS request failed with HTTP ${response.status}`;
+    throw new Error(String(message));
+  }
+
+  const audio =
+    (typeof data?.audio === 'string' && data.audio) ||
+    (typeof data?.audio_url === 'string' && data.audio_url) ||
+    (typeof data?.url === 'string' && data.url) ||
+    (typeof data?.b64_json === 'string' && data.b64_json);
+  if (!audio) {
+    throw new Error('Hosted TTS proxy returned no usable audio.');
+  }
+
+  return normalizeHostedAudio(audio);
+};
+
 export async function generateSpeechAudio(text: string, config: TTSConfig) {
   const input = stripTagsFromSpeechText(text);
   if (!input) {
@@ -203,6 +278,10 @@ export async function generateSpeechAudio(text: string, config: TTSConfig) {
 
   if (config.provider === 'youdao') {
     return generateYoudaoSpeechAudio(input, config);
+  }
+
+  if (config.provider === 'hosted-voice') {
+    return generateHostedSpeechAudio(input, config);
   }
 
   if (!config.apiKey.trim()) {
