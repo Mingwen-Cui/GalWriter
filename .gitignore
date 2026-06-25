@@ -9,7 +9,6 @@ examples/
 scripts/
 api/
 public/api/
-ANDROID_BUILD_GUIDE.md
 
 # Tauri/Rust generated output
 src-tauri/gen/
