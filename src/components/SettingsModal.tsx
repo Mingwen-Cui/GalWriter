@@ -850,10 +850,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <>
       <div
-        className={`fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
+        className={`settings-modal-overlay fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
       >
-        <div className="bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
-          <div className="h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
+        <div className="settings-modal-shell bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+          <div className="settings-modal-header h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
             <h2 className="flex-1 text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
               {t.settings}
             </h2>
@@ -880,8 +880,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
             {/* Sidebar Navigation */}
-            <div className="w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
-              <div className="flex-1 space-y-1.5">
+            <div className="settings-modal-sidebar w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
+              <div className="settings-modal-tabs flex-1 space-y-1.5">
                 {[
                   { id: 'appearance', label: t.theme, icon: <ImageIcon className="w-4 h-4" /> },
                   {
@@ -904,7 +904,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => setActiveSettingsTab(tab.id as any)}
-                    className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    className={`settings-modal-tab relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
                       activeSettingsTab === tab.id
                         ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] scale-[1.02] border border-[var(--card-border)]'
                         : tab.id === 'ai' && settingsAttentionTarget
@@ -938,7 +938,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Main Content Area */}
-            <div className="min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto p-8 pt-7 custom-scrollbar">
+            <div className="settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto p-8 pt-7 custom-scrollbar">
               {activeSettingsTab === 'appearance' && (
                 <div className="min-w-0 space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section>

@@ -850,7 +850,7 @@ export function StoryEditor() {
   const [showPlayTest, setShowPlayTest] = useState(false);
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
-  const [interactionMode] = useState<'select' | 'box'>('select');
+  const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
   const [showTitles, setShowTitles] = useState(true);
   const [storyTitlePlacement, setStoryTitlePlacement] = useState<StoryTitlePlacement>('inside');
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
@@ -1103,7 +1103,17 @@ export function StoryEditor() {
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [rightToolbarCollapsed, setRightToolbarCollapsed] = useState(false);
 
-  const isMobile = effectiveFlowWidth < 768;
+  const forceMobileUi =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('mobile') === '1';
+  const isMobile = forceMobileUi || effectiveFlowWidth < 768;
+  const appliedMobileDefaultsRef = useRef(false);
+
+  useEffect(() => {
+    if (!isMobile || appliedMobileDefaultsRef.current) return;
+    appliedMobileDefaultsRef.current = true;
+    setShowMiniMap(false);
+  }, [isMobile]);
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
@@ -5074,12 +5084,14 @@ ${layoutConfig.label}
             isMobile={isMobile}
             language={language}
             toolbarCollapsed={toolbarCollapsed}
+            interactionMode={interactionMode}
             showHoverButtonAnimations={showHoverButtonAnimations}
             historyPastLength={history.past.length}
             historyFutureLength={history.future.length}
             hasHiddenNodes={nodes.some((node) => node.data?.hidden)}
             fileInputRef={fileInputRef}
             setToolbarCollapsed={setToolbarCollapsed}
+            setInteractionMode={setInteractionMode}
             addNewShape={addNewShape}
             addNewTextNode={addNewTextNode}
             addNewCharacterNode={addNewCharacterNode}

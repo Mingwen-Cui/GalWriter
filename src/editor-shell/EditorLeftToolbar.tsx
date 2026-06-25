@@ -7,6 +7,7 @@ import {
   FileText,
   Image as ImageIcon,
   MapPin,
+  MousePointer2,
   Replace,
   Square,
   Type,
@@ -78,12 +79,14 @@ interface EditorLeftToolbarProps {
   isMobile: boolean;
   language: Language;
   toolbarCollapsed: boolean;
+  interactionMode: 'select' | 'box';
   showHoverButtonAnimations: boolean;
   historyPastLength: number;
   historyFutureLength: number;
   hasHiddenNodes: boolean;
   fileInputRef: MutableRefObject<HTMLInputElement | null>;
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
+  setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
   addNewShape: (shape: 'square' | 'diamond' | 'rounded-rectangle') => void;
   addNewTextNode: () => void;
   addNewCharacterNode: () => void;
@@ -111,12 +114,14 @@ export function EditorLeftToolbar({
   isMobile,
   language,
   toolbarCollapsed,
+  interactionMode,
   showHoverButtonAnimations,
   historyPastLength,
   historyFutureLength,
   hasHiddenNodes,
   fileInputRef,
   setToolbarCollapsed,
+  setInteractionMode,
   addNewShape,
   addNewTextNode,
   addNewCharacterNode,
@@ -292,6 +297,45 @@ export function EditorLeftToolbar({
 
         {!toolbarCollapsed && (
           <div className="toolbar-flat-content animate-in fade-in slide-in-from-top-2 flex flex-col duration-300">
+            {isMobile && (
+              <>
+                <button
+                  className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-colors ${
+                    interactionMode === 'select'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                  onClick={() => setInteractionMode('select')}
+                  title={
+                    language === 'zh'
+                      ? '选择/连接卡片'
+                      : language === 'ja'
+                        ? '選択/接続'
+                        : 'Select / connect cards'
+                  }
+                >
+                  <MousePointer2 strokeWidth={2.5} className="h-5 w-5" />
+                </button>
+                <button
+                  className={`group relative flex items-center justify-center rounded-xl p-2.5 transition-colors ${
+                    interactionMode === 'box'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                  onClick={() => setInteractionMode('box')}
+                  title={
+                    language === 'zh'
+                      ? '框选卡片'
+                      : language === 'ja'
+                        ? '範囲選択'
+                        : 'Box select cards'
+                  }
+                >
+                  <Square strokeWidth={2.5} className="h-5 w-5" />
+                </button>
+                <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />
+              </>
+            )}
             <button
               className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => addNewShape('square')}

@@ -149,6 +149,16 @@ export const useCanvasInteractions = ({
 }: UseCanvasInteractionsParams) => {
   const [isRightDragging, setIsRightDragging] = useState(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
+  const touchLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const clearTouchLongPress = useCallback(() => {
+    if (touchLongPressTimerRef.current) {
+      clearTimeout(touchLongPressTimerRef.current);
+      touchLongPressTimerRef.current = null;
+    }
+    touchLongPressStartRef.current = null;
+  }, []);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -560,31 +570,61 @@ export const useCanvasInteractions = ({
 
   const handleTouchStart = useCallback(
     (event: ReactTouchEvent) => {
-      if (!(interactionMode === 'box' && event.touches.length === 1)) return;
+      if (event.touches.length !== 1) {
+        clearTouchLongPress();
+        return;
+      }
       const target = event.target as HTMLElement;
       if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
       const touch = event.touches[0];
-      startSelection(touch.clientX, touch.clientY);
+      if (interactionMode === 'box') {
+        startSelection(touch.clientX, touch.clientY);
+        return;
+      }
+
+      clearTouchLongPress();
+      touchLongPressStartRef.current = { x: touch.clientX, y: touch.clientY };
+      touchLongPressTimerRef.current = setTimeout(() => {
+        const start = touchLongPressStartRef.current;
+        if (!start) return;
+        startSelection(start.x, start.y);
+        touchLongPressTimerRef.current = null;
+      }, 450);
     },
-    [interactionMode, startSelection],
+    [clearTouchLongPress, interactionMode, startSelection],
   );
 
   const handleTouchMove = useCallback(
     (event: ReactTouchEvent) => {
-      if (!(isRightDragging && event.touches.length === 1)) return;
+      if (event.touches.length !== 1) {
+        clearTouchLongPress();
+        return;
+      }
       const touch = event.touches[0];
+      const longPressStart = touchLongPressStartRef.current;
+      if (longPressStart && touchLongPressTimerRef.current) {
+        const dx = Math.abs(touch.clientX - longPressStart.x);
+        const dy = Math.abs(touch.clientY - longPressStart.y);
+        if (dx > 10 || dy > 10) {
+          clearTouchLongPress();
+        }
+        return;
+      }
+      if (!isRightDragging) return;
+      event.preventDefault();
       updateSelection(touch.clientX, touch.clientY);
     },
-    [isRightDragging, updateSelection],
+    [clearTouchLongPress, isRightDragging, updateSelection],
   );
 
   const handleTouchEnd = useCallback(
     (event: ReactTouchEvent) => {
+      clearTouchLongPress();
       if (!(isRightDragging && event.changedTouches.length > 0)) return;
       const touch = event.changedTouches[0];
       endSelection(touch.clientX, touch.clientY);
     },
-    [endSelection, isRightDragging],
+    [clearTouchLongPress, endSelection, isRightDragging],
   );
 
   useEffect(() => {
@@ -597,6 +637,8 @@ export const useCanvasInteractions = ({
     document.addEventListener('contextmenu', handleGlobalContextMenu);
     return () => document.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
+
+  useEffect(() => clearTouchLongPress, [clearTouchLongPress]);
 
   useEffect(() => {
     const groupNodes = nodes.filter((node) => node.type === 'groupNode');

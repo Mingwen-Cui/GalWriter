@@ -143,9 +143,17 @@ export function EditorHeader({
     language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
   return (
-    <div className="pointer-events-none absolute left-4 top-3 z-30 md:left-6">
+    <div
+      className={`pointer-events-none z-30 md:left-6 ${
+        isMobile
+          ? 'mobile-editor-header fixed left-0 right-0 top-0'
+          : 'absolute left-4 top-3'
+      }`}
+    >
       <div
-        className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center rounded-2xl border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}
+        className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto inline-flex max-w-[min(calc(100vw-2rem),1400px)] items-center border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 md:max-w-[calc(100vw-3rem)] ${
+          isMobile ? 'mobile-editor-header-bar' : 'rounded-2xl'
+        } ${bubbleStyle === 'glass' ? '' : 'gap-3 px-2.5 py-1.5'}`}
       >
         <img
           src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
