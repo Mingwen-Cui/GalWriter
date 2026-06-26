@@ -640,9 +640,6 @@ const buildDefaultImageProfile = (): ImageAIProfile => ({
   enableHr: false,
   hrScale: 2,
   denoisingStrength: 0.7,
-  removeBackground: false,
-  subjectSegmentationApiUrl: '',
-  subjectSegmentationApiKey: '',
 });
 
 const buildDefaultBackgroundRemovalProfile = (): BackgroundRemovalAIProfile => ({

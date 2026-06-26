@@ -102,7 +102,7 @@ type DeleteState =
     profileId: string;
     name: string;
   };
-type HostedQuotaType = 'chat' | 'image' | 'voice';
+type HostedQuotaType = 'chat' | 'image' | 'background-removal' | 'voice';
 type HostedQuotaInfo = {
   used: number;
   limit: number;
@@ -113,6 +113,7 @@ type HostedProxyUsage = Partial<Record<HostedQuotaType, HostedQuotaInfo>>;
 const DEFAULT_HOSTED_PROXY_USAGE: Record<HostedQuotaType, HostedQuotaInfo> = {
   chat: { used: 0, limit: 30, remaining: 30 },
   image: { used: 0, limit: 10, remaining: 10 },
+  'background-removal': { used: 0, limit: 10, remaining: 10 },
   voice: { used: 0, limit: 30, remaining: 30 },
 };
 
@@ -585,8 +586,10 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
 };
 
 const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
-  kind === 'image' || kind === 'background-removal'
+  kind === 'image'
     ? 'image'
+    : kind === 'background-removal'
+      ? 'background-removal'
     : kind === 'voice'
       ? 'voice'
       : 'chat';
@@ -594,7 +597,7 @@ const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
 const normalizeHostedUsage = (data: unknown): HostedProxyUsage => {
   const source = (data as { usage?: unknown })?.usage;
   if (!source || typeof source !== 'object') return {};
-  return (['chat', 'image', 'voice'] as HostedQuotaType[]).reduce<HostedProxyUsage>(
+  return (['chat', 'image', 'background-removal', 'voice'] as HostedQuotaType[]).reduce<HostedProxyUsage>(
     (result, type) => {
       const item = (source as Record<string, unknown>)[type];
       if (!item || typeof item !== 'object') return result;
@@ -648,9 +651,6 @@ const buildDefaultImageDraft = (): ImageAIProfile => ({
   enableHr: false,
   hrScale: 2,
   denoisingStrength: 0.7,
-  removeBackground: false,
-  subjectSegmentationApiUrl: '',
-  subjectSegmentationApiKey: '',
 });
 
 const buildDefaultBackgroundRemovalDraft = (): BackgroundRemovalAIProfile => ({
@@ -1006,18 +1006,21 @@ export function AISettingsPanel({
   };
   const formatHostedQuotaText = (kind: ProfileKind) => {
     const quota = getHostedQuotaInfo(kind);
-    const label =
+    const labelMap: Record<ProfileKind, string> =
       language === 'zh'
-        ? kind === 'image'
-          ? '图片'
-          : kind === 'voice'
-            ? '语音'
-            : 'AI 对话'
-        : kind === 'image'
-          ? 'image'
-          : kind === 'voice'
-            ? 'voice'
-            : 'AI chat';
+        ? {
+          text: 'AI 对话',
+          image: '图片',
+          'background-removal': '去背景',
+          voice: '语音',
+        }
+        : {
+          text: 'AI chat',
+          image: 'image',
+          'background-removal': 'background removal',
+          voice: 'voice',
+        };
+    const label = labelMap[kind];
     if (language === 'zh') {
       return `今日已使用 ${quota.used}/${quota.limit} 次${label}额度。`;
     }
@@ -1537,93 +1540,6 @@ export function AISettingsPanel({
                       ))}
                     </select>
                   </div>
-                </div>
-
-                <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '主体分割 / 扣背景' : 'Subject Segmentation'}
-                      </p>
-                      <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                        {language === 'zh'
-                          ? '开启后，图片生成完成会自动继续调用扣背景 API，最终保存透明 PNG。'
-                          : 'When enabled, generated images are sent to a background removal API and saved as transparent PNG.'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateDraft({
-                          removeBackground: !Boolean((draft as ImageAIProfile).removeBackground),
-                        })
-                      }
-                      className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
-                    >
-                      <div
-                        className={`relative h-6 w-11 rounded-full transition-all duration-300 ${(draft as ImageAIProfile).removeBackground
-                            ? 'bg-[var(--accent)] shadow-lg'
-                            : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                          }`}
-                      >
-                        <div
-                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${(draft as ImageAIProfile).removeBackground ? 'left-6' : 'left-1'
-                            }`}
-                        />
-                      </div>
-                    </button>
-                  </div>
-
-                  {Boolean((draft as ImageAIProfile).removeBackground) && (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2 md:col-span-2">
-                        {renderFieldLabel(
-                          language === 'zh' ? '主体分割 API URL' : 'Segmentation API URL',
-                        )}
-                        <select
-                          value=""
-                          onChange={(event) => {
-                            if (!event.target.value) return;
-                            updateDraft({ subjectSegmentationApiUrl: event.target.value });
-                          }}
-                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                        >
-                          <option value="">
-                            {language === 'zh' ? '选择 URL 模板' : 'Choose URL template'}
-                          </option>
-                          <option value="https://visual.volcengineapi.com">
-                            https://visual.volcengineapi.com
-                          </option>
-                        </select>
-                        <input
-                          type="text"
-                          name="ai-image-subject-segmentation-api-url"
-                          autoComplete="off"
-                          spellCheck={false}
-                          value={(draft as ImageAIProfile).subjectSegmentationApiUrl ?? ''}
-                          onChange={(event) =>
-                            updateDraft({ subjectSegmentationApiUrl: event.target.value })
-                          }
-                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        {renderFieldLabel(
-                          language === 'zh' ? '主体分割 API Key' : 'Segmentation API Key',
-                        )}
-                        <input
-                          type="password"
-                          name="ai-image-subject-segmentation-api-key"
-                          autoComplete="new-password"
-                          value={(draft as ImageAIProfile).subjectSegmentationApiKey ?? ''}
-                          onChange={(event) =>
-                            updateDraft({ subjectSegmentationApiKey: event.target.value })
-                          }
-                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {isLocalStableDiffusion && (
