@@ -147,7 +147,7 @@ export interface ApiKeySettings {
   ttsApiKey: string;
 }
 
-export type AIProfileKind = 'text' | 'image' | 'voice';
+export type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
 export type CharacterImageMode = 'three-view' | 'transparent-sprite';
 export type SceneImageMode = 'storyboard-16:9' | 'follow-api';
 
@@ -185,6 +185,16 @@ export interface ImageAIProfile {
   subjectSegmentationApiKey?: string;
 }
 
+export interface BackgroundRemovalAIProfile {
+  id: string;
+  name: string;
+  kind: 'background-removal';
+  provider: string;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+}
+
 export interface VoiceAIProfile {
   id: string;
   name: string;
@@ -197,12 +207,17 @@ export interface VoiceAIProfile {
   appKey: string;
 }
 
-export type SavedAIProfile = TextAIProfile | ImageAIProfile | VoiceAIProfile;
+export type SavedAIProfile =
+  | TextAIProfile
+  | ImageAIProfile
+  | BackgroundRemovalAIProfile
+  | VoiceAIProfile;
 
 export interface ProjectAIProfilesExport {
   profiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
+  activeBackgroundRemovalProfileId?: string | null;
   activeVoiceProfileId: string | null;
   exportedAt: string;
 }
@@ -457,6 +472,7 @@ export interface EditorNodeCallbacks {
   onGenerateImage?: (id: string) => Promise<void> | void;
   onGenerateSpeech?: (id: string) => Promise<void> | void;
   onGenerateSettingImage?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
+  onRemoveCharacterImageBackground?: (id: string, outfitId?: string) => Promise<void> | void;
   onAddTextToImage?: (id: string) => void;
   onRemoveTextFromImage?: (id: string) => void;
   onExtractMedia?: (id: string) => void;

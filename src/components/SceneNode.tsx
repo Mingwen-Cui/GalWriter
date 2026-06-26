@@ -195,7 +195,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
 
     const contentHeight =
-      contentFrameRef.current.scrollHeight || contentFrameRef.current.getBoundingClientRect().height;
+      contentFrameRef.current.scrollHeight ||
+      contentFrameRef.current.getBoundingClientRect().height;
     return Math.max(calculatedMinHeight, Math.ceil(contentHeight + SCENE_NODE_HEIGHT_SAFETY));
   }, [calculatedMinHeight, isMinimized]);
 
@@ -551,9 +552,9 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                     )}
                   </div>
                   <div className="absolute inset-0 overflow-hidden rounded-lg bg-black/50 opacity-0 transition-opacity group-hover/cover:opacity-100">
-                    <div className="flex h-full items-stretch">
+                    {!coverImageUrl ? (
                       <label
-                        className="flex flex-1 cursor-pointer items-center justify-center border-r border-white/30 text-white transition-colors hover:bg-white/20"
+                        className="flex h-full w-full cursor-pointer items-center justify-center text-white transition-colors hover:bg-white/20"
                         title={lang === 'zh' ? '上传场景图片' : 'Upload scene image'}
                       >
                         <Upload className="w-3.5 h-3.5" />
@@ -564,16 +565,30 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                           onChange={(e) => handleMediaUpload(e, undefined, true)}
                         />
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleDownloadCoverImage}
-                        disabled={!coverImageUrl}
-                        className="flex flex-1 items-center justify-center text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-35"
-                        title={lang === 'zh' ? '下载场景图片' : 'Download scene image'}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex h-full items-stretch">
+                        <label
+                          className="flex flex-1 cursor-pointer items-center justify-center border-r border-white/30 text-white transition-colors hover:bg-white/20"
+                          title={lang === 'zh' ? '上传场景图片' : 'Upload scene image'}
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleMediaUpload(e, undefined, true)}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleDownloadCoverImage}
+                          className="flex flex-1 items-center justify-center text-white transition-colors hover:bg-white/20"
+                          title={lang === 'zh' ? '下载场景图片' : 'Download scene image'}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

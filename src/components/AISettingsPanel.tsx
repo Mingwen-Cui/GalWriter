@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   BrainCircuit,
   Check,
+  Eraser,
   Feather,
   ImageIcon,
   Lightbulb,
@@ -18,6 +19,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 import type {
+  BackgroundRemovalAIProfile,
   ImageAIProfile,
   SavedAIProfile,
   TextAIProfile,
@@ -46,6 +48,8 @@ import { Language, translations } from '../lib/i18n';
 import {
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
+  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE,
+  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID,
   HOSTED_PROXY_PROFILE,
   HOSTED_PROXY_PROFILE_ID,
   HOSTED_VOICE_PROXY_PROFILE,
@@ -53,10 +57,22 @@ import {
 } from '../lib/hostedProxy';
 import { isTauriRuntime } from '../lib/tauriRuntime';
 
-type ProfileKind = 'text' | 'image' | 'voice';
-type ProfileDraft = TextAIProfile | ImageAIProfile | VoiceAIProfile;
-type ProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
-type ProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type ProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
+type ProfileDraft =
+  | TextAIProfile
+  | ImageAIProfile
+  | BackgroundRemovalAIProfile
+  | VoiceAIProfile;
+type ProfileUpdates =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
+type ProfileSeed =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
 type ProviderOption = {
   value: string;
   label: string;
@@ -289,6 +305,27 @@ const IMAGE_PROVIDER_OPTIONS: ProviderOption[] = [
     apiUrl: '',
     model: '',
     size: '1024x1024',
+  },
+];
+
+const BACKGROUND_REMOVAL_PROVIDER_OPTIONS: ProviderOption[] = [
+  {
+    value: 'custom',
+    label: '自定义接口',
+    apiUrl: 'api/proxy.php',
+    model: '',
+  },
+  {
+    value: 'hosted-background-removal',
+    label: '网络托管代理',
+    apiUrl: '',
+    model: '',
+  },
+  {
+    value: 'volcengine',
+    label: '火山引擎',
+    apiUrl: 'https://visual.volcengineapi.com',
+    model: '',
   },
 ];
 
@@ -548,7 +585,11 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
 };
 
 const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
-  kind === 'image' ? 'image' : kind === 'voice' ? 'voice' : 'chat';
+  kind === 'image' || kind === 'background-removal'
+    ? 'image'
+    : kind === 'voice'
+      ? 'voice'
+      : 'chat';
 
 const normalizeHostedUsage = (data: unknown): HostedProxyUsage => {
   const source = (data as { usage?: unknown })?.usage;
@@ -612,6 +653,16 @@ const buildDefaultImageDraft = (): ImageAIProfile => ({
   subjectSegmentationApiKey: '',
 });
 
+const buildDefaultBackgroundRemovalDraft = (): BackgroundRemovalAIProfile => ({
+  id: 'draft-background-removal',
+  name: '',
+  kind: 'background-removal',
+  provider: 'custom',
+  apiKey: '',
+  apiUrl: 'api/proxy.php',
+  model: '',
+});
+
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
   id: 'draft-voice',
   name: '',
@@ -627,10 +678,12 @@ const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
 const getProviderOptions = (kind: ProfileKind) => {
   if (kind === 'text') return TEXT_PROVIDER_OPTIONS;
   if (kind === 'image') return IMAGE_PROVIDER_OPTIONS;
+  if (kind === 'background-removal') return BACKGROUND_REMOVAL_PROVIDER_OPTIONS;
   return VOICE_PROVIDER_OPTIONS;
 };
 
 const getModelOptions = (kind: ProfileKind, provider: string): ModelOption[] => {
+  if (kind === 'background-removal') return [];
   const map =
     kind === 'text'
       ? TEXT_MODEL_OPTIONS
@@ -690,6 +743,15 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     };
   }
 
+  if (draft.kind === 'background-removal') {
+    return {
+      ...draft,
+      provider,
+      apiUrl: option?.apiUrl ?? draft.apiUrl,
+      model: option?.model ?? draft.model,
+    };
+  }
+
   return {
     ...draft,
     provider,
@@ -721,6 +783,26 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
       badge: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300',
     };
   }
+  if (kind === 'background-removal') {
+    return {
+      title:
+        language === 'zh'
+          ? '去背景 AI'
+          : language === 'ja'
+            ? '背景除去 AI'
+            : 'Background Removal AI',
+      subtitle:
+        language === 'zh'
+          ? '人物卡片透明背景、生成图片后去背景'
+          : language === 'ja'
+            ? 'キャラクター画像の透過背景処理'
+            : 'Transparent background processing for character images',
+      icon: Eraser,
+      accent:
+        'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/30 dark:text-fuchsia-300',
+      badge: 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
+    };
+  }
   return {
     title: language === 'zh' ? '语音 AI' : 'Voice AI',
     subtitle: language === 'zh' ? '朗读、配音、语音合成' : 'Reading, dubbing, speech generation',
@@ -736,6 +818,7 @@ interface AISettingsPanelProps {
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
+  activeBackgroundRemovalProfileId: string | null;
   activeVoiceProfileId: string | null;
   missingTextApiKey: boolean;
   settingsAttentionTarget?: ProfileKind | null;
@@ -765,6 +848,7 @@ export function AISettingsPanel({
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
+  activeBackgroundRemovalProfileId,
   activeVoiceProfileId,
   missingTextApiKey,
   settingsAttentionTarget,
@@ -860,6 +944,9 @@ export function AISettingsPanel({
   const imageProfiles = savedAIProfiles.filter(
     (profile): profile is ImageAIProfile => profile.kind === 'image',
   );
+  const backgroundRemovalProfiles = savedAIProfiles.filter(
+    (profile): profile is BackgroundRemovalAIProfile => profile.kind === 'background-removal',
+  );
   const voiceProfiles = savedAIProfiles.filter(
     (profile): profile is VoiceAIProfile => profile.kind === 'voice',
   );
@@ -868,6 +955,9 @@ export function AISettingsPanel({
     textProfiles.find((profile) => profile.id === activeTextProfileId) ?? null;
   const activeImageProfile =
     imageProfiles.find((profile) => profile.id === activeImageProfileId) ?? null;
+  const activeBackgroundRemovalProfile =
+    backgroundRemovalProfiles.find((profile) => profile.id === activeBackgroundRemovalProfileId) ??
+    null;
   const activeVoiceProfile =
     voiceProfiles.find((profile) => profile.id === activeVoiceProfileId) ?? null;
 
@@ -883,6 +973,12 @@ export function AISettingsPanel({
       profiles: imageProfiles,
       activeId: activeImageProfileId,
       activeProfile: activeImageProfile,
+    },
+    {
+      kind: 'background-removal' as const,
+      profiles: backgroundRemovalProfiles,
+      activeId: activeBackgroundRemovalProfileId,
+      activeProfile: activeBackgroundRemovalProfile,
     },
     {
       kind: 'voice' as const,
@@ -953,7 +1049,9 @@ export function AISettingsPanel({
         ? buildDefaultTextDraft()
         : kind === 'image'
           ? buildDefaultImageDraft()
-          : buildDefaultVoiceDraft();
+          : kind === 'background-removal'
+            ? buildDefaultBackgroundRemovalDraft()
+            : buildDefaultVoiceDraft();
     draft.name = buildFallbackProfileName(kind, language);
     setImageTemplateImportStatus('idle');
     setEditorState({
@@ -969,6 +1067,7 @@ export function AISettingsPanel({
     if (
       profile.id === HOSTED_PROXY_PROFILE_ID ||
       profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+      profile.id === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
       profile.id === HOSTED_VOICE_PROXY_PROFILE_ID
     )
       return;
@@ -1040,6 +1139,15 @@ export function AISettingsPanel({
       payload.appKey = '';
     }
 
+    if (
+      payload.kind === 'background-removal' &&
+      payload.provider === 'hosted-background-removal'
+    ) {
+      payload.apiKey = '';
+      payload.apiUrl = '';
+      payload.model = '';
+    }
+
     if (editorState.mode === 'create') {
       const createdId = await onCreateAIProfile(editorState.kind, payload);
       if (typeof createdId === 'string') {
@@ -1081,6 +1189,11 @@ export function AISettingsPanel({
     const providerOptions = getProviderOptions(editorState.kind).filter(
       (option) =>
         !(editorState.kind === 'image' && option.value === 'hosted-image' && isTauriRuntime()) &&
+        !(
+          editorState.kind === 'background-removal' &&
+          option.value === 'hosted-background-removal' &&
+          isTauriRuntime()
+        ) &&
         !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()),
     );
     const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
@@ -1095,9 +1208,12 @@ export function AISettingsPanel({
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
+    const isHostedBackgroundRemoval =
+      draft.kind === 'background-removal' && draft.provider === 'hosted-background-removal';
     const isHostedVoice = draft.kind === 'voice' && draft.provider === 'hosted-voice';
     const showModelSelect =
-      draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao');
+      draft.kind !== 'background-removal' &&
+      (draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao'));
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -1646,6 +1762,53 @@ export function AISettingsPanel({
               </>
             )}
 
+            {draft.kind === 'background-removal' && (
+              <>
+                {isHostedBackgroundRemoval ? (
+                  <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10">
+                    <p className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300">
+                      {language === 'zh' ? '网站托管去背景' : 'Hosted background removal'}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-fuchsia-700/80 dark:text-fuchsia-200/80">
+                      {formatHostedSummary('background-removal')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      {renderFieldLabel('API URL')}
+                      <input
+                        type="text"
+                        name="ai-background-removal-api-url"
+                        autoComplete="off"
+                        spellCheck={false}
+                        value={draft.apiUrl}
+                        onChange={(e) => updateDraft({ apiUrl: e.target.value })}
+                        placeholder="api/proxy.php"
+                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      {renderFieldLabel('API Key')}
+                      <input
+                        type="password"
+                        name="ai-background-removal-api-key"
+                        autoComplete="new-password"
+                        value={draft.apiKey}
+                        onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                      />
+                      <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                        {language === 'zh'
+                          ? '这里专门用于人物卡片“处理为透明背景”和图片生成后的自动去背景，不再和图片生成 API 共用。'
+                          : 'Used only for transparent background processing, separate from Image AI generation.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {draft.kind === 'voice' && (
               <>
                 {draft.provider === 'system' ? (
@@ -1922,6 +2085,8 @@ export function AISettingsPanel({
                       ? [HOSTED_PROXY_PROFILE]
                       : isWeb && section.kind === 'image'
                         ? [HOSTED_IMAGE_PROXY_PROFILE]
+                        : isWeb && section.kind === 'background-removal'
+                          ? [HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE]
                         : isWeb && section.kind === 'voice'
                           ? [HOSTED_VOICE_PROXY_PROFILE]
                           : [];
@@ -2026,6 +2191,7 @@ export function AISettingsPanel({
                               const isReadOnly =
                                 profile.id === HOSTED_PROXY_PROFILE_ID ||
                                 profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+                                profile.id === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
                                 profile.id === HOSTED_VOICE_PROXY_PROFILE_ID;
                               const profileSummary = isReadOnly
                                 ? formatHostedSummary(section.kind)

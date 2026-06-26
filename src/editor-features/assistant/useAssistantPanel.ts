@@ -97,6 +97,7 @@ type AssistantGeneratedOption = {
 };
 
 const ASSISTANT_VISUALIZE_OPTION_PREFIX = '__assistant_visualize__:';
+const LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX = '__generate_visuals__:';
 
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 
@@ -131,9 +132,7 @@ const shouldCreateStoryBundle = (text: string) => {
 };
 
 const isGenericStoryIdeaRequest = (text: string) => {
-  const normalized = text
-    .toLowerCase()
-    .replace(/[\s,，.。!！?？;；:"“”'‘’、]/g, '');
+  const normalized = text.toLowerCase().replace(/[\s,，.。!！?？;；:"“”'‘’、]/g, '');
 
   return (
     normalized === '我有一个新脑洞想让你帮我扩展成一个完整故事' ||
@@ -443,16 +442,16 @@ interface UseAssistantPanelParams {
   selectedAssistantTargetNodes: Node[];
   nodes: Node[];
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
-  callAIForTextStream?: (
-    prompt: string,
-    handlers?: AITextStreamHandlers,
-  ) => Promise<AITextResult>;
+  callAIForTextStream?: (prompt: string, handlers?: AITextStreamHandlers) => Promise<AITextResult>;
   createAssistantCards: (
     cards: AssistantCardDraft[],
     mode?: AssistantCardPlacementMode,
     options?: AssistantCardPlacementOptions,
   ) => Promise<AssistantCardPlacementResult>;
-  updateStreamingAssistantCards?: (nodeIds: string[] | undefined, cards: AssistantCardDraft[]) => void;
+  updateStreamingAssistantCards?: (
+    nodeIds: string[] | undefined,
+    cards: AssistantCardDraft[],
+  ) => void;
   onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting?: () => void;
@@ -918,7 +917,11 @@ export const useAssistantPanel = ({
       userText: string;
       mode: AssistantCardPlacementMode;
       placementOptions?: AssistantCardPlacementOptions;
-    }): Promise<{ reply: string; cards: AssistantCardDraft[]; placement: AssistantCardPlacementResult }> => {
+    }): Promise<{
+      reply: string;
+      cards: AssistantCardDraft[];
+      placement: AssistantCardPlacementResult;
+    }> => {
       if (!callAIForTextStream || !updateStreamingAssistantCards) {
         throw new Error('Streaming card generation is not available.');
       }
@@ -991,10 +994,13 @@ export const useAssistantPanel = ({
         lineBuffer += text;
         const lines = lineBuffer.split(/\r?\n/);
         lineBuffer = lines.pop() || '';
-        lines.map((line) => line.trim()).filter(Boolean).forEach((line) => {
-          const event = coerceEvent(line);
-          if (event) applyEvent(event);
-        });
+        lines
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .forEach((line) => {
+            const event = coerceEvent(line);
+            if (event) applyEvent(event);
+          });
       };
 
       const placeholderPlan = placeholderCards
@@ -1017,7 +1023,10 @@ You must fill every placeholder card index exactly once. Placeholder card plan: 
                   : message,
               );
             }
-            return [...messages, { id: uuidv4(), role: 'thought', content: delta, collapsed: false }];
+            return [
+              ...messages,
+              { id: uuidv4(), role: 'thought', content: delta, collapsed: false },
+            ];
           });
         },
       });
@@ -1351,10 +1360,7 @@ ${canvasContext || '无'}`;
       let preparedPlacement: AssistantCardPlacementResult | null = null;
       let preparedPlaceholderCards: AssistantCardDraft[] = [];
       if (wantsCards && !fillSelected) {
-        startAgentWaiting?.(
-          'AI Agent 正在生成内容',
-          '正在设计人物、场景和剧情卡片',
-        );
+        startAgentWaiting?.('AI Agent 正在生成内容', '正在设计人物、场景和剧情卡片');
         const placeholders: AssistantCardDraft[] = [];
         if (placeholders.length > 0) {
           preparedPlaceholderCards = placeholders;
@@ -1381,7 +1387,11 @@ ${canvasContext || '无'}`;
           });
           const actionText =
             streamed.placement.count > 0
-              ? `\n\nGenerated ${streamed.placement.count} card(s) on the canvas in real time.`
+              ? language === 'zh'
+                ? `\n\n已在画布上实时生成 ${streamed.placement.count} 张卡片。`
+                : language === 'ja'
+                  ? `\n\nキャンバスに ${streamed.placement.count} 枚のカードをリアルタイム生成しました。`
+                  : `\n\nGenerated ${streamed.placement.count} card(s) on the canvas in real time.`
               : '';
           const visualNodeIds = (streamed.placement.nodeIds || []).filter((_, index) => {
             const card = streamed.cards[index];
@@ -1401,7 +1411,11 @@ ${canvasContext || '无'}`;
               role: 'assistant',
               content: `${streamed.reply}${actionText}${
                 visualizationRequestId
-                  ? '\n\nGenerate matching images for these characters and scenes?'
+                  ? language === 'zh'
+                    ? '\n\n要继续为这些人物和场景生成对应图片吗？'
+                    : language === 'ja'
+                      ? '\n\nこの人物とシーンに対応する画像を生成しますか？'
+                      : '\n\nGenerate matching images for these characters and scenes?'
                   : ''
               }`,
               cardPosition: streamed.placement.position,
@@ -1410,8 +1424,13 @@ ${canvasContext || '无'}`;
                 ? [
                     {
                       id: uuidv4(),
-                      label: 'Generate images',
-                      value: `__generate_visuals__:${visualizationRequestId}`,
+                      label:
+                        language === 'zh'
+                          ? '生成图片'
+                          : language === 'ja'
+                            ? '画像を生成'
+                            : 'Generate images',
+                      value: `${ASSISTANT_VISUALIZE_OPTION_PREFIX}${visualizationRequestId}`,
                     },
                   ]
                 : undefined,
@@ -1438,16 +1457,18 @@ ${canvasContext || '无'}`;
           parsed = { reply: raw, cards: [] };
         }
 
-        const cards = orderAssistantCardsForCreation(alignAssistantCardsToPlaceholders(
-          Array.isArray(parsed.cards)
-            ? parsed.cards.map((card) =>
-                getAssistantDraftType(card) === 'story'
-                  ? { ...card, text: normalizeAssistantStoryDraftText(card.text || '') }
-                  : card,
-              )
-            : [],
-          preparedPlaceholderCards,
-        ));
+        const cards = orderAssistantCardsForCreation(
+          alignAssistantCardsToPlaceholders(
+            Array.isArray(parsed.cards)
+              ? parsed.cards.map((card) =>
+                  getAssistantDraftType(card) === 'story'
+                    ? { ...card, text: normalizeAssistantStoryDraftText(card.text || '') }
+                    : card,
+                )
+              : [],
+            preparedPlaceholderCards,
+          ),
+        );
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
         if (preparedPlacement?.count && cards.length === 0) {
@@ -1462,14 +1483,15 @@ ${canvasContext || '无'}`;
             targetNodeIds,
           });
           if (extraCards.length > 0) {
-            const appendedPlacement = await createAssistantCards(extraCards, 'append', placementOptions);
+            const appendedPlacement = await createAssistantCards(
+              extraCards,
+              'append',
+              placementOptions,
+            );
             placement = {
               count: filledPlacement.count + appendedPlacement.count,
               position: appendedPlacement.position || filledPlacement.position,
-              nodeIds: [
-                ...(filledPlacement.nodeIds || []),
-                ...(appendedPlacement.nodeIds || []),
-              ],
+              nodeIds: [...(filledPlacement.nodeIds || []), ...(appendedPlacement.nodeIds || [])],
             };
           } else {
             placement = filledPlacement;
@@ -1768,8 +1790,14 @@ cards 必须正好有 3 张。`);
 
   const handleAssistantOptionSelect = useCallback(
     async (value: string) => {
-      if (value.startsWith(ASSISTANT_VISUALIZE_OPTION_PREFIX)) {
-        const requestId = value.slice(ASSISTANT_VISUALIZE_OPTION_PREFIX.length);
+      const visualizeOptionPrefix = value.startsWith(ASSISTANT_VISUALIZE_OPTION_PREFIX)
+        ? ASSISTANT_VISUALIZE_OPTION_PREFIX
+        : value.startsWith(LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX)
+          ? LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX
+          : '';
+
+      if (visualizeOptionPrefix) {
+        const requestId = value.slice(visualizeOptionPrefix.length);
         const nodeIds = assistantVisualizationRequestsRef.current.get(requestId) || [];
         if (nodeIds.length === 0 || !onGenerateAssistantImagesRequest) return;
 

@@ -490,8 +490,10 @@ export const requestSubjectSegmentation = async (
     bundledWithImageGeneration?: boolean;
   } = {},
 ) => {
-  const useHostedProxy = Boolean(options.useHostedProxy);
-  const url = useHostedProxy ? options.apiUrl?.trim() || 'api/proxy.php' : options.apiUrl?.trim();
+  const configuredUrl = options.apiUrl?.trim() || '';
+  const useHostedProxy =
+    Boolean(options.useHostedProxy) || /(?:^|\/)proxy\.php(?:$|[?#])/i.test(configuredUrl);
+  const url = useHostedProxy ? configuredUrl || 'api/proxy.php' : configuredUrl;
   if (!url) {
     throw new Error('Subject segmentation API URL is required.');
   }

@@ -31,6 +31,7 @@ import {
 } from '../editor-state/editorConfig';
 import type {
   CharacterImageMode,
+  BackgroundRemovalAIProfile,
   ImageAIProfile,
   PlotStructureGenerateDirection,
   SavedAIProfile,
@@ -44,9 +45,17 @@ import { Language, translations } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { LocalProjectSummary } from '../lib/db';
 
-type AIProfileKind = 'text' | 'image' | 'voice';
-type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
-type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
+type AIProfileSeed =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
+type AIProfileUpdates =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
 
 function FloatingHint({
   label,
@@ -169,8 +178,9 @@ interface SettingsModalProps {
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
+  activeBackgroundRemovalProfileId: string | null;
   activeVoiceProfileId: string | null;
-  settingsAttentionTarget?: 'text' | 'image' | 'voice' | null;
+  settingsAttentionTarget?: AIProfileKind | null;
   onAcknowledgeSettingsAttention?: () => void;
   projectSummaries: LocalProjectSummary[];
   currentProjectId: string | null;
@@ -679,6 +689,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
+  activeBackgroundRemovalProfileId,
   activeVoiceProfileId,
   settingsAttentionTarget,
   onAcknowledgeSettingsAttention,
@@ -2217,6 +2228,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     savedAIProfiles={savedAIProfiles}
                     activeTextProfileId={activeTextProfileId}
                     activeImageProfileId={activeImageProfileId}
+                    activeBackgroundRemovalProfileId={activeBackgroundRemovalProfileId}
                     activeVoiceProfileId={activeVoiceProfileId}
                     missingTextApiKey={missingTextApiKey}
                     settingsAttentionTarget={settingsAttentionTarget}

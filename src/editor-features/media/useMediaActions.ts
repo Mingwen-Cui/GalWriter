@@ -38,8 +38,9 @@ interface UseMediaActionsParams {
   imageHrScale?: number;
   imageDenoisingStrength?: number;
   imageRemoveBackground?: boolean;
-  imageSubjectSegmentationApiUrl?: string;
-  imageSubjectSegmentationApiKey?: string;
+  backgroundRemovalApiUrl?: string;
+  backgroundRemovalApiKey?: string;
+  backgroundRemovalProvider?: string;
   characterImageMode: CharacterImageMode;
   sceneImageMode: SceneImageMode;
   showTitles: boolean;
@@ -124,8 +125,9 @@ export const useMediaActions = ({
   imageHrScale,
   imageDenoisingStrength,
   imageRemoveBackground,
-  imageSubjectSegmentationApiUrl,
-  imageSubjectSegmentationApiKey,
+  backgroundRemovalApiUrl,
+  backgroundRemovalApiKey,
+  backgroundRemovalProvider,
   characterImageMode,
   sceneImageMode,
   showTitles,
@@ -160,6 +162,7 @@ export const useMediaActions = ({
   );
   const isLocalStableDiffusion = isLocalStableDiffusionProvider(imageProvider);
   const isHostedImageProxy = isHostedImageProxyProvider(imageProvider);
+  const isHostedBackgroundRemovalProxy = backgroundRemovalProvider === 'hosted-background-removal';
 
   const handleAddTextToImage = useCallback(
     (id: string) => {
@@ -380,9 +383,9 @@ export const useMediaActions = ({
       if (shouldRemoveBackground) {
         try {
           processedImageSrc = await requestSubjectSegmentation(processedImageSrc, {
-            apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
-            apiKey: imageSubjectSegmentationApiKey,
-            useHostedProxy: isHostedImageProxy,
+            apiUrl: backgroundRemovalApiUrl,
+            apiKey: backgroundRemovalApiKey,
+            useHostedProxy: isHostedBackgroundRemovalProxy,
             bundledWithImageGeneration: true,
           });
         } catch (error) {
@@ -424,8 +427,9 @@ export const useMediaActions = ({
       isLocalStableDiffusion,
       isHostedImageProxy,
       imageRemoveBackground,
-      imageSubjectSegmentationApiKey,
-      imageSubjectSegmentationApiUrl,
+      backgroundRemovalApiKey,
+      backgroundRemovalApiUrl,
+      isHostedBackgroundRemovalProxy,
       language,
       onMissingImageApiKeyRequest,
       setImageSize,
@@ -755,9 +759,9 @@ export const useMediaActions = ({
         if (imageRemoveBackground) {
           try {
             imageSrc = await requestSubjectSegmentation(imageSrc as string, {
-              apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
-              apiKey: imageSubjectSegmentationApiKey,
-              useHostedProxy: isHostedImageProxy,
+              apiUrl: backgroundRemovalApiUrl,
+              apiKey: backgroundRemovalApiKey,
+              useHostedProxy: isHostedBackgroundRemovalProxy,
               bundledWithImageGeneration: true,
             });
           } catch (error) {
@@ -850,14 +854,111 @@ export const useMediaActions = ({
       isLocalStableDiffusion,
       isHostedImageProxy,
       imageRemoveBackground,
-      imageSubjectSegmentationApiKey,
-      imageSubjectSegmentationApiUrl,
+      backgroundRemovalApiKey,
+      backgroundRemovalApiUrl,
+      isHostedBackgroundRemovalProxy,
       language,
       nodes,
       onMissingImageApiKeyRequest,
       setImageSize,
       setNodes,
       showTitles,
+      showToast,
+    ],
+  );
+
+  const handleRemoveCharacterImageBackground = useCallback(
+    async (id: string, outfitId?: string) => {
+      const node = nodes.find((item) => item.id === id);
+      const outfits = Array.isArray(node?.data.outfits) ? (node?.data.outfits as any[]) : [];
+      const outfit = outfitId ? outfits.find((item) => item.id === outfitId) : undefined;
+      const sourceImageUrl = outfitId ? outfit?.imageUrl : node?.data.avatarUrl;
+      if (!node || typeof sourceImageUrl !== 'string' || !sourceImageUrl.trim()) return;
+
+      try {
+        const transparentImageSrc = await requestSubjectSegmentation(sourceImageUrl, {
+          apiUrl: backgroundRemovalApiUrl,
+          apiKey: backgroundRemovalApiKey,
+          useHostedProxy: isHostedBackgroundRemovalProxy,
+          bundledWithImageGeneration: false,
+        });
+
+        setNodes((nds) =>
+          nds.map((current) => {
+            if (current.id !== id) return current;
+            const currentOutfits = (current.data.outfits as any[]) || [];
+            if (outfitId) {
+              return {
+                ...current,
+                data: {
+                  ...current.data,
+                  outfits: currentOutfits.map((item) =>
+                    item.id === outfitId ? { ...item, imageUrl: transparentImageSrc } : item,
+                  ),
+                },
+              };
+            }
+
+            const hasArchivedAvatar = currentOutfits.some(
+              (outfit) => outfit.imageUrl === sourceImageUrl,
+            );
+            const archivedAvatarName =
+              language === 'zh'
+                ? '透明处理前人物图片'
+                : language === 'ja'
+                  ? '透明処理前のキャラクター画像'
+                  : 'Before Transparent Background';
+            const nextOutfits = hasArchivedAvatar
+              ? currentOutfits
+              : [
+                  {
+                    id: uuidv4(),
+                    name: archivedAvatarName,
+                    imageUrl: sourceImageUrl,
+                  },
+                  ...currentOutfits,
+                ];
+
+            return {
+              ...current,
+              data: {
+                ...current.data,
+                avatarUrl: transparentImageSrc,
+                outfits: nextOutfits,
+              },
+            };
+          }),
+        );
+
+        showToast(
+          language === 'zh'
+            ? outfitId
+              ? '穿着图片已处理为透明背景'
+              : '人物图片已处理为透明背景'
+            : language === 'ja'
+              ? outfitId
+                ? '衣装画像を透明背景に処理しました'
+                : 'キャラクター画像を透明背景に処理しました'
+              : outfitId
+                ? 'Outfit image converted to transparent background'
+                : 'Character image converted to transparent background',
+        );
+      } catch (error: any) {
+        console.error('Character background removal failed:', error);
+        alert(
+          `${language === 'zh' ? '透明背景处理失败' : language === 'ja' ? '透明背景の処理に失敗しました' : 'Transparent background processing failed'}: ${error.message || 'Unknown error'}`,
+        );
+      }
+    },
+    [
+      imageApiUrl,
+      backgroundRemovalApiKey,
+      backgroundRemovalApiUrl,
+      isHostedBackgroundRemovalProxy,
+      isHostedImageProxy,
+      language,
+      nodes,
+      setNodes,
       showToast,
     ],
   );
@@ -965,6 +1066,7 @@ export const useMediaActions = ({
     requestGeneratedImage,
     handleGenerateSettingNodeImage,
     handleGenerateStoryNodeImage,
+    handleRemoveCharacterImageBackground,
     handleExtractMedia,
   };
 };

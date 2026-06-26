@@ -74,6 +74,7 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import type {
+  BackgroundRemovalAIProfile,
   CharacterImageMode,
   ImageAIProfile,
   ProjectAIProfilesExport,
@@ -97,6 +98,8 @@ import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { useSharedRenderStyle } from '../editor-state/useSharedRenderStyle';
 import { Language, translations } from '../lib/i18n';
 import {
+  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE,
+  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID,
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
   HOSTED_PROXY_PROFILE,
@@ -120,7 +123,12 @@ import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
 import { ProjectPickerModal } from './ProjectPickerModal';
 import { nodeTypes, edgeTypes } from './story-editor/flowTypes';
-import { PlayTestModal, SettingsModal, VideoRenderModal, ZenEditor } from './story-editor/lazyModals';
+import {
+  PlayTestModal,
+  SettingsModal,
+  VideoRenderModal,
+  ZenEditor,
+} from './story-editor/lazyModals';
 import { getSettingRename, replaceMentionNameInText } from './story-editor/nodeRename';
 import { SmartGuides } from './story-editor/SmartGuides';
 import { syncCloseButtonBehavior } from './story-editor/windowBehavior';
@@ -191,10 +199,7 @@ const createAssistantMentionHtml = (
 
 const hasAssistantPlainText = (value: string) => /[\p{L}\p{N}]/u.test(value);
 
-const insertAssistantMentionTags = (
-  rawText: string,
-  references: AssistantMentionReference[],
-) => {
+const insertAssistantMentionTags = (rawText: string, references: AssistantMentionReference[]) => {
   const text = rawText.trim();
   const uniqueReferences = references
     .filter((reference) => reference.name.trim())
@@ -219,9 +224,10 @@ const insertAssistantMentionTags = (
     );
     const hasCharacterTag = usedReferences.some((reference) => reference.kind === 'character');
     const hasSceneTag = usedReferences.some((reference) => reference.kind === 'scene');
-    const fallbackScene = uniqueReferences.find(
-      (reference) => reference.kind === 'scene' && reference.prependIfMissing,
-    ) || uniqueReferences.find((reference) => reference.kind === 'scene');
+    const fallbackScene =
+      uniqueReferences.find(
+        (reference) => reference.kind === 'scene' && reference.prependIfMissing,
+      ) || uniqueReferences.find((reference) => reference.kind === 'scene');
     if (hasCharacterTag && !hasSceneTag && fallbackScene) {
       const id = uuidv4();
       return {
@@ -242,7 +248,10 @@ const insertAssistantMentionTags = (
     const match = uniqueReferences
       .map((reference) => ({ reference, index: text.indexOf(reference.name, cursor) }))
       .filter((candidate) => candidate.index >= 0)
-      .sort((left, right) => left.index - right.index || right.reference.name.length - left.reference.name.length)[0];
+      .sort(
+        (left, right) =>
+          left.index - right.index || right.reference.name.length - left.reference.name.length,
+      )[0];
 
     if (!match) {
       html += escapeAssistantStoryText(text.slice(cursor));
@@ -288,11 +297,11 @@ const insertAssistantMentionTags = (
   const forcedSceneTags =
     hasCharacterTag && !hasSceneTag && fallbackScene
       ? (() => {
-        const id = uuidv4();
-        usedReferences.push(fallbackScene);
-        mentionUsages.push({ id, reference: fallbackScene, placement: 'start' });
-        return createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id);
-      })()
+          const id = uuidv4();
+          usedReferences.push(fallbackScene);
+          mentionUsages.push({ id, reference: fallbackScene, placement: 'start' });
+          return createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id);
+        })()
       : '';
 
   const unusedReferences = references.filter(
@@ -339,16 +348,14 @@ const buildAssistantStoryPresentation = (
   const taggedCharacters = taggedStoryText.usedReferences.filter(
     (reference) => reference.kind === 'character',
   );
-  const taggedScene = taggedStoryText.usedReferences.find((reference) => reference.kind === 'scene');
+  const taggedScene = taggedStoryText.usedReferences.find(
+    (reference) => reference.kind === 'scene',
+  );
   const characterPresentations: CharacterPresentation[] = taggedCharacters.map(
     (reference, characterIndex) => {
       const presentation = createCharacterPresentation(reference.id);
       const position =
-        taggedCharacters.length === 1
-          ? 'center'
-          : characterIndex % 2 === 0
-            ? 'left'
-            : 'right';
+        taggedCharacters.length === 1 ? 'center' : characterIndex % 2 === 0 ? 'left' : 'right';
       const enterType = position === 'right' ? 'slide-left' : 'slide-right';
       const exitType = position === 'right' ? 'slide-right' : 'slide-left';
       return {
@@ -361,10 +368,10 @@ const buildAssistantStoryPresentation = (
   );
   const scenePresentation = taggedScene
     ? {
-      ...createScenePresentation(taggedScene.id),
-      enter: createPresentationMotion('fade', 500),
-      exit: createPresentationMotion('fade', 420),
-    }
+        ...createScenePresentation(taggedScene.id),
+        enter: createPresentationMotion('fade', 500),
+        exit: createPresentationMotion('fade', 420),
+      }
     : undefined;
   const inlineActions = taggedStoryText.mentionUsages
     .filter((usage) => usage.placement === 'inline')
@@ -386,15 +393,15 @@ const buildAssistantStoryPresentation = (
           ? actionIndex % 3 === 0
             ? 'pulse'
             : 'shake-x'
-          : 'scale' as InlinePresentationActionType,
+          : ('scale' as InlinePresentationActionType),
     }));
 
   return characterPresentations.length > 0 || scenePresentation
     ? {
-      characters: characterPresentations,
-      ...(scenePresentation ? { scene: scenePresentation } : {}),
-      inlineActions,
-    }
+        characters: characterPresentations,
+        ...(scenePresentation ? { scene: scenePresentation } : {}),
+        inlineActions,
+      }
     : undefined;
 };
 
@@ -413,15 +420,17 @@ const resolveAssistantStorySceneMedia = (
   const sceneSourceNodeId = presentation?.scene?.sourceNodeId;
   if (!sceneSourceNodeId) return {};
 
-  const sceneNode = nodes.find((node) => node.id === sceneSourceNodeId && node.type === 'sceneNode');
+  const sceneNode = nodes.find(
+    (node) => node.id === sceneSourceNodeId && node.type === 'sceneNode',
+  );
   if (!sceneNode) return {};
 
   const sceneImages = Array.isArray(sceneNode.data.images)
     ? (sceneNode.data.images as Array<{
-      id: string;
-      imageUrl?: string;
-      videoUrl?: string;
-    }>)
+        id: string;
+        imageUrl?: string;
+        videoUrl?: string;
+      }>)
     : [];
   const selectedMedia = presentation.scene?.imageId
     ? sceneImages.find((image) => image.id === presentation.scene?.imageId)
@@ -435,10 +444,10 @@ const resolveAssistantStorySceneMedia = (
 
   return imageUrl || videoUrl
     ? {
-      imageUrl,
-      videoUrl,
-      showTextOverlay: true,
-    }
+        imageUrl,
+        videoUrl,
+        showTextOverlay: true,
+      }
     : {};
 };
 
@@ -527,8 +536,16 @@ const formatProjectTimestamp = (timestamp: number) => {
 const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
 
 const buildProfileId = () => uuidv4();
-type AIProfileSeed = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
-type AIProfileUpdates = Partial<TextAIProfile> | Partial<ImageAIProfile> | Partial<VoiceAIProfile>;
+type AIProfileSeed =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
+type AIProfileUpdates =
+  | Partial<TextAIProfile>
+  | Partial<ImageAIProfile>
+  | Partial<BackgroundRemovalAIProfile>
+  | Partial<VoiceAIProfile>;
 type ThemePreference = 'light' | 'dark' | 'system';
 
 const resolveSystemTheme = () =>
@@ -628,6 +645,16 @@ const buildDefaultImageProfile = (): ImageAIProfile => ({
   subjectSegmentationApiKey: '',
 });
 
+const buildDefaultBackgroundRemovalProfile = (): BackgroundRemovalAIProfile => ({
+  id: buildProfileId(),
+  name: '去背景 AI',
+  kind: 'background-removal',
+  provider: 'custom',
+  apiKey: '',
+  apiUrl: 'api/proxy.php',
+  model: '',
+});
+
 const buildDefaultVoiceProfile = (): VoiceAIProfile => ({
   id: buildProfileId(),
   name: '系统语音',
@@ -668,8 +695,6 @@ const updateProfileList = (
 
 const TITLE_HEIGHT = 36;
 
-
-
 /**
  * 获取媒体文件的原始尺尺寸 * @param url 媒体 URL (data: blob:)
  * @param type MIME 类型
@@ -699,12 +724,8 @@ const getMediaDimensions = (
 export function StoryEditor() {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
-  const {
-    agentState,
-    runAgentCardPlacement,
-    startAgentWaiting,
-    stopAgentWaiting,
-  } = useAgentRuntime();
+  const { agentState, runAgentCardPlacement, startAgentWaiting, stopAgentWaiting } =
+    useAgentRuntime();
 
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>([]);
@@ -718,11 +739,14 @@ export function StoryEditor() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
-    'text' | 'image' | 'voice' | null
+    'text' | 'image' | 'background-removal' | 'voice' | null
   >(null);
   const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
   const [activeTextProfileId, setActiveTextProfileId] = useState<string | null>(null);
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
+  const [activeBackgroundRemovalProfileId, setActiveBackgroundRemovalProfileId] = useState<
+    string | null
+  >(null);
   const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
@@ -735,8 +759,7 @@ export function StoryEditor() {
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
-  const [aiGenerationBalance, setAiGenerationBalance] =
-    useState<AIGenerationBalance>('dialogue');
+  const [aiGenerationBalance, setAiGenerationBalance] = useState<AIGenerationBalance>('dialogue');
   const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
   const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
@@ -812,8 +835,8 @@ export function StoryEditor() {
   const [closeButtonBehavior, setCloseButtonBehavior] = useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
-  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
-    () => (effectiveFlowWidth < 768 ? 'vertical' : 'horizontal'),
+  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(() =>
+    effectiveFlowWidth < 768 ? 'vertical' : 'horizontal',
   );
   const {
     playTestDarkMode,
@@ -882,6 +905,22 @@ export function StoryEditor() {
       ) ?? null
     );
   }, [activeImageProfileId, savedAIProfiles]);
+  const activeBackgroundRemovalProfile = useMemo(() => {
+    if (
+      !isTauriRuntime() &&
+      activeBackgroundRemovalProfileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
+    ) {
+      return HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE;
+    }
+
+    return (
+      savedAIProfiles.find(
+        (profile): profile is BackgroundRemovalAIProfile =>
+          profile.kind === 'background-removal' &&
+          profile.id === activeBackgroundRemovalProfileId,
+      ) ?? null
+    );
+  }, [activeBackgroundRemovalProfileId, savedAIProfiles]);
   const activeVoiceProfile = useMemo(() => {
     if (!isTauriRuntime() && activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID) {
       return HOSTED_VOICE_PROXY_PROFILE;
@@ -913,8 +952,9 @@ export function StoryEditor() {
   const imageHrScale = activeImageProfile?.hrScale ?? 2;
   const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
   const imageRemoveBackground = activeImageProfile?.removeBackground ?? false;
-  const imageSubjectSegmentationApiUrl = activeImageProfile?.subjectSegmentationApiUrl ?? '';
-  const imageSubjectSegmentationApiKey = activeImageProfile?.subjectSegmentationApiKey ?? '';
+  const backgroundRemovalApiUrl = activeBackgroundRemovalProfile?.apiUrl ?? '';
+  const backgroundRemovalApiKey = activeBackgroundRemovalProfile?.apiKey ?? '';
+  const backgroundRemovalProvider = activeBackgroundRemovalProfile?.provider ?? 'custom';
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
@@ -926,11 +966,17 @@ export function StoryEditor() {
   const activeVoiceProfileName = activeVoiceProfile?.name ?? '';
 
   const getExportedAIProfiles = useCallback((): ProjectAIProfilesExport | null => {
-    const profiles = [activeTextProfile, activeImageProfile, activeVoiceProfile].filter(
+    const profiles = [
+      activeTextProfile,
+      activeImageProfile,
+      activeBackgroundRemovalProfile,
+      activeVoiceProfile,
+    ].filter(
       (profile): profile is SavedAIProfile =>
         Boolean(profile) &&
         profile?.id !== HOSTED_PROXY_PROFILE_ID &&
         profile?.id !== HOSTED_IMAGE_PROXY_PROFILE_ID &&
+        profile?.id !== HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID &&
         profile?.id !== HOSTED_VOICE_PROXY_PROFILE_ID,
     );
 
@@ -947,6 +993,11 @@ export function StoryEditor() {
         activeImageProfileId && exportedProfileIds.has(activeImageProfileId)
           ? activeImageProfileId
           : null,
+      activeBackgroundRemovalProfileId:
+        activeBackgroundRemovalProfileId &&
+        exportedProfileIds.has(activeBackgroundRemovalProfileId)
+          ? activeBackgroundRemovalProfileId
+          : null,
       activeVoiceProfileId:
         activeVoiceProfileId && exportedProfileIds.has(activeVoiceProfileId)
           ? activeVoiceProfileId
@@ -954,6 +1005,8 @@ export function StoryEditor() {
       exportedAt: new Date().toISOString(),
     };
   }, [
+    activeBackgroundRemovalProfile,
+    activeBackgroundRemovalProfileId,
     activeImageProfile,
     activeImageProfileId,
     activeTextProfile,
@@ -997,13 +1050,18 @@ export function StoryEditor() {
   });
 
   const handleCreateAIProfile = useCallback(
-    async (kind: 'text' | 'image' | 'voice', initialProfile: AIProfileSeed = {}) => {
+    async (
+      kind: 'text' | 'image' | 'background-removal' | 'voice',
+      initialProfile: AIProfileSeed = {},
+    ) => {
       const baseProfile =
         kind === 'text'
           ? buildDefaultTextProfile()
           : kind === 'image'
             ? buildDefaultImageProfile()
-            : buildDefaultVoiceProfile();
+            : kind === 'background-removal'
+              ? buildDefaultBackgroundRemovalProfile()
+              : buildDefaultVoiceProfile();
       const profile = Object.assign({}, baseProfile, initialProfile, {
         id: baseProfile.id,
         kind,
@@ -1011,6 +1069,7 @@ export function StoryEditor() {
       setSavedAIProfiles((current) => [...current, profile]);
       if (kind === 'text') setActiveTextProfileId(profile.id);
       if (kind === 'image') setActiveImageProfileId(profile.id);
+      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profile.id);
       if (kind === 'voice') setActiveVoiceProfileId(profile.id);
       return profile.id;
     },
@@ -1022,6 +1081,7 @@ export function StoryEditor() {
       if (
         profileId === HOSTED_PROXY_PROFILE_ID ||
         profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+        profileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
         profileId === HOSTED_VOICE_PROXY_PROFILE_ID
       )
         return;
@@ -1033,9 +1093,10 @@ export function StoryEditor() {
   );
 
   const handleSelectAIProfile = useCallback(
-    async (kind: 'text' | 'image' | 'voice', profileId: string) => {
+    async (kind: 'text' | 'image' | 'background-removal' | 'voice', profileId: string) => {
       if (kind === 'text') setActiveTextProfileId(profileId);
       if (kind === 'image') setActiveImageProfileId(profileId);
+      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profileId);
       if (kind === 'voice') setActiveVoiceProfileId(profileId);
     },
     [],
@@ -1046,6 +1107,7 @@ export function StoryEditor() {
       if (
         profileId === HOSTED_PROXY_PROFILE_ID ||
         profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
+        profileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
         profileId === HOSTED_VOICE_PROXY_PROFILE_ID
       )
         return;
@@ -1061,6 +1123,11 @@ export function StoryEditor() {
             nextProfiles.find((profile) => profile.kind === 'image')?.id ?? null,
           );
         }
+        if (activeBackgroundRemovalProfileId === profileId) {
+          setActiveBackgroundRemovalProfileId(
+            nextProfiles.find((profile) => profile.kind === 'background-removal')?.id ?? null,
+          );
+        }
         if (activeVoiceProfileId === profileId) {
           setActiveVoiceProfileId(
             nextProfiles.find((profile) => profile.kind === 'voice')?.id ?? null,
@@ -1069,7 +1136,12 @@ export function StoryEditor() {
         return nextProfiles;
       });
     },
-    [activeImageProfileId, activeTextProfileId, activeVoiceProfileId],
+    [
+      activeBackgroundRemovalProfileId,
+      activeImageProfileId,
+      activeTextProfileId,
+      activeVoiceProfileId,
+    ],
   );
 
   const setImageSize = useCallback(
@@ -1257,17 +1329,20 @@ export function StoryEditor() {
     (!activeVoiceProfile ||
       (activeVoiceProfile.provider === 'youdao'
         ? !(activeVoiceProfile.appKey || activeVoiceProfile.model || '').trim() ||
-        !activeVoiceProfile.apiKey.trim()
+          !activeVoiceProfile.apiKey.trim()
         : activeVoiceProfile.provider !== 'system' &&
-        activeVoiceProfile.provider !== 'hosted-voice' &&
-        !activeVoiceProfile.apiKey.trim()));
+          activeVoiceProfile.provider !== 'hosted-voice' &&
+          !activeVoiceProfile.apiKey.trim()));
   const importModeRef = useRef<'replace' | 'new'>('replace');
-  const requestSettingsAttention = useCallback((target: 'text' | 'image' | 'voice') => {
+  const requestSettingsAttention = useCallback(
+    (target: 'text' | 'image' | 'background-removal' | 'voice') => {
     setSettingsAttentionTarget(target);
     setSettingsAttention(false);
     window.setTimeout(() => setSettingsAttention(true), 0);
     window.setTimeout(() => setSettingsAttention(false), 1800);
-  }, []);
+    },
+    [],
+  );
   const acknowledgeSettingsAttention = useCallback(() => {
     setSettingsAttentionTarget(null);
     setSettingsAttention(false);
@@ -1579,6 +1654,10 @@ export function StoryEditor() {
         activeTextProfileId === HOSTED_PROXY_PROFILE_ID ? null : activeTextProfileId,
       activeImageProfileId:
         activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID ? null : activeImageProfileId,
+      activeBackgroundRemovalProfileId:
+        activeBackgroundRemovalProfileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
+          ? null
+          : activeBackgroundRemovalProfileId,
       activeVoiceProfileId:
         activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID ? null : activeVoiceProfileId,
     });
@@ -1587,6 +1666,7 @@ export function StoryEditor() {
     savedAIProfiles,
     activeTextProfileId,
     activeImageProfileId,
+    activeBackgroundRemovalProfileId,
     activeVoiceProfileId,
   ]);
 
@@ -1649,15 +1729,15 @@ export function StoryEditor() {
             const imageId = sceneHandle?.match(/^image-(?:in|out)-(.+)$/)?.[1];
             const sceneImages = Array.isArray(connected.data.images)
               ? (connected.data.images as Array<{
-                id: string;
-                imageUrl?: string;
-                videoUrl?: string;
-              }>)
+                  id: string;
+                  imageUrl?: string;
+                  videoUrl?: string;
+                }>)
               : [];
             const selectedMedia = imageId
               ? sceneImages.find(
-                (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
-              )
+                  (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
+                )
               : undefined;
             const imageUrl =
               selectedMedia?.imageUrl ||
@@ -1726,11 +1806,11 @@ export function StoryEditor() {
             ...(nextScene?.sourceNodeId === connectedScene.id
               ? nextScene
               : createScenePresentation(
-                connectedScene.id,
-                previousImageUrl,
-                true,
-                nextShowTextOverlay,
-              )),
+                  connectedScene.id,
+                  previousImageUrl,
+                  true,
+                  nextShowTextOverlay,
+                )),
             sourceNodeId: connectedScene.id,
             linkedByEdge: true,
             imageId: connectedSceneBinding.imageId,
@@ -2017,19 +2097,19 @@ export function StoryEditor() {
           ? node.data.audioClips
           : typeof node.data.audioUrl === 'string' && node.data.audioUrl
             ? [
-              {
-                id: crypto.randomUUID(),
-                name:
-                  language === 'zh'
-                    ? '已有音频'
-                    : language === 'ja'
-                      ? '既存の音声'
-                      : 'Existing audio',
-                url: node.data.audioUrl,
-                source: 'imported' as const,
-                createdAt: Date.now() - 1,
-              },
-            ]
+                {
+                  id: crypto.randomUUID(),
+                  name:
+                    language === 'zh'
+                      ? '已有音频'
+                      : language === 'ja'
+                        ? '既存の音声'
+                        : 'Existing audio',
+                  url: node.data.audioUrl,
+                  source: 'imported' as const,
+                  createdAt: Date.now() - 1,
+                },
+              ]
             : [];
         const generatedClips: StoryAudioClip[] = [];
         for (const [index, segment] of speechSegments.entries()) {
@@ -2127,6 +2207,7 @@ export function StoryEditor() {
     handleRemoveTextFromImage,
     handleGenerateSettingNodeImage,
     handleGenerateStoryNodeImage,
+    handleRemoveCharacterImageBackground,
     handleExtractMedia,
   } = useMediaActions({
     nodes,
@@ -2147,8 +2228,9 @@ export function StoryEditor() {
     imageHrScale,
     imageDenoisingStrength,
     imageRemoveBackground,
-    imageSubjectSegmentationApiUrl,
-    imageSubjectSegmentationApiKey,
+    backgroundRemovalApiUrl,
+    backgroundRemovalApiKey,
+    backgroundRemovalProvider,
     characterImageMode,
     sceneImageMode,
     showTitles: showTitles && storyTitlePlacement === 'inside',
@@ -2493,23 +2575,23 @@ export function StoryEditor() {
               : undefined,
           ranges: Array.isArray(card.ranges)
             ? card.ranges
-              .map((range) => ({
-                min: typeof range.min === 'number' && Number.isFinite(range.min) ? range.min : 0,
-                max: typeof range.max === 'number' && Number.isFinite(range.max) ? range.max : 0,
-              }))
-              .filter((range) => range.min <= range.max)
+                .map((range) => ({
+                  min: typeof range.min === 'number' && Number.isFinite(range.min) ? range.min : 0,
+                  max: typeof range.max === 'number' && Number.isFinite(range.max) ? range.max : 0,
+                }))
+                .filter((range) => range.min <= range.max)
             : undefined,
           connectTo: Array.isArray(card.connectTo)
             ? card.connectTo.map(cleanText).filter(Boolean)
             : undefined,
           branchTargets: Array.isArray(card.branchTargets)
             ? card.branchTargets
-              .map((branch) => ({
-                target: cleanText(branch.target),
-                handle: cleanText(branch.handle),
-                label: cleanText(branch.label),
-              }))
-              .filter((branch) => branch.target)
+                .map((branch) => ({
+                  target: cleanText(branch.target),
+                  handle: cleanText(branch.handle),
+                  label: cleanText(branch.label),
+                }))
+                .filter((branch) => branch.target)
             : undefined,
         }))
         .filter((card) => {
@@ -2754,7 +2836,10 @@ export function StoryEditor() {
       const totalLayoutWidth =
         layoutColumns.reduce((width, column) => width + column.width, 0) +
         Math.max(0, layoutColumns.length - 1) * columnGap;
-      const maxColumnHeight = Math.max(0, ...layoutColumns.map((column) => getColumnHeight(column.indexes)));
+      const maxColumnHeight = Math.max(
+        0,
+        ...layoutColumns.map((column) => getColumnHeight(column.indexes)),
+      );
       const layoutLeft = center.x - totalLayoutWidth / 2;
       const layoutTop = center.y - maxColumnHeight / 2;
       const columnXByType = new Map<'character' | 'scene' | 'story' | 'number-condition', number>();
@@ -2762,17 +2847,16 @@ export function StoryEditor() {
         columnXByType.set(column.type, x);
         return x + column.width + columnGap;
       }, layoutLeft);
-      const getVerticalColumnPosition = (
-        columnIndexes: number[],
-        cardIndex: number,
-        x: number,
-      ) => {
+      const getVerticalColumnPosition = (columnIndexes: number[], cardIndex: number, x: number) => {
         const rowIndex = Math.max(0, columnIndexes.indexOf(cardIndex));
         const y =
           layoutTop +
           columnIndexes
             .slice(0, rowIndex)
-            .reduce((offset, previousIndex) => offset + cardLayouts[previousIndex].height + rowGap, 0);
+            .reduce(
+              (offset, previousIndex) => offset + cardLayouts[previousIndex].height + rowGap,
+              0,
+            );
         return { x, y };
       };
 
@@ -2782,13 +2866,12 @@ export function StoryEditor() {
         .map((card, index): AssistantMentionReference | null => {
           if (card.type === 'character') {
             const name =
-              card.characterName ||
-              card.title ||
-              (language === 'zh' ? 'AI 角色' : 'AI Character');
+              card.characterName || card.title || (language === 'zh' ? 'AI 角色' : 'AI Character');
             return { id: cardIds[index], kind: 'character' as const, name, prependIfMissing: true };
           }
           if (card.type === 'scene') {
-            const name = card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene');
+            const name =
+              card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene');
             return { id: cardIds[index], kind: 'scene' as const, name, prependIfMissing: true };
           }
           return null;
@@ -2805,27 +2888,27 @@ export function StoryEditor() {
         let position =
           card.type === 'character'
             ? getVerticalColumnPosition(
-              characterIndexes,
-              index,
-              columnXByType.get('character') ?? center.x - layout.width / 2,
-            )
+                characterIndexes,
+                index,
+                columnXByType.get('character') ?? center.x - layout.width / 2,
+              )
             : card.type === 'scene'
               ? getVerticalColumnPosition(
-                sceneIndexes,
-                index,
-                columnXByType.get('scene') ?? center.x - layout.width / 2,
-              )
+                  sceneIndexes,
+                  index,
+                  columnXByType.get('scene') ?? center.x - layout.width / 2,
+                )
               : card.type === 'number-condition'
                 ? getVerticalColumnPosition(
-                  numberConditionIndexes,
-                  index,
-                  columnXByType.get('number-condition') ?? center.x - layout.width / 2,
-                )
+                    numberConditionIndexes,
+                    index,
+                    columnXByType.get('number-condition') ?? center.x - layout.width / 2,
+                  )
                 : getVerticalColumnPosition(
-                  storyIndexes,
-                  index,
-                  columnXByType.get('story') ?? center.x - layout.width / 2,
-                );
+                    storyIndexes,
+                    index,
+                    columnXByType.get('story') ?? center.x - layout.width / 2,
+                  );
         if (mode === 'adjacent-revision' && sourceNode) {
           position = {
             x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
@@ -2943,10 +3026,14 @@ export function StoryEditor() {
       });
 
       const storyNodesToLink = newNodes.filter((node) => node.type === 'storyNode');
-      const numberConditionNodesToLink = newNodes.filter((node) => node.type === 'numberConditionNode');
+      const numberConditionNodesToLink = newNodes.filter(
+        (node) => node.type === 'numberConditionNode',
+      );
       const flowNodesToLink =
         numberConditionNodesToLink.length > 0
-          ? newNodes.filter((node) => node.type === 'storyNode' || node.type === 'numberConditionNode')
+          ? newNodes.filter(
+              (node) => node.type === 'storyNode' || node.type === 'numberConditionNode',
+            )
           : storyNodesToLink;
       const getFlowSourceHandle = (node: Node) =>
         node.type === 'numberConditionNode' ? 'out-greater' : 'bottom';
@@ -2962,7 +3049,9 @@ export function StoryEditor() {
       const isEndingDraft = (card: (typeof remainingCards)[number]) => {
         if (card.type !== 'story') return false;
         const searchable = `${card.key || ''} ${card.title || ''} ${card.text || ''}`;
-        return /ending|good\s*end|bad\s*end|true\s*end|\u7ed3\u5c40|\u771f\u7ed3\u5c40|\u597d\u7ed3\u5c40|\u574f\u7ed3\u5c40/i.test(searchable);
+        return /ending|good\s*end|bad\s*end|true\s*end|\u7ed3\u5c40|\u771f\u7ed3\u5c40|\u597d\u7ed3\u5c40|\u574f\u7ed3\u5c40/i.test(
+          searchable,
+        );
       };
       const inferredEndingIndexes = remainingCards
         .map((card, index) => (isEndingDraft(card) ? index : -1))
@@ -2974,9 +3063,9 @@ export function StoryEditor() {
       const inferredBranchSource =
         !hasExplicitConnections && inferredEndingNodes.length >= 2
           ? newNodes
-            .slice(0, Math.max(0, firstEndingIndex))
-            .reverse()
-            .find((node) => node.type === 'storyNode') || sourceNode
+              .slice(0, Math.max(0, firstEndingIndex))
+              .reverse()
+              .find((node) => node.type === 'storyNode') || sourceNode
           : null;
       if (inferredBranchSource && inferredEndingNodes.length >= 2) {
         const branchWidth = 380;
@@ -2987,8 +3076,7 @@ export function StoryEditor() {
             200) +
           260;
         const branchLeft =
-          inferredBranchSource.position.x -
-          ((inferredEndingNodes.length - 1) * branchWidth) / 2;
+          inferredBranchSource.position.x - ((inferredEndingNodes.length - 1) * branchWidth) / 2;
         inferredEndingNodes.forEach((node, index) => {
           node.position = {
             x: branchLeft + index * branchWidth,
@@ -3004,7 +3092,8 @@ export function StoryEditor() {
           nodeByDraftRef.set(String(ref).trim().toLowerCase(), node);
         });
       });
-      const resolveDraftNode = (ref: string) => nodeByDraftRef.get(ref.trim().toLowerCase()) || null;
+      const resolveDraftNode = (ref: string) =>
+        nodeByDraftRef.get(ref.trim().toLowerCase()) || null;
       const normalizeBranchHandle = (source: Node, handle?: string) => {
         if (source.type !== 'numberConditionNode') return handle === 'right' ? 'right' : 'bottom';
         const normalized = (handle || '').trim().toLowerCase();
@@ -3019,12 +3108,7 @@ export function StoryEditor() {
         if (normalized.startsWith('out-')) return normalized;
         return 'out-greater';
       };
-      const pushFlowEdge = (
-        source: Node,
-        target: Node,
-        sourceHandle: string,
-        label?: string,
-      ) => {
+      const pushFlowEdge = (source: Node, target: Node, sourceHandle: string, label?: string) => {
         newEdges.push({
           id: `e-${source.id}-${target.id}-${newEdges.length}`,
           source: source.id,
@@ -3039,7 +3123,9 @@ export function StoryEditor() {
       if (inferredBranchSource && inferredEndingNodes.length >= 2 && mode !== 'adjacent-revision') {
         const preBranchNodes = flowNodesToLink.filter((node) => {
           const nodeIndex = newNodes.findIndex((candidate) => candidate.id === node.id);
-          return nodeIndex >= 0 && nodeIndex < firstEndingIndex && node.id !== inferredBranchSource.id;
+          return (
+            nodeIndex >= 0 && nodeIndex < firstEndingIndex && node.id !== inferredBranchSource.id
+          );
         });
         if (sourceNode && preBranchNodes[0]) {
           pushFlowEdge(sourceNode, preBranchNodes[0], 'bottom');
@@ -3062,8 +3148,11 @@ export function StoryEditor() {
           pushFlowEdge(
             inferredBranchSource,
             endingNode,
-            inferredBranchSource.type === 'storyNode' ? 'bottom' : getFlowSourceHandle(inferredBranchSource),
-            (endingNode.data.title as string | undefined) || `${language === 'zh' ? '结局' : 'Ending'} ${index + 1}`,
+            inferredBranchSource.type === 'storyNode'
+              ? 'bottom'
+              : getFlowSourceHandle(inferredBranchSource),
+            (endingNode.data.title as string | undefined) ||
+              `${language === 'zh' ? '结局' : 'Ending'} ${index + 1}`,
           );
         });
       } else if (hasExplicitConnections && mode !== 'adjacent-revision') {
@@ -3146,24 +3235,26 @@ export function StoryEditor() {
       const bridgeTargetPosition =
         mode === 'bridge-to-target' && sourceNode && targetNode
           ? {
-            x: sourceNode.position.x,
-            y:
-              sourceNode.position.y +
-              (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
-              100 +
-              storyNodesToLink.length * 280,
-          }
+              x: sourceNode.position.x,
+              y:
+                sourceNode.position.y +
+                (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
+                100 +
+                storyNodesToLink.length * 280,
+            }
           : null;
       setNodes((nds) => [
-        ...nds.map((node) => ({
-          ...node,
-          selected: false,
-          data: shouldReplaceInitialRoot ? { ...node.data, isRoot: false } : node.data,
-          position:
-            bridgeTargetPosition && node.id === targetNode?.id
-              ? bridgeTargetPosition
-              : node.position,
-        })).filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
+        ...nds
+          .map((node) => ({
+            ...node,
+            selected: false,
+            data: shouldReplaceInitialRoot ? { ...node.data, isRoot: false } : node.data,
+            position:
+              bridgeTargetPosition && node.id === targetNode?.id
+                ? bridgeTargetPosition
+                : node.position,
+          }))
+          .filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
         ...newNodes,
       ]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
@@ -3176,40 +3267,43 @@ export function StoryEditor() {
     [edges, nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
   );
 
-  const getAgentDraftType = useCallback((card: AssistantCardDraft): 'story' | 'character' | 'scene' | 'number-condition' => {
-    const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-    if (
-      card.type === 'character' ||
-      card.type === 'scene' ||
-      card.type === 'story' ||
-      card.type === 'number-condition'
-    ) {
-      return card.type;
-    }
-    if (
-      typeof card.threshold === 'number' ||
-      (Array.isArray(card.ranges) && card.ranges.length > 0)
-    ) {
-      return 'number-condition';
-    }
-    if (
-      cleanText(card.characterName) ||
-      cleanText(card.personality) ||
-      cleanText(card.features) ||
-      cleanText(card.background)
-    ) {
-      return 'character';
-    }
-    if (
-      cleanText(card.sceneName) ||
-      cleanText(card.location) ||
-      cleanText(card.items) ||
-      cleanText(card.atmosphere)
-    ) {
-      return 'scene';
-    }
-    return 'story';
-  }, []);
+  const getAgentDraftType = useCallback(
+    (card: AssistantCardDraft): 'story' | 'character' | 'scene' | 'number-condition' => {
+      const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+      if (
+        card.type === 'character' ||
+        card.type === 'scene' ||
+        card.type === 'story' ||
+        card.type === 'number-condition'
+      ) {
+        return card.type;
+      }
+      if (
+        typeof card.threshold === 'number' ||
+        (Array.isArray(card.ranges) && card.ranges.length > 0)
+      ) {
+        return 'number-condition';
+      }
+      if (
+        cleanText(card.characterName) ||
+        cleanText(card.personality) ||
+        cleanText(card.features) ||
+        cleanText(card.background)
+      ) {
+        return 'character';
+      }
+      if (
+        cleanText(card.sceneName) ||
+        cleanText(card.location) ||
+        cleanText(card.items) ||
+        cleanText(card.atmosphere)
+      ) {
+        return 'scene';
+      }
+      return 'story';
+    },
+    [],
+  );
 
   const createAgentSkeletonCards = useCallback(
     (cards: AssistantCardDraft[]): AssistantCardDraft[] =>
@@ -3453,11 +3547,15 @@ export function StoryEditor() {
       mode: AssistantCardPlacementMode = 'append',
       options?: AssistantCardPlacementOptions,
     ): Promise<AssistantCardPlacementResult> => {
-      const selectedCount = options?.targetNodeIds?.length ?? nodes.filter(
-        (node) =>
-          node.selected &&
-          (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
-      ).length;
+      const selectedCount =
+        options?.targetNodeIds?.length ??
+        nodes.filter(
+          (node) =>
+            node.selected &&
+            (node.type === 'storyNode' ||
+              node.type === 'characterNode' ||
+              node.type === 'sceneNode'),
+        ).length;
 
       const placement = await runAgentCardPlacement({
         cards,
@@ -3624,11 +3722,12 @@ export function StoryEditor() {
               data: {
                 ...currentData,
                 threshold: card.threshold ?? currentData.threshold ?? 0,
-                ranges: card.ranges?.map((range) => ({
-                  id: uuidv4(),
-                  min: range.min,
-                  max: range.max,
-                })) || currentData.ranges,
+                ranges:
+                  card.ranges?.map((range) => ({
+                    id: uuidv4(),
+                    min: range.min,
+                    max: range.max,
+                  })) || currentData.ranges,
               } satisfies NumberConditionNodeData,
             };
           }
@@ -3639,7 +3738,10 @@ export function StoryEditor() {
             card.text || '',
             buildAssistantMentionReferencesFromNodes(currentNodes),
           );
-          const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, currentNodes);
+          const sceneMedia = resolveAssistantStorySceneMedia(
+            taggedStory.presentation,
+            currentNodes,
+          );
           return {
             ...node,
             data: {
@@ -3840,10 +3942,10 @@ export function StoryEditor() {
       }) => {
         const restoredProjectData = zip
           ? await createProjectSerializer({
-            defaultEdgeOptions,
-            defaultAIPrompts,
-            defaultAIButtonsConfig,
-          }).restoreImportedProject(projectData, zip)
+              defaultEdgeOptions,
+              defaultAIPrompts,
+              defaultAIButtonsConfig,
+            }).restoreImportedProject(projectData, zip)
           : projectData;
         const shouldReplaceCurrentProject =
           replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
@@ -4411,6 +4513,11 @@ export function StoryEditor() {
             ? HOSTED_IMAGE_PROXY_PROFILE_ID
             : savedProfilesState.activeImageProfileId,
         );
+        setActiveBackgroundRemovalProfileId(
+          shouldUseHostedProxyByDefault
+            ? HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
+            : savedProfilesState.activeBackgroundRemovalProfileId ?? null,
+        );
         setActiveVoiceProfileId(
           shouldUseHostedProxyByDefault
             ? HOSTED_VOICE_PROXY_PROFILE_ID
@@ -4495,57 +4602,57 @@ export function StoryEditor() {
     const hints: Record<string, string> =
       language === 'zh'
         ? {
-          storyNode:
-            '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
-          characterNode:
-            '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
-          sceneNode:
-            '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
-          plotStructureNode:
-            '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
-          summaryNode:
-            '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
-          batchReplaceNode:
-            '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
-          numberConditionNode:
-            '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
-          textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
-          backgroundNode:
-            '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
-          groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
-          aiNode:
-            'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
-          multi:
-            '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
-          default: t.footerHint,
-        }
+            storyNode:
+              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
+            characterNode:
+              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
+            sceneNode:
+              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
+            plotStructureNode:
+              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+            summaryNode:
+              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
+            batchReplaceNode:
+              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
+            numberConditionNode:
+              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
+            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
+            backgroundNode:
+              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
+            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
+            aiNode:
+              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
+            multi:
+              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
+            default: t.footerHint,
+          }
         : {
-          storyNode:
-            'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
-          characterNode:
-            'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
-          sceneNode:
-            'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
-          plotStructureNode:
-            'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
-          summaryNode:
-            'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
-          batchReplaceNode:
-            'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
-          numberConditionNode:
-            'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
-          textNode:
-            'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
-          backgroundNode:
-            'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
-          groupNode:
-            'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
-          aiNode:
-            'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
-          multi:
-            'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
-          default: t.footerHint,
-        };
+            storyNode:
+              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
+            characterNode:
+              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
+            sceneNode:
+              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
+            plotStructureNode:
+              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+            summaryNode:
+              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
+            batchReplaceNode:
+              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
+            numberConditionNode:
+              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
+            textNode:
+              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
+            backgroundNode:
+              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
+            groupNode:
+              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
+            aiNode:
+              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
+            multi:
+              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
+            default: t.footerHint,
+          };
 
     return hints[selectedType || 'default'] || hints.default;
   }, [assistantOpen, language, selectedNodes, t.footerHint]);
@@ -4635,19 +4742,19 @@ ${layoutConfig.label}
           const startPosition =
             layoutConfig.primaryAxis === 'x'
               ? {
-                x:
-                  layoutDirection === 'left'
-                    ? lastNode.position.x - cardWidth - offsetDist
-                    : lastNode.position.x + srcW + offsetDist,
-                y: lastNode.position.y,
-              }
+                  x:
+                    layoutDirection === 'left'
+                      ? lastNode.position.x - cardWidth - offsetDist
+                      : lastNode.position.x + srcW + offsetDist,
+                  y: lastNode.position.y,
+                }
               : {
-                x: lastNode.position.x,
-                y:
-                  layoutDirection === 'up'
-                    ? lastNode.position.y - cardHeight - offsetDist
-                    : lastNode.position.y + srcH + offsetDist,
-              };
+                  x: lastNode.position.x,
+                  y:
+                    layoutDirection === 'up'
+                      ? lastNode.position.y - cardHeight - offsetDist
+                      : lastNode.position.y + srcH + offsetDist,
+                };
           let currentX = startPosition.x;
           let currentY = startPosition.y;
 
@@ -4841,6 +4948,7 @@ ${layoutConfig.label}
           onGenerateImage: handleGenerateStoryNodeImage,
           onGenerateSpeech: handleGenerateStoryNodeSpeech,
           onGenerateSettingImage: handleGenerateSettingNodeImage,
+          onRemoveCharacterImageBackground: handleRemoveCharacterImageBackground,
           onAddTextToImage: handleAddTextToImage,
           onRemoveTextFromImage: handleRemoveTextFromImage,
           onExtractMedia: handleExtractMedia,
@@ -4884,6 +4992,7 @@ ${layoutConfig.label}
     handleGenerateStoryNodeImage,
     handleGenerateStoryNodeSpeech,
     handleGenerateSettingNodeImage,
+    handleRemoveCharacterImageBackground,
     handleAddTextToImage,
     handleRemoveTextFromImage,
     handleExtractMedia,
@@ -5390,6 +5499,7 @@ ${layoutConfig.label}
           savedAIProfiles={savedAIProfiles}
           activeTextProfileId={activeTextProfileId}
           activeImageProfileId={activeImageProfileId}
+          activeBackgroundRemovalProfileId={activeBackgroundRemovalProfileId}
           activeVoiceProfileId={activeVoiceProfileId}
           settingsAttentionTarget={settingsAttentionTarget}
           onAcknowledgeSettingsAttention={acknowledgeSettingsAttention}
@@ -5534,12 +5644,14 @@ ${layoutConfig.label}
               ? `确定要删除这 ${projectIdsPendingDeletion.length} 个项目吗？此操作不可撤销。`
               : `Delete these ${projectIdsPendingDeletion.length} projects? This cannot be undone.`
             : language === 'zh'
-              ? `确定要删除项目「${projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                ?.projectName || '未命名项目'
-              }」吗？此操作不可撤销。`
-              : `Delete "${projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                ?.projectName || 'Untitled project'
-              }"? This cannot be undone.`
+              ? `确定要删除项目「${
+                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                    ?.projectName || '未命名项目'
+                }」吗？此操作不可撤销。`
+              : `Delete "${
+                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
+                    ?.projectName || 'Untitled project'
+                }"? This cannot be undone.`
         }
         confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
         onCancel={() => setProjectIdsPendingDeletion([])}
@@ -5561,12 +5673,14 @@ ${layoutConfig.label}
         title={language === 'zh' ? '关闭对话？' : 'Close conversation?'}
         description={
           language === 'zh'
-            ? `确定要关闭「${assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-            '这个对话'
-            }」吗？`
-            : `Close "${assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-            'this conversation'
-            }"?`
+            ? `确定要关闭「${
+                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+                '这个对话'
+              }」吗？`
+            : `Close "${
+                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+                'this conversation'
+              }"?`
         }
         confirmLabel={language === 'zh' ? '关闭对话' : 'Close conversation'}
         tone="warning"
@@ -5582,70 +5696,70 @@ ${layoutConfig.label}
             const zenPresentation = normalizeStoryPresentation(node?.data.presentation as any);
             const characterTags = node
               ? nodes
-                .filter(
-                  (n) =>
-                    n.type === 'characterNode' &&
-                    typeof n.data.characterName === 'string' &&
-                    n.data.characterName.trim().length > 0,
-                )
-                .filter((n) => {
-                  const isGlobal = n.data?.isGlobal !== false;
-                  const isConnected = edges.some(
-                    (e) =>
-                      (e.source === n.id && e.target === node.id) ||
-                      (e.target === n.id && e.source === node.id),
-                  );
-                  const isPresented = zenPresentation.characters.some(
-                    (item) => item.sourceNodeId === n.id,
-                  );
-                  return isGlobal || isConnected || isPresented;
-                })
-                .map((n) => {
-                  const config = zenPresentation.characters.find(
-                    (item) => item.sourceNodeId === n.id,
-                  );
-                  const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
-                  const outfit = config?.outfitId
-                    ? outfits.find((item: any) => item.id === config.outfitId)
-                    : outfits.find((item: any) => item.imageUrl);
-                  return {
-                    id: n.id,
-                    name: String(n.data.characterName).trim(),
-                    imageUrl:
-                      (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
-                      (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
-                  };
-                })
+                  .filter(
+                    (n) =>
+                      n.type === 'characterNode' &&
+                      typeof n.data.characterName === 'string' &&
+                      n.data.characterName.trim().length > 0,
+                  )
+                  .filter((n) => {
+                    const isGlobal = n.data?.isGlobal !== false;
+                    const isConnected = edges.some(
+                      (e) =>
+                        (e.source === n.id && e.target === node.id) ||
+                        (e.target === n.id && e.source === node.id),
+                    );
+                    const isPresented = zenPresentation.characters.some(
+                      (item) => item.sourceNodeId === n.id,
+                    );
+                    return isGlobal || isConnected || isPresented;
+                  })
+                  .map((n) => {
+                    const config = zenPresentation.characters.find(
+                      (item) => item.sourceNodeId === n.id,
+                    );
+                    const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
+                    const outfit = config?.outfitId
+                      ? outfits.find((item: any) => item.id === config.outfitId)
+                      : outfits.find((item: any) => item.imageUrl);
+                    return {
+                      id: n.id,
+                      name: String(n.data.characterName).trim(),
+                      imageUrl:
+                        (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
+                        (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
+                    };
+                  })
               : [];
             const sceneTags = node
               ? nodes
-                .filter(
-                  (n) =>
-                    n.type === 'sceneNode' &&
-                    typeof n.data.sceneName === 'string' &&
-                    n.data.sceneName.trim().length > 0,
-                )
-                .filter((n) => {
-                  const isGlobal = n.data?.isGlobal !== false;
-                  const isConnected = edges.some(
-                    (e) =>
-                      (e.source === n.id && e.target === node.id) ||
-                      (e.target === n.id && e.source === node.id),
-                  );
-                  const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
-                  return isGlobal || isConnected || isPresented;
-                })
-                .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
+                  .filter(
+                    (n) =>
+                      n.type === 'sceneNode' &&
+                      typeof n.data.sceneName === 'string' &&
+                      n.data.sceneName.trim().length > 0,
+                  )
+                  .filter((n) => {
+                    const isGlobal = n.data?.isGlobal !== false;
+                    const isConnected = edges.some(
+                      (e) =>
+                        (e.source === n.id && e.target === node.id) ||
+                        (e.target === n.id && e.source === node.id),
+                    );
+                    const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
+                    return isGlobal || isConnected || isPresented;
+                  })
+                  .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
               : [];
             const presentationScene = zenPresentation.scene
               ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
               : undefined;
             const presentationSceneImages = Array.isArray(presentationScene?.data.images)
               ? (presentationScene.data.images as Array<{
-                id: string;
-                imageUrl?: string;
-                videoUrl?: string;
-              }>)
+                  id: string;
+                  imageUrl?: string;
+                  videoUrl?: string;
+                }>)
               : [];
             const selectedPresentationSceneMedia = zenPresentation.scene?.imageId
               ? presentationSceneImages.find((image) => image.id === zenPresentation.scene?.imageId)
@@ -5656,10 +5770,10 @@ ${layoutConfig.label}
             const zenImageUrl = zenVideoUrl
               ? undefined
               : (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
-              selectedPresentationSceneMedia?.imageUrl ||
-              (typeof presentationScene?.data.coverImageUrl === 'string'
-                ? presentationScene.data.coverImageUrl
-                : '');
+                selectedPresentationSceneMedia?.imageUrl ||
+                (typeof presentationScene?.data.coverImageUrl === 'string'
+                  ? presentationScene.data.coverImageUrl
+                  : '');
             const handleZenPresentationChange = (presentation: StoryPresentation) => {
               const nextPresentation = normalizeStoryPresentation(presentation);
               const updates: Partial<StoryNodeData> = { presentation: nextPresentation };

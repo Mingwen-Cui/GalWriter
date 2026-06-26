@@ -1,4 +1,9 @@
-import type { ImageAIProfile, TextAIProfile, VoiceAIProfile } from '../domain/project';
+import type {
+  BackgroundRemovalAIProfile,
+  ImageAIProfile,
+  TextAIProfile,
+  VoiceAIProfile,
+} from '../domain/project';
 import {
   DEFAULT_IMAGE_MODEL,
   DEFAULT_IMAGE_SIZE,
@@ -8,6 +13,8 @@ import {
  * NOTE: 鍥哄畾 ID锛岀敤浜庢爣璇嗙綉椤垫墭绠′唬鐞嗙殑铏氭嫙鏂囨湰 AI 閰嶇疆銆? * 璇ラ厤缃笉瀛樺偍鍦ㄧ敤鎴锋湰鍦帮紝濮嬬粓鍦ㄨ繍琛屾椂娉ㄥ叆锛岀敤鎴锋棤娉曠紪杈戞垨鍒犻櫎銆? */
 export const HOSTED_PROXY_PROFILE_ID = '__hosted_proxy__';
 export const HOSTED_IMAGE_PROXY_PROFILE_ID = '__hosted_image_proxy__';
+export const HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID =
+  '__hosted_background_removal_proxy__';
 export const HOSTED_VOICE_PROXY_PROFILE_ID = '__hosted_voice_proxy__';
 
 /**
@@ -36,6 +43,16 @@ export const HOSTED_IMAGE_PROXY_PROFILE: ImageAIProfile = {
   removeBackground: false,
   subjectSegmentationApiUrl: '',
   subjectSegmentationApiKey: '',
+};
+
+export const HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE: BackgroundRemovalAIProfile = {
+  id: HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID,
+  name: '\u7f51\u7edc\u6258\u7ba1\u4ee3\u7406',
+  kind: 'background-removal',
+  provider: 'hosted-background-removal',
+  apiKey: '',
+  apiUrl: '',
+  model: '',
 };
 
 export const HOSTED_VOICE_PROXY_PROFILE: VoiceAIProfile = {
