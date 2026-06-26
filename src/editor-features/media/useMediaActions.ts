@@ -383,15 +383,16 @@ export const useMediaActions = ({
             apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
             apiKey: imageSubjectSegmentationApiKey,
             useHostedProxy: isHostedImageProxy,
+            bundledWithImageGeneration: true,
           });
         } catch (error) {
           console.error('Transparent background processing failed:', error);
-          throw new Error(
+          showToast(
             language === 'zh'
-              ? '图片已生成，但无法转换为透明背景。请确认图片地址允许读取，或改用支持透明 PNG 的图片模型。'
+              ? '图片已生成，透明背景转换失败，已使用原图。'
               : language === 'ja'
-                ? '画像は生成されましたが、透過背景に変換できませんでした。'
-                : 'The image was generated, but it could not be converted to a transparent background.',
+                ? '画像は生成されましたが、透明背景への変換に失敗したため元画像を使用しました。'
+                : 'The image was generated, but transparent background conversion failed. Using the original image.',
           );
         }
       }
@@ -401,12 +402,12 @@ export const useMediaActions = ({
           processedImageSrc = await ensureImageAspectRatio(processedImageSrc, aspectRatio);
         } catch (error) {
           console.error('Scene aspect ratio processing failed:', error);
-          throw new Error(
+          showToast(
             language === 'zh'
-              ? '场景图片已生成，但无法转换为指定比例。请确认图片地址允许读取。'
+              ? '图片已生成，比例转换失败，已使用原图。'
               : language === 'ja'
-                ? 'シーン画像は生成されましたが、指定比率に変換できませんでした。'
-                : 'The scene image was generated, but it could not be converted to the requested ratio.',
+                ? '画像は生成されましたが、比率変換に失敗したため元画像を使用しました。'
+                : 'The image was generated, but ratio conversion failed. Using the original image.',
           );
         }
       }
@@ -428,6 +429,7 @@ export const useMediaActions = ({
       language,
       onMissingImageApiKeyRequest,
       setImageSize,
+      showToast,
     ],
   );
 
@@ -751,11 +753,23 @@ export const useMediaActions = ({
         }
 
         if (imageRemoveBackground) {
-          imageSrc = await requestSubjectSegmentation(imageSrc as string, {
-            apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
-            apiKey: imageSubjectSegmentationApiKey,
-            useHostedProxy: isHostedImageProxy,
-          });
+          try {
+            imageSrc = await requestSubjectSegmentation(imageSrc as string, {
+              apiUrl: isHostedImageProxy ? imageApiUrl : imageSubjectSegmentationApiUrl,
+              apiKey: imageSubjectSegmentationApiKey,
+              useHostedProxy: isHostedImageProxy,
+              bundledWithImageGeneration: true,
+            });
+          } catch (error) {
+            console.error('Transparent background processing failed:', error);
+            showToast(
+              language === 'zh'
+                ? '图片已生成，透明背景转换失败，已使用原图。'
+                : language === 'ja'
+                  ? '画像は生成されましたが、透明背景への変換に失敗したため元画像を使用しました。'
+                  : 'The image was generated, but transparent background conversion failed. Using the original image.',
+            );
+          }
         }
 
         const currentHeight = (node.style?.height as number) || 200;

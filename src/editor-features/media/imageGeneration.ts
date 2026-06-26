@@ -487,6 +487,7 @@ export const requestSubjectSegmentation = async (
     apiUrl?: string;
     apiKey?: string;
     useHostedProxy?: boolean;
+    bundledWithImageGeneration?: boolean;
   } = {},
 ) => {
   const useHostedProxy = Boolean(options.useHostedProxy);
@@ -498,6 +499,7 @@ export const requestSubjectSegmentation = async (
     ? {
         type: 'segment',
         image: imageUrl,
+        bundled_with_image_generation: Boolean(options.bundledWithImageGeneration),
       }
     : buildSubjectSegmentationPayload(imageUrl);
   const response = await fetch(url, {
@@ -535,7 +537,11 @@ export const requestSubjectSegmentation = async (
 };
 
 export const requestHostedSubjectSegmentation = (imageUrl: string, apiUrl = '') =>
-  requestSubjectSegmentation(imageUrl, { apiUrl, useHostedProxy: true });
+  requestSubjectSegmentation(imageUrl, {
+    apiUrl,
+    useHostedProxy: true,
+    bundledWithImageGeneration: true,
+  });
 
 const loadImageSource = async (imageUrl: string) => {
   const response = await fetch(imageUrl);
