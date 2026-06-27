@@ -133,6 +133,9 @@ interface SettingsModalProps {
   setOpaqueAssistantMessagesInGlass: (value: boolean) => void;
   opaqueFooterInGlass: boolean;
   setOpaqueFooterInGlass: (value: boolean) => void;
+  accentColor: string;
+  setAccentColor: (color: string) => void;
+  effectiveAccentColor: string;
   canvasBg: string;
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
@@ -644,6 +647,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setOpaqueAssistantMessagesInGlass,
   opaqueFooterInGlass,
   setOpaqueFooterInGlass,
+  accentColor,
+  setAccentColor,
+  effectiveAccentColor,
   canvasBg,
   setCanvasBg,
   presetColors,
@@ -992,6 +998,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           >
                             {t.darkMode}
                           </button>
+                        </div>
+                      </div>
+                      <div className={settingsRowClass}>
+                        <h3 className={settingsRowTitleClass}>
+                          {language === 'zh'
+                            ? '强调色'
+                            : language === 'ja'
+                              ? 'アクセントカラー'
+                              : 'Accent Color'}
+                        </h3>
+                        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-3">
+                          <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
+                            <input
+                              type="color"
+                              value={effectiveAccentColor}
+                              onChange={(event) => setAccentColor(event.target.value)}
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            />
+                            <span
+                              className="block h-full w-full"
+                              style={{ backgroundColor: effectiveAccentColor }}
+                            />
+                          </label>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-mono font-bold uppercase text-[var(--text-primary)]">
+                              {accentColor || effectiveAccentColor}
+                            </div>
+                            <div className="mt-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+                              {language === 'zh'
+                                ? '影响选中态、开关、焦点和主要按钮颜色'
+                                : language === 'ja'
+                                  ? '選択状態、スイッチ、フォーカス、主要ボタンに反映されます'
+                                  : 'Applies to selected states, toggles, focus rings, and primary buttons'}
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className={` pt-3 ${settingsRowClass}`}>
@@ -1482,19 +1523,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <Icon className="h-3.5 w-3.5" />
                               </span>
                               <div className="min-w-0 flex-1">
-                                <div className="text-xs font-black text-[var(--text-primary)]">
+                                <div
+                                  className={`text-xs font-black ${
+                                    selected
+                                      ? 'text-[var(--accent)]'
+                                      : 'text-[var(--text-primary)]'
+                                  }`}
+                                >
                                   {item.label}
                                 </div>
                               </div>
-                              <span
-                                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                                  selected
-                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                                    : 'border-[var(--header-border)] text-transparent'
-                                }`}
-                              >
-                                <Check className="h-3 w-3" />
-                              </span>
                             </div>
                           </button>
                         );

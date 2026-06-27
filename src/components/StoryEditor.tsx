@@ -143,6 +143,9 @@ const AI_STORY_CARD_WIDTH = 300;
 const AI_STORY_CARD_HEIGHT = 220;
 const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
 const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
+const DEFAULT_LIGHT_ACCENT_COLOR = '#4f46e5';
+const DEFAULT_DARK_ACCENT_COLOR = '#54b9fb';
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const DEFAULT_ROOT_STORY_TITLE = '开始';
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 const DEFAULT_ROOT_STORY_TEXT_VARIANTS = new Set([DEFAULT_ROOT_STORY_TEXT, '从前有一座山']);
@@ -152,6 +155,37 @@ const normalizeStoryPlainText = (value: unknown) =>
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, '')
     .replace(/[.。…]+$/g, '');
+
+const isHexColor = (color: string) => HEX_COLOR_PATTERN.test(color);
+
+const clampColorChannel = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const mixHexColor = (color: string, target: '#000000' | '#ffffff', amount: number) => {
+  if (!isHexColor(color)) return color;
+  const sourceValue = Number.parseInt(color.slice(1), 16);
+  const targetValue = Number.parseInt(target.slice(1), 16);
+  const source = {
+    r: (sourceValue >> 16) & 255,
+    g: (sourceValue >> 8) & 255,
+    b: sourceValue & 255,
+  };
+  const mixed = {
+    r: clampColorChannel(source.r + (((targetValue >> 16) & 255) - source.r) * amount),
+    g: clampColorChannel(source.g + (((targetValue >> 8) & 255) - source.g) * amount),
+    b: clampColorChannel(source.b + ((targetValue & 255) - source.b) * amount),
+  };
+
+  return `#${[mixed.r, mixed.g, mixed.b]
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+};
+
+const resolveAccentColor = (accentColor: string, resolvedTheme: 'light' | 'dark') =>
+  isHexColor(accentColor)
+    ? accentColor
+    : resolvedTheme === 'dark'
+      ? DEFAULT_DARK_ACCENT_COLOR
+      : DEFAULT_LIGHT_ACCENT_COLOR;
 
 const isDefaultInitialStoryNode = (node: Node) =>
   node.type === 'storyNode' &&
@@ -803,6 +837,7 @@ export function StoryEditor() {
   const [skipAssistantAgentAnimation, setSkipAssistantAgentAnimation] = useState(false);
   const [assistantMemorySkillEnabled, setAssistantMemorySkillEnabled] = useState(false);
   const [assistantMemoryNotes, setAssistantMemoryNotes] = useState<string[]>([]);
+  const [accentColor, setAccentColor] = useState('');
   const [presetColors, setPresetColors] = useState<string[]>(['#F9FAFB', '#0f1f39', '#fef3c7']);
   const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
@@ -1373,6 +1408,7 @@ export function StoryEditor() {
       assistantMemoryNotes,
       opaqueAssistantMessagesInGlass,
       opaqueFooterInGlass,
+      accentColor,
       presetColors,
       showPresetColors,
       showTitles,
@@ -1431,6 +1467,7 @@ export function StoryEditor() {
       aiGenerationBalance,
       aiPrompts,
       aiProvider,
+      accentColor,
       allowAssistantImageGeneration,
       assistantMemoryNotes,
       assistantMemorySkillEnabled,
@@ -1508,6 +1545,7 @@ export function StoryEditor() {
       setAssistantMemoryNotes,
       setOpaqueAssistantMessagesInGlass,
       setOpaqueFooterInGlass,
+      setAccentColor,
       setPresetColors,
       setShowPresetColors,
       setShowTitles,
@@ -1639,6 +1677,23 @@ export function StoryEditor() {
 
     void localPersistenceService.saveTheme(theme);
   }, [didHydrateLocalState, theme]);
+
+  const effectiveAccentColor = useMemo(
+    () => resolveAccentColor(accentColor, resolvedTheme),
+    [accentColor, resolvedTheme],
+  );
+  const editorAccentStyle = useMemo(
+    () =>
+      ({
+        '--accent': effectiveAccentColor,
+        '--accent-hover': mixHexColor(
+          effectiveAccentColor,
+          resolvedTheme === 'dark' ? '#ffffff' : '#000000',
+          resolvedTheme === 'dark' ? 0.24 : 0.14,
+        ),
+      }) as React.CSSProperties,
+    [effectiveAccentColor, resolvedTheme],
+  );
 
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
@@ -5047,7 +5102,7 @@ ${layoutConfig.label}
   return (
     <div
       className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'} ${opaqueAssistantMessagesInGlass ? 'glass-opaque-assistant-messages' : ''} ${opaqueFooterInGlass ? 'glass-opaque-footer' : ''} ${showProjectHome ? 'pointer-events-auto' : ''}`}
-      style={{ backgroundColor: canvasBg }}
+      style={{ ...editorAccentStyle, backgroundColor: canvasBg }}
     >
       <style>{`
       .custom-scrollbar::-webkit-scrollbar {
@@ -5457,6 +5512,9 @@ ${layoutConfig.label}
           setOpaqueAssistantMessagesInGlass={setOpaqueAssistantMessagesInGlass}
           opaqueFooterInGlass={opaqueFooterInGlass}
           setOpaqueFooterInGlass={setOpaqueFooterInGlass}
+          accentColor={accentColor}
+          setAccentColor={setAccentColor}
+          effectiveAccentColor={effectiveAccentColor}
           canvasBg={canvasBg}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}

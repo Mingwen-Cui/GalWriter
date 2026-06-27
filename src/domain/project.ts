@@ -237,6 +237,7 @@ export interface ProjectSettings extends PlaytestSettings {
   assistantMemoryNotes: string[];
   opaqueAssistantMessagesInGlass: boolean;
   opaqueFooterInGlass: boolean;
+  accentColor: string;
   presetColors: string[];
   showPresetColors: boolean;
   showTitles: boolean;
@@ -288,6 +289,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
   setOpaqueAssistantMessagesInGlass: Dispatch<SetStateAction<boolean>>;
   setOpaqueFooterInGlass: Dispatch<SetStateAction<boolean>>;
+  setAccentColor: Dispatch<SetStateAction<string>>;
   setPresetColors: Dispatch<SetStateAction<string[]>>;
   setShowPresetColors: Dispatch<SetStateAction<boolean>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;

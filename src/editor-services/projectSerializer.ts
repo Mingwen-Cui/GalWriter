@@ -404,6 +404,7 @@ const applyProjectSettings = (
   defaultButtonsConfig: AIButtonsConfig,
 ) => {
   if (!incomingSettings) {
+    setters.setAccentColor('');
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
     return;
@@ -442,6 +443,9 @@ const applyProjectSettings = (
   if (incomingSettings.showPresetColors !== undefined) {
     setters.setShowPresetColors(incomingSettings.showPresetColors);
   }
+  setters.setAccentColor(
+    typeof incomingSettings.accentColor === 'string' ? incomingSettings.accentColor : '',
+  );
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   if (incomingSettings.storyTitlePlacement === 'inside') {
     setters.setStoryTitlePlacement('inside');
