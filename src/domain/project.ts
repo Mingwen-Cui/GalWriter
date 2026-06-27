@@ -411,6 +411,7 @@ export interface ScenePresentation {
   scale: number;
   offsetX: number;
   offsetY: number;
+  layer: number;
   videoStartTime?: number;
   videoEndTime?: number;
   videoLoop?: boolean;

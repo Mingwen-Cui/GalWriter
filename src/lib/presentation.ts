@@ -50,6 +50,7 @@ export const createScenePresentation = (
   scale: 1,
   offsetX: 0,
   offsetY: 0,
+  layer: MIN_CHARACTER_LAYER,
   videoStartTime: 0,
   videoLoop: false,
   videoMaxDuration: 30,
@@ -95,15 +96,15 @@ export const normalizeStoryPresentation = (
 });
 
 export const inlinePresentationActionLabel = (action: InlinePresentationActionType) => {
-  if (action === 'shake-x') return '左右抖动';
-  if (action === 'shake-y') return '上下抖动';
-  if (action === 'translate' || action === 'translate-x' || action === 'translate-y') return '平移';
-  if (action === 'scale') return '缩放';
-  if (action === 'pulse') return '闪烁';
-  if (action === 'rotate') return '旋转';
-  if (action === 'opacity') return '不透明度';
-  if (action === 'brightness') return '亮度';
-  return '无动作';
+  if (action === 'shake-x') return '↔ 左右抖动';
+  if (action === 'shake-y') return '↕ 上下抖动';
+  if (action === 'translate' || action === 'translate-x' || action === 'translate-y') return '⇄ 平移';
+  if (action === 'scale') return '⤢ 缩放';
+  if (action === 'pulse') return '✦ 闪烁';
+  if (action === 'rotate') return '⟳ 旋转';
+  if (action === 'opacity') return '◐ 不透明度';
+  if (action === 'brightness') return '☀ 亮度';
+  return '· 无动作';
 };
 
 export const getCharacterStagePosition = (config: CharacterPresentation) => {

@@ -51,7 +51,11 @@ import {
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
-import { inlineActionTransform } from '../lib/inlinePresentationPlayback';
+import {
+  inlineActionAnimation,
+  inlineActionCssVars,
+  inlineActionTransform,
+} from '../lib/inlinePresentationPlayback';
 import { InlineActionEditor } from './InlineActionEditor';
 import { RichText, RichTextHandle } from './RichText';
 import { DurationInput } from './DurationInput';
@@ -138,8 +142,10 @@ export function ZenEditor({
   const [inlineActionPreview, setInlineActionPreview] = useState<{
     action: InlinePresentationAction;
     mode: 'before' | 'after';
+    nonce: number;
   } | null>(null);
   const [autoPreviewInlineAction, setAutoPreviewInlineAction] = useState(true);
+  const [autoPreviewPresentationMotion, setAutoPreviewPresentationMotion] = useState(true);
   const [presentationResetUndo, setPresentationResetUndo] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId: string;
@@ -186,6 +192,7 @@ export function ZenEditor({
       scale: number;
       offsetX: number;
       offsetY: number;
+      layer: number;
       videoStartTime?: number;
       videoEndTime?: number;
       videoLoop?: boolean;
@@ -462,6 +469,8 @@ export function ZenEditor({
         next,
       ],
     });
+    if (!preserveResetUndo && autoPreviewPresentationMotion)
+      replayCharacter(sourceNodeId, _phase, next[_phase]);
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
@@ -484,6 +493,29 @@ export function ZenEditor({
     });
   };
 
+  const deletePresentationTarget = (
+    menu: NonNullable<typeof presentationMenu>,
+  ) => {
+    onPresentationChange?.(
+      menu.kind === 'character'
+        ? {
+            ...normalizedPresentation,
+            characters: normalizedPresentation.characters.filter(
+              (item) => item.sourceNodeId !== menu.id,
+            ),
+          }
+        : {
+            ...normalizedPresentation,
+            scene:
+              normalizedPresentation.scene?.sourceNodeId === menu.id
+                ? undefined
+                : normalizedPresentation.scene,
+          },
+    );
+    setPresentationResetUndo(null);
+    setPresentationMenu(null);
+  };
+
   const getInlineAction = (tag: ZenTag & { kind: 'character' | 'scene'; mentionId?: string }) => {
     const id = tag.mentionId || `${tag.kind}:${tag.id}`;
     return (
@@ -499,8 +531,19 @@ export function ZenEditor({
 
   const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
     setPreview(null);
-    setInlineActionPreview({ action, mode });
+    const nonce = Date.now();
+    if (mode === 'after') {
+      setInlineActionPreview({ action, mode: 'before', nonce });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setInlineActionPreview({ action, mode: 'after', nonce })),
+      );
+      return;
+    }
+    setInlineActionPreview({ action, mode, nonce });
   };
+
+  const presentationPhaseForPlacement = (placement?: 'start' | 'end' | 'inline') =>
+    placement === 'end' ? 'exit' : 'enter';
 
   const openCharacterMenu = (
     tag: ZenTag,
@@ -513,7 +556,7 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'character', ...options });
-    if (options.placement !== 'inline') replayCharacter(tag.id);
+    if (options.placement !== 'inline') replayCharacter(tag.id, presentationPhaseForPlacement(options.placement));
   };
 
   const replayScene = (
@@ -553,6 +596,8 @@ export function ZenEditor({
       ...normalizedPresentation,
       scene: next,
     });
+    if (!preserveResetUndo && autoPreviewPresentationMotion)
+      replayScene(sourceNodeId, _phase, next[_phase]);
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
@@ -567,7 +612,7 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'scene', ...options });
-    if (options.placement !== 'inline') replayScene(tag.id);
+    if (options.placement !== 'inline') replayScene(tag.id, presentationPhaseForPlacement(options.placement));
   };
 
   const cardVideoMentionName = '卡片视频';
@@ -879,6 +924,23 @@ export function ZenEditor({
       ? Math.max(80, inlineActionPreview.action.duration || 300)
       : 0;
 
+  const inlinePreviewAnimationFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionAnimation(inlineActionPreview.action)
+      : undefined;
+
+  const inlinePreviewCssVarsFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionCssVars(inlineActionPreview.action)
+      : {};
+
+  const inlinePreviewNonceFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionPreview.nonce
+      : 0;
+
   return (
     <div className="fixed inset-0 z-[200] grid grid-cols-[76px_minmax(0,1fr)_320px] gap-3 bg-[var(--app-bg)] p-3 animate-in fade-in duration-200">
       <aside className="relative z-[80] flex min-h-0 flex-col items-center gap-3 overflow-visible rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-2 shadow-sm">
@@ -1178,9 +1240,13 @@ export function ZenEditor({
                                 : inlinePreviewDurationFor('scene', scene?.sourceNodeId)
                             }ms`,
                             transitionTimingFunction: 'ease-out',
+                            zIndex: scene ? clampCharacterLayer(scene.layer) : 0,
+                            animation: inlinePreviewAnimationFor('scene', scene?.sourceNodeId),
+                            ...inlinePreviewCssVarsFor('scene', scene?.sourceNodeId),
                           };
                           return imageUrl ? (
                             <img
+                              key={`scene-preview-${inlinePreviewNonceFor('scene', scene?.sourceNodeId)}`}
                               src={imageUrl}
                               draggable={false}
                               onDragStart={(event) => event.preventDefault()}
@@ -1190,6 +1256,7 @@ export function ZenEditor({
                             />
                           ) : (
                             <video
+                              key={`scene-preview-${inlinePreviewNonceFor('scene', scene?.sourceNodeId)}`}
                               ref={sceneVideoRef}
                               src={videoUrl}
                               controls
@@ -1240,7 +1307,10 @@ export function ZenEditor({
                         const animated = previewMatches && !preview.visible;
                         return (
                           <img
-                            key={config.sourceNodeId}
+                            key={`${config.sourceNodeId}-${inlinePreviewNonceFor(
+                              'character',
+                              config.sourceNodeId,
+                            )}`}
                             src={tag.imageUrl}
                             alt={tag.name}
                             draggable={false}
@@ -1265,6 +1335,8 @@ export function ZenEditor({
                                   : inlinePreviewDurationFor('character', config.sourceNodeId)
                                     ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
                                   : undefined,
+                              animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
+                              ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
                             }}
                           />
                         );
@@ -1424,7 +1496,10 @@ export function ZenEditor({
                     targetName={presentationMenu.name}
                     targetKind={presentationMenu.kind}
                     onChange={updateInlineAction}
-                    onDelete={() => deleteInlineAction(action.id)}
+                    onDelete={() => {
+                      deleteInlineAction(action.id);
+                      setPresentationMenu(null);
+                    }}
                     onReset={() =>
                       updateInlineAction(
                         createInlinePresentationAction({
@@ -1440,9 +1515,9 @@ export function ZenEditor({
                     autoPreview={autoPreviewInlineAction}
                     onAutoPreviewChange={setAutoPreviewInlineAction}
                   />
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    {currentCharacter ? (
-                      <label className="flex min-w-0 items-center gap-2">
+                  {currentCharacter && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <label className="flex items-center gap-2">
                         <span className="shrink-0 font-bold">Z轴</span>
                         <div className="w-20">
                           <DraggableNumberInput
@@ -1459,18 +1534,8 @@ export function ZenEditor({
                           />
                         </div>
                       </label>
-                    ) : (
-                      <span />
-                    )}
-                    <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5 font-bold text-[var(--text-secondary)]">
-                      <input
-                        type="checkbox"
-                        checked={autoPreviewInlineAction}
-                        onChange={(event) => setAutoPreviewInlineAction(event.target.checked)}
-                      />
-                      预览
-                    </label>
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -1491,6 +1556,7 @@ export function ZenEditor({
                 { value: 'slide-down', label: '↓ 向下滑动' },
                 { value: 'zoom', label: '↕ 缩放' },
               ];
+              const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
               return (
                 <div className="relative text-sm text-[var(--text-primary)]">
                   <button
@@ -1513,18 +1579,18 @@ export function ZenEditor({
                         sourceNodeId: presentationMenu.id,
                         value: structuredClone(current),
                       });
+                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
                       updateCharacter(
                         presentationMenu.id,
                         (current) => ({
-                          ...createCharacterPresentation(presentationMenu.id),
-                          linkedByEdge: current.linkedByEdge,
-                          outfitId: current.outfitId,
+                          ...current,
+                          [phase]: { type: 'none', duration: 0 },
                         }),
-                        'enter',
+                        phase,
                         true,
                       );
                     }}
-                    className={`absolute right-0 top-0 rounded-md border p-1.5 transition-colors ${
+                    className={`absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'character' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1538,6 +1604,14 @@ export function ZenEditor({
                     }
                   >
                     <Eraser className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deletePresentationTarget(presentationMenu)}
+                    className="absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
+                    title="删除这个 tag 的演出"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                   <div className="mb-3 pr-16">
                     <strong>人物演出：{presentationMenu.name}</strong>
@@ -1629,21 +1703,47 @@ export function ZenEditor({
                       ))}
                     </div>
                   )}
-                  <div className="mb-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => replayCharacter(presentationMenu.id, 'enter')}
-                      className="rounded-lg bg-blue-500/10 p-2 font-bold text-blue-500 outline-none focus:outline-none focus-visible:outline-none"
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <label className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 font-bold">Z轴</span>
+                      <div className="w-20">
+                        <DraggableNumberInput
+                          value={clampCharacterLayer(current.layer)}
+                          min={1}
+                          max={20}
+                          unit={null}
+                          onChange={(value) =>
+                            updateCharacter(presentationMenu.id, (item) => ({
+                              ...item,
+                              layer: clampCharacterLayer(value),
+                            }))
+                          }
+                        />
+                      </div>
+                    </label>
+                    <label
+                      className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
+                        activePhase === 'enter'
+                          ? '!bg-emerald-500/10 !text-emerald-600'
+                          : '!bg-rose-500/10 !text-rose-500'
+                      }`}
                     >
-                      预览入场
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => replayCharacter(presentationMenu.id, 'exit')}
-                      className="rounded-lg bg-rose-500/10 p-2 font-bold text-rose-500 outline-none focus:outline-none focus-visible:outline-none"
-                    >
-                      预览出场
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={autoPreviewPresentationMotion}
+                        onChange={(event) => setAutoPreviewPresentationMotion(event.target.checked)}
+                        className={`h-4 w-4 ${
+                          activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replayCharacter(presentationMenu.id, activePhase)}
+                        className="flex items-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none"
+                      >
+                        {activePhase === 'enter' ? '预览入场' : '预览出场'}
+                      </button>
+                    </label>
                   </div>
                   <div className="mb-3 flex w-full gap-2">
                     <button
@@ -1725,24 +1825,6 @@ export function ZenEditor({
                       />
                     </div>
                   </div>
-                  {normalizedPresentation.characters.length > 1 && (
-                    <label className="mb-3 flex items-center gap-2">
-                      <span className="shrink-0 font-bold">Z轴</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={clampCharacterLayer(current.layer)}
-                        onChange={(event) =>
-                          updateCharacter(presentationMenu.id, (item) => ({
-                            ...item,
-                            layer: clampCharacterLayer(Number(event.target.value)),
-                          }))
-                        }
-                        className="w-20 rounded-lg border-0 bg-[var(--app-bg)] p-2 text-right outline-none focus:outline-none focus-visible:outline-none"
-                      />
-                    </label>
-                  )}
                   <label className="mb-3 flex items-center gap-2">
                     <span className="shrink-0 font-bold">
                       缩放：{Math.round(current.scale * 100)}%
@@ -1762,7 +1844,7 @@ export function ZenEditor({
                       className="min-w-0 flex-1"
                     />
                   </label>
-                  {(['enter', 'exit'] as const).map((phase) => (
+                  {([activePhase] as const).map((phase) => (
                     <div key={phase} className="mb-3 flex items-center gap-2">
                       <span className="shrink-0 font-bold">
                         {phase === 'enter' ? '入场动画' : '出场动画'}
@@ -1833,6 +1915,7 @@ export function ZenEditor({
                 { value: 'slide-down', label: '↓ 向下滑动' },
                 { value: 'zoom', label: '↕ 缩放' },
               ];
+              const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
               return (
                 <div className="relative text-sm text-[var(--text-primary)]">
                   <button
@@ -1855,21 +1938,18 @@ export function ZenEditor({
                         sourceNodeId: presentationMenu.id,
                         value: structuredClone(current),
                       });
+                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
                       updateScene(
                         presentationMenu.id,
                         (item) => ({
-                          ...createScenePresentation(presentationMenu.id, imageUrl),
-                          linkedByEdge: item.linkedByEdge,
-                          imageId: item.imageId,
-                          previousImageUrl: item.previousImageUrl,
-                          previousVideoUrl: item.previousVideoUrl,
-                          previousShowTextOverlay: item.previousShowTextOverlay,
+                          ...item,
+                          [phase]: { type: 'none', duration: 0 },
                         }),
-                        'enter',
+                        phase,
                         true,
                       );
                     }}
-                    className={`absolute right-0 top-0 rounded-md border p-1.5 transition-colors ${
+                    className={`absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'scene' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1883,6 +1963,14 @@ export function ZenEditor({
                     }
                   >
                     <Eraser className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deletePresentationTarget(presentationMenu)}
+                    className="absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
+                    title="删除这个 tag 的演出"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                   <div className="mb-3 pr-16">
                     <strong>场景演出：{presentationMenu.name}</strong>
@@ -1974,21 +2062,47 @@ export function ZenEditor({
                       ))}
                     </div>
                   )}
-                  <div className="mb-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => replayScene(presentationMenu.id, 'enter')}
-                      className="rounded-lg bg-blue-500/10 p-2 font-bold text-blue-500 outline-none focus:outline-none focus-visible:outline-none"
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <label className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 font-bold">Z轴</span>
+                      <div className="w-20">
+                        <DraggableNumberInput
+                          value={clampCharacterLayer(current.layer)}
+                          min={1}
+                          max={20}
+                          unit={null}
+                          onChange={(value) =>
+                            updateScene(presentationMenu.id, (item) => ({
+                              ...item,
+                              layer: clampCharacterLayer(value),
+                            }))
+                          }
+                        />
+                      </div>
+                    </label>
+                    <label
+                      className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
+                        activePhase === 'enter'
+                          ? '!bg-emerald-500/10 !text-emerald-600'
+                          : '!bg-rose-500/10 !text-rose-500'
+                      }`}
                     >
-                      预览入场
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => replayScene(presentationMenu.id, 'exit')}
-                      className="rounded-lg bg-rose-500/10 p-2 font-bold text-rose-500 outline-none focus:outline-none focus-visible:outline-none"
-                    >
-                      预览出场
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={autoPreviewPresentationMotion}
+                        onChange={(event) => setAutoPreviewPresentationMotion(event.target.checked)}
+                        className={`h-4 w-4 ${
+                          activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replayScene(presentationMenu.id, activePhase)}
+                        className="flex items-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none"
+                      >
+                        {activePhase === 'enter' ? '预览入场' : '预览出场'}
+                      </button>
+                    </label>
                   </div>
                   <div className="mb-3 grid grid-cols-3 gap-2">
                     {(
@@ -2148,7 +2262,7 @@ export function ZenEditor({
                       />
                     </div>
                   </div>
-                  {(['enter', 'exit'] as const).map((phase) => (
+                  {([activePhase] as const).map((phase) => (
                     <div key={phase} className="mb-3 flex items-center gap-2">
                       <span className="shrink-0 font-bold">
                         {phase === 'enter' ? '入场动画' : '出场动画'}

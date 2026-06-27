@@ -162,39 +162,39 @@ export function InlineActionEditor({
 
   return (
     <div className="space-y-3 text-xs">
-      <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase text-[var(--text-muted)]">
-          <span>
-            {targetKind === 'character' ? '人物动作' : '场景动作'}：{targetName}
-          </span>
-          <div className="flex shrink-0 items-center gap-1">
-            {onReset && (
-              <button
-                type="button"
-                onClick={onReset}
-                className="rounded-md p-1 text-amber-600 transition-colors hover:bg-amber-500/10 hover:text-amber-700"
-                title="清零动作设置"
-              >
-                <Eraser className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {onDelete && (
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-sm font-black">
+          {targetKind === 'character' ? '人物演出' : '场景演出'}：{targetName}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {onReset && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-600 transition-colors hover:bg-amber-500 hover:text-white"
+              title="清零动作设置"
+            >
+              <Eraser className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
             <button
               type="button"
               onClick={onDelete}
-              className="rounded-md p-1 text-rose-500 transition-colors hover:bg-rose-500/10 hover:text-rose-600"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-rose-500/30 bg-rose-500/10 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
               title="移除这个 tag 的动作"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
       <div className="flex items-center justify-between rounded-lg border border-[var(--card-border)]/40 bg-[var(--app-bg)] p-1.5">
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={copyAction}
-            className="flex items-center justify-center rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-indigo-500/10 hover:text-indigo-500"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-500"
             title="复制设置"
           >
             <Copy className="h-4 w-4" />
@@ -203,7 +203,7 @@ export function InlineActionEditor({
             type="button"
             disabled={!inlineActionClipboard}
             onClick={pasteAction}
-            className="flex items-center justify-center rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-indigo-500/10 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--text-secondary)]"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text-secondary)] transition-colors hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-[var(--card-border)] disabled:hover:bg-[var(--card-bg)] disabled:hover:text-[var(--text-secondary)]"
             title="粘贴设置"
           >
             <ClipboardPaste className="h-4 w-4" />
@@ -294,20 +294,6 @@ export function InlineActionEditor({
               onChange={(strength) => update({ strength })}
             />
           </div>
-          {isRepeatable && (
-            <>
-              <span className="shrink-0 font-bold">次数</span>
-              <div className="w-[64px] shrink-0">
-                <DraggableNumberInput
-                  value={action.repeats || 1}
-                  min={1}
-                  max={12}
-                  unit={null}
-                  onChange={(repeats) => update({ repeats })}
-                />
-              </div>
-            </>
-          )}
           <span className="shrink-0 font-bold">时长</span>
           <label className="w-[76px] shrink-0">
             <DurationInput
@@ -417,6 +403,39 @@ export function InlineActionEditor({
           />
         </label>
       )}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        {isRepeatable ? (
+          <label className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 font-bold">次数</span>
+            <div className="w-[72px]">
+              <DraggableNumberInput
+                value={action.repeats || 1}
+                min={1}
+                max={12}
+                unit={null}
+                onChange={(repeats) => update({ repeats })}
+              />
+            </div>
+          </label>
+        ) : (
+          <span />
+        )}
+        <label className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg !bg-blue-500/10 px-2 py-1.5 font-bold !text-blue-500">
+          <input
+            type="checkbox"
+            checked={Boolean(autoPreview)}
+            onChange={(event) => onAutoPreviewChange?.(event.target.checked)}
+            className="h-4 w-4 accent-blue-500"
+          />
+          <button
+            type="button"
+            onClick={() => onPreviewAfter?.(action)}
+            className="flex items-center gap-1.5"
+          >
+            预览中场
+          </button>
+        </label>
+      </div>
     </div>
   );
 }

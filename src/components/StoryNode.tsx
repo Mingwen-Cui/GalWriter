@@ -71,7 +71,11 @@ import {
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
-import { inlineActionTransform } from '../lib/inlinePresentationPlayback';
+import {
+  inlineActionAnimation,
+  inlineActionCssVars,
+  inlineActionTransform,
+} from '../lib/inlinePresentationPlayback';
 import { NumberInput } from './NumberInput';
 import { DurationInput } from './DurationInput';
 import { DraggableNumberInput } from './DraggableNumberInput';
@@ -295,8 +299,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [inlineActionPreview, setInlineActionPreview] = useState<{
     action: InlinePresentationAction;
     mode: 'before' | 'after';
+    nonce: number;
   } | null>(null);
   const [autoPreviewInlineAction, setAutoPreviewInlineAction] = useState(true);
+  const [autoPreviewPresentationMotion, setAutoPreviewPresentationMotion] = useState(true);
   const [presentationResetUndo, setPresentationResetUndo] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId: string;
@@ -338,6 +344,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       scale: number;
       offsetX: number;
       offsetY: number;
+      layer: number;
       enter: PresentationMotion;
       exit: PresentationMotion;
     };
@@ -1139,6 +1146,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         ],
       },
     });
+    if (!preserveResetUndo && autoPreviewPresentationMotion)
+      replayPresentation('character', sourceNodeId, _previewPhase, next[_previewPhase]);
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
@@ -1160,6 +1169,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         scene: next,
       },
     });
+    if (!preserveResetUndo && autoPreviewPresentationMotion)
+      replayPresentation('scene', sourceNodeId, _previewPhase, next[_previewPhase]);
     if (!preserveResetUndo) setPresentationResetUndo(null);
   };
 
@@ -1186,6 +1197,29 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     });
   };
 
+  const deletePresentationTarget = (menu: NonNullable<typeof presentationMenu>) => {
+    const presentation = getPresentation();
+    updateNodeData({
+      presentation:
+        menu.kind === 'character'
+          ? {
+              ...presentation,
+              characters: presentation.characters.filter(
+                (item) => item.sourceNodeId !== menu.sourceNodeId,
+              ),
+            }
+          : {
+              ...presentation,
+              scene:
+                presentation.scene?.sourceNodeId === menu.sourceNodeId
+                  ? undefined
+                  : presentation.scene,
+            },
+    });
+    setPresentationResetUndo(null);
+    setPresentationMenu(null);
+  };
+
   const getInlineAction = (menu: NonNullable<typeof presentationMenu>) => {
     const actionId = menu.mentionId || `${menu.kind}:${menu.sourceNodeId}`;
     return (
@@ -1201,8 +1235,19 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
     setPresentationPreview(null);
-    setInlineActionPreview({ action, mode });
+    const nonce = Date.now();
+    if (mode === 'after') {
+      setInlineActionPreview({ action, mode: 'before', nonce });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setInlineActionPreview({ action, mode: 'after', nonce })),
+      );
+      return;
+    }
+    setInlineActionPreview({ action, mode, nonce });
   };
+
+  const presentationPhaseForPlacement = (placement?: 'start' | 'end' | 'inline') =>
+    placement === 'end' ? 'exit' : 'enter';
 
   const handleMentionContextMenu = (
     event: React.MouseEvent<HTMLSpanElement>,
@@ -1240,6 +1285,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       );
     if (!sourceNode) return;
 
+    const placementPhase = presentationPhaseForPlacement(mention.placement);
     if (mention.placement !== 'inline' && mention.kind === 'scene') {
       if (presentation.scene?.sourceNodeId !== sourceNode.id) {
         updateNodeData({
@@ -1274,7 +1320,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       mentionId: mention.id,
       placement: mention.placement,
     });
-    if (mention.placement !== 'inline') replayPresentation(mention.kind, sourceNode.id, 'enter');
+    if (mention.placement !== 'inline') replayPresentation(mention.kind, sourceNode.id, placementPhase);
   };
 
   const handleGenerateImage = async () => {
@@ -1597,6 +1643,23 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const inlinePreviewDurationFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
     inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? Math.max(80, inlineActionPreview.action.duration || 300)
+      : 0;
+
+  const inlinePreviewAnimationFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionAnimation(inlineActionPreview.action)
+      : undefined;
+
+  const inlinePreviewCssVarsFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionCssVars(inlineActionPreview.action)
+      : {};
+
+  const inlinePreviewNonceFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? inlineActionPreview.nonce
       : 0;
 
   const mediaToolbarButtons = (imageUrl || videoUrl) &&
@@ -2121,7 +2184,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               >
                 {hasScenePresentationImage && (
                   <img
-                    key={`scene-preview-${presentationPreview?.nonce || 0}`}
+                    key={`scene-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
                     src={imageUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
@@ -2160,6 +2223,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)
                             ? `transform ${inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)}ms ease`
                           : undefined,
+                      zIndex: storyPresentation.scene
+                        ? clampCharacterLayer(storyPresentation.scene.layer)
+                        : 0,
+                      animation: storyPresentation.scene
+                        ? inlinePreviewAnimationFor('scene', storyPresentation.scene.sourceNodeId)
+                        : undefined,
+                      ...(storyPresentation.scene
+                        ? inlinePreviewCssVarsFor('scene', storyPresentation.scene.sourceNodeId)
+                        : {}),
                     }}
                     alt=""
                   />
@@ -2169,7 +2241,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     key={`scene-video-preview-${presentationPreview?.nonce || 0}`}
                     src={videoUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
-                    style={mediaStyle}
+                    style={{
+                      ...mediaStyle,
+                      zIndex: storyPresentation.scene
+                        ? clampCharacterLayer(storyPresentation.scene.layer)
+                        : 0,
+                    }}
                     muted
                     loop
                     autoPlay
@@ -2185,7 +2262,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   const animated = isPreviewAnimatedState('character', config.sourceNodeId);
                   return (
                     <img
-                      key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}`}
+                      key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
                       src={characterImageUrl}
                       alt={name}
                       className="absolute max-h-[92%] max-w-[72%] object-contain object-bottom"
@@ -2206,6 +2283,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             : inlinePreviewDurationFor('character', config.sourceNodeId)
                               ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
                             : undefined,
+                        animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
+                        ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
                       }}
                     />
                   );
@@ -2361,101 +2440,111 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               onMouseDown={(event) => event.stopPropagation()}
               onContextMenu={(event) => event.preventDefault()}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  const canRestore =
-                    presentationResetUndo?.kind === presentationMenu.kind &&
-                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId;
-                  if (canRestore) {
+              <div
+                className={`absolute right-3 top-3 flex items-center gap-1 ${
+                  presentationMenu.placement === 'inline' ? 'hidden' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const canRestore =
+                      presentationResetUndo?.kind === presentationMenu.kind &&
+                      presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId;
+                    if (canRestore) {
+                      if (presentationMenu.kind === 'character') {
+                        const previous = presentationResetUndo.value as CharacterPresentation;
+                        updateCharacterPresentation(
+                          presentationMenu.sourceNodeId,
+                          () => previous,
+                          'enter',
+                          true,
+                        );
+                      } else {
+                        const previous = presentationResetUndo.value as ScenePresentation;
+                        updateScenePresentation(
+                          presentationMenu.sourceNodeId,
+                          () => previous,
+                          'enter',
+                          true,
+                        );
+                      }
+                      setPresentationResetUndo(null);
+                      return;
+                    }
+
                     if (presentationMenu.kind === 'character') {
-                      const previous = presentationResetUndo.value as CharacterPresentation;
+                      const current =
+                        getPresentation().characters.find(
+                          (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
+                        ) || createCharacterPresentation(presentationMenu.sourceNodeId);
+                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      setPresentationResetUndo({
+                        kind: 'character',
+                        sourceNodeId: presentationMenu.sourceNodeId,
+                        value: structuredClone(current),
+                      });
                       updateCharacterPresentation(
                         presentationMenu.sourceNodeId,
-                        () => previous,
-                        'enter',
+                        (current) => ({
+                          ...current,
+                          [phase]: { type: 'none', duration: 0 },
+                        }),
+                        phase,
                         true,
                       );
                     } else {
-                      const previous = presentationResetUndo.value as ScenePresentation;
+                      const current =
+                        getPresentation().scene?.sourceNodeId === presentationMenu.sourceNodeId
+                          ? getPresentation().scene!
+                          : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
+                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      setPresentationResetUndo({
+                        kind: 'scene',
+                        sourceNodeId: presentationMenu.sourceNodeId,
+                        value: structuredClone(current),
+                      });
                       updateScenePresentation(
                         presentationMenu.sourceNodeId,
-                        () => previous,
-                        'enter',
+                        (current) => ({
+                          ...current,
+                          [phase]: { type: 'none', duration: 0 },
+                        }),
+                        phase,
                         true,
                       );
                     }
-                    setPresentationResetUndo(null);
-                    return;
+                  }}
+                  className={`rounded-md border p-1.5 transition-colors ${
+                    presentationResetUndo?.kind === presentationMenu.kind &&
+                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                      : 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white'
+                  }`}
+                  title={
+                    presentationResetUndo?.kind === presentationMenu.kind &&
+                    presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
+                      ? '还原清零前的演出设置'
+                      : '恢复默认演出设置'
                   }
-
-                  if (presentationMenu.kind === 'character') {
-                    const current =
-                      getPresentation().characters.find(
-                        (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
-                      ) || createCharacterPresentation(presentationMenu.sourceNodeId);
-                    setPresentationResetUndo({
-                      kind: 'character',
-                      sourceNodeId: presentationMenu.sourceNodeId,
-                      value: structuredClone(current),
-                    });
-                    updateCharacterPresentation(
-                      presentationMenu.sourceNodeId,
-                      (current) => ({
-                        ...createCharacterPresentation(presentationMenu.sourceNodeId),
-                        linkedByEdge: current.linkedByEdge,
-                        outfitId: current.outfitId,
-                      }),
-                      'enter',
-                      true,
-                    );
-                  } else {
-                    const current =
-                      getPresentation().scene?.sourceNodeId === presentationMenu.sourceNodeId
-                        ? getPresentation().scene!
-                        : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
-                    setPresentationResetUndo({
-                      kind: 'scene',
-                      sourceNodeId: presentationMenu.sourceNodeId,
-                      value: structuredClone(current),
-                    });
-                    updateScenePresentation(
-                      presentationMenu.sourceNodeId,
-                      (current) => ({
-                        ...createScenePresentation(presentationMenu.sourceNodeId),
-                        linkedByEdge: current.linkedByEdge,
-                        imageId: current.imageId,
-                        previousImageUrl: current.previousImageUrl,
-                        previousShowTextOverlay: current.previousShowTextOverlay,
-                      }),
-                      'enter',
-                      true,
-                    );
-                  }
-                }}
-                className={`absolute right-3 top-3 rounded-md border p-1.5 transition-colors ${
-                  presentationMenu.placement === 'inline'
-                    ? 'hidden'
-                    : ''
-                } ${
-                  presentationResetUndo?.kind === presentationMenu.kind &&
-                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white'
-                }`}
-                title={
-                  presentationResetUndo?.kind === presentationMenu.kind &&
-                  presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
-                    ? '还原清零前的演出设置'
-                    : '恢复默认演出设置'
-                }
-              >
-                <Eraser className="h-3.5 w-3.5" />
-              </button>
-              <div className="mb-3 pr-12 text-sm font-black">
-                {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
-                {presentationMenu.name}
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deletePresentationTarget(presentationMenu)}
+                  className="rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
+                  title="删除这个 tag 的演出"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
+              {presentationMenu.placement !== 'inline' && (
+                <div className="mb-3 pr-12 text-sm font-black">
+                  {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
+                  {presentationMenu.name}
+                </div>
+              )}
 
               {presentationMenu.placement === 'inline' &&
                 (() => {
@@ -2474,7 +2563,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         targetName={presentationMenu.name}
                         targetKind={presentationMenu.kind}
                         onChange={updateInlineAction}
-                        onDelete={() => deleteInlineAction(action.id)}
+                        onDelete={() => {
+                          deleteInlineAction(action.id);
+                          setPresentationMenu(null);
+                        }}
                         onReset={() =>
                           updateInlineAction(
                             createInlinePresentationAction({
@@ -2490,9 +2582,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         autoPreview={autoPreviewInlineAction}
                         onAutoPreviewChange={setAutoPreviewInlineAction}
                       />
-                      <div className="flex items-center justify-between gap-2 text-xs">
-                        {currentCharacter ? (
-                          <label className="flex min-w-0 items-center gap-2">
+                      {currentCharacter && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <label className="flex items-center gap-2">
                             <span className="shrink-0 font-bold">Z轴</span>
                             <div className="w-20">
                               <DraggableNumberInput
@@ -2512,18 +2604,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               />
                             </div>
                           </label>
-                        ) : (
-                          <span />
-                        )}
-                        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5 font-bold text-[var(--text-secondary)]">
-                          <input
-                            type="checkbox"
-                            checked={autoPreviewInlineAction}
-                            onChange={(event) => setAutoPreviewInlineAction(event.target.checked)}
-                          />
-                          预览
-                        </label>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -2535,6 +2617,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       presentation.characters.find(
                         (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
                       ) || createCharacterPresentation(presentationMenu.sourceNodeId);
+                    const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
                     return (
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
@@ -2738,7 +2821,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             className="min-w-0 flex-1"
                           />
                         </label>
-                        {(['enter', 'exit'] as const).map((phase) => (
+                        {([activePhase] as const).map((phase) => (
                           <div key={phase} className="flex items-center gap-2">
                             <span className="shrink-0 font-bold">
                               {phase === 'enter' ? '入场动画' : '出场动画'}
@@ -2810,34 +2893,37 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               />
                             </div>
                           </label>
-                          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                          <label
+                            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
+                              activePhase === 'enter'
+                                ? '!bg-emerald-500/10 !text-emerald-600'
+                                : '!bg-rose-500/10 !text-rose-500'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={autoPreviewPresentationMotion}
+                              onChange={(event) =>
+                                setAutoPreviewPresentationMotion(event.target.checked)
+                              }
+                              className={`h-4 w-4 ${
+                                activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                              }`}
+                            />
                             <button
                               type="button"
                               onClick={() =>
                                 replayPresentation(
                                   'character',
                                   presentationMenu.sourceNodeId,
-                                  'enter',
+                                  activePhase,
                                 )
                               }
-                              className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                              className="flex items-center gap-1.5"
                             >
-                              预览入场
+                              {activePhase === 'enter' ? '预览入场' : '预览出场'}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                replayPresentation(
-                                  'character',
-                                  presentationMenu.sourceNodeId,
-                                  'exit',
-                                )
-                              }
-                              className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                            >
-                              预览出场
-                            </button>
-                          </div>
+                          </label>
                         </div>
                       </div>
                     );
@@ -2849,6 +2935,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
                         ? presentation.scene
                         : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
+                    const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
                     return (
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
@@ -3032,7 +3119,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             />
                           </div>
                         </div>
-                        {(['enter', 'exit'] as const).map((phase) => (
+                        {([activePhase] as const).map((phase) => (
                           <div key={phase} className="flex items-center gap-2">
                             <span className="shrink-0 font-bold">
                               {phase === 'enter' ? '入场动画' : '出场动画'}
@@ -3083,25 +3170,58 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             </label>
                           </div>
                         ))}
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
-                            }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 font-bold">Z轴</span>
+                            <div className="w-20">
+                              <DraggableNumberInput
+                                value={clampCharacterLayer(current.layer)}
+                                min={1}
+                                max={20}
+                                unit={null}
+                                onChange={(value) =>
+                                  updateScenePresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({
+                                      ...item,
+                                      layer: clampCharacterLayer(value),
+                                    }),
+                                  )
+                                }
+                              />
+                            </div>
+                          </label>
+                          <label
+                            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
+                              activePhase === 'enter'
+                                ? '!bg-emerald-500/10 !text-emerald-600'
+                                : '!bg-rose-500/10 !text-rose-500'
+                            }`}
                           >
-                            预览入场
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
-                            }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                          >
-                            预览出场
-                          </button>
+                            <input
+                              type="checkbox"
+                              checked={autoPreviewPresentationMotion}
+                              onChange={(event) =>
+                                setAutoPreviewPresentationMotion(event.target.checked)
+                              }
+                              className={`h-4 w-4 ${
+                                activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                replayPresentation(
+                                  'scene',
+                                  presentationMenu.sourceNodeId,
+                                  activePhase,
+                                )
+                              }
+                              className="flex items-center gap-1.5"
+                            >
+                              {activePhase === 'enter' ? '预览入场' : '预览出场'}
+                            </button>
+                          </label>
                         </div>
                       </div>
                     );
