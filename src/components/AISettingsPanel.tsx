@@ -180,11 +180,20 @@ function FloatingHint({
 const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
+const VOLCENGINE_TTS_API_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
+const VOLCENGINE_TTS_HELP_URL = 'https://www.volcengine.com/docs/6561/1329505?lang=zh';
+const VOLCENGINE_VOICE_HELP_URL =
+  'https://www.volcengine.com/docs/6561/1257544?lang=zh&_vtm_=a106466.b106468.0_0.0_0.0.43_7655251731625985572';
 const CUSTOM_MODEL_VALUE = '__custom_model__';
 const YOUDAO_TTS_HELP = {
   zh: '照着有道后台“查看应用”页面抄就可以：应用ID填到应用ID，应用密钥填到应用密钥。这里不需要去 API Keys 页面找别的 Key。',
   ja: 'Youdao TTS uses the application ID and application secret from the console.',
   en: 'Youdao TTS uses the application ID and application secret from the console.',
+};
+const VOLCENGINE_TTS_HELP = {
+  zh: '照着火山引擎新版控制台填就可以：API Key 填到 API Key，Resource ID 默认 seed-tts-2.0，人物音色填官方音色表里的 voice_type。',
+  ja: 'Volcengine TTS uses API Key, Resource ID, and voice_type.',
+  en: 'Volcengine TTS uses API Key, Resource ID, and voice_type.',
 };
 
 const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
@@ -361,10 +370,10 @@ const VOICE_PROVIDER_OPTIONS: ProviderOption[] = [
   },
   {
     value: 'doubao',
-    label: '豆包',
-    apiUrl: '',
-    model: 'speech-02-hd',
-    voice: 'zh_female_tianmei',
+    label: '火山引擎（豆包）',
+    apiUrl: VOLCENGINE_TTS_API_URL,
+    model: 'seed-tts-2.0',
+    voice: 'zh_female_cancan_mars_bigtts',
   },
   {
     value: 'gemini',
@@ -495,8 +504,9 @@ const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
   ],
   'hosted-voice': [{ value: 'gpt-4o-mini-tts', label: 'GPT-4o Mini TTS' }],
   doubao: [
-    { value: 'speech-02-hd', label: 'Speech 02 HD' },
-    { value: 'doubao-tts', label: 'Doubao TTS' },
+    { value: 'seed-tts-2.0', label: 'seed-tts-2.0' },
+    { value: 'seed-tts-1.0', label: 'seed-tts-1.0' },
+    { value: 'seed-tts-1.0-concurr', label: 'seed-tts-1.0-concurr' },
   ],
   gemini: [{ value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash TTS Preview' }],
 };
@@ -667,12 +677,13 @@ const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
   id: 'draft-voice',
   name: '',
   kind: 'voice',
-  provider: 'system',
+  provider: 'doubao',
   apiKey: '',
-  apiUrl: '',
-  model: '',
-  voice: '',
+  apiUrl: VOLCENGINE_TTS_API_URL,
+  model: 'seed-tts-2.0',
+  voice: 'zh_female_cancan_mars_bigtts',
   appKey: '',
+  appSecret: '',
 });
 
 const getProviderOptions = (kind: ProfileKind) => {
@@ -1140,6 +1151,7 @@ export function AISettingsPanel({
       payload.apiKey = '';
       payload.apiUrl = '';
       payload.appKey = '';
+      payload.appSecret = '';
     }
 
     if (
@@ -1314,6 +1326,8 @@ export function AISettingsPanel({
                       ? language === 'zh'
                         ? '后端 AI 提供商'
                         : 'Backend AI Provider'
+                      : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
+                        ? 'Resource ID'
                       : language === 'zh'
                         ? '模型'
                         : 'Model',
@@ -1350,7 +1364,13 @@ export function AISettingsPanel({
                       spellCheck={false}
                       value={draft.model}
                       onChange={(e) => updateDraft({ model: e.target.value })}
-                      placeholder={language === 'zh' ? '输入模型型号' : 'Enter a model identifier'}
+                      placeholder={
+                        draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
+                          ? '输入火山文档/控制台里的 Resource ID'
+                          : language === 'zh'
+                            ? '输入模型型号'
+                            : 'Enter a model identifier'
+                      }
                       className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/60 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] dark:text-slate-100"
                     />
                   )}
@@ -1842,6 +1862,90 @@ export function AISettingsPanel({
                           )}
                         </div>
                       </>
+                    ) : draft.provider === 'doubao' ? (
+                      <>
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100 md:col-span-2">
+                          <p>
+                            {language === 'zh'
+                              ? VOLCENGINE_TTS_HELP.zh
+                              : language === 'ja'
+                                ? VOLCENGINE_TTS_HELP.ja
+                                : VOLCENGINE_TTS_HELP.en}
+                          </p>
+                          {language === 'zh' && (
+                            <div className="mt-3 grid gap-2 text-[11px] md:grid-cols-3">
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  1. API Key
+                                </span>
+                                <span className="text-sky-700 dark:text-sky-200">
+                                  新版控制台填这个
+                                </span>
+                              </div>
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  2. Resource ID
+                                </span>
+                                <span className="text-sky-700 dark:text-sky-200">
+                                  默认 seed-tts-2.0
+                                </span>
+                              </div>
+                              <div className="rounded-xl bg-white/75 px-3 py-2 dark:bg-slate-950/40">
+                                <span className="block font-black text-sky-950 dark:text-sky-50">
+                                  3. 音色 voice_type
+                                </span>
+                                <span className="text-sky-700 dark:text-sky-200">
+                                  例如 zh_female_cancan_mars_bigtts
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {language === 'zh' && (
+                            <p className="mt-3 text-[11px] font-semibold text-sky-700 dark:text-sky-200">
+                              不确定字段在哪时，打开
+                              <a
+                                href={VOLCENGINE_TTS_HELP_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mx-1 font-black text-[var(--accent)] underline underline-offset-2"
+                              >
+                                火山引擎语音合成接入文档
+                              </a>
+                              对照“鉴权/应用信息”填写。
+                            </p>
+                          )}
+                          {language === 'zh' && (
+                            <p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-200">
+                              注意：V3 WebSocket、HTTP Chunked、SSE 都是流式协议，浏览器前端不能直接把它们当普通 mp3 接口调用；需要服务端代理或桌面端原生适配。
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {renderFieldLabel(
+                            language === 'zh'
+                              ? 'API Key'
+                              : 'API Key',
+                          )}
+                          <input
+                            type="password"
+                            name="ai-voice-volcengine-api-key"
+                            autoComplete="new-password"
+                            value={draft.apiKey}
+                            onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                            placeholder={
+                              language === 'zh'
+                                ? '填火山引擎新版控制台的 API Key'
+                                : 'Volcengine API Key'
+                            }
+                            className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                          />
+                          {language === 'zh' && (
+                            <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                              控制台 API Key 管理页面复制 API Key 后填这里。
+                            </p>
+                          )}
+                        </div>
+                      </>
                     ) : (
                       <div className="space-y-2 md:col-span-2">
                         {renderFieldLabel('API Key')}
@@ -1887,6 +1991,8 @@ export function AISettingsPanel({
                   {renderFieldLabel(
                     draft.provider === 'youdao' && language === 'zh'
                       ? '音色（voiceName）'
+                      : draft.provider === 'doubao' && language === 'zh'
+                        ? '人物音色（voice_type）'
                       : 'Voice',
                   )}
                   <input
@@ -1901,6 +2007,10 @@ export function AISettingsPanel({
                         ? language === 'zh'
                           ? '默认 youxiaoqin，可改成有道文档支持的 voiceName'
                           : 'Default: youxiaoqin'
+                        : draft.provider === 'doubao'
+                          ? language === 'zh'
+                            ? '例如：zh_female_cancan_mars_bigtts，填写官方音色表里的 voice_type'
+                            : 'For example: zh_female_cancan_mars_bigtts'
                         : language === 'zh'
                           ? '例如：alloy / youxiaoqin'
                           : language === 'ja'
@@ -1921,6 +2031,20 @@ export function AISettingsPanel({
                         有道官方音色列表
                       </a>
                       ，把文档里的 voiceName 填到这里。
+                    </p>
+                  )}
+                  {draft.provider === 'doubao' && language === 'zh' && (
+                    <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                      这里填人物音色的 voice_type，比如 zh_female_cancan_mars_bigtts。需要换声音时，打开
+                      <a
+                        href={VOLCENGINE_VOICE_HELP_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mx-1 font-black text-[var(--accent)] underline underline-offset-2"
+                      >
+                        火山引擎官方音色列表
+                      </a>
+                      ，把文档里的 voice_type 填到这里。
                     </p>
                   )}
                 </div>

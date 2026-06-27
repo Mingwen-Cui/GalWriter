@@ -59,12 +59,77 @@ const arkImageProxy = (): Plugin => ({
   },
 });
 
+const volcengineTtsProxy = (): Plugin => ({
+  name: 'volcengine-tts-proxy',
+  configureServer(server) {
+    server.middlewares.use('/api/volcengine-tts', async (req, res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, X-Api-Key, X-Api-Resource-Id, X-Api-Request-Id',
+      );
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Method not allowed' }));
+        return;
+      }
+
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        }
+        const body = Buffer.concat(chunks).toString('utf8');
+        const upstream = await fetch(
+          'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': req.headers['content-type'] || 'application/json',
+              ...(req.headers['x-api-key'] ? { 'X-Api-Key': String(req.headers['x-api-key']) } : {}),
+              ...(req.headers['x-api-resource-id']
+                ? { 'X-Api-Resource-Id': String(req.headers['x-api-resource-id']) }
+                : {}),
+              ...(req.headers['x-api-request-id']
+                ? { 'X-Api-Request-Id': String(req.headers['x-api-request-id']) }
+                : {}),
+            },
+            body,
+          },
+        );
+        const responseText = await upstream.text();
+
+        res.statusCode = upstream.status;
+        res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json');
+        res.end(responseText);
+      } catch (error) {
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(
+          JSON.stringify({
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+    });
+  },
+});
+
 export default defineConfig(() => {
   return {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
     assetsInclude: ['**/*.lottie'],
-    plugins: [arkImageProxy(), react(), tailwindcss()],
+    plugins: [arkImageProxy(), volcengineTtsProxy(), react(), tailwindcss()],
     clearScreen: false,
     esbuild: {
       target: 'esnext',

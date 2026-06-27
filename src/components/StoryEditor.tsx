@@ -662,6 +662,7 @@ const buildDefaultVoiceProfile = (): VoiceAIProfile => ({
   model: DEFAULT_TTS_MODEL,
   voice: DEFAULT_TTS_VOICE,
   appKey: '',
+  appSecret: '',
 });
 
 const getProjectDisplayName = (projectTitle: string, saveFileName: string) => {
@@ -955,6 +956,7 @@ export function StoryEditor() {
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
+  const ttsAppSecret = activeVoiceProfile?.appSecret ?? '';
   const ttsModel = activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
   const ttsVoice = activeVoiceProfile?.voice ?? DEFAULT_TTS_VOICE;
   const ttsProvider = activeVoiceProfile?.provider ?? 'system';
@@ -2116,7 +2118,7 @@ export function StoryEditor() {
             apiUrl: ttsApiUrl,
             apiKey: ttsApiKey,
             appKey: ttsAppKey,
-            appSecret: ttsApiKey,
+            appSecret: ttsAppSecret || ttsApiKey,
             model: ttsModel,
             voice: ttsVoice,
           });
@@ -2168,6 +2170,7 @@ export function StoryEditor() {
       ttsApiKey,
       ttsApiUrl,
       ttsAppKey,
+      ttsAppSecret,
       ttsLoading,
       ttsModel,
       ttsNarrationMode,
@@ -5426,7 +5429,7 @@ ${layoutConfig.label}
               apiUrl: ttsApiUrl,
               apiKey: ttsApiKey,
               appKey: ttsAppKey,
-              appSecret: ttsApiKey,
+              appSecret: ttsAppSecret || ttsApiKey,
               model: ttsModel,
               voice: ttsVoice,
             }}

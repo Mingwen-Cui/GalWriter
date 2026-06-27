@@ -13,6 +13,7 @@ export type TTSConfig = {
 const DEFAULT_TTS_ENDPOINT = 'https://api.openai.com/v1/audio/speech';
 const YOUDAO_TTS_ENDPOINT = 'https://openapi.youdao.com/ttsapi';
 const HOSTED_TTS_PROXY_ENDPOINT = 'api/proxy.php';
+const VOLCENGINE_TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 export const normalizeTtsApiUrl = (apiUrl: string) => {
   const raw = apiUrl.trim();
@@ -20,6 +21,28 @@ export const normalizeTtsApiUrl = (apiUrl: string) => {
   if (/\/audio\/speech\/?$/i.test(raw)) return raw.replace(/\/$/, '');
   if (/\/v1\/?$/i.test(raw)) return `${raw.replace(/\/$/, '')}/audio/speech`;
   return raw;
+};
+
+const normalizeVolcengineTtsEndpoint = (apiUrl: string) => {
+  const raw = apiUrl.trim();
+  if (!raw) return VOLCENGINE_TTS_ENDPOINT;
+  if (
+    /^wss?:\/\//i.test(raw) ||
+    /openspeech\.bytedance\.com\/api\/v3\/tts\/.*\/sse\/?$/i.test(raw) ||
+    /openspeech\.bytedance\.com\/api\/v3\/tts\/bidirection\/?$/i.test(raw) ||
+    /openspeech\.bytedance\.com\/api\/v3\/tts\/unidirectional\/stream\/?$/i.test(raw)
+  ) {
+    return VOLCENGINE_TTS_ENDPOINT;
+  }
+  return raw;
+};
+
+const getVolcengineTtsRequestEndpoint = (apiUrl: string) => {
+  const endpoint = normalizeVolcengineTtsEndpoint(apiUrl);
+  if (import.meta.env.DEV && /openspeech\.bytedance\.com\/api\/v3\/tts\/unidirectional\/?$/i.test(endpoint)) {
+    return '/api/volcengine-tts';
+  }
+  return endpoint;
 };
 
 export const htmlToSpeechText = (html: string) => {
@@ -175,12 +198,24 @@ const generateYoudaoSpeechAudio = async (input: string, config: TTSConfig) => {
   };
 };
 
+const getTauriInvoke = async () => {
+  const runtimeWindow = typeof window === 'undefined' ? undefined : (window as any);
+  const globalInvoke = runtimeWindow?.__TAURI__?.core?.invoke;
+  if (typeof globalInvoke === 'function') return globalInvoke;
+  if (!runtimeWindow?.__TAURI_INTERNALS__) return null;
+
+  const tauriCore = (await import('@tauri-apps/api/core').catch(() => undefined)) as
+    | { invoke?: unknown; default?: { invoke?: unknown } }
+    | undefined;
+  const moduleInvoke = tauriCore?.invoke;
+  if (typeof moduleInvoke === 'function') return moduleInvoke;
+  const defaultInvoke = tauriCore?.default?.invoke;
+  if (typeof defaultInvoke === 'function') return defaultInvoke;
+  return null;
+};
+
 const generateSystemSpeechAudio = async (input: string) => {
-  const tauriCore = await import('@tauri-apps/api/core');
-  const invoke =
-    tauriCore.invoke ||
-    (tauriCore as any).default?.invoke ||
-    (window as any).__TAURI__?.core?.invoke;
+  const invoke = await getTauriInvoke();
   if (!invoke) {
     throw new Error('System voice is only available in the GalWriter App.');
   }
@@ -266,6 +301,179 @@ const generateHostedSpeechAudio = async (input: string, config: TTSConfig) => {
   return normalizeHostedAudio(audio);
 };
 
+const appendBase64Audio = (chunks: Uint8Array[], audio: string) => {
+  const clean = audio.trim();
+  if (!clean) return;
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  chunks.push(bytes);
+};
+
+const extractJsonObjects = (source: string) => {
+  const objects: string[] = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      if (depth === 0) start = index;
+      depth += 1;
+      continue;
+    }
+    if (char === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        objects.push(source.slice(start, index + 1));
+        start = -1;
+      }
+    }
+  }
+
+  const remainder = depth > 0 && start >= 0 ? source.slice(start) : '';
+  return { objects, remainder };
+};
+
+const handleVolcengineMessage = (raw: string, audioChunks: Uint8Array[]) => {
+  const dataText = raw
+    .split(/\r?\n/)
+    .map((line) => (line.startsWith('data:') ? line.slice(5).trim() : line.trim()))
+    .filter(Boolean)
+    .join('\n');
+  if (!dataText) return;
+
+  const data = JSON.parse(dataText);
+  const code = Number(data?.code ?? 0);
+  if (code !== 0 && code !== 20000000) {
+    throw new Error(data?.message || `Volcengine TTS error ${code}`);
+  }
+  if (typeof data?.data === 'string') {
+    appendBase64Audio(audioChunks, data.data);
+  }
+};
+
+const appendVolcengineResponseAudio = (text: string, audioChunks: Uint8Array[]) => {
+  const extracted = extractJsonObjects(text);
+  for (const objectText of extracted.objects) {
+    handleVolcengineMessage(objectText, audioChunks);
+  }
+};
+
+const generateVolcengineSpeechAudio = async (input: string, config: TTSConfig) => {
+  const apiKey = config.apiKey.trim();
+  const resourceId = config.model.trim() || 'seed-tts-2.0';
+  const speaker = config.voice.trim() || 'zh_female_cancan_mars_bigtts';
+  const normalizedEndpoint = normalizeVolcengineTtsEndpoint(config.apiUrl);
+  const endpoint = getVolcengineTtsRequestEndpoint(config.apiUrl);
+
+  if (!apiKey) {
+    throw new Error('Volcengine API Key is missing.');
+  }
+
+  const requestId = crypto.randomUUID();
+  const body = JSON.stringify({
+    user: {
+      uid: 'galwriter-ai',
+    },
+    namespace: 'BidirectionalTTS',
+    req_params: {
+      text: input,
+      speaker,
+      audio_params: {
+        format: 'mp3',
+        sample_rate: 24000,
+        bit_rate: 128000,
+      },
+      additions: JSON.stringify({
+        disable_markdown_filter: true,
+      }),
+    },
+  });
+  const audioChunks: Uint8Array[] = [];
+  const invoke = await getTauriInvoke();
+
+  if (
+    invoke &&
+    /^https:\/\/openspeech\.bytedance\.com\/api\/v3\/tts\/unidirectional\/?$/i.test(normalizedEndpoint)
+  ) {
+    const responseText = (await invoke('proxy_volcengine_tts', {
+      endpoint: normalizedEndpoint.replace(/\/$/, ''),
+      apiKey,
+      resourceId,
+      requestId,
+      body,
+    })) as string;
+    appendVolcengineResponseAudio(responseText, audioChunks);
+  } else {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+        'X-Api-Resource-Id': resourceId,
+        'X-Api-Request-Id': requestId,
+      },
+      body,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Volcengine TTS request failed with HTTP ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (reader) {
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const extracted = extractJsonObjects(buffer);
+        buffer = extracted.remainder;
+        for (const objectText of extracted.objects) {
+          handleVolcengineMessage(objectText, audioChunks);
+        }
+      }
+      buffer += decoder.decode();
+      appendVolcengineResponseAudio(buffer, audioChunks);
+    } else {
+      const text = await response.text();
+      appendVolcengineResponseAudio(text, audioChunks);
+    }
+  }
+
+  if (audioChunks.length === 0) {
+    throw new Error('Volcengine TTS returned no audio data.');
+  }
+
+  const blob = new Blob(audioChunks, { type: 'audio/mpeg' });
+  return {
+    blob,
+    url: URL.createObjectURL(blob),
+  };
+};
+
 export async function generateSpeechAudio(text: string, config: TTSConfig) {
   const input = stripTagsFromSpeechText(text);
   if (!input) {
@@ -284,22 +492,32 @@ export async function generateSpeechAudio(text: string, config: TTSConfig) {
     return generateHostedSpeechAudio(input, config);
   }
 
+  if (config.provider === 'doubao') {
+    return generateVolcengineSpeechAudio(input, config);
+  }
+
   if (!config.apiKey.trim()) {
     throw new Error('TTS API key is missing.');
   }
 
+  const normalizedModel = config.model.trim() || 'gpt-4o-mini-tts';
+  const normalizedVoice = config.voice.trim() || 'alloy';
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const payload: Record<string, unknown> = {
+    model: normalizedModel,
+    voice: normalizedVoice,
+    input,
+    response_format: 'mp3',
+  };
+
+  headers.Authorization = `Bearer ${config.apiKey.trim()}`;
+
   const response = await fetch(normalizeTtsApiUrl(config.apiUrl), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey.trim()}`,
-    },
-    body: JSON.stringify({
-      model: config.model.trim() || 'gpt-4o-mini-tts',
-      voice: config.voice.trim() || 'alloy',
-      input,
-      response_format: 'mp3',
-    }),
+    headers,
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

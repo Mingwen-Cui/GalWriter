@@ -3,7 +3,7 @@ use std::{
   fs,
   io::Write,
   path::{Path, PathBuf},
-  process::Command,
+  process::{Command, Stdio},
   sync::Mutex,
   time::{SystemTime, UNIX_EPOCH},
 };
@@ -705,6 +705,80 @@ try {{
 }
 
 #[tauri::command]
+fn proxy_volcengine_tts(
+  endpoint: String,
+  api_key: String,
+  resource_id: String,
+  request_id: String,
+  body: String,
+) -> Result<String, String> {
+  let endpoint = endpoint.trim();
+  let api_key = api_key.trim();
+  let resource_id = resource_id.trim();
+  let request_id = request_id.trim();
+  if api_key.is_empty() {
+    return Err("Volcengine API Key is missing.".to_string());
+  }
+  if !endpoint.eq_ignore_ascii_case("https://openspeech.bytedance.com/api/v3/tts/unidirectional") {
+    return Err("Unsupported Volcengine TTS endpoint.".to_string());
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = (endpoint, resource_id, request_id, body);
+    return Err("Volcengine TTS native proxy is only available on Windows.".to_string());
+  }
+
+  #[cfg(target_os = "windows")]
+  {
+    let script = r#"
+$ErrorActionPreference = 'Stop'
+$body = [Console]::In.ReadToEnd()
+$headers = @{
+  'X-Api-Key' = $env:GALWRITER_VOLCENGINE_API_KEY
+  'X-Api-Resource-Id' = $env:GALWRITER_VOLCENGINE_RESOURCE_ID
+  'X-Api-Request-Id' = $env:GALWRITER_VOLCENGINE_REQUEST_ID
+}
+$response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Post -ContentType 'application/json' -Headers $headers -Body $body -UseBasicParsing
+[Console]::Out.Write($response.Content)
+"#;
+
+    let mut child = Command::new("powershell")
+      .arg("-NoProfile")
+      .arg("-NonInteractive")
+      .arg("-ExecutionPolicy")
+      .arg("Bypass")
+      .arg("-EncodedCommand")
+      .arg(powershell_encoded_command(script))
+      .env("GALWRITER_VOLCENGINE_ENDPOINT", endpoint)
+      .env("GALWRITER_VOLCENGINE_API_KEY", api_key)
+      .env("GALWRITER_VOLCENGINE_RESOURCE_ID", resource_id)
+      .env("GALWRITER_VOLCENGINE_REQUEST_ID", request_id)
+      .stdin(Stdio::piped())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
+      .spawn()
+      .map_err(|err| format!("Failed to start Volcengine TTS proxy: {err}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+      stdin
+        .write_all(body.as_bytes())
+        .map_err(|err| format!("Failed to write Volcengine TTS request: {err}"))?;
+    }
+
+    let output = child
+      .wait_with_output()
+      .map_err(|err| format!("Failed to read Volcengine TTS response: {err}"))?;
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      return Err(format!("Volcengine TTS request failed: {stderr}"));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+  }
+}
+
+#[tauri::command]
 fn force_quit_app(app: AppHandle) {
   app.exit(0);
 }
@@ -1209,6 +1283,7 @@ pub fn run() {
       choose_project_default_save_dir,
       save_project_zip,
       synthesize_system_speech,
+      proxy_volcengine_tts,
       force_quit_app,
       set_close_button_minimizes,
       save_rendered_video,

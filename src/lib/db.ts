@@ -140,6 +140,7 @@ const AUTO_VOICE_PROFILE_SIGNATURE = {
   model: '',
   voice: 'youxiaoqin',
   appKey: '',
+  appSecret: '',
 } as const;
 
 let dbPromise: Promise<IDBPDatabase<GalWriterDB>> | null = null;

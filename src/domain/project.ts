@@ -205,6 +205,7 @@ export interface VoiceAIProfile {
   model: string;
   voice: string;
   appKey: string;
+  appSecret?: string;
 }
 
 export type SavedAIProfile =
