@@ -3,6 +3,7 @@ import {
   BrainCircuit,
   Check,
   Eraser,
+  ExternalLink,
   Feather,
   ImageIcon,
   Lightbulb,
@@ -48,8 +49,6 @@ import { Language, translations } from '../lib/i18n';
 import {
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
-  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE,
-  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID,
   HOSTED_PROXY_PROFILE,
   HOSTED_PROXY_PROFILE_ID,
   HOSTED_VOICE_PROXY_PROFILE,
@@ -82,6 +81,10 @@ type ProviderOption = {
   size?: string;
 };
 type ModelOption = {
+  value: string;
+  label: string;
+};
+type ApiUrlOption = {
   value: string;
   label: string;
 };
@@ -181,10 +184,25 @@ const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const VOLCENGINE_TTS_API_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
-const VOLCENGINE_TTS_HELP_URL = 'https://www.volcengine.com/docs/6561/1329505?lang=zh';
+const ALIYUN_IMAGESEG_API_URL = 'https://imageseg.cn-shanghai.aliyuncs.com';
+const ALIYUN_IMAGESEG_MODEL = 'SegmentBody';
+const ALIYUN_IMAGESEG_HELP_URL = 'https://vision.aliyun.com/imageseg';
+const ALIYUN_IMAGESEG_OPEN_URL =
+  'https://common-buy.aliyun.com/?commodityCode=viapi_imageseg_public_cn#/open';
+const ALIYUN_ACCESS_KEY_URL = 'https://ram.console.aliyun.com/manage/ak';
+const VOLCENGINE_IMAGEX_API_URL =
+  'https://imagex.volcengineapi.com/?Action=AIProcess&Version=2023-05-01';
+const VOLCENGINE_IMAGEX_MODEL = 'humanv2|ServiceId|https://your-imagex-domain.example.com';
+const VOLCENGINE_IMAGEX_HELP_URL = 'https://www.volcengine.com/docs/508/124671?lang=zh';
+const VOLCENGINE_IMAGEX_SERVICE_URL = 'https://console.volcengine.com/imagex/service_manage';
+const VOLCENGINE_ACCESS_KEY_URL = 'https://console.volcengine.com/iam/keymanage/';
+const VOLCENGINE_TTS_HELP_URL = 'https://www.volcengine.com/docs/6561/2528925?lang=zh';
+const VOLCENGINE_TTS_API_KEY_URL =
+  'https://console.volcengine.com/speech/new/setting/apikeys?projectName=default.&_vtm_=a106466.b106468.0_0.0_0.0.75_7655251731625985572';
 const VOLCENGINE_VOICE_HELP_URL =
   'https://www.volcengine.com/docs/6561/1257544?lang=zh&_vtm_=a106466.b106468.0_0.0_0.0.43_7655251731625985572';
 const CUSTOM_MODEL_VALUE = '__custom_model__';
+const CUSTOM_API_URL_VALUE = '__custom_api_url__';
 const YOUDAO_TTS_HELP = {
   zh: '照着有道后台“查看应用”页面抄就可以：应用ID填到应用ID，应用密钥填到应用密钥。这里不需要去 API Keys 页面找别的 Key。',
   ja: 'Youdao TTS uses the application ID and application secret from the console.',
@@ -201,7 +219,7 @@ const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'deepseek',
     label: 'DeepSeek',
     apiUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-pro',
   },
   {
     value: 'gemini',
@@ -218,14 +236,14 @@ const TEXT_PROVIDER_OPTIONS: ProviderOption[] = [
   {
     value: 'claude',
     label: 'Claude',
-    apiUrl: 'https://api.anthropic.com/v1/messages',
+    apiUrl: 'https://api.anthropic.com/v1',
     model: 'claude-sonnet-4-20250514',
   },
   {
     value: 'kimi',
     label: 'Kimi',
-    apiUrl: 'https://api.moonshot.cn/v1',
-    model: 'kimi-k2.5',
+    apiUrl: 'https://api.moonshot.ai/v1',
+    model: 'kimi-k2.6',
   },
   {
     value: 'qwen',
@@ -322,20 +340,20 @@ const BACKGROUND_REMOVAL_PROVIDER_OPTIONS: ProviderOption[] = [
   {
     value: 'custom',
     label: '自定义接口',
-    apiUrl: 'api/proxy.php',
-    model: '',
-  },
-  {
-    value: 'hosted-background-removal',
-    label: '网络托管代理',
     apiUrl: '',
     model: '',
   },
   {
+    value: 'aliyun',
+    label: '阿里云视觉智能',
+    apiUrl: ALIYUN_IMAGESEG_API_URL,
+    model: ALIYUN_IMAGESEG_MODEL,
+  },
+  {
     value: 'volcengine',
-    label: '火山引擎',
-    apiUrl: 'https://visual.volcengineapi.com',
-    model: '',
+    label: '火山 veImageX',
+    apiUrl: VOLCENGINE_IMAGEX_API_URL,
+    model: VOLCENGINE_IMAGEX_MODEL,
   },
 ];
 
@@ -393,9 +411,8 @@ const VOICE_PROVIDER_OPTIONS: ProviderOption[] = [
 
 const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
   deepseek: [
-    { value: 'deepseek-chat', label: 'deepseek-chat' },
-    { value: 'deepseek-reasoner', label: 'deepseek-reasoner' },
-    { value: 'deepseek-v3.1', label: 'deepseek-v3.1' },
+    { value: 'deepseek-v4-pro', label: 'deepseek-v4-pro' },
+    { value: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
   ],
   gemini: [
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
@@ -422,6 +439,9 @@ const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku' },
   ],
   kimi: [
+    { value: 'kimi-k2.6', label: 'Kimi K2.6' },
+    { value: 'kimi-k2.6-thinking', label: 'Kimi K2.6 Thinking' },
+    { value: 'kimi-k2.7-code-preview', label: 'Kimi K2.7 Code Preview' },
     { value: 'kimi-k2.5', label: 'Kimi K2.5' },
     { value: 'kimi-k2-thinking', label: 'Kimi K2 Thinking' },
     { value: 'kimi-k2-thinking-turbo', label: 'Kimi K2 Thinking Turbo' },
@@ -446,9 +466,12 @@ const TEXT_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
   ],
   glm: [
+    { value: 'glm-5.2', label: 'GLM 5.2' },
     { value: 'glm-5.1', label: 'GLM 5.1' },
     { value: 'glm-5', label: 'GLM 5' },
+    { value: 'glm-5-turbo', label: 'GLM 5 Turbo' },
     { value: 'glm-4.7', label: 'GLM 4.7' },
+    { value: 'glm-4.7-flash', label: 'GLM 4.7 Flash' },
     { value: 'glm-4-plus', label: 'GLM 4 Plus' },
     { value: 'glm-4-air', label: 'GLM 4 Air' },
     { value: 'glm-4-flash', label: 'GLM 4 Flash' },
@@ -509,6 +532,121 @@ const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'seed-tts-1.0-concurr', label: 'seed-tts-1.0-concurr' },
   ],
   gemini: [{ value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash TTS Preview' }],
+};
+
+const TEXT_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
+  deepseek: [
+    { value: 'https://api.deepseek.com', label: 'DeepSeek OpenAI base' },
+    { value: 'https://api.deepseek.com/chat/completions', label: 'DeepSeek Chat endpoint' },
+  ],
+  gemini: [
+    { value: 'https://generativelanguage.googleapis.com', label: 'Gemini SDK base' },
+    { value: 'https://generativelanguage.googleapis.com/v1beta', label: 'Gemini REST v1beta base' },
+  ],
+  openai: [
+    { value: 'https://api.openai.com/v1', label: 'OpenAI base' },
+    { value: 'https://api.openai.com/v1/chat/completions', label: 'OpenAI Chat endpoint' },
+  ],
+  claude: [
+    { value: 'https://api.anthropic.com/v1', label: 'Claude API base' },
+    { value: 'https://api.anthropic.com/v1/messages', label: 'Claude Messages endpoint' },
+  ],
+  kimi: [
+    { value: 'https://api.moonshot.ai/v1', label: 'Kimi API base' },
+    { value: 'https://api.moonshot.ai/v1/chat/completions', label: 'Kimi Chat endpoint' },
+    { value: 'https://api.moonshot.cn/v1', label: 'Moonshot China legacy base' },
+  ],
+  qwen: [
+    { value: 'https://dashscope.aliyuncs.com/compatible-mode/v1', label: 'DashScope legacy base' },
+    {
+      value: 'https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+      label: 'Bailian Beijing workspace base',
+    },
+    { value: 'https://dashscope-us.aliyuncs.com/compatible-mode/v1', label: 'Bailian US base' },
+    {
+      value: 'https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1',
+      label: 'Bailian Singapore workspace base',
+    },
+    {
+      value: 'https://{WorkspaceId}.ap-northeast-1.maas.aliyuncs.com/compatible-mode/v1',
+      label: 'Bailian Tokyo workspace base',
+    },
+  ],
+  glm: [
+    { value: 'https://open.bigmodel.cn/api/paas/v4', label: 'Z.ai / BigModel base' },
+    {
+      value: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+      label: 'Z.ai / BigModel Chat endpoint',
+    },
+  ],
+  ollama: [
+    { value: 'http://localhost:11434/api', label: 'Ollama local base' },
+    { value: 'http://localhost:11434/api/generate', label: 'Ollama generate endpoint' },
+  ],
+};
+
+const IMAGE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
+  doubao: [
+    { value: DEFAULT_IMAGE_API_URL, label: 'Volcengine Ark base' },
+    {
+      value: `${DEFAULT_IMAGE_API_URL}/images/generations`,
+      label: 'Volcengine Ark image endpoint',
+    },
+  ],
+  gemini: [
+    { value: 'https://generativelanguage.googleapis.com', label: 'Gemini SDK base' },
+    { value: 'https://generativelanguage.googleapis.com/v1beta', label: 'Gemini REST v1beta base' },
+  ],
+  openai: [
+    { value: 'https://api.openai.com/v1/images/generations', label: 'OpenAI image endpoint' },
+    { value: 'https://api.openai.com/v1', label: 'OpenAI base' },
+  ],
+  qwen: [
+    {
+      value: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+      label: 'DashScope image synthesis',
+    },
+  ],
+  glm: [
+    {
+      value: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
+      label: 'Z.ai / BigModel image endpoint',
+    },
+    { value: 'https://open.bigmodel.cn/api/paas/v4', label: 'Z.ai / BigModel base' },
+  ],
+  [LOCAL_STABLE_DIFFUSION_PROVIDER]: [
+    { value: DEFAULT_STABLE_DIFFUSION_API_URL, label: 'Stable Diffusion WebUI base' },
+    {
+      value: `${DEFAULT_STABLE_DIFFUSION_API_URL}/sdapi/v1/txt2img`,
+      label: 'Stable Diffusion txt2img endpoint',
+    },
+  ],
+};
+
+const BACKGROUND_REMOVAL_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
+  custom: [{ value: '', label: 'Custom endpoint' }],
+  aliyun: [
+    { value: ALIYUN_IMAGESEG_API_URL, label: ALIYUN_IMAGESEG_API_URL },
+  ],
+  volcengine: [
+    { value: VOLCENGINE_IMAGEX_API_URL, label: VOLCENGINE_IMAGEX_API_URL },
+  ],
+};
+
+const VOICE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
+  youdao: [{ value: DEFAULT_TTS_API_URL, label: 'Youdao TTS endpoint' }],
+  openai: [
+    { value: 'https://api.openai.com/v1/audio/speech', label: 'OpenAI speech endpoint' },
+    { value: 'https://api.openai.com/v1', label: 'OpenAI base' },
+  ],
+  doubao: [{ value: VOLCENGINE_TTS_API_URL, label: 'Volcengine TTS endpoint' }],
+  gemini: [
+    { value: 'https://generativelanguage.googleapis.com', label: 'Gemini SDK base' },
+    { value: 'https://generativelanguage.googleapis.com/v1beta', label: 'Gemini REST v1beta base' },
+  ],
+  custom: [
+    { value: 'https://api.openai.com/v1/audio/speech', label: 'OpenAI-compatible speech endpoint' },
+  ],
 };
 
 const IMAGE_SIZE_PRESETS = [
@@ -667,10 +805,10 @@ const buildDefaultBackgroundRemovalDraft = (): BackgroundRemovalAIProfile => ({
   id: 'draft-background-removal',
   name: '',
   kind: 'background-removal',
-  provider: 'custom',
+  provider: 'aliyun',
   apiKey: '',
-  apiUrl: 'api/proxy.php',
-  model: '',
+  apiUrl: ALIYUN_IMAGESEG_API_URL,
+  model: ALIYUN_IMAGESEG_MODEL,
 });
 
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
@@ -701,12 +839,23 @@ const getModelOptions = (kind: ProfileKind, provider: string): ModelOption[] => 
       : kind === 'image'
         ? IMAGE_MODEL_OPTIONS
         : VOICE_MODEL_OPTIONS;
-  const ownOptions = map[provider] || [];
-  const allOptions = Object.values(map).flat();
-  const deduped = [...ownOptions, ...allOptions].filter(
+  return (map[provider] || []).filter(
     (option, index, array) => array.findIndex((item) => item.value === option.value) === index,
   );
-  return deduped;
+};
+
+const getApiUrlOptions = (kind: ProfileKind, provider: string): ApiUrlOption[] => {
+  const map =
+    kind === 'text'
+      ? TEXT_API_URL_OPTIONS
+      : kind === 'image'
+        ? IMAGE_API_URL_OPTIONS
+        : kind === 'background-removal'
+          ? BACKGROUND_REMOVAL_API_URL_OPTIONS
+          : VOICE_API_URL_OPTIONS;
+  return (map[provider] || []).filter(
+    (option, index, array) => array.findIndex((item) => item.value === option.value) === index,
+  );
 };
 
 const getModelSelectValue = (kind: ProfileKind, profile: ProfileDraft) => {
@@ -714,6 +863,12 @@ const getModelSelectValue = (kind: ProfileKind, profile: ProfileDraft) => {
   return options.some((option) => option.value === profile.model.trim())
     ? profile.model.trim()
     : CUSTOM_MODEL_VALUE;
+};
+
+const getApiUrlSelectValue = (kind: ProfileKind, profile: ProfileDraft) => {
+  const options = getApiUrlOptions(kind, profile.provider);
+  const value = profile.apiUrl.trim();
+  return options.some((option) => option.value === value) ? value : CUSTOM_API_URL_VALUE;
 };
 
 const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDraft => {
@@ -1081,7 +1236,6 @@ export function AISettingsPanel({
     if (
       profile.id === HOSTED_PROXY_PROFILE_ID ||
       profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
-      profile.id === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
       profile.id === HOSTED_VOICE_PROXY_PROFILE_ID
     )
       return;
@@ -1154,15 +1308,6 @@ export function AISettingsPanel({
       payload.appSecret = '';
     }
 
-    if (
-      payload.kind === 'background-removal' &&
-      payload.provider === 'hosted-background-removal'
-    ) {
-      payload.apiKey = '';
-      payload.apiUrl = '';
-      payload.model = '';
-    }
-
     if (editorState.mode === 'create') {
       const createdId = await onCreateAIProfile(editorState.kind, payload);
       if (typeof createdId === 'string') {
@@ -1197,6 +1342,67 @@ export function AISettingsPanel({
     <label className="text-xs font-black text-slate-900 dark:text-slate-100">{label}</label>
   );
 
+  const renderApiUrlField = ({
+    draft,
+    label,
+    name,
+    placeholder,
+    className = '',
+  }: {
+    draft: ProfileDraft;
+    label: string;
+    name: string;
+    placeholder?: string;
+    className?: string;
+  }) => {
+    const apiUrlOptions = getApiUrlOptions(draft.kind, draft.provider);
+    const currentApiUrlSelectValue = getApiUrlSelectValue(draft.kind, draft);
+    const showCustomInput =
+      apiUrlOptions.length === 0 || currentApiUrlSelectValue === CUSTOM_API_URL_VALUE;
+
+    return (
+      <div className={`space-y-2 ${className}`}>
+        {renderFieldLabel(label)}
+        {apiUrlOptions.length > 0 && (
+          <select
+            value={currentApiUrlSelectValue}
+            onChange={(e) => {
+              if (e.target.value === CUSTOM_API_URL_VALUE) {
+                if (apiUrlOptions.some((option) => option.value === draft.apiUrl.trim())) {
+                  updateDraft({ apiUrl: '' });
+                }
+                return;
+              }
+              updateDraft({ apiUrl: e.target.value });
+            }}
+            className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+          >
+            {apiUrlOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.value}
+              </option>
+            ))}
+            <option value={CUSTOM_API_URL_VALUE}>
+              {language === 'zh' ? '自定义 URL' : 'Custom URL'}
+            </option>
+          </select>
+        )}
+        {showCustomInput && (
+          <input
+            type="text"
+            name={name}
+            autoComplete="off"
+            spellCheck={false}
+            value={draft.apiUrl}
+            onChange={(e) => updateDraft({ apiUrl: e.target.value })}
+            placeholder={placeholder}
+            className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+          />
+        )}
+      </div>
+    );
+  };
+
   const renderProfileForm = () => {
     if (!editorState) return null;
 
@@ -1204,11 +1410,6 @@ export function AISettingsPanel({
     const providerOptions = getProviderOptions(editorState.kind).filter(
       (option) =>
         !(editorState.kind === 'image' && option.value === 'hosted-image' && isTauriRuntime()) &&
-        !(
-          editorState.kind === 'background-removal' &&
-          option.value === 'hosted-background-removal' &&
-          isTauriRuntime()
-        ) &&
         !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()),
     );
     const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
@@ -1223,11 +1424,9 @@ export function AISettingsPanel({
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
-    const isHostedBackgroundRemoval =
-      draft.kind === 'background-removal' && draft.provider === 'hosted-background-removal';
     const isHostedVoice = draft.kind === 'voice' && draft.provider === 'hosted-voice';
     const showModelSelect =
-      draft.kind !== 'background-removal' &&
+      draft.kind === 'background-removal' ||
       (draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao'));
 
     return (
@@ -1326,6 +1525,8 @@ export function AISettingsPanel({
                       ? language === 'zh'
                         ? '后端 AI 提供商'
                         : 'Backend AI Provider'
+                      : draft.kind === 'background-removal' && draft.provider === 'aliyun'
+                        ? 'Model'
                       : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
                         ? 'Resource ID'
                       : language === 'zh'
@@ -1423,31 +1624,20 @@ export function AISettingsPanel({
                       />
                     </div>
                   )}
-                  <div className="space-y-2">
-                    {renderFieldLabel(
-                      isHosted
-                        ? language === 'zh'
-                          ? '代理地址（可选）'
-                          : 'Proxy URL (Optional)'
-                        : 'API URL',
-                    )}
-                    <input
-                      type="text"
-                      name="ai-text-api-url"
-                      autoComplete="off"
-                      spellCheck={false}
-                      value={draft.apiUrl}
-                      onChange={(e) => updateDraft({ apiUrl: e.target.value })}
-                      placeholder={
-                        isHosted
-                          ? language === 'zh'
-                            ? '留空使用默认 api/proxy.php'
-                            : 'Leave empty for default api/proxy.php'
-                          : undefined
-                      }
-                      className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </div>
+                  {renderApiUrlField({
+                    draft,
+                    name: 'ai-text-api-url',
+                    label: isHosted
+                      ? language === 'zh'
+                        ? '代理地址（可选）'
+                        : 'Proxy URL (Optional)'
+                      : 'API URL',
+                    placeholder: isHosted
+                      ? language === 'zh'
+                        ? '留空使用默认 api/proxy.php'
+                        : 'Leave empty for default api/proxy.php'
+                      : undefined,
+                  })}
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4">
@@ -1521,18 +1711,12 @@ export function AISettingsPanel({
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    {renderFieldLabel('API URL')}
-                    <input
-                      type="text"
-                      name="ai-image-api-url"
-                      autoComplete="off"
-                      spellCheck={false}
-                      value={draft.apiUrl}
-                      onChange={(e) => updateDraft({ apiUrl: e.target.value })}
-                      className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </div>
+                  {renderApiUrlField({
+                    draft,
+                    name: 'ai-image-api-url',
+                    label: 'API URL',
+                    className: 'md:col-span-2',
+                  })}
 
                   <div className="space-y-2">
                     {renderFieldLabel('API Key')}
@@ -1700,32 +1884,132 @@ export function AISettingsPanel({
 
             {draft.kind === 'background-removal' && (
               <>
-                {isHostedBackgroundRemoval ? (
-                  <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10">
-                    <p className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300">
-                      {language === 'zh' ? '网站托管去背景' : 'Hosted background removal'}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold leading-relaxed text-fuchsia-700/80 dark:text-fuchsia-200/80">
-                      {formatHostedSummary('background-removal')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-5 md:grid-cols-2">
+                    {draft.provider === 'aliyun' && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
+                        <p className="text-sm font-black">
+                          {language === 'zh' ? '阿里云视觉智能分割抠图填写方法' : 'Alibaba Cloud ImageSeg setup'}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href={ALIYUN_IMAGESEG_HELP_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? '打开分割抠图文档' : 'Open ImageSeg docs'}
+                          </a>
+                          <a
+                            href={ALIYUN_IMAGESEG_OPEN_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? '开通分割抠图' : 'Enable ImageSeg'}
+                          </a>
+                          <a
+                            href={ALIYUN_ACCESS_KEY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? 'AccessKey 管理' : 'AccessKey console'}
+                          </a>
+                        </div>
+                        <p>
+                          {language === 'zh'
+                            ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
+                            : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
+                            : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? '3. API Key：填 AccessKeyId:AccessKeySecret，中间用英文冒号。'
+                            : '3. API Key: enter AccessKeyId:AccessKeySecret with a colon.'}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? '4. 注意：图片必须是公网 HTTP/HTTPS URL；本地 blob/base64 图片需要先上传。接口返回 4 通道透明图 URL。'
+                            : '4. Note: Alibaba Cloud requires a public image URL. Local blob/base64 images must be uploaded first.'}
+                        </p>
+                      </div>
+                    )}
+                    {draft.provider === 'volcengine' && (
+                      <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
+                        <p className="text-sm font-black">
+                          {language === 'zh' ? '火山 veImageX 智能背景移除填写方法' : 'Volcengine veImageX background removal setup'}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href={VOLCENGINE_IMAGEX_HELP_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? '打开火山文档' : 'Open Volcengine docs'}
+                          </a>
+                          <a
+                            href={VOLCENGINE_IMAGEX_SERVICE_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? '服务管理 / ServiceId' : 'Service management'}
+                          </a>
+                          <a
+                            href={VOLCENGINE_ACCESS_KEY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {language === 'zh' ? 'AccessKey 管理' : 'AccessKey console'}
+                          </a>
+                        </div>
+                        <p>
+                          {language === 'zh'
+                            ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
+                            : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? `2. API Key：填 AccessKeyId:SecretAccessKey，中间用英文冒号。`
+                            : '2. API Key: enter AccessKeyId:SecretAccessKey with a colon.'}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
+                            : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? '4. 注意：需开通 veImageX 服务和智能处理计费；输入图片必须是公网 URL。'
+                            : '4. Note: veImageX and smart processing billing must be enabled; the source image must be a public URL.'}
+                        </p>
+                      </div>
+                    )}
+                    {renderApiUrlField({
+                      draft,
+                      name: 'ai-background-removal-api-url',
+                      label: 'API URL',
+                      placeholder: 'api/proxy.php',
+                      className: 'md:col-span-2',
+                    })}
                     <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel('API URL')}
-                      <input
-                        type="text"
-                        name="ai-background-removal-api-url"
-                        autoComplete="off"
-                        spellCheck={false}
-                        value={draft.apiUrl}
-                        onChange={(e) => updateDraft({ apiUrl: e.target.value })}
-                        placeholder="api/proxy.php"
-                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel('API Key')}
+                      {renderFieldLabel(
+                        draft.provider === 'aliyun' || draft.provider === 'volcengine'
+                          ? 'API Key (AccessKeyId:AccessKeySecret)'
+                          : 'API Key',
+                      )}
                       <input
                         type="password"
                         name="ai-background-removal-api-key"
@@ -1741,7 +2025,6 @@ export function AISettingsPanel({
                       </p>
                     </div>
                   </div>
-                )}
               </>
             )}
 
@@ -1911,6 +2194,15 @@ export function AISettingsPanel({
                               >
                                 火山引擎语音合成接入文档
                               </a>
+                              和
+                              <a
+                                href={VOLCENGINE_TTS_API_KEY_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mx-1 font-black text-[var(--accent)] underline underline-offset-2"
+                              >
+                                API Key 管理页面
+                              </a>
                               对照“鉴权/应用信息”填写。
                             </p>
                           )}
@@ -1941,7 +2233,16 @@ export function AISettingsPanel({
                           />
                           {language === 'zh' && (
                             <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                              控制台 API Key 管理页面复制 API Key 后填这里。
+                              打开
+                              <a
+                                href={VOLCENGINE_TTS_API_KEY_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mx-1 font-black text-[var(--accent)] underline underline-offset-2"
+                              >
+                                火山引擎 API Key 管理页面
+                              </a>
+                              复制 API Key 后填这里。
                             </p>
                           )}
                         </div>
@@ -1961,28 +2262,25 @@ export function AISettingsPanel({
                     )}
 
                     {!isHostedVoice && (
-                      <div className="space-y-2 md:col-span-2">
-                        {renderFieldLabel(
+                      <>
+                      {renderApiUrlField({
+                        draft,
+                        name: 'ai-voice-api-url',
+                        label:
                           draft.provider === 'youdao' && language === 'zh'
                             ? '接口地址（API URL）'
                             : 'API URL',
-                        )}
-                        <input
-                          type="text"
-                          name="ai-voice-api-url"
-                          autoComplete="off"
-                          spellCheck={false}
-                          value={draft.apiUrl}
-                          onChange={(e) => updateDraft({ apiUrl: e.target.value })}
-                          placeholder={draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined}
-                          className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                        />
+                        placeholder: draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined,
+                        className: 'md:col-span-2',
+                      })}
+                      <div className="md:col-span-2">
                         {draft.provider === 'youdao' && language === 'zh' && (
                           <p className="text-[11px] font-semibold text-[var(--text-muted)]">
                             默认地址是有道官方语音合成接口，普通接入不用改。
                           </p>
                         )}
                       </div>
+                      </>
                     )}
                   </div>
                 )}
@@ -2125,8 +2423,6 @@ export function AISettingsPanel({
                       ? [HOSTED_PROXY_PROFILE]
                       : isWeb && section.kind === 'image'
                         ? [HOSTED_IMAGE_PROXY_PROFILE]
-                        : isWeb && section.kind === 'background-removal'
-                          ? [HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE]
                         : isWeb && section.kind === 'voice'
                           ? [HOSTED_VOICE_PROXY_PROFILE]
                           : [];
@@ -2231,7 +2527,6 @@ export function AISettingsPanel({
                               const isReadOnly =
                                 profile.id === HOSTED_PROXY_PROFILE_ID ||
                                 profile.id === HOSTED_IMAGE_PROXY_PROFILE_ID ||
-                                profile.id === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
                                 profile.id === HOSTED_VOICE_PROXY_PROFILE_ID;
                               const profileSummary = isReadOnly
                                 ? formatHostedSummary(section.kind)

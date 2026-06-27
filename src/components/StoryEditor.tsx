@@ -98,8 +98,6 @@ import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { useSharedRenderStyle } from '../editor-state/useSharedRenderStyle';
 import { Language, translations } from '../lib/i18n';
 import {
-  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE,
-  HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID,
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
   HOSTED_PROXY_PROFILE,
@@ -904,13 +902,6 @@ export function StoryEditor() {
     );
   }, [activeImageProfileId, savedAIProfiles]);
   const activeBackgroundRemovalProfile = useMemo(() => {
-    if (
-      !isTauriRuntime() &&
-      activeBackgroundRemovalProfileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
-    ) {
-      return HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE;
-    }
-
     return (
       savedAIProfiles.find(
         (profile): profile is BackgroundRemovalAIProfile =>
@@ -952,6 +943,7 @@ export function StoryEditor() {
   const imageRemoveBackground = activeImageProfile?.removeBackground ?? false;
   const backgroundRemovalApiUrl = activeBackgroundRemovalProfile?.apiUrl ?? '';
   const backgroundRemovalApiKey = activeBackgroundRemovalProfile?.apiKey ?? '';
+  const backgroundRemovalModel = activeBackgroundRemovalProfile?.model ?? '';
   const backgroundRemovalProvider = activeBackgroundRemovalProfile?.provider ?? 'custom';
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
@@ -975,7 +967,6 @@ export function StoryEditor() {
         Boolean(profile) &&
         profile?.id !== HOSTED_PROXY_PROFILE_ID &&
         profile?.id !== HOSTED_IMAGE_PROXY_PROFILE_ID &&
-        profile?.id !== HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID &&
         profile?.id !== HOSTED_VOICE_PROXY_PROFILE_ID,
     );
 
@@ -1080,7 +1071,6 @@ export function StoryEditor() {
       if (
         profileId === HOSTED_PROXY_PROFILE_ID ||
         profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
-        profileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
         profileId === HOSTED_VOICE_PROXY_PROFILE_ID
       )
         return;
@@ -1106,7 +1096,6 @@ export function StoryEditor() {
       if (
         profileId === HOSTED_PROXY_PROFILE_ID ||
         profileId === HOSTED_IMAGE_PROXY_PROFILE_ID ||
-        profileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID ||
         profileId === HOSTED_VOICE_PROXY_PROFILE_ID
       )
         return;
@@ -1332,6 +1321,13 @@ export function StoryEditor() {
         : activeVoiceProfile.provider !== 'system' &&
           activeVoiceProfile.provider !== 'hosted-voice' &&
           !activeVoiceProfile.apiKey.trim()));
+  const missingBackgroundRemovalApiKey =
+    didHydrateLocalState &&
+    (!activeBackgroundRemovalProfile ||
+      !activeBackgroundRemovalProfile.apiUrl.trim() ||
+      !activeBackgroundRemovalProfile.apiKey.trim() ||
+      (activeBackgroundRemovalProfile.provider !== 'custom' &&
+        !activeBackgroundRemovalProfile.model.trim()));
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback(
     (target: 'text' | 'image' | 'background-removal' | 'voice') => {
@@ -1350,11 +1346,18 @@ export function StoryEditor() {
     if (
       (settingsAttentionTarget === 'text' && !missingTextApiKey) ||
       (settingsAttentionTarget === 'image' && !missingImageApiKey) ||
+      (settingsAttentionTarget === 'background-removal' && !missingBackgroundRemovalApiKey) ||
       (settingsAttentionTarget === 'voice' && !missingVoiceApiKey)
     ) {
       setSettingsAttentionTarget(null);
     }
-  }, [missingImageApiKey, missingTextApiKey, missingVoiceApiKey, settingsAttentionTarget]);
+  }, [
+    missingBackgroundRemovalApiKey,
+    missingImageApiKey,
+    missingTextApiKey,
+    missingVoiceApiKey,
+    settingsAttentionTarget,
+  ]);
 
   const editorProjectSettings = useMemo(
     () => ({
@@ -1654,9 +1657,7 @@ export function StoryEditor() {
       activeImageProfileId:
         activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID ? null : activeImageProfileId,
       activeBackgroundRemovalProfileId:
-        activeBackgroundRemovalProfileId === HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
-          ? null
-          : activeBackgroundRemovalProfileId,
+        activeBackgroundRemovalProfileId,
       activeVoiceProfileId:
         activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID ? null : activeVoiceProfileId,
     });
@@ -2230,6 +2231,7 @@ export function StoryEditor() {
     imageRemoveBackground,
     backgroundRemovalApiUrl,
     backgroundRemovalApiKey,
+    backgroundRemovalModel,
     backgroundRemovalProvider,
     characterImageMode,
     sceneImageMode,
@@ -2246,6 +2248,9 @@ export function StoryEditor() {
             ? '設定 > AI設定 > Image AI で画像APIを接続してください'
             : 'Connect an Image AI API in Settings > AI Settings > Image AI first',
       );
+    },
+    onMissingBackgroundRemovalApiRequest: () => {
+      requestSettingsAttention('background-removal');
     },
   });
 
@@ -4514,9 +4519,7 @@ export function StoryEditor() {
             : savedProfilesState.activeImageProfileId,
         );
         setActiveBackgroundRemovalProfileId(
-          shouldUseHostedProxyByDefault
-            ? HOSTED_BACKGROUND_REMOVAL_PROXY_PROFILE_ID
-            : savedProfilesState.activeBackgroundRemovalProfileId ?? null,
+          savedProfilesState.activeBackgroundRemovalProfileId ?? null,
         );
         setActiveVoiceProfileId(
           shouldUseHostedProxyByDefault

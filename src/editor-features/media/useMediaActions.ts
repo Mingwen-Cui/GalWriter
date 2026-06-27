@@ -40,6 +40,7 @@ interface UseMediaActionsParams {
   imageRemoveBackground?: boolean;
   backgroundRemovalApiUrl?: string;
   backgroundRemovalApiKey?: string;
+  backgroundRemovalModel?: string;
   backgroundRemovalProvider?: string;
   characterImageMode: CharacterImageMode;
   sceneImageMode: SceneImageMode;
@@ -48,6 +49,7 @@ interface UseMediaActionsParams {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   showToast: (message: string) => void;
   onMissingImageApiKeyRequest?: () => void;
+  onMissingBackgroundRemovalApiRequest?: () => void;
 }
 
 const TITLE_HEIGHT = 36;
@@ -127,6 +129,7 @@ export const useMediaActions = ({
   imageRemoveBackground,
   backgroundRemovalApiUrl,
   backgroundRemovalApiKey,
+  backgroundRemovalModel,
   backgroundRemovalProvider,
   characterImageMode,
   sceneImageMode,
@@ -135,6 +138,7 @@ export const useMediaActions = ({
   setNodes,
   showToast,
   onMissingImageApiKeyRequest,
+  onMissingBackgroundRemovalApiRequest,
 }: UseMediaActionsParams) => {
   const stableDiffusionOptions = useMemo(
     () => ({
@@ -162,7 +166,21 @@ export const useMediaActions = ({
   );
   const isLocalStableDiffusion = isLocalStableDiffusionProvider(imageProvider);
   const isHostedImageProxy = isHostedImageProxyProvider(imageProvider);
-  const isHostedBackgroundRemovalProxy = backgroundRemovalProvider === 'hosted-background-removal';
+  const isHostedBackgroundRemovalProxy = false;
+  const missingBackgroundRemovalConfig =
+    !backgroundRemovalApiUrl?.trim() ||
+    !backgroundRemovalApiKey?.trim() ||
+    (backgroundRemovalProvider !== 'custom' && !backgroundRemovalModel?.trim());
+  const notifyMissingBackgroundRemovalConfig = useCallback(() => {
+    onMissingBackgroundRemovalApiRequest?.();
+    showToast(
+      language === 'zh'
+        ? '请先在设置 > AI 配置 > 去背景 AI 中连接可用接口'
+        : language === 'ja'
+          ? 'Settings > AI Settings > Background Removal AI でAPIを接続してください'
+          : 'Connect a Background Removal AI API in Settings > AI Settings first',
+    );
+  }, [language, onMissingBackgroundRemovalApiRequest, showToast]);
 
   const handleAddTextToImage = useCallback(
     (id: string) => {
@@ -255,6 +273,10 @@ export const useMediaActions = ({
       }
 
       const shouldRemoveBackground = transparentBackground || Boolean(imageRemoveBackground);
+      if (shouldRemoveBackground && missingBackgroundRemovalConfig) {
+        notifyMissingBackgroundRemovalConfig();
+        return null;
+      }
       const finalPrompt = shouldRemoveBackground
         ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
         : prompt;
@@ -385,6 +407,7 @@ export const useMediaActions = ({
           processedImageSrc = await requestSubjectSegmentation(processedImageSrc, {
             apiUrl: backgroundRemovalApiUrl,
             apiKey: backgroundRemovalApiKey,
+            reqKey: backgroundRemovalModel,
             useHostedProxy: isHostedBackgroundRemovalProxy,
             bundledWithImageGeneration: true,
           });
@@ -429,8 +452,10 @@ export const useMediaActions = ({
       imageRemoveBackground,
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
-      isHostedBackgroundRemovalProxy,
+      backgroundRemovalModel,
       language,
+      missingBackgroundRemovalConfig,
+      notifyMissingBackgroundRemovalConfig,
       onMissingImageApiKeyRequest,
       setImageSize,
       showToast,
@@ -757,10 +782,15 @@ export const useMediaActions = ({
         }
 
         if (imageRemoveBackground) {
+          if (missingBackgroundRemovalConfig) {
+            notifyMissingBackgroundRemovalConfig();
+            return;
+          }
           try {
             imageSrc = await requestSubjectSegmentation(imageSrc as string, {
               apiUrl: backgroundRemovalApiUrl,
               apiKey: backgroundRemovalApiKey,
+              reqKey: backgroundRemovalModel,
               useHostedProxy: isHostedBackgroundRemovalProxy,
               bundledWithImageGeneration: true,
             });
@@ -856,9 +886,11 @@ export const useMediaActions = ({
       imageRemoveBackground,
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
-      isHostedBackgroundRemovalProxy,
+      backgroundRemovalModel,
       language,
+      missingBackgroundRemovalConfig,
       nodes,
+      notifyMissingBackgroundRemovalConfig,
       onMissingImageApiKeyRequest,
       setImageSize,
       setNodes,
@@ -874,11 +906,16 @@ export const useMediaActions = ({
       const outfit = outfitId ? outfits.find((item) => item.id === outfitId) : undefined;
       const sourceImageUrl = outfitId ? outfit?.imageUrl : node?.data.avatarUrl;
       if (!node || typeof sourceImageUrl !== 'string' || !sourceImageUrl.trim()) return;
+      if (missingBackgroundRemovalConfig) {
+        notifyMissingBackgroundRemovalConfig();
+        return;
+      }
 
       try {
         const transparentImageSrc = await requestSubjectSegmentation(sourceImageUrl, {
           apiUrl: backgroundRemovalApiUrl,
           apiKey: backgroundRemovalApiKey,
+          reqKey: backgroundRemovalModel,
           useHostedProxy: isHostedBackgroundRemovalProxy,
           bundledWithImageGeneration: false,
         });
@@ -954,10 +991,12 @@ export const useMediaActions = ({
       imageApiUrl,
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
-      isHostedBackgroundRemovalProxy,
+      backgroundRemovalModel,
       isHostedImageProxy,
       language,
+      missingBackgroundRemovalConfig,
       nodes,
+      notifyMissingBackgroundRemovalConfig,
       setNodes,
       showToast,
     ],

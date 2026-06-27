@@ -1,5 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 
+import { getTauriInvoke } from '../../lib/tauriRuntime';
+
 export const DEFAULT_IMAGE_API_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 export const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 export const DEFAULT_IMAGE_SIZE = '2K';
@@ -481,11 +483,107 @@ const buildSubjectSegmentationPayload = (imageUrl: string) => {
   return { image_base64: imageUrl };
 };
 
+const isAliyunImageSegUrl = (url: string) => /imageseg\.[a-z0-9-]+\.aliyuncs\.com\/?$/i.test(url);
+const isVolcengineImageXUrl = (url: string) =>
+  /imagex\.volcengineapi\.com\/?\?Action=AIProcess&Version=2023-05-01/i.test(url);
+
+const parseAccessKeyPair = (apiKey = '', providerLabel: string) => {
+  const [accessKeyId, ...secretParts] = apiKey.trim().split(':');
+  const accessKeySecret = secretParts.join(':');
+  if (!accessKeyId?.trim() || !accessKeySecret?.trim()) {
+    throw new Error(`${providerLabel} requires API Key in AccessKeyId:AccessKeySecret format.`);
+  }
+  return {
+    accessKeyId: accessKeyId.trim(),
+    accessKeySecret: accessKeySecret.trim(),
+  };
+};
+
+const requirePublicImageUrl = (imageUrl: string, providerLabel: string) => {
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    throw new Error(
+      `${providerLabel} requires the source image to be a public HTTP/HTTPS URL. Local blob/base64 images must be uploaded first.`,
+    );
+  }
+};
+
+const requestAliyunImageSeg = async (url: string, imageUrl: string, apiKey = '', model = '') => {
+  requirePublicImageUrl(imageUrl, 'Alibaba Cloud ImageSeg');
+  const { accessKeyId, accessKeySecret } = parseAccessKeyPair(apiKey, 'Alibaba Cloud ImageSeg');
+  const action = model.trim() || 'SegmentBody';
+  const invoke = await getTauriInvoke();
+  if (!invoke) {
+    throw new Error('Alibaba Cloud ImageSeg requires the desktop app native proxy for signed requests.');
+  }
+  const text = String(
+    await invoke('proxy_aliyun_imageseg_request', {
+      endpoint: url,
+      accessKeyId,
+      accessKeySecret,
+      action,
+      imageUrl,
+    }),
+  );
+  const result = JSON.parse(text);
+  const image =
+    result?.Data?.ImageURL ||
+    result?.Data?.ImageUrl ||
+    result?.Data?.URL ||
+    result?.Data?.Url ||
+    result?.Data?.Image ||
+    result?.data?.image_url ||
+    result?.image_url;
+  if (!image || typeof image !== 'string') {
+    throw new Error(text || 'Alibaba Cloud ImageSeg returned no transparent image URL.');
+  }
+  return image;
+};
+
+const requestVolcengineImageX = async (url: string, imageUrl: string, apiKey = '', model = '') => {
+  requirePublicImageUrl(imageUrl, 'Volcengine veImageX');
+  const { accessKeyId, accessKeySecret } = parseAccessKeyPair(apiKey, 'Volcengine veImageX');
+  const [modelId = 'humanv2', serviceId = '', deliveryDomain = ''] = model
+    .split('|')
+    .map((item) => item.trim());
+  if (!serviceId) {
+    throw new Error('Volcengine veImageX requires Model in humanv2|ServiceId|delivery-domain format.');
+  }
+  const invoke = await getTauriInvoke();
+  if (!invoke) {
+    throw new Error('Volcengine veImageX requires the desktop app native proxy for signed requests.');
+  }
+  const text = String(
+    await invoke('proxy_volcengine_imagex_request', {
+      endpoint: url,
+      accessKeyId,
+      accessKeySecret,
+      serviceId,
+      imageUrl,
+      modelId: modelId || 'humanv2',
+    }),
+  );
+  const result = JSON.parse(text);
+  const output = result?.Result?.Output ? JSON.parse(result.Result.Output) : result?.Result || result;
+  const directUrl = output?.Url || output?.URL || output?.ImageUrl || output?.ImageURL;
+  if (typeof directUrl === 'string' && /^https?:\/\//i.test(directUrl)) return directUrl;
+  const objectKey = output?.ObjectKey;
+  if (typeof objectKey === 'string' && objectKey) {
+    if (!deliveryDomain) {
+      throw new Error(
+        `Volcengine veImageX returned ObjectKey "${objectKey}", but no delivery domain was configured. Put humanv2|ServiceId|https://your-imagex-domain in Model.`,
+      );
+    }
+    return `${deliveryDomain.replace(/\/+$/, '')}/${objectKey.replace(/^\/+/, '')}`;
+  }
+  throw new Error(text || 'Volcengine veImageX returned no usable image URL.');
+};
+
 export const requestSubjectSegmentation = async (
   imageUrl: string,
   options: {
     apiUrl?: string;
     apiKey?: string;
+    reqKey?: string;
     useHostedProxy?: boolean;
     bundledWithImageGeneration?: boolean;
   } = {},
@@ -497,6 +595,13 @@ export const requestSubjectSegmentation = async (
   if (!url) {
     throw new Error('Subject segmentation API URL is required.');
   }
+  if (!useHostedProxy && isAliyunImageSegUrl(url)) {
+    return requestAliyunImageSeg(url, imageUrl, options.apiKey, options.reqKey);
+  }
+  if (!useHostedProxy && isVolcengineImageXUrl(url)) {
+    return requestVolcengineImageX(url, imageUrl, options.apiKey, options.reqKey);
+  }
+
   const body = useHostedProxy
     ? {
         type: 'segment',
@@ -504,25 +609,40 @@ export const requestSubjectSegmentation = async (
         bundled_with_image_generation: Boolean(options.bundledWithImageGeneration),
       }
     : buildSubjectSegmentationPayload(imageUrl);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.apiKey?.trim() ? { Authorization: `Bearer ${options.apiKey.trim()}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `HTTP ${response.status}`);
+  let responseText = '';
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.apiKey?.trim() ? { Authorization: `Bearer ${options.apiKey.trim()}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new Error(
+      `Subject segmentation request could not reach ${url}. Check CORS/proxy settings and network connectivity. ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
-  const result = await response.json();
+  responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(responseText || `HTTP ${response.status}`);
+  }
+
+  const result = JSON.parse(responseText);
   const image =
     result?.image ||
     result?.image_url ||
     result?.url ||
+    result?.data?.image ||
+    result?.data?.image_url ||
+    result?.data?.image_base64 ||
+    result?.data?.binary_data_base64?.[0] ||
+    result?.data?.image_urls?.[0] ||
     result?.data?.[0]?.b64_json ||
     result?.data?.[0]?.url ||
     result?.Result?.Image ||
@@ -537,13 +657,6 @@ export const requestSubjectSegmentation = async (
   if (/^data:image\//i.test(image) || /^https?:\/\//i.test(image)) return image;
   return `data:image/png;base64,${image}`;
 };
-
-export const requestHostedSubjectSegmentation = (imageUrl: string, apiUrl = '') =>
-  requestSubjectSegmentation(imageUrl, {
-    apiUrl,
-    useHostedProxy: true,
-    bundledWithImageGeneration: true,
-  });
 
 const loadImageSource = async (imageUrl: string) => {
   const response = await fetch(imageUrl);

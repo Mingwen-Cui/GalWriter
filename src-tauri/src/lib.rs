@@ -779,6 +779,301 @@ $response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Po
 }
 
 #[tauri::command]
+fn proxy_dashscope_request(
+  endpoint: String,
+  api_key: String,
+  method: String,
+  body: String,
+  async_task: bool,
+) -> Result<String, String> {
+  let endpoint = endpoint.trim();
+  let api_key = api_key.trim();
+  let method = method.trim().to_ascii_uppercase();
+  if api_key.is_empty() {
+    return Err("DashScope API Key is missing.".to_string());
+  }
+  let allowed_create =
+    endpoint.eq_ignore_ascii_case("https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis");
+  let allowed_task = endpoint
+    .to_ascii_lowercase()
+    .starts_with("https://dashscope.aliyuncs.com/api/v1/tasks/");
+  if !allowed_create && !allowed_task {
+    return Err("Unsupported DashScope endpoint.".to_string());
+  }
+  if method != "POST" && method != "GET" {
+    return Err("Unsupported DashScope method.".to_string());
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = (endpoint, api_key, method, body, async_task);
+    return Err("DashScope native proxy is only available on Windows.".to_string());
+  }
+
+  #[cfg(target_os = "windows")]
+  {
+    let script = r#"
+$ErrorActionPreference = 'Stop'
+$body = [Console]::In.ReadToEnd()
+$headers = @{
+  'Authorization' = "Bearer $env:GALWRITER_DASHSCOPE_API_KEY"
+}
+if ($env:GALWRITER_DASHSCOPE_ASYNC -eq 'true') {
+  $headers['X-DashScope-Async'] = 'enable'
+}
+if ($env:GALWRITER_DASHSCOPE_METHOD -eq 'POST') {
+  $response = Invoke-WebRequest -Uri $env:GALWRITER_DASHSCOPE_ENDPOINT -Method Post -ContentType 'application/json' -Headers $headers -Body $body -UseBasicParsing
+} else {
+  $response = Invoke-WebRequest -Uri $env:GALWRITER_DASHSCOPE_ENDPOINT -Method Get -Headers $headers -UseBasicParsing
+}
+[Console]::Out.Write($response.Content)
+"#;
+
+    let mut child = Command::new("powershell")
+      .arg("-NoProfile")
+      .arg("-NonInteractive")
+      .arg("-ExecutionPolicy")
+      .arg("Bypass")
+      .arg("-EncodedCommand")
+      .arg(powershell_encoded_command(script))
+      .env("GALWRITER_DASHSCOPE_ENDPOINT", endpoint)
+      .env("GALWRITER_DASHSCOPE_API_KEY", api_key)
+      .env("GALWRITER_DASHSCOPE_METHOD", method)
+      .env("GALWRITER_DASHSCOPE_ASYNC", if async_task { "true" } else { "false" })
+      .stdin(Stdio::piped())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
+      .spawn()
+      .map_err(|err| format!("Failed to start DashScope proxy: {err}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+      stdin
+        .write_all(body.as_bytes())
+        .map_err(|err| format!("Failed to write DashScope request: {err}"))?;
+    }
+
+    let output = child
+      .wait_with_output()
+      .map_err(|err| format!("Failed to read DashScope response: {err}"))?;
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      return Err(format!("DashScope request failed: {stderr}"));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+  }
+}
+
+#[tauri::command]
+fn proxy_aliyun_imageseg_request(
+  endpoint: String,
+  access_key_id: String,
+  access_key_secret: String,
+  action: String,
+  image_url: String,
+) -> Result<String, String> {
+  let endpoint = endpoint.trim().trim_end_matches('/');
+  let access_key_id = access_key_id.trim();
+  let access_key_secret = access_key_secret.trim();
+  let action = action.trim();
+  let image_url = image_url.trim();
+  if access_key_id.is_empty() || access_key_secret.is_empty() {
+    return Err("Alibaba Cloud AccessKeyId or AccessKeySecret is missing.".to_string());
+  }
+  if !endpoint.to_ascii_lowercase().starts_with("https://imageseg.") {
+    return Err("Unsupported Alibaba Cloud ImageSeg endpoint.".to_string());
+  }
+  if !matches!(
+    action,
+    "SegmentBody" | "SegmentHDBody" | "SegmentCommonImage" | "SegmentHDCommonImage"
+  ) {
+    return Err("Unsupported Alibaba Cloud ImageSeg action.".to_string());
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = (endpoint, access_key_id, access_key_secret, action, image_url);
+    return Err("Alibaba Cloud ImageSeg native proxy is only available on Windows.".to_string());
+  }
+
+  #[cfg(target_os = "windows")]
+  {
+    let script = r#"
+$ErrorActionPreference = 'Stop'
+function PercentEncode([string]$value) {
+  $encoded = [System.Uri]::EscapeDataString($value)
+  $encoded = $encoded.Replace('+', '%20').Replace('*', '%2A').Replace('%7E', '~')
+  return $encoded
+}
+$params = [ordered]@{
+  Action = $env:GALWRITER_ALIYUN_ACTION
+  Version = '2019-12-30'
+  Format = 'JSON'
+  AccessKeyId = $env:GALWRITER_ALIYUN_ACCESS_KEY_ID
+  SignatureMethod = 'HMAC-SHA1'
+  SignatureVersion = '1.0'
+  SignatureNonce = [guid]::NewGuid().ToString()
+  Timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+  ImageURL = $env:GALWRITER_SOURCE_IMAGE_URL
+}
+$canonical = ($params.GetEnumerator() | Sort-Object Name | ForEach-Object { "$(PercentEncode $_.Name)=$(PercentEncode ([string]$_.Value))" }) -join '&'
+$stringToSign = 'POST&%2F&' + (PercentEncode $canonical)
+$keyBytes = [Text.Encoding]::UTF8.GetBytes($env:GALWRITER_ALIYUN_ACCESS_KEY_SECRET + '&')
+$dataBytes = [Text.Encoding]::UTF8.GetBytes($stringToSign)
+$hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes)
+$signature = [Convert]::ToBase64String($hmac.ComputeHash($dataBytes))
+$body = $canonical + '&Signature=' + (PercentEncode $signature)
+$response = Invoke-WebRequest -Uri $env:GALWRITER_ALIYUN_ENDPOINT -Method Post -ContentType 'application/x-www-form-urlencoded' -Body $body -UseBasicParsing
+[Console]::Out.Write($response.Content)
+"#;
+
+    let output = Command::new("powershell")
+      .arg("-NoProfile")
+      .arg("-NonInteractive")
+      .arg("-ExecutionPolicy")
+      .arg("Bypass")
+      .arg("-EncodedCommand")
+      .arg(powershell_encoded_command(script))
+      .env("GALWRITER_ALIYUN_ENDPOINT", endpoint)
+      .env("GALWRITER_ALIYUN_ACCESS_KEY_ID", access_key_id)
+      .env("GALWRITER_ALIYUN_ACCESS_KEY_SECRET", access_key_secret)
+      .env("GALWRITER_ALIYUN_ACTION", action)
+      .env("GALWRITER_SOURCE_IMAGE_URL", image_url)
+      .output()
+      .map_err(|err| format!("Failed to start Alibaba Cloud ImageSeg proxy: {err}"))?;
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      return Err(format!("Alibaba Cloud ImageSeg request failed: {stderr}"));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+  }
+}
+
+#[tauri::command]
+fn proxy_volcengine_imagex_request(
+  endpoint: String,
+  access_key_id: String,
+  access_key_secret: String,
+  service_id: String,
+  image_url: String,
+  model_id: String,
+) -> Result<String, String> {
+  let endpoint = endpoint.trim();
+  let access_key_id = access_key_id.trim();
+  let access_key_secret = access_key_secret.trim();
+  let service_id = service_id.trim();
+  let image_url = image_url.trim();
+  let model_id = model_id.trim();
+  if access_key_id.is_empty() || access_key_secret.is_empty() || service_id.is_empty() {
+    return Err("Volcengine AccessKeyId, SecretAccessKey, or ServiceId is missing.".to_string());
+  }
+  if !endpoint.eq_ignore_ascii_case(
+    "https://imagex.volcengineapi.com/?Action=AIProcess&Version=2023-05-01",
+  ) {
+    return Err("Unsupported Volcengine veImageX endpoint.".to_string());
+  }
+
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = (
+      endpoint,
+      access_key_id,
+      access_key_secret,
+      service_id,
+      image_url,
+      model_id,
+    );
+    return Err("Volcengine veImageX native proxy is only available on Windows.".to_string());
+  }
+
+  #[cfg(target_os = "windows")]
+  {
+    let script = r#"
+$ErrorActionPreference = 'Stop'
+function HexHash([byte[]]$bytes) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+function HmacBytes([byte[]]$key, [string]$data) {
+  $hmac = [System.Security.Cryptography.HMACSHA256]::new($key)
+  $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($data))
+}
+function HmacHex([byte[]]$key, [string]$data) {
+  ((HmacBytes $key $data | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+$workflow = @{
+  Input = @{
+    ObjectKey = $env:GALWRITER_SOURCE_IMAGE_URL
+    DataType = 'url'
+  }
+  SegmentParam = @{
+    ModelId = $env:GALWRITER_VOLCENGINE_MODEL_ID
+    Refine = $true
+    TransBg = $true
+    OutFormat = 'png'
+  }
+} | ConvertTo-Json -Compress -Depth 8
+$payloadObject = @{
+  ServiceId = $env:GALWRITER_VOLCENGINE_SERVICE_ID
+  WorkflowTemplateId = 'system_workflow_image_segment'
+  WorkflowParameter = $workflow
+}
+$payload = $payloadObject | ConvertTo-Json -Compress -Depth 8
+$payloadHash = HexHash ([Text.Encoding]::UTF8.GetBytes($payload))
+$now = (Get-Date).ToUniversalTime()
+$date = $now.ToString('yyyyMMdd')
+$amzDate = $now.ToString('yyyyMMddTHHmmssZ')
+$hostName = 'imagex.volcengineapi.com'
+$canonicalQuery = 'Action=AIProcess&Version=2023-05-01'
+$canonicalHeaders = "content-type:application/json`nhost:$hostName`nx-content-sha256:$payloadHash`nx-date:$amzDate`n"
+$signedHeaders = 'content-type;host;x-content-sha256;x-date'
+$canonicalRequest = "POST`n/`n$canonicalQuery`n$canonicalHeaders`n$signedHeaders`n$payloadHash"
+$credentialScope = "$date/cn-north-1/imagex/request"
+$stringToSign = "HMAC-SHA256`n$amzDate`n$credentialScope`n$(HexHash ([Text.Encoding]::UTF8.GetBytes($canonicalRequest)))"
+$kDate = HmacBytes ([Text.Encoding]::UTF8.GetBytes($env:GALWRITER_VOLCENGINE_SECRET_ACCESS_KEY)) $date
+$kRegion = HmacBytes $kDate 'cn-north-1'
+$kService = HmacBytes $kRegion 'imagex'
+$kSigning = HmacBytes $kService 'request'
+$signature = HmacHex $kSigning $stringToSign
+$authorization = "HMAC-SHA256 Credential=$env:GALWRITER_VOLCENGINE_ACCESS_KEY_ID/$credentialScope, SignedHeaders=$signedHeaders, Signature=$signature"
+$headers = @{
+  Authorization = $authorization
+  'X-Date' = $amzDate
+  'X-Content-Sha256' = $payloadHash
+}
+$response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Post -ContentType 'application/json' -Headers $headers -Body $payload -UseBasicParsing
+[Console]::Out.Write($response.Content)
+"#;
+
+    let output = Command::new("powershell")
+      .arg("-NoProfile")
+      .arg("-NonInteractive")
+      .arg("-ExecutionPolicy")
+      .arg("Bypass")
+      .arg("-EncodedCommand")
+      .arg(powershell_encoded_command(script))
+      .env("GALWRITER_VOLCENGINE_ENDPOINT", endpoint)
+      .env("GALWRITER_VOLCENGINE_ACCESS_KEY_ID", access_key_id)
+      .env("GALWRITER_VOLCENGINE_SECRET_ACCESS_KEY", access_key_secret)
+      .env("GALWRITER_VOLCENGINE_SERVICE_ID", service_id)
+      .env("GALWRITER_SOURCE_IMAGE_URL", image_url)
+      .env(
+        "GALWRITER_VOLCENGINE_MODEL_ID",
+        if model_id.is_empty() { "humanv2" } else { model_id },
+      )
+      .output()
+      .map_err(|err| format!("Failed to start Volcengine veImageX proxy: {err}"))?;
+    if !output.status.success() {
+      let stderr = String::from_utf8_lossy(&output.stderr);
+      return Err(format!("Volcengine veImageX request failed: {stderr}"));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+  }
+}
+
+#[tauri::command]
 fn force_quit_app(app: AppHandle) {
   app.exit(0);
 }
@@ -1284,6 +1579,9 @@ pub fn run() {
       save_project_zip,
       synthesize_system_speech,
       proxy_volcengine_tts,
+      proxy_dashscope_request,
+      proxy_aliyun_imageseg_request,
+      proxy_volcengine_imagex_request,
       force_quit_app,
       set_close_button_minimizes,
       save_rendered_video,

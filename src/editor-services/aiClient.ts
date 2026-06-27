@@ -81,8 +81,7 @@ const isChatCompletionProvider = (provider: AiProvider) =>
   provider === 'kimi' ||
   provider === 'qwen' ||
   provider === 'glm' ||
-  provider === 'copilot' ||
-  provider === 'claude';
+  provider === 'copilot';
 
 export const createAIClient = (config: AIClientConfig) => {
   const key = () => config.apiKey.trim();
@@ -97,7 +96,7 @@ export const createAIClient = (config: AIClientConfig) => {
 
   const getChatModel = () => {
     if (config.provider === 'deepseek') {
-      return configuredModel() || (config.thinkingMode ? 'deepseek-reasoner' : 'deepseek-chat');
+      return configuredModel() || (config.thinkingMode ? 'deepseek-v4-pro' : 'deepseek-v4-flash');
     }
     return configuredModel() || 'gpt-4o';
   };
@@ -112,6 +111,38 @@ export const createAIClient = (config: AIClientConfig) => {
     return config.provider === 'deepseek'
       ? 'https://api.deepseek.com/chat/completions'
       : 'https://api.openai.com/v1/chat/completions';
+  };
+
+  const getClaudeEndpoint = () => {
+    const url = configuredUrl();
+    if (!url) return 'https://api.anthropic.com/v1/messages';
+    return /\/messages\/?$/i.test(url) ? url : `${url.replace(/\/$/, '')}/messages`;
+  };
+
+  const callClaudeMessages = async (prompt: string): Promise<AITextResult> => {
+    const response = await fetch(getClaudeEndpoint(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key(),
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: configuredModel() || 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Claude API 閿欒: ${await response.text()}`);
+
+    const data = await response.json();
+    const content = Array.isArray(data.content)
+      ? data.content
+        .map((item: { type?: string; text?: string }) => (item.type === 'text' ? item.text || '' : ''))
+        .join('')
+      : '';
+    return { content };
   };
 
   const readOpenAICompatibleStream = async (
@@ -241,6 +272,8 @@ export const createAIClient = (config: AIClientConfig) => {
       return { content: data.response || '' };
     }
 
+    if (config.provider === 'claude') return callClaudeMessages(prompt);
+
     if (isChatCompletionProvider(config.provider)) {
       const response = await fetch(getChatEndpoint(), {
         method: 'POST',
@@ -313,6 +346,12 @@ export const createAIClient = (config: AIClientConfig) => {
       }
 
       return { content };
+    }
+
+    if (config.provider === 'claude') {
+      const result = await callClaudeMessages(prompt);
+      handlers.onDelta?.(result.content);
+      return result;
     }
 
     if (isChatCompletionProvider(config.provider)) {
