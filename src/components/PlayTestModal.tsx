@@ -48,6 +48,7 @@ import {
 import {
   buildInlinePlaybackSteps,
   inlineActionAnimation,
+  inlineActionCssVars,
   inlineActionTransform,
 } from '../lib/inlinePresentationPlayback';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
@@ -1349,6 +1350,7 @@ export function PlayTestModal({
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
         : inlineActionTransform(activeSceneInlineAction) || 'none',
     animation: inlineActionAnimation(activeSceneInlineAction),
+    ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration: `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
@@ -1389,6 +1391,7 @@ export function PlayTestModal({
               opacity: animationActive && motion.type === 'fade' ? 0 : 1,
               transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
               animation: inlineActionAnimation(inlineAction),
+              ...inlineActionCssVars(inlineAction),
               transformOrigin: 'center center',
               transitionProperty: 'opacity, transform',
               transitionDuration: `${motion.type === 'none' ? 0 : motion.duration}ms`,

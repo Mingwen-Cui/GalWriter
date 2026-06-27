@@ -117,20 +117,38 @@ export const buildInlinePlaybackSteps = (
 };
 
 export const inlineActionTransform = (action?: InlinePresentationAction | null) => {
-  if (!action || action.action === 'none' || action.action === 'pulse' || action.action === 'wait')
-    return '';
+  if (!action || action.action === 'none' || action.action === 'pulse') return '';
+  if (action.action === 'translate') {
+    return `translate(${action.offsetX || action.strength || 0}px, ${action.offsetY || 0}px)`;
+  }
   if (action.action === 'translate-x') return `translateX(${action.offsetX || action.strength}px)`;
   if (action.action === 'translate-y') return `translateY(${action.offsetY || action.strength}px)`;
   if (action.action === 'scale') return `scale(${action.scale || 1.08})`;
   return '';
 };
 
+export const inlineActionCssVars = (action?: InlinePresentationAction | null) => {
+  if (!action || action.action === 'none') return {};
+  const opacity = Math.max(0, Math.min(100, action.strength || 0)) / 100;
+  return {
+    '--inline-action-strength': `${Math.max(0, action.strength || 10)}px`,
+    '--inline-action-rotation': `${Math.max(-360, Math.min(360, action.strength || 15))}deg`,
+    '--inline-action-opacity': opacity,
+    '--inline-action-brightness': opacity,
+  };
+};
+
 export const inlineActionAnimation = (action?: InlinePresentationAction | null) => {
-  if (!action || action.action === 'none' || action.action === 'wait') return undefined;
+  if (!action || action.action === 'none') return undefined;
   const duration = Math.max(80, action.duration || 400);
-  if (action.action === 'shake-x') return `galInlineShakeX ${duration}ms ease both`;
-  if (action.action === 'shake-y') return `galInlineShakeY ${duration}ms ease both`;
-  if (action.action === 'pulse') return `galInlinePulse ${duration}ms ease both`;
+  const repeats = Math.max(1, Math.round(action.repeats || 1));
+  const repeatDuration = Math.max(40, duration / repeats);
+  if (action.action === 'shake-x') return `galInlineShakeX ${repeatDuration}ms ease ${repeats} both`;
+  if (action.action === 'shake-y') return `galInlineShakeY ${repeatDuration}ms ease ${repeats} both`;
+  if (action.action === 'pulse') return `galInlinePulse ${repeatDuration}ms ease ${repeats} both`;
+  if (action.action === 'rotate') return `galInlineRotate ${duration}ms ease both`;
+  if (action.action === 'opacity') return `galInlineOpacity ${duration}ms ease both`;
+  if (action.action === 'brightness') return `galInlineBrightness ${duration}ms ease both`;
   return undefined;
 };
 

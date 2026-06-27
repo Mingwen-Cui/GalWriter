@@ -9,16 +9,16 @@
     translate: 0 0;
   }
   20% {
-    translate: -10px 0;
+    translate: calc(var(--inline-action-strength, 10px) * -1) 0;
   }
   40% {
-    translate: 10px 0;
+    translate: var(--inline-action-strength, 10px) 0;
   }
   60% {
-    translate: -6px 0;
+    translate: calc(var(--inline-action-strength, 10px) * -0.6) 0;
   }
   80% {
-    translate: 6px 0;
+    translate: calc(var(--inline-action-strength, 10px) * 0.6) 0;
   }
 }
 
@@ -28,16 +28,16 @@
     translate: 0 0;
   }
   20% {
-    translate: 0 -10px;
+    translate: 0 calc(var(--inline-action-strength, 10px) * -1);
   }
   40% {
-    translate: 0 10px;
+    translate: 0 var(--inline-action-strength, 10px);
   }
   60% {
-    translate: 0 -6px;
+    translate: 0 calc(var(--inline-action-strength, 10px) * -0.6);
   }
   80% {
-    translate: 0 6px;
+    translate: 0 calc(var(--inline-action-strength, 10px) * 0.6);
   }
 }
 
@@ -48,8 +48,41 @@
     filter: brightness(1);
   }
   45% {
-    opacity: 0.45;
-    filter: brightness(1.35);
+    opacity: var(--inline-action-opacity, 0.45);
+    filter: brightness(var(--inline-action-brightness, 1.35));
+  }
+}
+
+@keyframes galInlineRotate {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  45% {
+    rotate: var(--inline-action-rotation, 15deg);
+  }
+  72% {
+    rotate: calc(var(--inline-action-rotation, 15deg) * -0.65);
+  }
+}
+
+@keyframes galInlineOpacity {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: var(--inline-action-opacity, 0.45);
+  }
+}
+
+@keyframes galInlineBrightness {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  45% {
+    filter: brightness(var(--inline-action-brightness, 0.7));
   }
 }
 

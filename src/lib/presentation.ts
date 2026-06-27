@@ -77,9 +77,10 @@ export const createInlinePresentationAction = ({
   kind,
   sourceNodeId,
   name,
-  action: 'shake-x',
+  action: 'none',
   duration: 420,
   strength: 10,
+  repeats: 1,
   offsetX: kind === 'scene' ? 18 : 12,
   offsetY: kind === 'scene' ? 10 : 8,
   scale: kind === 'scene' ? 1.04 : 1.08,
@@ -96,11 +97,12 @@ export const normalizeStoryPresentation = (
 export const inlinePresentationActionLabel = (action: InlinePresentationActionType) => {
   if (action === 'shake-x') return '左右抖动';
   if (action === 'shake-y') return '上下抖动';
-  if (action === 'translate-x') return '水平平移';
-  if (action === 'translate-y') return '垂直平移';
+  if (action === 'translate' || action === 'translate-x' || action === 'translate-y') return '平移';
   if (action === 'scale') return '缩放';
   if (action === 'pulse') return '闪烁';
-  if (action === 'wait') return '停顿';
+  if (action === 'rotate') return '旋转';
+  if (action === 'opacity') return '不透明度';
+  if (action === 'brightness') return '亮度';
   return '无动作';
 };
 

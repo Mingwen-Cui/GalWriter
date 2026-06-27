@@ -71,6 +71,7 @@ type WebExportNode = {
         action: string;
         duration: number;
         strength: number;
+        repeats?: number;
         offsetX: number;
         offsetY: number;
         scale: number;
@@ -734,9 +735,12 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     .anim-fade { animation: fadeIn 360ms ease both; }
     .anim-slideUp { animation: slideUp 360ms ease both; }
     .anim-typewriter { animation: fadeIn 180ms ease both; }
-    .inline-shake-x { animation: inlineShakeX var(--inline-action-duration, 400ms) ease both; }
-    .inline-shake-y { animation: inlineShakeY var(--inline-action-duration, 400ms) ease both; }
-    .inline-pulse { animation: inlinePulse var(--inline-action-duration, 400ms) ease both; }
+    .inline-shake-x { animation: inlineShakeX var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
+    .inline-shake-y { animation: inlineShakeY var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
+    .inline-pulse { animation: inlinePulse var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
+    .inline-rotate { animation: inlineRotate var(--inline-action-duration, 400ms) ease both; }
+    .inline-opacity { animation: inlineOpacity var(--inline-action-duration, 400ms) ease both; }
+    .inline-brightness { animation: inlineBrightness var(--inline-action-duration, 400ms) ease both; }
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -762,6 +766,19 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     @keyframes inlinePulse {
       0%, 100% { scale: 1; }
       50% { scale: var(--inline-action-scale, 1.08); }
+    }
+    @keyframes inlineRotate {
+      0%, 100% { rotate: 0deg; }
+      45% { rotate: var(--inline-action-rotation, 12deg); }
+      72% { rotate: calc(var(--inline-action-rotation, 12deg) * -0.65); }
+    }
+    @keyframes inlineOpacity {
+      0%, 100% { opacity: 1; }
+      45% { opacity: var(--inline-action-opacity, 0.45); }
+    }
+    @keyframes inlineBrightness {
+      0%, 100% { filter: brightness(1); }
+      45% { filter: brightness(var(--inline-action-brightness, 0.7)); }
     }
     .end {
       min-height: 100%;
@@ -1327,16 +1344,22 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
     function clearInlineActionElement(element) {
       if (!element) return;
-      element.classList.remove("inline-shake-x", "inline-shake-y", "inline-pulse");
+      element.classList.remove("inline-shake-x", "inline-shake-y", "inline-pulse", "inline-rotate", "inline-opacity", "inline-brightness");
       element.style.removeProperty("--inline-action-duration");
       element.style.removeProperty("--inline-action-strength");
       element.style.removeProperty("--inline-action-scale");
+      element.style.removeProperty("--inline-action-step-duration");
+      element.style.removeProperty("--inline-action-count");
+      element.style.removeProperty("--inline-action-rotation");
+      element.style.removeProperty("--inline-action-opacity");
+      element.style.removeProperty("--inline-action-brightness");
       const baseTransform = element.dataset.baseTransform || "";
       if (baseTransform) element.style.transform = baseTransform;
     }
 
     function inlineActionTransform(action) {
-      if (!action || action.action === "none" || action.action === "pulse" || action.action === "wait") return "";
+      if (!action || action.action === "none" || action.action === "pulse") return "";
+      if (action.action === "translate") return "translate(" + (action.offsetX || action.strength || 0) + "px, " + (action.offsetY || 0) + "px)";
       if (action.action === "translate-x") return "translateX(" + (action.offsetX || action.strength || 0) + "px)";
       if (action.action === "translate-y") return "translateY(" + (action.offsetY || action.strength || 0) + "px)";
       if (action.action === "scale") return "scale(" + (action.scale || 1.08) + ")";
@@ -1354,8 +1377,14 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       if (!target) return;
       clearInlineActionElement(target);
       target.style.setProperty("--inline-action-duration", duration + "ms");
+      const repeats = Math.max(1, Math.round(action.repeats || 1));
+      target.style.setProperty("--inline-action-step-duration", Math.max(40, duration / repeats) + "ms");
+      target.style.setProperty("--inline-action-count", repeats);
       target.style.setProperty("--inline-action-strength", Math.max(1, action.strength || 14) + "px");
       target.style.setProperty("--inline-action-scale", action.scale || 1.08);
+      target.style.setProperty("--inline-action-rotation", Math.max(-360, Math.min(360, action.strength || 15)) + "deg");
+      target.style.setProperty("--inline-action-opacity", Math.max(0, Math.min(1, (action.strength || 0) / 100)));
+      target.style.setProperty("--inline-action-brightness", Math.max(0, Math.min(1, (action.strength || 0) / 100)));
       const baseTransform = target.dataset.baseTransform || target.style.transform || "";
       target.dataset.baseTransform = baseTransform;
       const transform = inlineActionTransform(action);
@@ -1366,6 +1395,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         if (action.action === "shake-x") target.classList.add("inline-shake-x");
         if (action.action === "shake-y") target.classList.add("inline-shake-y");
         if (action.action === "pulse") target.classList.add("inline-pulse");
+        if (action.action === "rotate") target.classList.add("inline-rotate");
+        if (action.action === "opacity") target.classList.add("inline-opacity");
+        if (action.action === "brightness") target.classList.add("inline-brightness");
       }
       const resetTimer = setTimeout(() => clearInlineActionElement(target), duration);
       typewriterTimers.push(resetTimer);

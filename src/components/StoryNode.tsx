@@ -2433,7 +2433,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     );
                   }
                 }}
-                className={`absolute right-3 top-3 rounded-md border px-2 py-1 text-[11px] font-bold transition-colors ${
+                className={`absolute right-3 top-3 rounded-md border p-1.5 transition-colors ${
                   presentationMenu.placement === 'inline'
                     ? 'hidden'
                     : ''
@@ -2450,10 +2450,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     : '恢复默认演出设置'
                 }
               >
-                {presentationResetUndo?.kind === presentationMenu.kind &&
-                presentationResetUndo.sourceNodeId === presentationMenu.sourceNodeId
-                  ? '还原'
-                  : '清零'}
+                <Eraser className="h-3.5 w-3.5" />
               </button>
               <div className="mb-3 pr-12 text-sm font-black">
                 {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
@@ -2478,33 +2475,55 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         targetKind={presentationMenu.kind}
                         onChange={updateInlineAction}
                         onDelete={() => deleteInlineAction(action.id)}
+                        onReset={() =>
+                          updateInlineAction(
+                            createInlinePresentationAction({
+                              id: action.id,
+                              kind: action.kind,
+                              sourceNodeId: action.sourceNodeId,
+                              name: action.name,
+                            }),
+                          )
+                        }
                         onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
                         onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
                         autoPreview={autoPreviewInlineAction}
                         onAutoPreviewChange={setAutoPreviewInlineAction}
                       />
-                      {currentCharacter && (
-                        <label className="flex items-center gap-2 text-xs">
-                          <span className="shrink-0 font-bold">Z轴</span>
-                          <div className="w-20">
-                            <DraggableNumberInput
-                              value={clampCharacterLayer(currentCharacter.layer)}
-                              min={1}
-                              max={20}
-                              unit={null}
-                              onChange={(value) =>
-                                updateCharacterPresentation(
-                                  presentationMenu.sourceNodeId,
-                                  (item) => ({
-                                    ...item,
-                                    layer: clampCharacterLayer(value),
-                                  }),
-                                )
-                              }
-                            />
-                          </div>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        {currentCharacter ? (
+                          <label className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 font-bold">Z轴</span>
+                            <div className="w-20">
+                              <DraggableNumberInput
+                                value={clampCharacterLayer(currentCharacter.layer)}
+                                min={1}
+                                max={20}
+                                unit={null}
+                                onChange={(value) =>
+                                  updateCharacterPresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({
+                                      ...item,
+                                      layer: clampCharacterLayer(value),
+                                    }),
+                                  )
+                                }
+                              />
+                            </div>
+                          </label>
+                        ) : (
+                          <span />
+                        )}
+                        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5 font-bold text-[var(--text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={autoPreviewInlineAction}
+                            onChange={(event) => setAutoPreviewInlineAction(event.target.checked)}
+                          />
+                          预览
                         </label>
-                      )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -2612,30 +2631,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             ))}
                           </div>
                         )}
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation(
-                                'character',
-                                presentationMenu.sourceNodeId,
-                                'enter',
-                              )
-                            }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                          >
-                            预览入场
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation('character', presentationMenu.sourceNodeId, 'exit')
-                            }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                          >
-                            预览出场
-                          </button>
-                        </div>
                         <div className="flex w-full gap-2">
                           <button
                             type="button"
@@ -2722,26 +2717,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           </div>
                         </div>
                         <label className="flex items-center gap-2">
-                          <span className="shrink-0 font-bold">Z轴</span>
-                          <div className="w-20">
-                            <DraggableNumberInput
-                              value={clampCharacterLayer(current.layer)}
-                              min={1}
-                              max={20}
-                              unit={null}
-                              onChange={(value) =>
-                                updateCharacterPresentation(
-                                  presentationMenu.sourceNodeId,
-                                  (item) => ({
-                                    ...item,
-                                    layer: clampCharacterLayer(value),
-                                  }),
-                                )
-                              }
-                            />
-                          </div>
-                        </label>
-                        <label className="flex items-center gap-2">
                           <span className="shrink-0 font-bold">
                             缩放：{Math.round(current.scale * 100)}%
                           </span>
@@ -2814,6 +2789,56 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             </label>
                           </div>
                         ))}
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 font-bold">Z轴</span>
+                            <div className="w-20">
+                              <DraggableNumberInput
+                                value={clampCharacterLayer(current.layer)}
+                                min={1}
+                                max={20}
+                                unit={null}
+                                onChange={(value) =>
+                                  updateCharacterPresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({
+                                      ...item,
+                                      layer: clampCharacterLayer(value),
+                                    }),
+                                  )
+                                }
+                              />
+                            </div>
+                          </label>
+                          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                replayPresentation(
+                                  'character',
+                                  presentationMenu.sourceNodeId,
+                                  'enter',
+                                )
+                              }
+                              className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            >
+                              预览入场
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                replayPresentation(
+                                  'character',
+                                  presentationMenu.sourceNodeId,
+                                  'exit',
+                                )
+                              }
+                              className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                            >
+                              预览出场
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })()
@@ -2918,26 +2943,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             ))}
                           </div>
                         )}
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
-                            }
-                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                          >
-                            预览入场
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
-                            }
-                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
-                          >
-                            预览出场
-                          </button>
-                        </div>
                         <div className="space-y-1.5">
                           <div className="px-0.5 text-[10px] font-bold text-[var(--text-muted)]">
                             {t.objectFit}
@@ -3078,6 +3083,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             </label>
                           </div>
                         ))}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              replayPresentation('scene', presentationMenu.sourceNodeId, 'enter')
+                            }
+                            className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-2 font-bold text-blue-500 outline-none hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                          >
+                            预览入场
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              replayPresentation('scene', presentationMenu.sourceNodeId, 'exit')
+                            }
+                            className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 font-bold text-rose-500 outline-none hover:bg-rose-500 hover:text-white focus:outline-none focus-visible:outline-none"
+                          >
+                            预览出场
+                          </button>
+                        </div>
                       </div>
                     );
                     })()

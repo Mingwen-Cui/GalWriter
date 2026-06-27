@@ -22,19 +22,34 @@ const inlineCanvasState = (
   action: InlinePresentationAction | null | undefined,
   elapsed = 0,
 ) => {
-  if (!action || action.action === 'none' || action.action === 'wait') {
-    return { x: 0, y: 0, scale: 1, alpha: 1 };
+  if (!action || action.action === 'none') {
+    return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
   }
   const duration = Math.max(0.08, (action.duration || 400) / 1000);
   const progress = clamp(elapsed / duration, 0, 1);
-  const wave = Math.sin(progress * Math.PI * 6) * (1 - progress);
-  if (action.action === 'shake-x') return { x: wave * (action.strength || 10), y: 0, scale: 1, alpha: 1 };
-  if (action.action === 'shake-y') return { x: 0, y: wave * (action.strength || 10), scale: 1, alpha: 1 };
-  if (action.action === 'translate-x') return { x: (action.offsetX || action.strength || 0) * easeOut(progress), y: 0, scale: 1, alpha: 1 };
-  if (action.action === 'translate-y') return { x: 0, y: (action.offsetY || action.strength || 0) * easeOut(progress), scale: 1, alpha: 1 };
-  if (action.action === 'scale') return { x: 0, y: 0, scale: 1 + ((action.scale || 1.08) - 1) * Math.sin(progress * Math.PI), alpha: 1 };
-  if (action.action === 'pulse') return { x: 0, y: 0, scale: 1, alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 4)) * 0.45 };
-  return { x: 0, y: 0, scale: 1, alpha: 1 };
+  const repeats = Math.max(1, Math.round(action.repeats || 1));
+  const wave = Math.sin(progress * Math.PI * 2 * repeats) * (1 - progress);
+  const pulse = Math.sin(progress * Math.PI);
+  if (action.action === 'shake-x') return { x: wave * (action.strength || 10), y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'shake-y') return { x: 0, y: wave * (action.strength || 10), scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'translate') {
+    return {
+      x: (action.offsetX || action.strength || 0) * easeOut(progress),
+      y: (action.offsetY || 0) * easeOut(progress),
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
+  }
+  if (action.action === 'translate-x') return { x: (action.offsetX || action.strength || 0) * easeOut(progress), y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'translate-y') return { x: 0, y: (action.offsetY || action.strength || 0) * easeOut(progress), scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'scale') return { x: 0, y: 0, scale: 1 + ((action.scale || 1.08) - 1) * pulse, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'pulse') return { x: 0, y: 0, scale: 1, alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 2 * repeats)) * 0.45, rotation: 0, brightness: 1 };
+  if (action.action === 'rotate') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: ((action.strength || 12) * pulse * Math.PI) / 180, brightness: 1 };
+  if (action.action === 'opacity') return { x: 0, y: 0, scale: 1, alpha: 1 - (1 - clamp((action.strength || 0) / 100, 0, 1)) * pulse, rotation: 0, brightness: 1 };
+  if (action.action === 'brightness') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 + (clamp((action.strength || 0) / 100, 0, 1) - 1) * pulse };
+  return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 };
 
 const motionState = (
@@ -196,14 +211,16 @@ export const drawPresentationVisuals = async ({
     const inlineState =
       activeInlineAction?.kind === 'scene' && activeInlineAction.sourceNodeId === scene?.sourceNodeId
         ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
-        : { x: 0, y: 0, scale: 1, alpha: 1 };
+        : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
     const state = scene
       ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height, 0, 0)
       : { x: 0, y: 0, scale: 1, alpha: 1 };
     ctx.save();
     ctx.globalAlpha = state.alpha * inlineState.alpha;
     ctx.translate(width / 2 + state.x + inlineState.x, height / 2 + state.y + inlineState.y);
+    ctx.rotate(inlineState.rotation);
     ctx.scale(state.scale * inlineState.scale, state.scale * inlineState.scale);
+    ctx.filter = inlineState.brightness === 1 ? 'none' : `brightness(${inlineState.brightness})`;
     ctx.translate(-width / 2, -height / 2);
     drawFitted(
       ctx,
@@ -263,15 +280,17 @@ export const drawPresentationVisuals = async ({
         activeInlineAction?.kind === 'character' &&
         activeInlineAction.sourceNodeId === config.sourceNodeId
           ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
-          : { x: 0, y: 0, scale: 1, alpha: 1 };
+          : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 
       ctx.save();
       ctx.globalAlpha = state.alpha * inlineState.alpha;
       ctx.translate(centerX + state.x + inlineState.x, height - bottom + state.y + inlineState.y);
+      ctx.rotate(inlineState.rotation);
       ctx.scale(
         config.scale * state.scale * inlineState.scale * (config.flipX ? -1 : 1),
         config.scale * state.scale * inlineState.scale,
       );
+      ctx.filter = inlineState.brightness === 1 ? 'none' : `brightness(${inlineState.brightness})`;
       ctx.drawImage(image, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
       ctx.restore();
     });

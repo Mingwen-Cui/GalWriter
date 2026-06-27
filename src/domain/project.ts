@@ -361,11 +361,14 @@ export type InlinePresentationActionType =
   | 'none'
   | 'shake-x'
   | 'shake-y'
+  | 'translate'
   | 'translate-x'
   | 'translate-y'
   | 'scale'
   | 'pulse'
-  | 'wait';
+  | 'rotate'
+  | 'opacity'
+  | 'brightness';
 
 export interface PresentationMotion {
   type: PresentationAnimation;
@@ -380,6 +383,7 @@ export interface InlinePresentationAction {
   action: InlinePresentationActionType;
   duration: number;
   strength: number;
+  repeats?: number;
   offsetX: number;
   offsetY: number;
   scale: number;

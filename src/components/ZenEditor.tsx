@@ -2,6 +2,7 @@
   Bold,
   ClipboardPaste,
   Copy,
+  Eraser,
   Image as ImageIcon,
   Italic,
   List,
@@ -1410,18 +1411,67 @@ export function ZenEditor({
             presentationMenu?.placement === 'inline' &&
             (() => {
               const action = getInlineAction(presentationMenu);
+              const currentCharacter =
+                presentationMenu.kind === 'character'
+                  ? normalizedPresentation.characters.find(
+                      (item) => item.sourceNodeId === presentationMenu.id,
+                    ) || createCharacterPresentation(presentationMenu.id)
+                  : null;
               return (
-                <InlineActionEditor
-                  action={action}
-                  targetName={presentationMenu.name}
-                  targetKind={presentationMenu.kind}
-                  onChange={updateInlineAction}
-                  onDelete={() => deleteInlineAction(action.id)}
-                  onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
-                  onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
-                  autoPreview={autoPreviewInlineAction}
-                  onAutoPreviewChange={setAutoPreviewInlineAction}
-                />
+                <div className="space-y-3">
+                  <InlineActionEditor
+                    action={action}
+                    targetName={presentationMenu.name}
+                    targetKind={presentationMenu.kind}
+                    onChange={updateInlineAction}
+                    onDelete={() => deleteInlineAction(action.id)}
+                    onReset={() =>
+                      updateInlineAction(
+                        createInlinePresentationAction({
+                          id: action.id,
+                          kind: action.kind,
+                          sourceNodeId: action.sourceNodeId,
+                          name: action.name,
+                        }),
+                      )
+                    }
+                    onPreviewBefore={(nextAction) => previewInlineAction(nextAction, 'before')}
+                    onPreviewAfter={(nextAction) => previewInlineAction(nextAction, 'after')}
+                    autoPreview={autoPreviewInlineAction}
+                    onAutoPreviewChange={setAutoPreviewInlineAction}
+                  />
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    {currentCharacter ? (
+                      <label className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 font-bold">Z轴</span>
+                        <div className="w-20">
+                          <DraggableNumberInput
+                            value={clampCharacterLayer(currentCharacter.layer)}
+                            min={1}
+                            max={20}
+                            unit={null}
+                            onChange={(value) =>
+                              updateCharacter(presentationMenu.id, (item) => ({
+                                ...item,
+                                layer: clampCharacterLayer(value),
+                              }))
+                            }
+                          />
+                        </div>
+                      </label>
+                    ) : (
+                      <span />
+                    )}
+                    <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5 font-bold text-[var(--text-secondary)]">
+                      <input
+                        type="checkbox"
+                        checked={autoPreviewInlineAction}
+                        onChange={(event) => setAutoPreviewInlineAction(event.target.checked)}
+                      />
+                      预览
+                    </label>
+                  </div>
+                </div>
               );
             })()}
           {rightPanel === 'presentation' &&
@@ -1474,7 +1524,7 @@ export function ZenEditor({
                         true,
                       );
                     }}
-                    className={`absolute right-0 top-0 rounded-md border px-2 py-1 text-xs font-bold transition-colors ${
+                    className={`absolute right-0 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'character' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1487,10 +1537,7 @@ export function ZenEditor({
                         : '恢复默认演出设置'
                     }
                   >
-                    {presentationResetUndo?.kind === 'character' &&
-                    presentationResetUndo.sourceNodeId === presentationMenu.id
-                      ? '还原'
-                      : '清零'}
+                    <Eraser className="h-3.5 w-3.5" />
                   </button>
                   <div className="mb-3 pr-16">
                     <strong>人物演出：{presentationMenu.name}</strong>
@@ -1822,7 +1869,7 @@ export function ZenEditor({
                         true,
                       );
                     }}
-                    className={`absolute right-0 top-0 rounded-md border px-2 py-1 text-xs font-bold transition-colors ${
+                    className={`absolute right-0 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'scene' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1835,10 +1882,7 @@ export function ZenEditor({
                         : '恢复默认演出设置'
                     }
                   >
-                    {presentationResetUndo?.kind === 'scene' &&
-                    presentationResetUndo.sourceNodeId === presentationMenu.id
-                      ? '还原'
-                      : '清零'}
+                    <Eraser className="h-3.5 w-3.5" />
                   </button>
                   <div className="mb-3 pr-16">
                     <strong>场景演出：{presentationMenu.name}</strong>

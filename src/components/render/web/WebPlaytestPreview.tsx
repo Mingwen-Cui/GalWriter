@@ -32,6 +32,7 @@ import {
 import {
   buildInlinePlaybackSteps,
   inlineActionAnimation,
+  inlineActionCssVars,
   inlineActionTransform,
 } from '../../../lib/inlinePresentationPlayback';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
@@ -774,6 +775,7 @@ export function WebPlaytestPreview({
         ? getPresentationTransform(sceneMotion.type, presentationExiting)
         : inlineActionTransform(activeSceneInlineAction) || 'none',
     animation: inlineActionAnimation(activeSceneInlineAction),
+    ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration:
       settings.layoutMode === 'classic'
@@ -903,6 +905,7 @@ export function WebPlaytestPreview({
                           opacity: animationActive && motion.type === 'fade' ? 0 : 1,
                           transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
                           animation: inlineActionAnimation(inlineAction),
+                          ...inlineActionCssVars(inlineAction),
                           transformOrigin: 'center center',
                           transitionProperty: 'opacity, transform',
                           transitionDuration:
