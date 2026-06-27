@@ -2529,27 +2529,65 @@ input[type='range']::-moz-range-track {
   }
 
   .playtest-header {
-    min-height: 104px !important;
     padding: 8px 12px 10px !important;
-    align-items: flex-start !important;
-    flex-wrap: wrap;
   }
 
-  .playtest-header-actions {
-    order: 3;
+  .playtest-header--compact-row {
+    min-height: 56px !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .playtest-header--compact-row .playtest-header-title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .playtest-header--compact-row .playtest-header-actions {
+    order: unset;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px !important;
+    overflow-x: auto;
+  }
+
+  .playtest-header--compact-row .playtest-header-back span {
+    display: none;
+  }
+
+  .playtest-header--classic-mobile {
+    min-height: 96px !important;
+    align-items: stretch !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .playtest-header--classic-mobile .playtest-header-primary {
+    min-height: 40px;
+  }
+
+  .playtest-header--classic-mobile .playtest-header-actions-secondary {
+    order: unset;
     width: 100%;
     justify-content: center;
     gap: 8px !important;
   }
 
-  .playtest-header-actions button {
+  .playtest-header-actions button,
+  .playtest-header-back {
     min-height: 40px;
     min-width: 40px;
   }
 
-  .playtest-header-actions button:first-child {
-    flex: 1 1 120px;
-    max-width: 180px;
+  .playtest-header--classic-mobile .playtest-header-back {
+    flex: 0 0 auto;
+    max-width: none;
+  }
+
+  .playtest-focus-button-inline {
+    margin-right: 2px;
   }
 
   .bubble-glass-mode .mobile-editor-header .header-glass-action,
