@@ -161,16 +161,6 @@ export function EditorHeader({
   const defaultProjectName =
     language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
 
-  const mobileLastSavedLabel =
-    language === 'zh' ? '上次保存' : language === 'ja' ? '最終保存' : 'Last saved';
-  const mobileLastSavedValue = lastSavedTime
-    ? formatLastSavedTime(lastSavedTime)
-    : language === 'zh'
-      ? '尚未保存'
-      : language === 'ja'
-        ? '未保存'
-        : 'Not saved';
-
   return (
     <div
       className={`pointer-events-none z-30 md:left-6 ${
@@ -179,13 +169,13 @@ export function EditorHeader({
           : 'absolute left-4 top-3'
       }`}
     >
-      {/* NOTE: 移动端使用三列布局（relative 容器 + 绝对居中的保存时间），桌面端保持原有内联布局 */}
+      {/* NOTE: 移动端单行布局：Logo + 项目名 + 操作按钮 */}
       {isMobile ? (
         <div
           className={`toolbar-bubble-surface editor-header-bubble pointer-events-auto relative flex w-full items-center mobile-editor-header-bar border border-[var(--header-border)] bg-white/80 shadow-sm backdrop-blur-xl dark:bg-slate-900/80 ${bubbleStyle === 'glass' ? '' : 'px-2 py-1.5'}`}
         >
           {/* 左侧：Logo + 项目名 */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <img
               src={bubbleStyle === 'glass' ? './glass.png' : './icon.png'}
               className="editor-header-logo h-8 w-8 shrink-0 theme-invert"
@@ -194,7 +184,7 @@ export function EditorHeader({
             <button
               type="button"
               onClick={startEditingProjectName}
-              className="min-w-0 rounded-md px-1 py-0.5 text-left text-sm font-bold transition-colors text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200"
+              className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left text-sm font-bold transition-colors text-black dark:text-white hover:text-slate-700 dark:hover:text-slate-200"
               title={displayProjectName}
             >
               {isEditingProjectName ? (
@@ -223,11 +213,11 @@ export function EditorHeader({
                     }
                   }}
                   placeholder={defaultProjectName}
-                  className="bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+                  className="w-full bg-transparent text-black outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
                   style={{ width: `${projectNameWidth}px` }}
                 />
               ) : (
-                <span className="inline-block max-w-[130px] truncate align-middle">
+                <span className="block truncate align-middle">
                   {projectName.trim() ? projectName : defaultProjectName}
                 </span>
               )}
@@ -241,27 +231,7 @@ export function EditorHeader({
             </span>
           </div>
 
-          {/* 中间：保存时间（绝对居中，不占用两侧空间） */}
-          {showLastSavedTime && (
-            <span className="hidden">
-              {lastSavedTime
-                ? `${language === 'zh' ? '上次保存: ' : language === 'ja' ? '最終保存: ' : 'Last saved: '}${formatLastSavedTime(lastSavedTime)}`
-                : language === 'zh'
-                  ? '尚未保存'
-                  : language === 'ja'
-                    ? '未保存'
-                    : 'Not saved yet'}
-            </span>
-          )}
-
           {/* 右侧：操作按钮组 */}
-          {showLastSavedTime && (
-            <span className="pointer-events-none absolute left-1/2 flex max-w-[72px] -translate-x-1/2 flex-col items-center justify-center text-center text-[10px] font-semibold leading-[11px] text-slate-500 dark:text-slate-400">
-              <span className="block max-w-[72px] truncate">{mobileLastSavedLabel}</span>
-              <span className="block max-w-[72px] truncate">{mobileLastSavedValue}</span>
-            </span>
-          )}
-
           <div
             className={`mobile-editor-header-actions ml-auto flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-0.5'}`}
           >

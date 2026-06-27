@@ -395,6 +395,10 @@ body,
 }
 
 @media (max-width: 767px), (pointer: coarse) and (max-width: 900px) {
+  :root {
+    --mobile-editor-header-bar-height: 56px;
+  }
+
   .mobile-editor-header {
     padding-top: var(--app-safe-area-top);
   }
@@ -402,7 +406,7 @@ body,
   .mobile-editor-header-bar {
     width: 100vw !important;
     max-width: 100vw !important;
-    min-height: 96px;
+    min-height: var(--mobile-editor-header-bar-height);
     border-left: 0 !important;
     border-right: 0 !important;
     border-top: 0 !important;
@@ -414,18 +418,17 @@ body,
 
   .editor-header-bubble {
     max-width: 100vw !important;
-    min-height: 96px;
-    align-content: center;
-    align-items: flex-start !important;
-    flex-wrap: wrap;
-    gap: 0.25rem !important;
-    padding: 8px 8px 6px !important;
+    min-height: var(--mobile-editor-header-bar-height);
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    padding: 8px !important;
   }
 
   .mobile-editor-header-actions {
-    order: 3;
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
     gap: 8px !important;
   }
 
@@ -460,6 +463,10 @@ body,
     max-width: min(34vw, 150px) !important;
   }
 
+  .mobile-editor-header-bar .truncate {
+    max-width: none !important;
+  }
+
   .glass-toolbar {
     border-radius: 14px !important;
     padding: 3px !important;
@@ -467,7 +474,7 @@ body,
 
   .glass-toolbar.absolute.left-6 {
     left: 10px !important;
-    top: calc(112px + var(--app-safe-area-top)) !important;
+    top: calc(var(--mobile-editor-header-bar-height, 56px) + 16px + var(--app-safe-area-top)) !important;
     /* NOTE: overflow:visible is needed for ring/shadow overflow, but must not override overflow-hidden when toolbar is collapsed */
     width: 52px !important;
   }
@@ -478,7 +485,7 @@ body,
 
   .glass-toolbar.absolute.right-6 {
     right: 10px !important;
-    top: calc(112px + var(--app-safe-area-top)) !important;
+    top: calc(var(--mobile-editor-header-bar-height, 56px) + 16px + var(--app-safe-area-top)) !important;
     width: 52px !important;
     overflow: visible !important;
   }
@@ -2337,14 +2344,17 @@ input[type='range']::-moz-range-track {
 
 .bubble-glass-mode .header-glass-action.header-glass-action-active {
   background: rgba(99, 102, 241, 0.14) !important;
+  border-radius: 0 !important;
 }
 
 .bubble-glass-mode .glass-toolbar button.glass-toolbar-active:not(.exclude-glass) {
   background: oklch(0.511 0.262 276.966 / 0.14) !important;
+  border-radius: 0 !important;
 }
 
 [data-theme='dark'] .bubble-glass-mode .header-glass-action.header-glass-action-active {
   background: rgba(129, 140, 248, 0.18) !important;
+  border-radius: 0 !important;
 }
 
 [data-theme='dark']
@@ -2352,6 +2362,7 @@ input[type='range']::-moz-range-track {
   .glass-toolbar
   button.glass-toolbar-active:not(.exclude-glass) {
   background: oklch(0.511 0.262 276.966 / 0.18) !important;
+  border-radius: 0 !important;
 }
 
 [data-theme='dark'] .theme-invert {
@@ -2388,9 +2399,14 @@ input[type='range']::-moz-range-track {
 }
 
 /* 解决卡片浮动工具栏按钮 hover 背景超出圆角的问题 */
-.toolbar-bubble-surface button:not(.rounded-full) {
+.toolbar-bubble-surface button:not(.rounded-full):not(.header-glass-action):not(.glass-toolbar-ai) {
   border-radius: 8px !important;
   overflow: hidden !important;
+}
+
+/* 玻璃模式 sidebar 工具栏按钮由 bubble-glass-mode 规则控制，不受上方 8px 圆角影响 */
+.bubble-glass-mode .glass-toolbar.toolbar-bubble-surface button:not(.rounded-full):not(.exclude-glass) {
+  border-radius: 0 !important;
 }
 .toolbar-bubble-surface button.rounded-full {
   border-radius: 9999px !important;
@@ -2449,6 +2465,12 @@ input[type='range']::-moz-range-track {
 .bubble-glass-mode .header-glass-action:last-of-type {
   border-top-right-radius: 16px !important;
   border-bottom-right-radius: 16px !important;
+}
+
+.bubble-glass-mode .glass-toolbar button.glass-toolbar-ai:not(.exclude-glass),
+.bubble-glass-mode .glass-toolbar button.glass-toolbar-ai:not(.exclude-glass):hover,
+.bubble-glass-mode .glass-toolbar button.glass-toolbar-ai.glass-toolbar-active:not(.exclude-glass) {
+  border-radius: 0 !important;
 }
 
 /* 连线手机端长按即将删除的颤动提示动画 */
