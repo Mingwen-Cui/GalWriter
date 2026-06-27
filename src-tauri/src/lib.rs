@@ -779,92 +779,6 @@ $response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Po
 }
 
 #[tauri::command]
-fn proxy_dashscope_request(
-  endpoint: String,
-  api_key: String,
-  method: String,
-  body: String,
-  async_task: bool,
-) -> Result<String, String> {
-  let endpoint = endpoint.trim();
-  let api_key = api_key.trim();
-  let method = method.trim().to_ascii_uppercase();
-  if api_key.is_empty() {
-    return Err("DashScope API Key is missing.".to_string());
-  }
-  let allowed_create =
-    endpoint.eq_ignore_ascii_case("https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis");
-  let allowed_task = endpoint
-    .to_ascii_lowercase()
-    .starts_with("https://dashscope.aliyuncs.com/api/v1/tasks/");
-  if !allowed_create && !allowed_task {
-    return Err("Unsupported DashScope endpoint.".to_string());
-  }
-  if method != "POST" && method != "GET" {
-    return Err("Unsupported DashScope method.".to_string());
-  }
-
-  #[cfg(not(target_os = "windows"))]
-  {
-    let _ = (endpoint, api_key, method, body, async_task);
-    return Err("DashScope native proxy is only available on Windows.".to_string());
-  }
-
-  #[cfg(target_os = "windows")]
-  {
-    let script = r#"
-$ErrorActionPreference = 'Stop'
-$body = [Console]::In.ReadToEnd()
-$headers = @{
-  'Authorization' = "Bearer $env:GALWRITER_DASHSCOPE_API_KEY"
-}
-if ($env:GALWRITER_DASHSCOPE_ASYNC -eq 'true') {
-  $headers['X-DashScope-Async'] = 'enable'
-}
-if ($env:GALWRITER_DASHSCOPE_METHOD -eq 'POST') {
-  $response = Invoke-WebRequest -Uri $env:GALWRITER_DASHSCOPE_ENDPOINT -Method Post -ContentType 'application/json' -Headers $headers -Body $body -UseBasicParsing
-} else {
-  $response = Invoke-WebRequest -Uri $env:GALWRITER_DASHSCOPE_ENDPOINT -Method Get -Headers $headers -UseBasicParsing
-}
-[Console]::Out.Write($response.Content)
-"#;
-
-    let mut child = Command::new("powershell")
-      .arg("-NoProfile")
-      .arg("-NonInteractive")
-      .arg("-ExecutionPolicy")
-      .arg("Bypass")
-      .arg("-EncodedCommand")
-      .arg(powershell_encoded_command(script))
-      .env("GALWRITER_DASHSCOPE_ENDPOINT", endpoint)
-      .env("GALWRITER_DASHSCOPE_API_KEY", api_key)
-      .env("GALWRITER_DASHSCOPE_METHOD", method)
-      .env("GALWRITER_DASHSCOPE_ASYNC", if async_task { "true" } else { "false" })
-      .stdin(Stdio::piped())
-      .stdout(Stdio::piped())
-      .stderr(Stdio::piped())
-      .spawn()
-      .map_err(|err| format!("Failed to start DashScope proxy: {err}"))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-      stdin
-        .write_all(body.as_bytes())
-        .map_err(|err| format!("Failed to write DashScope request: {err}"))?;
-    }
-
-    let output = child
-      .wait_with_output()
-      .map_err(|err| format!("Failed to read DashScope response: {err}"))?;
-    if !output.status.success() {
-      let stderr = String::from_utf8_lossy(&output.stderr);
-      return Err(format!("DashScope request failed: {stderr}"));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-  }
-}
-
-#[tauri::command]
 fn proxy_aliyun_imageseg_request(
   endpoint: String,
   access_key_id: String,
@@ -1579,7 +1493,6 @@ pub fn run() {
       save_project_zip,
       synthesize_system_speech,
       proxy_volcengine_tts,
-      proxy_dashscope_request,
       proxy_aliyun_imageseg_request,
       proxy_volcengine_imagex_request,
       force_quit_app,
