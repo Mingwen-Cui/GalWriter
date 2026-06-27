@@ -5466,6 +5466,7 @@ ${layoutConfig.label}
             setHideSceneTags={setPlayTestHideSceneTags}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
+            isMobile={isMobile}
           />
         )}
       </Suspense>

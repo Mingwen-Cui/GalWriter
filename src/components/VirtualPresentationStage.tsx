@@ -7,7 +7,7 @@ type VirtualPresentationStageProps = {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
-  fit?: 'contain' | 'cover';
+  fit?: 'contain' | 'cover' | 'width';
 };
 
 export function VirtualPresentationStage({
@@ -29,13 +29,17 @@ export function VirtualPresentationStage({
       const scaleByWidth = width / PRESENTATION_STAGE_WIDTH;
       const scaleByHeight = height / PRESENTATION_STAGE_HEIGHT;
       const scale =
-        fit === 'cover'
-          ? Math.max(scaleByWidth, scaleByHeight)
-          : Math.min(scaleByWidth, scaleByHeight);
+        fit === 'width'
+          ? scaleByWidth
+          : fit === 'cover'
+            ? Math.max(scaleByWidth, scaleByHeight)
+            : Math.min(scaleByWidth, scaleByHeight);
+      const stageWidth = PRESENTATION_STAGE_WIDTH * scale;
+      const stageHeight = PRESENTATION_STAGE_HEIGHT * scale;
       setLayout({
         scale,
-        left: (width - PRESENTATION_STAGE_WIDTH * scale) / 2,
-        top: (height - PRESENTATION_STAGE_HEIGHT * scale) / 2,
+        left: (width - stageWidth) / 2,
+        top: fit === 'width' ? Math.max(0, (height - stageHeight) / 2) : (height - stageHeight) / 2,
       });
     };
 

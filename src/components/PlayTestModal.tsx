@@ -12,6 +12,7 @@ import {
   Moon,
   PlayCircle,
   RotateCcw,
+  RotateCw,
   Settings,
   Sparkles,
   Sun,
@@ -59,6 +60,24 @@ type PlayedAudio = {
   title: string;
   url: string;
 };
+
+const PLAYTEST_ROTATE_HINT_KEY = 'playtest-immersive-rotate-hint-dismissed';
+
+function readRotateHintDismissed() {
+  try {
+    return window.localStorage.getItem(PLAYTEST_ROTATE_HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistRotateHintDismissed() {
+  try {
+    window.localStorage.setItem(PLAYTEST_ROTATE_HINT_KEY, '1');
+  } catch {
+    // ignore storage failures
+  }
+}
 
 // Helper: HTML-Aware Safe Slicing for Typewriter Effect
 function sliceHtmlByTextLength(
@@ -171,6 +190,7 @@ interface PlayTestProps {
   setHideSceneTags: (val: boolean) => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
+  isMobile?: boolean;
 }
 
 export function PlayTestModal({
@@ -213,6 +233,7 @@ export function PlayTestModal({
   setHideSceneTags,
   renderStyle,
   updateRenderStyle,
+  isMobile = false,
 }: PlayTestProps) {
   const t = translations[language];
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
@@ -241,6 +262,19 @@ export function PlayTestModal({
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [focusButtonBottom, setFocusButtonBottom] = useState(24);
   const [backExitHintVisible, setBackExitHintVisible] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(
+    () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth,
+  );
+  const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
+  const mobileLandscapeActive = isMobile && layoutMode === 'immersive';
+  const applyMobileLandscapeTransform = mobileLandscapeActive && isPortrait;
+  const dismissRotateHint = React.useCallback(() => {
+    setRotateHintDismissed(true);
+    persistRotateHintDismissed();
+  }, []);
+  const showRotateHint =
+    mobileLandscapeActive && isPortrait && !rotateHintDismissed && !showSettings;
+  const mobileClassicLayout = isMobile && layoutMode === 'classic';
   const lastSystemBackRef = useRef(0);
   const systemBackStateRef = useRef({
     showSettings: false,
@@ -1045,6 +1079,7 @@ export function PlayTestModal({
   };
 
   const toggleFullscreen = () => {
+    dismissRotateHint();
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
       containerRef.current
@@ -1076,6 +1111,46 @@ export function PlayTestModal({
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
+
+  useEffect(() => {
+    const updateOrientation = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+    updateOrientation();
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isPortrait) {
+      dismissRotateHint();
+    }
+  }, [dismissRotateHint, isPortrait]);
+
+  useEffect(() => {
+    if (!applyMobileLandscapeTransform) {
+      return undefined;
+    }
+
+    document.body.classList.add('playtest-mobile-landscape-active');
+    const orientation = window.screen.orientation as ScreenOrientation & {
+      lock?: (orientation: string) => Promise<void>;
+      unlock?: () => void;
+    };
+    orientation.lock?.('landscape').catch(() => undefined);
+
+    return () => {
+      document.body.classList.remove('playtest-mobile-landscape-active');
+      orientation.unlock?.();
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => undefined);
+      }
+    };
+  }, [applyMobileLandscapeTransform]);
 
   useEffect(() => {
     const rootId = (nodes.find((n) => n.data.isRoot) || nodes[0])?.id || null;
@@ -1628,7 +1703,9 @@ export function PlayTestModal({
         }
         handleTextContainerClick();
       }}
-      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] overflow-hidden transition-colors duration-300`}
+      className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] overflow-hidden transition-colors duration-300 ${
+        applyMobileLandscapeTransform ? 'playtest-mobile-landscape' : ''
+      }`}
     >
       <div
         onClick={(event) => {
@@ -1636,7 +1713,7 @@ export function PlayTestModal({
           handleTextContainerClick();
         }}
         className={`playtest-modal-root absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
-          showSettings ? 'scale-75' : 'scale-100'
+          showSettings && !isMobile ? 'scale-75' : 'scale-100'
         } ${
           showSettings
             ? isDarkMode
@@ -2542,7 +2619,11 @@ export function PlayTestModal({
               {/* 1. Media Area */}
               {hasMedia && (
                 <div
-                  className={`flex-1 min-h-0 flex items-center justify-center p-2 md:p-6 relative group overflow-hidden ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
+                  className={`${
+                    mobileClassicLayout
+                      ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
+                      : 'flex-1 min-h-0 p-2 md:p-6'
+                  } flex items-center justify-center relative group overflow-hidden ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
                 >
                   {/* Ambient Background Layer */}
                   <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">
@@ -2563,7 +2644,7 @@ export function PlayTestModal({
 
                   {/* Shared 1920x1080 presentation stage */}
                   <VirtualPresentationStage
-                    fit="cover"
+                    fit={mobileClassicLayout ? 'width' : 'cover'}
                     className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500"
                   >
                     <div
@@ -2645,7 +2726,15 @@ export function PlayTestModal({
               {/* 2. Text Area */}
               <div
                 onClick={handleTextContainerClick}
-                className={`${hasMedia ? 'h-32 md:h-48 shrink-0' : 'flex-1'} overflow-y-auto px-6 py-4 md:px-12 md:py-8 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 overflow-hidden transition-all duration-300 relative ${
+                className={`${
+                  !hasMedia
+                    ? 'flex-1'
+                    : mobileClassicLayout
+                      ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
+                      : 'h-32 md:h-48 shrink-0'
+                } overflow-y-auto py-4 md:py-8 ${
+                  mobileClassicLayout ? 'px-4' : 'px-6 md:px-12 lg:px-48 xl:px-64'
+                } ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 transition-all duration-300 relative ${
                   choicesPosition === 'center' && choicesReady && blurBackground
                     ? isFullscreen
                       ? blurText
@@ -2767,16 +2856,75 @@ export function PlayTestModal({
       {showSettings && (
         <aside
           onClick={(event) => event.stopPropagation()}
-          className={`absolute bottom-0 right-0 top-0 z-[130] w-[25vw] min-w-[360px] max-w-[520px] border-l p-4 shadow-2xl ${
-            isDarkMode
-              ? 'border-white/10 bg-slate-950/96 text-white shadow-black/35'
-              : 'border-slate-200 bg-white text-slate-800 shadow-slate-300/35'
+          className={`z-[130] shadow-2xl ${
+            isMobile
+              ? `playtest-settings-mobile fixed inset-0 flex flex-col ${
+                  isDarkMode
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-white text-slate-800'
+                }`
+              : `absolute bottom-0 right-0 top-0 w-[25vw] min-w-[360px] max-w-[520px] border-l p-4 ${
+                  isDarkMode
+                    ? 'border-white/10 bg-slate-950/96 text-white shadow-black/35'
+                    : 'border-slate-200 bg-white text-slate-800 shadow-slate-300/35'
+                }`
           }`}
         >
-          <div className="video-render-scroll h-full overflow-y-auto pr-1">
+          {isMobile && (
+            <div
+              className={`flex shrink-0 items-center justify-between border-b px-4 py-3 ${
+                isDarkMode ? 'border-white/10' : 'border-slate-200'
+              }`}
+            >
+              <span className="text-sm font-bold">
+                {language === 'zh' ? '测试设置' : language === 'ja' ? 'テスト設定' : 'Playtest Settings'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors active:scale-95 ${
+                  isDarkMode
+                    ? 'bg-white/10 text-white hover:bg-white/20'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <X className="h-4 w-4" />
+                {language === 'zh' ? '退出设置' : language === 'ja' ? '設定を閉じる' : 'Close'}
+              </button>
+            </div>
+          )}
+          <div className={`video-render-scroll flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'h-full pr-1'}`}>
             {renderPlaytestSettingsPanel()}
           </div>
         </aside>
+      )}
+
+      {showRotateHint && (
+        <div
+          className="playtest-rotate-hint fixed inset-0 z-[200] flex cursor-pointer items-center justify-center bg-black/75 px-6 backdrop-blur-sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            dismissRotateHint();
+          }}
+        >
+          <div className="pointer-events-none max-w-xs text-center text-white">
+            <RotateCw className="mx-auto mb-4 h-12 w-12 animate-pulse text-sky-300" />
+            <p className="text-base font-bold leading-relaxed">
+              {language === 'zh'
+                ? '图文合并模式建议横屏体验'
+                : language === 'ja'
+                  ? '画像統合モードは横向き表示をおすすめします'
+                  : 'Immersive mode works best in landscape'}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-white/70">
+              {language === 'zh'
+                ? '请将手机旋转至横屏，或点击任意处继续'
+                : language === 'ja'
+                  ? '端末を横向きにするか、画面をタップして続行'
+                  : 'Rotate your device, or tap anywhere to continue'}
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

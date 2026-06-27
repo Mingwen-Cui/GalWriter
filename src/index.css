@@ -2494,6 +2494,40 @@ input[type='range']::-moz-range-track {
     padding-top: var(--app-safe-area-top);
   }
 
+  .playtest-mobile-landscape {
+    width: 100vh !important;
+    height: 100vw !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center;
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  body.playtest-mobile-landscape-active {
+    overflow: hidden !important;
+  }
+
+  .playtest-settings-mobile {
+    padding-top: var(--app-safe-area-top);
+  }
+
+  .playtest-rotate-hint {
+    touch-action: manipulation;
+  }
+
+  .playtest-classic-mobile-media {
+    max-height: 58vh;
+  }
+
+  .playtest-classic-mobile-text {
+    min-height: 42vh;
+    max-height: none;
+  }
+
   .playtest-header {
     min-height: 104px !important;
     padding: 8px 12px 10px !important;
