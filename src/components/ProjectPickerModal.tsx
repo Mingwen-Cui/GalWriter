@@ -498,7 +498,7 @@ export function ProjectPickerModal({
 
             <div
               className={`min-h-0 flex-1 overflow-y-auto overscroll-contain custom-scrollbar ${
-                isMobile ? 'px-0 py-1' : 'py-1 pl-1 pr-2'
+                isMobile ? '-mx-1 px-1 py-1' : 'py-1 pl-1 pr-2'
               }`}
               onWheel={handleRecentProjectsWheel}
             >

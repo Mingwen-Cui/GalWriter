@@ -1703,6 +1703,8 @@ export function PlayTestModal({
       : isDarkMode
         ? 'bg-slate-900 border-b border-white/10 text-white'
         : 'bg-white border-b border-slate-200 text-slate-800';
+  const playtestRoundIconButtonClass =
+    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 leading-none md:h-9 md:w-9 [&>svg]:block [&>svg]:shrink-0';
 
   const renderPlaytestTitle = () => (
     <div className="playtest-header-title flex min-w-0 items-center gap-2 md:gap-3">
@@ -1741,7 +1743,7 @@ export function PlayTestModal({
         e.stopPropagation();
         setIsFocusMode(!isFocusMode);
       }}
-      className={`${className} rounded-full border p-3.5 shadow-xl backdrop-blur-lg transition-colors duration-200 active:scale-95 ${
+      className={`${className} inline-flex h-12 w-12 items-center justify-center rounded-full border p-0 leading-none shadow-xl backdrop-blur-lg transition-colors duration-200 active:scale-95 [&>svg]:block [&>svg]:shrink-0 ${
         isFocusMode
           ? isDarkMode
             ? 'border-sky-500/40 bg-slate-800/80 text-sky-400 shadow-sky-950/20 hover:bg-slate-800'
@@ -1761,7 +1763,7 @@ export function PlayTestModal({
     <>
       <button
         onClick={() => setAutoAdvance(!autoAdvance)}
-        className={`p-1.5 md:p-2 rounded-full transition-colors ${
+        className={`${playtestRoundIconButtonClass} transition-colors ${
           autoAdvance
             ? layoutMode === 'immersive'
               ? 'bg-sky-500/80 text-white'
@@ -1785,7 +1787,7 @@ export function PlayTestModal({
             setShowAudioPlaylist((visible) => !visible);
             setShowSettings(false);
           }}
-          className={`p-1.5 md:p-2 rounded-full transition-colors ${
+          className={`${playtestRoundIconButtonClass} transition-colors ${
             showAudioPlaylist
               ? layoutMode === 'immersive'
                 ? 'bg-white/25 text-white'
@@ -1844,7 +1846,7 @@ export function PlayTestModal({
 
       <button
         onClick={toggleFullscreen}
-        className={`p-1.5 md:p-2 rounded-full transition-colors ${
+        className={`${playtestRoundIconButtonClass} transition-colors ${
           layoutMode === 'immersive'
             ? 'bg-white/10 hover:bg-white/20 text-white'
             : isDarkMode
@@ -1862,7 +1864,7 @@ export function PlayTestModal({
             setShowSettings(!showSettings);
             setShowAudioPlaylist(false);
           }}
-          className={`p-1.5 md:p-2 rounded-full transition-colors ${
+          className={`${playtestRoundIconButtonClass} transition-colors ${
             showSettings
               ? layoutMode === 'immersive'
                 ? 'bg-white/25 text-white'
@@ -1887,7 +1889,7 @@ export function PlayTestModal({
 
       <button
         onClick={onClose}
-        className={`p-1.5 md:p-2 rounded-full transition-colors ${
+        className={`${playtestRoundIconButtonClass} transition-colors ${
           layoutMode === 'immersive'
             ? 'bg-white/10 hover:bg-red-500/30 text-white'
             : isDarkMode
@@ -2772,4 +2774,3 @@ function ClearGlyph() {
     </span>
   );
 }
-
