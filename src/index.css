@@ -2399,7 +2399,8 @@ input[type='range']::-moz-range-track {
 }
 
 /* 解决卡片浮动工具栏按钮 hover 背景超出圆角的问题 */
-.toolbar-bubble-surface button:not(.rounded-full):not(.header-glass-action):not(.glass-toolbar-ai) {
+.toolbar-bubble-surface
+  button:not(.rounded-full):not(.header-glass-action):not(.glass-toolbar-ai):not(.minimap-controls *) {
   border-radius: 8px !important;
   overflow: hidden !important;
 }

@@ -5306,7 +5306,7 @@ ${layoutConfig.label}
                     />
                   </div>
                   {showControls && (
-                    <div className="border-t border-[var(--toolbar-border)] flex items-center h-8 w-full bg-transparent">
+                    <div className="minimap-controls border-t border-[var(--toolbar-border)] flex items-center h-8 w-full bg-transparent">
                       <Controls
                         showInteractive={false}
                         showZoom={true}

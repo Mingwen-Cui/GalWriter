@@ -31,4 +31,5 @@ pnpm-debug.log*
 
 .DS_Store
 .env*
+.android-signing/
 导出设置模板.html
