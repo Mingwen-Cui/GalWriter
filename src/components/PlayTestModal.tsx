@@ -28,7 +28,6 @@ import type { ReactNode } from 'react';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
-import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -267,6 +266,7 @@ export function PlayTestModal({
   );
   const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
   const mobileLandscapeActive = isMobile && layoutMode === 'immersive';
+  const mobileImmersiveLayout = isMobile && layoutMode === 'immersive';
   const applyMobileLandscapeTransform = mobileLandscapeActive && isPortrait;
   const dismissRotateHint = React.useCallback(() => {
     setRotateHintDismissed(true);
@@ -1132,6 +1132,12 @@ export function PlayTestModal({
   }, [dismissRotateHint, isPortrait]);
 
   useEffect(() => {
+    if (layoutMode === 'immersive' && choicesPosition !== 'center') {
+      setChoicesPosition('center');
+    }
+  }, [choicesPosition, layoutMode, setChoicesPosition]);
+
+  useEffect(() => {
     if (!applyMobileLandscapeTransform) {
       return undefined;
     }
@@ -1523,7 +1529,13 @@ export function PlayTestModal({
                   { value: 'classic', label: t.layoutClassic, icon: <LayoutClassicGlyph /> },
                   { value: 'immersive', label: t.layoutImmersive, icon: <LayoutImmersiveGlyph /> },
                 ]}
-                onChange={(value) => setLayoutMode(value as 'classic' | 'immersive')}
+                onChange={(value) => {
+                  const nextLayoutMode = value as 'classic' | 'immersive';
+                  setLayoutMode(nextLayoutMode);
+                  if (nextLayoutMode === 'immersive') {
+                    setChoicesPosition('center');
+                  }
+                }}
               />
             </PlaytestSettingCard>
 
@@ -1547,9 +1559,17 @@ export function PlayTestModal({
               <PlaytestSegmentedGroup
                 value={choicesPosition}
                 options={[
-                  { value: 'aboveText', label: language === 'zh' ? '上' : 'Top' },
+                  {
+                    value: 'aboveText',
+                    label: language === 'zh' ? '上' : 'Top',
+                    disabled: layoutMode === 'immersive',
+                  },
                   { value: 'center', label: language === 'zh' ? '中' : 'Center' },
-                  { value: 'belowText', label: language === 'zh' ? '下' : 'Bottom' },
+                  {
+                    value: 'belowText',
+                    label: language === 'zh' ? '下' : 'Bottom',
+                    disabled: layoutMode === 'immersive',
+                  },
                 ]}
                 onChange={(value) =>
                   setChoicesPosition(value as 'center' | 'aboveText' | 'belowText')
@@ -1759,7 +1779,23 @@ export function PlayTestModal({
     </button>
   );
 
-  const renderPlaytestSecondaryActions = () => (
+  const renderPlaytestCloseButton = () => (
+    <button
+      onClick={onClose}
+      className={`${playtestRoundIconButtonClass} transition-colors ${
+        layoutMode === 'immersive'
+          ? 'bg-white/10 hover:bg-red-500/30 text-white'
+          : isDarkMode
+            ? 'bg-white/10 hover:bg-red-500/20 text-white'
+            : 'bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600'
+      }`}
+      title={t.close}
+    >
+      <X className="w-5 h-5" />
+    </button>
+  );
+
+  const renderPlaytestSecondaryActions = ({ includeClose = true } = {}) => (
     <>
       <button
         onClick={() => setAutoAdvance(!autoAdvance)}
@@ -1887,18 +1923,7 @@ export function PlayTestModal({
         className={`hidden h-4 w-px md:block ${layoutMode === 'immersive' ? 'bg-white/20' : isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}
       />
 
-      <button
-        onClick={onClose}
-        className={`${playtestRoundIconButtonClass} transition-colors ${
-          layoutMode === 'immersive'
-            ? 'bg-white/10 hover:bg-red-500/30 text-white'
-            : isDarkMode
-              ? 'bg-white/10 hover:bg-red-500/20 text-white'
-              : 'bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600'
-        }`}
-      >
-        <X className="w-5 h-5" />
-      </button>
+      {includeClose ? renderPlaytestCloseButton() : null}
     </>
   );
 
@@ -1921,7 +1946,9 @@ export function PlayTestModal({
           event.stopPropagation();
           handleTextContainerClick();
         }}
-        className={`playtest-modal-root absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
+        className={`playtest-modal-root ${
+          mobileImmersiveLayout ? 'playtest-modal-root--mobile-immersive' : ''
+        } absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
           showSettings && !isMobile ? 'scale-75' : 'scale-100'
         } ${
           showSettings
@@ -1939,6 +1966,8 @@ export function PlayTestModal({
         } ${
           mobileClassicLayout
             ? 'playtest-header--classic-mobile flex flex-col gap-2 py-2'
+            : mobileImmersiveLayout
+              ? 'playtest-header--immersive-mobile flex flex-col gap-2 py-2'
             : 'playtest-header--compact-row flex min-h-14 items-center justify-between'
         } ${playtestHeaderToneClass}`}
       >
@@ -1952,6 +1981,17 @@ export function PlayTestModal({
               className={`playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-center gap-2 md:gap-4 ${classicFocusHidden}`}
             >
               {renderPlaytestSecondaryActions()}
+            </div>
+          </>
+        ) : mobileImmersiveLayout ? (
+          <>
+            <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
+              {renderPlaytestTitle()}
+              {renderPlaytestCloseButton()}
+            </div>
+            <div className="playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-start gap-3">
+              {renderPlaytestBackButton()}
+              {renderPlaytestSecondaryActions({ includeClose: false })}
             </div>
           </>
         ) : (
@@ -2544,6 +2584,7 @@ type PlaytestSegmentedOption = {
   value: string;
   label: string;
   icon?: ReactNode;
+  disabled?: boolean;
 };
 
 function PlaytestPillToggleGroup({
@@ -2602,14 +2643,20 @@ function PlaytestSegmentedGroup({
           <button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              if (!option.disabled) onChange(option.value);
+            }}
+            disabled={option.disabled}
             className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
               active
                 ? 'bg-[var(--vr-accent)] text-white'
+                : option.disabled
+                  ? 'text-[var(--vr-text-muted)] opacity-35 grayscale'
                 : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
             }`}
             title={option.label}
             aria-pressed={active}
+            aria-disabled={option.disabled}
           >
             {option.icon}
             {option.icon ? null : <span className="truncate">{option.label}</span>}

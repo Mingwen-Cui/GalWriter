@@ -2495,6 +2495,17 @@ input[type='range']::-moz-range-track {
     padding-top: var(--app-safe-area-top);
   }
 
+  .assistant-panel-mobile {
+    top: var(--app-safe-area-top) !important;
+    bottom: 0 !important;
+    height: calc(100dvh - var(--app-safe-area-top)) !important;
+    max-height: calc(100dvh - var(--app-safe-area-top)) !important;
+  }
+
+  .playtest-modal-root.playtest-modal-root--mobile-immersive {
+    padding-top: 0 !important;
+  }
+
   .playtest-mobile-landscape {
     width: 100vh !important;
     height: 100vw !important;
@@ -2583,6 +2594,29 @@ input[type='range']::-moz-range-track {
   }
 
   .playtest-header--classic-mobile .playtest-header-back {
+    flex: 0 0 auto;
+    max-width: none;
+  }
+
+  .playtest-header--immersive-mobile {
+    min-height: 104px !important;
+    align-items: stretch !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .playtest-header--immersive-mobile .playtest-header-primary {
+    min-height: 40px;
+  }
+
+  .playtest-header--immersive-mobile .playtest-header-actions-secondary {
+    width: 100%;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .playtest-header--immersive-mobile .playtest-header-back {
     flex: 0 0 auto;
     max-width: none;
   }

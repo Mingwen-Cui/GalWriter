@@ -71,6 +71,12 @@ export function PlaytestSettingsPanel({
   updateRenderStyle,
 }: PlaytestSettingsPanelProps) {
   const t = translations[language];
+  React.useEffect(() => {
+    if (layoutMode === 'immersive' && choicesPosition !== 'center') {
+      setChoicesPosition('center');
+    }
+  }, [choicesPosition, layoutMode, setChoicesPosition]);
+
   const panelTone = isDarkMode
     ? 'border-[var(--vr-border)] bg-[var(--vr-panel)]'
     : 'border-[var(--vr-border)] bg-[var(--vr-surface)]';
@@ -160,7 +166,10 @@ export function PlaytestSettingsPanel({
                 title={t.layoutImmersive}
                 description={uiCopy.mergedDesc}
                 icon={<LayoutImmersiveGlyph />}
-                onClick={() => setLayoutMode('immersive')}
+                onClick={() => {
+                  setLayoutMode('immersive');
+                  setChoicesPosition('center');
+                }}
               />
             </div>
           </div>
@@ -169,9 +178,9 @@ export function PlaytestSettingsPanel({
             <PlaytestSegmentedGroup
               value={choicesPosition}
               options={[
-                { value: 'aboveText', label: uiCopy.top },
+                { value: 'aboveText', label: uiCopy.top, disabled: layoutMode === 'immersive' },
                 { value: 'center', label: uiCopy.center },
-                { value: 'belowText', label: uiCopy.bottom },
+                { value: 'belowText', label: uiCopy.bottom, disabled: layoutMode === 'immersive' },
               ]}
               onChange={(value) =>
                 setChoicesPosition(value as 'center' | 'aboveText' | 'belowText')
@@ -383,6 +392,7 @@ type PlaytestSegmentedOption = {
   value: string;
   label: string;
   icon?: ReactNode;
+  disabled?: boolean;
 };
 
 function PlaytestPillToggleGroup({
@@ -441,14 +451,20 @@ function PlaytestSegmentedGroup({
           <button
             key={option.value}
             type="button"
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              if (!option.disabled) onChange(option.value);
+            }}
+            disabled={option.disabled}
             className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
               active
                 ? 'bg-[var(--vr-accent)] text-white'
+                : option.disabled
+                  ? 'text-[var(--vr-text-muted)] opacity-35 grayscale'
                 : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
             }`}
             title={option.label}
             aria-pressed={active}
+            aria-disabled={option.disabled}
           >
             {option.icon}
             {option.icon ? null : <span className="truncate">{option.label}</span>}
