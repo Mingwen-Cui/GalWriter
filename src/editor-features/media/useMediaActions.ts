@@ -272,12 +272,10 @@ export const useMediaActions = ({
         return null;
       }
 
-      const shouldRemoveBackground = transparentBackground || Boolean(imageRemoveBackground);
-      if (shouldRemoveBackground && missingBackgroundRemovalConfig) {
-        notifyMissingBackgroundRemovalConfig();
-        return null;
-      }
-      const finalPrompt = shouldRemoveBackground
+      const wantsTransparentBackground = transparentBackground || Boolean(imageRemoveBackground);
+      const shouldRemoveBackground =
+        wantsTransparentBackground && !missingBackgroundRemovalConfig;
+      const finalPrompt = wantsTransparentBackground
         ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
         : prompt;
       const imageRequest = buildImageGenerationRequest(
@@ -684,7 +682,9 @@ export const useMediaActions = ({
           .map((result) => result.value);
         const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
         const promptBase = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
-        const prompt = imageRemoveBackground
+        const shouldRemoveBackground =
+          Boolean(imageRemoveBackground) && !missingBackgroundRemovalConfig;
+        const prompt = shouldRemoveBackground
           ? `${promptBase}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
           : promptBase;
         const imageRequest = buildImageGenerationRequest(
@@ -781,11 +781,7 @@ export const useMediaActions = ({
           );
         }
 
-        if (imageRemoveBackground) {
-          if (missingBackgroundRemovalConfig) {
-            notifyMissingBackgroundRemovalConfig();
-            return;
-          }
+        if (shouldRemoveBackground) {
           try {
             imageSrc = await requestSubjectSegmentation(imageSrc as string, {
               apiUrl: backgroundRemovalApiUrl,

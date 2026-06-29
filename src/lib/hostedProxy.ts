@@ -38,8 +38,6 @@ export const HOSTED_IMAGE_PROXY_PROFILE: ImageAIProfile = {
   size: DEFAULT_IMAGE_SIZE,
   negativePrompt: '',
   removeBackground: false,
-  subjectSegmentationApiUrl: '',
-  subjectSegmentationApiKey: '',
 };
 
 export const HOSTED_VOICE_PROXY_PROFILE: VoiceAIProfile = {

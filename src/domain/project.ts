@@ -181,8 +181,6 @@ export interface ImageAIProfile {
   hrScale?: number;
   denoisingStrength?: number;
   removeBackground?: boolean;
-  subjectSegmentationApiUrl?: string;
-  subjectSegmentationApiKey?: string;
 }
 
 export interface BackgroundRemovalAIProfile {
