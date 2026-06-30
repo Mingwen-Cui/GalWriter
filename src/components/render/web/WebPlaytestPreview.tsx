@@ -85,6 +85,15 @@ export function WebPlaytestPreview({
     () => nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden),
     [nodes],
   );
+  const runtimeNodes = useMemo(
+    () =>
+      nodes.filter(
+        (node) =>
+          (node.type === 'storyNode' || node.type === 'numberConditionNode') &&
+          !node.data?.hidden,
+      ),
+    [nodes],
+  );
   const root = useMemo(
     () => playableNodes.find((node) => node.data?.isRoot) || playableNodes[0] || null,
     [playableNodes],
@@ -113,6 +122,28 @@ export function WebPlaytestPreview({
     null,
   );
   const inlineActionTimerRef = useRef<any>(null);
+  const transitionTimerRef = useRef<number | null>(null);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+  const playbackSessionRef = useRef(0);
+  const lastJumpedNodeRef = useRef<string | null>(null);
+  const autoAdvanceHoldNodeRef = useRef<string | null>(null);
+
+  const clearPlaybackTimers = React.useCallback(() => {
+    if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    if (autoAdvanceTimerRef.current) window.clearTimeout(autoAdvanceTimerRef.current);
+    inlineActionTimerRef.current = null;
+    transitionTimerRef.current = null;
+    autoAdvanceTimerRef.current = null;
+    setPresentationExiting(false);
+    setActiveInlineAction(null);
+  }, []);
+
+  const restartPlaybackSession = React.useCallback(() => {
+    playbackSessionRef.current += 1;
+    clearPlaybackTimers();
+    lastJumpedNodeRef.current = null;
+  }, [clearPlaybackTimers]);
 
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
@@ -292,15 +323,15 @@ export function WebPlaytestPreview({
       return;
     }
     setCurrentNodeId((current) =>
-      current && (current === 'THE_END' || playableNodes.some((node) => node.id === current))
+      current && (current === 'THE_END' || runtimeNodes.some((node) => node.id === current))
         ? current
         : root.id,
     );
-  }, [playableNodes, root]);
+  }, [root, runtimeNodes]);
 
   const currentNode =
     currentNodeId && currentNodeId !== 'THE_END'
-      ? playableNodes.find((node) => node.id === currentNodeId)
+      ? runtimeNodes.find((node) => node.id === currentNodeId)
       : null;
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   const outEdges = currentNodeId ? edges.filter((edge) => edge.source === currentNodeId) : [];
@@ -412,6 +443,10 @@ export function WebPlaytestPreview({
   }, [playlistAudioUrl]);
 
   const goTo = (targetId: string) => {
+    if (autoAdvanceTimerRef.current) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
     if (settings.layoutMode === 'classic') {
       if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
       setCurrentNodeId(targetId);
@@ -419,11 +454,19 @@ export function WebPlaytestPreview({
     }
     if (presentationExiting) return;
     const exitDuration = getPresentationExitDuration(presentation);
+    const sessionId = playbackSessionRef.current;
     setPresentationExiting(true);
-    window.setTimeout(() => {
+    transitionTimerRef.current = window.setTimeout(() => {
+      transitionTimerRef.current = null;
+      if (sessionId !== playbackSessionRef.current) return;
       if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
       setCurrentNodeId(targetId);
     }, exitDuration);
+  };
+
+  const handleChoiceClick = (targetId: string) => {
+    autoAdvanceHoldNodeRef.current = null;
+    goTo(targetId);
   };
 
   React.useEffect(() => {
@@ -502,7 +545,16 @@ export function WebPlaytestPreview({
   ]);
 
   React.useEffect(() => {
-    if (!settings.autoAdvance || outEdges.length > 1) return;
+    if (
+      !settings.autoAdvance ||
+      currentNodeId === 'THE_END' ||
+      autoAdvanceHoldNodeRef.current === currentNodeId ||
+      currentNode?.type === 'numberConditionNode' ||
+      currentNode?.data?.skip === true ||
+      outEdges.length > 1
+    ) {
+      return;
+    }
 
     if (audioUrl || videoUrl) {
       if ((!audioUrl || currentAudioEnded) && (!videoUrl || currentVideoEnded)) {
@@ -512,18 +564,74 @@ export function WebPlaytestPreview({
     }
 
     if (!animationDone) return;
-    const timer = window.setTimeout(() => goTo(outEdges[0]?.target || 'THE_END'), 900);
-    return () => window.clearTimeout(timer);
+    const sessionId = playbackSessionRef.current;
+    autoAdvanceTimerRef.current = window.setTimeout(() => {
+      autoAdvanceTimerRef.current = null;
+      if (sessionId !== playbackSessionRef.current) return;
+      goTo(outEdges[0]?.target || 'THE_END');
+    }, 900);
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        window.clearTimeout(autoAdvanceTimerRef.current);
+        autoAdvanceTimerRef.current = null;
+      }
+    };
   }, [
     animationDone,
     audioUrl,
     currentAudioEnded,
     currentNodeId,
+    currentNode?.type,
+    currentNode?.data?.skip,
     currentVideoEnded,
     outEdges,
     settings.autoAdvance,
     videoUrl,
   ]);
+
+  React.useLayoutEffect(() => {
+    if (
+      !currentNodeId ||
+      currentNodeId === 'THE_END' ||
+      currentNodeId === lastJumpedNodeRef.current
+    ) {
+      return;
+    }
+    const node = runtimeNodes.find((candidate) => candidate.id === currentNodeId);
+    if (!node) return;
+
+    if (node.type === 'numberConditionNode') {
+      lastJumpedNodeRef.current = currentNodeId;
+      const sum = history.reduce((total, nodeId) => {
+        const historyNode = runtimeNodes.find((candidate) => candidate.id === nodeId);
+        const value = historyNode?.data?.nodeValue;
+        return total + (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+      }, 0);
+      const ranges = (node.data?.ranges as { id: string; min: number; max: number }[]) || [];
+      const matchedRange = ranges.find(
+        (range) => range.min <= range.max && sum >= range.min && sum <= range.max,
+      );
+      const threshold = typeof node.data?.threshold === 'number' ? node.data.threshold : 0;
+      const sourceHandle = matchedRange
+        ? `out-range-${matchedRange.id}`
+        : sum >= threshold
+          ? 'out-greater'
+          : 'out-less-equal';
+      const nextEdge = edges.find(
+        (edge) => edge.source === currentNodeId && edge.sourceHandle === sourceHandle,
+      );
+      setHistory((previous) => [...previous, currentNodeId]);
+      setCurrentNodeId(nextEdge?.target || 'THE_END');
+      return;
+    }
+
+    if (node.data?.skip === true) {
+      lastJumpedNodeRef.current = currentNodeId;
+      const nextEdge = edges.find((edge) => edge.source === currentNodeId);
+      setHistory((previous) => [...previous, currentNodeId]);
+      setCurrentNodeId(nextEdge?.target || 'THE_END');
+    }
+  }, [currentNodeId, edges, history, runtimeNodes]);
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
@@ -534,20 +642,34 @@ export function WebPlaytestPreview({
   }, []);
 
   const continueFromText = () => {
+    if (currentNodeId === 'THE_END' || !currentNode) return;
+    autoAdvanceHoldNodeRef.current = null;
     if (!canClickContinue) return;
     goTo(outEdges[0]?.target || 'THE_END');
   };
 
   const reset = () => {
+    restartPlaybackSession();
+    autoAdvanceHoldNodeRef.current = root?.id || null;
     setHistory([]);
     setCurrentNodeId(root?.id || null);
   };
 
   const back = () => {
+    restartPlaybackSession();
     setHistory((prev) => {
       const next = [...prev];
-      const previous = next.pop();
+      let previous = next.pop();
+      while (previous) {
+        const previousNode = runtimeNodes.find((node) => node.id === previous);
+        if (previousNode?.type === 'numberConditionNode' || previousNode?.data?.skip === true) {
+          previous = next.pop();
+          continue;
+        }
+        break;
+      }
       if (previous) setCurrentNodeId(previous);
+      else setCurrentNodeId(root?.id || null);
       return next;
     });
   };
@@ -579,7 +701,7 @@ export function WebPlaytestPreview({
             label={t('剧本结束', 'シナリオ終了', 'The End')}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
-            onClick={() => goTo('THE_END')}
+            onClick={() => handleChoiceClick('THE_END')}
           />
         </div>
       );
@@ -600,7 +722,7 @@ export function WebPlaytestPreview({
               label={String(label)}
               choiceColor={choiceColor}
               choiceTextColor={choiceTextColor}
-              onClick={() => goTo(edge.target)}
+              onClick={() => handleChoiceClick(edge.target)}
             />
           );
         })}
@@ -742,6 +864,8 @@ export function WebPlaytestPreview({
       </div>
     );
   }
+
+  if (currentNode?.type === 'numberConditionNode') return null;
 
   const sceneMotion = presentationExiting ? presentation.scene?.exit : presentation.scene?.enter;
   const sceneAnimationActive =

@@ -6,7 +6,6 @@ import {
   FastForward,
   Layout,
   ListMusic,
-  Loader2,
   Maximize2,
   Minimize2,
   Moon,
@@ -22,7 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { AudioPlaylistModal } from './AudioPlaylistModal';
@@ -297,6 +296,31 @@ export function PlayTestModal({
   const inlineActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timedTimerRef = useRef<any>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastJumpedNode = useRef<string | null>(null);
+  const autoAdvanceHoldNodeRef = useRef<string | null>(null);
+  const playbackSessionRef = useRef(0);
+
+  const clearPendingPlaybackTimers = React.useCallback(() => {
+    if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+    if (inlineActionTimerRef.current) clearTimeout(inlineActionTimerRef.current);
+    if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    typewriterTimerRef.current = null;
+    inlineActionTimerRef.current = null;
+    timedTimerRef.current = null;
+    autoAdvanceTimerRef.current = null;
+    transitionTimerRef.current = null;
+    setPresentationExiting(false);
+    setActiveInlineAction(null);
+  }, []);
+
+  const restartPlaybackSession = React.useCallback(() => {
+    playbackSessionRef.current += 1;
+    clearPendingPlaybackTimers();
+    lastJumpedNode.current = null;
+  }, [clearPendingPlaybackTimers]);
 
   /**
    * 跳转到指定节点并重置动画完成状态，避免切换时按钮闪烁
@@ -633,8 +657,11 @@ export function PlayTestModal({
         autoAdvanceTimerRef.current = null;
       }
       const exitDuration = getPresentationExitDuration(presentation);
+      const sessionId = playbackSessionRef.current;
       setPresentationExiting(true);
-      window.setTimeout(() => {
+      transitionTimerRef.current = window.setTimeout(() => {
+        transitionTimerRef.current = null;
+        if (sessionId !== playbackSessionRef.current) return;
         setHistory((prev) => [...prev, currentNodeId || '']);
         navigateToNode(targetId);
       }, exitDuration);
@@ -842,6 +869,7 @@ export function PlayTestModal({
       !autoAdvance ||
       !currentNode ||
       currentNodeId === 'THE_END' ||
+      autoAdvanceHoldNodeRef.current === currentNodeId ||
       currentNode.type === 'numberConditionNode' ||
       currentNode.data.skip === true ||
       outEdges.length > 1
@@ -859,12 +887,11 @@ export function PlayTestModal({
 
     if (!animationCompleted) return;
 
-    autoAdvanceTimerRef.current = setTimeout(
-      () => {
-        advanceToTarget(autoAdvanceTarget);
-      },
-      Math.max(0, autoAdvanceDelay) * 1000,
-    );
+    const sessionId = playbackSessionRef.current;
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      if (sessionId !== playbackSessionRef.current) return;
+      advanceToTarget(autoAdvanceTarget);
+    }, Math.max(0, autoAdvanceDelay) * 1000);
 
     return () => {
       if (autoAdvanceTimerRef.current) {
@@ -890,6 +917,8 @@ export function PlayTestModal({
   ]);
 
   const handleTextContainerClick = () => {
+    if (currentNodeId === 'THE_END' || !currentNode) return;
+    autoAdvanceHoldNodeRef.current = null;
     if (!animationCompleted) {
       if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
       if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
@@ -936,7 +965,7 @@ export function PlayTestModal({
                 targetHandle = `out-range-${matchedRange.id}`;
               } else {
                 const threshold = (targetNode.data.threshold as number) || 0;
-                targetHandle = sum > threshold ? 'out-greater' : 'out-less-equal';
+                targetHandle = sum >= threshold ? 'out-greater' : 'out-less-equal';
               }
 
               const condEdges = edges.filter((e) => e.source === targetNode!.id);
@@ -1160,6 +1189,7 @@ export function PlayTestModal({
 
   useEffect(() => {
     const rootId = (nodes.find((n) => n.data.isRoot) || nodes[0])?.id || null;
+    restartPlaybackSession();
     navigateToNode(rootId);
     setHistory([]);
   }, []);
@@ -1167,6 +1197,7 @@ export function PlayTestModal({
   const handleBack = React.useCallback(() => {
     if (history.length === 0) return;
 
+    restartPlaybackSession();
     const newHistory = [...history];
     let prev = newHistory.pop();
 
@@ -1187,8 +1218,26 @@ export function PlayTestModal({
     }
 
     setHistory(newHistory);
+    lastJumpedNode.current = null;
     navigateToNode(prev!);
-  }, [history, navigateToNode, nodes]);
+  }, [history, navigateToNode, nodes, restartPlaybackSession]);
+
+  const restartPlaytest = React.useCallback(() => {
+    restartPlaybackSession();
+    const rootId = root?.id || null;
+    autoAdvanceHoldNodeRef.current = rootId;
+    setHistory([]);
+    navigateToNode(rootId);
+  }, [navigateToNode, restartPlaybackSession, root?.id]);
+
+  const handleRestartClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      restartPlaytest();
+    },
+    [restartPlaytest],
+  );
 
   useEffect(() => {
     systemBackStateRef.current = {
@@ -1250,10 +1299,17 @@ export function PlayTestModal({
       !nodes.find((n) => n.id === currentNodeId)
     ) {
       const newRoot = nodes.find((n) => n.data.isRoot) || nodes[0];
+      restartPlaybackSession();
       navigateToNode(newRoot?.id || null);
       setHistory([]);
     }
-  }, [nodes, currentNodeId]);
+  }, [nodes, currentNodeId, navigateToNode, restartPlaybackSession]);
+
+  useEffect(() => {
+    if (currentNodeId === 'THE_END') {
+      lastJumpedNode.current = null;
+    }
+  }, [currentNodeId]);
 
   useEffect(() => {
     if (currentNodeId && currentNodeId !== 'THE_END') {
@@ -1297,14 +1353,11 @@ export function PlayTestModal({
   }, [currentNodeId, nodes, edges]);
 
   // 自动跳过数字判断卡片
-  const lastJumpedNode = useRef<string | null>(null);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (currentNodeId && currentNodeId !== 'THE_END' && currentNodeId !== lastJumpedNode.current) {
       const node = nodes.find((n) => n.id === currentNodeId);
       if (node && node.type === 'numberConditionNode') {
         lastJumpedNode.current = currentNodeId;
-        // 计算历史中卡片的数值总和
         let sum = 0;
         for (const hId of history) {
           const prevNode = nodes.find((n) => n.id === hId);
@@ -1321,7 +1374,7 @@ export function PlayTestModal({
           targetHandle = `out-range-${matchedRange.id}`;
         } else {
           const threshold = (node.data.threshold as number) || 0;
-          targetHandle = sum > threshold ? 'out-greater' : 'out-less-equal';
+          targetHandle = sum >= threshold ? 'out-greater' : 'out-less-equal';
         }
 
         const outEdges = edges.filter((e) => e.source === currentNodeId);
@@ -1383,27 +1436,10 @@ export function PlayTestModal({
 
   if (!currentNode && currentNodeId !== 'THE_END') return null;
 
-  // 如果是条件节点，它在后台自动运算并跳转，这里显示空或加载中
-  if (currentNode && currentNode.type === 'numberConditionNode') {
-    return (
-      <div
-        className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950' : 'bg-white'} z-[100] flex items-center justify-center transition-colors duration-300`}
-      >
-        <div className="animate-pulse flex flex-col items-center">
-          <Loader2
-            className={`w-8 h-8 ${isDarkMode ? 'text-sky-400' : 'text-indigo-500'} animate-spin mb-4`}
-          />
-          <span
-            className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}
-          >
-            计算条件中...
-          </span>
-        </div>
-      </div>
-    );
-  }
+  if (currentNode && currentNode.type === 'numberConditionNode') return null;
 
   const handleChoiceClick = (targetId: string) => {
+    autoAdvanceHoldNodeRef.current = null;
     advanceToTarget(targetId);
   };
 
@@ -2049,10 +2085,7 @@ export function PlayTestModal({
                   </h2>
                   <p className="text-slate-300 mb-8 max-w-sm">{t.branchEnded}</p>
                   <button
-                    onClick={() => {
-                      setHistory([]);
-                      navigateToNode(root?.id || null);
-                    }}
+                    onClick={handleRestartClick}
                     className="px-10 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-95 hover:scale-[1.03]"
                   >
                     {t.restart}
@@ -2075,10 +2108,7 @@ export function PlayTestModal({
                   {t.branchEnded}
                 </p>
                 <button
-                  onClick={() => {
-                    setHistory([]);
-                    navigateToNode(root?.id || null);
-                  }}
+                  onClick={handleRestartClick}
                   className={`px-10 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl shadow-lg transition-all active:scale-95`}
                 >
                   {t.restart}
