@@ -51,6 +51,11 @@ type WebExportNode = {
     objectFit?: string;
     showTextOverlay?: boolean;
     isRoot?: boolean;
+    hidden?: boolean;
+    skip?: boolean;
+    nodeValue?: number;
+    threshold?: number;
+    ranges?: { id: string; min: number; max: number }[];
     presentation?: {
       characters: {
         sourceNodeId: string;
@@ -978,6 +983,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
     let typewriterTimers = [];
     let autoAdvanceTimer = null;
+    let playbackSession = 0;
+    let autoAdvanceHoldId = null;
+    let lastJumpedNode = null;
     let controlsHidden = false;
     let playedAudios = [];
     let currentAudioEnded = true;
@@ -1015,6 +1023,44 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         const nextBottom = Math.max(24, Math.ceil(mainRect.bottom - dialogueRect.top + 20));
         zenButton.style.setProperty("--zen-toggle-bottom", nextBottom + "px");
       });
+    }
+
+    function clearPlaybackTimers() {
+      if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
+      typewriterTimers.forEach((timer) => clearInterval(timer));
+      autoAdvanceTimer = null;
+      typewriterTimers = [];
+    }
+
+    function restartPlaybackSession() {
+      playbackSession += 1;
+      clearPlaybackTimers();
+      isTransitioning = false;
+      lastJumpedNode = null;
+    }
+
+    function currentHistoryTotal() {
+      return history.reduce((total, nodeId) => {
+        const historyNode = nodeById.get(nodeId);
+        const value = historyNode && historyNode.data ? historyNode.data.nodeValue : undefined;
+        return total + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+      }, 0);
+    }
+
+    function numberConditionTarget(node) {
+      const data = node.data || {};
+      const sum = currentHistoryTotal();
+      const ranges = Array.isArray(data.ranges) ? data.ranges : [];
+      const matchedRange = ranges.find((range) =>
+        range && range.min <= range.max && sum >= range.min && sum <= range.max
+      );
+      const sourceHandle = matchedRange
+        ? "out-range-" + matchedRange.id
+        : sum >= (Number(data.threshold) || 0)
+          ? "out-greater"
+          : "out-less-equal";
+      const edge = outEdges(node.id).find((item) => item.sourceHandle === sourceHandle);
+      return edge ? edge.target : "THE_END";
     }
 
     function watchZenButtonPosition() {
@@ -1178,7 +1224,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
     function goTo(id) {
       if (isTransitioning) return;
-      if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
+      if (autoAdvanceTimer) {
+        clearTimeout(autoAdvanceTimer);
+        autoAdvanceTimer = null;
+      }
       
       const node = nodeById.get(currentId);
       let exitDuration = 0;
@@ -1234,7 +1283,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       }
       
       if (exitDuration > 0) {
+        const sessionId = playbackSession;
         setTimeout(() => {
+          if (sessionId !== playbackSession) return;
           isTransitioning = false;
           if (currentId) history.push(currentId);
           currentId = id;
@@ -1502,7 +1553,11 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
 
     function bindChoices() {
       stageEl.querySelectorAll("[data-target]").forEach((button) => {
-        button.addEventListener("click", () => goTo(button.getAttribute("data-target")));
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          autoAdvanceHoldId = null;
+          goTo(button.getAttribute("data-target"));
+        });
       });
     }
 
@@ -1517,8 +1572,15 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           node.data &&
           (node.data.audioUrl || (node.data.videoUrl && !node.data.imageUrl)),
       );
-      if (settings.autoAdvance && !hasMedia && outEdges(currentId).length <= 1) {
+      if (
+        settings.autoAdvance &&
+        autoAdvanceHoldId !== currentId &&
+        !hasMedia &&
+        outEdges(currentId).length <= 1
+      ) {
+        const sessionId = playbackSession;
         autoAdvanceTimer = setTimeout(() => {
+          if (sessionId !== playbackSession) return;
           const next = outEdges(currentId)[0]?.target || "THE_END";
           goTo(next);
         }, 900);
@@ -1526,13 +1588,15 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
 
     function maybeAdvanceAfterMedia() {
-      if (!settings.autoAdvance || outEdges(currentId).length > 1) return;
+      if (!settings.autoAdvance || autoAdvanceHoldId === currentId || outEdges(currentId).length > 1) return;
       if (currentAudioEnded && currentVideoEnded) {
         goTo(outEdges(currentId)[0]?.target || "THE_END");
       }
     }
 
     function continueFromText() {
+      if (!currentId || currentId === "THE_END") return;
+      autoAdvanceHoldId = null;
       const edges = outEdges(currentId);
       if (edges.length <= 1) {
         goTo(edges[0]?.target || "THE_END");
@@ -1540,9 +1604,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
 
     function render() {
-      if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
-      typewriterTimers.forEach((timer) => clearInterval(timer));
-      typewriterTimers = [];
+      clearPlaybackTimers();
       backButton.disabled = history.length === 0;
       if (!currentId) {
         syncRegionMusic(null);
@@ -1562,6 +1624,22 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         return;
       }
       const data = node.data || {};
+      if (node.type === "numberConditionNode") {
+        if (currentId === lastJumpedNode) return;
+        lastJumpedNode = currentId;
+        history.push(currentId);
+        currentId = numberConditionTarget(node);
+        render();
+        return;
+      }
+      if (data.skip === true) {
+        if (currentId === lastJumpedNode) return;
+        lastJumpedNode = currentId;
+        history.push(currentId);
+        currentId = outEdges(currentId)[0]?.target || "THE_END";
+        render();
+        return;
+      }
       syncRegionMusic(data.backgroundMusic || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
@@ -1711,15 +1789,32 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     function escapeAttr(value) { return escapeHtml(value); }
 
     backButton.addEventListener("click", () => {
-      const previous = history.pop();
+      restartPlaybackSession();
+      let previous = history.pop();
+      while (previous) {
+        const previousNode = nodeById.get(previous);
+        if (
+          previousNode &&
+          (previousNode.type === "numberConditionNode" || (previousNode.data && previousNode.data.skip === true))
+        ) {
+          previous = history.pop();
+          continue;
+        }
+        break;
+      }
       if (previous) {
         currentId = previous;
+        render();
+      } else {
+        currentId = root ? root.id : null;
         render();
       }
     });
     resetButton.addEventListener("click", () => {
+      restartPlaybackSession();
       history = [];
       currentId = root ? root.id : null;
+      autoAdvanceHoldId = currentId;
       render();
     });
     autoButton.addEventListener("click", () => {
@@ -1752,7 +1847,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
     });
     document.querySelector(".app")?.addEventListener("click", (event) => {
-      if (settings.autoAdvance || !currentId || currentId === "THE_END") return;
+      if ((settings.autoAdvance && autoAdvanceHoldId !== currentId) || !currentId || currentId === "THE_END") return;
       const target = event.target;
       if (
         target instanceof Element &&
@@ -1832,7 +1927,45 @@ export async function buildInteractiveWebZipBlob(
   };
 
   const webNodes: WebExportNode[] = [];
-  for (const node of nodes.filter((candidate) => candidate.type === 'storyNode')) {
+  for (const node of nodes.filter(
+    (candidate) => candidate.type === 'storyNode' || candidate.type === 'numberConditionNode',
+  )) {
+    if (node.type === 'numberConditionNode') {
+      webNodes.push({
+        id: node.id,
+        type: node.type,
+        data: {
+          title: nodeTitle(node),
+          isRoot: Boolean(node.data?.isRoot),
+          hidden: Boolean(node.data?.hidden),
+          skip: Boolean(node.data?.skip),
+          nodeValue:
+            typeof node.data?.nodeValue === 'number' && Number.isFinite(node.data.nodeValue)
+              ? node.data.nodeValue
+              : undefined,
+          threshold:
+            typeof node.data?.threshold === 'number' && Number.isFinite(node.data.threshold)
+              ? node.data.threshold
+              : 0,
+          ranges: Array.isArray(node.data?.ranges)
+            ? (node.data.ranges as any[])
+                .map((range) => ({
+                  id: String(range.id || ''),
+                  min: Number(range.min),
+                  max: Number(range.max),
+                }))
+                .filter(
+                  (range) =>
+                    range.id &&
+                    Number.isFinite(range.min) &&
+                    Number.isFinite(range.max),
+                )
+            : [],
+        },
+      });
+      continue;
+    }
+
     const titleText = nodeTitle(node);
     const imageUrl = await addImageAsset(
       zip,
@@ -1925,6 +2058,12 @@ export async function buildInteractiveWebZipBlob(
         showTextOverlay:
           typeof node.data?.showTextOverlay === 'boolean' ? node.data.showTextOverlay : undefined,
         isRoot: Boolean(node.data?.isRoot),
+        hidden: Boolean(node.data?.hidden),
+        skip: Boolean(node.data?.skip),
+        nodeValue:
+          typeof node.data?.nodeValue === 'number' && Number.isFinite(node.data.nodeValue)
+            ? node.data.nodeValue
+            : undefined,
         presentation: webPresentation,
       },
     });
