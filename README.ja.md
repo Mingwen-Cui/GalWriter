@@ -103,11 +103,31 @@ npm run tauri -- dev
 ### パッケージング
 
 ```bash
-npm run tauri:build:lite
-npm run tauri:build:portable:lite
+npm run tauri:build:all-platforms
 ```
 
-Android のパッケージングは [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md) を参照してください。
+成果物は `release/` に出力されます。
+
+- `GalWriter-AI-v<version>-windows-x64-setup.exe`
+- `GalWriter-AI-v<version>-windows-x64-portable.zip`
+- `GalWriter-AI-v<version>-windows-x64.msi`
+- `GalWriter-AI-v<version>-web.zip`
+- `GalWriter-AI-v<version>-android-signed.apk`
+- `GalWriter-AI-v<version>-android.aab`
+
+ローカルで Android プロジェクトが未初期化の場合は、先に次を実行してください。
+
+```bash
+npm run tauri:android:init
+```
+
+補足:
+
+- `Web + Windows` はそのままビルドされます。
+- `Android` にはローカルの Android SDK / NDK、初期化済みの `src-tauri/gen/android`、署名設定が必要です。
+- Android の前提が不足している場合でも、`tauri:build:all-platforms` は Web と Windows の成果物を先に出力し、Android をスキップします。
+
+Android の署名と環境準備は [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md) を参照してください。
 
 ## アーキテクチャ概要
 

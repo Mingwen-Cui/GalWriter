@@ -103,11 +103,31 @@ npm run tauri -- dev
 ### Packaging
 
 ```bash
-npm run tauri:build:lite
-npm run tauri:build:portable:lite
+npm run tauri:build:all-platforms
 ```
 
-For Android packaging, see [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md).
+Artifacts are written to `release/`:
+
+- `GalWriter-AI-v<version>-windows-x64-setup.exe`
+- `GalWriter-AI-v<version>-windows-x64-portable.zip`
+- `GalWriter-AI-v<version>-windows-x64.msi`
+- `GalWriter-AI-v<version>-web.zip`
+- `GalWriter-AI-v<version>-android-signed.apk`
+- `GalWriter-AI-v<version>-android.aab`
+
+If the Android project has not been initialized locally yet, run:
+
+```bash
+npm run tauri:android:init
+```
+
+Notes:
+
+- `Web + Windows` build directly.
+- `Android` requires a local Android SDK / NDK install, an initialized `src-tauri/gen/android`, and signing configuration.
+- If Android prerequisites are missing, `tauri:build:all-platforms` still produces the web and Windows assets and skips Android.
+
+For Android signing and environment setup, see [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md).
 
 ## Architecture Overview
 

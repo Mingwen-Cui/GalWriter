@@ -103,11 +103,31 @@ npm run tauri -- dev
 ### 打包
 
 ```bash
-npm run tauri:build:lite
-npm run tauri:build:portable:lite
+npm run tauri:build:all-platforms
 ```
 
-Android 打包流程请参考 [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md)。
+产物会输出到 `release/`：
+
+- `GalWriter-AI-v<version>-windows-x64-setup.exe`
+- `GalWriter-AI-v<version>-windows-x64-portable.zip`
+- `GalWriter-AI-v<version>-windows-x64.msi`
+- `GalWriter-AI-v<version>-web.zip`
+- `GalWriter-AI-v<version>-android-signed.apk`
+- `GalWriter-AI-v<version>-android.aab`
+
+如果本地还没有初始化 Android 工程，可以先执行：
+
+```bash
+npm run tauri:android:init
+```
+
+说明：
+
+- `Web + Windows` 会直接构建。
+- `Android` 需要本机已安装 Android SDK / NDK、已初始化 `src-tauri/gen/android`，并已配置签名文件。
+- 如果 Android 前置未完成，`tauri:build:all-platforms` 会先产出 Web 和 Windows 资产，并跳过 Android。
+
+Android 签名与环境准备请参考 [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md)。
 
 ## 架构概览
 

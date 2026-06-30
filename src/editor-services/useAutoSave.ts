@@ -120,6 +120,7 @@ export const useAutoSave = <TProjectData>({
     try {
       const data = JSON.parse(autoSaveData.snapshot) as TProjectData;
       await applyRecoveredProject(data);
+      await clearAutoSave();
       showToast(
         language === 'zh'
           ? '已恢复进度，请记得手动保存'
@@ -132,7 +133,7 @@ export const useAutoSave = <TProjectData>({
     }
 
     setShowAutoSaveModal(false);
-  }, [applyRecoveredProject, autoSaveData, language, showToast]);
+  }, [applyRecoveredProject, autoSaveData, clearAutoSave, language, showToast]);
 
   return {
     autoSaveData,

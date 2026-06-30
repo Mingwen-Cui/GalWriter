@@ -7,7 +7,7 @@ use std::{
   sync::Mutex,
   time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 #[cfg(target_os = "windows")]
 use windows::{
@@ -1532,7 +1532,8 @@ pub fn run() {
             let _ = window.minimize();
           }
         } else {
-          window.app_handle().exit(0);
+          api.prevent_close();
+          let _ = window.emit("galwriter-close-requested", ());
         }
       }
     })

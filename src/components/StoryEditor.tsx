@@ -53,6 +53,7 @@ import { useSelectionMenu } from '../editor-features/selection-tools/useSelectio
 import { localPersistenceService } from '../editor-services/localPersistenceService';
 import { createProjectSerializer } from '../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../editor-services/projectThumbnail';
+import { stableStringify } from '../lib/stableStringify';
 import { ttsService } from '../editor-services/ttsService';
 import { useAutoSave } from '../editor-services/useAutoSave';
 import { AIActionModal } from '../editor-shell/AIActionModal';
@@ -867,6 +868,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     null,
   );
   const [showProjectSavePrompt, setShowProjectSavePrompt] = useState(false);
+  const [showAppClosePrompt, setShowAppClosePrompt] = useState(false);
   const [projectIdsPendingDeletion, setProjectIdsPendingDeletion] = useState<string[]>([]);
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveSystemTheme());
@@ -915,10 +917,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     useSharedRenderStyle();
 
   const t = translations[language];
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setIsDirtyRaw] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isProjectSnapshotSynced, setIsProjectSnapshotSynced] = useState(false);
   const isSavingProjectRef = useRef(false);
   const lastSavedSnapshot = useRef<string>('');
+  const pendingInitialSnapshotSyncProjectIdRef = useRef<string | null>(null);
+  const pendingInitialSnapshotCandidateRef = useRef<string>('');
+  const setIsDirty = setIsDirtyRaw;
 
   const activeTextProfile = useMemo(() => {
     if (!isTauriRuntime() && activeTextProfileId === HOSTED_PROXY_PROFILE_ID) {
@@ -4099,16 +4105,16 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       projectName: string,
       options?: { fromHome?: boolean; updatedAt?: number },
     ) => {
-      await applyProjectData(projectData, { markSaved: true });
-      const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
+    await applyProjectData(projectData, { markSaved: true });
+    const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
 
-      setCurrentProjectId(projectId);
-      setCurrentProjectFilePath(projectFilePath);
+    pendingInitialSnapshotSyncProjectIdRef.current = projectId;
+    pendingInitialSnapshotCandidateRef.current = '';
+    setIsProjectSnapshotSynced(false);
+    setCurrentProjectId(projectId);
+    setCurrentProjectFilePath(projectFilePath);
       setSaveFileName(projectName.trim() || DEFAULT_PROJECT_FILE_NAME);
-      const nextProjectTitle =
-        projectData.settings?.projectTitle?.trim() ||
-        (projectName.trim() && projectName.trim() !== DEFAULT_PROJECT_FILE_NAME ? projectName : '');
-      setProjectTitle(nextProjectTitle);
+      setProjectTitle(projectData.settings?.projectTitle?.trim() || '');
       setLastSavedTime(options?.updatedAt || null);
       setCurrentProjectPersisted(true);
       resetAssistantTasks(projectData.assistantTasks, projectData.activeAssistantTaskId || null);
@@ -4143,7 +4149,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       },
       showToast,
       language,
-      enabled: Boolean(didHydrateLocalState && currentProjectId),
+      enabled: Boolean(didHydrateLocalState && currentProjectId && isProjectSnapshotSynced),
     });
 
   const resetEditorToBlankState = useCallback(() => {
@@ -4171,8 +4177,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setEdges([]);
     lastHistoryState.current = { nodes: blankNodes, edges: [] as Edge[] };
     setHistory({ past: [], future: [] });
-    lastSavedSnapshot.current = JSON.stringify(blankSnapshot);
+    lastSavedSnapshot.current = stableStringify(blankSnapshot);
     setIsDirty(false);
+    setIsProjectSnapshotSynced(true);
   }, [editorProjectSettings, resetAssistantTasks, setEdges, setNodes]);
 
   const saveCurrentProject = useCallback(async () => {
@@ -4207,8 +4214,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setSaveFileName(persistedProjectName);
       setProjectTitle(persistedProjectTitle);
       setLastSavedTime(savedAt);
-      lastSavedSnapshot.current = JSON.stringify(snapshot);
+      lastSavedSnapshot.current = stableStringify(snapshot);
       setIsDirty(false);
+      setIsProjectSnapshotSynced(true);
       await clearAutoSave();
       await refreshProjectSummaries();
       showToast(language === 'zh' ? '项目已保存到本地' : 'Project saved locally');
@@ -4249,7 +4257,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     } as ProjectSnapshotData;
 
     await restoreProjectSession(projectId, emptyProject, projectName);
-    lastSavedSnapshot.current = JSON.stringify(emptyProject);
+    lastSavedSnapshot.current = stableStringify(emptyProject);
     setCurrentProjectPersisted(false);
     setPendingHomeProjectId(null);
     setProjectIdToLoad(null);
@@ -4397,6 +4405,57 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const handleCancelProjectAction = useCallback(() => {
     setShowProjectSavePrompt(false);
     setPendingProjectAction(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let unlistenCloseRequest: (() => void) | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        if (cancelled) return;
+        unlistenCloseRequest = await listen('galwriter-close-requested', () => {
+          if (isDirty) {
+            requestProjectAction({ type: 'close-window' });
+            return;
+          }
+
+          setShowAppClosePrompt(true);
+        });
+      } catch (error) {
+        console.error('Failed to listen for app close requests:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      void unlistenCloseRequest?.();
+    };
+  }, [isDirty, requestProjectAction]);
+
+  React.useEffect(() => {
+    if (isTauriRuntime()) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  const handleConfirmAppClose = useCallback(() => {
+    setShowAppClosePrompt(false);
+    void performPendingProjectAction({ type: 'close-window' });
+  }, [performPendingProjectAction]);
+
+  const handleCancelAppClose = useCallback(() => {
+    setShowAppClosePrompt(false);
   }, []);
 
   const handleExportProjectFromList = useCallback(
@@ -4658,13 +4717,32 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   React.useEffect(() => {
     if (!currentProjectId) {
+      pendingInitialSnapshotSyncProjectIdRef.current = null;
+      pendingInitialSnapshotCandidateRef.current = '';
+      setIsDirty(false);
+      setIsProjectSnapshotSynced(true);
+      return;
+    }
+
+    const currentSnapshot = getProjectSnapshot();
+    const savedSnapshot = lastSavedSnapshot.current;
+    if (pendingInitialSnapshotSyncProjectIdRef.current === currentProjectId) {
+      if (pendingInitialSnapshotCandidateRef.current === currentSnapshot) {
+        lastSavedSnapshot.current = currentSnapshot;
+        pendingInitialSnapshotSyncProjectIdRef.current = null;
+        pendingInitialSnapshotCandidateRef.current = '';
+        setIsProjectSnapshotSynced(true);
+      } else {
+        pendingInitialSnapshotCandidateRef.current = currentSnapshot;
+        setIsProjectSnapshotSynced(false);
+      }
       setIsDirty(false);
       return;
     }
 
-    const snapshot = getProjectSnapshot();
-    setIsDirty(snapshot !== lastSavedSnapshot.current);
-  }, [assistantTasks, currentProjectId, edges, getProjectSnapshot, nodes, projectTitle]);
+    setIsProjectSnapshotSynced(true);
+    setIsDirty(currentSnapshot !== savedSnapshot);
+  }, [currentProjectId, getProjectSnapshot]);
 
   const footerHint = useMemo(() => {
     if (assistantOpen) {
@@ -5743,6 +5821,24 @@ ${layoutConfig.label}
           void handleDiscardCurrentProjectChanges();
         }}
         onCancel={handleCancelProjectAction}
+      />
+
+      <ConfirmActionModal
+        visible={showAppClosePrompt}
+        language={language}
+        title={language === 'zh' ? '退出应用？' : language === 'ja' ? 'アプリを終了しますか？' : 'Quit app?'}
+        description={
+          language === 'zh'
+            ? '确定要关闭 GalWriter AI 吗？'
+            : language === 'ja'
+              ? 'GalWriter AI を終了しますか？'
+              : 'Are you sure you want to quit GalWriter AI?'
+        }
+        confirmLabel={language === 'zh' ? '退出应用' : language === 'ja' ? '終了' : 'Quit'}
+        cancelLabel={language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}
+        tone="warning"
+        onCancel={handleCancelAppClose}
+        onConfirm={handleConfirmAppClose}
       />
 
       <ProjectPickerModal

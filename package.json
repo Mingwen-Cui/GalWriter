@@ -1,7 +1,7 @@
 {
   "name": "galwriter-ai",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.7",
   "type": "module",
   "description": "交互式剧本编辑器 - GalWriter AI",
   "author": "GalWriter",
@@ -17,9 +17,14 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "tauri": "tauri",
-    "tauri:build:lite": "tauri build --config src-tauri/tauri.lite.conf.json && node build-scripts/copy-tauri-installer.mjs lite",
-    "tauri:build:portable": "npm run tauri:build:portable:lite",
-    "tauri:build:portable:lite": "tauri build --config src-tauri/tauri.lite.conf.json && node build-scripts/copy-tauri-portable.mjs lite"
+    "tauri:android:init": "tauri android init --ci",
+    "tauri:build:windows": "tauri build",
+    "tauri:build:web": "vite build",
+    "tauri:build:android": "tauri android build --apk --aab",
+    "tauri:build:android:if-ready": "node build-scripts/build-android-if-ready.mjs",
+    "tauri:prepare:release": "node build-scripts/prepare-release-assets.mjs",
+    "tauri:build:release": "npm run tauri:build:all-platforms",
+    "tauri:build:all-platforms": "npm run tauri:build:web && npm run tauri:build:windows && npm run tauri:build:android:if-ready && npm run tauri:prepare:release"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

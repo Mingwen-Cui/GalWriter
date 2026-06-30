@@ -17,6 +17,7 @@ import {
   createProjectSerializer,
   type ProjectSnapshotData,
 } from '../../editor-services/projectSerializer';
+import { stableStringify } from '../../lib/stableStringify';
 
 type EdgeDefaults = {
   markerEnd: {
@@ -115,7 +116,7 @@ export const useProjectSerialization = ({
   );
 
   const getProjectSnapshot = useCallback(() => {
-    return JSON.stringify(createSnapshotData());
+    return stableStringify(createSnapshotData());
   }, [createSnapshotData]);
 
   const applyProjectData = useCallback(
@@ -137,7 +138,7 @@ export const useProjectSerialization = ({
       setEdges(restoredProject.edges as Edge[]);
 
       if (options?.markSaved ?? true) {
-        lastSavedSnapshotRef.current = JSON.stringify(projectData);
+        lastSavedSnapshotRef.current = stableStringify(projectData);
         setIsDirty(false);
       }
     },
@@ -178,7 +179,7 @@ export const useProjectSerialization = ({
           await onProjectFilePathSaved?.(exportedProject.filePath);
         }
 
-        lastSavedSnapshotRef.current = JSON.stringify(exportedProject.projectData);
+        lastSavedSnapshotRef.current = stableStringify(exportedProject.projectData);
         setIsDirty(false);
         setShowSaveNameModal(false);
         if (currentProjectId) {

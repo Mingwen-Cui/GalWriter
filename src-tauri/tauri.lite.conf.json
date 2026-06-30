@@ -1,8 +1,0 @@
-{
-  "productName": "GalWriter AI Lite",
-  "bundle": {
-    "resources": [],
-    "shortDescription": "多结局AI剧本生成器（轻量版，不内置 FFmpeg）",
-    "longDescription": "由AI驱动多结局剧本创作工具。轻量版不内置 FFmpeg；MP4、MOV、MKV 等视频导出需要用户电脑已安装 FFmpeg，网页/WebM 导出不受影响。"
-  }
-}
