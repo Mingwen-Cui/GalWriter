@@ -192,25 +192,44 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
   // React Flow 内部用 Object.is 比较选择器返回值，只有数字真正变化才重渲染，
   // 不会订阅整个 edges/nodes 数组引用，彻底切断无限循环。
   const computedSum = useStore((state) => {
-    const ancestors = new Set<string>();
-    const queue = [id];
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      for (const edge of state.edges) {
-        if (edge.target === currentId && !ancestors.has(edge.source)) {
-          ancestors.add(edge.source);
-          queue.push(edge.source);
-        }
-      }
+    // Parallel upstream branches are alternatives; compare against the largest serial path total.
+    const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
+    const incomingEdgesByTarget = new Map<string, typeof state.edges>();
+    for (const edge of state.edges) {
+      const incomingEdges = incomingEdgesByTarget.get(edge.target) || [];
+      incomingEdges.push(edge);
+      incomingEdgesByTarget.set(edge.target, incomingEdges);
     }
-    let total = 0;
-    for (const nodeId of ancestors) {
-      const node = state.nodes.find((n) => n.id === nodeId);
-      if (node && typeof node.data.nodeValue === 'number') {
-        total += node.data.nodeValue;
-      }
-    }
-    return total;
+
+    const maxSerialSumByNodeId = new Map<string, number>();
+    const visiting = new Set<string>();
+    const getMaxSerialSumToNode = (nodeId: string): number => {
+      const cached = maxSerialSumByNodeId.get(nodeId);
+      if (typeof cached === 'number') return cached;
+      if (visiting.has(nodeId)) return 0;
+
+      visiting.add(nodeId);
+      const node = nodeById.get(nodeId);
+      const ownValue =
+        node && typeof node.data.nodeValue === 'number' && Number.isFinite(node.data.nodeValue)
+          ? node.data.nodeValue
+          : 0;
+      const incomingEdges = incomingEdgesByTarget.get(nodeId) || [];
+      const maxUpstreamValue = incomingEdges.reduce(
+        (maxValue, edge) => Math.max(maxValue, getMaxSerialSumToNode(edge.source)),
+        0,
+      );
+      const total = ownValue + maxUpstreamValue;
+      visiting.delete(nodeId);
+      maxSerialSumByNodeId.set(nodeId, total);
+      return total;
+    };
+
+    const directIncomingEdges = incomingEdgesByTarget.get(id) || [];
+    return directIncomingEdges.reduce(
+      (maxValue, edge) => Math.max(maxValue, getMaxSerialSumToNode(edge.source)),
+      0,
+    );
   });
 
   // NOTE: 将精确选择器的结果同步到 sum state，只有 computedSum 变化才执行
