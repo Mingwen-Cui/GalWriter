@@ -2,7 +2,7 @@
 
 # GalWriter AI
 
-### A local-first AI writing workspace for visual novels, galgames, and branching interactive stories
+### An AI writing workspace for visual novels, galgames, and branching interactive stories
 
 [![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web%20%7C%20Android-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
@@ -25,7 +25,7 @@ The current repository already covers the editor, local project library, AI prof
 
 ## What It Does Now
 
-- **Visual story canvas**: supports `storyNode`, `characterNode`, `sceneNode`, `aiNode`, `backgroundNode`, `groupNode`, `numberConditionNode`, `batchReplaceNode`, `plotStructureNode`, `textNode`, and `summaryNode`.
+- **Visual story canvas**: supports story passages, character profiles, scene settings, AI generation, background assets, grouping, numeric conditions, batch replacement, plot structure planning, text notes, and summaries.
 - **Local project library**: built-in project home, recent projects, rename, delete, batch import/export, and default save directory handling.
 - **AI profile center**: manages text, image, background-removal, and voice profiles separately, with multiple Provider / Model / API URL / API Key presets.
 - **Assistant and agent workflows**: supports streaming chat, card generation, document context, memory notes, future-target planning, starter flows, and revision flows.
@@ -38,9 +38,9 @@ The current repository already covers the editor, local project library, AI prof
 
 | Platform | Current role | Notes |
 | --- | --- | --- |
-| Windows | Main authoring and final export target | Tauri save dialogs, native export paths, system TTS, and the most complete video/web export flow |
+| Windows | Main authoring and final export target | Save dialogs, native export paths, system TTS, and the most complete video/web export flow |
 | Web | Fast trial and lightweight editing | Uses browser-local storage and is good for quick testing, light editing, and shorter previews/exports |
-| Android | Mobile preview and testing | Packaged with Tauri Android and oriented more toward mobile viewing and script testing |
+| Android | Mobile preview and testing | Oriented more toward mobile viewing, test runs, and lightweight interaction |
 
 ## Quick Start
 
@@ -94,17 +94,10 @@ npm run build
 npm run preview
 ```
 
-### Desktop Development
-
-```bash
-npm run tauri -- dev
-```
-
 ### Packaging
 
 ```bash
-npm run tauri:build:lite
-npm run tauri:build:portable:lite
+npm run tauri build
 ```
 
 For Android packaging, see [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md).
