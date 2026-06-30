@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import React, { memo, useEffect, useRef, useState } from 'react';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import { Language, translations } from '../lib/i18n';
 
 type Point = {
@@ -465,6 +466,7 @@ function isNodeInsideRegion(state: any, node: any, region: RegionInfo) {
 }
 
 export function BatchReplaceNode({ id, data, selected }: NodeProps) {
+  const { alert: showDialogAlert } = useDialog();
   const [findText, setFindText] = useState<string>(
     typeof data.findText === 'string' ? data.findText : '',
   );
@@ -611,20 +613,30 @@ export function BatchReplaceNode({ id, data, selected }: NodeProps) {
     }
 
     if (!findText) {
-      alert(tr('请输入查找内容', '検索する文字列を入力してください', 'Please enter text to find'));
+      void showDialogAlert({
+        title: tr('缺少查找内容', '検索文字列が未入力です', 'Missing text to find'),
+        description: tr(
+          '请输入查找内容',
+          '検索する文字列を入力してください',
+          'Please enter text to find',
+        ),
+        tone: 'warning',
+      });
       return;
     }
 
     const targetNodes = getTargetNodes();
 
     if (targetNodes.length === 0) {
-      alert(
-        tr(
+      void showDialogAlert({
+        title: tr('没有可替换内容', '置換対象がありません', 'Nothing to replace'),
+        description: tr(
           '范围内未找到可替换的剧情卡片',
           '範囲内に置換可能なストーリーカードがありません',
           'No story cards found in scope',
         ),
-      );
+        tone: 'warning',
+      });
       return;
     }
 

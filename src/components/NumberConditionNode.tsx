@@ -19,10 +19,12 @@ import {
 } from 'lucide-react';
 import React, { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import type { Language } from '../lib/i18n';
 import { NumberInput } from './NumberInput';
 
 export function NumberConditionNode({ id, data, selected }: NodeProps) {
+  const { confirm: showDialogConfirm } = useDialog();
   const lang = (data.language as Language) || 'zh';
   const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [sum, setSum] = useState(0);
@@ -80,20 +82,23 @@ export function NumberConditionNode({ id, data, selected }: NodeProps) {
     setPendingFocusRangeId(id);
   };
 
-  const removeRange = (rangeId: string) => {
+  const removeRange = async (rangeId: string) => {
     const sourceHandle = `out-range-${rangeId}`;
     const hasConnection = storeApi
       .getState()
       .edges.some((edge) => edge.source === id && edge.sourceHandle === sourceHandle);
     if (
       hasConnection &&
-      !window.confirm(
-        tr(
+      !(await showDialogConfirm({
+        title: tr('确认删除范围分支', '範囲分岐を削除しますか', 'Delete this range branch?'),
+        description: tr(
           '删除这个范围分支后，对应连线也会被移除。确定删除吗？',
           'この範囲分岐を削除すると、接続も削除されます。削除しますか？',
           'Deleting this range branch will also remove its connection. Continue?',
         ),
-      )
+        tone: 'warning',
+        confirmLabel: tr('确认删除', '削除する', 'Delete'),
+      }))
     ) {
       return;
     }

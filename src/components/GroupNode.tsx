@@ -300,6 +300,10 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
    * 例如创建节点时传 data.gap = 50。
    */
   const groupGap = typeof data.gap === 'number' ? data.gap : DEFAULT_GROUP_GAP;
+  const cardToolbarScale =
+    typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
+      ? data.cardToolbarScale
+      : 1;
 
   const fallbackHullPoints = (data.hullPoints as Point[]) || [];
 
@@ -496,7 +500,10 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
           position={Position.Top}
           offset={25}
         >
-          <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] flex gap-2 items-center pointer-events-auto animate-in zoom-in-95 duration-200">
+          <div
+            className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] flex gap-2 items-center pointer-events-auto animate-in zoom-in-95 duration-200"
+            style={{ transform: `scale(${cardToolbarScale})`, transformOrigin: 'bottom center' }}
+          >
             <button
               onClick={toggleLock}
               className={`p-1.5 rounded-lg hover:bg-[var(--app-bg)] transition-colors ${

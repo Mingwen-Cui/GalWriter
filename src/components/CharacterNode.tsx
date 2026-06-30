@@ -30,6 +30,7 @@ import {
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
@@ -70,6 +71,7 @@ const CHARACTER_NODE_MIN_WIDTH = 280;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
 
 export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
+  const { alert: showDialogAlert } = useDialog();
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
 
@@ -77,6 +79,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const traits = data.traits || '';
   const avatarUrl = data.avatarUrl;
   const isGlobal = data.isGlobal !== false; // Default to true
+  const cardToolbarScale =
+    typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
+      ? data.cardToolbarScale
+      : 1;
 
   const isMinimized = !!data.isMinimized;
   const outfits = data.outfits || [];
@@ -437,11 +443,22 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     } catch (error) {
       const message = error instanceof Error ? error.message : undefined;
       console.error('Character setting roll failed:', error);
-      alert(
-        lang === 'zh'
-          ? `人物设定生成失败：${message || '请检查 AI 配置和网络连接'}`
-          : `Character setting generation failed: ${message || 'check AI settings and network'}`,
-      );
+      await showDialogAlert({
+        title:
+          lang === 'zh'
+            ? '人物设定生成失败'
+            : lang === 'ja'
+              ? 'キャラクター設定の生成に失敗しました'
+              : 'Character setting generation failed',
+        description:
+          message ||
+          (lang === 'zh'
+            ? '请检查 AI 配置和网络连接'
+            : lang === 'ja'
+              ? 'AI 設定とネットワーク接続を確認してください'
+              : 'Check AI settings and network connection.'),
+        tone: 'warning',
+      });
     } finally {
       setIsRollingSetting(false);
     }

@@ -25,6 +25,7 @@ export type BubbleStyle = 'glass' | 'flat';
 export type StoryTitlePlacement = 'inside' | 'outside-left' | 'outside-right';
 export type TtsNarrationMode = 'body' | 'title' | 'all';
 export type MiniMapPosition = 'left' | 'right';
+export type CardToolbarScale = number;
 export type TtsProvider =
   | 'system'
   | 'youdao'
@@ -268,6 +269,7 @@ export interface ProjectSettings extends PlaytestSettings {
   projectTitle: string;
   toolbarLayout: ToolbarLayout;
   selectionMenuLayout: SelectionMenuLayout;
+  cardToolbarScale: CardToolbarScale;
   language: Language;
   theme: EditorTheme;
   bubbleStyle: BubbleStyle;
@@ -312,6 +314,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setProjectTitle: Dispatch<SetStateAction<string>>;
   setToolbarLayout: Dispatch<SetStateAction<ToolbarLayout>>;
   setSelectionMenuLayout: Dispatch<SetStateAction<SelectionMenuLayout>>;
+  setCardToolbarScale: Dispatch<SetStateAction<CardToolbarScale>>;
   setLanguage: Dispatch<SetStateAction<Language>>;
   setTheme: Dispatch<SetStateAction<EditorTheme>>;
   setBubbleStyle: Dispatch<SetStateAction<BubbleStyle>>;
@@ -501,6 +504,7 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   isAILoading?: boolean;
   isHighlighted?: boolean;
   isMinimized?: boolean;
+  cardToolbarScale?: CardToolbarScale;
 }
 
 export interface StoryNodeData extends BaseEditorNodeData {

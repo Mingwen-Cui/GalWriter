@@ -109,6 +109,10 @@ function isPlotStructureNodeLocal(node: any) {
 export function BackgroundNode({ id, data, selected }: NodeProps) {
   const color = (data.color as string) || '#f1f5f9';
   const title = (data.title as string) ?? '背景区域';
+  const cardToolbarScale =
+    typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
+      ? data.cardToolbarScale
+      : 1;
 
   const locked = data.locked === true;
 
@@ -191,7 +195,10 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       )}
 
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>
-        <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center">
+        <div
+          className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center"
+          style={{ transform: `scale(${cardToolbarScale})`, transformOrigin: 'bottom center' }}
+        >
           <button
             onClick={toggleLock}
             className={`p-1 rounded hover:bg-[var(--app-bg)] transition-colors ${

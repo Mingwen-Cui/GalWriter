@@ -148,6 +148,8 @@ interface SettingsModalProps {
   setToolbarLayout: (layout: 'vertical' | 'horizontal') => void;
   selectionMenuLayout: 'horizontal' | 'vertical';
   setSelectionMenuLayout: (layout: 'horizontal' | 'vertical') => void;
+  cardToolbarScale: number;
+  setCardToolbarScale: (scale: number) => void;
   edgeStyle: 'step' | 'bezier';
   setEdgeStyle: (style: 'step' | 'bezier') => void;
   pasteAsPlainText: boolean;
@@ -283,6 +285,8 @@ const settingsText = {
     copied: '已复制！',
     clickToCopy: '点击复制',
     toolbarBubbleStyle: '工具栏气泡质感',
+    cardToolbarScale: '卡片工具栏缩放',
+    cardToolbarScaleDesc: '调整点击卡片后弹出的工具栏整体比例。',
     hoverButtonAnimations: '悬浮按钮动画',
     hoverButtonAnimationsDesc: '开启后，鼠标悬浮在部分工具按钮上会播放 Lottie 引导动画。',
     opaqueAssistantMessagesInGlass: 'AI 助手对话不透明',
@@ -401,6 +405,8 @@ const settingsText = {
     copied: 'Copied!',
     clickToCopy: 'Click to Copy',
     toolbarBubbleStyle: 'Toolbar Bubble Style',
+    cardToolbarScale: 'Card Toolbar Scale',
+    cardToolbarScaleDesc: 'Adjust the overall size of the toolbar shown after selecting a card.',
     hoverButtonAnimations: 'Hover Button Animations',
     hoverButtonAnimationsDesc: 'Play Lottie guides when hovering over supported toolbar buttons.',
     opaqueAssistantMessagesInGlass: 'Opaque AI assistant messages',
@@ -522,6 +528,8 @@ const settingsText = {
     copied: 'コピーしました！',
     clickToCopy: 'クリックしてコピー',
     toolbarBubbleStyle: 'ツールバーのバブルスタイル',
+    cardToolbarScale: 'カードツールバー倍率',
+    cardToolbarScaleDesc: 'カード選択時に表示されるツールバー全体の大きさを調整します。',
     hoverButtonAnimations: 'ホバーボタンのアニメーション',
     hoverButtonAnimationsDesc:
       '対応するツールボタンにマウスを合わせると、Lottie ガイドを再生します。',
@@ -662,6 +670,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setToolbarLayout,
   selectionMenuLayout,
   setSelectionMenuLayout,
+  cardToolbarScale,
+  setCardToolbarScale,
   edgeStyle,
   setEdgeStyle,
   pasteAsPlainText,
@@ -1476,6 +1486,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </span>
                         </button>
                       ))}
+                    </div>
+                  </section>
+
+                  <section className={settingsRowClass}>
+                    <div className="min-w-0 flex-1">
+                      <h3 className={settingsRowTitleClass}>{s.cardToolbarScale}</h3>
+                      <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                        {s.cardToolbarScaleDesc}
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center gap-4 rounded-lg border border-[var(--header-border)] bg-[var(--app-bg)]/50 p-2.5">
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={3}
+                        step={0.05}
+                        value={cardToolbarScale}
+                        onChange={(event) =>
+                          setCardToolbarScale(parseFloat(event.target.value))
+                        }
+                        className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-700"
+                      />
+                      <span className="shrink-0 text-xs font-mono font-bold text-[var(--accent)]">
+                        {cardToolbarScale.toFixed(2)}x
+                      </span>
                     </div>
                   </section>
 

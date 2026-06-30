@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import type { Language } from '../lib/i18n';
 import {
   buildRegionStoryItems,
@@ -32,6 +33,7 @@ export type PlotStructureGenerateParams = {
 };
 
 export function PlotStructureNode({ id, data, selected }: NodeProps) {
+  const { alert: showDialogAlert } = useDialog();
   const lang = (data.language as Language) || 'zh';
   const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
   const [cardCount, setCardCount] = useState(Number(data.cardCount) || 3);
@@ -147,13 +149,15 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
 
   const handleGenerate = async () => {
     if (!detectedRegion) {
-      alert(
-        tr(
+      void showDialogAlert({
+        title: tr('无法开始生成', '生成を開始できません', 'Unable to start generation'),
+        description: tr(
           '请先将此卡片放入背景区域或动态包裹内部',
           'このカードを背景エリアまたは動的グループ内に配置してください',
           'Place this card inside a background area or dynamic group first',
         ),
-      );
+        tone: 'warning',
+      });
       return;
     }
 
@@ -161,35 +165,41 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
       regionStoryNodes.length > 0 ? regionStoryNodes : availableStoryNodes;
 
     if (storyNodesForGenerate.length === 0) {
-      alert(
-        tr(
+      void showDialogAlert({
+        title: tr('缺少可生成内容', '生成元が見つかりません', 'Nothing available to generate from'),
+        description: tr(
           '区域内未找到可识别的剧情卡片，也没有可复用的上一次识别内容',
           'エリア内に認識可能なストーリーカードがなく、再利用できる前回の内容もありません',
           'No recognizable story cards or reusable previous content were found in this area',
         ),
-      );
+        tone: 'warning',
+      });
       return;
     }
 
     if (!direction.trim()) {
-      alert(
-        tr(
+      void showDialogAlert({
+        title: tr('缺少发展方向', '展開方向が未入力です', 'Missing story direction'),
+        description: tr(
           '请填写后续发展走向',
           '今後の展開を入力してください',
           'Describe the desired story direction',
         ),
-      );
+        tone: 'warning',
+      });
       return;
     }
 
     if (typeof data.onPlotStructureGenerate !== 'function') {
-      alert(
-        tr(
+      void showDialogAlert({
+        title: tr('生成功能未就绪', '生成機能が未準備です', 'Generation is not ready'),
+        description: tr(
           '生成功能未就绪，请刷新页面后重试',
           '生成機能の準備ができていません。ページを再読み込みしてください',
           'Generation is not ready. Refresh the page and try again',
         ),
-      );
+        tone: 'warning',
+      });
       return;
     }
 

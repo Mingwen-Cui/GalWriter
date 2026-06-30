@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
+import { useDialog } from '../../editor-shell/DialogProvider';
 import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
@@ -521,6 +522,7 @@ export const useAssistantPanel = ({
   assistantMemoryNotes,
   setAssistantMemoryNotes,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
+  const { alert: showDialogAlert } = useDialog();
   const [assistantOpen, setAssistantOpen] = useState(!isMobile);
   const [assistantWidth, setAssistantWidth] = useState(360);
   const [assistantResizing, setAssistantResizing] = useState(false);
@@ -1963,13 +1965,21 @@ cards 必须正好有 3 张。`);
       runtimeWindow.SpeechRecognition || runtimeWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert(
-        language === 'zh'
-          ? '当前浏览器不支持语音输入。'
-          : language === 'ja'
-            ? 'お使いのブラウザは音声入力をサポートしていません。'
-            : 'Speech recognition is not supported in this browser.',
-      );
+      void showDialogAlert({
+        title:
+          language === 'zh'
+            ? '语音输入不可用'
+            : language === 'ja'
+              ? '音声入力は利用できません'
+              : 'Speech input unavailable',
+        description:
+          language === 'zh'
+            ? '当前浏览器不支持语音输入。'
+            : language === 'ja'
+              ? 'お使いのブラウザは音声入力をサポートしていません。'
+              : 'Speech recognition is not supported in this browser.',
+        tone: 'warning',
+      });
       return;
     }
 

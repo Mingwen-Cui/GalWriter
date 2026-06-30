@@ -35,6 +35,7 @@ import type {
   StoryAudioClip,
   StoryPresentation,
 } from '../domain/project';
+import { useDialog } from '../editor-shell/DialogProvider';
 import { convertRecordingToMp3 } from '../lib/audioRecording';
 import {
   clampCharacterLayer,
@@ -105,6 +106,7 @@ export function ZenEditor({
   onPresentationChange?: (presentation: StoryPresentation) => void;
   onClose: () => void;
 }) {
+  const { alert: showDialogAlert } = useDialog();
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -794,7 +796,11 @@ export function ZenEditor({
           setActiveAudioId(clip.id);
         } catch (error) {
           console.error('Failed to encode recording as MP3:', error);
-          alert('录音转 MP3 失败，请重试。');
+          await showDialogAlert({
+            title: '录音转换失败',
+            description: '录音转 MP3 失败，请重试。',
+            tone: 'warning',
+          });
         } finally {
           setRecordingState('idle');
         }
@@ -805,7 +811,11 @@ export function ZenEditor({
       stopRecordingTracks();
       setRecordingState('idle');
       const message = error instanceof Error ? error.message : '无法打开麦克风';
-      alert(`无法开始录音：${message}`);
+      await showDialogAlert({
+        title: '无法开始录音',
+        description: message,
+        tone: 'warning',
+      });
     }
   };
 

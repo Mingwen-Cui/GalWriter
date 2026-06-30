@@ -63,6 +63,7 @@ import { EditorLeftToolbar } from '../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../editor-shell/EditorRightToolbar';
 import { EditorToast } from '../editor-shell/EditorToast';
 import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
+import { useDialog } from '../editor-shell/DialogProvider';
 import { ProjectSavePromptModal } from '../editor-shell/ProjectSavePromptModal';
 import { SaveProjectModal } from '../editor-shell/SaveProjectModal';
 import {
@@ -228,6 +229,11 @@ const createAssistantMentionHtml = (
   const safeName = escapeAssistantStoryText(name);
   return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
 };
+
+interface StoryEditorProps {
+  appLanguage: Language;
+  onAppLanguageChange: (language: Language) => void;
+}
 
 const hasAssistantPlainText = (value: string) => /[\p{L}\p{N}]/u.test(value);
 
@@ -751,9 +757,10 @@ const getMediaDimensions = (
   });
 };
 
-export function StoryEditor() {
+export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
+  const { alert: showDialogAlert } = useDialog();
   const { agentState, runAgentCardPlacement, startAgentWaiting, stopAgentWaiting } =
     useAgentRuntime();
 
@@ -853,7 +860,7 @@ export function StoryEditor() {
     Awaited<ReturnType<typeof localPersistenceService.listProjects>>
   >([]);
   const [saveFileName, setSaveFileName] = useState(DEFAULT_PROJECT_FILE_NAME);
-  const [language, setLanguage] = useState<Language>('zh');
+  const language = appLanguage;
   const [projectTitle, setProjectTitle] = useState('');
   const [currentProjectPersisted, setCurrentProjectPersisted] = useState(false);
   const [pendingProjectAction, setPendingProjectAction] = useState<PendingProjectAction | null>(
@@ -869,6 +876,7 @@ export function StoryEditor() {
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(() =>
     effectiveFlowWidth < 768 ? 'vertical' : 'horizontal',
   );
+  const [cardToolbarScale, setCardToolbarScale] = useState(1);
   const {
     playTestDarkMode,
     setPlayTestDarkMode,
@@ -1441,6 +1449,7 @@ export function StoryEditor() {
       projectTitle,
       toolbarLayout,
       selectionMenuLayout,
+      cardToolbarScale,
       language,
       theme,
       bubbleStyle,
@@ -1510,6 +1519,7 @@ export function StoryEditor() {
       projectTitle,
       saveAssistantConversations,
       scrollMode,
+      cardToolbarScale,
       selectionMenuLayout,
       showControls,
       showHoverButtonAnimations,
@@ -1570,7 +1580,8 @@ export function StoryEditor() {
       setProjectTitle,
       setToolbarLayout,
       setSelectionMenuLayout,
-      setLanguage,
+      setCardToolbarScale,
+      setLanguage: onAppLanguageChange,
       setTheme,
       setBubbleStyle,
       setPlayTestDarkMode,
@@ -1617,10 +1628,11 @@ export function StoryEditor() {
       setShowMiniMap,
       setMiniMapPosition,
       setShowControls,
+      setCardToolbarScale,
       setProjectTitle,
       setToolbarLayout,
       setSelectionMenuLayout,
-      setLanguage,
+      onAppLanguageChange,
       setTheme,
       setBubbleStyle,
       setPlayTestDarkMode,
@@ -1945,19 +1957,6 @@ export function StoryEditor() {
     });
   }, [edges, nodes, setNodes]);
 
-  // 页面关闭/刷新前的提醒
-  React.useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty || isMobile) {
-        e.preventDefault();
-        e.returnValue = t.dirtyWarning;
-        return e.returnValue;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty, isMobile, t.dirtyWarning]);
-
   useCanvasDnD({
     canvasWrapperRef,
     tx,
@@ -2209,9 +2208,16 @@ export function StoryEditor() {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('TTS generation failed:', error);
-        alert(
-          `${language === 'zh' ? '文字音频生成失败' : language === 'ja' ? '音声生成に失敗しました' : 'Audio generation failed'}: ${message}`,
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '文字音频生成失败'
+              : language === 'ja'
+                ? '音声生成に失敗しました'
+                : 'Audio generation failed',
+          description: message,
+          tone: 'warning',
+        });
       } finally {
         setTtsLoading(false);
       }
@@ -2232,6 +2238,7 @@ export function StoryEditor() {
       ttsNarrationMode,
       ttsProvider,
       ttsVoice,
+      showDialogAlert,
     ],
   );
 
@@ -2564,12 +2571,27 @@ export function StoryEditor() {
         await runAIGenerate(nodeId, action);
       } catch (error: any) {
         console.error('AI Generation failed:', error);
-        alert(`AI 生成失败: ${error.message || '请检查API 密钥和网络连接'}`);
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? 'AI 生成失败'
+              : language === 'ja'
+                ? 'AI 生成に失敗しました'
+                : 'AI generation failed',
+          description:
+            error.message ||
+            (language === 'zh'
+              ? '请检查 API 密钥和网络连接'
+              : language === 'ja'
+                ? 'API キーとネットワーク接続を確認してください'
+                : 'Check your API key and network connection.'),
+          tone: 'warning',
+        });
       } finally {
         setAiLoadingNodeId(null);
       }
     },
-    [runAIGenerate],
+    [language, runAIGenerate, showDialogAlert],
   );
 
   const executeAssistantCardPlacement = useCallback(
@@ -4729,7 +4751,16 @@ export function StoryEditor() {
       const layoutConfig = PLOT_STRUCTURE_DIRECTION_CONFIG[layoutDirection];
 
       if (regionStoryNodes.length === 0) {
-        alert('区域内没有找到可续写的剧情卡片');
+        await showDialogAlert({
+          title: language === 'zh' ? '无法生成剧情' : language === 'ja' ? '生成できません' : 'Unable to generate',
+          description:
+            language === 'zh'
+              ? '区域内没有找到可续写的剧情卡片'
+              : language === 'ja'
+                ? 'エリア内に続きから生成できるストーリーカードがありません'
+                : 'No story cards were found in this area to continue from.',
+          tone: 'warning',
+        });
         return;
       }
 
@@ -4767,7 +4798,21 @@ ${layoutConfig.label}
         const cards = parseGeneratedPlotCards(result).slice(0, cardCount);
 
         if (cards.length === 0) {
-          alert('AI 返回内容无法解析，请重试');
+          await showDialogAlert({
+            title:
+              language === 'zh'
+                ? '解析失败'
+                : language === 'ja'
+                  ? '解析に失敗しました'
+                  : 'Parsing failed',
+            description:
+              language === 'zh'
+                ? 'AI 返回内容无法解析，请重试'
+                : language === 'ja'
+                  ? 'AI の返答を解析できませんでした。もう一度お試しください'
+                  : 'The AI response could not be parsed. Please try again.',
+            tone: 'warning',
+          });
           return;
         }
 
@@ -4883,10 +4928,25 @@ ${layoutConfig.label}
         setEdges((eds) => [...eds, ...newEdges]);
       } catch (error: any) {
         console.error('Plot structure generation failed:', error);
-        alert(`剧情生成失败: ${error.message || '请检查 API 密钥和网络连接'}`);
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '剧情生成失败'
+              : language === 'ja'
+                ? 'プロット生成に失敗しました'
+                : 'Plot generation failed',
+          description:
+            error.message ||
+            (language === 'zh'
+              ? '请检查 API 密钥和网络连接'
+              : language === 'ja'
+                ? 'API キーとネットワーク接続を確認してください'
+                : 'Check your API key and network connection.'),
+          tone: 'warning',
+        });
       }
     },
-    [callAIForText, generateLength, plotStructureGenerateDirection, setNodes, setEdges],
+    [callAIForText, generateLength, language, plotStructureGenerateDirection, setEdges, setNodes, showDialogAlert],
   );
 
   const handleAIAnalyze = useCallback(
@@ -4895,10 +4955,25 @@ ${layoutConfig.label}
         await runAIAnalyze(nodeId, mode);
       } catch (error: any) {
         console.error('AI Analysis failed:', error);
-        alert(`AI 分析失败: ${error.message || '请检查网络和 API 配置'}`);
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? 'AI 分析失败'
+              : language === 'ja'
+                ? 'AI 分析に失敗しました'
+                : 'AI analysis failed',
+          description:
+            error.message ||
+            (language === 'zh'
+              ? '请检查网络和 API 配置'
+              : language === 'ja'
+                ? 'ネットワークと API 配置を確認してください'
+                : 'Check your network and API configuration.'),
+          tone: 'warning',
+        });
       }
     },
-    [runAIAnalyze],
+    [language, runAIAnalyze, showDialogAlert],
   );
 
   const {
@@ -5016,6 +5091,7 @@ ${layoutConfig.label}
           isHighlighted: highlightedPath?.nodes.has(n.id),
           pasteAsPlainText,
           showNodeActions,
+          cardToolbarScale,
           language,
           theme,
         },
@@ -5060,6 +5136,7 @@ ${layoutConfig.label}
     highlightedPath,
     pasteAsPlainText,
     showNodeActions,
+    cardToolbarScale,
     language,
     theme,
     bubbleStyle,
@@ -5433,7 +5510,7 @@ ${layoutConfig.label}
             edges={edges}
             onClose={() => setShowPlayTest(false)}
             language={language}
-            onLanguageChange={setLanguage}
+            onLanguageChange={onAppLanguageChange}
             isDarkMode={playTestDarkMode}
             setIsDarkMode={setPlayTestDarkMode}
             choicesColumns={playTestChoicesColumns}
@@ -5502,7 +5579,7 @@ ${layoutConfig.label}
           setShowSettings={setShowSettings}
           missingTextApiKey={missingTextApiKey}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={onAppLanguageChange}
           theme={theme}
           setTheme={setTheme}
           closeButtonBehavior={closeButtonBehavior}
@@ -5528,6 +5605,8 @@ ${layoutConfig.label}
           setToolbarLayout={setToolbarLayout}
           selectionMenuLayout={selectionMenuLayout}
           setSelectionMenuLayout={setSelectionMenuLayout}
+          cardToolbarScale={cardToolbarScale}
+          setCardToolbarScale={setCardToolbarScale}
           edgeStyle={edgeStyle}
           setEdgeStyle={setEdgeStyle}
           pasteAsPlainText={pasteAsPlainText}

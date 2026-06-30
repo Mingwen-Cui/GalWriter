@@ -21,6 +21,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
   const fontFamily = (data.fontFamily as string) || FONT_FAMILIES[0].value;
   const isBold = data.isBold === true;
   const textAlign = (data.textAlign as 'left' | 'center' | 'right') || 'center';
+  const cardToolbarScale =
+    typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
+      ? data.cardToolbarScale
+      : 1;
 
   const updateNodeData = (updates: any) => {
     if (data.onUpdate) {
@@ -52,7 +56,10 @@ export function TextNode({ id, data, selected }: NodeProps) {
       />
 
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>
-        <div className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-[var(--toolbar-border)] flex flex-col gap-2 min-w-[280px]">
+        <div
+          className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-[var(--toolbar-border)] flex flex-col gap-2 min-w-[280px]"
+          style={{ transform: `scale(${cardToolbarScale})`, transformOrigin: 'bottom center' }}
+        >
           {/* Row 1: Style & Actions */}
           <div className="flex items-center gap-2 px-1">
             <div className="relative flex-1 group/select">

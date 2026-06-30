@@ -36,6 +36,17 @@ const migrateLegacyRenderStyleDefaults = (
   };
 };
 
+const clampCardToolbarScale = (value: unknown) => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.min(3, Math.max(0.5, parsed));
+};
+
 export type ProjectSerializerEdgeDefaults = {
   markerEnd: {
     type: MarkerType;
@@ -541,6 +552,7 @@ const applyProjectSettings = (
   ) {
     setters.setSelectionMenuLayout(incomingSettings.selectionMenuLayout);
   }
+  setters.setCardToolbarScale(clampCardToolbarScale(incomingSettings.cardToolbarScale));
   if (incomingSettings.language) setters.setLanguage(incomingSettings.language);
   if (incomingSettings.theme) setters.setTheme(incomingSettings.theme);
   if (incomingSettings.bubbleStyle === 'glass' || incomingSettings.bubbleStyle === 'flat') {

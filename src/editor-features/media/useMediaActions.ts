@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { CharacterImageMode, CharacterNodeData, SceneImageMode } from '../../domain/project';
+import { useDialog } from '../../editor-shell/DialogProvider';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import {
   buildImageGenerationRequest,
@@ -140,6 +141,7 @@ export const useMediaActions = ({
   onMissingImageApiKeyRequest,
   onMissingBackgroundRemovalApiRequest,
 }: UseMediaActionsParams) => {
+  const { alert: showDialogAlert } = useDialog();
   const stableDiffusionOptions = useMemo(
     () => ({
       negativePrompt: imageNegativePrompt,
@@ -262,13 +264,21 @@ export const useMediaActions = ({
         : stableDiffusionOptions;
       if (!isLocalStableDiffusion && !isHostedImageProxy && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
-        alert(
-          language === 'zh'
-            ? '请先在设置中填写图片生成 API 密钥。'
-            : language === 'ja'
-              ? '先に設定で画像生成APIキーを入力してください。'
-              : 'Configure the image generation API key in Settings first.',
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '缺少图片接口配置'
+              : language === 'ja'
+                ? '画像API設定が未入力です'
+                : 'Missing image API setup',
+          description:
+            language === 'zh'
+              ? '请先在设置中填写图片生成 API 密钥。'
+              : language === 'ja'
+                ? '先に設定で画像生成APIキーを入力してください。'
+                : 'Configure the image generation API key in Settings first.',
+          tone: 'warning',
+        });
         return null;
       }
 
@@ -489,13 +499,21 @@ export const useMediaActions = ({
         const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
 
         if (!basePrompt) {
-          alert(
-            language === 'zh'
-              ? '请先填写人物或场景设定。'
-              : language === 'ja'
-                ? '先にキャラクターまたはシーン設定を入力してください。'
-                : 'Fill in the character or scene setting first.',
-          );
+          await showDialogAlert({
+            title:
+              language === 'zh'
+                ? '缺少设定内容'
+                : language === 'ja'
+                  ? '設定内容が不足しています'
+                  : 'Missing setting content',
+            description:
+              language === 'zh'
+                ? '请先填写人物或场景设定。'
+                : language === 'ja'
+                  ? '先にキャラクターまたはシーン設定を入力してください。'
+                  : 'Fill in the character or scene setting first.',
+            tone: 'warning',
+          });
           return;
         }
 
@@ -619,9 +637,16 @@ export const useMediaActions = ({
           );
       } catch (error: any) {
         console.error('Setting image generation failed:', error);
-        alert(
-          `${language === 'zh' ? '图片生成失败' : language === 'ja' ? '画像の生成に失敗しました' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '图片生成失败'
+              : language === 'ja'
+                ? '画像の生成に失敗しました'
+                : 'Image generation failed',
+          description: error.message || 'Unknown error',
+          tone: 'warning',
+        });
       }
     },
     [
@@ -644,24 +669,40 @@ export const useMediaActions = ({
       const bodyText = stripHtml((node.data.text as string) || '');
       const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
       if (!basePrompt) {
-        alert(
-          language === 'zh'
-            ? '请先在普通卡片里输入图片提示词。'
-            : language === 'ja'
-              ? '先にストーリーカードにプロンプトを入力してください。'
-              : 'Enter an image prompt in the story card first.',
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '缺少提示词'
+              : language === 'ja'
+                ? 'プロンプトがありません'
+                : 'Missing prompt',
+          description:
+            language === 'zh'
+              ? '请先在普通卡片里输入图片提示词。'
+              : language === 'ja'
+                ? '先にストーリーカードにプロンプトを入力してください。'
+                : 'Enter an image prompt in the story card first.',
+          tone: 'warning',
+        });
         return;
       }
       if (!isLocalStableDiffusion && !isHostedImageProxy && !imageApiKey.trim()) {
         onMissingImageApiKeyRequest?.();
-        alert(
-          language === 'zh'
-            ? '请先在设置中填写图片生成 API 密钥。'
-            : language === 'ja'
-              ? '先に設定で画像生成APIキーを入力してください。'
-              : 'Configure the image generation API key in Settings first.',
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '缺少图片接口配置'
+              : language === 'ja'
+                ? '画像API設定が未入力です'
+                : 'Missing image API setup',
+          description:
+            language === 'zh'
+              ? '请先在设置中填写图片生成 API 密钥。'
+              : language === 'ja'
+                ? '先に設定で画像生成APIキーを入力してください。'
+                : 'Configure the image generation API key in Settings first.',
+          tone: 'warning',
+        });
         return;
       }
 
@@ -864,9 +905,16 @@ export const useMediaActions = ({
         );
       } catch (error: any) {
         console.error('Image generation failed:', error);
-        alert(
-          `${language === 'zh' ? '图片生成失败' : language === 'ja' ? '画像の生成に失敗しました' : 'Image generation failed'}: ${error.message || 'Unknown error'}`,
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '图片生成失败'
+              : language === 'ja'
+                ? '画像の生成に失敗しました'
+                : 'Image generation failed',
+          description: error.message || 'Unknown error',
+          tone: 'warning',
+        });
       }
     },
     [
@@ -978,9 +1026,16 @@ export const useMediaActions = ({
         );
       } catch (error: any) {
         console.error('Character background removal failed:', error);
-        alert(
-          `${language === 'zh' ? '透明背景处理失败' : language === 'ja' ? '透明背景の処理に失敗しました' : 'Transparent background processing failed'}: ${error.message || 'Unknown error'}`,
-        );
+        await showDialogAlert({
+          title:
+            language === 'zh'
+              ? '透明背景处理失败'
+              : language === 'ja'
+                ? '透明背景の処理に失敗しました'
+                : 'Transparent background processing failed',
+          description: error.message || 'Unknown error',
+          tone: 'warning',
+        });
       }
     },
     [
@@ -994,6 +1049,7 @@ export const useMediaActions = ({
       nodes,
       notifyMissingBackgroundRemovalConfig,
       setNodes,
+      showDialogAlert,
       showToast,
     ],
   );

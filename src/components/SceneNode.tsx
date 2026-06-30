@@ -29,6 +29,7 @@ import {
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import type { SceneFlowNode, SceneImage, SceneNodeData } from '../domain/project';
 import { formatSceneNodeText } from '../lib/export';
 import { Language } from '../lib/i18n';
@@ -68,6 +69,7 @@ const SCENE_NODE_MIN_WIDTH = 280;
 const SCENE_NODE_HEIGHT_SAFETY = 8;
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
+  const { alert: showDialogAlert } = useDialog();
   const lang = (data.language as Language) || 'zh';
 
   const name = data.sceneName || '';
@@ -416,11 +418,22 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     } catch (error) {
       const message = error instanceof Error ? error.message : undefined;
       console.error('Scene setting roll failed:', error);
-      alert(
-        lang === 'zh'
-          ? `场景设定生成失败：${message || '请检查 AI 配置和网络连接'}`
-          : `Scene setting generation failed: ${message || 'check AI settings and network'}`,
-      );
+      await showDialogAlert({
+        title:
+          lang === 'zh'
+            ? '场景设定生成失败'
+            : lang === 'ja'
+              ? 'シーン設定の生成に失敗しました'
+              : 'Scene setting generation failed',
+        description:
+          message ||
+          (lang === 'zh'
+            ? '请检查 AI 配置和网络连接'
+            : lang === 'ja'
+              ? 'AI 設定とネットワーク接続を確認してください'
+              : 'Check AI settings and network connection.'),
+        tone: 'warning',
+      });
     } finally {
       setIsRollingSetting(false);
     }

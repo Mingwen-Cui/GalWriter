@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { TtsNarrationMode, TtsProvider } from '../../editor-state/editorConfig';
+import { useDialog } from '../../editor-shell/DialogProvider';
 import { ttsService } from '../../editor-services/ttsService';
 
 import type { Language } from '../../lib/i18n';
@@ -81,6 +82,7 @@ export const useSelectionActions = ({
   getCenterPosition,
   showToast,
 }: UseSelectionActionsParams) => {
+  const { alert: showDialogAlert } = useDialog();
   const handleCopy = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);
     if (selectedNodes.length === 0) return;
@@ -637,9 +639,16 @@ export const useSelectionActions = ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('TTS generation failed:', error);
-      alert(
-        `${language === 'zh' ? '朗读音频生成失败' : language === 'ja' ? '音声の生成に失敗しました' : 'Narration generation failed'}: ${message}`,
-      );
+      await showDialogAlert({
+        title:
+          language === 'zh'
+            ? '朗读音频生成失败'
+            : language === 'ja'
+              ? '音声の生成に失敗しました'
+              : 'Narration generation failed',
+        description: message,
+        tone: 'warning',
+      });
     } finally {
       setTtsLoading(false);
     }
@@ -657,6 +666,7 @@ export const useSelectionActions = ({
     ttsNarrationMode,
     ttsProvider,
     ttsVoice,
+    showDialogAlert,
   ]);
 
   const unhideAllNodes = useCallback(() => {

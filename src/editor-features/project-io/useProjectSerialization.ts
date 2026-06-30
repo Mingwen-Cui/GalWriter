@@ -3,6 +3,7 @@ import type JSZip from 'jszip';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { useDialog } from '../../editor-shell/DialogProvider';
 import type {
   AIButtonsConfig,
   AIPromptsConfig,
@@ -90,6 +91,7 @@ export const useProjectSerialization = ({
   defaultAIPrompts,
   defaultAIButtonsConfig,
 }: UseProjectSerializationParams) => {
+  const { alert: showDialogAlert } = useDialog();
   const projectSerializer = useMemo(
     () =>
       createProjectSerializer({
@@ -198,9 +200,16 @@ export const useProjectSerialization = ({
       } catch (error) {
         console.error('Export failed:', error);
         const message = error instanceof Error ? error.message : String(error);
-        window.alert(
-          settings.language === 'zh' ? `导出失败: ${message}` : `Export failed: ${message}`,
-        );
+        await showDialogAlert({
+          title:
+            settings.language === 'zh'
+              ? '导出失败'
+              : settings.language === 'ja'
+                ? 'エクスポートに失敗しました'
+                : 'Export failed',
+          description: message,
+          tone: 'warning',
+        });
       }
     },
     [
@@ -249,12 +258,26 @@ export const useProjectSerialization = ({
         }
       } catch (error) {
         console.error('Import failed:', error);
-        window.alert('Failed to load project. The file is corrupted or invalid.');
+        await showDialogAlert({
+          title:
+            settings.language === 'zh'
+              ? '导入失败'
+              : settings.language === 'ja'
+                ? 'インポートに失敗しました'
+                : 'Import failed',
+          description:
+            settings.language === 'zh'
+              ? '项目文件已损坏或格式无效。'
+              : settings.language === 'ja'
+                ? 'プロジェクトファイルが壊れているか、形式が無効です。'
+                : 'The project file is corrupted or invalid.',
+          tone: 'warning',
+        });
       }
 
       event.target.value = '';
     },
-    [applyProjectData, currentProjectId, onImportedProject, projectSerializer],
+    [applyProjectData, currentProjectId, onImportedProject, projectSerializer, settings.language, showDialogAlert],
   );
 
   return {

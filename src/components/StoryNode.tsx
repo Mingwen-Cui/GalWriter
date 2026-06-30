@@ -42,6 +42,7 @@ import {
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDialog } from '../editor-shell/DialogProvider';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -169,6 +170,7 @@ const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
 ];
 
 export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
+  const { alert: showDialogAlert } = useDialog();
   const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
   const nodeRootRef = useRef<HTMLDivElement>(null);
@@ -258,6 +260,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   };
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
+  const cardToolbarScale =
+    typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
+      ? data.cardToolbarScale
+      : 1;
   const showTitles = data.showTitles !== false;
   const storyTitlePlacement =
     ((data.storyTitlePlacement as string) === 'outside'
@@ -1413,9 +1419,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           });
         } catch (error) {
           console.error('Failed to encode recording as MP3:', error);
-          alert(
-            lang === 'zh' ? '录音转 MP3 失败，请重试。' : 'Failed to convert recording to MP3.',
-          );
+          await showDialogAlert({
+            title:
+              lang === 'zh'
+                ? '录音转换失败'
+                : lang === 'ja'
+                  ? '録音の変換に失敗しました'
+                  : 'Recording conversion failed',
+            description:
+              lang === 'zh'
+                ? '录音转 MP3 失败，请重试。'
+                : lang === 'ja'
+                  ? '録音を MP3 に変換できませんでした。もう一度お試しください。'
+                  : 'Failed to convert recording to MP3. Please try again.',
+            tone: 'warning',
+          });
         } finally {
           setRecordingState('idle');
         }
@@ -1429,11 +1447,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       stopRecordingTracks();
       setRecordingState('idle');
       const message = error instanceof Error ? error.message : '';
-      alert(
-        lang === 'zh'
-          ? `无法开始录音${message ? `：${message}` : '。'}`
-          : `Unable to start recording${message ? `: ${message}` : '.'}`,
-      );
+      await showDialogAlert({
+        title:
+          lang === 'zh'
+            ? '无法开始录音'
+            : lang === 'ja'
+              ? '録音を開始できません'
+              : 'Unable to start recording',
+        description:
+          lang === 'zh'
+            ? message || '请检查麦克风权限。'
+            : lang === 'ja'
+              ? message || 'マイクの権限を確認してください。'
+              : message || 'Check microphone permissions.',
+        tone: 'warning',
+      });
     }
   };
 
@@ -1732,7 +1760,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
       {/* Floating Toolbar for styles & actions */}
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
-        <div style={{ transform: `scale(${zoom * 0.6})`, transformOrigin: 'bottom center' }}>
+        <div
+          style={{
+            transform: `scale(${zoom * 0.6 * cardToolbarScale})`,
+            transformOrigin: 'bottom center',
+          }}
+        >
           <div
             className="card-floating-toolbar toolbar-bubble-surface nodrag nopan nowheel bg-[var(--toolbar-bg)] backdrop-blur-md p-2 rounded-xl flex flex-col gap-1.5 shadow-2xl border border-[var(--toolbar-border)] w-max max-w-[90vw] toolbar-animate"
             onPointerDown={(event) => event.stopPropagation()}
