@@ -228,6 +228,8 @@ export interface ProjectSettings extends PlaytestSettings {
   edgeStyle: EdgeStyle;
   edgeColor: string;
   arrowSize: number;
+  arrowCornerRadius: number;
+  arrowTipAngle: number;
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
   showStats: boolean;
@@ -283,6 +285,8 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setEdgeStyle: Dispatch<SetStateAction<EdgeStyle>>;
   setEdgeColor: Dispatch<SetStateAction<string>>;
   setArrowSize: Dispatch<SetStateAction<number>>;
+  setArrowCornerRadius: Dispatch<SetStateAction<number>>;
+  setArrowTipAngle: Dispatch<SetStateAction<number>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;

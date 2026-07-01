@@ -149,6 +149,8 @@ const DEFAULT_LIGHT_ACCENT_COLOR = '#4f46e5';
 const DEFAULT_DARK_ACCENT_COLOR = '#54b9fb';
 const DEFAULT_EDGE_COLOR = '#6366f1';
 const DEFAULT_ARROW_SIZE = 20;
+const DEFAULT_ARROW_CORNER_RADIUS = 2;
+const DEFAULT_ARROW_TIP_ANGLE = 60;
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const DEFAULT_ROOT_STORY_TITLE = '开始';
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
@@ -778,6 +780,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
   const [edgeColor, setEdgeColor] = useState(DEFAULT_EDGE_COLOR);
   const [arrowSize, setArrowSize] = useState(DEFAULT_ARROW_SIZE);
+  const [arrowCornerRadius, setArrowCornerRadius] = useState(DEFAULT_ARROW_CORNER_RADIUS);
+  const [arrowTipAngle, setArrowTipAngle] = useState(DEFAULT_ARROW_TIP_ANGLE);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
@@ -1422,6 +1426,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       edgeStyle,
       edgeColor,
       arrowSize,
+      arrowCornerRadius,
+      arrowTipAngle,
       pasteAsPlainText,
       showNodeActions,
       showStats,
@@ -1493,6 +1499,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       aiPrompts,
       aiProvider,
       arrowSize,
+      arrowCornerRadius,
+      arrowTipAngle,
       accentColor,
       allowAssistantImageGeneration,
       assistantMemoryNotes,
@@ -1565,6 +1573,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setEdgeStyle,
       setEdgeColor,
       setArrowSize,
+      setArrowCornerRadius,
+      setArrowTipAngle,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -1627,6 +1637,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setEdgeStyle,
       setEdgeColor,
       setArrowSize,
+      setArrowCornerRadius,
+      setArrowTipAngle,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -5258,6 +5270,10 @@ ${layoutConfig.label}
         data: {
           ...e.data,
           edgeStyle,
+          arrowSize,
+          arrowCornerRadius,
+          arrowTipAngle,
+          edgeColor: isHighlighted ? '#f43f5e' : edgeColor,
           onDelete: handleEdgeDelete,
           onReverse: () => onEdgeDoubleClick(null as any, e),
           isHighlighted,
@@ -5278,6 +5294,8 @@ ${layoutConfig.label}
     });
   }, [
     arrowSize,
+    arrowCornerRadius,
+    arrowTipAngle,
     edgeColor,
     edges,
     nodes,
@@ -5725,6 +5743,10 @@ ${layoutConfig.label}
           setEdgeColor={setEdgeColor}
           arrowSize={arrowSize}
           setArrowSize={setArrowSize}
+          arrowCornerRadius={arrowCornerRadius}
+          setArrowCornerRadius={setArrowCornerRadius}
+          arrowTipAngle={arrowTipAngle}
+          setArrowTipAngle={setArrowTipAngle}
           pasteAsPlainText={pasteAsPlainText}
           setPasteAsPlainText={setPasteAsPlainText}
           showNodeActions={showNodeActions}

@@ -13,6 +13,27 @@ const LONG_PRESS_DURATION_MS = 500;
 /** 双击（Double Tap）的最大时间间隔（毫秒） */
 const DOUBLE_TAP_DELAY_MS = 300;
 
+const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+};
+
+const buildArrowPath = (size: number, angle: number) => {
+  const center = size / 2;
+  const halfAngle = (angle * Math.PI) / 360;
+  const lengthByHeight = (size * 0.46) / Math.tan(halfAngle);
+  const arrowLength = Math.max(2, Math.min(size * 0.86, lengthByHeight));
+  const halfBase = Math.min(size * 0.46, arrowLength * Math.tan(halfAngle));
+  const baseX = size - arrowLength;
+  return `M ${baseX} ${center - halfBase} L ${size} ${center} L ${baseX} ${center + halfBase} Z`;
+};
+
 export function CustomEdge({
   id,
   sourceX,
@@ -22,11 +43,21 @@ export function CustomEdge({
   sourcePosition,
   targetPosition,
   style,
-  markerEnd,
   data,
 }: EdgeProps) {
   const isBezier = data?.edgeStyle === 'bezier';
   const isMobile = Boolean(data?.isMobile);
+  const arrowSize = clampNumber(data?.arrowSize, 20, 12, 36);
+  const arrowCornerRadius = clampNumber(data?.arrowCornerRadius, 2, 0, 12);
+  const arrowTipAngle = clampNumber(data?.arrowTipAngle, 60, 20, 160);
+  const edgeColor =
+    typeof data?.edgeColor === 'string' && data.edgeColor.trim()
+      ? data.edgeColor
+      : typeof style?.stroke === 'string'
+        ? style.stroke
+        : '#6366f1';
+  const markerId = `custom-arrow-${String(id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+  const arrowPath = buildArrowPath(arrowSize, arrowTipAngle);
 
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -159,13 +190,34 @@ export function CustomEdge({
       />
       <BaseEdge
         path={edgePath}
-        markerEnd={markerEnd}
+        markerEnd={`url(#${markerId})`}
         style={
           isLongPressing
             ? { ...style, stroke: '#ef4444', strokeDasharray: '6 3', filter: 'drop-shadow(0 0 6px rgba(239,68,68,0.7))' }
             : style
         }
       />
+      <defs>
+        <marker
+          id={markerId}
+          markerWidth={arrowSize}
+          markerHeight={arrowSize}
+          refX={arrowSize}
+          refY={arrowSize / 2}
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+          overflow="visible"
+        >
+          <path
+            d={arrowPath}
+            fill={isLongPressing ? '#ef4444' : edgeColor}
+            stroke={isLongPressing ? '#ef4444' : edgeColor}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            strokeWidth={arrowCornerRadius}
+          />
+        </marker>
+      </defs>
     </g>
   );
 }

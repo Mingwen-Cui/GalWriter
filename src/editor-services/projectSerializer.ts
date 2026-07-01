@@ -49,6 +49,8 @@ const clampCardToolbarScale = (value: unknown) => {
 
 const DEFAULT_EDGE_COLOR = '#6366f1';
 const DEFAULT_ARROW_SIZE = 20;
+const DEFAULT_ARROW_CORNER_RADIUS = 2;
+const DEFAULT_ARROW_TIP_ANGLE = 60;
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 const normalizeEdgeColor = (value: unknown) =>
@@ -63,6 +65,28 @@ const clampArrowSize = (value: unknown) => {
         : Number.NaN;
   if (!Number.isFinite(parsed)) return DEFAULT_ARROW_SIZE;
   return Math.min(36, Math.max(12, parsed));
+};
+
+const clampArrowCornerRadius = (value: unknown) => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) return DEFAULT_ARROW_CORNER_RADIUS;
+  return Math.min(12, Math.max(0, parsed));
+};
+
+const clampArrowTipAngle = (value: unknown) => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) return DEFAULT_ARROW_TIP_ANGLE;
+  return Math.min(160, Math.max(20, parsed));
 };
 
 export type ProjectSerializerEdgeDefaults = {
@@ -436,6 +460,8 @@ const applyProjectSettings = (
     setters.setAccentColor('');
     setters.setEdgeColor(DEFAULT_EDGE_COLOR);
     setters.setArrowSize(DEFAULT_ARROW_SIZE);
+    setters.setArrowCornerRadius(DEFAULT_ARROW_CORNER_RADIUS);
+    setters.setArrowTipAngle(DEFAULT_ARROW_TIP_ANGLE);
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
     return;
@@ -452,6 +478,8 @@ const applyProjectSettings = (
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
   setters.setEdgeColor(normalizeEdgeColor(incomingSettings.edgeColor));
   setters.setArrowSize(clampArrowSize(incomingSettings.arrowSize));
+  setters.setArrowCornerRadius(clampArrowCornerRadius(incomingSettings.arrowCornerRadius));
+  setters.setArrowTipAngle(clampArrowTipAngle(incomingSettings.arrowTipAngle));
   if (incomingSettings.pasteAsPlainText !== undefined) {
     setters.setPasteAsPlainText(incomingSettings.pasteAsPlainText);
   }

@@ -21,6 +21,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { AISettingsPanel } from './AISettingsPanel';
+import { DraggableNumberInput } from './DraggableNumberInput';
 import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
@@ -156,6 +157,10 @@ interface SettingsModalProps {
   setEdgeColor: (color: string) => void;
   arrowSize: number;
   setArrowSize: (size: number) => void;
+  arrowCornerRadius: number;
+  setArrowCornerRadius: (radius: number) => void;
+  arrowTipAngle: number;
+  setArrowTipAngle: (angle: number) => void;
   pasteAsPlainText: boolean;
   setPasteAsPlainText: (val: boolean) => void;
   showNodeActions: boolean;
@@ -643,6 +648,16 @@ const formatProjectUpdatedAt = (timestamp: number, language: Language) =>
     minute: '2-digit',
   });
 
+const buildArrowPath = (size: number, angle: number) => {
+  const center = size / 2;
+  const halfAngle = (angle * Math.PI) / 360;
+  const lengthByHeight = (size * 0.46) / Math.tan(halfAngle);
+  const arrowLength = Math.max(2, Math.min(size * 0.86, lengthByHeight));
+  const halfBase = Math.min(size * 0.46, arrowLength * Math.tan(halfAngle));
+  const baseX = size - arrowLength;
+  return `M ${baseX} ${center - halfBase} L ${size} ${center} L ${baseX} ${center + halfBase} Z`;
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
   setShowSettings,
@@ -682,6 +697,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setEdgeColor,
   arrowSize,
   setArrowSize,
+  arrowCornerRadius,
+  setArrowCornerRadius,
+  arrowTipAngle,
+  setArrowTipAngle,
   pasteAsPlainText,
   setPasteAsPlainText,
   showNodeActions,
@@ -850,6 +869,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const renderSettingHint = (label: React.ReactNode, description: string, className = '') => (
     <FloatingHint label={label} description={description} className={className} />
   );
+  const accentColorDescription =
+    language === 'zh'
+      ? '影响选中态、开关、焦点和主要按钮颜色'
+      : language === 'ja'
+        ? '選択状態、スイッチ、フォーカス、主要ボタンの色に反映されます'
+        : 'Applies to selected states, toggles, focus rings, and primary buttons';
   const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value.trim());
   const normalizeHexDraft = (value: string) => {
     const trimmed = value.trim();
@@ -1031,11 +1056,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                       <div className={settingsRowClass}>
                         <h3 className={settingsRowTitleClass}>
-                          {language === 'zh'
-                            ? '强调色'
-                            : language === 'ja'
-                              ? 'アクセントカラー'
-                              : 'Accent Color'}
+                          {renderSettingHint(
+                            <span>
+                              {language === 'zh'
+                                ? '强调色'
+                                : language === 'ja'
+                                  ? 'アクセントカラー'
+                                  : 'Accent Color'}
+                            </span>,
+                            accentColorDescription,
+                          )}
                         </h3>
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
@@ -1092,13 +1122,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {accentColor || effectiveAccentColor}
                               </button>
                             )}
-                            <div className="mt-0.5 text-[11px] font-medium text-[var(--text-muted)]">
-                              {language === 'zh'
-                                ? '影响选中态、开关、焦点和主要按钮颜色'
-                                : language === 'ja'
-                                  ? '選択状態、スイッチ、フォーカス、主要ボタンに反映されます'
-                                  : 'Applies to selected states, toggles, focus rings, and primary buttons'}
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -1318,7 +1341,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-5">
                     <header className="flex items-center justify-between gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {t.bgColors}
+                        {renderSettingHint(<span>{t.bgColors}</span>, s.bgColorsDesc)}
                       </h3>
                       <button
                         type="button"
@@ -1331,9 +1354,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         {showPresetColors ? s.shownInToolbar : s.hiddenInToolbar}
                       </button>
                     </header>
-                    <p className="text-xs text-[var(--text-muted)] font-medium px-4">
-                      {s.bgColorsDesc}
-                    </p>
+                    {!isDesktopApp && (
+                      <p className="text-xs text-[var(--text-muted)] font-medium px-4">
+                        {s.bgColorsDesc}
+                      </p>
+                    )}
                     <div className="grid grid-cols-3 gap-5">
                       {presetColors.map((color, idx) => (
                         <div
@@ -1373,10 +1398,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <div className="min-w-0 flex-1">
-                      <h3 className={settingsRowTitleClass}>{s.hoverButtonAnimations}</h3>
-                      <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                        {s.hoverButtonAnimationsDesc}
-                      </p>
+                      <h3 className={settingsRowTitleClass}>
+                        {renderSettingHint(
+                          <span>{s.hoverButtonAnimations}</span>,
+                          s.hoverButtonAnimationsDesc,
+                        )}
+                      </h3>
+                      {!isDesktopApp && (
+                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                          {s.hoverButtonAnimationsDesc}
+                        </p>
+                      )}
                     </div>
                     <div className={segmentedControlClass}>
                       <button
@@ -1453,130 +1485,162 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           ? '矢印スタイル'
                           : 'Arrow Style'}
                     </h3>
-                    <div className="flex min-w-0 flex-1 items-center gap-4">
-                      <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
-                        <input
-                          type="color"
-                          value={edgeColor}
-                          onChange={(event) => setEdgeColor(event.target.value)}
-                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                          aria-label={
-                            language === 'zh'
-                              ? '箭头线段颜色'
-                              : language === 'ja'
-                                ? '矢印線の色'
-                                : 'Arrow line color'
-                          }
-                        />
-                        <span
-                          className="block h-full w-full"
-                          style={{ backgroundColor: edgeColor }}
-                        />
-                      </label>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh'
-                              ? '箭头大小'
-                              : language === 'ja'
-                                ? '矢印サイズ'
-                                : 'Arrow size'}
+                    <div className="flex min-w-0 flex-1 items-center gap-5">
+                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-9 w-16 shrink-0 items-center">
+                            <label className="relative h-9 w-9 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
+                              <input
+                                type="color"
+                                value={edgeColor}
+                                onChange={(event) => setEdgeColor(event.target.value)}
+                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                aria-label={
+                                  language === 'zh'
+                                    ? '箭头线段颜色'
+                                    : language === 'ja'
+                                      ? '矢印線の色'
+                                      : 'Arrow line color'
+                                }
+                              />
+                              <span
+                                className="block h-full w-full"
+                                style={{ backgroundColor: edgeColor }}
+                              />
+                            </label>
                           </span>
-                          <span className="shrink-0 text-xs font-mono font-bold text-[var(--accent)]">
-                            {arrowSize}px
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min={12}
-                          max={36}
-                          step={1}
-                          value={arrowSize}
-                          onChange={(event) => setArrowSize(Number(event.target.value))}
-                          className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-700"
-                          aria-label={
-                            language === 'zh'
-                              ? '箭头大小'
-                              : language === 'ja'
-                                ? '矢印サイズ'
-                                : 'Arrow size'
-                          }
-                        />
-                        {editingEdgeHex ? (
-                          <input
-                            value={edgeHexDraft}
-                            onChange={(event) => setEdgeHexDraft(event.target.value)}
-                            onBlur={() => {
-                              const nextColor = normalizeHexDraft(edgeHexDraft);
-                              if (isHexColor(nextColor)) setEdgeColor(nextColor);
-                              setEditingEdgeHex(false);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
+                          {editingEdgeHex ? (
+                            <input
+                              value={edgeHexDraft}
+                              onChange={(event) => setEdgeHexDraft(event.target.value)}
+                              onBlur={() => {
                                 const nextColor = normalizeHexDraft(edgeHexDraft);
                                 if (isHexColor(nextColor)) setEdgeColor(nextColor);
                                 setEditingEdgeHex(false);
-                              }
-                              if (event.key === 'Escape') {
-                                setEditingEdgeHex(false);
-                              }
-                            }}
-                            autoFocus
-                            className="mt-1 h-7 w-28 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-2 text-[11px] font-mono font-bold uppercase text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onDoubleClick={() => {
-                              setEdgeHexDraft(edgeColor);
-                              setEditingEdgeHex(true);
-                            }}
-                            className="mt-1 text-left text-[11px] font-mono font-bold uppercase text-[var(--text-primary)]"
-                            title={
-                              language === 'zh'
-                                ? '双击输入颜色'
-                                : language === 'ja'
-                                  ? 'ダブルクリックして色を入力'
-                                  : 'Double-click to edit color'
-                            }
-                          >
-                            {edgeColor}
-                          </button>
-                        )}
-                      </div>
-                      <svg
-                        className="h-10 w-20 shrink-0 overflow-visible"
-                        viewBox="0 0 80 40"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <defs>
-                          <marker
-                            id="settings-arrow-preview"
-                            markerWidth={arrowSize}
-                            markerHeight={arrowSize}
-                            refX={arrowSize}
-                            refY={arrowSize / 2}
-                            orient="auto"
-                            markerUnits="userSpaceOnUse"
-                          >
-                            <path
-                              d={`M0,0 L${arrowSize},${arrowSize / 2} L0,${arrowSize} Z`}
-                              fill={edgeColor}
-                              stroke={edgeColor}
-                              strokeLinejoin="round"
-                              strokeWidth="1.5"
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  const nextColor = normalizeHexDraft(edgeHexDraft);
+                                  if (isHexColor(nextColor)) setEdgeColor(nextColor);
+                                  setEditingEdgeHex(false);
+                                }
+                                if (event.key === 'Escape') {
+                                  setEditingEdgeHex(false);
+                                }
+                              }}
+                              autoFocus
+                              className="h-8 min-w-0 flex-1 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-2 text-[11px] font-mono font-bold uppercase text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                             />
-                          </marker>
-                        </defs>
-                        <path
-                          d="M 6 20 C 24 20, 38 20, 58 20"
-                          stroke={edgeColor}
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          markerEnd="url(#settings-arrow-preview)"
-                        />
-                      </svg>
+                          ) : (
+                            <button
+                              type="button"
+                              onDoubleClick={() => {
+                                setEdgeHexDraft(edgeColor);
+                                setEditingEdgeHex(true);
+                              }}
+                              className="min-w-0 flex-1 truncate text-left text-[11px] font-mono font-bold uppercase text-[var(--text-primary)]"
+                              title={
+                                language === 'zh'
+                                  ? '双击输入颜色'
+                                  : language === 'ja'
+                                    ? 'ダブルクリックして色を入力'
+                                    : 'Double-click to edit color'
+                              }
+                            >
+                              {edgeColor}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
+                            {language === 'zh' ? '大小' : language === 'ja' ? 'サイズ' : 'Size'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <DraggableNumberInput
+                              value={arrowSize}
+                              onChange={setArrowSize}
+                              min={12}
+                              max={36}
+                              step={1}
+                              unit="PX"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
+                            {language === 'zh'
+                              ? '圆角'
+                              : language === 'ja'
+                                ? '角丸'
+                                : 'Radius'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <DraggableNumberInput
+                              value={arrowCornerRadius}
+                              onChange={setArrowCornerRadius}
+                              min={0}
+                              max={12}
+                              step={1}
+                              unit="PX"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
+                            {language === 'zh'
+                              ? '尖角'
+                              : language === 'ja'
+                                ? '先端角'
+                                : 'Angle'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <DraggableNumberInput
+                              value={arrowTipAngle}
+                              onChange={setArrowTipAngle}
+                              min={20}
+                              max={160}
+                              step={1}
+                              unit="DEG"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex h-20 w-28 shrink-0 items-center justify-center rounded-lg bg-[var(--app-bg)]/40">
+                        <svg
+                          className="h-12 w-24 overflow-visible"
+                          viewBox="0 0 96 48"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <defs>
+                            <marker
+                              id="settings-arrow-preview"
+                              markerWidth={arrowSize}
+                              markerHeight={arrowSize}
+                              refX={arrowSize}
+                              refY={arrowSize / 2}
+                              orient="auto"
+                              markerUnits="userSpaceOnUse"
+                            >
+                              <path
+                                d={buildArrowPath(arrowSize, arrowTipAngle)}
+                                fill={edgeColor}
+                                stroke={edgeColor}
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                                strokeWidth={arrowCornerRadius}
+                              />
+                            </marker>
+                          </defs>
+                          <path
+                            d="M 10 24 C 32 24, 48 24, 68 24"
+                            stroke={edgeColor}
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            markerEnd="url(#settings-arrow-preview)"
+                          />
+                        </svg>
+                      </div>
                     </div>
                   </section>
 
@@ -1683,10 +1747,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <div className="min-w-0 flex-1">
-                      <h3 className={settingsRowTitleClass}>{s.cardToolbarScale}</h3>
-                      <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                        {s.cardToolbarScaleDesc}
-                      </p>
+                      <h3 className={settingsRowTitleClass}>
+                        {renderSettingHint(
+                          <span>{s.cardToolbarScale}</span>,
+                          s.cardToolbarScaleDesc,
+                        )}
+                      </h3>
+                      {!isDesktopApp && (
+                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                          {s.cardToolbarScaleDesc}
+                        </p>
+                      )}
                     </div>
                     <div className="flex min-w-0 flex-1 items-center gap-4 rounded-lg border border-[var(--header-border)] bg-[var(--app-bg)]/50 p-2.5">
                       <input
@@ -1709,10 +1780,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
                       <div className="min-w-0 flex-1">
-                        <h3 className={settingsRowTitleClass}>{s.plotStructureDirection}</h3>
-                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                          {s.plotStructureDirectionDesc}
-                        </p>
+                        <h3 className={settingsRowTitleClass}>
+                          {renderSettingHint(
+                            <span>{s.plotStructureDirection}</span>,
+                            s.plotStructureDirectionDesc,
+                          )}
+                        </h3>
+                        {!isDesktopApp && (
+                          <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+                            {s.plotStructureDirectionDesc}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
