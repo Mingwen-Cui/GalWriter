@@ -659,7 +659,7 @@ export function PlayTestModal({
       const exitDuration = getPresentationExitDuration(presentation);
       const sessionId = playbackSessionRef.current;
       setPresentationExiting(true);
-      transitionTimerRef.current = window.setTimeout(() => {
+      transitionTimerRef.current = setTimeout(() => {
         transitionTimerRef.current = null;
         if (sessionId !== playbackSessionRef.current) return;
         setHistory((prev) => [...prev, currentNodeId || '']);
