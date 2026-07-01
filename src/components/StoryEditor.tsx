@@ -147,6 +147,8 @@ const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
 const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
 const DEFAULT_LIGHT_ACCENT_COLOR = '#4f46e5';
 const DEFAULT_DARK_ACCENT_COLOR = '#54b9fb';
+const DEFAULT_EDGE_COLOR = '#6366f1';
+const DEFAULT_ARROW_SIZE = 20;
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const DEFAULT_ROOT_STORY_TITLE = '开始';
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
@@ -537,16 +539,16 @@ const syncPresentationWithStoryMentions = (
 };
 
 // 使用懒加载减少首屏体验
-const defaultEdgeOptions = {
+const createDefaultEdgeOptions = (edgeColor: string, arrowSize: number) => ({
   type: 'customEdge',
   markerEnd: {
     type: MarkerType.ArrowClosed,
-    width: 20,
-    height: 20,
-    color: '#6366f1',
+    width: arrowSize,
+    height: arrowSize,
+    color: edgeColor,
   },
-  style: { strokeWidth: 3, stroke: '#6366f1' },
-};
+  style: { strokeWidth: 3, stroke: edgeColor },
+});
 
 const INITIAL_NODES: Node[] = [
   {
@@ -774,6 +776,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showTitles, setShowTitles] = useState(true);
   const [storyTitlePlacement, setStoryTitlePlacement] = useState<StoryTitlePlacement>('inside');
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
+  const [edgeColor, setEdgeColor] = useState(DEFAULT_EDGE_COLOR);
+  const [arrowSize, setArrowSize] = useState(DEFAULT_ARROW_SIZE);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
@@ -834,6 +838,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     nodes: Set<string>;
     edges: Set<string>;
   } | null>(null);
+  const defaultEdgeOptions = useMemo(
+    () => createDefaultEdgeOptions(edgeColor, arrowSize),
+    [arrowSize, edgeColor],
+  );
 
   const [pasteAsPlainText, setPasteAsPlainText] = useState(false);
   const [showNodeActions, setShowNodeActions] = useState(true);
@@ -1412,6 +1420,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     () => ({
       canvasBg,
       edgeStyle,
+      edgeColor,
+      arrowSize,
       pasteAsPlainText,
       showNodeActions,
       showStats,
@@ -1482,6 +1492,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       aiGenerationBalance,
       aiPrompts,
       aiProvider,
+      arrowSize,
       accentColor,
       allowAssistantImageGeneration,
       assistantMemoryNotes,
@@ -1490,6 +1501,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       bubbleStyle,
       canvasBg,
       characterImageMode,
+      edgeColor,
       hideStoryImageButtonWithTags,
       sceneImageMode,
       plotStructureGenerateDirection,
@@ -1551,6 +1563,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     () => ({
       setCanvasBg,
       setEdgeStyle,
+      setEdgeColor,
+      setArrowSize,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -1611,6 +1625,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [
       setCanvasBg,
       setEdgeStyle,
+      setEdgeColor,
+      setArrowSize,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -5226,11 +5242,19 @@ ${layoutConfig.label}
     return edges.map((e) => {
       const isHighlighted = highlightedPath?.edges.has(e.id);
       const isHiddenByNode = hiddenNodeIds.has(e.source) || hiddenNodeIds.has(e.target);
+      const markerEnd = typeof e.markerEnd === 'object' && e.markerEnd ? e.markerEnd : {};
 
       return {
         ...e,
         hidden: isHiddenByNode,
         type: 'customEdge',
+        markerEnd: {
+          ...markerEnd,
+          type: MarkerType.ArrowClosed,
+          width: arrowSize,
+          height: arrowSize,
+          color: isHighlighted ? '#f43f5e' : edgeColor,
+        },
         data: {
           ...e.data,
           edgeStyle,
@@ -5242,7 +5266,7 @@ ${layoutConfig.label}
         },
         style: {
           ...e.style,
-          stroke: isHighlighted ? '#f43f5e' : e.style?.stroke || '#6366f1',
+          stroke: isHighlighted ? '#f43f5e' : edgeColor,
           strokeWidth: isHighlighted ? 6 : e.style?.strokeWidth || 3,
           opacity: highlightedPath ? (isHighlighted ? 1 : 0.1) : 1,
           // NOTE: 同理，连线也只针对样式属性过渡，防止 transform 延迟
@@ -5252,7 +5276,17 @@ ${layoutConfig.label}
         animated: isHighlighted || e.animated,
       };
     });
-  }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath, isMobile, onEdgeDoubleClick]);
+  }, [
+    arrowSize,
+    edgeColor,
+    edges,
+    nodes,
+    edgeStyle,
+    handleEdgeDelete,
+    highlightedPath,
+    isMobile,
+    onEdgeDoubleClick,
+  ]);
 
   return (
     <div
@@ -5687,6 +5721,10 @@ ${layoutConfig.label}
           setCardToolbarScale={setCardToolbarScale}
           edgeStyle={edgeStyle}
           setEdgeStyle={setEdgeStyle}
+          edgeColor={edgeColor}
+          setEdgeColor={setEdgeColor}
+          arrowSize={arrowSize}
+          setArrowSize={setArrowSize}
           pasteAsPlainText={pasteAsPlainText}
           setPasteAsPlainText={setPasteAsPlainText}
           showNodeActions={showNodeActions}

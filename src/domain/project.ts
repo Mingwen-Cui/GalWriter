@@ -226,6 +226,8 @@ export interface ProjectSettings extends PlaytestSettings {
   sharedRenderStyle: RenderStyle;
   canvasBg: string;
   edgeStyle: EdgeStyle;
+  edgeColor: string;
+  arrowSize: number;
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
   showStats: boolean;
@@ -279,6 +281,8 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setSharedRenderStyle: Dispatch<SetStateAction<RenderStyle>>;
   setCanvasBg: Dispatch<SetStateAction<string>>;
   setEdgeStyle: Dispatch<SetStateAction<EdgeStyle>>;
+  setEdgeColor: Dispatch<SetStateAction<string>>;
+  setArrowSize: Dispatch<SetStateAction<number>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;

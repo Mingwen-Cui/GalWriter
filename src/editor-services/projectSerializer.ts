@@ -47,6 +47,24 @@ const clampCardToolbarScale = (value: unknown) => {
   return Math.min(3, Math.max(0.5, parsed));
 };
 
+const DEFAULT_EDGE_COLOR = '#6366f1';
+const DEFAULT_ARROW_SIZE = 20;
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+const normalizeEdgeColor = (value: unknown) =>
+  typeof value === 'string' && HEX_COLOR_PATTERN.test(value) ? value : DEFAULT_EDGE_COLOR;
+
+const clampArrowSize = (value: unknown) => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) return DEFAULT_ARROW_SIZE;
+  return Math.min(36, Math.max(12, parsed));
+};
+
 export type ProjectSerializerEdgeDefaults = {
   markerEnd: {
     type: MarkerType;
@@ -416,6 +434,8 @@ const applyProjectSettings = (
 ) => {
   if (!incomingSettings) {
     setters.setAccentColor('');
+    setters.setEdgeColor(DEFAULT_EDGE_COLOR);
+    setters.setArrowSize(DEFAULT_ARROW_SIZE);
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
     return;
@@ -430,6 +450,8 @@ const applyProjectSettings = (
   }
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
+  setters.setEdgeColor(normalizeEdgeColor(incomingSettings.edgeColor));
+  setters.setArrowSize(clampArrowSize(incomingSettings.arrowSize));
   if (incomingSettings.pasteAsPlainText !== undefined) {
     setters.setPasteAsPlainText(incomingSettings.pasteAsPlainText);
   }

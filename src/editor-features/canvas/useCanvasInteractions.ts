@@ -90,6 +90,47 @@ const isNumberConditionInputHandle = (handleId?: string | null) =>
 const isOutputOnlyNode = (node?: Node) =>
   node?.type === 'characterNode' || node?.type === 'sceneNode';
 
+const getNodeIdFromEventTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return null;
+  return target.closest<HTMLElement>('.react-flow__node')?.getAttribute('data-id') ?? null;
+};
+
+const getNodeSize = (node: Node) => ({
+  width:
+    node.measured?.width ||
+    (typeof node.style?.width === 'number' ? node.style.width : undefined) ||
+    300,
+  height:
+    node.measured?.height ||
+    (typeof node.style?.height === 'number' ? node.style.height : undefined) ||
+    200,
+});
+
+const getQuickConnectionHandles = (sourceNode: Node, targetNode: Node) => {
+  const sourceSize = getNodeSize(sourceNode);
+  const targetSize = getNodeSize(targetNode);
+  const sourceCenter = {
+    x: sourceNode.position.x + sourceSize.width / 2,
+    y: sourceNode.position.y + sourceSize.height / 2,
+  };
+  const targetCenter = {
+    x: targetNode.position.x + targetSize.width / 2,
+    y: targetNode.position.y + targetSize.height / 2,
+  };
+  const dx = targetCenter.x - sourceCenter.x;
+  const dy = targetCenter.y - sourceCenter.y;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { sourceHandle: 'right', targetHandle: 'left' }
+      : { sourceHandle: 'left', targetHandle: 'right' };
+  }
+
+  return dy >= 0
+    ? { sourceHandle: 'bottom', targetHandle: 'top' }
+    : { sourceHandle: 'top', targetHandle: 'bottom' };
+};
+
 const normalizeConnectionDirection = (connection: Connection, nodes: Node[]): Connection => {
   const sourceNode = nodes.find((node) => node.id === connection.source);
   const targetNode = nodes.find((node) => node.id === connection.target);
@@ -151,6 +192,7 @@ export const useCanvasInteractions = ({
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const quickConnectRef = useRef<{ sourceId: string } | null>(null);
 
   const clearTouchLongPress = useCallback(() => {
     if (touchLongPressTimerRef.current) {
@@ -538,8 +580,59 @@ export const useCanvasInteractions = ({
     [getIntersectingNodes, isRightDragging, screenToFlowPosition, selectionBoxRef, setNodes],
   );
 
+  const startQuickConnect = useCallback((event: ReactMouseEvent) => {
+    const sourceId = getNodeIdFromEventTarget(event.target);
+    if (!sourceId) return false;
+    quickConnectRef.current = { sourceId };
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }, []);
+
+  const finishQuickConnect = useCallback(
+    (event: ReactMouseEvent) => {
+      const quickConnect = quickConnectRef.current;
+      if (!quickConnect) return false;
+      quickConnectRef.current = null;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const targetId = getNodeIdFromEventTarget(event.target);
+      if (!targetId || targetId === quickConnect.sourceId) return true;
+
+      const sourceNode = nodes.find((node) => node.id === quickConnect.sourceId);
+      const targetNode = nodes.find((node) => node.id === targetId);
+      if (!sourceNode || !targetNode) return true;
+
+      const handles = getQuickConnectionHandles(sourceNode, targetNode);
+      const normalizedConnection = normalizeConnectionDirection(
+        {
+          source: quickConnect.sourceId,
+          target: targetId,
+          sourceHandle: handles.sourceHandle,
+          targetHandle: handles.targetHandle,
+        },
+        nodes,
+      );
+
+      if (!isValidConnection(normalizedConnection)) return true;
+      setEdges((eds) =>
+        addEdge({ ...normalizedConnection, id: uuidv4(), ...defaultEdgeOptions }, eds),
+      );
+      return true;
+    },
+    [defaultEdgeOptions, isValidConnection, nodes, setEdges],
+  );
+
   const handleMouseDown = useCallback(
     (event: ReactMouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
+
+      if (event.button === 2 && event.altKey) {
+        if (startQuickConnect(event)) return;
+      }
+
       if (
         event.button !== 2 &&
         !(interactionMode === 'box' && event.button === 0) &&
@@ -547,11 +640,9 @@ export const useCanvasInteractions = ({
       ) {
         return;
       }
-      const target = event.target as HTMLElement;
-      if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
       startSelection(event.clientX, event.clientY);
     },
-    [interactionMode, startSelection],
+    [interactionMode, startQuickConnect, startSelection],
   );
 
   const handleMouseMove = useCallback(
@@ -563,9 +654,10 @@ export const useCanvasInteractions = ({
 
   const handleMouseUp = useCallback(
     (event: ReactMouseEvent) => {
+      if (finishQuickConnect(event)) return;
       endSelection(event.clientX, event.clientY);
     },
-    [endSelection],
+    [endSelection, finishQuickConnect],
   );
 
   const handleTouchStart = useCallback(
