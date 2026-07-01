@@ -5252,7 +5252,7 @@ ${layoutConfig.label}
         animated: isHighlighted || e.animated,
       };
     });
-  }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath, isMobile]);
+  }, [edges, nodes, edgeStyle, handleEdgeDelete, highlightedPath, isMobile, onEdgeDoubleClick]);
 
   return (
     <div

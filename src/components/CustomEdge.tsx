@@ -114,9 +114,19 @@ export function CustomEdge({
     clearLongPress();
   }, [clearLongPress]);
 
+  const clearTextSelection = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
   return (
     <g
       className={`group ${isLongPressing ? 'edge-long-press-shake' : ''}`}
+      onMouseDown={(event) => {
+        if (event.detail > 1) {
+          event.preventDefault();
+        }
+      }}
       onContextMenu={(e) => {
         // NOTE: 桌面端：右键删除；手机端禁用右键菜单（由长按处理）
         e.preventDefault();
@@ -124,7 +134,10 @@ export function CustomEdge({
           (data?.onDelete as ((id: string) => void) | undefined)?.(id);
         }
       }}
-      onDoubleClick={() => {
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        clearTextSelection();
         // NOTE: 桌面端双击反转（手机端在 TouchStart 中独立模拟）
         if (!isMobile) {
           (data?.onReverse as ((id: string) => void) | undefined)?.(id);
