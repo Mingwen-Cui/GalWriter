@@ -1,5 +1,5 @@
 import type { Node } from '@xyflow/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { resolveRegionBackgroundMusic } from './regionMusic';
 
@@ -47,15 +47,45 @@ export const useRegionBackgroundMusic = (
     fadeOut: number;
     cancelFade?: () => void;
   } | null>(null);
+  const unlockCleanupRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
+  const clearUnlockRetry = () => {
+    unlockCleanupRef.current?.();
+    unlockCleanupRef.current = null;
+  };
+
+  useLayoutEffect(() => {
     const nextKey = match ? `${match.regionId}:${match.music.url}` : '';
     const active = activeRef.current;
+    const playWithUnlockRetry = (entry: NonNullable<typeof activeRef.current>) => {
+      entry.audio.play().then(clearUnlockRetry).catch((error) => {
+        console.info('Region background music autoplay was blocked', error);
+        if (activeRef.current !== entry) return;
+        clearUnlockRetry();
+        const retry = () => {
+          if (activeRef.current !== entry) {
+            clearUnlockRetry();
+            return;
+          }
+          entry.audio.play().then(clearUnlockRetry).catch(() => {});
+        };
+        const options: AddEventListenerOptions = { capture: true, passive: true };
+        window.addEventListener('pointerdown', retry, options);
+        window.addEventListener('keydown', retry, options);
+        window.addEventListener('touchend', retry, options);
+        unlockCleanupRef.current = () => {
+          window.removeEventListener('pointerdown', retry, options);
+          window.removeEventListener('keydown', retry, options);
+          window.removeEventListener('touchend', retry, options);
+        };
+      });
+    };
 
     if (active?.key === nextKey && match) {
       active.audio.loop = match.music.loop;
       active.audio.volume = match.music.volume;
       active.fadeOut = match.music.fadeOut;
+      if (active.audio.paused) playWithUnlockRetry(active);
       return;
     }
 
@@ -72,12 +102,11 @@ export const useRegionBackgroundMusic = (
         cancelFade: undefined as (() => void) | undefined,
       };
       activeRef.current = entry;
-      audio.play().catch((error) => {
-        console.info('Region background music autoplay was blocked', error);
-      });
+      playWithUnlockRetry(entry);
       entry.cancelFade = fadeAudio(audio, audio.volume, match.music.volume, match.music.fadeIn);
     };
 
+    clearUnlockRetry();
     if (!active) {
       startNext();
       return;
@@ -95,6 +124,7 @@ export const useRegionBackgroundMusic = (
   useEffect(
     () => () => {
       const active = activeRef.current;
+      clearUnlockRetry();
       if (!active) return;
       active.cancelFade?.();
       active.audio.pause();

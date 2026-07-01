@@ -993,6 +993,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
+    let regionUnlockCleanup = null;
     let zenPositionFrame = 0;
     let zenPositionObserver = null;
 
@@ -1093,11 +1094,40 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       regionFadeFrame = requestAnimationFrame(tick);
     }
 
+    function clearRegionAudioUnlock() {
+      if (regionUnlockCleanup) regionUnlockCleanup();
+      regionUnlockCleanup = null;
+    }
+
+    function playRegionAudio(audio) {
+      audio.play().then(clearRegionAudioUnlock).catch(() => {
+        if (regionAudio !== audio) return;
+        clearRegionAudioUnlock();
+        const retry = () => {
+          if (regionAudio !== audio) {
+            clearRegionAudioUnlock();
+            return;
+          }
+          audio.play().then(clearRegionAudioUnlock).catch(() => {});
+        };
+        const options = { capture: true, passive: true };
+        window.addEventListener("pointerdown", retry, options);
+        window.addEventListener("keydown", retry, options);
+        window.addEventListener("touchend", retry, options);
+        regionUnlockCleanup = () => {
+          window.removeEventListener("pointerdown", retry, options);
+          window.removeEventListener("keydown", retry, options);
+          window.removeEventListener("touchend", retry, options);
+        };
+      });
+    }
+
     function syncRegionMusic(music) {
       const nextKey = music && music.url ? music.url : "";
       if (regionAudio && regionAudioKey === nextKey) {
         regionAudio.loop = music.loop !== false;
         regionAudio.volume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        if (regionAudio.paused) playRegionAudio(regionAudio);
         return;
       }
       const previous = regionAudio;
@@ -1110,9 +1140,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         audio._fadeOut = Math.max(0, Number(music.fadeOut) || 0);
         const targetVolume = Math.max(0, Math.min(1, Number(music.volume) || 0));
         audio.volume = Number(music.fadeIn) > 0 ? 0 : targetVolume;
-        audio.play().catch(() => {});
+        playRegionAudio(audio);
         fadeRegionAudio(audio, audio.volume, targetVolume, music.fadeIn);
       };
+      clearRegionAudioUnlock();
       if (!previous) {
         startNext();
         return;
