@@ -129,7 +129,12 @@ export const inlineActionTransform = (action?: InlinePresentationAction | null) 
 };
 
 export const isPersistentInlineAction = (action?: InlinePresentationAction | null) =>
-  action?.action === 'translate' || action?.action === 'translate-x' || action?.action === 'translate-y';
+  action?.action === 'translate' ||
+  action?.action === 'translate-x' ||
+  action?.action === 'translate-y' ||
+  action?.action === 'rotate' ||
+  action?.action === 'opacity' ||
+  action?.action === 'brightness';
 
 export const latestPersistentInlineAction = (
   actions: InlinePresentationAction[],

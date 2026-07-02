@@ -53,9 +53,15 @@ const inlineCanvasState = (
   if (action.action === 'translate-y') return { x: 0, y: (action.offsetY || action.strength || 0) * easeOut(progress), scale: 1, alpha: 1, rotation: 0, brightness: 1 };
   if (action.action === 'scale') return { x: 0, y: 0, scale: 1 + ((action.scale || 1.08) - 1) * pulse, alpha: 1, rotation: 0, brightness: 1 };
   if (action.action === 'pulse') return { x: 0, y: 0, scale: 1, alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 2 * repeats)) * 0.45, rotation: 0, brightness: 1 };
-  if (action.action === 'rotate') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: ((action.strength || 12) * pulse * Math.PI) / 180, brightness: 1 };
-  if (action.action === 'opacity') return { x: 0, y: 0, scale: 1, alpha: 1 - (1 - clamp((action.strength || 0) / 100, 0, 1)) * pulse, rotation: 0, brightness: 1 };
-  if (action.action === 'brightness') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 + (clamp((action.strength || 0) / 100, 0, 1) - 1) * pulse };
+  if (action.action === 'rotate') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: ((action.strength || 12) * easeOut(progress) * Math.PI) / 180, brightness: 1 };
+  if (action.action === 'opacity') {
+    const targetAlpha = clamp((action.strength || 0) / 100, 0, 1);
+    return { x: 0, y: 0, scale: 1, alpha: 1 + (targetAlpha - 1) * easeOut(progress), rotation: 0, brightness: 1 };
+  }
+  if (action.action === 'brightness') {
+    const targetBrightness = clamp((action.strength || 0) / 100, 0, 1);
+    return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 + (targetBrightness - 1) * easeOut(progress) };
+  }
   return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 };
 

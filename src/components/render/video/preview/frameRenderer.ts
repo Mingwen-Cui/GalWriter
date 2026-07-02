@@ -2,7 +2,7 @@ import { htmlToSpeechText } from '../../../../lib/tts';
 import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
-import { animatedTextState } from '../canvas/textAnimation';
+import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
@@ -44,6 +44,8 @@ const textX = (align: RenderStyle['titleAlign'], left: number, right: number) =>
   if (align === 'right') return right;
   return left;
 };
+
+const visibleTextLength = (text: string) => Array.from(text || '').length;
 
 const drawStyledLine = (
   ctx: CanvasRenderingContext2D,
@@ -91,6 +93,7 @@ export const drawRenderFrame = async ({
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const rawBodyHtml = String(node.data?.text || '');
+  const fullBody = htmlToSpeechText(filterMentionTags(rawBodyHtml, hideCharacterTags, hideSceneTags));
   const inlineState = inlinePlaybackStateAtTime({
     html: rawBodyHtml,
     presentation: normalizeStoryPresentation(node.data?.presentation as StoryPresentation | undefined),
@@ -134,11 +137,12 @@ export const drawRenderFrame = async ({
     ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
     : [];
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-  const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
+  const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
+  const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
   const textHeight =
     titleLines.length * titleLineHeight +
-    (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
-    bodyLines.length * bodyLineHeight;
+    (fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
+    fullBodyLines.length * bodyLineHeight;
   let y = dialogLayout.y + Math.max(paddingY, (dialogLayout.height - textHeight) / 2);
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
@@ -173,7 +177,7 @@ export const drawRenderFrame = async ({
   });
   ctx.restore();
 
-  if (bodyLines.length) y += Math.round(bodySize * 0.6);
+  if (fullBodyLines.length) y += Math.round(bodySize * 0.6);
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const bodyState = animatedTextState(
     videoRenderStyle.bodyAnimation,

@@ -309,7 +309,7 @@ export function InlineActionEditor({
           <div className="min-w-0 flex-1">
             <DraggableNumberInput
               value={action.strength}
-              min={0}
+              min={currentAction === 'rotate' ? -360 : 0}
               max={currentAction === 'rotate' ? 360 : 180}
               unit={currentAction === 'rotate' ? 'DEG' : 'PX'}
               onChange={(strength) => update({ strength })}

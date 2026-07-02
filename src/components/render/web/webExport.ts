@@ -773,17 +773,18 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       50% { scale: var(--inline-action-scale, 1.08); }
     }
     @keyframes inlineRotate {
-      0%, 100% { rotate: 0deg; }
+      0% { rotate: 0deg; }
       45% { rotate: var(--inline-action-rotation, 12deg); }
       72% { rotate: calc(var(--inline-action-rotation, 12deg) * -0.65); }
+      100% { rotate: var(--inline-action-rotation, 12deg); }
     }
     @keyframes inlineOpacity {
-      0%, 100% { opacity: 1; }
-      45% { opacity: var(--inline-action-opacity, 0.45); }
+      0% { opacity: 1; }
+      100% { opacity: var(--inline-action-opacity, 0.45); }
     }
     @keyframes inlineBrightness {
-      0%, 100% { filter: brightness(1); }
-      45% { filter: brightness(var(--inline-action-brightness, 0.7)); }
+      0% { filter: brightness(1); }
+      100% { filter: brightness(var(--inline-action-brightness, 0.7)); }
     }
     .end {
       min-height: 100%;
@@ -1449,7 +1450,14 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
 
     function isPersistentInlineAction(action) {
-      return action && (action.action === "translate" || action.action === "translate-x" || action.action === "translate-y");
+      return action && (
+        action.action === "translate" ||
+        action.action === "translate-x" ||
+        action.action === "translate-y" ||
+        action.action === "rotate" ||
+        action.action === "opacity" ||
+        action.action === "brightness"
+      );
     }
 
     function applyInlineAction(action) {

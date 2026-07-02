@@ -54,8 +54,7 @@
 }
 
 @keyframes galInlineRotate {
-  0%,
-  100% {
+  0% {
     rotate: 0deg;
   }
   45% {
@@ -64,24 +63,25 @@
   72% {
     rotate: calc(var(--inline-action-rotation, 15deg) * -0.65);
   }
+  100% {
+    rotate: var(--inline-action-rotation, 15deg);
+  }
 }
 
 @keyframes galInlineOpacity {
-  0%,
-  100% {
+  0% {
     opacity: 1;
   }
-  45% {
+  100% {
     opacity: var(--inline-action-opacity, 0.45);
   }
 }
 
 @keyframes galInlineBrightness {
-  0%,
-  100% {
+  0% {
     filter: brightness(1);
   }
-  45% {
+  100% {
     filter: brightness(var(--inline-action-brightness, 0.7));
   }
 }
