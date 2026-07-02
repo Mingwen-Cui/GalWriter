@@ -4270,6 +4270,21 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
   ]);
 
+  React.useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const modifier = isMac ? event.metaKey : event.ctrlKey;
+      if (!modifier || event.key.toLowerCase() !== 's' || event.altKey) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      void saveCurrentProject();
+    };
+
+    document.addEventListener('keydown', handleSaveShortcut, true);
+    return () => document.removeEventListener('keydown', handleSaveShortcut, true);
+  }, [saveCurrentProject]);
+
   const handleCreateProject = useCallback(async () => {
     const projectId = uuidv4();
     const projectName = DEFAULT_PROJECT_FILE_NAME;

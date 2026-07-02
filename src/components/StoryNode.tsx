@@ -140,6 +140,22 @@ const readMentionNamesInOrder = (html: string, kind: 'character' | 'scene') => {
     .filter((name): name is string => Boolean(name));
 };
 
+const removeMentionById = (html: string, mentionId?: string) => {
+  if (!mentionId) return html;
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  const mention = Array.from(container.querySelectorAll<HTMLElement>('.mention-chip')).find(
+    (element) => element.dataset.mentionId === mentionId,
+  );
+  if (!mention) return html;
+  const nextSibling = mention.nextSibling;
+  mention.remove();
+  if (nextSibling?.nodeType === Node.TEXT_NODE && nextSibling.textContent?.startsWith('\u00a0')) {
+    nextSibling.textContent = nextSibling.textContent.slice(1);
+  }
+  return container.innerHTML;
+};
+
 const getScenePrimaryMedia = (sceneData: SceneNodeData) => {
   const firstMedia = sceneData.images?.find((image) => image.imageUrl || image.videoUrl);
   return {
@@ -147,6 +163,21 @@ const getScenePrimaryMedia = (sceneData: SceneNodeData) => {
     videoUrl: firstMedia?.videoUrl,
   };
 };
+
+const findMentionedCharacterNodes = (
+  mentionNames: string[],
+  nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }>,
+) =>
+  mentionNames
+    .map((mentionName) =>
+      nodes.find(
+        (node) =>
+          node.type === 'characterNode' &&
+          typeof node.data.characterName === 'string' &&
+          node.data.characterName.trim() === mentionName,
+      ),
+    )
+    .filter((node): node is NonNullable<typeof node> => Boolean(node));
 
 const isLightColor = (color: string) => {
   const hex = color.replace('#', '');
@@ -348,6 +379,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     sourceNodeId: string;
     value: CharacterPresentation | ScenePresentation;
   } | null>(null);
+  const suppressedCharacterTagSourceIdsRef = useRef<Set<string>>(new Set());
+  const suppressedSceneTagSourceIdRef = useRef<string | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   useEffect(() => {
@@ -1081,6 +1114,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     const presentation = getPresentation();
     const allNodes = storeApi.getState().nodes;
     const characterMentionNames = readMentionNames(newHtml, 'character');
+    const orderedCharacterMentionNames = readMentionNamesInOrder(newHtml, 'character');
     const sceneMentionNames = readMentionNames(newHtml, 'scene');
     const orderedSceneMentionNames = readMentionNamesInOrder(newHtml, 'scene');
     const remainingCharacters = presentation.characters.filter((character) => {
@@ -1089,9 +1123,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       const name =
         typeof sourceNode.data.characterName === 'string'
           ? sourceNode.data.characterName.trim()
-          : '';
+        : '';
       return Boolean(name && characterMentionNames.has(name));
     });
+    const remainingCharacterIds = new Set(
+      remainingCharacters.map((character) => character.sourceNodeId),
+    );
+    const mentionedCharacterNodes = findMentionedCharacterNodes(
+      orderedCharacterMentionNames,
+      allNodes,
+    );
+    const nextCharacters = [
+      ...remainingCharacters,
+      ...mentionedCharacterNodes
+        .filter((node) => !remainingCharacterIds.has(node.id))
+        .map((node) => createCharacterPresentation(node.id)),
+    ];
     const sceneSourceNode = presentation.scene
       ? allNodes.find((node) => node.id === presentation.scene?.sourceNodeId)
       : undefined;
@@ -1116,12 +1163,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             )
             .find(Boolean)
         : undefined;
+    if (
+      suppressedSceneTagSourceIdRef.current &&
+      sceneMentionSourceNode?.id !== suppressedSceneTagSourceIdRef.current
+    ) {
+      suppressedSceneTagSourceIdRef.current = null;
+    }
+    const isSuppressedSceneTag =
+      sceneMentionSourceNode?.id &&
+      suppressedSceneTagSourceIdRef.current === sceneMentionSourceNode.id;
     const nextSceneSourceNode =
       sceneSourceNode?.type === 'sceneNode' && sceneName && sceneMentionNames.has(sceneName)
         ? sceneSourceNode
         : sceneMentionSourceNode;
     const shouldActivateScene =
       nextSceneSourceNode?.type === 'sceneNode' &&
+      !isSuppressedSceneTag &&
       presentation.scene?.sourceNodeId !== nextSceneSourceNode.id;
     const activatedSceneMedia =
       shouldActivateScene && nextSceneSourceNode?.type === 'sceneNode'
@@ -1160,7 +1217,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       presentation: {
         ...presentation,
         scene: nextScene,
-        characters: remainingCharacters,
+        characters: nextCharacters,
       },
     });
   };
@@ -1169,10 +1226,40 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   useEffect(() => {
     const currentText = String(data.text || '');
+    const characterMentionNames = readMentionNames(currentText, 'character');
+    const orderedCharacterMentionNames = readMentionNamesInOrder(currentText, 'character');
     const sceneMentionNames = readMentionNames(currentText, 'scene');
     const orderedSceneMentionNames = readMentionNamesInOrder(currentText, 'scene');
     const presentation = getPresentation();
     const allNodes = storeApi.getState().nodes;
+    const remainingCharacters = presentation.characters.filter((character) => {
+      const sourceNode = allNodes.find((node) => node.id === character.sourceNodeId);
+      if (!sourceNode || sourceNode.type !== 'characterNode') return false;
+      const name =
+        typeof sourceNode.data.characterName === 'string'
+          ? sourceNode.data.characterName.trim()
+          : '';
+      return Boolean(name && characterMentionNames.has(name));
+    });
+    const remainingCharacterIds = new Set(
+      remainingCharacters.map((character) => character.sourceNodeId),
+    );
+    const mentionedCharacterNodes = findMentionedCharacterNodes(
+      orderedCharacterMentionNames,
+      allNodes,
+    );
+    const nextCharacters = [
+      ...remainingCharacters,
+      ...mentionedCharacterNodes
+        .filter((node) => !remainingCharacterIds.has(node.id))
+        .map((node) => createCharacterPresentation(node.id)),
+    ];
+    const charactersChanged =
+      nextCharacters.length !== presentation.characters.length ||
+      nextCharacters.some(
+        (character, index) =>
+          character.sourceNodeId !== presentation.characters[index]?.sourceNodeId,
+      );
     const currentSceneNode = presentation.scene
       ? allNodes.find((node) => node.id === presentation.scene?.sourceNodeId)
       : undefined;
@@ -1189,6 +1276,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         presentation: {
           ...presentation,
           scene: undefined,
+          characters: nextCharacters,
         },
       });
       return;
@@ -1208,9 +1296,24 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             .find(Boolean)
         : undefined;
     if (
+      suppressedSceneTagSourceIdRef.current &&
+      sceneMentionSourceNode?.id !== suppressedSceneTagSourceIdRef.current
+    ) {
+      suppressedSceneTagSourceIdRef.current = null;
+    }
+    if (
       sceneMentionSourceNode?.type !== 'sceneNode' ||
+      suppressedSceneTagSourceIdRef.current === sceneMentionSourceNode.id ||
       presentation.scene?.sourceNodeId === sceneMentionSourceNode.id
     ) {
+      if (charactersChanged) {
+        updateNodeData({
+          presentation: {
+            ...presentation,
+            characters: nextCharacters,
+          },
+        });
+      }
       return;
     }
 
@@ -1230,6 +1333,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           ),
           previousVideoUrl: presentation.scene?.previousVideoUrl ?? videoUrl,
         },
+        characters: nextCharacters,
       },
     });
   }, [
@@ -1352,25 +1456,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     });
   };
 
-  const deletePresentationTarget = (menu: NonNullable<typeof presentationMenu>) => {
-    const presentation = getPresentation();
-    updateNodeData({
-      presentation:
-        menu.kind === 'character'
-          ? {
-              ...presentation,
-              characters: presentation.characters.filter(
-                (item) => item.sourceNodeId !== menu.sourceNodeId,
-              ),
-            }
-          : {
-              ...presentation,
-              scene:
-                presentation.scene?.sourceNodeId === menu.sourceNodeId
-                  ? undefined
-                  : presentation.scene,
-            },
-    });
+  const deletePresentationTag = (menu: NonNullable<typeof presentationMenu>) => {
+    const currentText = richTextRef.current?.getElement()?.innerHTML ?? String(data.text || '');
+    const nextText = removeMentionById(currentText, menu.mentionId);
+    if (nextText !== currentText) {
+      handleTextChange(nextText);
+    }
+    if (menu.placement === 'inline') {
+      deleteInlineAction(menu.mentionId || `${menu.kind}:${menu.sourceNodeId}`);
+    }
     setPresentationResetUndo(null);
     setPresentationMenu(null);
   };
@@ -2747,7 +2841,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => deletePresentationTarget(presentationMenu)}
+                  onClick={() => deletePresentationTag(presentationMenu)}
                   className="rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
                   title="删除这个 tag 的演出"
                 >
