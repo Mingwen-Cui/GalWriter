@@ -835,7 +835,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ? `${selectedApplyProjectIds.length} 件のプロジェクトに適用`
         : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`;
   const compactSegmentButtonClass = (active: boolean) =>
-    `min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
+    `web-segment-button min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
       active
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'

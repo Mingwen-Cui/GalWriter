@@ -3126,3 +3126,30 @@ input[type='range']::-moz-range-track {
   75% { transform: translate(-0.5px, -0.5px); }
   100% { transform: translate(0.5px, 0.5px) scale(1.01); filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6)); }
 }
+
+.toolbar-bubble-surface button.web-segment-button,
+button.web-segment-button {
+  border-radius: 0 !important;
+}
+
+.toolbar-bubble-surface button.web-segment-button:first-child,
+button.web-segment-button:first-child {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+
+.web-segment-leading-icon button.web-segment-button:first-child {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.web-segment-leading-icon .web-segment-control {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.toolbar-bubble-surface button.web-segment-button:last-child,
+button.web-segment-button:last-child {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}

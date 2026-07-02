@@ -382,7 +382,7 @@ function PlaytestSettingCard({
               : React.createElement(Icon as React.ElementType, { className: 'h-3.5 w-3.5' })}
           </div>
         ) : null}
-        <div className="min-w-0">{children}</div>
+        <div className={`min-w-0 ${hasIcon ? 'web-segment-leading-icon' : ''}`}>{children}</div>
       </div>
     </div>
   );
@@ -407,7 +407,7 @@ function PlaytestPillToggleGroup({
   columns?: string;
 }) {
   return (
-    <div className={`grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -415,7 +415,7 @@ function PlaytestPillToggleGroup({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+            className={`web-segment-button flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
               active
                 ? 'bg-[var(--vr-accent)] text-white'
                 : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
@@ -444,7 +444,7 @@ function PlaytestSegmentedGroup({
   columns?: string;
 }) {
   return (
-    <div className={`grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -455,7 +455,7 @@ function PlaytestSegmentedGroup({
               if (!option.disabled) onChange(option.value);
             }}
             disabled={option.disabled}
-            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
+            className={`web-segment-button flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
               active
                 ? 'bg-[var(--vr-accent)] text-white'
                 : option.disabled
@@ -490,7 +490,7 @@ function PlaytestToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+      className={`web-segment-button flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
         active
           ? 'bg-[var(--vr-accent)] text-white'
           : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
