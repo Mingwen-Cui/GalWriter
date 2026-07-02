@@ -208,6 +208,7 @@ async function createBackgroundCanvas(
   activeInlineAction?: import('../../../../domain/project').InlinePresentationAction | null,
   activeInlineActionElapsed = 0,
   completedSwitchActions: import('../../../../domain/project').InlinePresentationAction[] = [],
+  completedInlineActions: import('../../../../domain/project').InlinePresentationAction[] = [],
 ): Promise<OffscreenCanvas> {
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
@@ -224,6 +225,7 @@ async function createBackgroundCanvas(
     activeInlineAction,
     activeInlineActionElapsed,
     completedSwitchActions,
+    completedInlineActions,
   });
 
   return canvas;
@@ -272,6 +274,7 @@ export async function drawGPUFrame({
     inlineState.activeAction,
     inlineState.activeActionElapsed,
     inlineState.completedSwitchActions,
+    inlineState.completedInlineActions,
   );
   const bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
 

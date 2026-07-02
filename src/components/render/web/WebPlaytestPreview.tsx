@@ -35,6 +35,8 @@ import {
   inlineActionAnimation,
   inlineActionCssVars,
   inlineActionTransform,
+  isPersistentInlineAction,
+  latestPersistentInlineAction,
 } from '../../../lib/inlinePresentationPlayback';
 import {
   getInlineSwitchAction,
@@ -130,6 +132,9 @@ export function WebPlaytestPreview({
   const [completedSwitchActions, setCompletedSwitchActions] = useState<InlinePresentationAction[]>(
     [],
   );
+  const [completedInlineActions, setCompletedInlineActions] = useState<InlinePresentationAction[]>(
+    [],
+  );
   const inlineActionTimerRef = useRef<any>(null);
   const transitionTimerRef = useRef<number | null>(null);
   const autoAdvanceTimerRef = useRef<number | null>(null);
@@ -146,6 +151,7 @@ export function WebPlaytestPreview({
     autoAdvanceTimerRef.current = null;
     setPresentationExiting(false);
     setActiveInlineAction(null);
+    setCompletedInlineActions([]);
   }, []);
 
   const restartPlaybackSession = React.useCallback(() => {
@@ -502,6 +508,7 @@ export function WebPlaytestPreview({
     if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
     setActiveInlineAction(null);
     setCompletedSwitchActions([]);
+    setCompletedInlineActions([]);
     setAnimationDone(settings.interactionMode !== 'typewriter');
     if (settings.interactionMode !== 'typewriter') {
       const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
@@ -513,6 +520,12 @@ export function WebPlaytestPreview({
           .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
           .map((step) => step.action)
           .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
+      );
+      setCompletedInlineActions(
+        playbackSteps
+          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .map((step) => step.action)
+          .filter(isPersistentInlineAction),
       );
       setDisplayedPreviewText(text);
       return;
@@ -542,6 +555,9 @@ export function WebPlaytestPreview({
           setActiveInlineAction(null);
           if (step.action.action === 'switch' && step.action.targetAssetId) {
             setCompletedSwitchActions((previous) => [...previous, step.action]);
+          }
+          if (isPersistentInlineAction(step.action)) {
+            setCompletedInlineActions((previous) => [...previous, step.action]);
           }
           stepIndex += 1;
           playNext();
@@ -917,7 +933,10 @@ export function WebPlaytestPreview({
     activeInlineAction?.kind === 'scene' &&
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
-      : null;
+      : latestPersistentInlineAction(completedInlineActions, 'scene', presentation.scene?.sourceNodeId);
+  const sceneInlineDuration = activeSceneInlineAction
+    ? Math.max(80, activeSceneInlineAction.duration || 300)
+    : 0;
   const sceneMediaTransform = presentation.scene
     ? `translate(${presentation.scene.offsetX || 0}%, ${presentation.scene.offsetY || 0}%) scale(${
         presentation.scene.scale || 1
@@ -953,7 +972,9 @@ export function WebPlaytestPreview({
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration:
-      settings.layoutMode === 'classic'
+      activeSceneInlineAction
+        ? `${sceneInlineDuration}ms`
+        : settings.layoutMode === 'classic'
         ? '0ms'
         : `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionDelay:
@@ -1062,7 +1083,8 @@ export function WebPlaytestPreview({
                       activeInlineAction?.kind === 'character' &&
                       activeInlineAction.sourceNodeId === config.sourceNodeId
                         ? activeInlineAction
-                        : null;
+                        : latestPersistentInlineAction(completedInlineActions, 'character', config.sourceNodeId);
+                    const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
                     return (
                       <img
                         key={config.sourceNodeId}
@@ -1081,7 +1103,9 @@ export function WebPlaytestPreview({
                           transformOrigin: 'center center',
                           transitionProperty: 'opacity, transform',
                           transitionDuration:
-                            settings.layoutMode === 'classic'
+                            inlineAction
+                              ? `${inlineDuration}ms`
+                              : settings.layoutMode === 'classic'
                               ? '0ms'
                               : `${motion.type === 'none' ? 0 : motion.duration}ms`,
                           transitionDelay:

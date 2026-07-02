@@ -98,7 +98,7 @@ export function InlineActionEditor({
   const isPercentSlider = currentAction === 'opacity' || currentAction === 'brightness';
   const isSwitch = currentAction === 'switch';
   const actionOptions = ACTIONS;
-  const showsStrength = !isNone && !isScale && !isPercentSlider && !isSwitch;
+  const showsStrength = !isNone && !isTranslate && !isScale && !isPercentSlider && !isSwitch;
   const strengthLabel = currentAction === 'rotate' ? '角度' : '强度';
 
   const changeActionType = (type: InlinePresentationActionType) => {

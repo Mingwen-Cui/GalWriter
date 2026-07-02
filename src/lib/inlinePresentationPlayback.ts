@@ -128,6 +128,19 @@ export const inlineActionTransform = (action?: InlinePresentationAction | null) 
   return '';
 };
 
+export const isPersistentInlineAction = (action?: InlinePresentationAction | null) =>
+  action?.action === 'translate' || action?.action === 'translate-x' || action?.action === 'translate-y';
+
+export const latestPersistentInlineAction = (
+  actions: InlinePresentationAction[],
+  kind: 'character' | 'scene',
+  sourceNodeId?: string,
+) =>
+  actions
+    .slice()
+    .reverse()
+    .find((action) => action.kind === kind && action.sourceNodeId === sourceNodeId) || null;
+
 export const inlineActionCssVars = (action?: InlinePresentationAction | null) => {
   if (!action || action.action === 'none') return {};
   const opacity = Math.max(0, Math.min(100, action.strength || 0)) / 100;
@@ -178,10 +191,11 @@ export const inlinePlaybackStateAtTime = ({
     0,
   );
   if (!duration || totalChars === 0) {
-    const completedSwitchActions = steps
+    const completedActions = steps
       .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
-      .map((step) => step.action)
-      .filter(isSwitchInlineAction);
+      .map((step) => step.action);
+    const completedSwitchActions = completedActions.filter(isSwitchInlineAction);
+    const completedInlineActions = completedActions.filter(isPersistentInlineAction);
     return {
       html: steps
         .filter((step): step is { kind: 'text'; html: string } => step.kind === 'text')
@@ -190,6 +204,7 @@ export const inlinePlaybackStateAtTime = ({
       activeAction: null as InlinePresentationAction | null,
       activeActionElapsed: 0,
       completedSwitchActions,
+      completedInlineActions,
     };
   }
 
@@ -198,14 +213,22 @@ export const inlinePlaybackStateAtTime = ({
   let cursor = Math.max(0, elapsed);
   let visibleHtml = '';
   const completedSwitchActions: InlinePresentationAction[] = [];
+  const completedInlineActions: InlinePresentationAction[] = [];
 
   for (const step of steps) {
     if (step.kind === 'action') {
       const actionDuration = Math.max(0, step.action.duration || 0) / 1000;
       if (cursor <= actionDuration) {
-        return { html: visibleHtml, activeAction: step.action, activeActionElapsed: cursor, completedSwitchActions };
+        return {
+          html: visibleHtml,
+          activeAction: step.action,
+          activeActionElapsed: cursor,
+          completedSwitchActions,
+          completedInlineActions,
+        };
       }
       if (isSwitchInlineAction(step.action)) completedSwitchActions.push(step.action);
+      if (isPersistentInlineAction(step.action)) completedInlineActions.push(step.action);
       cursor -= actionDuration;
       continue;
     }
@@ -225,6 +248,7 @@ export const inlinePlaybackStateAtTime = ({
       activeAction: null as InlinePresentationAction | null,
       activeActionElapsed: 0,
       completedSwitchActions,
+      completedInlineActions,
     };
   }
 
@@ -233,5 +257,6 @@ export const inlinePlaybackStateAtTime = ({
     activeAction: null as InlinePresentationAction | null,
     activeActionElapsed: 0,
     completedSwitchActions,
+    completedInlineActions,
   };
 };

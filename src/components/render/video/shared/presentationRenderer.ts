@@ -18,6 +18,7 @@ import {
   resolveCharacterImageUrl,
   resolveSceneMedia,
 } from '../../../../lib/inlineAssetSwitch';
+import { latestPersistentInlineAction } from '../../../../lib/inlinePresentationPlayback';
 import { clamp, loadCachedImage } from './mediaUtils';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
@@ -158,6 +159,7 @@ export const drawPresentationVisuals = async ({
   activeInlineAction,
   activeInlineActionElapsed = 0,
   completedSwitchActions = [],
+  completedInlineActions = [],
 }: {
   ctx: CanvasRenderingContext2D;
   node: FlowNode;
@@ -170,6 +172,7 @@ export const drawPresentationVisuals = async ({
   activeInlineAction?: InlinePresentationAction | null;
   activeInlineActionElapsed?: number;
   completedSwitchActions?: InlinePresentationAction[];
+  completedInlineActions?: InlinePresentationAction[];
 }) => {
   const presentation = normalizeStoryPresentation(
     node.data?.presentation as StoryPresentation | undefined,
@@ -217,9 +220,16 @@ export const drawPresentationVisuals = async ({
   ctx.translate(-width / 2, -height / 2);
 
   if (background) {
+    const completedSceneAction = latestPersistentInlineAction(
+      completedInlineActions,
+      'scene',
+      scene?.sourceNodeId,
+    );
     const inlineState =
       activeInlineAction?.kind === 'scene' && activeInlineAction.sourceNodeId === scene?.sourceNodeId
         ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
+        : completedSceneAction
+          ? inlineCanvasState(completedSceneAction, Number.POSITIVE_INFINITY)
         : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
     const state = scene
       ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height, 0, 0)
@@ -286,10 +296,17 @@ export const drawPresentationVisuals = async ({
         characterEnterDelay,
         sceneExitDuration,
       );
+      const completedCharacterAction = latestPersistentInlineAction(
+        completedInlineActions,
+        'character',
+        config.sourceNodeId,
+      );
       const inlineState =
         activeInlineAction?.kind === 'character' &&
         activeInlineAction.sourceNodeId === config.sourceNodeId
           ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
+          : completedCharacterAction
+            ? inlineCanvasState(completedCharacterAction, Number.POSITIVE_INFINITY)
           : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 
       ctx.save();

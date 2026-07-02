@@ -1448,6 +1448,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       return "";
     }
 
+    function isPersistentInlineAction(action) {
+      return action && (action.action === "translate" || action.action === "translate-x" || action.action === "translate-y");
+    }
+
     function applyInlineAction(action) {
       if (!action || action.action === "none") return;
       const duration = Math.max(0, action.duration || 0);
@@ -1481,8 +1485,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         if (action.action === "opacity") target.classList.add("inline-opacity");
         if (action.action === "brightness") target.classList.add("inline-brightness");
       }
-      const resetTimer = setTimeout(() => clearInlineActionElement(target), duration);
-      typewriterTimers.push(resetTimer);
+      if (!isPersistentInlineAction(action)) {
+        const resetTimer = setTimeout(() => clearInlineActionElement(target), duration);
+        typewriterTimers.push(resetTimer);
+      }
     }
 
     function applyTypewriter(element, html, rawHtml, presentation, enabled, revealChoices) {
