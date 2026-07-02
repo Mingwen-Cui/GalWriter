@@ -24,7 +24,7 @@ export const createMentionHtml = (kind: MentionKind, name: string) => {
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>`;
 };
 
 const sanitizePastedMentionHtml = (html: string) => {
@@ -55,7 +55,7 @@ const sanitizePastedMentionHtml = (html: string) => {
     replacement.contentEditable = 'false';
     replacement.draggable = false;
     replacement.textContent = `@${name}`;
-    node.replaceWith(replacement, document.createTextNode('\u00a0'));
+    node.replaceWith(replacement);
   });
 
   container.querySelectorAll<HTMLElement>('*').forEach((node) => {

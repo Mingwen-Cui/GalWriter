@@ -232,7 +232,7 @@ const createAssistantMentionHtml = (
   id: string,
 ) => {
   const safeName = escapeAssistantStoryText(name);
-  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>&nbsp;`;
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>`;
 };
 
 interface StoryEditorProps {
