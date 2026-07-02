@@ -4,6 +4,7 @@ import React, { memo, useEffect, useState } from 'react';
 
 import { formatCharacterNodeText, formatSceneNodeText } from '../lib/export';
 import type { Language } from '../lib/i18n';
+import { filterMentionTags } from './render/video/shared/storyNodes';
 
 export function SummaryNode({ id, data, selected }: NodeProps) {
   const lang = (data.language as Language) || 'zh';
@@ -14,6 +15,8 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
   const [useArrows, setUseArrows] = useState(false);
   const [includeTitles, setIncludeTitles] = useState(true);
   const [traceToRoot, setTraceToRoot] = useState(false);
+  const [hideCharacterTags, setHideCharacterTags] = useState(false);
+  const [hideSceneTags, setHideSceneTags] = useState(false);
   // NOTE: 将最小化状态存储在 React Flow 的节点 data 中，以实现保存/载入项目文件时能够自动持久化该状态
   const isMinimized = !!data.isMinimized;
 
@@ -154,7 +157,8 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
       const text = n?.data?.text || '';
 
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = typeof text === 'string' ? text : '';
+      tempDiv.innerHTML =
+        typeof text === 'string' ? filterMentionTags(text, hideCharacterTags, hideSceneTags) : '';
       const formattedText = (tempDiv.textContent || '').trim();
       if (includeTitles) headerParts.push(title || tr('卡片', 'カード', 'Card'));
 
@@ -352,6 +356,28 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
                 />
                 <span className="font-medium">
                   {tr('追溯至开头', '開始まで遡る', 'Trace to beginning')}
+                </span>
+              </label>
+              <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
+                <input
+                  type="checkbox"
+                  checked={hideCharacterTags}
+                  onChange={(e) => setHideCharacterTags(e.target.checked)}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
+                <span className="font-medium">
+                  {tr('隐藏人物标签', '人物タグを隠す', 'Hide character tags')}
+                </span>
+              </label>
+              <label className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
+                <input
+                  type="checkbox"
+                  checked={hideSceneTags}
+                  onChange={(e) => setHideSceneTags(e.target.checked)}
+                  className="rounded border-[var(--card-border)] text-indigo-500 focus:ring-indigo-500 bg-[var(--card-bg)]"
+                />
+                <span className="font-medium">
+                  {tr('隐藏场景标签', 'シーンタグを隠す', 'Hide scene tags')}
                 </span>
               </label>
             </div>
