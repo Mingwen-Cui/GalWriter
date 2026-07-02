@@ -6,7 +6,7 @@ import { htmlToSpeechText } from '../../../../lib/tts';
 import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
-import { animatedTextState } from '../canvas/textAnimation';
+import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
@@ -56,6 +56,8 @@ const textX = (align: RenderStyle['titleAlign'], left: number, right: number) =>
   return left;
 };
 
+const visibleTextLength = (text: string) => Array.from(text || '').length;
+
 const drawStyledLine = (
   ctx: CanvasRenderingContext2D,
   line: string,
@@ -94,6 +96,7 @@ async function createTextLayerCanvas(
   width: number,
   height: number,
   title: string,
+  fullBody: string,
   body: string,
   style: RenderStyle,
   animationLeadSeconds: number,
@@ -126,11 +129,12 @@ async function createTextLayerCanvas(
     ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
     : [];
   ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
-  const bodyLines = wrapText(ctx, body || '', maxTextWidth).slice(0, 7);
+  const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
+  const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
   const textHeight =
     titleLines.length * titleLineHeight +
-    (bodyLines.length ? Math.round(bodySize * 0.6) : 0) +
-    bodyLines.length * bodyLineHeight;
+    (fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
+    fullBodyLines.length * bodyLineHeight;
   let y = dialogLayout.y + Math.max(paddingY, (dialogLayout.height - textHeight) / 2);
 
   // 标题
@@ -167,7 +171,7 @@ async function createTextLayerCanvas(
   ctx.restore();
 
   // 正文
-  if (bodyLines.length) y += Math.round(bodySize * 0.6);
+  if (fullBodyLines.length) y += Math.round(bodySize * 0.6);
   ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
   const bodyState = animatedTextState(
     style.bodyAnimation,
@@ -251,6 +255,9 @@ export async function drawGPUFrame({
   const nodeId = node.id;
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
   const title = htmlToSpeechText(String(node.data?.title || ''));
+  const fullBody = htmlToSpeechText(
+    filterMentionTags(String(node.data?.text || ''), hideCharacterTags, hideSceneTags),
+  );
   const inlineState = inlinePlaybackStateAtTime({
     html: String(node.data?.text || ''),
     presentation: normalizeStoryPresentation(node.data?.presentation as StoryPresentation | undefined),
@@ -294,6 +301,7 @@ export async function drawGPUFrame({
       width,
       height,
       title,
+      fullBody,
       body,
       videoRenderStyle,
       animationLeadSeconds,
