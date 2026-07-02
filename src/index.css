@@ -407,7 +407,7 @@ body,
   flex-shrink: 0;
 }
 
-.zen-editor-panel-body .zen-editor-animation-select {
+.zen-editor-animation-select {
   min-height: 40px;
   border-radius: 10px !important;
   border: 1px solid color-mix(in srgb, var(--card-border) 82%, var(--accent)) !important;
@@ -430,7 +430,7 @@ body,
     background-color 160ms ease;
 }
 
-.zen-editor-panel-body .zen-editor-select-trigger {
+.zen-editor-select-trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -438,14 +438,14 @@ body,
   text-align: left;
 }
 
-.zen-editor-panel-body .zen-editor-animation-select:hover {
+.zen-editor-animation-select:hover {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--card-border)) !important;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
     0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
-.zen-editor-panel-body .zen-editor-animation-select:focus {
+.zen-editor-animation-select:focus {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--card-border)) !important;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
@@ -482,7 +482,7 @@ body,
   color: var(--text-primary);
   padding: 9px 10px;
   text-align: left;
-  font-size: 13px;
+  font-size: inherit;
   font-weight: 750;
   line-height: 1.2;
   transition:

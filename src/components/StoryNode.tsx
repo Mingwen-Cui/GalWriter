@@ -91,6 +91,7 @@ import { DraggableNumberInput } from './DraggableNumberInput';
 import { InlineActionEditor } from './InlineActionEditor';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
+import { ZenSelect } from './zen-editor/ZenSelect';
 
 const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C', '#1EC8CF'];
 const SHAPES: StoryCardVisualShape[] = [
@@ -3155,32 +3156,29 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               {phase === 'enter' ? '入场动画' : '出场动画'}
                             </span>
                             <label className="min-w-0 flex-1">
-                              <select
+                              <ZenSelect
                                 value={current[phase].type}
-                                onChange={(event) =>
+                                onChange={(type) =>
                                   updateCharacterPresentation(
                                     presentationMenu.sourceNodeId,
                                     (item) => ({
                                       ...item,
                                       [phase]: {
                                         ...item[phase],
-                                        type: event.target.value as PresentationAnimation,
+                                        type,
                                       },
                                     }),
                                     phase,
                                   )
                                 }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              >
-                                {ANIMATION_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                                options={ANIMATION_OPTIONS}
+                                ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
+                                menuMinWidth={140}
+                                menuTextScale={presentationMenuScale}
+                              />
                             </label>
-                            <span className="shrink-0 font-bold">时长</span>
-                            <label className="w-[72px] shrink-0">
+                            <span className="ml-auto shrink-0 font-bold">时长</span>
+                            <label className="w-[58px] shrink-0">
                               <DurationInput
                                 value={current[phase].duration}
                                 onChange={(duration) =>
@@ -3415,32 +3413,29 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               {phase === 'enter' ? '入场动画' : '出场动画'}
                             </span>
                             <label className="min-w-0 flex-1">
-                              <select
+                              <ZenSelect
                                 value={current[phase].type}
-                                onChange={(event) =>
+                                onChange={(type) =>
                                   updateScenePresentation(
                                     presentationMenu.sourceNodeId,
                                     (item) => ({
                                       ...item,
                                       [phase]: {
                                         ...item[phase],
-                                        type: event.target.value as PresentationAnimation,
+                                        type,
                                       },
                                     }),
                                     phase,
                                   )
                                 }
-                                className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                              >
-                                {ANIMATION_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                                options={ANIMATION_OPTIONS}
+                                ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
+                                menuMinWidth={140}
+                                menuTextScale={presentationMenuScale}
+                              />
                             </label>
-                            <span className="shrink-0 font-bold">时长</span>
-                            <label className="w-[72px] shrink-0">
+                            <span className="ml-auto shrink-0 font-bold">时长</span>
+                            <label className="w-[58px] shrink-0">
                               <DurationInput
                                 value={current[phase].duration}
                                 onChange={(duration) =>

@@ -14,12 +14,16 @@ export function ZenSelect<T extends string>({
   onChange,
   className = '',
   ariaLabel,
+  menuMinWidth,
+  menuTextScale = 1,
 }: {
   value: T;
   options: ZenSelectOption<T>[];
   onChange: (value: T) => void;
   className?: string;
   ariaLabel?: string;
+  menuMinWidth?: number;
+  menuTextScale?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
@@ -48,7 +52,7 @@ export function ZenSelect<T extends string>({
     const availableHeight = Math.max(0, (openUp ? spaceAbove : spaceBelow) - menuGap);
     const maxHeight = Math.max(72, Math.min(preferredHeight, availableHeight));
     const desiredWidth = Math.min(
-      Math.max(rect.width, window.innerWidth < 768 ? 220 : 210),
+      Math.max(rect.width, menuMinWidth || rect.width),
       window.innerWidth - viewportGap * 2,
     );
     const left = Math.min(
@@ -60,10 +64,11 @@ export function ZenSelect<T extends string>({
       left,
       width: desiredWidth,
       maxHeight,
+      fontSize: `${13 * menuTextScale}px`,
       top: openUp ? undefined : rect.bottom + menuGap,
       bottom: openUp ? window.innerHeight - rect.top + menuGap : undefined,
     });
-  }, []);
+  }, [menuMinWidth, menuTextScale]);
 
   useLayoutEffect(() => {
     if (open) updateMenuPosition();
