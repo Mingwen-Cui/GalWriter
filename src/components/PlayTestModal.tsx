@@ -308,6 +308,7 @@ export function PlayTestModal({
   const lastJumpedNode = useRef<string | null>(null);
   const autoAdvanceHoldNodeRef = useRef<string | null>(null);
   const playbackSessionRef = useRef(0);
+  const [playbackSession, setPlaybackSession] = useState(0);
 
   const clearPendingPlaybackTimers = React.useCallback(() => {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
@@ -326,6 +327,7 @@ export function PlayTestModal({
 
   const restartPlaybackSession = React.useCallback(() => {
     playbackSessionRef.current += 1;
+    setPlaybackSession((session) => session + 1);
     clearPendingPlaybackTimers();
     lastJumpedNode.current = null;
   }, [clearPendingPlaybackTimers]);
@@ -881,6 +883,7 @@ export function PlayTestModal({
     hideCharacterTags,
     hideSceneTags,
     presentation,
+    playbackSession,
   ]);
 
   useEffect(() => {

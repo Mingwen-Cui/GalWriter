@@ -430,7 +430,7 @@ export function RenderStyleSettingsSection({
                 }}
               className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
                 isTitle
-                  ? 'bg-[#f7f9fc] text-[var(--vr-text)]'
+                  ? 'bg-[#1d4ed8] text-white'
                   : visible
                     ? 'bg-white/12 text-[var(--vr-text)]'
                     : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
