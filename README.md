@@ -13,7 +13,7 @@
 
 中文 | [English](README.en.md) | [日本語](README.ja.md)
 
-[下载 Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [Android 打包说明](ANDROID_BUILD_GUIDE.md) · [开发](#开发) · [架构概览](#架构概览) · [FAQ](#faq)
+[下载 Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [构建与发布指南](docs/build/BUILD_GUIDE.md) · [开发](#开发) · [架构概览](#架构概览) · [FAQ](#faq)
 
 </div>
 
@@ -121,7 +121,7 @@ npm run tauri:android:init
 - `Android` 需要本机已安装 Android SDK / NDK、已初始化 `src-tauri/gen/android`，并已配置签名文件。
 - 如果 Android 前置未完成，`tauri:build:all-platforms` 会先产出 Web 和 Windows 资产，并跳过 Android。
 
-Android 签名与环境准备请参考 [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md)。
+Android 签名与环境准备请参考[构建与发布指南](docs/build/BUILD_GUIDE.md)。
 
 ## 架构概览
 
@@ -140,6 +140,7 @@ Android 签名与环境准备请参考 [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GU
 .
 ├── build-scripts/              # 打包辅助脚本
 ├── docs/                       # 项目文档
+│   └── build/BUILD_GUIDE*.md   # 多语言构建与发布指南
 ├── examples/                   # 示例资源
 ├── public/                     # Web 静态资源
 ├── release/                    # 本地打包输出
@@ -155,7 +156,6 @@ Android 签名与环境准备请参考 [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GU
 │   ├── editor-state/           # 编辑器状态与默认配置
 │   └── lib/                    # DB、文档解析、导出、运行时适配工具
 ├── src-tauri/                  # Tauri 原生工程
-├── ANDROID_BUILD_GUIDE.md      # Android 打包说明
 ├── eslint.config.js
 ├── package.json
 ├── tsconfig.json

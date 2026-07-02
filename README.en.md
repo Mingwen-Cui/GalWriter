@@ -13,7 +13,7 @@
 
 [中文](README.md) | English | [日本語](README.ja.md)
 
-[Download Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [Android Build Guide](ANDROID_BUILD_GUIDE.md) · [Development](#development) · [Architecture](#architecture-overview) · [FAQ](#faq)
+[Download Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [Build and Release Guide](docs/build/BUILD_GUIDE.en.md) · [Development](#development) · [Architecture](#architecture-overview) · [FAQ](#faq)
 
 </div>
 
@@ -121,7 +121,7 @@ Notes:
 - `Android` requires a local Android SDK / NDK install, an initialized `src-tauri/gen/android`, and signing configuration.
 - If Android prerequisites are missing, `tauri:build:all-platforms` still produces the web and Windows assets and skips Android.
 
-For Android signing and environment setup, see [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md).
+For Android signing and environment setup, see the [build and release guide](docs/build/BUILD_GUIDE.en.md).
 
 ## Architecture Overview
 
@@ -140,6 +140,7 @@ For Android signing and environment setup, see [ANDROID_BUILD_GUIDE.md](ANDROID_
 .
 ├── build-scripts/              # Packaging helper scripts
 ├── docs/                       # Project documentation
+│   └── build/BUILD_GUIDE*.md   # Multilingual build and release guides
 ├── examples/                   # Example assets
 ├── public/                     # Web static assets
 ├── release/                    # Local packaging output
@@ -155,7 +156,6 @@ For Android signing and environment setup, see [ANDROID_BUILD_GUIDE.md](ANDROID_
 │   ├── editor-state/           # Shared editor state and defaults
 │   └── lib/                    # DB, document parsing, export, runtime adapters
 ├── src-tauri/                  # Tauri native project
-├── ANDROID_BUILD_GUIDE.md      # Android packaging guide
 ├── eslint.config.js
 ├── package.json
 ├── tsconfig.json

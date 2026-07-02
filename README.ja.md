@@ -13,7 +13,7 @@
 
 [中文](README.md) | [English](README.en.md) | 日本語
 
-[Releases を開く](https://github.com/Mingwen-Cui/GalWriter/releases) · [Android ビルドガイド](ANDROID_BUILD_GUIDE.md) · [開発](#開発) · [アーキテクチャ概要](#アーキテクチャ概要) · [FAQ](#faq)
+[Releases を開く](https://github.com/Mingwen-Cui/GalWriter/releases) · [ビルド・リリースガイド](docs/build/BUILD_GUIDE.ja.md) · [開発](#開発) · [アーキテクチャ概要](#アーキテクチャ概要) · [FAQ](#faq)
 
 </div>
 
@@ -121,7 +121,7 @@ npm run tauri:android:init
 - `Android` にはローカルの Android SDK / NDK、初期化済みの `src-tauri/gen/android`、署名設定が必要です。
 - Android の前提が不足している場合でも、`tauri:build:all-platforms` は Web と Windows の成果物を先に出力し、Android をスキップします。
 
-Android の署名と環境準備は [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE.md) を参照してください。
+Android の署名と環境準備は[ビルド・リリースガイド](docs/build/BUILD_GUIDE.ja.md)を参照してください。
 
 ## アーキテクチャ概要
 
@@ -140,6 +140,7 @@ Android の署名と環境準備は [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE
 .
 ├── build-scripts/              # パッケージング補助スクリプト
 ├── docs/                       # プロジェクト文書
+│   └── build/BUILD_GUIDE*.md   # 多言語ビルド・リリースガイド
 ├── examples/                   # サンプル素材
 ├── public/                     # Web 静的アセット
 ├── release/                    # ローカルビルド出力
@@ -155,7 +156,6 @@ Android の署名と環境準備は [ANDROID_BUILD_GUIDE.md](ANDROID_BUILD_GUIDE
 │   ├── editor-state/           # 共有状態とデフォルト設定
 │   └── lib/                    # DB、文書解析、export、ランタイム適配
 ├── src-tauri/                  # Tauri ネイティブプロジェクト
-├── ANDROID_BUILD_GUIDE.md      # Android ビルドガイド
 ├── eslint.config.js
 ├── package.json
 ├── tsconfig.json
