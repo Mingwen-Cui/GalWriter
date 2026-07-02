@@ -11,10 +11,7 @@
   MapPin,
   Mic,
   Palette,
-  Pause,
-  Play,
   Save,
-  SkipForward,
   Sparkles,
   Square,
   Trash2,
@@ -22,7 +19,6 @@
   Underline,
   User,
   Volume2,
-  Upload,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -62,6 +58,11 @@ import { RichText, RichTextHandle } from './RichText';
 import { DurationInput } from './DurationInput';
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
+import { ZenAudioPanel } from './zen-editor/ZenAudioPanel';
+import { ZenMobileTagStrip } from './zen-editor/ZenMobileTagStrip';
+import { ZenPanelTabs } from './zen-editor/ZenPanelTabs';
+import { ZenSelect } from './zen-editor/ZenSelect';
+import type { ZenRightPanel } from './zen-editor/types';
 
 type ZenTag = {
   id: string;
@@ -110,7 +111,7 @@ export function ZenEditor({
   const richTextRef = useRef<RichTextHandle>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [rightPanel, setRightPanel] = useState<'presentation' | 'audio'>('presentation');
+  const [rightPanel, setRightPanel] = useState<ZenRightPanel>('text');
   const [recordingState, setRecordingState] = useState<
     'idle' | 'recording' | 'paused' | 'encoding'
   >('idle');
@@ -952,10 +953,12 @@ export function ZenEditor({
       : 0;
 
   return (
-    <div className="fixed inset-0 z-[200] grid grid-cols-[76px_minmax(0,1fr)_320px] gap-3 bg-[var(--app-bg)] p-3 animate-in fade-in duration-200">
-      <aside className="relative z-[80] flex min-h-0 flex-col items-center gap-3 overflow-visible rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-2 shadow-sm">
+    <div
+      className={`zen-editor-root zen-editor-panel-${rightPanel} fixed inset-0 z-[200] grid grid-cols-[76px_minmax(0,1fr)_360px] gap-3 bg-[var(--app-bg)] p-3 animate-in fade-in duration-200`}
+    >
+      <aside className="zen-editor-toolbar relative z-[80] flex min-h-0 flex-col items-center gap-3 overflow-visible rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-2 shadow-sm">
         {/* Toolbar */}
-        <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-3 overflow-visible rounded-xl bg-[var(--app-bg)] px-1 py-3">
+        <div className="zen-editor-toolbar-inner flex min-h-0 w-full flex-1 flex-col items-center gap-3 overflow-visible rounded-xl bg-[var(--app-bg)] px-1 py-3">
           <button
             onClick={() => format('bold')}
             className="rounded-lg p-3 text-[var(--text-primary)] hover:bg-[var(--card-bg)]"
@@ -1078,7 +1081,7 @@ export function ZenEditor({
                 }
               }}
               disabled={!onAudioClipsChange || recordingState === 'encoding'}
-              className={`rounded-lg p-3 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`zen-editor-toolbar-audio-action rounded-lg p-3 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50 ${
                 recordingState === 'recording' || recordingState === 'paused'
                   ? 'bg-rose-500/10 text-rose-500'
                   : 'text-rose-500'
@@ -1102,7 +1105,7 @@ export function ZenEditor({
             <button
               onClick={handleGenerateAudio}
               disabled={!onGenerateAudio || isGeneratingAudio}
-              className="rounded-lg p-3 text-sky-500 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="zen-editor-toolbar-audio-action rounded-lg p-3 text-sky-500 hover:bg-[var(--card-bg)] disabled:cursor-not-allowed disabled:opacity-50"
               title="文字转音频"
             >
               {isGeneratingAudio ? (
@@ -1194,15 +1197,15 @@ export function ZenEditor({
         </div>
       </aside>
 
-      <main className="relative z-0 min-h-0 min-w-0">
+      <main className="zen-editor-main relative z-0 min-h-0 min-w-0">
         {/* Editor Area with Media Support */}
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+        <div className="zen-editor-workspace flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
           {(imageUrl ||
             videoUrl ||
             normalizedPresentation.characters.some((config) =>
               characterTags.some((tag) => tag.id === config.sourceNodeId && tag.imageUrl),
             )) && (
-            <div className="relative flex-1 min-h-48 w-full shrink-0 overflow-hidden border-b border-[var(--card-border)] bg-slate-950">
+            <div className="zen-editor-preview relative flex-1 min-h-48 w-full shrink-0 overflow-hidden border-b border-[var(--card-border)] bg-slate-950">
               {(imageUrl || videoUrl || normalizedPresentation.characters.length > 0) && (
                 <div className="absolute inset-0">
                   <VirtualPresentationStage className="h-full w-full">
@@ -1357,7 +1360,19 @@ export function ZenEditor({
               )}
             </div>
           )}
-          <div className="h-48 shrink-0 bg-[var(--card-bg)] p-8 overflow-y-auto">
+          <ZenMobileTagStrip
+            nodeId={nodeId}
+            videoUrl={videoUrl}
+            cardVideoMentionName={cardVideoMentionName}
+            characterTags={characterTags}
+            sceneTags={sceneTags}
+            activeKind={presentationMenu?.kind}
+            activeId={presentationMenu?.id}
+            onCharacterClick={insertCharacterMention}
+            onSceneClick={insertSceneMention}
+            onVideoClick={openCardVideoMenu}
+          />
+          <div className="zen-editor-text h-48 shrink-0 bg-[var(--card-bg)] p-8 overflow-y-auto">
             <RichText
               ref={richTextRef}
               value={value}
@@ -1376,42 +1391,11 @@ export function ZenEditor({
           </div>
         </div>
       </main>
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
-        <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3">
-          <div className="flex rounded-xl bg-[var(--app-bg)] p-1">
-            <button
-              type="button"
-              onClick={() => setRightPanel('presentation')}
-              className={`rounded-lg px-3 py-2 text-xs font-black ${
-                rightPanel === 'presentation'
-                  ? 'bg-[var(--card-bg)] text-indigo-500 shadow-sm'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              演出设置
-            </button>
-            <button
-              type="button"
-              onClick={() => setRightPanel('audio')}
-              className={`rounded-lg px-3 py-2 text-xs font-black ${
-                rightPanel === 'audio'
-                  ? 'bg-[var(--card-bg)] text-sky-500 shadow-sm'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              音频列表
-            </button>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-rose-400/50 bg-rose-500/10 px-5 py-2.5 text-sm font-black text-rose-500 shadow-sm hover:bg-rose-500 hover:text-white"
-          >
-            退出专注
-          </button>
-        </div>
+      <aside className="zen-editor-panel flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+        <ZenPanelTabs rightPanel={rightPanel} onPanelChange={setRightPanel} onClose={onClose} />
         <div
-          className={`space-y-2 border-b border-[var(--card-border)] p-3 ${
-            rightPanel === 'audio' ? 'hidden' : ''
+          className={`zen-editor-panel-tags space-y-2 border-b border-[var(--card-border)] p-3 ${
+            rightPanel !== 'presentation' ? 'hidden' : ''
           }`}
         >
           <div className="flex min-w-0 items-start gap-2">
@@ -1488,7 +1472,7 @@ export function ZenEditor({
             </div>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="zen-editor-panel-body min-h-0 flex-1 overflow-y-auto px-5 py-3">
           {rightPanel === 'presentation' &&
             presentationMenu?.placement === 'inline' &&
             (() => {
@@ -1600,7 +1584,7 @@ export function ZenEditor({
                         true,
                       );
                     }}
-                    className={`absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
+                    className={`zen-editor-presentation-icon-action absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'character' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1618,7 +1602,7 @@ export function ZenEditor({
                   <button
                     type="button"
                     onClick={() => deletePresentationTarget(presentationMenu)}
-                    className="absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
+                    className="zen-editor-presentation-icon-action absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
                     title="删除这个 tag 的演出"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1860,29 +1844,24 @@ export function ZenEditor({
                         {phase === 'enter' ? '入场动画' : '出场动画'}
                       </span>
                       <label className="min-w-0 flex-1">
-                        <select
+                        <ZenSelect
                           value={current[phase].type}
-                          onChange={(event) =>
+                          onChange={(type) =>
                             updateCharacter(
                               presentationMenu.id,
                               (item) => ({
                                 ...item,
                                 [phase]: {
                                   ...item[phase],
-                                  type: event.target.value as PresentationAnimation,
+                                  type,
                                 },
                               }),
                               phase,
                             )
                           }
-                          className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                        >
-                          {animationOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                          options={animationOptions}
+                          ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
+                        />
                       </label>
                       <span className="shrink-0 font-bold">时长</span>
                       <label className="w-[72px] shrink-0">
@@ -1959,7 +1938,7 @@ export function ZenEditor({
                         true,
                       );
                     }}
-                    className={`absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
+                    className={`zen-editor-presentation-icon-action absolute right-8 top-0 rounded-md border p-1.5 transition-colors ${
                       presentationResetUndo?.kind === 'scene' &&
                       presentationResetUndo.sourceNodeId === presentationMenu.id
                         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white'
@@ -1977,7 +1956,7 @@ export function ZenEditor({
                   <button
                     type="button"
                     onClick={() => deletePresentationTarget(presentationMenu)}
-                    className="absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
+                    className="zen-editor-presentation-icon-action absolute right-0 top-0 rounded-md border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-500 transition-colors hover:bg-rose-500 hover:text-white"
                     title="删除这个 tag 的演出"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -2278,29 +2257,24 @@ export function ZenEditor({
                         {phase === 'enter' ? '入场动画' : '出场动画'}
                       </span>
                       <label className="min-w-0 flex-1">
-                        <select
+                        <ZenSelect
                           value={current[phase].type}
-                          onChange={(event) =>
+                          onChange={(type) =>
                             updateScene(
                               presentationMenu.id,
                               (item) => ({
                                 ...item,
                                 [phase]: {
                                   ...item[phase],
-                                  type: event.target.value as PresentationAnimation,
+                                  type,
                                 },
                               }),
                               phase,
                             )
                           }
-                          className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2"
-                        >
-                          {animationOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                          options={animationOptions}
+                          ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
+                        />
                       </label>
                       <span className="shrink-0 font-bold">时长</span>
                       <label className="w-[72px] shrink-0">
@@ -2327,253 +2301,37 @@ export function ZenEditor({
               );
             })()}
           {rightPanel === 'audio' && (
-            <div className="space-y-4 text-sm text-[var(--text-primary)]">
-              <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <strong>录音控制</strong>
-                  <span className="text-xs font-bold text-[var(--text-muted)]">
-                    {recordingState === 'recording'
-                      ? '正在录音'
-                      : recordingState === 'paused'
-                        ? '已暂停'
-                        : recordingState === 'encoding'
-                          ? '正在生成 MP3'
-                          : '未录音'}
-                  </span>
-                </div>
-                <div
-                  className={`mb-3 flex h-16 items-center justify-center gap-1 rounded-xl border px-3 transition-colors ${
-                    recordingState === 'recording'
-                      ? 'border-rose-500/30 bg-rose-500/10'
-                      : recordingState === 'paused'
-                        ? 'border-amber-500/30 bg-amber-500/10 opacity-60'
-                        : 'border-[var(--card-border)] bg-[var(--app-bg)]'
-                  }`}
-                  aria-label={
-                    recordingState === 'recording' ? '正在接收麦克风声音' : '麦克风音量波形'
-                  }
-                >
-                  {waveformLevels.map((level, index) => (
-                    <span
-                      key={index}
-                      className={`w-1 rounded-full transition-[height,background-color] duration-75 ${
-                        recordingState === 'recording'
-                          ? 'bg-rose-500'
-                          : recordingState === 'paused'
-                            ? 'bg-amber-500'
-                            : 'bg-[var(--text-muted)]/30'
-                      }`}
-                      style={{
-                        height:
-                          recordingState === 'recording' || recordingState === 'paused'
-                            ? `${Math.max(5, level * 48)}px`
-                            : `${5 + ((index * 7) % 12)}px`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (recordingState === 'recording' || recordingState === 'paused') {
-                        stopRecording();
-                      } else {
-                        void startRecording();
-                      }
-                    }}
-                    disabled={!onAudioClipsChange || recordingState === 'encoding'}
-                    className="flex items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 font-bold text-white disabled:opacity-50"
-                  >
-                    {recordingState === 'recording' || recordingState === 'paused' ? (
-                      <>
-                        <Square className="h-4 w-4 fill-current" />
-                        停止录音
-                      </>
-                    ) : recordingState === 'encoding' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        生成 MP3
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4" />
-                        开始录音
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleRecordingPause}
-                    disabled={recordingState !== 'recording' && recordingState !== 'paused'}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-3 py-2 font-bold disabled:opacity-40"
-                  >
-                    {recordingState === 'paused' ? (
-                      <>
-                        <Play className="h-4 w-4" />
-                        继续录音
-                      </>
-                    ) : (
-                      <>
-                        <Pause className="h-4 w-4" />
-                        暂停录音
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>音频播放列表</strong>
-                  <div className="mt-0.5 text-xs text-[var(--text-muted)]">
-                    顺序播放 · 跳过已标记音频
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={audioImportInputRef}
-                    type="file"
-                    accept="audio/*"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => {
-                      const files = event.target.files;
-                      if (files && files.length > 0) importAudioFiles(files);
-                      event.target.value = '';
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => audioImportInputRef.current?.click()}
-                    disabled={!onAudioClipsChange}
-                    className="flex items-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-3 py-2 text-xs font-black disabled:opacity-40"
-                  >
-                    <Upload className="h-4 w-4" />
-                    上传
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const first = playableAudioClips[0];
-                      if (first) playClip(first);
-                    }}
-                    disabled={playableAudioClips.length === 0}
-                    className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-white disabled:opacity-40"
-                  >
-                    <Play className="h-4 w-4" />
-                    顺序播放
-                  </button>
-                </div>
-              </div>
-
-              {activeAudioClip && (
-                <audio
-                  ref={audioPlayerRef}
-                  src={activeAudioClip.url}
-                  controls
-                  preload="metadata"
-                  onPlay={() => setIsAudioPlaying(true)}
-                  onPause={() => setIsAudioPlaying(false)}
-                  onEnded={playNextClip}
-                  className="h-10 w-full"
-                />
-              )}
-
-              <div className="space-y-2">
-                {normalizedAudioClips.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[var(--card-border)] p-6 text-center text-xs text-[var(--text-muted)]">
-                    暂无音频。可使用左侧的录音、文字转音频或上方上传按钮添加。
-                  </div>
-                ) : (
-                  normalizedAudioClips.map((clip, index) => {
-                    const active = activeAudioClip?.id === clip.id;
-                    return (
-                      <div
-                        key={clip.id}
-                        className={`rounded-xl border p-3 ${
-                          active
-                            ? 'border-sky-500/50 bg-sky-500/10'
-                            : 'border-[var(--card-border)] bg-[var(--app-bg)]'
-                        } ${clip.skipped ? 'opacity-55' : ''}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleClipPlayback(clip)}
-                            disabled={clip.skipped}
-                            className="rounded-lg bg-sky-500/10 p-2 text-sky-500 disabled:opacity-40"
-                            title={active && isAudioPlaying ? '暂停' : '播放'}
-                          >
-                            {active && isAudioPlaying ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            {editingAudioId === clip.id ? (
-                              <input
-                                autoFocus
-                                value={editingAudioName}
-                                onChange={(event) => setEditingAudioName(event.target.value)}
-                                onBlur={finishRenamingClip}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter') finishRenamingClip();
-                                  if (event.key === 'Escape') {
-                                    setEditingAudioId(null);
-                                    setEditingAudioName('');
-                                  }
-                                }}
-                                className="w-full rounded border border-sky-500/40 bg-[var(--card-bg)] px-2 py-1 font-bold outline-none"
-                                aria-label="重命名音频"
-                              />
-                            ) : (
-                              <div
-                                className="truncate font-bold"
-                                onDoubleClick={() => startRenamingClip(clip)}
-                                title="双击重命名"
-                              >
-                                {index + 1}. {clip.name}
-                              </div>
-                            )}
-                            <div className="text-[10px] uppercase text-[var(--text-muted)]">
-                              {clip.source === 'recording'
-                                ? 'MP3 录音'
-                                : clip.source === 'tts'
-                                  ? '文字转音频'
-                                  : '已有音频'}
-                              {clip.skipped ? ' · 已跳过' : ''}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleClipSkipped(clip.id)}
-                            className={`rounded-lg p-2 ${
-                              clip.skipped
-                                ? 'bg-amber-500 text-white'
-                                : 'bg-amber-500/10 text-amber-500'
-                            }`}
-                            title={clip.skipped ? '恢复播放' : '播放时跳过'}
-                          >
-                            <SkipForward className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteClip(clip.id)}
-                            className="rounded-lg bg-rose-500/10 p-2 text-rose-500"
-                            title="删除音频"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+            <ZenAudioPanel
+              recordingState={recordingState}
+              waveformLevels={waveformLevels}
+              isGeneratingAudio={isGeneratingAudio}
+              onGenerateAudio={handleGenerateAudio}
+              onAudioClipsChange={onAudioClipsChange}
+              audioImportInputRef={audioImportInputRef}
+              audioPlayerRef={audioPlayerRef}
+              normalizedAudioClips={normalizedAudioClips}
+              playableAudioClips={playableAudioClips}
+              activeAudioClip={activeAudioClip}
+              isAudioPlaying={isAudioPlaying}
+              editingAudioId={editingAudioId}
+              editingAudioName={editingAudioName}
+              startRecording={startRecording}
+              stopRecording={stopRecording}
+              toggleRecordingPause={toggleRecordingPause}
+              importAudioFiles={importAudioFiles}
+              playClip={playClip}
+              toggleClipPlayback={toggleClipPlayback}
+              playNextClip={playNextClip}
+              setIsAudioPlaying={setIsAudioPlaying}
+              setEditingAudioId={setEditingAudioId}
+              setEditingAudioName={setEditingAudioName}
+              finishRenamingClip={finishRenamingClip}
+              startRenamingClip={startRenamingClip}
+              toggleClipSkipped={toggleClipSkipped}
+              deleteClip={deleteClip}
+            />
           )}
+
         </div>
       </aside>
     </div>

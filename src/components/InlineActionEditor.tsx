@@ -6,6 +6,7 @@ import type { SwitchableAssetOption } from '../lib/inlineAssetSwitch';
 import { inlinePresentationActionLabel } from '../lib/presentation';
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { DurationInput } from './DurationInput';
+import { ZenSelect } from './zen-editor/ZenSelect';
 
 const ACTIONS: InlinePresentationActionType[] = [
   'none',
@@ -242,33 +243,26 @@ export function InlineActionEditor({
           </button>
         </div>
       </div>
-      <select
+      <ZenSelect
         value={currentAction}
-        onChange={(event) => changeActionType(event.target.value as InlinePresentationActionType)}
-        className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold"
-      >
-        {actionOptions.map((item) => (
-          <option key={item} value={item}>
-            {inlinePresentationActionLabel(item)}
-          </option>
-        ))}
-      </select>
+        onChange={changeActionType}
+        options={actionOptions.map((item) => ({
+          value: item,
+          label: inlinePresentationActionLabel(item),
+        }))}
+        ariaLabel="中场动画"
+      />
       {isSwitch && (
         <label className="block space-y-1.5">
           <span className="block text-[10px] font-bold text-[var(--text-muted)]">
             {targetKind === 'character' ? '切换到人物图片 / 穿着' : '切换到场景图片 / 视频'}
           </span>
-          <select
+          <ZenSelect
             value={action.targetAssetId || switchableAssets[0]?.id || ''}
-            onChange={(event) => update({ targetAssetId: event.target.value })}
-            className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold"
-          >
-            {switchableAssets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.label}
-              </option>
-            ))}
-          </select>
+            onChange={(targetAssetId) => update({ targetAssetId })}
+            options={switchableAssets.map((asset) => ({ value: asset.id, label: asset.label }))}
+            ariaLabel="切换素材"
+          />
         </label>
       )}
       {showTemplates && (
