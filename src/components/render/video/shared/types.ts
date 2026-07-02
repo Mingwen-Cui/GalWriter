@@ -63,10 +63,12 @@ export type RenderStyle = {
   dialogVisible: boolean;
   dialogWidth: number;
   dialogHeight: number;
+  dialogHeightMode: 'fixed' | 'auto';
   dialogRadius: number;
   dialogOffsetX: number;
   dialogOffsetY: number;
   dialogTextPaddingX: number;
+  dialogTextPaddingTop: number;
   dialogBackgroundType: 'solid' | 'gradient' | 'image';
   dialogGradientAngle: number;
   dialogGradientStartColor: string;

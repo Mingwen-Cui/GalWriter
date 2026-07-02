@@ -646,6 +646,55 @@ export function RenderStyleSettingsSection({
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
+          {iconShell(
+            RectangleVertical,
+            <button
+              type="button"
+              onClick={() =>
+                updateRenderStyle(
+                  'dialogHeightMode',
+                  renderStyle.dialogHeightMode === 'auto' ? 'fixed' : 'auto',
+                )
+              }
+              className={`flex h-9 w-full min-w-0 items-center justify-end rounded-r-lg px-2 text-right text-xs font-normal transition-colors ${
+                renderStyle.dialogHeightMode === 'auto'
+                  ? 'bg-violet-500/15 text-violet-500 hover:bg-violet-500/20'
+                  : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
+              }`}
+              title={t('切换对话框固定高度或随文字自适应', '固定高さと自動高さを切替', 'Switch fixed or auto dialogue height')}
+            >
+              <span className="min-w-0 truncate">
+                {renderStyle.dialogHeightMode === 'auto'
+                  ? t('自适应', '自動', 'Auto')
+                  : t('固定', '固定', 'Fixed')}
+              </span>
+            </button>,
+            false,
+            t('高度模式', '高さモード', 'Height mode'),
+          )}
+          {iconNumber(
+            BetweenVerticalStart,
+            <DragSizeControl
+              label={t('拖动调整文本框顶部留白', 'テキスト枠の上余白を調整', 'Adjust box top padding')}
+              value={renderStyle.dialogTextPaddingTop ?? 0}
+              min={-20}
+              max={40}
+              step={1}
+              unit="%"
+              onChange={(value) => updateRenderStyle('dialogTextPaddingTop', value)}
+            />,
+            t('顶部留白', '上余白', 'Top padding'),
+          )}
+          {iconShell(
+            PanelLeftRightDashed,
+            <div className="flex h-9 items-center justify-end rounded-r-lg px-2 text-xs text-[var(--vr-text-muted)]">
+              <span className="min-w-0 truncate">-</span>
+            </div>,
+            true,
+            t('占位', '空き', 'Spacer'),
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
           {iconNumber(
             MoveHorizontal,
             <DragSizeControl

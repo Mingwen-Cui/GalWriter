@@ -1,9 +1,25 @@
 import { loadCachedImage } from './mediaUtils';
 import type { RenderStyle } from './types';
 
-export const getDialogueBoxLayout = (width: number, height: number, style: RenderStyle) => {
+type DialogueBoxLayoutOptions = {
+  contentHeight?: number;
+};
+
+export const getDialogueBoxLayout = (
+  width: number,
+  height: number,
+  style: RenderStyle,
+  options: DialogueBoxLayoutOptions = {},
+) => {
   const boxWidth = width * Math.min(1, Math.max(0.35, style.dialogWidth / 100));
-  const boxHeight = height * Math.min(0.75, Math.max(0.16, style.dialogHeight / 100));
+  const maxBoxHeight = height * Math.min(0.75, Math.max(0.16, style.dialogHeight / 100));
+  const basePadding = Math.max(20, Math.min(boxWidth, maxBoxHeight) * 0.09);
+  const minDynamicHeight = Math.min(maxBoxHeight, Math.max(64, basePadding * 2.4));
+  const dynamicHeight =
+    Number.isFinite(options.contentHeight) && options.contentHeight !== undefined
+      ? options.contentHeight + basePadding * 2
+      : maxBoxHeight;
+  const boxHeight = Math.min(maxBoxHeight, Math.max(minDynamicHeight, dynamicHeight));
   const centeredX = (width - boxWidth) / 2;
   const baseY = height - Math.max(24, height * 0.045) - boxHeight;
   const offsetX = Math.min(100, Math.max(-100, style.dialogOffsetX ?? 0));
@@ -18,7 +34,7 @@ export const getDialogueBoxLayout = (width: number, height: number, style: Rende
           (offsetY < 0 ? Math.max(0, baseY) : Math.max(0, height - boxHeight - baseY)),
     ),
   );
-  const padding = Math.max(20, Math.min(boxWidth, boxHeight) * 0.09);
+  const padding = basePadding;
   const paddingX = Math.max(
     12,
     Math.min(
@@ -69,8 +85,9 @@ export const drawDialogueBox = async (
   width: number,
   height: number,
   style: RenderStyle,
+  options: DialogueBoxLayoutOptions = {},
 ) => {
-  const layout = getDialogueBoxLayout(width, height, style);
+  const layout = getDialogueBoxLayout(width, height, style, options);
   if (!style.dialogVisible) return layout;
 
   ctx.save();

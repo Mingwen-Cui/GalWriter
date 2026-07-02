@@ -7,7 +7,7 @@ import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPla
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
-import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
+import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -57,6 +57,7 @@ const textX = (align: RenderStyle['titleAlign'], left: number, right: number) =>
 };
 
 const visibleTextLength = (text: string) => Array.from(text || '').length;
+const visibleLines = (lines: string[]) => lines.filter((line) => line.length > 0);
 
 const drawStyledLine = (
   ctx: CanvasRenderingContext2D,
@@ -111,17 +112,14 @@ async function createTextLayerCanvas(
   // 清空为透明
   ctx.clearRect(0, 0, width, height);
 
-  const dialogLayout = await drawDialogueBox(ctx, width, height, style);
-  const paddingX = dialogLayout.paddingX ?? dialogLayout.padding;
-  const paddingY = dialogLayout.paddingY ?? dialogLayout.padding;
-  const margin = dialogLayout.x + paddingX;
+  const baseDialogLayout = getDialogueBoxLayout(width, height, style);
+  const paddingX = baseDialogLayout.paddingX ?? baseDialogLayout.padding;
+  const paddingY = baseDialogLayout.paddingY ?? baseDialogLayout.padding;
   const titleSize = Math.max(18, style.titleFontSize);
   const bodySize = Math.max(16, style.bodyFontSize);
   const titleLineHeight = Math.round(titleSize * Math.max(0.8, style.titleLineHeight));
   const bodyLineHeight = Math.round(bodySize * Math.max(0.8, style.bodyLineHeight));
-  const maxTextWidth = dialogLayout.width - paddingX * 2;
-  const textLeft = margin;
-  const textRight = dialogLayout.x + dialogLayout.width - paddingX;
+  const maxTextWidth = baseDialogLayout.width - paddingX * 2;
 
   // 文字面板
   ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
@@ -131,11 +129,19 @@ async function createTextLayerCanvas(
   ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
   const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
+  let dialogLayout = baseDialogLayout;
+  let textLeft = dialogLayout.x + paddingX;
+  let textRight = dialogLayout.x + dialogLayout.width - paddingX;
   const textHeight =
     titleLines.length * titleLineHeight +
     (fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     fullBodyLines.length * bodyLineHeight;
-  let y = dialogLayout.y + Math.max(paddingY, (dialogLayout.height - textHeight) / 2);
+  const textBaselineOffset = Math.round(bodySize * 0.35);
+  const textTopPaddingOffset = Math.round(
+    (baseDialogLayout.height * Math.max(-20, Math.min(40, style.dialogTextPaddingTop ?? 0))) /
+      100,
+  );
+  let y = 0;
 
   // 标题
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
@@ -150,9 +156,44 @@ async function createTextLayerCanvas(
     forceFinalText,
     style.titleTypewriterMode,
   );
+  ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
+  const bodyState = animatedTextState(
+    style.bodyAnimation,
+    bodyLines,
+    style.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+    elapsed,
+    duration,
+    forceFinalText,
+    style.bodyTypewriterMode,
+  );
+  const renderTitleLines = visibleLines(titleState.lines);
+  const renderBodyLines = visibleLines(bodyState.lines);
+  const visibleTextHeight =
+    renderTitleLines.length * titleLineHeight +
+    (renderTitleLines.length && renderBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
+    renderBodyLines.length * bodyLineHeight;
+  const isAutoHeight = style.dialogHeightMode === 'auto';
+  dialogLayout = await drawDialogueBox(
+    ctx,
+    width,
+    height,
+    style,
+    isAutoHeight
+      ? { contentHeight: visibleTextHeight + textBaselineOffset + Math.max(0, textTopPaddingOffset) }
+      : undefined,
+  );
+  textLeft = dialogLayout.x + paddingX;
+  textRight = dialogLayout.x + dialogLayout.width - paddingX;
+  y =
+    dialogLayout.y +
+    (isAutoHeight
+      ? paddingY + textTopPaddingOffset
+      : Math.max(paddingY, (dialogLayout.height - textHeight) / 2 + textTopPaddingOffset)) +
+    textBaselineOffset;
+  ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
-  titleState.lines.forEach((line) => {
+  renderTitleLines.forEach((line) => {
     drawStyledLine(
       ctx,
       line,
@@ -171,20 +212,11 @@ async function createTextLayerCanvas(
   ctx.restore();
 
   // 正文
-  if (fullBodyLines.length) y += Math.round(bodySize * 0.6);
+  if (renderTitleLines.length && renderBodyLines.length) y += Math.round(bodySize * 0.6);
   ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
-  const bodyState = animatedTextState(
-    style.bodyAnimation,
-    bodyLines,
-    style.bodyAnimationLeadSeconds ?? animationLeadSeconds,
-    elapsed,
-    duration,
-    forceFinalText,
-    style.bodyTypewriterMode,
-  );
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
-  bodyState.lines.forEach((line) => {
+  renderBodyLines.forEach((line) => {
     drawStyledLine(ctx, line, textX(style.bodyAlign, textLeft, textRight), y + bodyState.offsetY, {
       align: style.bodyAlign,
       fillColor: colorWithAlpha(style.bodyColor, style.bodyColorAlpha),

@@ -3,7 +3,7 @@ import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPla
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
-import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
+import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -46,6 +46,7 @@ const textX = (align: RenderStyle['titleAlign'], left: number, right: number) =>
 };
 
 const visibleTextLength = (text: string) => Array.from(text || '').length;
+const visibleLines = (lines: string[]) => lines.filter((line) => line.length > 0);
 
 const drawStyledLine = (
   ctx: CanvasRenderingContext2D,
@@ -120,17 +121,14 @@ export const drawRenderFrame = async ({
   });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
 
-  const dialogLayout = await drawDialogueBox(ctx, width, height, videoRenderStyle);
-  const paddingX = dialogLayout.paddingX ?? dialogLayout.padding;
-  const paddingY = dialogLayout.paddingY ?? dialogLayout.padding;
-  const margin = dialogLayout.x + paddingX;
+  const baseDialogLayout = getDialogueBoxLayout(width, height, videoRenderStyle);
+  const paddingX = baseDialogLayout.paddingX ?? baseDialogLayout.padding;
+  const paddingY = baseDialogLayout.paddingY ?? baseDialogLayout.padding;
   const titleSize = Math.max(18, videoRenderStyle.titleFontSize);
   const bodySize = Math.max(16, videoRenderStyle.bodyFontSize);
   const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
   const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
-  const maxTextWidth = dialogLayout.width - paddingX * 2;
-  const textLeft = margin;
-  const textRight = dialogLayout.x + dialogLayout.width - paddingX;
+  const maxTextWidth = baseDialogLayout.width - paddingX * 2;
 
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   const titleLines = videoRenderStyle.titleVisible
@@ -139,15 +137,6 @@ export const drawRenderFrame = async ({
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
-  const textHeight =
-    titleLines.length * titleLineHeight +
-    (fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
-    fullBodyLines.length * bodyLineHeight;
-  let y = dialogLayout.y + Math.max(paddingY, (dialogLayout.height - textHeight) / 2);
-
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-  ctx.shadowBlur = 12;
-  ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   const titleState = animatedTextState(
     videoRenderStyle.titleAnimation,
     titleLines,
@@ -157,9 +146,57 @@ export const drawRenderFrame = async ({
     forceFinalText,
     videoRenderStyle.titleTypewriterMode,
   );
+  ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
+  const bodyState = animatedTextState(
+    videoRenderStyle.bodyAnimation,
+    bodyLines,
+    videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+    elapsed,
+    duration,
+    forceFinalText,
+    videoRenderStyle.bodyTypewriterMode,
+  );
+  const renderTitleLines = visibleLines(titleState.lines);
+  const renderBodyLines = visibleLines(bodyState.lines);
+  const visibleTextHeight =
+    renderTitleLines.length * titleLineHeight +
+    (renderTitleLines.length && renderBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
+    renderBodyLines.length * bodyLineHeight;
+  const fixedTextHeight =
+    titleLines.length * titleLineHeight +
+    (titleLines.length && fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
+    fullBodyLines.length * bodyLineHeight;
+  const textBaselineOffset = Math.round(bodySize * 0.35);
+  const textTopPaddingOffset = Math.round(
+    (baseDialogLayout.height *
+      Math.max(-20, Math.min(40, videoRenderStyle.dialogTextPaddingTop ?? 0))) /
+      100,
+  );
+  const isAutoHeight = videoRenderStyle.dialogHeightMode === 'auto';
+  const dialogLayout = await drawDialogueBox(
+    ctx,
+    width,
+    height,
+    videoRenderStyle,
+    isAutoHeight
+      ? { contentHeight: visibleTextHeight + textBaselineOffset + Math.max(0, textTopPaddingOffset) }
+      : undefined,
+  );
+  const textLeft = dialogLayout.x + paddingX;
+  const textRight = dialogLayout.x + dialogLayout.width - paddingX;
+  let y =
+    dialogLayout.y +
+    (isAutoHeight
+      ? paddingY + textTopPaddingOffset
+      : Math.max(paddingY, (dialogLayout.height - fixedTextHeight) / 2 + textTopPaddingOffset)) +
+    textBaselineOffset;
+
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+  ctx.shadowBlur = 12;
+  ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
-  titleState.lines.forEach((line) => {
+  renderTitleLines.forEach((line) => {
     drawStyledLine(
       ctx,
       line,
@@ -177,20 +214,11 @@ export const drawRenderFrame = async ({
   });
   ctx.restore();
 
-  if (fullBodyLines.length) y += Math.round(bodySize * 0.6);
+  if (renderTitleLines.length && renderBodyLines.length) y += Math.round(bodySize * 0.6);
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-  const bodyState = animatedTextState(
-    videoRenderStyle.bodyAnimation,
-    bodyLines,
-    videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
-    elapsed,
-    duration,
-    forceFinalText,
-    videoRenderStyle.bodyTypewriterMode,
-  );
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
-  bodyState.lines.forEach((line) => {
+  renderBodyLines.forEach((line) => {
     drawStyledLine(
       ctx,
       line,
