@@ -1,4 +1,4 @@
-﻿import type { Node as FlowNode } from '@xyflow/react';
+import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
@@ -151,6 +151,11 @@ export function VideoRenderModal({
     () =>
       new Set(Array.isArray(persistedWorkspace?.selectedIds) ? persistedWorkspace.selectedIds : []),
   );
+  // NOTE: 这两个 ref 必须在对应 useState 之前声明，
+  // 以便在每次渲染时同步写入最新状态值，供 useEffect 读取，
+  // 避免验证 effect 因 stale closure 将恢复的时间轴 ID 错误地全部清空。
+  const timelineSourceByIdRef = useRef<Record<string, string>>(persistedWorkspace?.timelineSourceById || {});
+  const timelineIdsRef = useRef<string[]>(Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : []);
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
     Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : [],
   );
@@ -160,6 +165,9 @@ export function VideoRenderModal({
   const [timelineExcludedSourceIds, setTimelineExcludedSourceIds] = useState<Set<string>>(
     () => new Set(persistedWorkspace?.timelineExcludedSourceIds || []),
   );
+  // NOTE: 每次渲染都同步更新 ref，保证 useEffect 中始终读到最新状态值。
+  timelineSourceByIdRef.current = timelineSourceById;
+  timelineIdsRef.current = timelineIds;
   const [videoTrackIds, setVideoTrackIds] = useState<string[]>(() =>
     Array.isArray(persistedWorkspace?.videoTrackIds) && persistedWorkspace.videoTrackIds.length > 0
       ? persistedWorkspace.videoTrackIds
@@ -1080,8 +1088,11 @@ export function VideoRenderModal({
 
   React.useEffect(() => {
     const validIds = new Set(allAssetNodes.map((node) => node.id));
+    // NOTE: 从 ref 读取最新值，避免 stale closure 导致初次挂载时过滤行为错误。
+    const latestSourceById = timelineSourceByIdRef.current;
+    const latestTimelineIds = timelineIdsRef.current;
     const getValidTimelineIds = (ids: string[]) =>
-      ids.filter((id) => validIds.has(timelineSourceById[id] || id));
+      ids.filter((id) => validIds.has(latestSourceById[id] || id));
     setTimelineIds((prev) => {
       const next = getValidTimelineIds(prev);
       return next.length === prev.length && next.every((id, index) => id === prev[index])
@@ -1099,31 +1110,31 @@ export function VideoRenderModal({
       return Object.keys(next).length === Object.keys(prev).length ? prev : next;
     });
     setSelectedIds(
-      (prev) => new Set([...prev].filter((id) => validIds.has(timelineSourceById[id] || id))),
+      (prev) => new Set([...prev].filter((id) => validIds.has(latestSourceById[id] || id))),
     );
     setActivePreviewId((prev) =>
-      prev && validIds.has(timelineSourceById[prev] || prev) ? prev : allAssetNodes[0]?.id || '',
+      prev && validIds.has(latestSourceById[prev] || prev) ? prev : allAssetNodes[0]?.id || '',
     );
     setTimelineStartById((prev) =>
       Object.fromEntries(
-        Object.entries(prev).filter(([id]) => validIds.has(timelineSourceById[id] || id)),
+        Object.entries(prev).filter(([id]) => validIds.has(latestSourceById[id] || id)),
       ),
     );
     setTimelineDurationById((prev) =>
       Object.fromEntries(
-        Object.entries(prev).filter(([id]) => validIds.has(timelineSourceById[id] || id)),
+        Object.entries(prev).filter(([id]) => validIds.has(latestSourceById[id] || id)),
       ),
     );
     setVideoTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      getValidTimelineIds(timelineIds).forEach((id) => {
+      getValidTimelineIds(latestTimelineIds).forEach((id) => {
         next[id] = videoTrackIds.includes(prev[id]) ? prev[id] : videoTrackIds[0];
       });
       return next;
     });
     setAudioTrackByNodeId((prev) => {
       const next: Record<string, string> = {};
-      getValidTimelineIds(timelineIds).forEach((id) => {
+      getValidTimelineIds(latestTimelineIds).forEach((id) => {
         next[id] = audioTrackIds.includes(prev[id]) ? prev[id] : audioTrackIds[0];
       });
       return next;
@@ -1132,8 +1143,6 @@ export function VideoRenderModal({
     allAssetNodes,
     videoTrackIds,
     audioTrackIds,
-    timelineIds,
-    timelineSourceById,
     timelineExcludedSourceIds,
   ]);
 

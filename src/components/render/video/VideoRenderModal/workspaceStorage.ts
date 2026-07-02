@@ -124,15 +124,35 @@ export type PersistedRenderWorkspaceState = {
 const renderWorkspaceStorageKey = (workspaceKey?: string) =>
   `galwriter-video-render-workspace:v1:${workspaceKey || 'draft'}`;
 
+// NOTE: 模块级内存缓存作为主存储层。
+// 在 Tauri webview 等环境下，localStorage 写入后可能无法跨组件挂载周期可靠读取。
+// 使用内存缓存可确保同一 Tab 会话内（关闭/重开 Modal）状态100%持久，
+// localStorage 仅作为应用重启后的跨会话备份。
+const inMemoryWorkspaceCache = new Map<string, PersistedRenderWorkspaceState>();
+
 export const readRenderWorkspaceState = (
   workspaceKey?: string,
 ): PersistedRenderWorkspaceState | null => {
+  const storageKey = renderWorkspaceStorageKey(workspaceKey);
+
+  // 优先从内存缓存读取（同一会话内最可靠）
+  const cached = inMemoryWorkspaceCache.get(storageKey);
+  if (cached) {
+    return cached;
+  }
+
+  // 内存中没有时，尝试从 localStorage 恢复（跨会话/页面刷新后）
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(renderWorkspaceStorageKey(workspaceKey));
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedRenderWorkspaceState;
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    if (parsed && typeof parsed === 'object') {
+      // 写回内存缓存，供后续快速访问
+      inMemoryWorkspaceCache.set(storageKey, parsed);
+      return parsed;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -142,9 +162,15 @@ export const writeRenderWorkspaceState = (
   workspaceKey: string | undefined,
   snapshot: PersistedRenderWorkspaceState,
 ) => {
+  const storageKey = renderWorkspaceStorageKey(workspaceKey);
+
+  // 始终写入内存缓存（同步、可靠）
+  inMemoryWorkspaceCache.set(storageKey, snapshot);
+
+  // 同时尝试写入 localStorage（跨会话备份，失败不影响当前会话）
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(renderWorkspaceStorageKey(workspaceKey), JSON.stringify(snapshot));
+    window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
   } catch {
     // Ignore storage quota/private-mode failures; the render workspace still works in-memory.
   }
