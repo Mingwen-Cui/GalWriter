@@ -137,8 +137,8 @@ async function createTextLayerCanvas(
     (fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     fullBodyLines.length * bodyLineHeight;
   const textBaselineOffset = Math.round(bodySize * 0.35);
-  const textTopPaddingOffset = Math.round(
-    (baseDialogLayout.height * Math.max(-20, Math.min(40, style.dialogTextPaddingTop ?? 0))) /
+  const textOffsetY = Math.round(
+    (baseDialogLayout.height * Math.max(-20, Math.min(40, style.dialogTextOffsetY ?? 0))) /
       100,
   );
   let y = 0;
@@ -178,18 +178,17 @@ async function createTextLayerCanvas(
     width,
     height,
     style,
-    isAutoHeight
-      ? { contentHeight: visibleTextHeight + textBaselineOffset + Math.max(0, textTopPaddingOffset) }
-      : undefined,
+    isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
   );
   textLeft = dialogLayout.x + paddingX;
   textRight = dialogLayout.x + dialogLayout.width - paddingX;
   y =
     dialogLayout.y +
     (isAutoHeight
-      ? paddingY + textTopPaddingOffset
-      : Math.max(paddingY, (dialogLayout.height - textHeight) / 2 + textTopPaddingOffset)) +
-    textBaselineOffset;
+      ? paddingY
+      : Math.max(paddingY, (dialogLayout.height - textHeight) / 2)) +
+    textBaselineOffset +
+    textOffsetY;
   ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
   ctx.save();
   ctx.globalAlpha = titleState.alpha;

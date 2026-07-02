@@ -167,9 +167,9 @@ export const drawRenderFrame = async ({
     (titleLines.length && fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     fullBodyLines.length * bodyLineHeight;
   const textBaselineOffset = Math.round(bodySize * 0.35);
-  const textTopPaddingOffset = Math.round(
+  const textOffsetY = Math.round(
     (baseDialogLayout.height *
-      Math.max(-20, Math.min(40, videoRenderStyle.dialogTextPaddingTop ?? 0))) /
+      Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) /
       100,
   );
   const isAutoHeight = videoRenderStyle.dialogHeightMode === 'auto';
@@ -178,18 +178,17 @@ export const drawRenderFrame = async ({
     width,
     height,
     videoRenderStyle,
-    isAutoHeight
-      ? { contentHeight: visibleTextHeight + textBaselineOffset + Math.max(0, textTopPaddingOffset) }
-      : undefined,
+    isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
   );
   const textLeft = dialogLayout.x + paddingX;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;
   let y =
     dialogLayout.y +
     (isAutoHeight
-      ? paddingY + textTopPaddingOffset
-      : Math.max(paddingY, (dialogLayout.height - fixedTextHeight) / 2 + textTopPaddingOffset)) +
-    textBaselineOffset;
+      ? paddingY
+      : Math.max(paddingY, (dialogLayout.height - fixedTextHeight) / 2)) +
+    textBaselineOffset +
+    textOffsetY;
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
   ctx.shadowBlur = 12;

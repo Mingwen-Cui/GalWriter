@@ -68,7 +68,7 @@ export type RenderStyle = {
   dialogOffsetX: number;
   dialogOffsetY: number;
   dialogTextPaddingX: number;
-  dialogTextPaddingTop: number;
+  dialogTextOffsetY: number;
   dialogBackgroundType: 'solid' | 'gradient' | 'image';
   dialogGradientAngle: number;
   dialogGradientStartColor: string;

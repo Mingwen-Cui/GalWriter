@@ -299,7 +299,7 @@ const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
   dialogOffsetX: 0,
   dialogOffsetY: 0,
   dialogTextPaddingX: 9,
-  dialogTextPaddingTop: 0,
+  dialogTextOffsetY: 0,
   dialogBackgroundType: 'solid',
   dialogGradientAngle: 90,
   dialogGradientStartColor: 'rgba(17, 24, 39, 0)',

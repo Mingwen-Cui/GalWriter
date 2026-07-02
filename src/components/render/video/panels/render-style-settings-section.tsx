@@ -675,15 +675,15 @@ export function RenderStyleSettingsSection({
           {iconNumber(
             BetweenVerticalStart,
             <DragSizeControl
-              label={t('拖动调整文本框顶部留白', 'テキスト枠の上余白を調整', 'Adjust box top padding')}
-              value={renderStyle.dialogTextPaddingTop ?? 0}
+              label={t('拖动调整文字上下位置', '文字の上下位置を調整', 'Adjust text vertical position')}
+              value={renderStyle.dialogTextOffsetY ?? 0}
               min={-20}
               max={40}
               step={1}
               unit="%"
-              onChange={(value) => updateRenderStyle('dialogTextPaddingTop', value)}
+              onChange={(value) => updateRenderStyle('dialogTextOffsetY', value)}
             />,
-            t('顶部留白', '上余白', 'Top padding'),
+            t('文字上下位置', '文字上下位置', 'Text Y position'),
           )}
           {iconShell(
             PanelLeftRightDashed,
