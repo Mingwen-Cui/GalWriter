@@ -377,7 +377,8 @@ export type InlinePresentationActionType =
   | 'pulse'
   | 'rotate'
   | 'opacity'
-  | 'brightness';
+  | 'brightness'
+  | 'switch';
 
 export interface PresentationMotion {
   type: PresentationAnimation;
@@ -393,6 +394,7 @@ export interface InlinePresentationAction {
   duration: number;
   strength: number;
   repeats?: number;
+  targetAssetId?: string;
   offsetX: number;
   offsetY: number;
   scale: number;

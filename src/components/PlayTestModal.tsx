@@ -50,6 +50,11 @@ import {
   inlineActionCssVars,
   inlineActionTransform,
 } from '../lib/inlinePresentationPlayback';
+import {
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+} from '../lib/inlineAssetSwitch';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 
@@ -292,6 +297,9 @@ export function PlayTestModal({
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
     null,
   );
+  const [completedSwitchActions, setCompletedSwitchActions] = useState<InlinePresentationAction[]>(
+    [],
+  );
   const typewriterTimerRef = useRef<any>(null);
   const inlineActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timedTimerRef = useRef<any>(null);
@@ -355,13 +363,21 @@ export function PlayTestModal({
   const selectedSceneImage = presentation.scene?.imageId
     ? sceneData?.images?.find((image) => image.id === presentation.scene?.imageId)
     : undefined;
-  const sceneVideoUrl =
-    selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined);
-  const sceneImageUrl = sceneVideoUrl
-    ? undefined
-    : (currentNode?.data.imageUrl as string | undefined) ||
-      selectedSceneImage?.imageUrl ||
-      sceneData?.coverImageUrl;
+  const activeSceneSwitchAction = getInlineSwitchAction(
+    'scene',
+    presentation.scene?.sourceNodeId,
+    null,
+    completedSwitchActions,
+  );
+  const sceneMedia = resolveSceneMedia({
+    data: sceneData,
+    scene: presentation.scene,
+    fallbackImageUrl: (currentNode?.data.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
+    fallbackVideoUrl: selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined),
+    switchAction: activeSceneSwitchAction,
+  });
+  const sceneVideoUrl = sceneMedia.videoUrl;
+  const sceneImageUrl = sceneVideoUrl ? undefined : sceneMedia.imageUrl;
   const sceneVideoStartTime = Math.max(0, presentation.scene?.videoStartTime || 0);
   const sceneVideoEndTime = presentation.scene?.videoEndTime;
   const sceneVideoMaxDuration = Math.max(0.1, presentation.scene?.videoMaxDuration || 30);
@@ -370,10 +386,11 @@ export function PlayTestModal({
       const source = nodes.find((node) => node.id === config.sourceNodeId);
       if (!source || source.type !== 'characterNode') return null;
       const characterData = source.data as CharacterNodeData;
-      const outfit = config.outfitId
-        ? characterData.outfits?.find((item) => item.id === config.outfitId)
-        : characterData.outfits?.find((item) => item.imageUrl);
-      const imageUrl = outfit?.imageUrl || characterData.avatarUrl;
+      const imageUrl = resolveCharacterImageUrl(
+        characterData,
+        config,
+        getInlineSwitchAction('character', config.sourceNodeId, null, completedSwitchActions),
+      );
       if (!imageUrl) return null;
       return { config, data: characterData, imageUrl };
     })
@@ -728,6 +745,7 @@ export function PlayTestModal({
       autoAdvanceTimerRef.current = null;
     }
     setActiveInlineAction(null);
+    setCompletedSwitchActions([]);
 
     if (currentNodeId === 'THE_END' || !currentNode) {
       setDisplayedHtml('');
@@ -736,6 +754,16 @@ export function PlayTestModal({
     }
 
     if (interactionMode === 'immediate') {
+      const playbackSteps = buildInlinePlaybackSteps(rawTextHtml, presentation, {
+        hideCharacterTags,
+        hideSceneTags,
+      });
+      setCompletedSwitchActions(
+        playbackSteps
+          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .map((step) => step.action)
+          .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
+      );
       setDisplayedHtml(textHtml);
       setAnimationCompleted(true);
     } else if (interactionMode === 'typewriter') {
@@ -774,6 +802,9 @@ export function PlayTestModal({
           setActiveInlineAction(step.action);
           inlineActionTimerRef.current = setTimeout(() => {
             setActiveInlineAction(null);
+            if (step.action.action === 'switch' && step.action.targetAssetId) {
+              setCompletedSwitchActions((previous) => [...previous, step.action]);
+            }
             stepIndex += 1;
             playNext();
           }, Math.max(0, step.action.duration || 0));

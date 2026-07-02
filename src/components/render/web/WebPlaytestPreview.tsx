@@ -17,6 +17,7 @@ import type {
   CharacterNodeData,
   CharacterPresentation,
   InlinePresentationAction,
+  SceneNodeData,
   StoryPresentation,
 } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
@@ -35,6 +36,11 @@ import {
   inlineActionCssVars,
   inlineActionTransform,
 } from '../../../lib/inlinePresentationPlayback';
+import {
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+} from '../../../lib/inlineAssetSwitch';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { renderCopy } from '../video/shared/renderCopy';
 import {
@@ -120,6 +126,9 @@ export function WebPlaytestPreview({
   const [presentationExiting, setPresentationExiting] = useState(false);
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
     null,
+  );
+  const [completedSwitchActions, setCompletedSwitchActions] = useState<InlinePresentationAction[]>(
+    [],
   );
   const inlineActionTimerRef = useRef<any>(null);
   const transitionTimerRef = useRef<number | null>(null);
@@ -346,13 +355,32 @@ export function WebPlaytestPreview({
     () => normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
     [currentNode?.data?.presentation],
   );
+  const sceneSource = presentation.scene
+    ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
+    : null;
+  const sceneData = sceneSource?.type === 'sceneNode' ? (sceneSource.data as SceneNodeData) : undefined;
+  const activeSceneSwitchAction = getInlineSwitchAction(
+    'scene',
+    presentation.scene?.sourceNodeId,
+    null,
+    completedSwitchActions,
+  );
+  const sceneMedia = resolveSceneMedia({
+    data: sceneData,
+    scene: presentation.scene,
+    fallbackImageUrl: imageUrl,
+    fallbackVideoUrl: videoUrl,
+    switchAction: activeSceneSwitchAction,
+  });
+  const currentImageUrl = sceneMedia.videoUrl ? '' : sceneMedia.imageUrl || '';
+  const currentVideoUrl = sceneMedia.videoUrl || '';
 
   React.useEffect(() => {
-    if (!imageUrl || imagePreloadRef.current.has(imageUrl)) return;
+    if (!currentImageUrl || imagePreloadRef.current.has(currentImageUrl)) return;
     const image = new Image();
-    image.src = imageUrl;
-    imagePreloadRef.current.set(imageUrl, image);
-  }, [imageUrl]);
+    image.src = currentImageUrl;
+    imagePreloadRef.current.set(currentImageUrl, image);
+  }, [currentImageUrl]);
   const presentedCharacters = useMemo(() => {
     if (!presentation.characters) return [];
     return presentation.characters
@@ -360,10 +388,11 @@ export function WebPlaytestPreview({
         const source = nodes.find((node) => node.id === config.sourceNodeId);
         if (!source || source.type !== 'characterNode') return null;
         const characterData = source.data as CharacterNodeData;
-        const outfit = config.outfitId
-          ? characterData.outfits?.find((item) => item.id === config.outfitId)
-          : characterData.outfits?.find((item) => item.imageUrl);
-        const imageUrl = outfit?.imageUrl || characterData.avatarUrl;
+        const imageUrl = resolveCharacterImageUrl(
+          characterData,
+          config,
+          getInlineSwitchAction('character', config.sourceNodeId, null, completedSwitchActions),
+        );
         if (!imageUrl) return null;
         return { config, data: characterData, imageUrl };
       })
@@ -376,7 +405,7 @@ export function WebPlaytestPreview({
           imageUrl: string;
         } => Boolean(item),
       );
-  }, [presentation.characters, nodes]);
+  }, [activeInlineAction, completedSwitchActions, presentation.characters, nodes]);
   const rawText = getNodeDisplayText(currentNode);
   const text = filterMentionTags(
     rawText,
@@ -427,11 +456,11 @@ export function WebPlaytestPreview({
         // Browser autoplay policies may require the first playback to be user initiated.
       });
     }
-    if (settings.autoAdvance && videoUrl && currentVideoRef.current) {
+    if (settings.autoAdvance && currentVideoUrl && currentVideoRef.current) {
       currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
-  }, [audioUrl, currentNodeId, settings.autoAdvance, videoUrl]);
+  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance]);
 
   React.useEffect(() => {
     if (!playlistAudioUrl || !playlistAudioRef.current) return;
@@ -472,8 +501,19 @@ export function WebPlaytestPreview({
   React.useEffect(() => {
     if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
     setActiveInlineAction(null);
+    setCompletedSwitchActions([]);
     setAnimationDone(settings.interactionMode !== 'typewriter');
     if (settings.interactionMode !== 'typewriter') {
+      const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
+        hideCharacterTags: settings.hideCharacterTags,
+        hideSceneTags: settings.hideSceneTags,
+      });
+      setCompletedSwitchActions(
+        playbackSteps
+          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .map((step) => step.action)
+          .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
+      );
       setDisplayedPreviewText(text);
       return;
     }
@@ -500,6 +540,9 @@ export function WebPlaytestPreview({
         setActiveInlineAction(step.action);
         inlineActionTimerRef.current = window.setTimeout(() => {
           setActiveInlineAction(null);
+          if (step.action.action === 'switch' && step.action.targetAssetId) {
+            setCompletedSwitchActions((previous) => [...previous, step.action]);
+          }
           stepIndex += 1;
           playNext();
         }, Math.max(0, step.action.duration || 0));
@@ -556,8 +599,8 @@ export function WebPlaytestPreview({
       return;
     }
 
-    if (audioUrl || videoUrl) {
-      if ((!audioUrl || currentAudioEnded) && (!videoUrl || currentVideoEnded)) {
+    if (audioUrl || currentVideoUrl) {
+      if ((!audioUrl || currentAudioEnded) && (!currentVideoUrl || currentVideoEnded)) {
         goTo(outEdges[0]?.target || 'THE_END');
       }
       return;
@@ -586,7 +629,7 @@ export function WebPlaytestPreview({
     currentVideoEnded,
     outEdges,
     settings.autoAdvance,
-    videoUrl,
+    currentVideoUrl,
   ]);
 
   React.useLayoutEffect(() => {
@@ -921,10 +964,10 @@ export function WebPlaytestPreview({
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
       </style>
-      {imageUrl && settings.layoutMode === 'immersive' && (
+      {currentImageUrl && settings.layoutMode === 'immersive' && (
         <div
           className={`absolute inset-0 bg-cover bg-center opacity-35 scale-105 ${settings.blurBackground ? 'blur-sm' : ''}`}
-          style={{ backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` }}
+          style={{ backgroundImage: `url("${currentImageUrl.replace(/"/g, '\\"')}")` }}
         />
       )}
       <div
@@ -949,10 +992,10 @@ export function WebPlaytestPreview({
               className="absolute inset-0 overflow-hidden"
               style={{ transform: `scale(${presentationScale})`, transformOrigin: 'center' }}
             >
-              {imageUrl ? (
+              {currentImageUrl ? (
                 <img
-                  key={`${currentNodeId}-${imageUrl}-${settings.layoutMode}`}
-                  src={imageUrl}
+                  key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
+                  src={currentImageUrl}
                   alt=""
                   draggable={false}
                   onDragStart={(event) => event.preventDefault()}
@@ -978,10 +1021,10 @@ export function WebPlaytestPreview({
                       : sceneStyle
                   }
                 />
-              ) : videoUrl ? (
+              ) : currentVideoUrl ? (
                 <video
                   ref={currentVideoRef}
-                  src={videoUrl}
+                  src={currentVideoUrl}
                   controls
                   playsInline
                   autoPlay={settings.videoAutoPlay || settings.autoAdvance}

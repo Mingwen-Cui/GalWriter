@@ -104,6 +104,7 @@ export const inlinePresentationActionLabel = (action: InlinePresentationActionTy
   if (action === 'rotate') return '⟳ 旋转';
   if (action === 'opacity') return '◐ 不透明度';
   if (action === 'brightness') return '☀ 亮度';
+  if (action === 'switch') return '⇄ 切换素材';
   return '· 无动作';
 };
 

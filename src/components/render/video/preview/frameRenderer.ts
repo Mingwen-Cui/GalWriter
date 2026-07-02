@@ -112,6 +112,7 @@ export const drawRenderFrame = async ({
     duration,
     activeInlineAction: inlineState.activeAction,
     activeInlineActionElapsed: inlineState.activeActionElapsed,
+    completedSwitchActions: inlineState.completedSwitchActions,
   });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
 

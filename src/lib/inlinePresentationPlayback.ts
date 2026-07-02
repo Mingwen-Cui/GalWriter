@@ -1,4 +1,5 @@
 import type { InlinePresentationAction, StoryPresentation } from '../domain/project';
+import { isSwitchInlineAction } from './inlineAssetSwitch';
 
 export type InlinePlaybackStep =
   | { kind: 'text'; html: string }
@@ -117,7 +118,7 @@ export const buildInlinePlaybackSteps = (
 };
 
 export const inlineActionTransform = (action?: InlinePresentationAction | null) => {
-  if (!action || action.action === 'none' || action.action === 'pulse') return '';
+  if (!action || action.action === 'none' || action.action === 'pulse' || action.action === 'switch') return '';
   if (action.action === 'translate') {
     return `translate(${action.offsetX || action.strength || 0}px, ${action.offsetY || 0}px)`;
   }
@@ -177,6 +178,10 @@ export const inlinePlaybackStateAtTime = ({
     0,
   );
   if (!duration || totalChars === 0) {
+    const completedSwitchActions = steps
+      .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+      .map((step) => step.action)
+      .filter(isSwitchInlineAction);
     return {
       html: steps
         .filter((step): step is { kind: 'text'; html: string } => step.kind === 'text')
@@ -184,6 +189,7 @@ export const inlinePlaybackStateAtTime = ({
         .join(''),
       activeAction: null as InlinePresentationAction | null,
       activeActionElapsed: 0,
+      completedSwitchActions,
     };
   }
 
@@ -191,13 +197,15 @@ export const inlinePlaybackStateAtTime = ({
   const secondsPerChar = textSeconds / totalChars;
   let cursor = Math.max(0, elapsed);
   let visibleHtml = '';
+  const completedSwitchActions: InlinePresentationAction[] = [];
 
   for (const step of steps) {
     if (step.kind === 'action') {
       const actionDuration = Math.max(0, step.action.duration || 0) / 1000;
       if (cursor <= actionDuration) {
-        return { html: visibleHtml, activeAction: step.action, activeActionElapsed: cursor };
+        return { html: visibleHtml, activeAction: step.action, activeActionElapsed: cursor, completedSwitchActions };
       }
+      if (isSwitchInlineAction(step.action)) completedSwitchActions.push(step.action);
       cursor -= actionDuration;
       continue;
     }
@@ -216,6 +224,7 @@ export const inlinePlaybackStateAtTime = ({
       html: visibleHtml,
       activeAction: null as InlinePresentationAction | null,
       activeActionElapsed: 0,
+      completedSwitchActions,
     };
   }
 
@@ -223,5 +232,6 @@ export const inlinePlaybackStateAtTime = ({
     html: visibleHtml,
     activeAction: null as InlinePresentationAction | null,
     activeActionElapsed: 0,
+    completedSwitchActions,
   };
 };

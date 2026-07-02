@@ -334,6 +334,20 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     }
   };
 
+  const syncPrimarySceneImage = (currentImages: SceneImage[], url: string) => {
+    const primaryName = lang === 'zh' ? '场景照片' : lang === 'ja' ? 'シーン画像' : 'Scene Photo';
+
+    if (currentImages.length === 0) {
+      return [{ id: uuidv4(), name: primaryName, imageUrl: url }];
+    }
+
+    return currentImages.map((image, index) =>
+      index === 0
+        ? { ...image, imageUrl: url, videoUrl: undefined, isPanorama: false }
+        : image,
+    );
+  };
+
   const handleMediaUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     imageId?: string,
@@ -354,7 +368,10 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
         ),
       });
     } else if (asCover && file.type.startsWith('image/')) {
-      updateNodeData({ coverImageUrl: url });
+      updateNodeData({
+        coverImageUrl: url,
+        images: syncPrimarySceneImage(images, url),
+      });
     }
     e.target.value = '';
   };
@@ -372,6 +389,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   };
 
   const removeImage = (imageId: string) => {
+    if (images[0]?.id === imageId) return;
+
     updateNodeData({
       images: images.filter((img) => img.id !== imageId),
     });
@@ -819,7 +838,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {images.map((image) => (
+                    {images.map((image, index) => (
                       <div
                         key={image.id}
                         className="relative flex flex-col gap-1.5 bg-[var(--app-bg)] p-1.5 rounded-lg border border-[var(--card-border)] group/image"
@@ -892,13 +911,15 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                               <Download className="w-3 h-3" />
                             </button>
                           )}
-                          <button
-                            onClick={() => removeImage(image.id)}
-                            className="opacity-0 group-hover/image:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
-                            title={lang === 'zh' ? '删除此图片' : 'Remove image'}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {index > 0 && (
+                            <button
+                              onClick={() => removeImage(image.id)}
+                              className="opacity-0 group-hover/image:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
+                              title={lang === 'zh' ? '删除此图片' : 'Remove image'}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                           <Handle
                             type="source"
                             position={Position.Left}

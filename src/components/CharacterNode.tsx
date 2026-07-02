@@ -34,7 +34,7 @@ import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
-import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
+import type { CharacterFlowNode, CharacterNodeData, CharacterOutfit } from '../domain/project';
 
 const TRAIT_TEXTAREA_CLASS =
   'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -372,6 +372,18 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     }
   };
 
+  const syncPrimaryOutfitImage = (currentOutfits: CharacterOutfit[], url: string) => {
+    const primaryName = lang === 'zh' ? '人物照片' : lang === 'ja' ? 'キャラクター画像' : 'Character Photo';
+
+    if (currentOutfits.length === 0) {
+      return [{ id: uuidv4(), name: primaryName, imageUrl: url }];
+    }
+
+    return currentOutfits.map((outfit, index) =>
+      index === 0 ? { ...outfit, imageUrl: url } : outfit,
+    );
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, outfitId?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -381,8 +393,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         outfits: outfits.map((o) => (o.id === outfitId ? { ...o, imageUrl: url } : o)),
       });
     } else {
-      updateNodeData({ avatarUrl: url });
+      updateNodeData({
+        avatarUrl: url,
+        outfits: syncPrimaryOutfitImage(outfits, url),
+      });
     }
+    e.target.value = '';
   };
 
   const addOutfit = () => {
@@ -398,6 +414,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   };
 
   const removeOutfit = (outfitId: string) => {
+    if (outfits[0]?.id === outfitId) return;
+
     updateNodeData({
       outfits: outfits.filter((o) => o.id !== outfitId),
     });
@@ -954,13 +972,15 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           </button>
                         </>
                       )}
-                      <button
-                        onClick={() => removeOutfit(outfit.id)}
-                        className="opacity-0 group-hover/outfit:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
-                        title="删除此穿着"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {index > 0 && (
+                        <button
+                          onClick={() => removeOutfit(outfit.id)}
+                          className="opacity-0 group-hover/outfit:opacity-100 p-1 text-red-400 hover:text-red-500 transition-opacity"
+                          title="删除此穿着"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                       {/* Outfit Handles */}
                       <Handle
                         type="source"

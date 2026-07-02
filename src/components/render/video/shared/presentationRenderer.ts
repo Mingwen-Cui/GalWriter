@@ -4,6 +4,7 @@ import type {
   CharacterNodeData,
   InlinePresentationAction,
   PresentationMotion,
+  SceneNodeData,
   StoryPresentation,
 } from '../../../../domain/project';
 import {
@@ -12,6 +13,11 @@ import {
   getPresentationMotionDuration,
   normalizeStoryPresentation,
 } from '../../../../lib/presentation';
+import {
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+} from '../../../../lib/inlineAssetSwitch';
 import { clamp, loadCachedImage } from './mediaUtils';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
@@ -151,6 +157,7 @@ export const drawPresentationVisuals = async ({
   duration = 0,
   activeInlineAction,
   activeInlineActionElapsed = 0,
+  completedSwitchActions = [],
 }: {
   ctx: CanvasRenderingContext2D;
   node: FlowNode;
@@ -162,6 +169,7 @@ export const drawPresentationVisuals = async ({
   duration?: number;
   activeInlineAction?: InlinePresentationAction | null;
   activeInlineActionElapsed?: number;
+  completedSwitchActions?: InlinePresentationAction[];
 }) => {
   const presentation = normalizeStoryPresentation(
     node.data?.presentation as StoryPresentation | undefined,
@@ -171,17 +179,18 @@ export const drawPresentationVisuals = async ({
 
   if (!background) {
     const sceneNode = scene ? nodes.find((item) => item.id === scene.sourceNodeId) : undefined;
-    const sceneData = sceneNode?.data as CharacterNodeData & {
-      coverImageUrl?: string;
-      images?: Array<{ id: string; imageUrl?: string }>;
-    };
+    const sceneData = sceneNode?.data as SceneNodeData | undefined;
     const selectedSceneImage = scene?.imageId
       ? sceneData?.images?.find((image) => image.id === scene.imageId)
       : undefined;
-    const imageUrl =
-      (node.data?.imageUrl as string | undefined) ||
-      selectedSceneImage?.imageUrl ||
-      sceneData?.coverImageUrl;
+    const sceneMedia = resolveSceneMedia({
+      data: sceneData,
+      scene,
+      fallbackImageUrl: (node.data?.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
+      fallbackVideoUrl: selectedSceneImage?.videoUrl || (node.data?.videoUrl as string | undefined),
+      switchAction: getInlineSwitchAction('scene', scene?.sourceNodeId, null, completedSwitchActions),
+    });
+    const imageUrl = sceneMedia.videoUrl ? undefined : sceneMedia.imageUrl;
     if (imageUrl) {
       try {
         const image = await loadCachedImage(imageUrl);
@@ -241,10 +250,11 @@ export const drawPresentationVisuals = async ({
       const sourceNode = nodes.find((item) => item.id === config.sourceNodeId);
       if (!sourceNode || sourceNode.type !== 'characterNode') return null;
       const data = sourceNode.data as CharacterNodeData;
-      const outfit = config.outfitId
-        ? data.outfits?.find((item) => item.id === config.outfitId)
-        : data.outfits?.find((item) => item.imageUrl);
-      const imageUrl = outfit?.imageUrl || data.avatarUrl;
+      const imageUrl = resolveCharacterImageUrl(
+        data,
+        config,
+        getInlineSwitchAction('character', config.sourceNodeId, null, completedSwitchActions),
+      );
       if (!imageUrl) return null;
       try {
         return { config, image: await loadCachedImage(imageUrl) };

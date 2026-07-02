@@ -50,6 +50,7 @@ import type {
   PresentationAnimation,
   PresentationMotion,
   SceneFlowNode,
+  SceneNodeData,
   ScenePresentation,
   StoryAudioClip,
   StoryCardVisualShape,
@@ -77,6 +78,13 @@ import {
   inlineActionCssVars,
   inlineActionTransform,
 } from '../lib/inlinePresentationPlayback';
+import {
+  characterSwitchOptions,
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+  sceneSwitchOptions,
+} from '../lib/inlineAssetSwitch';
 import { NumberInput } from './NumberInput';
 import { DurationInput } from './DurationInput';
 import { DraggableNumberInput } from './DraggableNumberInput';
@@ -122,6 +130,22 @@ const readMentionNames = (html: string, kind: 'character' | 'scene') => {
       .map((element) => element.dataset.mentionName?.trim())
       .filter((name): name is string => Boolean(name)),
   );
+};
+
+const readMentionNamesInOrder = (html: string, kind: 'character' | 'scene') => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  return Array.from(container.querySelectorAll<HTMLElement>(`[data-mention-kind="${kind}"]`))
+    .map((element) => element.dataset.mentionName?.trim())
+    .filter((name): name is string => Boolean(name));
+};
+
+const getScenePrimaryMedia = (sceneData: SceneNodeData) => {
+  const firstMedia = sceneData.images?.find((image) => image.imageUrl || image.videoUrl);
+  return {
+    imageUrl: firstMedia?.videoUrl ? undefined : firstMedia?.imageUrl || sceneData.coverImageUrl,
+    videoUrl: firstMedia?.videoUrl,
+  };
 };
 
 const isLightColor = (color: string) => {
@@ -203,23 +227,33 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             const source = state.nodes.find((node) => node.id === config.sourceNodeId);
             if (!source || source.type !== 'characterNode') return null;
             const characterData = source.data as CharacterNodeData;
-            const outfit = config.outfitId
-              ? characterData.outfits?.find((item) => item.id === config.outfitId)
-              : characterData.outfits?.find((item) => item.imageUrl);
-            const characterImageUrl = outfit?.imageUrl || characterData.avatarUrl;
+            const characterImageUrl = resolveCharacterImageUrl(characterData, config);
             if (!characterImageUrl) return null;
             return {
               config,
               imageUrl: characterImageUrl,
+              data: characterData,
               name: characterData.characterName,
             };
           })
           .filter(Boolean) as {
           config: CharacterPresentation;
           imageUrl: string;
+          data: CharacterNodeData;
           name: string;
         }[],
       [storyPresentation.characters],
+    ),
+  );
+  const presentationSceneData = useStore(
+    useCallback(
+      (state) => {
+        const sourceNodeId = storyPresentation.scene?.sourceNodeId;
+        if (!sourceNodeId) return null;
+        const source = state.nodes.find((node) => node.id === sourceNodeId);
+        return source?.type === 'sceneNode' ? (source.data as SceneNodeData) : null;
+      },
+      [storyPresentation.scene?.sourceNodeId],
     ),
   );
   const hasCharacterOrSceneTag = /data-mention-kind=(?:"|')(?:character|scene)(?:"|')/i.test(
@@ -1045,14 +1079,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   const handleTextChange = (newHtml: string) => {
     const presentation = getPresentation();
-    if (!presentation.scene && presentation.characters.length === 0) {
-      updateNodeData({ text: newHtml });
-      return;
-    }
-
     const allNodes = storeApi.getState().nodes;
     const characterMentionNames = readMentionNames(newHtml, 'character');
     const sceneMentionNames = readMentionNames(newHtml, 'scene');
+    const orderedSceneMentionNames = readMentionNamesInOrder(newHtml, 'scene');
     const remainingCharacters = presentation.characters.filter((character) => {
       const sourceNode = allNodes.find((node) => node.id === character.sourceNodeId);
       if (!sourceNode || sourceNode.type !== 'characterNode') return false;
@@ -1073,10 +1103,54 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       presentation.scene && sceneName && !sceneMentionNames.has(sceneName)
         ? presentation.scene
         : undefined;
+    const sceneMentionSourceNode =
+      orderedSceneMentionNames.length > 0
+        ? orderedSceneMentionNames
+            .map((mentionName) =>
+              allNodes.find(
+                (node) =>
+                  node.type === 'sceneNode' &&
+                  typeof node.data.sceneName === 'string' &&
+                  node.data.sceneName.trim() === mentionName,
+              ),
+            )
+            .find(Boolean)
+        : undefined;
+    const nextSceneSourceNode =
+      sceneSourceNode?.type === 'sceneNode' && sceneName && sceneMentionNames.has(sceneName)
+        ? sceneSourceNode
+        : sceneMentionSourceNode;
+    const shouldActivateScene =
+      nextSceneSourceNode?.type === 'sceneNode' &&
+      presentation.scene?.sourceNodeId !== nextSceneSourceNode.id;
+    const activatedSceneMedia =
+      shouldActivateScene && nextSceneSourceNode?.type === 'sceneNode'
+        ? getScenePrimaryMedia(nextSceneSourceNode.data as SceneNodeData)
+        : null;
+    const nextScene =
+      shouldActivateScene && nextSceneSourceNode?.type === 'sceneNode'
+        ? {
+            ...createScenePresentation(
+              nextSceneSourceNode.id,
+              presentation.scene?.previousImageUrl ?? imageUrl,
+              false,
+              data.showTextOverlay,
+            ),
+            previousVideoUrl: presentation.scene?.previousVideoUrl ?? videoUrl,
+          }
+        : removedScene
+          ? undefined
+          : presentation.scene;
 
     updateNodeData({
       text: newHtml,
-      ...(removedScene
+      ...(activatedSceneMedia
+        ? {
+            imageUrl: activatedSceneMedia.imageUrl,
+            videoUrl: activatedSceneMedia.videoUrl,
+            showTextOverlay: true,
+          }
+        : removedScene
         ? {
             imageUrl: removedScene.previousImageUrl,
             videoUrl: removedScene.previousVideoUrl,
@@ -1085,13 +1159,88 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         : {}),
       presentation: {
         ...presentation,
-        scene: removedScene ? undefined : presentation.scene,
+        scene: nextScene,
         characters: remainingCharacters,
       },
     });
   };
 
   const getPresentation = () => normalizeStoryPresentation(data.presentation);
+
+  useEffect(() => {
+    const currentText = String(data.text || '');
+    const sceneMentionNames = readMentionNames(currentText, 'scene');
+    const orderedSceneMentionNames = readMentionNamesInOrder(currentText, 'scene');
+    const presentation = getPresentation();
+    const allNodes = storeApi.getState().nodes;
+    const currentSceneNode = presentation.scene
+      ? allNodes.find((node) => node.id === presentation.scene?.sourceNodeId)
+      : undefined;
+    const currentSceneName =
+      currentSceneNode?.type === 'sceneNode' && typeof currentSceneNode.data.sceneName === 'string'
+        ? currentSceneNode.data.sceneName.trim()
+        : '';
+
+    if (presentation.scene && (!currentSceneName || !sceneMentionNames.has(currentSceneName))) {
+      updateNodeData({
+        imageUrl: presentation.scene.previousImageUrl,
+        videoUrl: presentation.scene.previousVideoUrl,
+        showTextOverlay: presentation.scene.previousShowTextOverlay ?? data.showTextOverlay,
+        presentation: {
+          ...presentation,
+          scene: undefined,
+        },
+      });
+      return;
+    }
+
+    const sceneMentionSourceNode =
+      orderedSceneMentionNames.length > 0
+        ? orderedSceneMentionNames
+            .map((mentionName) =>
+              allNodes.find(
+                (node) =>
+                  node.type === 'sceneNode' &&
+                  typeof node.data.sceneName === 'string' &&
+                  node.data.sceneName.trim() === mentionName,
+              ),
+            )
+            .find(Boolean)
+        : undefined;
+    if (
+      sceneMentionSourceNode?.type !== 'sceneNode' ||
+      presentation.scene?.sourceNodeId === sceneMentionSourceNode.id
+    ) {
+      return;
+    }
+
+    const sceneMedia = getScenePrimaryMedia(sceneMentionSourceNode.data as SceneNodeData);
+    updateNodeData({
+      imageUrl: sceneMedia.imageUrl,
+      videoUrl: sceneMedia.videoUrl,
+      showTextOverlay: true,
+      presentation: {
+        ...presentation,
+        scene: {
+          ...createScenePresentation(
+            sceneMentionSourceNode.id,
+            presentation.scene?.previousImageUrl ?? imageUrl,
+            false,
+            data.showTextOverlay,
+          ),
+          previousVideoUrl: presentation.scene?.previousVideoUrl ?? videoUrl,
+        },
+      },
+    });
+  }, [
+    data.presentation,
+    data.showTextOverlay,
+    data.text,
+    imageUrl,
+    storeApi,
+    updateNodeData,
+    videoUrl,
+  ]);
 
   const replayPresentation = (
     kind: 'character' | 'scene',
@@ -1292,16 +1441,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     if (!sourceNode) return;
 
     const placementPhase = presentationPhaseForPlacement(mention.placement);
-    if (mention.placement !== 'inline' && mention.kind === 'scene') {
+    if (mention.kind === 'scene') {
       if (presentation.scene?.sourceNodeId !== sourceNode.id) {
+        const sceneMedia =
+          sourceNode.type === 'sceneNode'
+            ? getScenePrimaryMedia(sourceNode.data as SceneNodeData)
+            : { imageUrl: sourceNode.data.coverImageUrl as string | undefined, videoUrl: undefined };
         updateNodeData({
-          imageUrl: (sourceNode.data.coverImageUrl as string | undefined) || imageUrl,
+          imageUrl: sceneMedia.imageUrl,
+          videoUrl: sceneMedia.videoUrl,
           showTextOverlay: true,
           presentation: {
             ...presentation,
             scene: {
-              ...createScenePresentation(sourceNode.id, imageUrl, false, data.showTextOverlay),
-              previousVideoUrl: videoUrl,
+              ...createScenePresentation(
+                sourceNode.id,
+                presentation.scene?.previousImageUrl ?? imageUrl,
+                false,
+                data.showTextOverlay,
+              ),
+              previousVideoUrl: presentation.scene?.previousVideoUrl ?? videoUrl,
             },
           },
         });
@@ -1689,6 +1848,23 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? inlineActionPreview.nonce
       : 0;
+
+  const inlinePreviewSwitchFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
+      ? getInlineSwitchAction(kind, sourceNodeId, inlineActionPreview.action)
+      : null;
+
+  const previewSceneMedia = storyPresentation.scene
+    ? resolveSceneMedia({
+        data: presentationSceneData || undefined,
+        scene: storyPresentation.scene,
+        fallbackImageUrl: imageUrl,
+        fallbackVideoUrl: videoUrl,
+        switchAction: inlinePreviewSwitchFor('scene', storyPresentation.scene.sourceNodeId),
+      })
+    : { imageUrl, videoUrl };
 
   const mediaToolbarButtons = (imageUrl || videoUrl) &&
     hasMediaToolbarActions &&
@@ -2215,10 +2391,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   transformOrigin: 'center',
                 }}
               >
-                {hasScenePresentationImage && (
+                {hasScenePresentationImage && previewSceneMedia.imageUrl && (
                   <img
                     key={`scene-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
-                    src={imageUrl}
+                    src={previewSceneMedia.imageUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
                       ...mediaStyle,
@@ -2269,10 +2445,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     alt=""
                   />
                 )}
-                {hasScenePresentationVideo && (
+                {(hasScenePresentationVideo || (hasScenePresentationImage && previewSceneMedia.videoUrl)) && (
                   <video
-                    key={`scene-video-preview-${presentationPreview?.nonce || 0}`}
-                    src={videoUrl}
+                    key={`scene-video-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
+                    src={previewSceneMedia.videoUrl || videoUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
                       ...mediaStyle,
@@ -2286,17 +2462,23 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     playsInline
                   />
                 )}
-                {presentedCharacters.map(({ config, imageUrl: characterImageUrl, name }) => {
+                {presentedCharacters.map(({ config, imageUrl: characterImageUrl, data: characterData, name }) => {
                   const previewMatches =
                     presentationPreview?.kind === 'character' &&
                     presentationPreview.sourceNodeId === config.sourceNodeId;
                   const phase = presentationPreview?.phase === 'exit' ? 'exit' : 'enter';
                   const motion = config[phase];
                   const animated = isPreviewAnimatedState('character', config.sourceNodeId);
+                  const previewImageUrl =
+                    resolveCharacterImageUrl(
+                      characterData,
+                      config,
+                      inlinePreviewSwitchFor('character', config.sourceNodeId),
+                    ) || characterImageUrl;
                   return (
                     <img
                       key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
-                      src={characterImageUrl}
+                      src={previewImageUrl}
                       alt={name}
                       className="absolute max-h-[92%] max-w-[72%] object-contain object-bottom"
                       style={{
@@ -2589,12 +2771,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
                         ) || createCharacterPresentation(presentationMenu.sourceNodeId)
                       : null;
+                  const sourceNode = storeApi
+                    .getState()
+                    .nodes.find((node) => node.id === presentationMenu.sourceNodeId);
+                  const switchableAssets =
+                    presentationMenu.kind === 'character' && sourceNode?.type === 'characterNode'
+                      ? characterSwitchOptions(sourceNode.data as CharacterNodeData)
+                      : presentationMenu.kind === 'scene' && sourceNode?.type === 'sceneNode'
+                        ? sceneSwitchOptions(sourceNode.data as SceneNodeData)
+                        : [];
                   return (
                     <div className="space-y-3">
                       <InlineActionEditor
                         action={action}
                         targetName={presentationMenu.name}
                         targetKind={presentationMenu.kind}
+                        switchableAssets={switchableAssets}
                         onChange={updateInlineAction}
                         onDelete={() => {
                           deleteInlineAction(action.id);

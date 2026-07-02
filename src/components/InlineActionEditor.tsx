@@ -2,6 +2,7 @@ import { ClipboardPaste, Copy, Eraser, List, Save, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { InlinePresentationAction, InlinePresentationActionType } from '../domain/project';
+import type { SwitchableAssetOption } from '../lib/inlineAssetSwitch';
 import { inlinePresentationActionLabel } from '../lib/presentation';
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { DurationInput } from './DurationInput';
@@ -55,10 +56,12 @@ export function InlineActionEditor({
   onPreviewAfter,
   autoPreview,
   onAutoPreviewChange,
+  switchableAssets = [],
 }: {
   action: InlinePresentationAction;
   targetName: string;
   targetKind: 'character' | 'scene';
+  switchableAssets?: SwitchableAssetOption[];
   onChange: (action: InlinePresentationAction) => void;
   onDelete?: () => void;
   onReset?: () => void;
@@ -93,7 +96,9 @@ export function InlineActionEditor({
   const isScale = action.action === 'scale';
   const isRepeatable = currentAction === 'shake-x' || currentAction === 'shake-y' || currentAction === 'pulse';
   const isPercentSlider = currentAction === 'opacity' || currentAction === 'brightness';
-  const showsStrength = !isNone && !isScale && !isPercentSlider;
+  const isSwitch = currentAction === 'switch';
+  const actionOptions = ACTIONS;
+  const showsStrength = !isNone && !isScale && !isPercentSlider && !isSwitch;
   const strengthLabel = currentAction === 'rotate' ? '角度' : '强度';
 
   const changeActionType = (type: InlinePresentationActionType) => {
@@ -110,6 +115,10 @@ export function InlineActionEditor({
               ? action.strength || 70
               : action.strength || 10,
       repeats: nextType === 'shake-x' || nextType === 'shake-y' || nextType === 'pulse' ? action.repeats || 3 : action.repeats || 1,
+      targetAssetId:
+        nextType === 'switch'
+          ? action.targetAssetId || switchableAssets[1]?.id || switchableAssets[0]?.id
+          : action.targetAssetId,
     });
   };
 
@@ -238,12 +247,30 @@ export function InlineActionEditor({
         onChange={(event) => changeActionType(event.target.value as InlinePresentationActionType)}
         className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold"
       >
-        {ACTIONS.map((item) => (
+        {actionOptions.map((item) => (
           <option key={item} value={item}>
             {inlinePresentationActionLabel(item)}
           </option>
         ))}
       </select>
+      {isSwitch && (
+        <label className="block space-y-1.5">
+          <span className="block text-[10px] font-bold text-[var(--text-muted)]">
+            {targetKind === 'character' ? '切换到人物图片 / 穿着' : '切换到场景图片 / 视频'}
+          </span>
+          <select
+            value={action.targetAssetId || switchableAssets[0]?.id || ''}
+            onChange={(event) => update({ targetAssetId: event.target.value })}
+            className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-2 font-bold"
+          >
+            {switchableAssets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {showTemplates && (
         <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-lg border border-[var(--card-border)]/40 bg-[var(--app-bg)]/50 p-2">
           <div className="flex items-center justify-between px-1 text-[10px] font-bold text-[var(--text-muted)]">
@@ -334,7 +361,22 @@ export function InlineActionEditor({
           </label>
         </label>
       )}
-      {!isNone && !showsStrength && (
+      {!isNone && !showsStrength && !isSwitch && (
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 font-bold">时长</span>
+          <label className="min-w-0 flex-1">
+            <DurationInput
+              value={action.duration}
+              min={0}
+              step={50}
+              unit="MS"
+              decimals={0}
+              onChange={(duration) => update({ duration })}
+            />
+          </label>
+        </div>
+      )}
+      {isSwitch && (
         <div className="flex items-center gap-2">
           <span className="shrink-0 font-bold">时长</span>
           <label className="min-w-0 flex-1">
