@@ -233,6 +233,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const textPanelRef = useRef<HTMLDivElement>(null);
   const lastAutoHeightRef = useRef<number | null>(null);
   const resizeStartHeightRef = useRef<number | null>(null);
+  const initialAutoSizeSyncSettledRef = useRef(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
@@ -880,7 +881,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       getNumericSize((currentNode as any).measured?.height) ??
       rootHeight;
     const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
-    const nextHeight = targetHeight;
+    const nextHeight = initialAutoSizeSyncSettledRef.current
+      ? targetHeight
+      : Math.max(currentHeight, targetHeight);
     lastAutoHeightRef.current = targetHeight;
     const changed =
       Math.abs(currentHeight - nextHeight) >= 1 ||
@@ -944,6 +947,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     title,
     videoUrl,
   ]);
+
+  useEffect(() => {
+    if (!isAutoSizeMode) {
+      initialAutoSizeSyncSettledRef.current = false;
+      return;
+    }
+
+    initialAutoSizeSyncSettledRef.current = false;
+    const timeoutId = window.setTimeout(() => {
+      initialAutoSizeSyncSettledRef.current = true;
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [id, isAutoSizeMode]);
 
   useLayoutEffect(() => {
     if (!isAutoSizeMode || !data.assistantAutoHeightNonce) return;

@@ -242,7 +242,7 @@ const restoreStoredPresentationTemplates = (templates: PresentationTemplates | u
 
 const stripAutoStoryNodeRuntimeStyle = (style: Node['style'] | undefined): Node['style'] => {
   if (!style) return style;
-  const { height: _height, minHeight: _minHeight, ...rest } = style;
+  const { minHeight: _minHeight, ...rest } = style;
   return rest;
 };
 
@@ -667,7 +667,6 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         ...node,
         ...(isAutoSizedStoryNode
           ? {
-              height: undefined,
               measured: undefined,
               style: stripAutoStoryNodeRuntimeStyle(node.style),
             }
@@ -764,7 +763,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
             : node.style,
           data: { ...node.data },
           width: node.measured?.width || node.width,
-          height: isAutoSizedStoryNode ? undefined : node.measured?.height || node.height,
+          height: node.measured?.height || node.height,
         dragHandle: node.dragHandle,
       };
     }) as StoryNode[];
