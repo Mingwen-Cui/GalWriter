@@ -44,6 +44,7 @@ import {
   resolveSceneMedia,
 } from '../../../lib/inlineAssetSwitch';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
+import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { renderCopy } from '../video/shared/renderCopy';
 import {
   filterMentionTags,
@@ -949,7 +950,7 @@ export function WebPlaytestPreview({
         ? 'fill'
         : 'cover';
   const finalObjectFit =
-    settings.layoutMode === 'immersive'
+    settings.layoutMode === 'immersive' || settings.layoutMode === 'classic'
       ? 'cover'
       : presentation.scene?.cropMode
         ? sceneObjectFit
@@ -984,6 +985,91 @@ export function WebPlaytestPreview({
     transitionTimingFunction: 'ease-out',
   };
 
+  const renderMediaLayers = () => (
+    <div className="absolute inset-0 overflow-hidden">
+      {currentImageUrl ? (
+        <img
+          key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
+          src={currentImageUrl}
+          alt=""
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
+          className="preview-media-safe h-full w-full"
+          style={sceneStyle}
+        />
+      ) : currentVideoUrl ? (
+        <video
+          ref={currentVideoRef}
+          src={currentVideoUrl}
+          controls
+          playsInline
+          autoPlay={settings.videoAutoPlay || settings.autoAdvance}
+          muted={settings.videoAutoPlay}
+          onEnded={() => setCurrentVideoEnded(true)}
+          className="h-full w-full"
+          style={sceneStyle}
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
+          {t(
+            'This node has no image or video',
+            'This node has no image or video',
+            'This node has no image or video',
+          )}
+        </div>
+      )}
+      {presentedCharacters.length > 0 && (
+        <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+          {presentedCharacters.map(({ config, data, imageUrl }) => {
+            const motion = presentationExiting ? config.exit : config.enter;
+            const animationActive =
+              settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible);
+            const animationTransform =
+              animationActive && motion
+                ? getPresentationTransform(motion.type, presentationExiting)
+                : '';
+            const inlineAction =
+              activeInlineAction?.kind === 'character' &&
+              activeInlineAction.sourceNodeId === config.sourceNodeId
+                ? activeInlineAction
+                : latestPersistentInlineAction(completedInlineActions, 'character', config.sourceNodeId);
+            const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
+            return (
+              <img
+                key={config.sourceNodeId}
+                src={imageUrl}
+                alt={data.characterName}
+                draggable={false}
+                onDragStart={(event) => event.preventDefault()}
+                className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                style={{
+                  ...getCharacterStagePosition(config),
+                  zIndex: clampCharacterLayer(config.layer),
+                  opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+                  transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+                  animation: inlineActionAnimation(inlineAction),
+                  ...inlineActionCssVars(inlineAction),
+                  transformOrigin: 'center center',
+                  transitionProperty: 'opacity, transform',
+                  transitionDuration: inlineAction
+                    ? `${inlineDuration}ms`
+                    : settings.layoutMode === 'classic'
+                      ? '0ms'
+                      : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                  transitionDelay:
+                    settings.layoutMode === 'classic' || presentationExiting
+                      ? '0ms'
+                      : `${getCharacterEnterDelay(presentation)}ms`,
+                  transitionTimingFunction: 'ease-out',
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       ref={previewRootRef}
@@ -1009,14 +1095,23 @@ export function WebPlaytestPreview({
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
         <div
-          className={settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 p-4'}
+          className={
+            settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 px-4 pt-4'
+          }
         >
           <div
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
-              settings.layoutMode === 'immersive' ? 'rounded-none' : 'bg-transparent'
+              settings.layoutMode === 'immersive'
+                ? 'rounded-none'
+                : 'rounded-t-lg border-x border-t border-white/10 bg-slate-950'
             }`}
             onClick={continueFromText}
           >
+            {settings.layoutMode === 'classic' ? (
+              <VirtualPresentationStage fit="cover" className="absolute inset-0 h-full w-full">
+                {renderMediaLayers()}
+              </VirtualPresentationStage>
+            ) : (
             <div className="absolute inset-0 overflow-hidden">
               {currentImageUrl ? (
                 <img
@@ -1027,7 +1122,7 @@ export function WebPlaytestPreview({
                   onDragStart={(event) => event.preventDefault()}
                   className={
                     settings.layoutMode === 'classic'
-                      ? 'preview-media-safe block h-auto max-h-full w-auto max-w-full rounded-lg border border-white/10 object-contain shadow-lg transform-none animate-none transition-none'
+                      ? 'preview-media-safe block h-auto max-h-full w-auto max-w-full object-contain transform-none animate-none transition-none'
                       : 'preview-media-safe h-full w-full'
                   }
                   style={
@@ -1120,6 +1215,7 @@ export function WebPlaytestPreview({
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
         {settings.choicesPosition === 'center' && shouldShowChoices && (
@@ -1159,7 +1255,7 @@ export function WebPlaytestPreview({
             className={`pointer-events-auto relative w-full border-t border-white/10 py-4 ${
               settings.layoutMode === 'immersive'
                 ? 'overflow-y-auto rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl'
-                : 'px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
+                : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
             }`}
             style={dialogueShellStyle}
           >

@@ -2323,14 +2323,24 @@ export function PlayTestModal({
             </div>
           ) : (
             // 经典排版
-            <div className="flex-1 flex flex-col min-h-0 relative">
+            <div
+              className={`flex-1 flex flex-col min-h-0 relative ${
+                hasMedia
+                  ? `m-2 md:m-5 overflow-hidden rounded-xl border shadow-2xl ${
+                      isDarkMode
+                        ? 'border-white/12 bg-slate-950/75 shadow-black/30'
+                        : 'border-slate-200 bg-white/85 shadow-slate-900/10'
+                    }`
+                  : ''
+              }`}
+            >
               {/* 1. Media Area */}
               {hasMedia && (
                 <div
                   className={`${
                     mobileClassicLayout
                       ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
-                      : 'flex-1 min-h-0 p-2 md:p-6'
+                      : 'flex-1 min-h-0 p-2 md:p-4'
                   } flex items-center justify-center relative group overflow-hidden ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
                 >
                   {/* Ambient Background Layer */}
@@ -2458,8 +2468,8 @@ export function PlayTestModal({
                         boxShadow: 'none',
                         backdropFilter: 'none',
                       }),
-                  borderTopLeftRadius: renderStyle.dialogRadius,
-                  borderTopRightRadius: renderStyle.dialogRadius,
+                  borderTopLeftRadius: hasMedia ? 0 : renderStyle.dialogRadius,
+                  borderTopRightRadius: hasMedia ? 0 : renderStyle.dialogRadius,
                   paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                   paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                 }}
