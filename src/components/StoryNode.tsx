@@ -315,13 +315,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     plainSpeechText === '' ||
     Boolean(data.showTextOverlay && !hasScenePresentationImage);
   const objectFit = !data.objectFit || data.objectFit === 'contain' ? 'playtest' : data.objectFit;
-  const mediaScale = typeof data.mediaScale === 'number' ? data.mediaScale : 1;
-  const activeMediaScale = storyPresentation.scene?.scale ?? mediaScale;
   const usesPlaytestPresentationLayout =
     objectFit === 'playtest' && hasPresentationVisualMedia;
   const mediaStyle: React.CSSProperties = {
     objectFit: objectFit === 'fill' ? 'fill' : objectFit === 'cover' ? 'cover' : 'contain',
     objectPosition: '50% 50%',
+  };
+  const getSceneMediaStyle = (scene?: ScenePresentation): React.CSSProperties => {
+    const cropMode =
+      scene?.cropMode || (objectFit === 'fill' ? 'stretch' : objectFit === 'cover' ? 'cover' : 'contain');
+    return {
+      objectFit: cropMode === 'stretch' ? 'fill' : cropMode,
+      objectPosition: '50% 50%',
+      transformOrigin: 'center center',
+    };
+  };
+  const getSceneMediaTransform = (scene?: ScenePresentation, extraTransform = '') => {
+    const sceneTransform = scene
+      ? `translate(${scene.offsetX || 0}%, ${scene.offsetY || 0}%) scale(${scene.scale || 1})`
+      : '';
+    return [sceneTransform, extraTransform].filter(Boolean).join(' ') || 'none';
   };
   const lang = (data.language as Language) || 'zh';
   const t = translations[lang];
@@ -753,25 +766,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     [data, id],
   );
 
-  const updateMediaDisplayMode = (mode: StoryNodeData['objectFit']) => {
-    if (!storyPresentation.scene) {
-      updateNodeData({ objectFit: mode });
-      return;
-    }
-
-    const cropMode = mode === 'playtest' ? 'contain' : mode === 'fill' ? 'stretch' : 'cover';
-    updateNodeData({
-      objectFit: mode,
-      presentation: {
-        ...storyPresentation,
-        scene: {
-          ...storyPresentation.scene,
-          cropMode,
-        },
-      },
-    });
-  };
-
   const computeAutoMinHeight = useCallback(
     (candidateWidth?: number) => {
       if (!showRichTextTools) return null;
@@ -934,7 +928,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       cancelAnimationFrame(secondFrame);
     };
   }, [
-    activeMediaScale,
     audioUrl,
     color,
     imageUrl,
@@ -2478,21 +2471,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               }`}
               style={isAutoSizeMode ? { height: autoMediaHeight } : undefined}
             >
-              <div
-                className="absolute inset-0 overflow-hidden"
-                style={{
-                  transform: `scale(${objectFit === 'playtest' ? activeMediaScale : 1})`,
-                  transformOrigin: 'center',
-                }}
-              >
+              <div className="absolute inset-0 overflow-hidden">
                 {hasScenePresentationImage && previewSceneMedia.imageUrl && (
                   <img
                     key={`scene-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
                     src={previewSceneMedia.imageUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
-                      ...mediaStyle,
-                      transform:
+                      ...getSceneMediaStyle(storyPresentation.scene),
+                      transform: getSceneMediaTransform(
+                        storyPresentation.scene,
                         [
                           storyPresentation.scene &&
                           isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId)
@@ -2508,7 +2496,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             : '',
                         ]
                           .filter(Boolean)
-                          .join(' ') || 'none',
+                          .join(' '),
+                      ),
                       opacity:
                         storyPresentation.scene &&
                         isPreviewAnimatedState('scene', storyPresentation.scene.sourceNodeId) &&
@@ -2545,7 +2534,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     src={previewSceneMedia.videoUrl || videoUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
-                      ...mediaStyle,
+                      ...getSceneMediaStyle(storyPresentation.scene),
+                      transform: getSceneMediaTransform(storyPresentation.scene),
                       zIndex: storyPresentation.scene
                         ? clampCharacterLayer(storyPresentation.scene.layer)
                         : 0,
@@ -3349,50 +3339,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             ))}
                           </div>
                         )}
-                        <div className="space-y-1.5">
-                          <div className="px-0.5 text-[10px] font-bold text-[var(--text-muted)]">
-                            {t.objectFit}
-                          </div>
-                          <div className="flex w-full gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateMediaDisplayMode('cover')}
-                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                                current.cropMode === 'cover'
-                                  ? 'border-blue-500 bg-blue-500 text-white'
-                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                              }`}
-                            >
-                              {t.crop}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateMediaDisplayMode('fill')}
-                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                                current.cropMode === 'stretch'
-                                  ? 'border-blue-500 bg-blue-500 text-white'
-                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                              }`}
-                            >
-                              {t.fill}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateMediaDisplayMode('playtest')}
-                              className={`flex-1 rounded-lg border p-2 text-center text-xs font-bold transition-colors ${
-                                current.cropMode === 'contain'
-                                  ? 'border-blue-500 bg-blue-500 text-white'
-                                  : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-blue-500/50 hover:bg-blue-500/10'
-                              }`}
-                            >
-                              {lang === 'zh'
-                                ? '测试剧本'
-                                : lang === 'ja'
-                                  ? 'テストプレイ'
-                                  : 'Playtest'}
-                            </button>
-                          </div>
-                        </div>
                         <label className="flex items-center gap-2">
                           <span className="shrink-0 font-bold">
                             缩放：{Math.round(current.scale * 100)}%
@@ -3412,11 +3358,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             className="min-w-0 flex-1"
                           />
                         </label>
-                        <div className="flex items-center gap-2">
-                          <span className="shrink-0 font-bold">水平偏移</span>
-                          <div className="min-w-0 flex-1">
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="min-w-0 space-y-1">
+                            <span className="block truncate font-bold">水平偏移</span>
                             <DraggableNumberInput
                               value={current.offsetX}
+                              min={-100}
+                              max={100}
+                              unit="%"
                               onChange={(value) =>
                                 updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
                                   ...item,
@@ -3424,11 +3373,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 }))
                               }
                             />
-                          </div>
-                          <span className="shrink-0 font-bold">垂直偏移</span>
-                          <div className="min-w-0 flex-1">
+                          </label>
+                          <label className="min-w-0 space-y-1">
+                            <span className="block truncate font-bold">垂直偏移</span>
                             <DraggableNumberInput
                               value={current.offsetY}
+                              min={-100}
+                              max={100}
+                              unit="%"
                               onChange={(value) =>
                                 updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
                                   ...item,
@@ -3436,7 +3388,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 }))
                               }
                             />
-                          </div>
+                          </label>
                         </div>
                         {([activePhase] as const).map((phase) => (
                           <div key={phase} className="flex items-center gap-2">

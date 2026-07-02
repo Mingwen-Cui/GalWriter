@@ -918,7 +918,11 @@ export function WebPlaytestPreview({
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
       : null;
-  const presentationScale = presentation.scene?.scale || 1;
+  const sceneMediaTransform = presentation.scene
+    ? `translate(${presentation.scene.offsetX || 0}%, ${presentation.scene.offsetY || 0}%) scale(${
+        presentation.scene.scale || 1
+      })`
+    : '';
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -933,14 +937,18 @@ export function WebPlaytestPreview({
         : 'contain';
   const sceneStyle: React.CSSProperties = {
     objectFit: finalObjectFit as any,
-    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
-      50 + (presentation.scene?.offsetY || 0)
-    }%`,
+    objectPosition: '50% 50%',
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
     transform:
-      sceneAnimationActive && sceneMotion
-        ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : inlineActionTransform(activeSceneInlineAction) || 'none',
+      [
+        sceneMediaTransform,
+        sceneAnimationActive && sceneMotion
+          ? getPresentationTransform(sceneMotion.type, presentationExiting)
+          : inlineActionTransform(activeSceneInlineAction),
+      ]
+        .filter(Boolean)
+        .join(' ') || 'none',
+    transformOrigin: 'center center',
     animation: inlineActionAnimation(activeSceneInlineAction),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
@@ -988,10 +996,7 @@ export function WebPlaytestPreview({
             }`}
             onClick={continueFromText}
           >
-            <div
-              className="absolute inset-0 overflow-hidden"
-              style={{ transform: `scale(${presentationScale})`, transformOrigin: 'center' }}
-            >
+            <div className="absolute inset-0 overflow-hidden">
               {currentImageUrl ? (
                 <img
                   key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}

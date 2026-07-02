@@ -1482,21 +1482,29 @@ export function PlayTestModal({
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
       : null;
-  const presentationScale = presentation.scene?.scale || 1;
+  const sceneMediaTransform = presentation.scene
+    ? `translate(${presentation.scene.offsetX || 0}%, ${presentation.scene.offsetY || 0}%) scale(${
+        presentation.scene.scale || 1
+      })`
+    : '';
   const sceneObjectFit =
     presentation.scene?.cropMode === 'stretch'
         ? 'fill'
         : 'cover';
   const sceneStyle: React.CSSProperties = {
     objectFit: sceneObjectFit,
-    objectPosition: `${50 + (presentation.scene?.offsetX || 0)}% ${
-      50 + (presentation.scene?.offsetY || 0)
-    }%`,
+    objectPosition: '50% 50%',
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
     transform:
-      sceneAnimationActive && sceneMotion
-        ? getPresentationTransform(sceneMotion.type, presentationExiting)
-        : inlineActionTransform(activeSceneInlineAction) || 'none',
+      [
+        sceneMediaTransform,
+        sceneAnimationActive && sceneMotion
+          ? getPresentationTransform(sceneMotion.type, presentationExiting)
+          : inlineActionTransform(activeSceneInlineAction),
+      ]
+        .filter(Boolean)
+        .join(' ') || 'none',
+    transformOrigin: 'center center',
     animation: inlineActionAnimation(activeSceneInlineAction),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
@@ -2148,10 +2156,7 @@ export function PlayTestModal({
             )
           ) : layoutMode === 'immersive' ? (
             <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
-              <div
-                className="absolute inset-0 z-0 overflow-hidden"
-                style={{ transform: `scale(${presentationScale})`, transformOrigin: 'center' }}
-              >
+              <div className="absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute inset-0 overflow-hidden w-full h-full select-none pointer-events-none">
                   {sceneImageUrl ? (
                     <img
@@ -2325,13 +2330,7 @@ export function PlayTestModal({
                     fit={mobileClassicLayout ? 'width' : 'cover'}
                     className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500"
                   >
-                    <div
-                      className="absolute inset-0 overflow-hidden"
-                      style={{
-                        transform: `scale(${presentationScale})`,
-                        transformOrigin: 'center',
-                      }}
-                    >
+                    <div className="absolute inset-0 overflow-hidden">
                       {sceneImageUrl && (
                         <img
                           src={sceneImageUrl}
