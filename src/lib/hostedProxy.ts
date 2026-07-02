@@ -47,7 +47,7 @@ export const HOSTED_VOICE_PROXY_PROFILE: VoiceAIProfile = {
   provider: 'hosted-voice',
   apiKey: '',
   apiUrl: '',
-  model: 'gpt-4o-mini-tts',
-  voice: 'alloy',
+  model: 'seed-tts-2.0',
+  voice: 'zh_female_vv_uranus_bigtts',
   appKey: '',
 };

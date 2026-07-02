@@ -383,15 +383,15 @@ const VOICE_PROVIDER_OPTIONS: ProviderOption[] = [
     value: 'hosted-voice',
     label: '\u7f51\u7edc\u6258\u7ba1\u4ee3\u7406',
     apiUrl: '',
-    model: 'gpt-4o-mini-tts',
-    voice: 'alloy',
+    model: 'seed-tts-2.0',
+    voice: 'zh_female_vv_uranus_bigtts',
   },
   {
     value: 'doubao',
     label: '火山引擎（豆包）',
     apiUrl: VOLCENGINE_TTS_API_URL,
     model: 'seed-tts-2.0',
-    voice: 'zh_female_cancan_mars_bigtts',
+    voice: 'zh_female_vv_uranus_bigtts',
   },
   {
     value: 'gemini',
@@ -525,7 +525,7 @@ const VOICE_MODEL_OPTIONS: Record<string, ModelOption[]> = {
     { value: 'tts-1', label: 'TTS-1' },
     { value: 'tts-1-hd', label: 'TTS-1 HD' },
   ],
-  'hosted-voice': [{ value: 'gpt-4o-mini-tts', label: 'GPT-4o Mini TTS' }],
+  'hosted-voice': [{ value: 'seed-tts-2.0', label: 'seed-tts-2.0' }],
   doubao: [
     { value: 'seed-tts-2.0', label: 'seed-tts-2.0' },
     { value: 'seed-tts-1.0', label: 'seed-tts-1.0' },
@@ -819,7 +819,7 @@ const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
   apiKey: '',
   apiUrl: VOLCENGINE_TTS_API_URL,
   model: 'seed-tts-2.0',
-  voice: 'zh_female_cancan_mars_bigtts',
+  voice: 'zh_female_vv_uranus_bigtts',
   appKey: '',
   appSecret: '',
 });
@@ -2178,7 +2178,7 @@ export function AISettingsPanel({
                                   3. 音色 voice_type
                                 </span>
                                 <span className="text-sky-700 dark:text-sky-200">
-                                  例如 zh_female_cancan_mars_bigtts
+                                  例如 zh_female_vv_uranus_bigtts
                                 </span>
                               </div>
                             </div>
@@ -2307,8 +2307,8 @@ export function AISettingsPanel({
                           : 'Default: youxiaoqin'
                         : draft.provider === 'doubao'
                           ? language === 'zh'
-                            ? '例如：zh_female_cancan_mars_bigtts，填写官方音色表里的 voice_type'
-                            : 'For example: zh_female_cancan_mars_bigtts'
+                            ? '例如：zh_female_vv_uranus_bigtts，填写官方音色表里的 voice_type'
+                            : 'For example: zh_female_vv_uranus_bigtts'
                         : language === 'zh'
                           ? '例如：alloy / youxiaoqin'
                           : language === 'ja'
@@ -2333,7 +2333,7 @@ export function AISettingsPanel({
                   )}
                   {draft.provider === 'doubao' && language === 'zh' && (
                     <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                      这里填人物音色的 voice_type，比如 zh_female_cancan_mars_bigtts。需要换声音时，打开
+                      这里填人物音色的 voice_type，比如 zh_female_vv_uranus_bigtts。需要换声音时，打开
                       <a
                         href={VOLCENGINE_VOICE_HELP_URL}
                         target="_blank"

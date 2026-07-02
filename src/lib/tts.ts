@@ -267,26 +267,46 @@ const normalizeHostedAudio = async (audio: string) => {
 };
 
 const generateHostedSpeechAudio = async (input: string, config: TTSConfig) => {
-  const response = await fetch(config.apiUrl.trim() || HOSTED_TTS_PROXY_ENDPOINT, {
+  const proxyUrl = config.apiUrl.trim() || HOSTED_TTS_PROXY_ENDPOINT;
+  const payload = {
+    type: 'voice',
+    text: input,
+    payload: {
+      model: config.model.trim() || 'seed-tts-2.0',
+      voice: config.voice.trim() || 'zh_female_vv_uranus_bigtts',
+      response_format: 'mp3',
+    },
+  };
+
+  console.info('[GalWriter TTS] Hosted proxy request', {
+    proxyUrl,
+    model: payload.payload.model,
+    voice: payload.payload.voice,
+    textLength: input.length,
+  });
+
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      type: 'voice',
-      text: input,
-      payload: {
-        model: config.model.trim() || 'gpt-4o-mini-tts',
-        voice: config.voice.trim() || 'alloy',
-        response_format: 'mp3',
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = data?.error || `Hosted TTS request failed with HTTP ${response.status}`;
+    console.error('[GalWriter TTS] Hosted proxy failed', {
+      status: response.status,
+      proxyUrl,
+      model: payload.payload.model,
+      voice: payload.payload.voice,
+      response: data,
+    });
     throw new Error(String(message));
+  }
+  if (data?.debug) {
+    console.info('[GalWriter TTS] Hosted proxy response debug', data.debug);
   }
 
   const audio =
@@ -382,7 +402,7 @@ const appendVolcengineResponseAudio = (text: string, audioChunks: Uint8Array[]) 
 const generateVolcengineSpeechAudio = async (input: string, config: TTSConfig) => {
   const apiKey = config.apiKey.trim();
   const resourceId = config.model.trim() || 'seed-tts-2.0';
-  const speaker = config.voice.trim() || 'zh_female_cancan_mars_bigtts';
+  const speaker = config.voice.trim() || 'zh_female_vv_uranus_bigtts';
   const normalizedEndpoint = normalizeVolcengineTtsEndpoint(config.apiUrl);
   const endpoint = getVolcengineTtsRequestEndpoint(config.apiUrl);
 
@@ -412,6 +432,20 @@ const generateVolcengineSpeechAudio = async (input: string, config: TTSConfig) =
   const audioChunks: Uint8Array[] = [];
   const invoke = await getTauriInvoke();
 
+  console.info('[GalWriter TTS] Volcengine request', {
+    endpoint,
+    normalizedEndpoint,
+    resourceId,
+    speaker,
+    textLength: input.length,
+    viaTauri: Boolean(
+      invoke &&
+        /^https:\/\/openspeech\.bytedance\.com\/api\/v3\/tts\/unidirectional\/?$/i.test(
+          normalizedEndpoint,
+        ),
+    ),
+  });
+
   if (
     invoke &&
     /^https:\/\/openspeech\.bytedance\.com\/api\/v3\/tts\/unidirectional\/?$/i.test(normalizedEndpoint)
@@ -438,6 +472,13 @@ const generateVolcengineSpeechAudio = async (input: string, config: TTSConfig) =
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[GalWriter TTS] Volcengine request failed', {
+        status: response.status,
+        endpoint,
+        resourceId,
+        speaker,
+        response: errorText,
+      });
       throw new Error(errorText || `Volcengine TTS request failed with HTTP ${response.status}`);
     }
 
