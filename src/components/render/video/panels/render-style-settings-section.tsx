@@ -308,6 +308,21 @@ export function RenderStyleSettingsSection({
     left: 'calc((100% - 1rem) / 3 + 0.5rem)',
   });
 
+  const renderCollapsibleRows = (open: boolean, children: React.ReactNode) => (
+    <div
+      aria-hidden={!open}
+      className={`grid transition-[grid-template-rows,opacity,transform] duration-200 ease-out ${
+        open
+          ? 'grid-rows-[1fr] translate-y-0 opacity-100'
+          : 'pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0'
+      }`}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className="space-y-2">{children}</div>
+      </div>
+    </div>
+  );
+
   const iconShell = (
     Icon: ComponentType<{ className?: string }>,
     children: React.ReactNode,
@@ -499,7 +514,7 @@ export function RenderStyleSettingsSection({
           {isTitle && !visible && (
             <>
               <div
-                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                className="render-settings-overlay-in pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
                 style={fadedStripStyle('79, 70, 229')}
                 aria-hidden="true"
               />
@@ -511,7 +526,8 @@ export function RenderStyleSettingsSection({
             </>
           )}
         </div>
-        {showDetailRows && (
+        {renderCollapsibleRows(
+          showDetailRows,
           <>
           <div className="grid grid-cols-3 gap-2">
           {iconSelect(
@@ -636,7 +652,7 @@ export function RenderStyleSettingsSection({
             t('行距', '行間', 'Line height'),
           )}
           </div>
-          </>
+          </>,
         )}
       </div>
     );
@@ -861,7 +877,7 @@ export function RenderStyleSettingsSection({
           {!renderStyle.dialogVisible && (
             <>
               <div
-                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                className="render-settings-overlay-in pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
                 style={fadedStripStyle('139, 92, 246')}
                 aria-hidden="true"
               />
@@ -873,7 +889,8 @@ export function RenderStyleSettingsSection({
             </>
           )}
         </div>
-        {renderStyle.dialogVisible && (
+        {renderCollapsibleRows(
+          renderStyle.dialogVisible,
           <>
         <div className="grid grid-cols-3 gap-2">
           {iconShell(
@@ -1325,7 +1342,7 @@ export function RenderStyleSettingsSection({
             </div>
           </div>
         )}
-          </>
+          </>,
         )}
       </div>
 
@@ -1398,7 +1415,7 @@ export function RenderStyleSettingsSection({
           {!renderStyle.nameplateVisible && (
             <>
               <div
-                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                className="render-settings-overlay-in pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
                 style={fadedStripStyle('217, 70, 239')}
                 aria-hidden="true"
               />
@@ -1410,7 +1427,8 @@ export function RenderStyleSettingsSection({
             </>
           )}
         </div>
-        {renderStyle.nameplateVisible && (
+        {renderCollapsibleRows(
+          renderStyle.nameplateVisible,
           <>
         <div className="grid grid-cols-3 gap-2">
           {iconColor(
@@ -1527,7 +1545,7 @@ export function RenderStyleSettingsSection({
             )}
           {!renderStyle.nameplateInside && renderNameplateStyleMenu()}
         </div>
-          </>
+          </>,
         )}
       </div>
     </div>
