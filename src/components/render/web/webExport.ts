@@ -309,6 +309,26 @@ const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
     { id: 'end', color: '#111827', alpha: 86, position: 100 },
   ],
   dialogImageUrl: '',
+  nameplateVisible: true,
+  nameplateInside: false,
+  nameplateFollowCharacter: true,
+  nameplateFontSize: 18,
+  nameplateFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
+  nameplateScale: 100,
+  nameplateRadius: 14,
+  nameplateTextColor: '#ffffff',
+  nameplateTextColorAlpha: 100,
+  nameplateOffsetX: 0,
+  nameplateOffsetY: 0,
+  nameplateBackgroundType: 'solid',
+  nameplateColor: '#4f46e5',
+  nameplateColorAlpha: 86,
+  nameplateGradientAngle: 90,
+  nameplateGradientStops: [
+    { id: 'start', color: '#6366f1', alpha: 92, position: 0 },
+    { id: 'end', color: '#ec4899', alpha: 82, position: 100 },
+  ],
+  nameplateImageUrl: '',
   titleAnimation: 'none',
   bodyAnimation: 'typewriter',
 };
@@ -619,6 +639,32 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       object-position: bottom;
       transform-origin: center center;
     }
+    .nameplate-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      overflow: visible;
+    }
+    .nameplate {
+      position: absolute;
+      top: var(--nameplate-top, 0);
+      max-width: min(44%, 220px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: var(--nameplate-padding-y, 8px) var(--nameplate-padding-x, 18px);
+      border-radius: var(--nameplate-radius, 14px);
+      background: var(--nameplate-background, rgba(79, 70, 229, 0.86));
+      color: var(--nameplate-color, #fff);
+      font-family: var(--nameplate-font-family, var(--title-font-family, sans-serif));
+      font-size: var(--nameplate-font-size, 18px);
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.24);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.32);
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%));
+    }
     .dialogue {
       position: relative;
       z-index: 3;
@@ -923,6 +969,22 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       }
       return withAlpha(style.panelColor || "#111827", (Number(style.panelColorAlpha ?? 82) || 82) / 100);
     }
+    function nameplateBackground() {
+      if (style.nameplateBackgroundType === "image" && style.nameplateImageUrl) {
+        return 'url("' + String(style.nameplateImageUrl).replace(/"/g, '\\\\"') + '") center / cover';
+      }
+      if (style.nameplateBackgroundType === "gradient") {
+        const stops = Array.isArray(style.nameplateGradientStops) && style.nameplateGradientStops.length >= 2
+          ? style.nameplateGradientStops.slice().sort((a, b) => Number(a.position) - Number(b.position))
+          : [
+              { color: "#6366f1", alpha: 92, position: 0 },
+              { color: "#ec4899", alpha: 82, position: 100 },
+            ];
+        const cssStops = stops.map((stop) => withAlpha(stop.color, Number(stop.alpha) / 100) + " " + clamp(stop.position, 0, 100, 0) + "%").join(", ");
+        return "linear-gradient(" + clamp(style.nameplateGradientAngle, 0, 360, 90) + "deg, " + cssStops + ")";
+      }
+      return withAlpha(style.nameplateColor || "#4f46e5", (Number(style.nameplateColorAlpha ?? 86) || 86) / 100);
+    }
     document.documentElement.style.setProperty("--title-size", Math.max(12, Number(style.titleFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--title-color", styleColor(style.titleColor, style.titleColorAlpha ?? 100, "#f8fafc"));
@@ -947,6 +1009,18 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--dialog-left", percent(50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5, 50));
     document.documentElement.style.setProperty("--dialog-bottom", "calc(4% - " + (clamp(style.dialogOffsetY, -100, 100, 0) * 0.28) + "%)");
     document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : dialogueBackground());
+    const nameplateFontSize = Math.max(10, Number(style.nameplateFontSize) || 18);
+    const nameplateScale = clamp(style.nameplateScale, 55, 180, 100) / 100;
+    document.documentElement.style.setProperty("--nameplate-font-size", nameplateFontSize + "px");
+    document.documentElement.style.setProperty("--nameplate-font-family", style.nameplateFontFamily || style.titleFontFamily || "inherit");
+    document.documentElement.style.setProperty("--nameplate-padding-x", Math.round(nameplateFontSize * 1.15 * nameplateScale) + "px");
+    document.documentElement.style.setProperty("--nameplate-padding-y", Math.round(nameplateFontSize * 0.42 * nameplateScale) + "px");
+    document.documentElement.style.setProperty("--nameplate-radius", px(style.nameplateRadius, 14));
+    document.documentElement.style.setProperty("--nameplate-color", styleColor(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100, "#ffffff"));
+    document.documentElement.style.setProperty("--nameplate-background", nameplateBackground());
+    document.documentElement.style.setProperty("--nameplate-offset-x", px(style.nameplateOffsetX, 0));
+    document.documentElement.style.setProperty("--nameplate-top", style.nameplateInside ? "8px" : "0");
+    document.documentElement.style.setProperty("--nameplate-translate-y", style.nameplateInside ? px(style.nameplateOffsetY, 0) : "calc(-100% - 8px + " + px(style.nameplateOffsetY, 0) + ")");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
@@ -1726,7 +1800,26 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           : labels.noStory;
 
       let charactersHtml = "";
+      let nameplatesHtml = "";
       if (data.presentation && Array.isArray(data.presentation.characters)) {
+        const dialogWidth = clamp(style.dialogWidth, 35, 100, 86);
+        const dialogLeft = 50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5 - dialogWidth / 2;
+        const visibleNameplates = style.nameplateVisible !== false
+          ? data.presentation.characters.filter((char) => char && char.name)
+          : [];
+        if (visibleNameplates.length) {
+          const total = visibleNameplates.length;
+          nameplatesHtml = '<div class="nameplate-layer">' +
+            visibleNameplates.map((char, idx) => {
+              const basePosition = char.position === "left" ? 24 : char.position === "right" ? 76 : 50;
+              const characterCenter = basePosition + (Number(char.offsetX) || 0) / 10;
+              const localLeft = style.nameplateFollowCharacter === false
+                ? 50 + (idx - (total - 1) / 2) * 18
+                : Math.max(4, Math.min(96, ((characterCenter - dialogLeft) / dialogWidth) * 100));
+              return '<div class="nameplate" style="left: ' + localLeft + '%">' + escapeHtml(char.name || "") + '</div>';
+            }).join("") +
+            '</div>';
+        }
         charactersHtml = '<div class="characters-layer">' +
           data.presentation.characters.map((char) => {
             const charEnter = char.enter;
@@ -1764,6 +1857,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           '</div>' +
         '</div>' +
         '<div class="dialogue">' +
+          nameplatesHtml +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           (hideCenteredTitle ? "" : '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>') +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
@@ -1958,6 +2052,12 @@ export async function buildInteractiveWebZipBlob(
     zip,
     style.dialogImageUrl,
     `${title}-dialog-background`,
+    assetMap,
+  );
+  style.nameplateImageUrl = await addImageAsset(
+    zip,
+    style.nameplateImageUrl,
+    `${title}-nameplate-background`,
     assetMap,
   );
   const settings: WebExportSettings = {

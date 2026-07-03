@@ -25,5 +25,9 @@ export const getVideoTextRenderStyle = (
     bodyStrokeWidth: style.bodyStrokeWidth * scale,
     titleLetterSpacing: style.titleLetterSpacing * scale,
     bodyLetterSpacing: style.bodyLetterSpacing * scale,
+    nameplateFontSize: Math.round(style.nameplateFontSize * scale),
+    nameplateOffsetX: style.nameplateOffsetX * scale,
+    nameplateOffsetY: style.nameplateOffsetY * scale,
+    nameplateRadius: style.nameplateRadius * scale,
   };
 };

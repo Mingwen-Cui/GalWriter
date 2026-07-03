@@ -45,6 +45,11 @@ import {
 } from '../../../lib/inlineAssetSwitch';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import {
+  getNameplateCharacterCenterX,
+  getNameplateCssBackground,
+  getNameplateItems,
+} from '../video/shared/nameplateRenderer';
 import { renderCopy } from '../video/shared/renderCopy';
 import {
   filterMentionTags,
@@ -425,6 +430,82 @@ export function WebPlaytestPreview({
     !shouldHideCenteredSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
   const hideCenteredTitle = false;
+  const nameplateItems = useMemo(
+    () => (currentNode ? getNameplateItems(currentNode, nodes) : []),
+    [currentNode, nodes],
+  );
+
+  const renderNameplates = () => {
+    if (!renderStyle.nameplateVisible || !nameplateItems.length) return null;
+    const fontSize = Math.max(10, renderStyle.nameplateFontSize ?? 18);
+    const scale = Math.max(0.5, Math.min(2, (renderStyle.nameplateScale ?? 100) / 100));
+    const paddingX = Math.round(fontSize * 1.15 * scale);
+    const paddingY = Math.round(fontSize * 0.42 * scale);
+    const top = renderStyle.nameplateInside ? 8 : 0;
+    const translateY = renderStyle.nameplateInside
+      ? `${renderStyle.nameplateOffsetY ?? 0}px`
+      : `calc(-100% - 8px + ${renderStyle.nameplateOffsetY ?? 0}px)`;
+    const baseStyle: React.CSSProperties = {
+      ...getNameplateCssBackground(renderStyle),
+      color: withAlpha(
+        colorInputValue(renderStyle.nameplateTextColor),
+        (renderStyle.nameplateTextColorAlpha ?? 100) / 100,
+      ),
+      fontFamily: renderStyle.nameplateFontFamily || renderStyle.titleFontFamily,
+      fontSize,
+      lineHeight: 1,
+      padding: `${paddingY}px ${paddingX}px`,
+      borderRadius: Math.max(0, renderStyle.nameplateRadius ?? 14),
+      boxShadow: '0 10px 24px rgba(0, 0, 0, 0.24)',
+      textShadow: '0 1px 8px rgba(0, 0, 0, 0.32)',
+      whiteSpace: 'nowrap',
+      maxWidth: 'min(44%, 220px)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    };
+
+    if (!renderStyle.nameplateFollowCharacter) {
+      return (
+        <div
+          className="pointer-events-none absolute left-1/2 z-10 flex max-w-full gap-2"
+          style={{
+            top,
+            transform: `translate(calc(-50% + ${renderStyle.nameplateOffsetX ?? 0}px), ${translateY})`,
+          }}
+        >
+          {nameplateItems.map((item) => (
+            <div key={item.sourceNodeId} className="font-black" style={baseStyle}>
+              {item.name}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    const dialogueLeft = 50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5 - dialogWidth / 2;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+        {nameplateItems.map((item) => {
+          const characterPercent = getNameplateCharacterCenterX(item.config, 100);
+          const localLeft = Math.max(4, Math.min(96, ((characterPercent - dialogueLeft) / dialogWidth) * 100));
+          return (
+            <div
+              key={item.sourceNodeId}
+              className="absolute top-0 font-black"
+              style={{
+                ...baseStyle,
+                left: `${localLeft}%`,
+                top,
+                transform: `translate(calc(-50% + ${renderStyle.nameplateOffsetX ?? 0}px), ${translateY})`,
+              }}
+            >
+              {item.name}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const recordCurrentAudio = () => {
     if (!currentNode || !audioUrl) return;
@@ -1120,27 +1201,8 @@ export function WebPlaytestPreview({
                   alt=""
                   draggable={false}
                   onDragStart={(event) => event.preventDefault()}
-                  className={
-                    settings.layoutMode === 'classic'
-                      ? 'preview-media-safe block h-auto max-h-full w-auto max-w-full object-contain transform-none animate-none transition-none'
-                      : 'preview-media-safe h-full w-full'
-                  }
-                  style={
-                    settings.layoutMode === 'classic'
-                      ? {
-                          objectFit: 'contain',
-                          objectPosition: '50% 50%',
-                          width: 'auto',
-                          height: 'auto',
-                          maxWidth: '100%',
-                          maxHeight: '100%',
-                          opacity: 1,
-                          transform: 'none',
-                          transition: 'none',
-                          animation: 'none',
-                        }
-                      : sceneStyle
-                  }
+                  className="preview-media-safe h-full w-full"
+                  style={sceneStyle}
                 />
               ) : currentVideoUrl ? (
                 <video
@@ -1259,6 +1321,7 @@ export function WebPlaytestPreview({
             }`}
             style={dialogueShellStyle}
           >
+            {renderNameplates()}
             {settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
             {renderStyle.titleVisible && !hideCenteredTitle && (
               <h2

@@ -200,10 +200,21 @@ export function RenderStyleSettingsSection({
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
   const [showSolidColorMenu, setShowSolidColorMenu] = useState(false);
   const solidColorEditorRef = useRef<HTMLDivElement | null>(null);
+  const [showNameplateStyleMenu, setShowNameplateStyleMenu] = useState(false);
+  const nameplateStyleEditorRef = useRef<HTMLDivElement | null>(null);
 
   const activeGradientStop = activeGradientStopId
     ? gradientStops.find((stop) => stop.id === activeGradientStopId)
     : null;
+  const nameplateGradientStops =
+    renderStyle.nameplateGradientStops?.length >= 2
+      ? [...renderStyle.nameplateGradientStops].sort((a, b) => a.position - b.position)
+      : [
+          { id: 'start', color: '#6366f1', alpha: 92, position: 0 },
+          { id: 'end', color: '#ec4899', alpha: 82, position: 100 },
+        ];
+  const nameplateGradientStart = nameplateGradientStops[0];
+  const nameplateGradientEnd = nameplateGradientStops[nameplateGradientStops.length - 1];
 
   useEffect(() => {
     if (!activeGradientStopId) return;
@@ -226,6 +237,17 @@ export function RenderStyleSettingsSection({
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [showSolidColorMenu]);
+
+  useEffect(() => {
+    if (!showNameplateStyleMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!nameplateStyleEditorRef.current?.contains(event.target as Node)) {
+        setShowNameplateStyleMenu(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showNameplateStyleMenu]);
 
   const updateGradientStops = (
     updater: (
@@ -590,6 +612,169 @@ export function RenderStyleSettingsSection({
       </div>
     );
   };
+
+  const updateNameplateGradientEdge = (
+    edge: 'start' | 'end',
+    updates: Partial<{ color: string; alpha: number }>,
+  ) => {
+    const targetIndex = edge === 'start' ? 0 : nameplateGradientStops.length - 1;
+    updateRenderStyle(
+      'nameplateGradientStops',
+      nameplateGradientStops.map((stop, index) =>
+        index === targetIndex ? { ...stop, ...updates } : stop,
+      ),
+    );
+  };
+
+  const renderNameplateStyleMenu = () => (
+    <div
+      ref={nameplateStyleEditorRef}
+      className="relative"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {iconShell(
+        Palette,
+        <button
+          type="button"
+          onClick={() => setShowNameplateStyleMenu(!showNameplateStyleMenu)}
+          className="flex h-9 w-full items-stretch rounded-r-lg bg-transparent p-1"
+          title={t('名牌底色设置', 'ネームプレート背景設定', 'Nameplate background settings')}
+        >
+          <div
+            className="flex-1 rounded-md border border-white/10"
+            style={{
+              background:
+                renderStyle.nameplateBackgroundType === 'gradient'
+                  ? `linear-gradient(${renderStyle.nameplateGradientAngle}deg, ${nameplateGradientStops
+                      .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
+                      .join(', ')})`
+                  : renderStyle.nameplateBackgroundType === 'image' && renderStyle.nameplateImageUrl
+                    ? `center / cover url("${renderStyle.nameplateImageUrl.replace(/"/g, '\\"')}")`
+                    : withAlpha(
+                        renderStyle.nameplateColor,
+                        (renderStyle.nameplateColorAlpha ?? 86) / 100,
+                      ),
+            }}
+          />
+        </button>,
+        false,
+        t('底色设置', '背景設定', 'Background settings'),
+      )}
+      {showNameplateStyleMenu && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-[230px] rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 shadow-2xl shadow-black/30">
+          {renderStyle.nameplateBackgroundType === 'solid' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-[36px_1fr] items-center gap-2">
+                <input
+                  type="color"
+                  value={colorInputValue(renderStyle.nameplateColor)}
+                  onChange={(event) => updateRenderStyle('nameplateColor', event.target.value)}
+                  className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                />
+                <input
+                  type="text"
+                  value={renderStyle.nameplateColor}
+                  onChange={(event) => updateRenderStyle('nameplateColor', event.target.value)}
+                  className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
+                />
+              </div>
+              <DragSizeControl
+                label={t('拖动调整名牌底色透明度', '透明度を調整', 'Adjust nameplate opacity')}
+                value={renderStyle.nameplateColorAlpha ?? 86}
+                min={0}
+                max={100}
+                step={1}
+                unit="%"
+                onChange={(value) => updateRenderStyle('nameplateColorAlpha', value)}
+              />
+            </div>
+          )}
+          {renderStyle.nameplateBackgroundType === 'gradient' && (
+            <div className="space-y-3">
+              <DragSizeControl
+                label={t('拖动调整名牌渐变角度', '角度を調整', 'Adjust nameplate gradient angle')}
+                value={renderStyle.nameplateGradientAngle}
+                min={0}
+                max={360}
+                step={1}
+                unit="°"
+                onChange={(value) => updateRenderStyle('nameplateGradientAngle', value)}
+              />
+              {(['start', 'end'] as const).map((edge) => {
+                const stop = edge === 'start' ? nameplateGradientStart : nameplateGradientEnd;
+                return (
+                  <div key={edge} className="grid grid-cols-[32px_1fr_54px] items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorInputValue(stop.color)}
+                      onChange={(event) =>
+                        updateNameplateGradientEdge(edge, { color: event.target.value })
+                      }
+                      className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={stop.color}
+                      onChange={(event) =>
+                        updateNameplateGradientEdge(edge, { color: event.target.value })
+                      }
+                      className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={stop.alpha}
+                      onChange={(event) =>
+                        updateNameplateGradientEdge(edge, {
+                          alpha: Math.min(100, Math.max(0, Number(event.target.value) || 0)),
+                        })
+                      }
+                      className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 text-center text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {renderStyle.nameplateBackgroundType === 'image' && (
+            <div className="space-y-2">
+              <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] hover:bg-white/5">
+                <ImagePlus className="h-3.5 w-3.5" />
+                {renderStyle.nameplateImageUrl
+                  ? t('替换图片', '画像を変更', 'Replace image')
+                  : t('导入图片', '画像を選択', 'Import image')}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => updateRenderStyle('nameplateImageUrl', String(reader.result || ''));
+                    reader.readAsDataURL(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+              {renderStyle.nameplateImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => updateRenderStyle('nameplateImageUrl', '')}
+                  className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-rose-500/10 px-2 text-xs text-rose-400 hover:bg-rose-500/15"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('删除图片', '画像を削除', 'Remove image')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-2">
@@ -1095,6 +1280,177 @@ export function RenderStyleSettingsSection({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="space-y-2 rounded-xl bg-fuchsia-500/5 p-2">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            {showDescriptions && (
+              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                {t('显示人物名牌', 'ネームプレート表示', 'Show nameplates')}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => updateRenderStyle('nameplateVisible', !renderStyle.nameplateVisible)}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
+                renderStyle.nameplateVisible
+                  ? 'bg-fuchsia-500/15 text-fuchsia-500'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+              }`}
+              title={t('点击显示或隐藏人物名牌', '表示/非表示を切替', 'Show or hide nameplates')}
+            >
+              {renderStyle.nameplateVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {t('名牌', '名札', 'Nameplate')}
+            </button>
+          </div>
+          {iconShell(
+            RectangleVertical,
+            <button
+              type="button"
+              onClick={() => updateRenderStyle('nameplateInside', !renderStyle.nameplateInside)}
+              className={`flex h-9 w-full min-w-0 items-center justify-end rounded-r-lg px-2 text-right text-xs font-normal transition-colors ${
+                renderStyle.nameplateInside
+                  ? 'bg-fuchsia-500/15 text-fuchsia-500 hover:bg-fuchsia-500/20'
+                  : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
+              }`}
+              title={t('切换人物名牌在文字框背景内部或外部', '内側/外側を切替', 'Place nameplates inside or outside the dialogue box')}
+            >
+              <span className="min-w-0 truncate">
+                {renderStyle.nameplateInside
+                  ? t('内部', '内側', 'Inside')
+                  : t('外部', '外側', 'Outside')}
+              </span>
+            </button>,
+            false,
+            t('名牌内外', '内外', 'Inside/outside'),
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {iconShell(
+            MoveHorizontal,
+            <button
+              type="button"
+              onClick={() =>
+                updateRenderStyle('nameplateFollowCharacter', !renderStyle.nameplateFollowCharacter)
+              }
+              className={`flex h-9 w-full min-w-0 items-center justify-end rounded-r-lg px-2 text-right text-xs font-normal transition-colors ${
+                renderStyle.nameplateFollowCharacter
+                  ? 'bg-fuchsia-500/15 text-fuchsia-500 hover:bg-fuchsia-500/20'
+                  : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
+              }`}
+              title={t('切换人物名牌是否跟随人物中心移动', '人物追従を切替', 'Follow character center')}
+            >
+              <span className="min-w-0 truncate">
+                {renderStyle.nameplateFollowCharacter
+                  ? t('跟随', '追従', 'Follow')
+                  : t('固定', '固定', 'Fixed')}
+              </span>
+            </button>,
+            false,
+            t('跟随人物', '人物追従', 'Follow character'),
+          )}
+          {iconNumber(
+            RectangleHorizontal,
+            <DragSizeControl
+              label={t('拖动调整名牌内部大小', '内側サイズを調整', 'Adjust nameplate inner size')}
+              value={renderStyle.nameplateScale ?? 100}
+              min={55}
+              max={180}
+              step={1}
+              unit="%"
+              onChange={(value) => updateRenderStyle('nameplateScale', value)}
+            />,
+            t('内部大小', '内側サイズ', 'Inner size'),
+          )}
+          {iconNumber(
+            Type,
+            <DragSizeControl
+              label={t('拖动调整名牌字号', '文字サイズを調整', 'Adjust nameplate font size')}
+              value={renderStyle.nameplateFontSize ?? 18}
+              min={10}
+              max={48}
+              step={1}
+              onChange={(value) => updateRenderStyle('nameplateFontSize', value)}
+            />,
+            t('字号', '文字サイズ', 'Font size'),
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {iconSelect(
+            ALargeSmall,
+            'nameplate-font-family',
+            renderStyle.nameplateFontFamily || renderStyle.titleFontFamily,
+            (value) => updateRenderStyle('nameplateFontFamily', value),
+            CLEAN_FONT_OPTIONS,
+            t('名牌字族', 'フォント', 'Name font'),
+            t('名字字族', '名前フォント', 'Name font family'),
+          )}
+          {iconColor(
+            CaseSensitive,
+            colorInputValue(renderStyle.nameplateTextColor, '#ffffff'),
+            (value) => updateRenderStyle('nameplateTextColor', value),
+            t('名牌文字颜色', '文字色', 'Name text color'),
+            t('文字颜色', '文字色', 'Text color'),
+          )}
+          {iconNumber(
+            Radius,
+            <DragSizeControl
+              label={t('拖动调整名牌圆角', '角丸を調整', 'Adjust nameplate radius')}
+              value={renderStyle.nameplateRadius ?? 14}
+              min={0}
+              max={64}
+              step={1}
+              onChange={(value) => updateRenderStyle('nameplateRadius', value)}
+            />,
+            t('名牌圆角', '角丸', 'Nameplate radius'),
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {iconNumber(
+            MoveHorizontal,
+            <DragSizeControl
+              label={t('拖动调整名牌左右偏移', '左右位置を調整', 'Adjust nameplate horizontal offset')}
+              value={renderStyle.nameplateOffsetX ?? 0}
+              min={-240}
+              max={240}
+              step={1}
+              onChange={(value) => updateRenderStyle('nameplateOffsetX', value)}
+            />,
+            t('左右偏移', '左右位置', 'Horizontal offset'),
+          )}
+          {iconNumber(
+            MoveVertical,
+            <DragSizeControl
+              label={t('拖动调整名牌上下偏移', '上下位置を調整', 'Adjust nameplate vertical offset')}
+              value={renderStyle.nameplateOffsetY ?? 0}
+              min={-160}
+              max={160}
+              step={1}
+              onChange={(value) => updateRenderStyle('nameplateOffsetY', value)}
+            />,
+            t('上下偏移', '上下位置', 'Vertical offset'),
+          )}
+          {!renderStyle.nameplateInside &&
+            iconSelect(
+              Palette,
+              'nameplate-background-type',
+              renderStyle.nameplateBackgroundType,
+              (value) =>
+                updateRenderStyle(
+                  'nameplateBackgroundType',
+                  value as RenderStyle['nameplateBackgroundType'],
+                ),
+              [
+                { value: 'solid', label: t('纯色', '単色', 'Solid') },
+                { value: 'gradient', label: t('渐变', 'グラデーション', 'Gradient') },
+                { value: 'image', label: t('图片', '画像', 'Image') },
+              ],
+              t('名牌底色类型', '背景タイプ', 'Nameplate background'),
+              t('底色类型', '背景タイプ', 'Background type'),
+            )}
+          {!renderStyle.nameplateInside && renderNameplateStyleMenu()}
+        </div>
       </div>
     </div>
   );

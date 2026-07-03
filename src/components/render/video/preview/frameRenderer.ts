@@ -4,6 +4,7 @@ import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
+import { drawNameplates, getNameplateItems } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -179,6 +180,13 @@ export const drawRenderFrame = async ({
     height,
     videoRenderStyle,
     isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
+  );
+  await drawNameplates(
+    ctx,
+    width,
+    dialogLayout,
+    videoRenderStyle,
+    getNameplateItems(node, nodes),
   );
   const textLeft = dialogLayout.x + paddingX;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;

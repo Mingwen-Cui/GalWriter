@@ -8,6 +8,7 @@ import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
+import { drawNameplates, getNameplateItems } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -96,6 +97,8 @@ function getTextCacheKey(nodeId: string, title: string, body: string, style: Ren
 async function createTextLayerCanvas(
   width: number,
   height: number,
+  node: import('@xyflow/react').Node,
+  nodes: import('@xyflow/react').Node[],
   title: string,
   fullBody: string,
   body: string,
@@ -180,6 +183,7 @@ async function createTextLayerCanvas(
     style,
     isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
   );
+  await drawNameplates(ctx, width, dialogLayout, style, getNameplateItems(node, nodes));
   textLeft = dialogLayout.x + paddingX;
   textRight = dialogLayout.x + dialogLayout.width - paddingX;
   y =
@@ -331,6 +335,8 @@ export async function drawGPUFrame({
     textCanvas = await createTextLayerCanvas(
       width,
       height,
+      node,
+      nodes,
       title,
       fullBody,
       body,
