@@ -2072,6 +2072,10 @@ export function VideoRenderModal({
               handleTimelineScaleHandleStart={handleTimelineScaleHandleStart}
               handleTimelineScaleHandleMove={handleTimelineScaleHandleMove}
               handleTimelineScaleHandleEnd={handleTimelineScaleHandleEnd}
+              pushTimelineHistory={pushTimelineHistory}
+              snapTimelineTime={snapTimelineTime}
+              setTimelineStartById={setTimelineStartById}
+              setTimelineDurationById={setTimelineDurationById}
             />
           </>
         ) : (

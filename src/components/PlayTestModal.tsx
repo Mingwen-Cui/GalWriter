@@ -58,7 +58,11 @@ import {
   resolveSceneMedia,
 } from '../lib/inlineAssetSwitch';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
-import { VirtualPresentationStage } from './VirtualPresentationStage';
+import {
+  PRESENTATION_STAGE_HEIGHT,
+  PRESENTATION_STAGE_WIDTH,
+  VirtualPresentationStage,
+} from './VirtualPresentationStage';
 
 type PlayedAudio = {
   nodeId: string;
@@ -1536,6 +1540,17 @@ export function PlayTestModal({
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
+  const presentationStageAspect = PRESENTATION_STAGE_WIDTH / PRESENTATION_STAGE_HEIGHT;
+  const classicMediaContainerStyle: React.CSSProperties | undefined = mobileClassicLayout
+    ? undefined
+    : { containerType: 'size' };
+  const classicMediaFrameStyle: React.CSSProperties | undefined = mobileClassicLayout
+    ? undefined
+    : {
+        aspectRatio: `${PRESENTATION_STAGE_WIDTH} / ${PRESENTATION_STAGE_HEIGHT}`,
+        height: `min(100%, calc(100cqw / ${presentationStageAspect}))`,
+        width: `min(100%, calc(100cqh * ${presentationStageAspect}))`,
+      };
 
   const renderPresentedCharacters = (constrainToClassicStage = false) => (
     <div
@@ -1980,19 +1995,21 @@ export function PlayTestModal({
         />
       </div>
 
-      <button
-        onClick={toggleFullscreen}
-        className={`${playtestRoundIconButtonClass} transition-colors ${
-          layoutMode === 'immersive'
-            ? 'bg-white/10 hover:bg-white/20 text-white'
-            : isDarkMode
+      {!isMobile && (
+        <button
+          onClick={toggleFullscreen}
+          className={`${playtestRoundIconButtonClass} transition-colors ${
+            layoutMode === 'immersive'
               ? 'bg-white/10 hover:bg-white/20 text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-        }`}
-        title={isFullscreen ? t.exitFullscreen : t.enterFullscreen}
-      >
-        {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-      </button>
+              : isDarkMode
+                ? 'bg-white/10 hover:bg-white/20 text-white'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+          }`}
+          title={isFullscreen ? t.exitFullscreen : t.enterFullscreen}
+        >
+          {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+        </button>
+      )}
 
       <div className="relative">
         <button
@@ -2342,6 +2359,7 @@ export function PlayTestModal({
                       ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
                       : 'flex-1 min-h-0 p-2 md:p-4'
                   } flex items-center justify-center relative group overflow-hidden ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
+                  style={classicMediaContainerStyle}
                 >
                   {/* Ambient Background Layer */}
                   <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">
@@ -2361,53 +2379,60 @@ export function PlayTestModal({
                   </div>
 
                   {/* Shared 1920x1080 presentation stage */}
-                  <VirtualPresentationStage
-                    fit={mobileClassicLayout ? 'width' : 'cover'}
-                    className="relative z-10 h-full w-full animate-in zoom-in-95 duration-500"
+                  <div
+                    className={`relative z-10 ${
+                      mobileClassicLayout ? 'h-full w-full' : 'max-h-full max-w-full'
+                    } animate-in zoom-in-95 duration-500`}
+                    style={classicMediaFrameStyle}
                   >
-                    <div className="absolute inset-0 overflow-hidden">
-                      {sceneImageUrl && (
-                        <img
-                          src={sceneImageUrl}
-                          alt="Scene"
-                          draggable={false}
-                          onDragStart={(event) => event.preventDefault()}
-                          className="preview-media-safe h-full w-full"
-                          style={{
-                            ...sceneStyle,
-                          }}
-                        />
-                      )}
-                      {sceneVideoUrl && (
-                        <video
-                          key={currentNodeId}
-                          ref={videoRef}
-                          src={sceneVideoUrl}
-                          controls
-                          playsInline
-                          draggable={false}
-                          onDragStart={(e) => e.preventDefault()}
-                          autoPlay={videoAutoPlay || waitsForBranchVideo}
-                          onLoadedMetadata={(event) => {
-                            event.currentTarget.currentTime = Math.min(
-                              sceneVideoStartTime,
-                              Math.max(0, event.currentTarget.duration || 0),
-                            );
-                          }}
-                          onPlay={startVideoLimitTimer}
-                          onPause={stopVideoLimitTimer}
-                          onTimeUpdate={handleSceneVideoTimeUpdate}
-                          onEnded={() => {
-                            stopVideoLimitTimer();
-                            setCurrentVideoEnded(true);
-                          }}
-                          className="h-full w-full"
-                          style={sceneStyle}
-                        />
-                      )}
-                      {renderPresentedCharacters()}
-                    </div>
-                  </VirtualPresentationStage>
+                    <VirtualPresentationStage
+                      fit={mobileClassicLayout ? 'width' : 'cover'}
+                      className="h-full w-full"
+                    >
+                      <div className="absolute inset-0 overflow-hidden">
+                        {sceneImageUrl && (
+                          <img
+                            src={sceneImageUrl}
+                            alt="Scene"
+                            draggable={false}
+                            onDragStart={(event) => event.preventDefault()}
+                            className="preview-media-safe h-full w-full"
+                            style={{
+                              ...sceneStyle,
+                            }}
+                          />
+                        )}
+                        {sceneVideoUrl && (
+                          <video
+                            key={currentNodeId}
+                            ref={videoRef}
+                            src={sceneVideoUrl}
+                            controls
+                            playsInline
+                            draggable={false}
+                            onDragStart={(e) => e.preventDefault()}
+                            autoPlay={videoAutoPlay || waitsForBranchVideo}
+                            onLoadedMetadata={(event) => {
+                              event.currentTarget.currentTime = Math.min(
+                                sceneVideoStartTime,
+                                Math.max(0, event.currentTarget.duration || 0),
+                              );
+                            }}
+                            onPlay={startVideoLimitTimer}
+                            onPause={stopVideoLimitTimer}
+                            onTimeUpdate={handleSceneVideoTimeUpdate}
+                            onEnded={() => {
+                              stopVideoLimitTimer();
+                              setCurrentVideoEnded(true);
+                            }}
+                            className="h-full w-full"
+                            style={sceneStyle}
+                          />
+                        )}
+                        {renderPresentedCharacters()}
+                      </div>
+                    </VirtualPresentationStage>
+                  </div>
 
                   {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
                   {choicesPosition === 'center' &&

@@ -110,6 +110,11 @@ type VideoTimelinePanelProps = {
   ) => void;
   handleTimelineScaleHandleMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
   handleTimelineScaleHandleEnd: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  // NOTE: 无音频卡片的时长拖拽 resize 所需的回调
+  pushTimelineHistory: () => void;
+  snapTimelineTime: (time: number) => number;
+  setTimelineStartById: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  setTimelineDurationById: React.Dispatch<React.SetStateAction<Record<string, number>>>;
 };
 
 export function VideoTimelinePanel({
@@ -173,6 +178,10 @@ export function VideoTimelinePanel({
   handleTimelineScaleHandleStart,
   handleTimelineScaleHandleMove,
   handleTimelineScaleHandleEnd,
+  pushTimelineHistory,
+  snapTimelineTime,
+  setTimelineStartById,
+  setTimelineDurationById,
 }: VideoTimelinePanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const TIMELINE_COLLAPSED_HEIGHT = 44;
@@ -194,6 +203,93 @@ export function VideoTimelinePanel({
     currentY: number;
   } | null>(null);
   const [dragSelectionIds, setDragSelectionIds] = useState<Set<string>>(new Set());
+
+  // NOTE: 记录无音频卡片边缘 resize 的拖拽状态
+  const clipResizeDragRef = useRef<{
+    nodeId: string;
+    side: 'left' | 'right';
+    pointerId: number;
+    originalStart: number;
+    originalDuration: number;
+    startClientX: number;
+    committed: boolean;
+  } | null>(null);
+
+  /**
+   * 开始拖拽卡片边缘来调整时间长度
+   */
+  const handleClipResizeStart = (
+    event: React.PointerEvent<HTMLElement>,
+    nodeId: string,
+    side: 'left' | 'right',
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    const metric = timelineMetricById.get(nodeId);
+    if (!metric) return;
+    clipResizeDragRef.current = {
+      nodeId,
+      side,
+      pointerId: event.pointerId,
+      originalStart: metric.start,
+      originalDuration: metric.duration,
+      startClientX: event.clientX,
+      committed: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  /**
+   * 拖拽中持续更新卡片时长（实时预览，不推送历史）
+   */
+  const handleClipResizeMove = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = clipResizeDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaSeconds = (event.clientX - drag.startClientX) / Math.max(1, timelineMetrics.pixelsPerSecond);
+    const MIN_DURATION = 0.1;
+    if (drag.side === 'right') {
+      // 拖动右边缘：只改变时长，起始不动
+      const newDuration = Math.max(MIN_DURATION, snapTimelineTime(drag.originalDuration + deltaSeconds));
+      setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: newDuration }));
+    } else {
+      // 拖动左边缘：起始点右移时时长缩短，左移时时长增大；起始点不能小于0
+      const rawNewStart = drag.originalStart + deltaSeconds;
+      const clampedNewStart = Math.max(0, rawNewStart);
+      const startDelta = clampedNewStart - drag.originalStart;
+      const newDuration = Math.max(MIN_DURATION, drag.originalDuration - startDelta);
+      const snappedStart = Math.max(0, snapTimelineTime(drag.originalStart + deltaSeconds));
+      const finalDuration = Math.max(MIN_DURATION, drag.originalDuration - (snappedStart - drag.originalStart));
+      setTimelineStartById((prev) => ({ ...prev, [drag.nodeId]: snappedStart }));
+      setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: finalDuration }));
+    }
+  };
+
+  /**
+   * 拖拽结束：提交历史记录，确保 Ctrl+Z 可撤销
+   */
+  const handleClipResizeEnd = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = clipResizeDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const metric = timelineMetricById.get(drag.nodeId);
+    const hasMoved =
+      metric &&
+      (Math.abs(metric.start - drag.originalStart) > 0.001 ||
+        Math.abs(metric.duration - drag.originalDuration) > 0.001);
+    if (hasMoved) {
+      // NOTE: 先恢复原始值再 pushHistory，使 undo 栈保存的是变化前的状态
+      const nextStart = metric!.start;
+      const nextDuration = metric!.duration;
+      setTimelineStartById((prev) => ({ ...prev, [drag.nodeId]: drag.originalStart }));
+      setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: drag.originalDuration }));
+      pushTimelineHistory();
+      setTimelineStartById((prev) => ({ ...prev, [drag.nodeId]: nextStart }));
+      setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: nextDuration }));
+    }
+    clipResizeDragRef.current = null;
+  };
 
   const getSelectionRect = (box: {
     startX: number;
@@ -608,6 +704,11 @@ export function VideoTimelinePanel({
                           metric.duration,
                           timelineMetrics.pixelsPerSecond,
                         );
+                        // NOTE: 无音频卡片才允许拖动边缘调整时长
+                        const hasAudio =
+                          Boolean(node.data?.audioUrl) ||
+                          (Array.isArray(node.data?.audioClips) && (node.data.audioClips as unknown[]).length > 0) ||
+                          Boolean(linkedTimelineClipById?.[node.id]);
                         return (
                           <div
                             data-timeline-clip-id={node.id}
@@ -657,6 +758,45 @@ export function VideoTimelinePanel({
                               width: segmentLayout.width,
                             }}
                           >
+                            {/* 无音频时显示左右 resize 手柄 */}
+                            {!hasAudio && (
+                              <>
+                                <div
+                                  data-timeline-no-box-select
+                                  draggable={false}
+                                  className="absolute left-0 top-0 z-40 h-full w-2 cursor-ew-resize bg-transparent hover:bg-[var(--vr-accent)]/40 transition-colors group"
+                                  title={t('拖动调整卡片开始时间', 'ドラッグで開始時間を調整', 'Drag to adjust clip start time')}
+                                  onPointerDown={(event) => {
+                                    event.stopPropagation();
+                                    handleClipResizeStart(event, node.id, 'left');
+                                  }}
+                                  onPointerMove={handleClipResizeMove}
+                                  onPointerUp={handleClipResizeEnd}
+                                  onPointerCancel={handleClipResizeEnd}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onDragStart={(event) => event.preventDefault()}
+                                >
+                                  <div className="pointer-events-none absolute left-0.5 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                                <div
+                                  data-timeline-no-box-select
+                                  draggable={false}
+                                  className="absolute right-0 top-0 z-40 h-full w-2 cursor-ew-resize bg-transparent hover:bg-[var(--vr-accent)]/40 transition-colors group"
+                                  title={t('拖动调整卡片时长', 'ドラッグで長さを調整', 'Drag to adjust clip duration')}
+                                  onPointerDown={(event) => {
+                                    event.stopPropagation();
+                                    handleClipResizeStart(event, node.id, 'right');
+                                  }}
+                                  onPointerMove={handleClipResizeMove}
+                                  onPointerUp={handleClipResizeEnd}
+                                  onPointerCancel={handleClipResizeEnd}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onDragStart={(event) => event.preventDefault()}
+                                >
+                                  <div className="pointer-events-none absolute right-0.5 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </>
+                            )}
                             {keyShotIds.has(node.id) && (
                               <div className="pointer-events-none absolute left-1 top-1 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-white shadow">
                                 <Sparkles className="h-3.5 w-3.5 fill-current" />
