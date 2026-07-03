@@ -367,7 +367,7 @@ export function VideoExportSettingsPanel({
       {showSettingDescriptions && description && (
         <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
       )}
-      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)]">
+      <div className="grid h-10 grid-cols-[28px_minmax(0,1fr)] items-center rounded-lg bg-[var(--vr-surface-soft)]">
         <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
           <Icon className="h-3.5 w-3.5" />
         </span>
@@ -401,7 +401,7 @@ export function VideoExportSettingsPanel({
           type="button"
           disabled={disabled}
           onClick={() => setOpenSelectId(isOpen ? null : id)}
-          className="flex h-9 w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5 disabled:cursor-default"
+          className="flex h-10 w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5 disabled:cursor-default"
           title={title}
         >
           <span className="min-w-0 truncate">{selectedLabel}</span>
@@ -411,7 +411,14 @@ export function VideoExportSettingsPanel({
           />
         </button>
         {isOpen && (
-          <div className="absolute right-0 top-[calc(100%+6px)] z-[1200] min-w-full overflow-hidden rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1 shadow-2xl shadow-black/20">
+          <div
+            className="absolute right-0 top-[calc(100%+6px)] z-[9999] min-w-full overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-2xl shadow-black/20"
+            style={{
+              ['--vr-surface-soft' as any]: '#f1f5f9',
+              ['--vr-text' as any]: '#1e293b',
+              ['--vr-border' as any]: '#e2e8f0',
+            }}
+          >
             {options.map((option) => (
               <button
                 key={option.value}
@@ -421,7 +428,7 @@ export function VideoExportSettingsPanel({
                   onChange(option.value);
                   setOpenSelectId(null);
                 }}
-                className={`flex h-8 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${option.value === value
+                className={`flex h-9 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${option.value === value
                   ? 'bg-[var(--vr-accent)] text-white'
                   : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
                   }`}
