@@ -390,7 +390,7 @@ export function VideoExportSettingsPanel({
     return iconShell(
       Icon,
       <div
-        className="relative min-w-0"
+        className={`relative min-w-0 ${isOpen ? 'z-[10000]' : 'z-0'}`}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             setOpenSelectId((current) => (current === id ? null : current));

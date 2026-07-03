@@ -197,8 +197,10 @@ export function RenderStyleSettingsSection({
     .join(', ');
 
   const [activeGradientStopId, setActiveGradientStopId] = useState<string | null>(null);
+  const [activeNameplateGradientStopId, setActiveNameplateGradientStopId] = useState<string | null>(null);
   const [openSelectId, setOpenSelectId] = useState<string | null>(null);
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
+  const nameplateGradientEditorRef = useRef<HTMLDivElement | null>(null);
   const [showSolidColorMenu, setShowSolidColorMenu] = useState(false);
   const solidColorEditorRef = useRef<HTMLDivElement | null>(null);
   const [showNameplateStyleMenu, setShowNameplateStyleMenu] = useState(false);
@@ -216,6 +218,12 @@ export function RenderStyleSettingsSection({
         ];
   const nameplateGradientStart = nameplateGradientStops[0];
   const nameplateGradientEnd = nameplateGradientStops[nameplateGradientStops.length - 1];
+  const activeNameplateGradientStop = activeNameplateGradientStopId
+    ? nameplateGradientStops.find((stop) => stop.id === activeNameplateGradientStopId)
+    : null;
+  const nameplateGradientCssStops = nameplateGradientStops
+    .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
+    .join(', ');
 
   useEffect(() => {
     if (!activeGradientStopId) return;
@@ -227,6 +235,17 @@ export function RenderStyleSettingsSection({
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [activeGradientStopId]);
+
+  useEffect(() => {
+    if (!activeNameplateGradientStopId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!nameplateGradientEditorRef.current?.contains(event.target as Node)) {
+        setActiveNameplateGradientStopId(null);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [activeNameplateGradientStopId]);
 
   useEffect(() => {
     if (!showSolidColorMenu) return;
@@ -297,6 +316,53 @@ export function RenderStyleSettingsSection({
     setActiveGradientStopId(nextId);
   };
 
+  const updateNameplateGradientStops = (
+    updater: (
+      stops: Array<{ id: string; color: string; alpha: number; position: number }>,
+    ) => Array<{ id: string; color: string; alpha: number; position: number }>,
+  ) => {
+    const nextStops = updater(nameplateGradientStops).sort((a, b) => a.position - b.position);
+    updateRenderStyle('nameplateGradientStops', nextStops);
+  };
+
+  const removeNameplateGradientStop = (targetId = activeNameplateGradientStopId) => {
+    updateNameplateGradientStops((stops) => {
+      if (stops.length <= 2) return stops;
+      const idToRemove = targetId || stops[stops.length - 1]?.id;
+      const nextStops = stops.filter((stop) => stop.id !== idToRemove);
+      setActiveNameplateGradientStopId(nextStops[0]?.id || null);
+      return nextStops;
+    });
+  };
+
+  const getRawGradientPointerPosition = (
+    event: React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return Math.round(
+      Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)),
+    );
+  };
+
+  const addNameplateGradientStopAt = (position: number) => {
+    const previousStop =
+      [...nameplateGradientStops].reverse().find((stop) => stop.position <= position) ||
+      nameplateGradientStops[0];
+    const nextStop =
+      nameplateGradientStops.find((stop) => stop.position >= position) || previousStop;
+    const nextId = `nameplate-stop-${Date.now().toString(36)}`;
+    updateNameplateGradientStops((stops) => [
+      ...stops,
+      {
+        id: nextId,
+        color: nextStop?.color || previousStop?.color || '#6366f1',
+        alpha: Math.round(((previousStop?.alpha ?? 86) + (nextStop?.alpha ?? 86)) / 2),
+        position,
+      },
+    ]);
+    setActiveNameplateGradientStopId(nextId);
+  };
+
   const setStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) =>
     updateRenderStyle(key, value);
 
@@ -357,7 +423,7 @@ export function RenderStyleSettingsSection({
     return iconShell(
       Icon,
       <div
-        className="relative min-w-0"
+        className={`relative min-w-0 ${isOpen ? 'z-[10000]' : 'z-0'}`}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             setOpenSelectId((current) => (current === id ? null : current));
@@ -681,7 +747,7 @@ export function RenderStyleSettingsSection({
   const renderNameplateStyleMenu = () => (
     <div
       ref={nameplateStyleEditorRef}
-      className="relative"
+      className={`relative ${showNameplateStyleMenu ? 'z-[10000]' : 'z-0'}`}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -752,7 +818,7 @@ export function RenderStyleSettingsSection({
             </div>
           )}
           {renderStyle.nameplateBackgroundType === 'gradient' && (
-            <div className="space-y-3">
+            <div ref={nameplateGradientEditorRef} className="space-y-3">
               <DragSizeControl
                 label={t('拖动调整名牌渐变角度', '角度を調整', 'Adjust nameplate gradient angle')}
                 value={renderStyle.nameplateGradientAngle}
@@ -762,6 +828,162 @@ export function RenderStyleSettingsSection({
                 unit="°"
                 onChange={(value) => updateRenderStyle('nameplateGradientAngle', value)}
               />
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-2">
+                <button
+                  type="button"
+                  disabled={nameplateGradientStops.length <= 2}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    removeNameplateGradientStop();
+                  }}
+                  className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-30"
+                  title={t('删除一个色标', '色標を削除', 'Remove a color stop')}
+                >
+                  -
+                </button>
+                <div
+                  className="relative h-10 rounded-lg"
+                  style={{ background: `linear-gradient(90deg, ${nameplateGradientCssStops})` }}
+                  onPointerDown={(event) => {
+                    if ((event.target as HTMLElement).dataset.nameplateGradientStopId) return;
+                    addNameplateGradientStopAt(getRawGradientPointerPosition(event));
+                  }}
+                >
+                  {nameplateGradientStops.map((stop) => (
+                    <button
+                      key={stop.id}
+                      type="button"
+                      data-nameplate-gradient-stop-id={stop.id}
+                      className={`absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${
+                        activeNameplateGradientStop?.id === stop.id
+                          ? 'border-white ring-2 ring-[var(--vr-accent)]'
+                          : 'border-white/80'
+                      }`}
+                      style={{
+                        left: `${stop.position}%`,
+                        backgroundColor: withAlpha(stop.color, stop.alpha / 100),
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActiveNameplateGradientStopId(stop.id);
+                      }}
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        setActiveNameplateGradientStopId(stop.id);
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                      }}
+                      onPointerMove={(event) => {
+                        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+                        const track = event.currentTarget.parentElement;
+                        if (!track) return;
+                        const rect = track.getBoundingClientRect();
+                        const position = Math.round(
+                          Math.min(
+                            100,
+                            Math.max(0, ((event.clientX - rect.left) / rect.width) * 100),
+                          ),
+                        );
+                        updateNameplateGradientStops((stops) =>
+                          stops.map((item) =>
+                            item.id === stop.id ? { ...item, position } : item,
+                          ),
+                        );
+                      }}
+                      onPointerUp={(event) => {
+                        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                          event.currentTarget.releasePointerCapture(event.pointerId);
+                        }
+                      }}
+                      aria-label={t('名牌渐变色标', 'ネームプレート色標', 'Nameplate gradient stop')}
+                    />
+                  ))}
+                  {activeNameplateGradientStop && (
+                    <div
+                      className="absolute top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-2 shadow-lg"
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      style={{
+                        left: `max(8px, min(calc(${activeNameplateGradientStop.position}% - 105px), calc(100% - 218px)))`,
+                        width: '210px',
+                        maxWidth: 'calc(100% - 16px)',
+                        ['--vr-surface' as any]: '#ffffff',
+                        ['--vr-surface-soft' as any]: '#f1f5f9',
+                        ['--vr-text' as any]: '#1e293b',
+                        ['--vr-border' as any]: '#e2e8f0',
+                      }}
+                    >
+                      <div
+                        className="absolute -top-1 h-2 w-2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                        style={{
+                          left: `calc(${activeNameplateGradientStop.position}% - max(8px, min(calc(${activeNameplateGradientStop.position}% - 105px), calc(100% - 218px))))`,
+                        }}
+                      />
+                      <div className="grid grid-cols-[42px_1fr_28px] items-center gap-2">
+                        <input
+                          type="color"
+                          value={colorInputValue(activeNameplateGradientStop.color)}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onChange={(event) =>
+                            updateNameplateGradientStops((stops) =>
+                              stops.map((item) =>
+                                item.id === activeNameplateGradientStop.id
+                                  ? { ...item, color: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                        />
+                        <DragSizeControl
+                          label={t('拖动调整透明度', '透明度を調整', 'Adjust alpha')}
+                          value={activeNameplateGradientStop.alpha}
+                          min={0}
+                          max={100}
+                          step={1}
+                          unit="%"
+                          onChange={(value) =>
+                            updateNameplateGradientStops((stops) =>
+                              stops.map((item) =>
+                                item.id === activeNameplateGradientStop.id
+                                  ? { ...item, alpha: value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          disabled={nameplateGradientStops.length <= 2}
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            removeNameplateGradientStop(activeNameplateGradientStop.id);
+                          }}
+                          className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-muted)] disabled:opacity-30"
+                        >
+                          -
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    addNameplateGradientStopAt(
+                      Math.min(
+                        100,
+                        Math.max(0, (activeNameplateGradientStop?.position ?? 50) + 10),
+                      ),
+                    )
+                  }
+                  className="h-8 rounded-lg bg-[var(--vr-surface-soft)] text-sm font-normal text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
+                  title={t('添加色标', '色標を追加', 'Add a color stop')}
+                >
+                  +
+                </button>
+              </div>
               {(['start', 'end'] as const).map((edge) => {
                 const stop = edge === 'start' ? nameplateGradientStart : nameplateGradientEnd;
                 return (
@@ -837,12 +1059,25 @@ export function RenderStyleSettingsSection({
     </div>
   );
 
+  const dialogLayerRaised =
+    showSolidColorMenu ||
+    Boolean(activeGradientStopId) ||
+    openSelectId === 'dialog-background-type';
+  const nameplateLayerRaised =
+    showNameplateStyleMenu ||
+    openSelectId === 'nameplate-background-type' ||
+    openSelectId === 'nameplate-font-family';
+
   return (
     <div className="space-y-2">
       {renderTextStyleSection('title', t('标题', 'タイトル', 'Title'), 'bg-indigo-500/5', true)}
       {renderTextStyleSection('body', t('正文', '本文', 'Body'), 'bg-blue-500/5', false)}
 
-      <div className="space-y-2 rounded-xl bg-violet-500/5 p-2">
+      <div
+        className={`relative space-y-2 rounded-xl bg-violet-500/5 p-2 ${
+          dialogLayerRaised ? 'z-[10000]' : 'z-0'
+        }`}
+      >
         <div className="relative grid grid-cols-3 gap-2 rounded-lg">
           <div className="space-y-1">
             {showDescriptions && (
@@ -1028,7 +1263,10 @@ export function RenderStyleSettingsSection({
             t('对话框底色', 'ダイアログ背景', 'Dialogue background'),
           )}
           {renderStyle.dialogBackgroundType === 'solid' && (
-            <div className="relative" ref={solidColorEditorRef}>
+            <div
+              className={`relative ${showSolidColorMenu ? 'z-[10000]' : 'z-0'}`}
+              ref={solidColorEditorRef}
+            >
               {iconShell(
                 Palette,
                 <button
@@ -1286,7 +1524,7 @@ export function RenderStyleSettingsSection({
                 ))}
                 {activeGradientStop && (
                   <div
-                    className="absolute top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2 shadow-lg"
+                    className="absolute top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-2 shadow-lg"
                     onClick={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
                     style={{
@@ -1295,10 +1533,14 @@ export function RenderStyleSettingsSection({
                       )}% - 105px), calc(100% - 218px)))`,
                       width: '210px',
                       maxWidth: 'calc(100% - 16px)',
+                      ['--vr-surface' as any]: '#ffffff',
+                      ['--vr-surface-soft' as any]: '#f1f5f9',
+                      ['--vr-text' as any]: '#1e293b',
+                      ['--vr-border' as any]: '#e2e8f0',
                     }}
                   >
                     <div
-                      className="absolute -top-1 h-2 w-2 rotate-45 border-l border-t border-[var(--vr-border)] bg-[var(--vr-surface)]"
+                      className="absolute -top-1 h-2 w-2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
                       style={{
                         left: `calc(${mapGradientStopToVisibleTrack(
                           activeGradientStop.position,
@@ -1369,7 +1611,11 @@ export function RenderStyleSettingsSection({
         )}
       </div>
 
-      <div className="space-y-2 rounded-xl bg-fuchsia-500/5 p-2">
+      <div
+        className={`relative space-y-2 rounded-xl bg-fuchsia-500/5 p-2 ${
+          nameplateLayerRaised ? 'z-[10000]' : 'z-0'
+        }`}
+      >
         <div className="relative grid grid-cols-3 gap-2 rounded-lg">
           <div className="space-y-1">
             {showDescriptions && (
