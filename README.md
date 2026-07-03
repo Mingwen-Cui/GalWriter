@@ -92,6 +92,7 @@ npm run typecheck
 npm run lint
 npm run build
 npm run preview
+npm run tauri android build ---akp
 ```
 
 ### 打包
