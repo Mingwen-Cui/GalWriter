@@ -320,6 +320,7 @@ const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
   nameplateTextColorAlpha: 100,
   nameplateOffsetX: 0,
   nameplateOffsetY: 0,
+  nameplateTextGap: 8,
   nameplateBackgroundType: 'solid',
   nameplateColor: '#4f46e5',
   nameplateColorAlpha: 86,
@@ -646,6 +647,12 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       z-index: 8;
       overflow: visible;
     }
+    .nameplate-layer.inside {
+      position: relative;
+      inset: auto;
+      min-height: var(--nameplate-row-height, 42px);
+      margin-bottom: var(--nameplate-text-gap, 8px);
+    }
     .nameplate {
       position: absolute;
       top: var(--nameplate-top, 0);
@@ -664,6 +671,12 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       box-shadow: 0 10px 24px rgba(0,0,0,0.24);
       text-shadow: 0 1px 8px rgba(0,0,0,0.32);
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%));
+    }
+    .nameplate-layer.inside .nameplate {
+      background: transparent;
+      box-shadow: none;
+      text-shadow: 0 1px 10px rgba(0,0,0,0.42);
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-offset-y, 0px));
     }
     .dialogue {
       position: relative;
@@ -1015,10 +1028,13 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--nameplate-font-family", style.nameplateFontFamily || style.titleFontFamily || "inherit");
     document.documentElement.style.setProperty("--nameplate-padding-x", Math.round(nameplateFontSize * 1.15 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-padding-y", Math.round(nameplateFontSize * 0.42 * nameplateScale) + "px");
+    document.documentElement.style.setProperty("--nameplate-row-height", Math.ceil(nameplateFontSize + Math.round(nameplateFontSize * 0.42 * nameplateScale) * 2 + Math.max(8, nameplateFontSize * 0.45)) + "px");
+    document.documentElement.style.setProperty("--nameplate-text-gap", px(style.nameplateTextGap, 8));
     document.documentElement.style.setProperty("--nameplate-radius", px(style.nameplateRadius, 14));
     document.documentElement.style.setProperty("--nameplate-color", styleColor(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100, "#ffffff"));
     document.documentElement.style.setProperty("--nameplate-background", nameplateBackground());
     document.documentElement.style.setProperty("--nameplate-offset-x", px(style.nameplateOffsetX, 0));
+    document.documentElement.style.setProperty("--nameplate-offset-y", px(style.nameplateOffsetY, 0));
     document.documentElement.style.setProperty("--nameplate-top", style.nameplateInside ? "8px" : "0");
     document.documentElement.style.setProperty("--nameplate-translate-y", style.nameplateInside ? px(style.nameplateOffsetY, 0) : "calc(-100% - 8px + " + px(style.nameplateOffsetY, 0) + ")");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
@@ -1809,7 +1825,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           : [];
         if (visibleNameplates.length) {
           const total = visibleNameplates.length;
-          nameplatesHtml = '<div class="nameplate-layer">' +
+          nameplatesHtml = '<div class="nameplate-layer ' + (style.nameplateInside ? 'inside' : 'outside') + '">' +
             visibleNameplates.map((char, idx) => {
               const basePosition = char.position === "left" ? 24 : char.position === "right" ? 76 : 50;
               const characterCenter = basePosition + (Number(char.offsetX) || 0) / 10;

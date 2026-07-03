@@ -67,6 +67,7 @@ export const DEFAULT_RENDER_STYLE: RenderStyle = {
   nameplateTextColorAlpha: 100,
   nameplateOffsetX: 0,
   nameplateOffsetY: 0,
+  nameplateTextGap: 8,
   nameplateBackgroundType: 'solid',
   nameplateColor: '#4f46e5',
   nameplateColorAlpha: 86,

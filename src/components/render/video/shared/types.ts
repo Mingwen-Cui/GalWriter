@@ -86,6 +86,7 @@ export type RenderStyle = {
   nameplateTextColorAlpha: number;
   nameplateOffsetX: number;
   nameplateOffsetY: number;
+  nameplateTextGap: number;
   nameplateBackgroundType: 'solid' | 'gradient' | 'image';
   nameplateColor: string;
   nameplateColorAlpha: number;

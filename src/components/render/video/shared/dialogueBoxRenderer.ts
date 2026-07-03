@@ -3,6 +3,7 @@ import type { RenderStyle } from './types';
 
 type DialogueBoxLayoutOptions = {
   contentHeight?: number;
+  topExtension?: number;
 };
 
 export const getDialogueBoxLayout = (
@@ -42,7 +43,17 @@ export const getDialogueBoxLayout = (
       boxWidth * Math.min(0.24, Math.max(0.02, (style.dialogTextPaddingX ?? 9) / 100)),
     ),
   );
-  return { x, y, width: boxWidth, height: boxHeight, padding, paddingX, paddingY: padding };
+  const topExtension = Math.max(0, options.topExtension ?? 0);
+  const extendedY = Math.max(0, y - topExtension);
+  return {
+    x,
+    y: extendedY,
+    width: boxWidth,
+    height: boxHeight + (y - extendedY),
+    padding,
+    paddingX,
+    paddingY: padding,
+  };
 };
 
 const roundedRect = (

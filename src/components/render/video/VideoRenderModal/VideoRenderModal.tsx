@@ -1983,12 +1983,8 @@ export function VideoRenderModal({
                 updateRenderStyle={updateRenderStyle}
                 videoTextScaleMode={videoTextScaleMode}
                 setVideoTextScaleMode={setVideoTextScaleMode}
-                defaultSeconds={defaultSeconds}
-                setDefaultSeconds={setDefaultSeconds}
                 speed={speed}
                 setSpeed={setSpeed}
-                animationLeadSeconds={animationLeadSeconds}
-                setAnimationLeadSeconds={setAnimationLeadSeconds}
                 selectedSpeechNodeCount={selectedSpeechNodes.length}
                 selectedAudioClipCount={selectedAudioNodes.length}
                 selectedAudioVolume={selectedAudioVolume}

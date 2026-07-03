@@ -161,6 +161,18 @@ export const getNameplateLayouts = (
   return layouts;
 };
 
+export const getNameplateReservedHeight = (
+  items: NameplateItem[],
+  ctx: CanvasRenderingContext2D,
+  style: RenderStyle,
+) => {
+  if (!style.nameplateVisible || !style.nameplateInside || !items.length) return 0;
+  const gap = Math.max(8, (style.nameplateFontSize ?? 18) * 0.45);
+  const textGap = style.nameplateTextGap ?? 8;
+  const maxHeight = Math.max(...items.map((item) => measureNameplate(ctx, item.name, style).height));
+  return Math.ceil(maxHeight + gap + textGap);
+};
+
 const roundedRect = (
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -234,22 +246,24 @@ export const drawNameplates = async (
 
   for (const layout of layouts) {
     const fontSize = Math.max(10, style.nameplateFontSize ?? 18);
-    ctx.save();
-    roundedRect(
-      ctx,
-      layout.x,
-      layout.y,
-      layout.width,
-      layout.height,
-      Math.min(Math.max(0, style.nameplateRadius ?? 14), layout.height / 2),
-    );
-    ctx.clip();
-    await fillNameplateBackground(ctx, layout, style);
-    ctx.restore();
+    if (!style.nameplateInside) {
+      ctx.save();
+      roundedRect(
+        ctx,
+        layout.x,
+        layout.y,
+        layout.width,
+        layout.height,
+        Math.min(Math.max(0, style.nameplateRadius ?? 14), layout.height / 2),
+      );
+      ctx.clip();
+      await fillNameplateBackground(ctx, layout, style);
+      ctx.restore();
+    }
 
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = style.nameplateInside ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.35)';
+    ctx.shadowBlur = style.nameplateInside ? 10 : 8;
     ctx.font = `800 ${fontSize}px ${style.nameplateFontFamily || style.titleFontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

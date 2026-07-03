@@ -4,7 +4,11 @@ import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
-import { drawNameplates, getNameplateItems } from '../shared/nameplateRenderer';
+import {
+  drawNameplates,
+  getNameplateItems,
+  getNameplateReservedHeight,
+} from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -174,27 +178,29 @@ export const drawRenderFrame = async ({
       100,
   );
   const isAutoHeight = videoRenderStyle.dialogHeightMode === 'auto';
+  const nameplateItems = getNameplateItems(node, nodes);
+  const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, ctx, videoRenderStyle);
   const dialogLayout = await drawDialogueBox(
     ctx,
     width,
     height,
     videoRenderStyle,
-    isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
+    {
+      ...(isAutoHeight
+        ? { contentHeight: visibleTextHeight + textBaselineOffset + nameplateReservedHeight }
+        : {}),
+      topExtension: isAutoHeight ? 0 : nameplateReservedHeight,
+    },
   );
-  await drawNameplates(
-    ctx,
-    width,
-    dialogLayout,
-    videoRenderStyle,
-    getNameplateItems(node, nodes),
-  );
+  await drawNameplates(ctx, width, dialogLayout, videoRenderStyle, nameplateItems);
   const textLeft = dialogLayout.x + paddingX;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;
   let y =
     dialogLayout.y +
+    nameplateReservedHeight +
     (isAutoHeight
       ? paddingY
-      : Math.max(paddingY, (dialogLayout.height - fixedTextHeight) / 2)) +
+      : Math.max(paddingY, (dialogLayout.height - nameplateReservedHeight - fixedTextHeight) / 2)) +
     textBaselineOffset +
     textOffsetY;
 

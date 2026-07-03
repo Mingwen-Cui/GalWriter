@@ -8,7 +8,11 @@ import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
-import { drawNameplates, getNameplateItems } from '../shared/nameplateRenderer';
+import {
+  drawNameplates,
+  getNameplateItems,
+  getNameplateReservedHeight,
+} from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -176,21 +180,29 @@ async function createTextLayerCanvas(
     (renderTitleLines.length && renderBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
     renderBodyLines.length * bodyLineHeight;
   const isAutoHeight = style.dialogHeightMode === 'auto';
+  const nameplateItems = getNameplateItems(node, nodes);
+  const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, ctx, style);
   dialogLayout = await drawDialogueBox(
     ctx,
     width,
     height,
     style,
-    isAutoHeight ? { contentHeight: visibleTextHeight + textBaselineOffset } : undefined,
+    {
+      ...(isAutoHeight
+        ? { contentHeight: visibleTextHeight + textBaselineOffset + nameplateReservedHeight }
+        : {}),
+      topExtension: isAutoHeight ? 0 : nameplateReservedHeight,
+    },
   );
-  await drawNameplates(ctx, width, dialogLayout, style, getNameplateItems(node, nodes));
+  await drawNameplates(ctx, width, dialogLayout, style, nameplateItems);
   textLeft = dialogLayout.x + paddingX;
   textRight = dialogLayout.x + dialogLayout.width - paddingX;
   y =
     dialogLayout.y +
+    nameplateReservedHeight +
     (isAutoHeight
       ? paddingY
-      : Math.max(paddingY, (dialogLayout.height - textHeight) / 2)) +
+      : Math.max(paddingY, (dialogLayout.height - nameplateReservedHeight - textHeight) / 2)) +
     textBaselineOffset +
     textOffsetY;
   ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;

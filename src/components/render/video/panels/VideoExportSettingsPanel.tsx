@@ -84,12 +84,8 @@ type VideoExportSettingsPanelProps = {
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   videoTextScaleMode: VideoTextScaleMode;
   setVideoTextScaleMode: (value: VideoTextScaleMode) => void;
-  defaultSeconds: number;
-  setDefaultSeconds: (value: number) => void;
   speed: number;
   setSpeed: (value: number) => void;
-  animationLeadSeconds: number;
-  setAnimationLeadSeconds: (value: number) => void;
   selectedSpeechNodeCount: number;
   selectedAudioClipCount: number;
   selectedAudioVolume?: number;
@@ -164,12 +160,8 @@ export function VideoExportSettingsPanel({
   updateRenderStyle,
   videoTextScaleMode,
   setVideoTextScaleMode,
-  defaultSeconds,
-  setDefaultSeconds,
   speed,
   setSpeed,
-  animationLeadSeconds,
-  setAnimationLeadSeconds,
   selectedSpeechNodeCount,
   selectedAudioClipCount,
   selectedAudioVolume = 0,
@@ -928,55 +920,6 @@ export function VideoExportSettingsPanel({
                 resolutionHeight={resolutionHeight}
                 showDescriptions={showSettingDescriptions}
               />
-            </div>
-
-
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('其他', 'その他', 'Other')}
-              </div>
-              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
-                    {t('无音频视频长度', '音声なし動画の長さ', 'No-audio video length')}
-                  </span>
-                  <div className="w-16 shrink-0">
-                    <DragSizeControl
-                      label={t(
-                        '左右拖动调整无音频视频长度',
-                        '左右ドラッグで音声なし動画の長さを調整',
-                        'Drag horizontally to adjust no-audio video length',
-                      )}
-                      value={defaultSeconds}
-                      min={1}
-                      max={30}
-                      step={1}
-                      unit="s"
-                      onChange={setDefaultSeconds}
-                    />
-                  </div>
-                </div>
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-black tracking-wide text-[var(--vr-text-muted)]">
-                    {t('提前完成动画', 'アニメーションを早めに完了', 'Finish animation early')}
-                  </span>
-                  <div className="w-16 shrink-0">
-                    <DragSizeControl
-                      label={t(
-                        '左右拖动调整动画提前完成时间',
-                        '左右ドラッグでアニメーション完了時間を調整',
-                        'Drag to adjust animation lead time',
-                      )}
-                      value={animationLeadSeconds}
-                      min={0}
-                      max={30}
-                      step={0.1}
-                      unit="s"
-                      onChange={(value) => setAnimationLeadSeconds(value)}
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">

@@ -23,6 +23,7 @@
   Type,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
@@ -299,8 +300,16 @@ export function RenderStyleSettingsSection({
   const setStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) =>
     updateRenderStyle(key, value);
 
+  const fadedStripStyle = (rgb: string) => ({
+    background: `linear-gradient(90deg, rgba(${rgb}, 0) 0%, rgba(${rgb}, 0) 32%, rgba(${rgb}, 0.18) 58%, rgba(${rgb}, 0.62) 100%)`,
+  });
+
+  const lockedStripStyle = () => ({
+    left: 'calc((100% - 1rem) / 3 + 0.5rem)',
+  });
+
   const iconShell = (
-    Icon: LucideIcon,
+    Icon: ComponentType<{ className?: string }>,
     children: React.ReactNode,
     disabled = false,
     description?: string,
@@ -435,10 +444,18 @@ export function RenderStyleSettingsSection({
     const characterModeLabel = t('逐字', '一文字ずつ', 'Character');
     const sentenceModeLabel = t('逐句', '一文ずつ', 'Sentence');
     const lineModeLabel = t('逐行', '一行ずつ', 'Line');
+    const showDetailRows = !isTitle || visible;
+    const visibilityButtonClass = isTitle
+      ? visible
+        ? 'border border-indigo-500/25 bg-indigo-500/15 text-indigo-500 hover:border-indigo-500/40 hover:bg-indigo-500/20 dark:text-indigo-300'
+        : 'relative z-30 bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:bg-indigo-500/10 hover:text-indigo-300'
+      : visible
+        ? 'bg-white/12 text-[var(--vr-text)]'
+        : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]';
 
     return (
       <div className={`space-y-2 rounded-xl p-2 ${toneClass}`}>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="relative grid grid-cols-3 gap-2 rounded-lg">
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
@@ -450,13 +467,7 @@ export function RenderStyleSettingsSection({
                 onClick={() => {
                   if (canToggle) setStyle(visibleKey, !visible as never);
                 }}
-              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
-                isTitle
-                  ? 'bg-[#1d4ed8] text-white'
-                  : visible
-                    ? 'bg-white/12 text-[var(--vr-text)]'
-                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-              } ${canToggle ? '' : 'cursor-default'}`}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal transition-colors ${visibilityButtonClass} ${canToggle ? '' : 'cursor-default'}`}
               aria-label={label}
             >
               {canToggle &&
@@ -485,7 +496,23 @@ export function RenderStyleSettingsSection({
             />,
             t('字体大小', 'フォントサイズ', 'Font size'),
           )}
-          </div>
+          {isTitle && !visible && (
+            <>
+              <div
+                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                style={fadedStripStyle('79, 70, 229')}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -bottom-2 -right-2 -top-2 z-20 cursor-not-allowed rounded-r-xl"
+                style={lockedStripStyle()}
+                aria-hidden="true"
+              />
+            </>
+          )}
+        </div>
+        {showDetailRows && (
+          <>
           <div className="grid grid-cols-3 gap-2">
           {iconSelect(
             Sparkles,
@@ -609,6 +636,8 @@ export function RenderStyleSettingsSection({
             t('行距', '行間', 'Line height'),
           )}
           </div>
+          </>
+        )}
       </div>
     );
   };
@@ -782,7 +811,7 @@ export function RenderStyleSettingsSection({
       {renderTextStyleSection('body', t('正文', '本文', 'Body'), 'bg-blue-500/5', false)}
 
       <div className="space-y-2 rounded-xl bg-violet-500/5 p-2">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="relative grid grid-cols-3 gap-2 rounded-lg">
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
@@ -829,7 +858,23 @@ export function RenderStyleSettingsSection({
             />,
             t('对话框高度', 'ダイアログ高さ', 'Dialogue height'),
           )}
+          {!renderStyle.dialogVisible && (
+            <>
+              <div
+                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                style={fadedStripStyle('139, 92, 246')}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -bottom-2 -right-2 -top-2 z-20 cursor-not-allowed rounded-r-xl"
+                style={lockedStripStyle()}
+                aria-hidden="true"
+              />
+            </>
+          )}
         </div>
+        {renderStyle.dialogVisible && (
+          <>
         <div className="grid grid-cols-3 gap-2">
           {iconShell(
             RectangleVertical,
@@ -1280,10 +1325,12 @@ export function RenderStyleSettingsSection({
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
 
       <div className="space-y-2 rounded-xl bg-fuchsia-500/5 p-2">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="relative grid grid-cols-3 gap-2 rounded-lg">
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
@@ -1325,10 +1372,8 @@ export function RenderStyleSettingsSection({
             false,
             t('名牌内外', '内外', 'Inside/outside'),
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
           {iconShell(
-            MoveHorizontal,
+            FollowCharacterGlyph,
             <button
               type="button"
               onClick={() =>
@@ -1349,6 +1394,31 @@ export function RenderStyleSettingsSection({
             </button>,
             false,
             t('跟随人物', '人物追従', 'Follow character'),
+          )}
+          {!renderStyle.nameplateVisible && (
+            <>
+              <div
+                className="pointer-events-none absolute -bottom-2 -left-2 -right-2 -top-2 z-10 rounded-xl"
+                style={fadedStripStyle('217, 70, 239')}
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -bottom-2 -right-2 -top-2 z-20 cursor-not-allowed rounded-r-xl"
+                style={lockedStripStyle()}
+                aria-hidden="true"
+              />
+            </>
+          )}
+        </div>
+        {renderStyle.nameplateVisible && (
+          <>
+        <div className="grid grid-cols-3 gap-2">
+          {iconColor(
+            CaseSensitive,
+            colorInputValue(renderStyle.nameplateTextColor, '#ffffff'),
+            (value) => updateRenderStyle('nameplateTextColor', value),
+            t('名牌文字颜色', '文字色', 'Name text color'),
+            t('文字颜色', '文字色', 'Text color'),
           )}
           {iconNumber(
             RectangleHorizontal,
@@ -1386,13 +1456,6 @@ export function RenderStyleSettingsSection({
             t('名牌字族', 'フォント', 'Name font'),
             t('名字字族', '名前フォント', 'Name font family'),
           )}
-          {iconColor(
-            CaseSensitive,
-            colorInputValue(renderStyle.nameplateTextColor, '#ffffff'),
-            (value) => updateRenderStyle('nameplateTextColor', value),
-            t('名牌文字颜色', '文字色', 'Name text color'),
-            t('文字颜色', '文字色', 'Text color'),
-          )}
           {iconNumber(
             Radius,
             <DragSizeControl
@@ -1405,8 +1468,6 @@ export function RenderStyleSettingsSection({
             />,
             t('名牌圆角', '角丸', 'Nameplate radius'),
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
           {iconNumber(
             MoveHorizontal,
             <DragSizeControl
@@ -1419,6 +1480,8 @@ export function RenderStyleSettingsSection({
             />,
             t('左右偏移', '左右位置', 'Horizontal offset'),
           )}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
           {iconNumber(
             MoveVertical,
             <DragSizeControl
@@ -1431,6 +1494,19 @@ export function RenderStyleSettingsSection({
             />,
             t('上下偏移', '上下位置', 'Vertical offset'),
           )}
+          {renderStyle.nameplateInside &&
+            iconNumber(
+              BetweenVerticalStart,
+              <DragSizeControl
+                label={t('拖动调整名牌和正文间距', '本文との間隔を調整', 'Adjust nameplate body gap')}
+                value={renderStyle.nameplateTextGap ?? 8}
+                min={-80}
+                max={80}
+                step={1}
+                onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+              />,
+              t('正文间距', '本文間隔', 'Body gap'),
+            )}
           {!renderStyle.nameplateInside &&
             iconSelect(
               Palette,
@@ -1451,7 +1527,31 @@ export function RenderStyleSettingsSection({
             )}
           {!renderStyle.nameplateInside && renderNameplateStyleMenu()}
         </div>
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+function FollowCharacterGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      <circle cx="8.2" cy="7.2" r="2.4" />
+      <path d="M4.5 15.8c.9-2.8 2.1-4.2 3.7-4.2s2.8 1.4 3.7 4.2" />
+      <path d="M14.2 6.2h3.2a2.4 2.4 0 0 1 2.4 2.4v3.2" />
+      <path d="M19.8 6.2v5.6h-5.6" />
+      <circle cx="17" cy="15.9" r="2.2" />
+      <path d="M17 13.7v-1.8" />
+    </svg>
   );
 }
