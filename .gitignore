@@ -6,6 +6,8 @@ coverage/
 landingpage/
 public/downloads/
 examples/
+!public/examples/
+!public/examples/manifest.json
 scripts/
 api/
 public/api/

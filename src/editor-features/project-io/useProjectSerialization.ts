@@ -231,11 +231,8 @@ export const useProjectSerialization = ({
     ],
   );
 
-  const handleImportZIP = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
+  const importProjectFile = useCallback(
+    async (file: File) => {
       try {
         const importedEntries = await projectSerializer.importProjectEntries(file);
         for (const {
@@ -275,10 +272,20 @@ export const useProjectSerialization = ({
           tone: 'warning',
         });
       }
+    },
+    [applyProjectData, currentProjectId, onImportedProject, projectSerializer, settings.language, showDialogAlert],
+  );
+
+  const handleImportZIP = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      await importProjectFile(file);
 
       event.target.value = '';
     },
-    [applyProjectData, currentProjectId, onImportedProject, projectSerializer, settings.language, showDialogAlert],
+    [importProjectFile],
   );
 
   return {
@@ -286,6 +293,7 @@ export const useProjectSerialization = ({
     applyProjectData,
     confirmExportZIP,
     confirmExportJSON: confirmExportZIP,
+    importProjectFile,
     handleImportZIP,
   };
 };

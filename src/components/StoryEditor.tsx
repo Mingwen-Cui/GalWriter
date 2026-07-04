@@ -121,7 +121,7 @@ import {
 } from '../lib/plotStructure';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
-import { ProjectPickerModal } from './ProjectPickerModal';
+import { ProjectPickerModal, type ProjectExampleTemplate } from './ProjectPickerModal';
 import { nodeTypes, edgeTypes } from './story-editor/flowTypes';
 import {
   PlayTestModal,
@@ -202,7 +202,45 @@ type PendingProjectAction =
   | { type: 'create' }
   | { type: 'open'; projectId: string }
   | { type: 'import-new' }
+  | { type: 'import-example'; template: ProjectExampleTemplate }
   | { type: 'close-window' };
+
+const EXAMPLES_MANIFEST_URL = 'examples/manifest.json';
+
+const resolveExampleAssetUrl = (path: string) => {
+  if (/^(?:https?:)?\/\//i.test(path) || path.startsWith('data:')) return path;
+  if (typeof window === 'undefined') return path;
+  return new URL(path, new URL(EXAMPLES_MANIFEST_URL, window.location.href)).toString();
+};
+
+const normalizeExampleTemplates = (manifest: unknown): ProjectExampleTemplate[] => {
+  const examples = (manifest as { examples?: unknown })?.examples;
+  if (!Array.isArray(examples)) return [];
+
+  return examples
+    .map((entry, index): ProjectExampleTemplate | null => {
+      const item = entry as Record<string, unknown>;
+      const file = typeof item.file === 'string' ? item.file.trim() : '';
+      const title = typeof item.title === 'string' ? item.title.trim() : '';
+      if (!file || !title) return null;
+
+      const thumbnail = typeof item.thumbnail === 'string' ? item.thumbnail.trim() : '';
+      const id =
+        typeof item.id === 'string' && item.id.trim()
+          ? item.id.trim()
+          : `${file.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'template'}-${index}`;
+
+      return {
+        id,
+        title,
+        file: resolveExampleAssetUrl(file),
+        description: typeof item.description === 'string' ? item.description.trim() : undefined,
+        thumbnail: thumbnail ? resolveExampleAssetUrl(thumbnail) : undefined,
+        sizeLabel: typeof item.sizeLabel === 'string' ? item.sizeLabel.trim() : undefined,
+      } satisfies ProjectExampleTemplate;
+    })
+    .filter((entry): entry is ProjectExampleTemplate => Boolean(entry));
+};
 
 type AssistantMentionReference = {
   id: string;
@@ -873,6 +911,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [projectSummaries, setProjectSummaries] = useState<
     Awaited<ReturnType<typeof localPersistenceService.listProjects>>
   >([]);
+  const [exampleTemplates, setExampleTemplates] = useState<ProjectExampleTemplate[]>([]);
+  const [examplesLoading, setExamplesLoading] = useState(false);
+  const [examplesError, setExamplesError] = useState<string | null>(null);
   const [saveFileName, setSaveFileName] = useState(DEFAULT_PROJECT_FILE_NAME);
   const language = appLanguage;
   const [projectTitle, setProjectTitle] = useState('');
@@ -4215,7 +4256,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ? { right: assistantPanelWidth + 16 }
       : undefined;
 
-  const { getProjectSnapshot, applyProjectData, confirmExportJSON, handleImportZIP } =
+  const { getProjectSnapshot, applyProjectData, confirmExportJSON, importProjectFile, handleImportZIP } =
     useProjectSerialization({
       nodes,
       edges,
@@ -4289,6 +4330,31 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     const projects = await localPersistenceService.listProjects();
     setProjectSummaries(projects);
   }, []);
+
+  const loadExampleTemplates = useCallback(async () => {
+    if (isTauriRuntime()) return;
+
+    setExamplesLoading(true);
+    setExamplesError(null);
+    try {
+      const response = await fetch(EXAMPLES_MANIFEST_URL, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      setExampleTemplates(normalizeExampleTemplates(await response.json()));
+    } catch (error) {
+      console.warn('Failed to load example templates', error);
+      setExampleTemplates([]);
+      setExamplesError(
+        language === 'zh'
+          ? '没有读取到 examples/manifest.json。上传模板 ZIP 后，请同时上传模板清单。'
+          : 'Could not load examples/manifest.json. Upload the template manifest with your ZIP files.',
+      );
+    } finally {
+      setExamplesLoading(false);
+    }
+  }, [language]);
 
   const handleApplySettingsToOtherProjects = useCallback(
     async (targetProjectIds: string[]) => {
@@ -4569,6 +4635,27 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         return;
       }
 
+      if (action.type === 'import-example') {
+        try {
+          importModeRef.current = 'new';
+          const response = await fetch(action.template.file, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          const fileName =
+            action.template.file.split('/').pop()?.split('?')[0] || `${action.template.id}.zip`;
+          await importProjectFile(
+            new File([blob], fileName, { type: blob.type || 'application/zip' }),
+          );
+        } catch (error) {
+          console.error('Failed to import example template', error);
+          showToast(
+            language === 'zh' ? '模板导入失败，请检查 examples 文件。' : 'Template import failed.',
+            'error',
+          );
+        }
+        return;
+      }
+
       if (action.type === 'close-window') {
         try {
           const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -4581,7 +4668,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         window.close();
       }
     },
-    [handleCreateProject],
+    [handleCreateProject, importProjectFile, language, showToast],
   );
 
   const requestProjectAction = useCallback(
@@ -4831,6 +4918,21 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     requestProjectAction({ type: 'import-new' });
   }, [requestProjectAction]);
 
+  const handleImportExampleTemplate = useCallback(
+    (template: ProjectExampleTemplate) => {
+      requestProjectAction({ type: 'import-example', template });
+    },
+    [requestProjectAction],
+  );
+
+  const handleDownloadExampleTemplate = useCallback((template: ProjectExampleTemplate) => {
+    const link = document.createElement('a');
+    link.href = template.file;
+    link.download = template.file.split('/').pop()?.split('?')[0] || `${template.id}.zip`;
+    link.rel = 'noopener';
+    link.click();
+  }, []);
+
   const openImportPicker = useCallback(() => {
     importModeRef.current = 'replace';
     jsonInputRef.current?.click();
@@ -4879,6 +4981,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         setProjectListLoading(false);
         setShowProjectHome(!isMobile && projects.length > 0);
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
+        if (!isTauriRuntime()) {
+          void loadExampleTemplates();
+        }
 
         setSavedAIProfiles(savedProfilesState.profiles);
         const savedTextProfileId = savedProfilesState.activeTextProfileId;
@@ -4917,7 +5022,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadExampleTemplates]);
 
   React.useEffect(() => {
     if (!didHydrateLocalState || !projectIdToLoad) return;
@@ -6116,6 +6221,9 @@ ${layoutConfig.label}
         language={language}
         projects={projectSummaries}
         loading={projectListLoading}
+        exampleTemplates={exampleTemplates}
+        examplesLoading={examplesLoading}
+        examplesError={examplesError}
         isMobile={isMobile}
         showCloseButton={Boolean(currentProjectId)}
         defaultProjectSaveDir={defaultProjectSaveDir}
@@ -6127,6 +6235,9 @@ ${layoutConfig.label}
           void handleOpenProject(projectId);
         }}
         onImportProject={handleImportProjectFromHome}
+        onRefreshExamples={loadExampleTemplates}
+        onImportExample={!isTauriRuntime() ? handleImportExampleTemplate : undefined}
+        onDownloadExample={!isTauriRuntime() ? handleDownloadExampleTemplate : undefined}
         onChooseDefaultSaveLocation={handleChooseDefaultProjectSaveLocation}
         onRenameProject={async (projectId, projectName) => {
           await handleRenameProject(projectId, projectName);

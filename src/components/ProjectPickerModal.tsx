@@ -6,7 +6,9 @@ import {
   FilePlus2,
   Image as ImageIcon,
   FolderOpen,
+  LayoutTemplate,
   Pencil,
+  RefreshCw,
   Search,
   Square,
   Trash2,
@@ -17,11 +19,23 @@ import { type MouseEvent, type WheelEvent, useEffect, useState } from 'react';
 import type { LocalProjectSummary } from '../lib/db';
 import type { Language } from '../lib/i18n';
 
+export interface ProjectExampleTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  file: string;
+  thumbnail?: string;
+  sizeLabel?: string;
+}
+
 interface ProjectPickerModalProps {
   visible: boolean;
   language: Language;
   projects: LocalProjectSummary[];
   loading: boolean;
+  exampleTemplates?: ProjectExampleTemplate[];
+  examplesLoading?: boolean;
+  examplesError?: string | null;
   isMobile?: boolean;
   showCloseButton?: boolean;
   defaultProjectSaveDir?: string | null;
@@ -29,6 +43,9 @@ interface ProjectPickerModalProps {
   onCreateProject: () => void;
   onOpenProject: (projectId: string) => void;
   onImportProject: () => void;
+  onRefreshExamples?: () => void;
+  onImportExample?: (template: ProjectExampleTemplate) => Promise<void> | void;
+  onDownloadExample?: (template: ProjectExampleTemplate) => void;
   onChooseDefaultSaveLocation?: () => void;
   onRenameProject: (projectId: string, projectName: string) => Promise<void> | void;
   onDeleteProject: (projectId: string) => Promise<void> | void;
@@ -103,6 +120,9 @@ export function ProjectPickerModal({
   language,
   projects,
   loading,
+  exampleTemplates = [],
+  examplesLoading = false,
+  examplesError = null,
   isMobile = false,
   showCloseButton = false,
   defaultProjectSaveDir,
@@ -110,6 +130,9 @@ export function ProjectPickerModal({
   onCreateProject,
   onOpenProject,
   onImportProject,
+  onRefreshExamples,
+  onImportExample,
+  onDownloadExample,
   onChooseDefaultSaveLocation,
   onRenameProject,
   onDeleteProject,
@@ -123,6 +146,7 @@ export function ProjectPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [batchMode, setBatchMode] = useState(false);
   const [projectSortMode, setProjectSortMode] = useState<'time' | 'name'>('time');
+  const [showTemplates, setShowTemplates] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [batchExportChoiceOpen, setBatchExportChoiceOpen] = useState(false);
   const [actionMenuProjectId, setActionMenuProjectId] = useState<string | null>(null);
@@ -137,6 +161,7 @@ export function ProjectPickerModal({
       setEditingProjectId(null);
       setEditingProjectName('');
       setBatchMode(false);
+      setShowTemplates(false);
       setSelectedProjectIds([]);
       setBatchExportChoiceOpen(false);
       setActionMenuProjectId(null);
@@ -171,6 +196,9 @@ export function ProjectPickerModal({
 
   const filteredProjects = projects.filter((p) =>
     p.projectName.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+  const filteredTemplates = exampleTemplates.filter((template) =>
+    `${template.title} ${template.description || ''}`.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   const sortedProjects =
     projectSortMode === 'name'
@@ -266,6 +294,116 @@ export function ProjectPickerModal({
       : 'flex-row-reverse justify-end px-4 py-3'
   }`;
   const actionIconClass = `${isMobile ? 'h-5 w-5' : 'h-4 w-4'} shrink-0 text-slate-400`;
+  const renderTemplateContent = () => (
+    <div className={isMobile ? 'space-y-3' : 'space-y-2'}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-black text-slate-900 dark:text-white">
+            {isZh ? '项目模板' : 'Project templates'}
+          </div>
+          <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+            {isZh
+              ? '下载 ZIP 模板，或直接导入为新项目。'
+              : 'Download ZIP templates or import one as a new project.'}
+          </div>
+        </div>
+        {onRefreshExamples && (
+          <button
+            type="button"
+            onClick={onRefreshExamples}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-indigo-300"
+            title={isZh ? '刷新模板' : 'Refresh templates'}
+          >
+            <RefreshCw className={`h-4 w-4 ${examplesLoading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+      </div>
+      {examplesLoading ? (
+        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          {isZh ? '正在读取模板...' : 'Loading templates...'}
+        </div>
+      ) : examplesError ? (
+        <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-8 text-sm font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
+          {examplesError}
+        </div>
+      ) : filteredTemplates.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          {isZh
+            ? '还没有可用模板。请在 examples/manifest.json 中添加模板。'
+            : 'No templates available yet. Add templates in examples/manifest.json.'}
+        </div>
+      ) : (
+        filteredTemplates.map((template) => (
+          <div
+            key={template.id}
+            className={`group relative rounded-xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 ${
+              isMobile ? 'px-3 py-3' : 'px-4 py-3.5'
+            }`}
+          >
+            <div className={`${isMobile ? 'flex-col gap-3' : 'flex items-start gap-3'}`}>
+              <div
+                className={`shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 ${
+                  isMobile ? 'h-16 w-24' : 'h-12 w-16'
+                }`}
+              >
+                {template.thumbnail ? (
+                  <img
+                    src={template.thumbnail}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-indigo-400 dark:text-indigo-300">
+                    <LayoutTemplate className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div
+                  className={`truncate font-black text-slate-900 dark:text-white ${
+                    isMobile ? 'text-base' : 'text-sm'
+                  }`}
+                >
+                  {template.title}
+                </div>
+                {template.description && (
+                  <div className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">
+                    {template.description}
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void onImportExample?.(template)}
+                    className="flex h-8 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white transition-colors hover:bg-indigo-700"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    {isZh ? '导入' : 'Import'}
+                  </button>
+                  {onDownloadExample && (
+                    <button
+                      type="button"
+                      onClick={() => onDownloadExample(template)}
+                      className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 transition-colors hover:bg-white hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {isZh ? '下载' : 'Download'}
+                    </button>
+                  )}
+                  {template.sizeLabel && (
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
+                      {template.sizeLabel}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -336,7 +474,7 @@ export function ProjectPickerModal({
           <div
             className={`shrink-0 border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 ${
               isMobile
-                ? 'grid grid-cols-3 gap-2 border-b p-3'
+                ? `${onImportExample ? 'grid-cols-4' : 'grid-cols-3'} grid gap-2 border-b p-3`
                 : 'flex h-full min-h-0 w-52 flex-col border-r p-5'
             }`}
           >
@@ -376,6 +514,7 @@ export function ProjectPickerModal({
               type="button"
               onClick={() => {
                 setBatchMode((current) => !current);
+                setShowTemplates(false);
                 setSelectedProjectIds([]);
               }}
               className={`${actionButtonClass} ${
@@ -394,6 +533,30 @@ export function ProjectPickerModal({
               </div>
               <CheckSquare2 className={actionIconClass} />
             </button>
+            {onImportExample && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTemplates((current) => !current);
+                  setBatchMode(false);
+                  setSelectedProjectIds([]);
+                  if (!showTemplates) onRefreshExamples?.();
+                }}
+                className={`${actionButtonClass} ${
+                  showTemplates
+                    ? 'scale-[1.02] border border-indigo-200 bg-white text-indigo-600 shadow-md dark:border-indigo-500/40 dark:bg-slate-800 dark:text-indigo-300'
+                    : 'text-slate-900 hover:bg-white/70 hover:text-indigo-600 dark:text-slate-100 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300'
+                }`}
+              >
+                <div>
+                  <div className="text-sm font-bold">{isZh ? '查看模板' : 'View templates'}</div>
+                  <div className="hidden">
+                    {isZh ? '从示例项目快速开始。' : 'Start from an example project.'}
+                  </div>
+                </div>
+                <LayoutTemplate className={actionIconClass} />
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -502,7 +665,9 @@ export function ProjectPickerModal({
               }`}
               onWheel={handleRecentProjectsWheel}
             >
-              {loading ? (
+              {showTemplates ? (
+                renderTemplateContent()
+              ) : loading ? (
                 <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
                   {isZh ? '正在读取本地项目...' : 'Loading local projects...'}
                 </div>
