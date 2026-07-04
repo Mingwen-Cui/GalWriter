@@ -20,6 +20,13 @@ type WebExportStyle = Partial<RenderStyle> & {
 type WebExportSettings = {
   layoutMode: 'classic' | 'immersive';
   choicesPosition: 'center' | 'aboveText' | 'belowText';
+  showStartMenu: boolean;
+  startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
+  startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
+  startMenuButtonLayout: 'vertical' | 'horizontal';
+  startMenuShowSave: boolean;
+  startMenuShowNewGame: boolean;
+  startMenuShowSettings: boolean;
   blurBackground: boolean;
   skipSingleChoicePopup: boolean;
   interactionMode: 'immediate' | 'typewriter';
@@ -857,6 +864,225 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       font-size: 24px;
       font-weight: 900;
     }
+    .start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      place-items: center;
+      padding: clamp(20px, 6vw, 64px);
+      background:
+        linear-gradient(180deg, rgba(4, 8, 14, 0.42), rgba(4, 8, 14, 0.92)),
+        radial-gradient(circle at 50% 22%, rgba(14, 165, 233, 0.22), transparent 42%),
+        #070b12;
+      color: #f8fafc;
+    }
+    .start-screen.template-minimal {
+      background:
+        linear-gradient(180deg, rgba(2,6,23,0.24), rgba(2,6,23,0.94)),
+        #020617;
+    }
+    .start-screen.template-glass {
+      background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.64), rgba(8, 145, 178, 0.28)),
+        radial-gradient(circle at 18% 22%, rgba(255,255,255,0.18), transparent 34%),
+        #07111f;
+    }
+    .start-screen.open { display: grid; }
+    .start-panel {
+      width: min(440px, 100%);
+      display: grid;
+      gap: 20px;
+      text-align: center;
+    }
+    .start-screen.buttons-bottom-left,
+    .start-screen.buttons-bottom-right {
+      align-items: end;
+    }
+    .start-screen.buttons-bottom-left {
+      justify-items: start;
+    }
+    .start-screen.buttons-bottom-right {
+      justify-items: end;
+    }
+    .start-screen.buttons-bottom-left .start-panel,
+    .start-screen.buttons-bottom-right .start-panel {
+      max-width: min(380px, 100%);
+      text-align: left;
+    }
+    .start-screen.buttons-bottom-left .start-logo,
+    .start-screen.buttons-bottom-right .start-logo,
+    .start-screen.buttons-bottom-left .start-title,
+    .start-screen.buttons-bottom-right .start-title,
+    .start-screen.buttons-bottom-left .start-subtitle,
+    .start-screen.buttons-bottom-right .start-subtitle {
+      justify-self: start;
+      text-align: left;
+    }
+    .start-logo {
+      width: 68px;
+      height: 68px;
+      justify-self: center;
+      border-radius: 18px;
+      box-shadow: 0 20px 54px rgba(0,0,0,0.32);
+    }
+    .start-title {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(28px, 6vw, 54px);
+      font-weight: 950;
+      line-height: 1.06;
+      text-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    }
+    .start-subtitle {
+      min-height: 18px;
+      margin: -8px 0 0;
+      color: rgba(248,250,252,0.68);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .start-actions {
+      display: grid;
+      gap: 10px;
+    }
+    .start-actions.horizontal {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    .start-action {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.10);
+      color: #f8fafc;
+      cursor: pointer;
+      font-weight: 900;
+      letter-spacing: 0;
+      backdrop-filter: blur(16px);
+      transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+    .start-action:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.32);
+      background: rgba(255,255,255,0.16);
+    }
+    .start-action.primary {
+      border-color: color-mix(in srgb, var(--choice-color, #0ea5e9), white 20%);
+      background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 8%);
+      color: var(--choice-text-color, #ffffff);
+    }
+    .start-action:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+    .start-screen.template-minimal .start-logo {
+      display: none;
+    }
+    .start-screen.template-minimal .start-action {
+      border-color: rgba(255,255,255,0.12);
+      background: transparent;
+      backdrop-filter: none;
+    }
+    .start-screen.template-minimal .start-action.primary {
+      background: rgba(255,255,255,0.10);
+    }
+    .start-screen.template-glass .start-panel {
+      padding: clamp(18px, 4vw, 34px);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.36);
+      backdrop-filter: blur(24px);
+    }
+    .start-screen.template-glass .start-action {
+      background: rgba(255,255,255,0.13);
+    }
+    .settings-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      display: none;
+      place-items: center;
+      padding: 24px 16px;
+      background: rgba(0,0,0,0.48);
+      backdrop-filter: blur(8px);
+    }
+    .settings-backdrop.open { display: grid; }
+    .settings-panel {
+      width: min(420px, calc(100vw - 32px));
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      background: rgba(8, 12, 20, 0.96);
+      color: #f8fafc;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.52);
+    }
+    .settings-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .settings-title {
+      font-size: 15px;
+      font-weight: 950;
+    }
+    .settings-close {
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255,255,255,0.68);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .settings-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .settings-row {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      text-align: left;
+    }
+    .settings-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      font-weight: 900;
+      color: rgba(248,250,252,0.8);
+    }
+    .settings-value {
+      color: rgba(248,250,252,0.54);
+      font-size: 11px;
+    }
+    .settings-row input[type="range"] { width: 100%; accent-color: var(--choice-color, #0ea5e9); }
+    .settings-toggle {
+      width: 44px;
+      height: 24px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      padding: 2px;
+      cursor: pointer;
+    }
+    .settings-toggle::before {
+      content: "";
+      display: block;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #f8fafc;
+      transition: transform 140ms ease;
+    }
+    .settings-toggle.on { background: var(--choice-color, #0ea5e9); }
+    .settings-toggle.on::before { transform: translateX(20px); }
     @media (max-width: 720px) {
       main { padding: 0; }
       header { align-items: center; }
@@ -923,12 +1149,60 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       <audio id="playlistAudio" preload="auto" hidden></audio>
     </main>
   </div>
+  <div class="start-screen" id="startScreen" role="dialog" aria-modal="true">
+    <div class="start-panel">
+      <img class="start-logo" src="${escapeHtml(faviconPath)}" alt="" />
+      <div>
+        <h2 class="start-title" id="startTitle"></h2>
+        <p class="start-subtitle" id="startSubtitle"></p>
+      </div>
+      <div class="start-actions">
+        <button class="start-action primary" id="saveSlotButton" type="button"></button>
+        <button class="start-action" id="newGameButton" type="button"></button>
+        <button class="start-action" id="settingsButton" type="button"></button>
+      </div>
+    </div>
+  </div>
+  <div class="settings-backdrop" id="settingsBackdrop">
+    <div class="settings-panel" role="dialog" aria-modal="true">
+      <div class="settings-head">
+        <div class="settings-title" id="settingsTitle"></div>
+        <button class="settings-close" id="settingsClose" type="button" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span id="settingAutoLabel"></span>
+          <button class="settings-toggle" id="settingAutoButton" type="button"></button>
+        </div>
+      </div>
+      <label class="settings-row">
+        <div class="settings-label">
+          <span id="settingSpeedLabel"></span>
+          <span class="settings-value" id="settingSpeedValue"></span>
+        </div>
+        <input id="settingSpeedInput" type="range" min="10" max="200" step="5" />
+      </label>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span id="settingControlsLabel"></span>
+          <button class="settings-toggle" id="settingControlsButton" type="button"></button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script>
     const content = window.GALWRITER_CONTENT || { nodes: [], edges: [], title: "GalWriter" };
     const style = content.style || {};
     const settings = content.settings || {};
     settings.layoutMode = settings.layoutMode || "immersive";
     settings.choicesPosition = settings.choicesPosition || "center";
+    settings.showStartMenu = settings.showStartMenu !== false;
+    settings.startMenuTemplate = ["cinematic", "minimal", "glass"].includes(settings.startMenuTemplate) ? settings.startMenuTemplate : "cinematic";
+    settings.startMenuButtonPosition = ["center", "bottomLeft", "bottomRight"].includes(settings.startMenuButtonPosition) ? settings.startMenuButtonPosition : "center";
+    settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
+    settings.startMenuShowSave = settings.startMenuShowSave !== false;
+    settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
+    settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
     settings.interactionMode = settings.interactionMode || "typewriter";
     settings.typewriterSpeed = Math.max(0, Number(settings.typewriterSpeed) || 65);
     settings.autoAdvance = Boolean(settings.autoAdvance);
@@ -1040,10 +1314,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
-      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3" }
+      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3", saveSlot: "\\u5b58\\u6863", noSave: "\\u6ca1\\u6709\\u5b58\\u6863", newGame: "\\u65b0\\u6e38\\u620f", settings: "\\u8bbe\\u7f6e", savedAt: "\\u4e0a\\u6b21\\u8fdb\\u5ea6", saved: "\\u5df2\\u5b58\\u6863", autoPlay: "\\u81ea\\u52a8\\u64ad\\u653e", textSpeed: "\\u6253\\u5b57\\u901f\\u5ea6", controls: "\\u663e\\u793a\\u63a7\\u4ef6" }
       : content.language === "ja"
-        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u97f3\\u58f0\\u518d\\u751f", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3" }
-        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio" };
+        ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u97f3\\u58f0\\u518d\\u751f", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3", saveSlot: "\\u30bb\\u30fc\\u30d6", noSave: "\\u30bb\\u30fc\\u30d6\\u306a\\u3057", newGame: "\\u65b0\\u898f\\u30b2\\u30fc\\u30e0", settings: "\\u8a2d\\u5b9a", savedAt: "\\u524d\\u56de\\u306e\\u9032\\u6357", saved: "\\u30bb\\u30fc\\u30d6\\u6e08\\u307f", autoPlay: "\\u81ea\\u52d5\\u518d\\u751f", textSpeed: "\\u30c6\\u30ad\\u30b9\\u30c8\\u901f\\u5ea6", controls: "\\u64cd\\u4f5c\\u8868\\u793a" }
+        : { back: "Back", reset: "Restart", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio", saveSlot: "Save", noSave: "No save", newGame: "New Game", settings: "Settings", savedAt: "Last progress", saved: "Saved", autoPlay: "Auto play", textSpeed: "Text speed", controls: "Show controls" };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -1065,7 +1339,32 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const playlistAudio = document.getElementById("playlistAudio");
     const makeButton = document.getElementById("makeButton");
     const zenButton = document.getElementById("zenButton");
+    const startScreen = document.getElementById("startScreen");
+    const startTitle = document.getElementById("startTitle");
+    const startSubtitle = document.getElementById("startSubtitle");
+    const startActions = document.querySelector(".start-actions");
+    const saveSlotButton = document.getElementById("saveSlotButton");
+    const newGameButton = document.getElementById("newGameButton");
+    const settingsButton = document.getElementById("settingsButton");
+    const settingsBackdrop = document.getElementById("settingsBackdrop");
+    const settingsTitle = document.getElementById("settingsTitle");
+    const settingsClose = document.getElementById("settingsClose");
+    const settingAutoLabel = document.getElementById("settingAutoLabel");
+    const settingAutoButton = document.getElementById("settingAutoButton");
+    const settingSpeedLabel = document.getElementById("settingSpeedLabel");
+    const settingSpeedValue = document.getElementById("settingSpeedValue");
+    const settingSpeedInput = document.getElementById("settingSpeedInput");
+    const settingControlsLabel = document.getElementById("settingControlsLabel");
+    const settingControlsButton = document.getElementById("settingControlsButton");
     titleEl.textContent = content.title || "GalWriter";
+    startTitle.textContent = content.title || "GalWriter";
+    startScreen.classList.add("template-" + settings.startMenuTemplate);
+    startScreen.classList.add("buttons-" + settings.startMenuButtonPosition.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase()));
+    startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
+    settingsTitle.textContent = labels.settings;
+    settingAutoLabel.textContent = labels.autoPlay;
+    settingSpeedLabel.textContent = labels.textSpeed;
+    settingControlsLabel.textContent = labels.controls;
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
     playlistButton.innerHTML = '<span aria-hidden="true">&#9835;</span><span>' + labels.playlist + '</span>';
@@ -1083,12 +1382,143 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     let playedAudios = [];
     let currentAudioEnded = true;
     let currentVideoEnded = true;
+    let gameStarted = !settings.showStartMenu;
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
     let regionUnlockCleanup = null;
     let zenPositionFrame = 0;
     let zenPositionObserver = null;
+    const saveKey = "galwriter-web-save:" + encodeURIComponent(String(content.title || "GalWriter"));
+
+    function readSave() {
+      try {
+        const raw = window.localStorage.getItem(saveKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.currentId !== "string") return null;
+        if (parsed.currentId !== "THE_END" && !nodeById.has(parsed.currentId)) return null;
+        return parsed;
+      } catch (error) {
+        console.warn("Could not read GalWriter web save:", error);
+        return null;
+      }
+    }
+
+    function writeSave() {
+      if (!gameStarted) return;
+      if (!currentId) return;
+      try {
+        const payload = {
+          version: 1,
+          title: content.title || "GalWriter",
+          currentId,
+          history: Array.isArray(history) ? history.filter((id) => nodeById.has(id)) : [],
+          settings: {
+            autoAdvance: Boolean(settings.autoAdvance),
+            typewriterSpeed: Number(settings.typewriterSpeed) || 65,
+          },
+          controlsHidden: Boolean(controlsHidden),
+          playedAudios,
+          savedAt: Date.now(),
+        };
+        window.localStorage.setItem(saveKey, JSON.stringify(payload));
+        updateStartMenu();
+      } catch (error) {
+        console.warn("Could not write GalWriter web save:", error);
+      }
+    }
+
+    function applySave(save) {
+      if (!save) return false;
+      currentId = save.currentId === "THE_END" ? "THE_END" : save.currentId;
+      history = Array.isArray(save.history) ? save.history.filter((id) => nodeById.has(id)) : [];
+      if (save.settings) {
+        if (typeof save.settings.autoAdvance === "boolean") settings.autoAdvance = save.settings.autoAdvance;
+        if (Number.isFinite(Number(save.settings.typewriterSpeed))) {
+          settings.typewriterSpeed = Math.max(0, Number(save.settings.typewriterSpeed));
+        }
+      }
+      controlsHidden = Boolean(save.controlsHidden);
+      playedAudios = Array.isArray(save.playedAudios) ? save.playedAudios : [];
+      document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
+      zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
+      updateAutoButton();
+      updateSettingsPanel();
+      return true;
+    }
+
+    function saveLabel(save) {
+      if (!save || !save.savedAt) return labels.noSave;
+      const date = new Date(save.savedAt);
+      if (Number.isNaN(date.getTime())) return labels.savedAt;
+      return labels.savedAt + " " + date.toLocaleString();
+    }
+
+    function updateStartMenu() {
+      const save = readSave();
+      const showSave = Boolean(settings.startMenuShowSave);
+      const showNewGame = Boolean(settings.startMenuShowNewGame) || (!settings.startMenuShowSave && !settings.startMenuShowSettings);
+      const showSettings = Boolean(settings.startMenuShowSettings);
+      startSubtitle.textContent = save ? saveLabel(save) : labels.noSave;
+      saveSlotButton.textContent = save ? labels.saveSlot : labels.noSave;
+      saveSlotButton.disabled = !save;
+      saveSlotButton.hidden = !showSave;
+      newGameButton.textContent = labels.newGame;
+      newGameButton.hidden = !showNewGame;
+      settingsButton.textContent = labels.settings;
+      settingsButton.hidden = !showSettings;
+    }
+
+    function showStartMenu() {
+      updateStartMenu();
+      startScreen.classList.add("open");
+    }
+
+    function hideStartMenu() {
+      startScreen.classList.remove("open");
+    }
+
+    function startGameFromCurrent() {
+      gameStarted = true;
+      hideStartMenu();
+      renderPlaylist();
+      render();
+    }
+
+    function startNewGame() {
+      restartPlaybackSession();
+      history = [];
+      currentId = root ? root.id : null;
+      autoAdvanceHoldId = currentId;
+      window.localStorage.removeItem(saveKey);
+      startGameFromCurrent();
+      writeSave();
+    }
+
+    function continueSavedGame() {
+      const save = readSave();
+      if (!save || !applySave(save)) return;
+      startGameFromCurrent();
+    }
+
+    function updateSettingsPanel() {
+      settingAutoButton.classList.toggle("on", Boolean(settings.autoAdvance));
+      settingAutoButton.setAttribute("aria-pressed", String(Boolean(settings.autoAdvance)));
+      settingSpeedInput.value = String(Math.max(10, Math.min(200, Number(settings.typewriterSpeed) || 65)));
+      settingSpeedValue.textContent = settingSpeedInput.value + "ms";
+      settingControlsButton.classList.toggle("on", !controlsHidden);
+      settingControlsButton.setAttribute("aria-pressed", String(!controlsHidden));
+    }
+
+    function openSettingsPanel() {
+      updateSettingsPanel();
+      settingsBackdrop.classList.add("open");
+    }
+
+    function closeSettingsPanel() {
+      settingsBackdrop.classList.remove("open");
+    }
 
     function hasZenBottomRightSpace() {
       if (settings.layoutMode !== "immersive") return true;
@@ -1414,11 +1844,13 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           if (currentId) history.push(currentId);
           currentId = id;
           render();
+          writeSave();
         }, exitDuration);
       } else {
         if (currentId) history.push(currentId);
         currentId = id;
         render();
+        writeSave();
       }
     }
 
@@ -1966,6 +2398,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         currentId = root ? root.id : null;
         render();
       }
+      writeSave();
     });
     resetButton.addEventListener("click", () => {
       restartPlaybackSession();
@@ -1973,11 +2406,40 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       currentId = root ? root.id : null;
       autoAdvanceHoldId = currentId;
       render();
+      writeSave();
     });
     autoButton.addEventListener("click", () => {
       settings.autoAdvance = !settings.autoAdvance;
       updateAutoButton();
+      updateSettingsPanel();
       render();
+      writeSave();
+    });
+    saveSlotButton.addEventListener("click", continueSavedGame);
+    newGameButton.addEventListener("click", startNewGame);
+    settingsButton.addEventListener("click", openSettingsPanel);
+    settingsClose.addEventListener("click", closeSettingsPanel);
+    settingsBackdrop.addEventListener("click", (event) => {
+      if (event.target === settingsBackdrop) closeSettingsPanel();
+    });
+    settingAutoButton.addEventListener("click", () => {
+      settings.autoAdvance = !settings.autoAdvance;
+      updateAutoButton();
+      updateSettingsPanel();
+      if (!startScreen.classList.contains("open")) render();
+      writeSave();
+    });
+    settingSpeedInput.addEventListener("input", () => {
+      settings.typewriterSpeed = Math.max(0, Number(settingSpeedInput.value) || 65);
+      updateSettingsPanel();
+      writeSave();
+    });
+    settingControlsButton.addEventListener("click", () => {
+      controlsHidden = !controlsHidden;
+      document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
+      zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
+      updateSettingsPanel();
+      writeSave();
     });
     playlistButton.addEventListener("click", () => {
       const open = !playlistBackdrop.classList.contains("open");
@@ -2002,7 +2464,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
+      updateSettingsPanel();
+      writeSave();
     });
+    window.addEventListener("pagehide", writeSave);
     document.querySelector(".app")?.addEventListener("click", (event) => {
       if ((settings.autoAdvance && autoAdvanceHoldId !== currentId) || !currentId || currentId === "THE_END") return;
       const target = event.target;
@@ -2016,8 +2481,13 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       }
       continueFromText();
     });
-    renderPlaylist();
-    render();
+    updateSettingsPanel();
+    if (settings.showStartMenu) {
+      showStartMenu();
+    } else {
+      renderPlaylist();
+      render();
+    }
   </script>
 </body>
 </html>`;
@@ -2079,6 +2549,13 @@ export async function buildInteractiveWebZipBlob(
   const settings: WebExportSettings = {
     layoutMode: options.settings?.layoutMode || 'immersive',
     choicesPosition: options.settings?.choicesPosition || 'center',
+    showStartMenu: options.settings?.showStartMenu ?? true,
+    startMenuTemplate: options.settings?.startMenuTemplate || 'cinematic',
+    startMenuButtonPosition: options.settings?.startMenuButtonPosition || 'center',
+    startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
+    startMenuShowSave: options.settings?.startMenuShowSave ?? true,
+    startMenuShowNewGame: options.settings?.startMenuShowNewGame ?? true,
+    startMenuShowSettings: options.settings?.startMenuShowSettings ?? true,
     blurBackground: options.settings?.blurBackground ?? true,
     skipSingleChoicePopup: options.settings?.skipSingleChoicePopup ?? true,
     interactionMode: options.settings?.interactionMode || 'typewriter',

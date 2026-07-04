@@ -5,6 +5,13 @@ import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/
 const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   layoutMode: 'immersive',
   choicesPosition: 'center',
+  showStartMenu: true,
+  startMenuTemplate: 'cinematic',
+  startMenuButtonPosition: 'center',
+  startMenuButtonLayout: 'vertical',
+  startMenuShowSave: true,
+  startMenuShowNewGame: true,
+  startMenuShowSettings: true,
   blurBackground: true,
   skipSingleChoicePopup: true,
   interactionMode: 'typewriter',

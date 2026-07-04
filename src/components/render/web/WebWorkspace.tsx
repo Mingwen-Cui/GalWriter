@@ -12,9 +12,11 @@ import {
   MousePointerClick,
   Palette,
   Play,
+  Save,
   Settings,
   Sparkles,
   RotateCw,
+  Upload,
   Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -82,6 +84,46 @@ export function WebWorkspace({
   updateWebRenderStyle,
 }: WebWorkspaceProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const startMenuDesignStorageKey = 'galwriter-web-start-menu-design:v1';
+  const saveStartMenuDesign = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      startMenuDesignStorageKey,
+      JSON.stringify({
+        showStartMenu: webSettings.showStartMenu,
+        startMenuTemplate: webSettings.startMenuTemplate,
+        startMenuButtonPosition: webSettings.startMenuButtonPosition,
+        startMenuButtonLayout: webSettings.startMenuButtonLayout,
+        startMenuShowSave: webSettings.startMenuShowSave,
+        startMenuShowNewGame: webSettings.startMenuShowNewGame,
+        startMenuShowSettings: webSettings.startMenuShowSettings,
+      }),
+    );
+  };
+  const loadStartMenuDesign = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(startMenuDesignStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<WebExportSettings>;
+      const entries: Partial<WebExportSettings> = {
+        showStartMenu: parsed.showStartMenu,
+        startMenuTemplate: parsed.startMenuTemplate,
+        startMenuButtonPosition: parsed.startMenuButtonPosition,
+        startMenuButtonLayout: parsed.startMenuButtonLayout,
+        startMenuShowSave: parsed.startMenuShowSave,
+        startMenuShowNewGame: parsed.startMenuShowNewGame,
+        startMenuShowSettings: parsed.startMenuShowSettings,
+      };
+      Object.entries(entries).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updateWebSettings(key as keyof WebExportSettings, value as never);
+        }
+      });
+    } catch {
+      // Ignore invalid local design presets.
+    }
+  };
   const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
     if (typeof window === 'undefined') return true;
     const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
@@ -198,6 +240,150 @@ export function WebWorkspace({
             )}
           </div>
 
+          <WebPanelTitle icon={LayoutTemplate} title="启动界面设计" />
+          <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'minimal', label: 'Minimal' },
+                { value: 'glass', label: 'Glass' },
+              ].map((template) => {
+                const active = webSettings.startMenuTemplate === template.value;
+                return (
+                  <button
+                    key={template.value}
+                    type="button"
+                    onClick={() =>
+                      updateWebSettings(
+                        'startMenuTemplate',
+                        template.value as WebExportSettings['startMenuTemplate'],
+                      )
+                    }
+                    className={`group grid gap-2 rounded-lg border p-2 text-left transition-colors ${
+                      active
+                        ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]'
+                        : 'border-[var(--vr-border)] bg-[var(--vr-surface)] hover:border-[var(--vr-border-strong)]'
+                    }`}
+                    aria-pressed={active}
+                  >
+                    <StartMenuTemplatePreview
+                      template={template.value as WebExportSettings['startMenuTemplate']}
+                      active={active}
+                    />
+                    <span className="truncate text-[10px] font-black text-[var(--vr-text)]">
+                      {template.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={saveStartMenuDesign}
+                className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
+                title={t('保存为默认启动界面设计', 'デフォルトデザインとして保存', 'Save as default start screen design')}
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span className="truncate">{t('保存设计', '保存', 'Save Design')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={loadStartMenuDesign}
+                className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
+                title={t('套用已保存的启动界面设计', '保存済みデザインを適用', 'Apply saved start screen design')}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span className="truncate">{t('套用设计', '適用', 'Apply Design')}</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <WebSettingCard
+                description={
+                  showSettingDescriptions
+                    ? t('按钮位置', 'ボタン位置', 'Button position')
+                    : undefined
+                }
+              >
+                <WebSegmentedGroup
+                  value={webSettings.startMenuButtonPosition}
+                  options={[
+                    { value: 'center', label: '中' },
+                    { value: 'bottomLeft', label: '左' },
+                    { value: 'bottomRight', label: '右' },
+                  ]}
+                  onChange={(value) =>
+                    updateWebSettings(
+                      'startMenuButtonPosition',
+                      value as WebExportSettings['startMenuButtonPosition'],
+                    )
+                  }
+                />
+              </WebSettingCard>
+              <WebSettingCard
+                description={
+                  showSettingDescriptions
+                    ? t('按钮排列', 'ボタン配列', 'Button layout')
+                    : undefined
+                }
+              >
+                <WebPillToggleGroup
+                  value={webSettings.startMenuButtonLayout}
+                  options={[
+                    { value: 'vertical', label: 'Stack' },
+                    { value: 'horizontal', label: 'Row' },
+                  ]}
+                  onChange={(value) =>
+                    updateWebSettings(
+                      'startMenuButtonLayout',
+                      value as WebExportSettings['startMenuButtonLayout'],
+                    )
+                  }
+                />
+              </WebSettingCard>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <WebSettingCard
+                description={showSettingDescriptions ? t('存档按钮', 'セーブ', 'Save') : undefined}
+              >
+                <WebPillToggleGroup
+                  value={webSettings.startMenuShowSave ? 'show' : 'hide'}
+                  options={[
+                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('startMenuShowSave', value === 'show')}
+                />
+              </WebSettingCard>
+              <WebSettingCard
+                description={
+                  showSettingDescriptions ? t('新游戏按钮', '新規', 'New game') : undefined
+                }
+              >
+                <WebPillToggleGroup
+                  value={webSettings.startMenuShowNewGame ? 'show' : 'hide'}
+                  options={[
+                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('startMenuShowNewGame', value === 'show')}
+                />
+              </WebSettingCard>
+              <WebSettingCard
+                description={showSettingDescriptions ? t('设置按钮', '設定', 'Settings') : undefined}
+              >
+                <WebPillToggleGroup
+                  value={webSettings.startMenuShowSettings ? 'show' : 'hide'}
+                  options={[
+                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('startMenuShowSettings', value === 'show')}
+                />
+              </WebSettingCard>
+            </div>
+          </div>
+
           <WebPanelTitle icon={LayoutTemplate} title="网页参数" />
           <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
             <div className="grid grid-cols-3 gap-2">
@@ -271,6 +457,23 @@ export function WebWorkspace({
                     { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
                   ]}
                   onChange={(value) => updateWebSettings('skipSingleChoicePopup', value === 'hide')}
+                />
+              </WebSettingCard>
+              <WebSettingCard
+                icon={Gamepad2}
+                description={
+                  showSettingDescriptions
+                    ? t('进入主界面', 'タイトル画面', 'Start screen')
+                    : undefined
+                }
+              >
+                <WebPillToggleGroup
+                  value={webSettings.showStartMenu ? 'on' : 'off'}
+                  options={[
+                    { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
+                    { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
                 />
               </WebSettingCard>
               <WebSettingCard
@@ -351,6 +554,42 @@ export function WebWorkspace({
 const isReactNodeIcon = (icon: LucideIcon | ReactNode): icon is ReactNode => isValidElement(icon);
 
 const createIconElement = (Icon: LucideIcon) => createElement(Icon, { className: 'h-3.5 w-3.5' });
+
+function StartMenuTemplatePreview({
+  template,
+  active,
+}: {
+  template: WebExportSettings['startMenuTemplate'];
+  active: boolean;
+}) {
+  const backgroundClass =
+    template === 'minimal'
+      ? 'bg-slate-950'
+      : template === 'glass'
+        ? 'bg-[linear-gradient(135deg,#0f172a,#164e63)]'
+        : 'bg-[radial-gradient(circle_at_50%_18%,rgba(14,165,233,0.45),transparent_44%),linear-gradient(180deg,#111827,#030712)]';
+  const panelClass =
+    template === 'minimal'
+      ? 'border-white/15 bg-transparent'
+      : template === 'glass'
+        ? 'border-white/25 bg-white/15 backdrop-blur-sm'
+        : 'border-white/10 bg-black/15';
+
+  return (
+    <span
+      className={`relative block h-20 overflow-hidden rounded-md border ${
+        active ? 'border-[var(--vr-accent)]' : 'border-white/10'
+      } ${backgroundClass}`}
+    >
+      <span className={`absolute left-1/2 top-3 h-2 w-16 -translate-x-1/2 rounded-full ${panelClass}`} />
+      <span className="absolute left-1/2 top-8 h-1.5 w-10 -translate-x-1/2 rounded-full bg-white/80" />
+      <span className="absolute bottom-3 left-1/2 grid w-20 -translate-x-1/2 gap-1">
+        <span className={`h-2 rounded-full ${template === 'minimal' ? 'bg-white/60' : 'bg-sky-400/90'}`} />
+        <span className="h-2 rounded-full bg-white/24" />
+      </span>
+    </span>
+  );
+}
 
 function SingleChoicePopupGlyph() {
   return (

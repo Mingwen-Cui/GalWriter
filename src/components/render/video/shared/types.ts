@@ -100,6 +100,13 @@ export type RenderStyle = {
 export type WebExportSettings = {
   layoutMode: 'classic' | 'immersive';
   choicesPosition: 'center' | 'aboveText' | 'belowText';
+  showStartMenu: boolean;
+  startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
+  startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
+  startMenuButtonLayout: 'vertical' | 'horizontal';
+  startMenuShowSave: boolean;
+  startMenuShowNewGame: boolean;
+  startMenuShowSettings: boolean;
   blurBackground: boolean;
   skipSingleChoicePopup: boolean;
   interactionMode: 'immediate' | 'typewriter';
