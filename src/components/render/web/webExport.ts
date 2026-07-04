@@ -24,6 +24,7 @@ type WebExportSettings = {
   startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
   startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
   startMenuButtonLayout: 'vertical' | 'horizontal';
+  startMenuButtonSize: 'compact' | 'normal' | 'large';
   startMenuShowSave: boolean;
   startMenuShowNewGame: boolean;
   startMenuShowSettings: boolean;
@@ -961,6 +962,21 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       backdrop-filter: blur(16px);
       transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
     }
+    .start-screen.button-size-compact .start-action {
+      min-height: 40px;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+    .start-screen.button-size-normal .start-action {
+      min-height: 48px;
+      padding: 0 18px;
+      font-size: 14px;
+    }
+    .start-screen.button-size-large .start-action {
+      min-height: 56px;
+      padding: 0 22px;
+      font-size: 16px;
+    }
     .start-action:hover:not(:disabled) {
       transform: translateY(-1px);
       border-color: rgba(255,255,255,0.32);
@@ -1200,6 +1216,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     settings.startMenuTemplate = ["cinematic", "minimal", "glass"].includes(settings.startMenuTemplate) ? settings.startMenuTemplate : "cinematic";
     settings.startMenuButtonPosition = ["center", "bottomLeft", "bottomRight"].includes(settings.startMenuButtonPosition) ? settings.startMenuButtonPosition : "center";
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
+    settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
     settings.startMenuShowSave = settings.startMenuShowSave !== false;
     settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
     settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
@@ -1360,6 +1377,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     startTitle.textContent = content.title || "GalWriter";
     startScreen.classList.add("template-" + settings.startMenuTemplate);
     startScreen.classList.add("buttons-" + settings.startMenuButtonPosition.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase()));
+    startScreen.classList.add("button-size-" + settings.startMenuButtonSize);
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
     settingsTitle.textContent = labels.settings;
     settingAutoLabel.textContent = labels.autoPlay;
@@ -1461,7 +1479,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       const showNewGame = Boolean(settings.startMenuShowNewGame) || (!settings.startMenuShowSave && !settings.startMenuShowSettings);
       const showSettings = Boolean(settings.startMenuShowSettings);
       startSubtitle.textContent = save ? saveLabel(save) : labels.noSave;
-      saveSlotButton.textContent = save ? labels.saveSlot : labels.noSave;
+      saveSlotButton.textContent = labels.saveSlot;
       saveSlotButton.disabled = !save;
       saveSlotButton.hidden = !showSave;
       newGameButton.textContent = labels.newGame;
@@ -2553,6 +2571,7 @@ export async function buildInteractiveWebZipBlob(
     startMenuTemplate: options.settings?.startMenuTemplate || 'cinematic',
     startMenuButtonPosition: options.settings?.startMenuButtonPosition || 'center',
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
+    startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuShowSave: options.settings?.startMenuShowSave ?? true,
     startMenuShowNewGame: options.settings?.startMenuShowNewGame ?? true,
     startMenuShowSettings: options.settings?.startMenuShowSettings ?? true,

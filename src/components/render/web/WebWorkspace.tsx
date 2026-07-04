@@ -94,6 +94,7 @@ export function WebWorkspace({
         startMenuTemplate: webSettings.startMenuTemplate,
         startMenuButtonPosition: webSettings.startMenuButtonPosition,
         startMenuButtonLayout: webSettings.startMenuButtonLayout,
+        startMenuButtonSize: webSettings.startMenuButtonSize,
         startMenuShowSave: webSettings.startMenuShowSave,
         startMenuShowNewGame: webSettings.startMenuShowNewGame,
         startMenuShowSettings: webSettings.startMenuShowSettings,
@@ -111,6 +112,7 @@ export function WebWorkspace({
         startMenuTemplate: parsed.startMenuTemplate,
         startMenuButtonPosition: parsed.startMenuButtonPosition,
         startMenuButtonLayout: parsed.startMenuButtonLayout,
+        startMenuButtonSize: parsed.startMenuButtonSize,
         startMenuShowSave: parsed.startMenuShowSave,
         startMenuShowNewGame: parsed.startMenuShowNewGame,
         startMenuShowSettings: parsed.startMenuShowSettings,
@@ -129,6 +131,8 @@ export function WebWorkspace({
     const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
     return stored === null ? true : stored === 'true';
   });
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [startMenuPreviewMode, setStartMenuPreviewMode] = useState<'edit' | 'test'>('edit');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -144,14 +148,21 @@ export function WebWorkspace({
         <div className="grid h-12 grid-cols-[1fr_auto] items-center border-b border-[var(--vr-border)] px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-            <span className="truncate">{webProjectName || defaultWebProjectName || t('网页标题', 'Webタイトル', 'Web Title')}</span>
+            <span className="truncate">测试预览窗口</span>
           </div>
-          <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black text-[var(--vr-text)]">
-            网页
-          </div>
+          <button
+            type="button"
+            onClick={() => setPreviewRefreshKey((key) => key + 1)}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]"
+            title={t('刷新项目预览', 'プロジェクトプレビューを更新', 'Refresh project preview')}
+            aria-label={t('刷新项目预览', 'プロジェクトプレビューを更新', 'Refresh project preview')}
+          >
+            <RotateCw className="h-4 w-4" />
+          </button>
         </div>
         <div className="min-h-0 flex-1 p-4 xl:p-5">
           <WebPlaytestPreview
+            key={previewRefreshKey}
             nodes={nodes}
             edges={edges}
             language={language}
@@ -160,6 +171,7 @@ export function WebWorkspace({
             choiceTextColor={webChoiceTextColor}
             settings={webSettings}
             projectTitle={webProjectName}
+            previewMode={startMenuPreviewMode}
             onUpdateSettings={updateWebSettings}
             onUpdateRenderStyle={updateWebRenderStyle}
           />
@@ -240,7 +252,24 @@ export function WebWorkspace({
             )}
           </div>
 
-          <WebPanelTitle icon={LayoutTemplate} title="启动界面设计" />
+          <WebPanelTitle
+            icon={LayoutTemplate}
+            title="启动界面设计"
+            action={
+              <WebPillToggleGroup
+                value={startMenuPreviewMode}
+                options={[
+                  { value: 'edit', label: '编辑模式' },
+                  { value: 'test', label: '测试模式' },
+                ]}
+                onChange={(value) => {
+                  setStartMenuPreviewMode(value as 'edit' | 'test');
+                  setPreviewRefreshKey((key) => key + 1);
+                }}
+              />
+            }
+          />
+          {startMenuPreviewMode === 'edit' ? (
           <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -342,6 +371,24 @@ export function WebWorkspace({
                 />
               </WebSettingCard>
             </div>
+            <WebSettingCard
+              description={showSettingDescriptions ? t('按钮大小', 'ボタンサイズ', 'Button size') : undefined}
+            >
+              <WebSegmentedGroup
+                value={webSettings.startMenuButtonSize}
+                options={[
+                  { value: 'compact', label: 'S' },
+                  { value: 'normal', label: 'M' },
+                  { value: 'large', label: 'L' },
+                ]}
+                onChange={(value) =>
+                  updateWebSettings(
+                    'startMenuButtonSize',
+                    value as WebExportSettings['startMenuButtonSize'],
+                  )
+                }
+              />
+            </WebSettingCard>
             <div className="grid grid-cols-3 gap-2">
               <WebSettingCard
                 description={showSettingDescriptions ? t('存档按钮', 'セーブ', 'Save') : undefined}
@@ -382,7 +429,25 @@ export function WebWorkspace({
                 />
               </WebSettingCard>
             </div>
+            <WebSettingCard
+              icon={Gamepad2}
+              description={
+                showSettingDescriptions
+                  ? t('进入主界面', 'タイトル画面', 'Start screen')
+                  : undefined
+              }
+            >
+              <WebPillToggleGroup
+                value={webSettings.showStartMenu ? 'on' : 'off'}
+                options={[
+                  { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
+                  { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
+                ]}
+                onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
+              />
+            </WebSettingCard>
           </div>
+          ) : null}
 
           <WebPanelTitle icon={LayoutTemplate} title="网页参数" />
           <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
@@ -457,23 +522,6 @@ export function WebWorkspace({
                     { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
                   ]}
                   onChange={(value) => updateWebSettings('skipSingleChoicePopup', value === 'hide')}
-                />
-              </WebSettingCard>
-              <WebSettingCard
-                icon={Gamepad2}
-                description={
-                  showSettingDescriptions
-                    ? t('进入主界面', 'タイトル画面', 'Start screen')
-                    : undefined
-                }
-              >
-                <WebPillToggleGroup
-                  value={webSettings.showStartMenu ? 'on' : 'off'}
-                  options={[
-                    { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
-                    { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
-                  ]}
-                  onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
                 />
               </WebSettingCard>
               <WebSettingCard

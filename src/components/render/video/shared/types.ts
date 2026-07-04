@@ -104,6 +104,7 @@ export type WebExportSettings = {
   startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
   startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
   startMenuButtonLayout: 'vertical' | 'horizontal';
+  startMenuButtonSize: 'compact' | 'normal' | 'large';
   startMenuShowSave: boolean;
   startMenuShowNewGame: boolean;
   startMenuShowSettings: boolean;

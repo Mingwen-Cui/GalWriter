@@ -9,6 +9,7 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   startMenuTemplate: 'cinematic',
   startMenuButtonPosition: 'center',
   startMenuButtonLayout: 'vertical',
+  startMenuButtonSize: 'normal',
   startMenuShowSave: true,
   startMenuShowNewGame: true,
   startMenuShowSettings: true,

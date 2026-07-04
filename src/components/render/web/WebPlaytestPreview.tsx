@@ -69,6 +69,7 @@ type WebPlaytestPreviewProps = {
   choiceTextColor: string;
   settings: WebExportSettings;
   projectTitle: string;
+  previewMode?: 'edit' | 'test';
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -91,6 +92,7 @@ export function WebPlaytestPreview({
   choiceTextColor,
   settings,
   projectTitle,
+  previewMode = 'test',
   onUpdateSettings,
   onUpdateRenderStyle,
 }: WebPlaytestPreviewProps) {
@@ -123,6 +125,8 @@ export function WebPlaytestPreview({
   const [currentAudioEnded, setCurrentAudioEnded] = useState(false);
   const [currentVideoEnded, setCurrentVideoEnded] = useState(false);
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
+  const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
+  const [previewStartSettingsOpen, setPreviewStartSettingsOpen] = useState(false);
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
   const dialogueBoxRef = useRef<HTMLDivElement>(null);
@@ -147,6 +151,11 @@ export function WebPlaytestPreview({
   const playbackSessionRef = useRef(0);
   const lastJumpedNodeRef = useRef<string | null>(null);
   const autoAdvanceHoldNodeRef = useRef<string | null>(null);
+
+  React.useEffect(() => {
+    setPreviewStartMenuOpen(previewMode === 'edit' ? settings.showStartMenu : settings.showStartMenu);
+    if (!settings.showStartMenu) setPreviewStartSettingsOpen(false);
+  }, [previewMode, settings.showStartMenu]);
 
   const clearPlaybackTimers = React.useCallback(() => {
     if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
@@ -879,6 +888,209 @@ export function WebPlaytestPreview({
     ? t('显示上方按钮', '上部ボタンを表示', 'Show controls')
     : t('隐藏上方按钮', '上部ボタンを隠す', 'Hide controls');
 
+  const startMenuButtonPositionClass =
+    settings.startMenuButtonPosition === 'bottomLeft'
+      ? 'items-end justify-items-start text-left'
+      : settings.startMenuButtonPosition === 'bottomRight'
+        ? 'items-end justify-items-end text-left'
+        : 'place-items-center text-center';
+  const startMenuPanelClass =
+    settings.startMenuButtonPosition === 'center'
+      ? 'w-[min(440px,100%)]'
+      : 'w-[min(380px,100%)]';
+  const startMenuBackgroundClass =
+    settings.startMenuTemplate === 'minimal'
+      ? 'bg-slate-950'
+      : settings.startMenuTemplate === 'glass'
+        ? 'bg-[linear-gradient(135deg,rgba(15,23,42,0.72),rgba(8,145,178,0.34)),radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.20),transparent_34%),#07111f]'
+        : 'bg-[radial-gradient(circle_at_50%_18%,rgba(14,165,233,0.24),transparent_42%),linear-gradient(180deg,rgba(4,8,14,0.44),rgba(4,8,14,0.94)),#070b12]';
+  const startMenuPanelSurfaceClass =
+    settings.startMenuTemplate === 'glass'
+      ? 'rounded-[18px] border border-white/16 bg-white/[0.08] p-6 shadow-2xl shadow-black/35 backdrop-blur-2xl'
+      : '';
+  const startMenuActionsClass =
+    settings.startMenuButtonLayout === 'horizontal'
+      ? 'grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2'
+      : 'grid gap-2.5';
+  const startMenuActionSizeClass =
+    settings.startMenuButtonSize === 'compact'
+      ? 'min-h-10 px-3 text-xs'
+      : settings.startMenuButtonSize === 'large'
+        ? 'min-h-14 px-5 text-base'
+        : 'min-h-12 px-4 text-sm';
+  const startMenuActions = [
+    settings.startMenuShowSave
+      ? {
+          key: 'save',
+          label: t('存档', 'セーブ', 'Save'),
+          disabled: true,
+          primary: true,
+          onClick: () => {},
+        }
+      : null,
+    settings.startMenuShowNewGame ||
+    (!settings.startMenuShowSave && !settings.startMenuShowSettings)
+      ? {
+          key: 'new',
+          label: t('新游戏', '新規ゲーム', 'New Game'),
+          disabled: false,
+          primary: !settings.startMenuShowSave,
+          onClick: () => {
+            reset();
+            setPreviewStartMenuOpen(false);
+            setPreviewStartSettingsOpen(false);
+          },
+        }
+      : null,
+    settings.startMenuShowSettings
+      ? {
+          key: 'settings',
+          label: t('设置', '設定', 'Settings'),
+          disabled: false,
+          primary: false,
+          onClick: () => setPreviewStartSettingsOpen(true),
+        }
+      : null,
+  ].filter(
+    (
+      action,
+    ): action is {
+      key: string;
+      label: string;
+      disabled: boolean;
+      primary: boolean;
+      onClick: () => void;
+    } => Boolean(action),
+  );
+
+  const renderStartMenuPreview = () => {
+    if (!settings.showStartMenu || !previewStartMenuOpen) return null;
+    return (
+      <div
+        className={`absolute inset-0 z-40 grid p-[clamp(20px,6vw,64px)] text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
+      >
+        <div className={`grid gap-5 ${startMenuPanelClass} ${startMenuPanelSurfaceClass}`}>
+          {settings.startMenuTemplate !== 'minimal' && (
+            <div
+              className={`h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 ${
+                settings.startMenuButtonPosition === 'center' ? 'justify-self-center' : 'justify-self-start'
+              } bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]`}
+              style={
+                {
+                  '--preview-choice-color': choiceColor,
+                } as React.CSSProperties
+              }
+            />
+          )}
+          <div>
+            <h2 className="m-0 text-[clamp(28px,6vw,54px)] font-black leading-[1.06] text-white shadow-black [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]">
+              {projectTitle || t('开始', 'スタート', 'Start')}
+            </h2>
+            <p className="mt-2 min-h-[18px] text-xs font-black text-white/68">
+              {t('没有存档', 'セーブなし', 'No save')}
+            </p>
+          </div>
+          <div className={startMenuActionsClass}>
+            {startMenuActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                disabled={action.disabled}
+                onClick={() => {
+                  if (previewMode === 'edit') return;
+                  action.onClick();
+                }}
+                className={`${startMenuActionSizeClass} rounded-lg border font-black transition-transform ${
+                  action.primary
+                    ? 'border-white/24 text-white shadow-lg shadow-black/15'
+                    : 'border-white/16 bg-white/10 text-white'
+                } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} ${
+                  previewMode === 'edit' ? 'cursor-default' : ''
+                } disabled:opacity-45`}
+                style={
+                  action.primary
+                    ? {
+                        backgroundColor: `${choiceColor}e6`,
+                        color: choiceTextColor,
+                      }
+                    : undefined
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {previewStartSettingsOpen && (
+          <div
+            className="absolute inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewStartSettingsOpen(false)}
+          >
+            <div
+              className="grid w-[min(420px,calc(100%-32px))] gap-3 rounded-2xl border border-white/14 bg-slate-950/95 p-4 text-left text-white shadow-2xl shadow-black/40"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-black">{t('设置', '設定', 'Settings')}</div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewStartSettingsOpen(false)}
+                  className="grid h-8 w-8 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white/14 hover:text-white"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => onUpdateSettings('autoAdvance', !settings.autoAdvance)}
+                className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-black text-white/80"
+              >
+                <span>{t('自动播放', '自動再生', 'Auto play')}</span>
+                <span className={`h-5 w-10 rounded-full p-0.5 ${settings.autoAdvance ? 'bg-sky-500' : 'bg-white/16'}`}>
+                  <span
+                    className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                      settings.autoAdvance ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </span>
+              </button>
+              <label className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.05] p-3">
+                <div className="flex items-center justify-between text-xs font-black text-white/80">
+                  <span>{t('打字速度', 'テキスト速度', 'Text speed')}</span>
+                  <span className="text-white/50">{settings.typewriterSpeed}ms</span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={200}
+                  step={5}
+                  value={settings.typewriterSpeed}
+                  onChange={(event) => onUpdateSettings('typewriterSpeed', Number(event.target.value))}
+                  className="w-full accent-sky-400"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setPreviewControlsHidden((current) => !current)}
+                className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-black text-white/80"
+              >
+                <span>{t('显示控制栏', '操作表示', 'Show controls')}</span>
+                <span className={`h-5 w-10 rounded-full p-0.5 ${!previewControlsHidden ? 'bg-sky-500' : 'bg-white/16'}`}>
+                  <span
+                    className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                      !previewControlsHidden ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderChoiceButtons = (extraClass = '') => {
     if (!shouldShowChoices) return null;
     if (outEdges.length === 0) {
@@ -1436,6 +1648,7 @@ export function WebPlaytestPreview({
           style={controlsToggleStyle}
         />
       </div>
+      {renderStartMenuPreview()}
     </div>
   );
 }
