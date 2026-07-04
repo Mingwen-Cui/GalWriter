@@ -5,8 +5,10 @@ import {
   ListMusic,
   Maximize2,
   Minimize2,
+  Trash2,
   Sparkles,
   RotateCcw,
+  RotateCw,
   Undo2,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
@@ -60,6 +62,19 @@ import {
 } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
+type StartMenuElement = WebExportSettings['startMenuElements'][number];
+type StartMenuResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+const resizeCursorByHandle: Record<StartMenuResizeHandle, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+};
+
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -70,6 +85,9 @@ type WebPlaytestPreviewProps = {
   settings: WebExportSettings;
   projectTitle: string;
   previewMode?: 'edit' | 'test';
+  selectedStartMenuElementId?: string | null;
+  onSelectStartMenuElement?: (id: string | null) => void;
+  onDeleteStartMenuElement?: (id: string) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -93,6 +111,9 @@ export function WebPlaytestPreview({
   settings,
   projectTitle,
   previewMode = 'test',
+  selectedStartMenuElementId: controlledSelectedStartMenuElementId,
+  onSelectStartMenuElement,
+  onDeleteStartMenuElement,
   onUpdateSettings,
   onUpdateRenderStyle,
 }: WebPlaytestPreviewProps) {
@@ -133,7 +154,48 @@ export function WebPlaytestPreview({
   const currentAudioRef = useRef<HTMLAudioElement>(null);
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
+  const startMenuAudioRef = useRef<HTMLAudioElement>(null);
+  const startMenuEditorRef = useRef<HTMLDivElement>(null);
+  const startMenuEditDragRef = useRef<{
+    type: 'move' | 'resize' | 'rotate';
+    resizeHandle?: StartMenuResizeHandle;
+    id: string;
+    startClientX: number;
+    startClientY: number;
+    initial: StartMenuElement;
+    rect: DOMRect;
+    centerX?: number;
+    centerY?: number;
+    startAngle?: number;
+  } | null>(null);
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<string | null>(null);
+  const [editingStartMenuElementId, setEditingStartMenuElementId] = useState<string | null>(null);
+  const selectedStartMenuElementId =
+    controlledSelectedStartMenuElementId !== undefined
+      ? controlledSelectedStartMenuElementId
+      : localSelectedStartMenuElementId;
+  const setSelectedStartMenuElementId = React.useCallback(
+    (id: string | null) => {
+      setLocalSelectedStartMenuElementId(id);
+      onSelectStartMenuElement?.(id);
+    },
+    [onSelectStartMenuElement],
+  );
+  React.useEffect(() => {
+    if (!editingStartMenuElementId) return;
+    const editor = startMenuEditorRef.current?.querySelector<HTMLElement>(
+      `[data-start-menu-text-id="${editingStartMenuElementId}"]`,
+    );
+    if (!editor) return;
+    editor.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [editingStartMenuElementId]);
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
@@ -156,6 +218,17 @@ export function WebPlaytestPreview({
     setPreviewStartMenuOpen(previewMode === 'edit' ? settings.showStartMenu : settings.showStartMenu);
     if (!settings.showStartMenu) setPreviewStartSettingsOpen(false);
   }, [previewMode, settings.showStartMenu]);
+
+  React.useEffect(() => {
+    const audio = startMenuAudioRef.current;
+    if (!audio) return;
+    if (previewStartMenuOpen && settings.startMenuBackgroundMusicUrl) {
+      audio.volume = 0.7;
+      audio.play().catch(() => undefined);
+      return;
+    }
+    audio.pause();
+  }, [previewStartMenuOpen, settings.startMenuBackgroundMusicUrl]);
 
   const clearPlaybackTimers = React.useCallback(() => {
     if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
@@ -918,6 +991,15 @@ export function WebPlaytestPreview({
       : settings.startMenuButtonSize === 'large'
         ? 'min-h-14 px-5 text-base'
         : 'min-h-12 px-4 text-sm';
+  const buttonHeight = settings.startMenuButtonSize === 'compact' ? 8 : settings.startMenuButtonSize === 'large' ? 12 : 10;
+  const defaultButtonWidth = settings.startMenuButtonLayout === 'horizontal' ? 18 : 34;
+  const defaultButtonY = settings.startMenuButtonPosition === 'center' ? 61 : 66;
+  const defaultButtonX =
+    settings.startMenuButtonPosition === 'bottomLeft'
+      ? 8
+      : settings.startMenuButtonPosition === 'bottomRight'
+        ? 100 - 8 - defaultButtonWidth
+        : 50 - defaultButtonWidth / 2;
   const startMenuActions = [
     settings.startMenuShowSave
       ? {
@@ -962,64 +1044,424 @@ export function WebPlaytestPreview({
       onClick: () => void;
     } => Boolean(action),
   );
+  const startMenuActionMap = new Map(startMenuActions.map((action) => [action.key, action]));
+  const defaultStartMenuElements = React.useMemo<StartMenuElement[]>(() => {
+    const textAlign =
+      settings.startMenuButtonPosition === 'center' ? 'center' : 'left';
+    const textX = settings.startMenuButtonPosition === 'center' ? 22 : defaultButtonX;
+    const elements: StartMenuElement[] = [
+      {
+        id: 'title',
+        kind: 'text',
+        role: 'title',
+        text: projectTitle || t('开始', 'スタート', 'Start'),
+        visible: true,
+        x: textX,
+        y: settings.startMenuButtonPosition === 'center' ? 30 : 50,
+        width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
+        height: 12,
+        scale: 1,
+        rotation: 0,
+        fontSize: 34,
+      },
+      {
+        id: 'subtitle',
+        kind: 'text',
+        role: 'subtitle',
+        text: t('没有存档', 'セーブなし', 'No save'),
+        visible: true,
+        x: textX,
+        y: settings.startMenuButtonPosition === 'center' ? 43 : 62,
+        width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
+        height: 5,
+        scale: 1,
+        rotation: 0,
+        fontSize: 13,
+      },
+    ];
+    startMenuActions.forEach((action, index) => {
+      const horizontal = settings.startMenuButtonLayout === 'horizontal';
+      elements.push({
+        id: action.key,
+        kind: 'button',
+        role: action.key as StartMenuElement['role'],
+        text: action.label,
+        visible: true,
+        x: horizontal ? defaultButtonX + index * (defaultButtonWidth + 2) : defaultButtonX,
+        y: horizontal ? defaultButtonY : defaultButtonY + index * (buttonHeight + 2),
+        width: defaultButtonWidth,
+        height: buttonHeight,
+        scale: 1,
+        rotation: 0,
+        primary: action.primary,
+        disabled: action.disabled,
+        fontSize: settings.startMenuButtonSize === 'large' ? 16 : settings.startMenuButtonSize === 'compact' ? 12 : 14,
+        textColor: action.primary ? choiceTextColor : '#f8fafc',
+        backgroundType: 'solid',
+        backgroundColor: action.primary ? choiceColor : 'rgba(255,255,255,0.10)',
+        backgroundGradientStart: choiceColor,
+        backgroundGradientEnd: '#0f172a',
+        backgroundGradientAngle: 135,
+        borderColor: action.primary ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.16)',
+      });
+    });
+    return elements.map((element) => ({ ...element, text: element.text || textAlign }));
+  }, [
+    buttonHeight,
+    defaultButtonWidth,
+    defaultButtonX,
+    defaultButtonY,
+    projectTitle,
+    settings.startMenuButtonLayout,
+    settings.startMenuButtonPosition,
+    settings.startMenuButtonSize,
+    startMenuActions,
+    choiceColor,
+    choiceTextColor,
+  ]);
+  const startMenuElements =
+    settings.startMenuElements && settings.startMenuElements.length > 0
+      ? settings.startMenuElements
+      : defaultStartMenuElements;
+  const commitStartMenuElements = React.useCallback(
+    (next: StartMenuElement[]) => onUpdateSettings('startMenuElements', next),
+    [onUpdateSettings],
+  );
+  const updateStartMenuElement = React.useCallback(
+    (id: string, patch: Partial<StartMenuElement>) => {
+      const source =
+        settings.startMenuElements && settings.startMenuElements.length > 0
+          ? settings.startMenuElements
+          : defaultStartMenuElements;
+      commitStartMenuElements(source.map((element) => (element.id === id ? { ...element, ...patch } : element)));
+    },
+    [commitStartMenuElements, defaultStartMenuElements, settings.startMenuElements],
+  );
+  const beginStartMenuEditDrag = (
+    event: React.PointerEvent<HTMLElement>,
+    element: StartMenuElement,
+    type: 'move' | 'resize' | 'rotate',
+    resizeHandle?: StartMenuResizeHandle,
+  ) => {
+    if (previewMode !== 'edit') return;
+    const rect = startMenuEditorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+    setSelectedStartMenuElementId(element.id);
+    const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
+    const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
+    startMenuEditDragRef.current = {
+      type,
+      id: element.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      initial: element,
+      rect,
+      resizeHandle,
+      centerX,
+      centerY,
+      startAngle: Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI),
+    };
+    document.body.style.cursor =
+      type === 'resize' && resizeHandle
+        ? resizeCursorByHandle[resizeHandle]
+        : type === 'rotate'
+          ? 'alias'
+          : 'grabbing';
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const handleStartMenuEditPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = startMenuEditDragRef.current;
+    if (!drag) return;
+    const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
+    const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
+    if (drag.type === 'move') {
+      updateStartMenuElement(drag.id, {
+        x: Math.max(0, Math.min(100 - drag.initial.width, drag.initial.x + dx)),
+        y: Math.max(0, Math.min(100 - drag.initial.height, drag.initial.y + dy)),
+      });
+    } else if (drag.type === 'resize') {
+      const handle = drag.resizeHandle || 'se';
+      let nextX = drag.initial.x;
+      let nextY = drag.initial.y;
+      let nextWidth = drag.initial.width;
+      let nextHeight = drag.initial.height;
+      if (handle.includes('e')) nextWidth = drag.initial.width + dx;
+      if (handle.includes('s')) nextHeight = drag.initial.height + dy;
+      if (handle.includes('w')) {
+        nextX = drag.initial.x + dx;
+        nextWidth = drag.initial.width - dx;
+      }
+      if (handle.includes('n')) {
+        nextY = drag.initial.y + dy;
+        nextHeight = drag.initial.height - dy;
+      }
+      if (nextWidth < 6) {
+        if (handle.includes('w')) nextX = drag.initial.x + drag.initial.width - 6;
+        nextWidth = 6;
+      }
+      if (nextHeight < 4) {
+        if (handle.includes('n')) nextY = drag.initial.y + drag.initial.height - 4;
+        nextHeight = 4;
+      }
+      nextX = Math.max(0, Math.min(100 - nextWidth, nextX));
+      nextY = Math.max(0, Math.min(100 - nextHeight, nextY));
+      updateStartMenuElement(drag.id, {
+        x: nextX,
+        y: nextY,
+        width: Math.max(6, Math.min(100 - nextX, nextWidth)),
+        height: Math.max(4, Math.min(100 - nextY, nextHeight)),
+      });
+    } else if (drag.centerX !== undefined && drag.centerY !== undefined && drag.startAngle !== undefined) {
+      const angle = Math.atan2(event.clientY - drag.centerY, event.clientX - drag.centerX) * (180 / Math.PI);
+      const rawRotation = drag.initial.rotation + angle - drag.startAngle;
+      const nextRotation = event.shiftKey || event.ctrlKey ? Math.round(rawRotation / 30) * 30 : Math.round(rawRotation);
+      updateStartMenuElement(drag.id, {
+        rotation: nextRotation,
+      });
+    }
+  };
+  const stopStartMenuEditDrag = () => {
+    startMenuEditDragRef.current = null;
+    document.body.style.cursor = '';
+  };
+  const startMenuBackgroundStyle: React.CSSProperties | undefined =
+    settings.startMenuBackgroundType === 'image' && settings.startMenuBackgroundImageUrl
+      ? {
+          backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${settings.startMenuBackgroundImageUrl.replace(/"/g, '\\"')}")`,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }
+      : settings.startMenuBackgroundType === 'gradient'
+        ? {
+            background: `linear-gradient(${settings.startMenuBackgroundGradientAngle}deg, ${settings.startMenuBackgroundGradientStart}, ${settings.startMenuBackgroundGradientEnd})`,
+          }
+        : settings.startMenuBackgroundType === 'solid'
+          ? { background: settings.startMenuBackgroundColor }
+          : undefined;
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
     return (
       <div
         className={`absolute inset-0 z-40 grid p-[clamp(20px,6vw,64px)] text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
+        style={startMenuBackgroundStyle}
       >
-        <div className={`grid gap-5 ${startMenuPanelClass} ${startMenuPanelSurfaceClass}`}>
-          {settings.startMenuTemplate !== 'minimal' && (
+        {settings.startMenuBackgroundMusicUrl && (
+          <audio
+            ref={startMenuAudioRef}
+            src={settings.startMenuBackgroundMusicUrl}
+            preload="auto"
+            loop
+            className="hidden"
+          />
+        )}
+        <div
+          ref={startMenuEditorRef}
+          className={`relative h-full w-full overflow-hidden ${startMenuPanelSurfaceClass}`}
+          onPointerMove={handleStartMenuEditPointerMove}
+          onPointerUp={stopStartMenuEditDrag}
+          onPointerCancel={stopStartMenuEditDrag}
+          onClick={() => {
+            if (previewMode === 'edit') setSelectedStartMenuElementId(null);
+          }}
+        >
+          {settings.startMenuTemplate !== 'minimal' && !settings.startMenuElements?.length && (
             <div
-              className={`h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 ${
-                settings.startMenuButtonPosition === 'center' ? 'justify-self-center' : 'justify-self-start'
-              } bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]`}
+              className="absolute h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]"
               style={
                 {
                   '--preview-choice-color': choiceColor,
+                  left: settings.startMenuButtonPosition === 'center' ? 'calc(50% - 34px)' : `${defaultButtonX}%`,
+                  top: settings.startMenuButtonPosition === 'center' ? '16%' : '36%',
                 } as React.CSSProperties
               }
             />
           )}
-          <div>
-            <h2 className="m-0 text-[clamp(28px,6vw,54px)] font-black leading-[1.06] text-white shadow-black [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]">
-              {projectTitle || t('开始', 'スタート', 'Start')}
-            </h2>
-            <p className="mt-2 min-h-[18px] text-xs font-black text-white/68">
-              {t('没有存档', 'セーブなし', 'No save')}
-            </p>
-          </div>
-          <div className={startMenuActionsClass}>
-            {startMenuActions.map((action) => (
-              <button
-                key={action.key}
-                type="button"
-                disabled={action.disabled}
-                onClick={() => {
-                  if (previewMode === 'edit') return;
-                  action.onClick();
+          {startMenuElements.map((element) => {
+            const selected = selectedStartMenuElementId === element.id;
+            if (!element.visible && previewMode !== 'edit') return null;
+            const action = element.kind === 'button' && element.role ? startMenuActionMap.get(element.role) : null;
+            const elementBackground =
+              element.backgroundType === 'gradient'
+                ? `linear-gradient(${element.backgroundGradientAngle ?? 135}deg, ${element.backgroundGradientStart || choiceColor}, ${element.backgroundGradientEnd || '#0f172a'})`
+                : element.backgroundColor;
+            const elementStyle: React.CSSProperties = {
+              left: `${element.x}%`,
+              top: `${element.y}%`,
+              width: `${element.width}%`,
+              height: `${element.height}%`,
+              transform: `rotate(${element.rotation}deg) scale(${element.scale})`,
+              opacity: element.visible ? 1 : 0.34,
+            };
+            const content = (
+              <span
+                data-start-menu-text-id={element.id}
+                contentEditable={previewMode === 'edit' && editingStartMenuElementId === element.id}
+                suppressContentEditableWarning
+                onDoubleClick={(event) => {
+                  if (previewMode !== 'edit') return;
+                  event.stopPropagation();
+                  if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+                  setSelectedStartMenuElementId(element.id);
+                  setEditingStartMenuElementId(element.id);
                 }}
-                className={`${startMenuActionSizeClass} rounded-lg border font-black transition-transform ${
-                  action.primary
-                    ? 'border-white/24 text-white shadow-lg shadow-black/15'
-                    : 'border-white/16 bg-white/10 text-white'
-                } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} ${
-                  previewMode === 'edit' ? 'cursor-default' : ''
-                } disabled:opacity-45`}
-                style={
-                  action.primary
-                    ? {
-                        backgroundColor: `${choiceColor}e6`,
-                        color: choiceTextColor,
-                      }
-                    : undefined
-                }
+                onPointerDown={(event) => {
+                  if (editingStartMenuElementId === element.id) event.stopPropagation();
+                }}
+                onBlur={(event) => {
+                  updateStartMenuElement(element.id, { text: event.currentTarget.textContent || '' });
+                  setEditingStartMenuElementId(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' || (event.key === 'Enter' && !event.shiftKey)) {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
+                className={`outline-none ${
+                  previewMode === 'edit' && editingStartMenuElementId !== element.id ? 'cursor-text' : ''
+                } ${!element.text && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
               >
-                {action.label}
-              </button>
-            ))}
-          </div>
+                {element.text || (previewMode === 'edit' && editingStartMenuElementId !== element.id ? t('双击编辑', '編集', 'Edit') : '')}
+              </span>
+            );
+            const startEditingText = (event: React.MouseEvent<HTMLElement>) => {
+              if (previewMode !== 'edit' || element.kind !== 'text') return;
+              event.stopPropagation();
+              if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+              setSelectedStartMenuElementId(element.id);
+              setEditingStartMenuElementId(element.id);
+            };
+            return (
+              <div
+                key={element.id}
+                className={`absolute origin-center ${previewMode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                style={elementStyle}
+                onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'move')}
+                onClick={(event) => {
+                  if (previewMode !== 'edit') return;
+                  event.stopPropagation();
+                  if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+                  setSelectedStartMenuElementId(element.id);
+                }}
+                onDoubleClick={startEditingText}
+              >
+                {previewMode === 'edit' && element.kind === 'button' && (
+                  <div className="pointer-events-none absolute left-0 top-0 z-10 max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+                    {element.text || action?.label || element.id}
+                  </div>
+                )}
+                {element.kind === 'image' ? (
+                  element.imageUrl ? (
+                    <img
+                      src={element.imageUrl}
+                      alt=""
+                      className="h-full w-full rounded-lg object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center rounded-lg border border-dashed border-white/35 bg-white/10 px-2 text-center text-[11px] font-black text-white/60">
+                      {t('选择图片', '画像 URL', 'Image')}
+                    </div>
+                  )
+                ) : element.kind === 'button' ? (
+                  <button
+                    type="button"
+                    disabled={previewMode !== 'edit' && Boolean(element.disabled || action?.disabled)}
+                    onClick={(event) => {
+                      if (previewMode === 'edit') {
+                        event.preventDefault();
+                        return;
+                      }
+                      action?.onClick();
+                    }}
+                    className={`h-full w-full rounded-lg border font-black transition-transform ${
+                      element.primary
+                        ? 'border-white/24 text-white shadow-lg shadow-black/15'
+                        : 'border-white/16 bg-white/10 text-white'
+                    } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
+                    style={{
+                      background: elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
+                      color: element.textColor || (element.primary ? choiceTextColor : undefined),
+                      borderColor: element.borderColor,
+                      fontSize: element.fontSize,
+                    }}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div
+                    className={`flex h-full w-full items-center ${
+                      element.role === 'subtitle' ? 'text-white/68' : 'text-white'
+                    } ${element.role === 'title' ? 'font-black leading-[1.06] [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]' : 'font-black'}`}
+                    style={{ fontSize: element.fontSize, color: element.textColor }}
+                  >
+                    {content}
+                  </div>
+                )}
+                {previewMode === 'edit' && selected && (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-sky-300" />
+                    <button
+                      type="button"
+                      className="absolute -right-8 -top-3 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-white shadow"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        updateStartMenuElement(element.id, { visible: !element.visible });
+                      }}
+                      title={element.visible ? t('隐藏', '非表示', 'Hide') : t('显示', '表示', 'Show')}
+                    >
+                      {element.visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute -right-8 top-5 grid h-6 w-6 place-items-center rounded-full bg-rose-500 text-white shadow"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteStartMenuElement?.(element.id);
+                      }}
+                      title={t('删除', '削除', 'Delete')}
+                      aria-label={t('删除', '削除', 'Delete')}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute -left-8 -top-3 grid h-6 w-6 cursor-alias place-items-center rounded-full bg-white text-slate-900 shadow"
+                      onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'rotate')}
+                      title={t('旋转', '回転', 'Rotate')}
+                    >
+                      <RotateCw className="h-3.5 w-3.5" />
+                    </button>
+                    {([
+                      ['nw', '-left-1.5 -top-1.5 h-3 w-3 cursor-nwse-resize rounded-full'],
+                      ['n', 'left-1/2 -top-1.5 h-2 w-9 -translate-x-1/2 cursor-ns-resize rounded-full'],
+                      ['ne', '-right-1.5 -top-1.5 h-3 w-3 cursor-nesw-resize rounded-full'],
+                      ['e', '-right-1.5 top-1/2 h-9 w-2 -translate-y-1/2 cursor-ew-resize rounded-full'],
+                      ['se', '-bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-full'],
+                      ['s', 'left-1/2 -bottom-1.5 h-2 w-9 -translate-x-1/2 cursor-ns-resize rounded-full'],
+                      ['sw', '-bottom-1.5 -left-1.5 h-3 w-3 cursor-nesw-resize rounded-full'],
+                      ['w', '-left-1.5 top-1/2 h-9 w-2 -translate-y-1/2 cursor-ew-resize rounded-full'],
+                    ] as Array<[StartMenuResizeHandle, string]>).map(([handle, className]) => (
+                      <button
+                        key={handle}
+                        type="button"
+                        className={`absolute border border-sky-200 bg-white shadow ${className}`}
+                        onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'resize', handle)}
+                        title={t('调整大小', 'リサイズ', 'Resize')}
+                        aria-label={t('调整大小', 'リサイズ', 'Resize')}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
         {previewStartSettingsOpen && (
           <div

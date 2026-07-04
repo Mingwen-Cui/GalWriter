@@ -6,6 +6,7 @@ import {
   Gamepad2,
   Eye,
   EyeOff,
+  ImagePlus,
   Info,
   LayoutTemplate,
   Hand,
@@ -16,8 +17,10 @@ import {
   Settings,
   Sparkles,
   RotateCw,
+  Type,
   Upload,
   Video,
+  Volume2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createElement, isValidElement, useEffect, useState } from 'react';
@@ -92,9 +95,17 @@ export function WebWorkspace({
       JSON.stringify({
         showStartMenu: webSettings.showStartMenu,
         startMenuTemplate: webSettings.startMenuTemplate,
+        startMenuBackgroundType: webSettings.startMenuBackgroundType,
+        startMenuBackgroundColor: webSettings.startMenuBackgroundColor,
+        startMenuBackgroundGradientStart: webSettings.startMenuBackgroundGradientStart,
+        startMenuBackgroundGradientEnd: webSettings.startMenuBackgroundGradientEnd,
+        startMenuBackgroundGradientAngle: webSettings.startMenuBackgroundGradientAngle,
+        startMenuBackgroundImageUrl: webSettings.startMenuBackgroundImageUrl,
+        startMenuBackgroundMusicUrl: webSettings.startMenuBackgroundMusicUrl,
         startMenuButtonPosition: webSettings.startMenuButtonPosition,
         startMenuButtonLayout: webSettings.startMenuButtonLayout,
         startMenuButtonSize: webSettings.startMenuButtonSize,
+        startMenuElements: webSettings.startMenuElements,
         startMenuShowSave: webSettings.startMenuShowSave,
         startMenuShowNewGame: webSettings.startMenuShowNewGame,
         startMenuShowSettings: webSettings.startMenuShowSettings,
@@ -110,9 +121,17 @@ export function WebWorkspace({
       const entries: Partial<WebExportSettings> = {
         showStartMenu: parsed.showStartMenu,
         startMenuTemplate: parsed.startMenuTemplate,
+        startMenuBackgroundType: parsed.startMenuBackgroundType,
+        startMenuBackgroundColor: parsed.startMenuBackgroundColor,
+        startMenuBackgroundGradientStart: parsed.startMenuBackgroundGradientStart,
+        startMenuBackgroundGradientEnd: parsed.startMenuBackgroundGradientEnd,
+        startMenuBackgroundGradientAngle: parsed.startMenuBackgroundGradientAngle,
+        startMenuBackgroundImageUrl: parsed.startMenuBackgroundImageUrl,
+        startMenuBackgroundMusicUrl: parsed.startMenuBackgroundMusicUrl,
         startMenuButtonPosition: parsed.startMenuButtonPosition,
         startMenuButtonLayout: parsed.startMenuButtonLayout,
         startMenuButtonSize: parsed.startMenuButtonSize,
+        startMenuElements: parsed.startMenuElements,
         startMenuShowSave: parsed.startMenuShowSave,
         startMenuShowNewGame: parsed.startMenuShowNewGame,
         startMenuShowSettings: parsed.startMenuShowSettings,
@@ -133,6 +152,67 @@ export function WebWorkspace({
   });
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [startMenuPreviewMode, setStartMenuPreviewMode] = useState<'edit' | 'test'>('edit');
+  const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
+  const selectedStartMenuElement =
+    webSettings.startMenuElements?.find((element) => element.id === selectedStartMenuElementId) || null;
+  const updateStartMenuElement = (id: string, patch: Partial<WebExportSettings['startMenuElements'][number]>) => {
+    updateWebSettings(
+      'startMenuElements',
+      (webSettings.startMenuElements || []).map((element) =>
+        element.id === id ? { ...element, ...patch } : element,
+      ),
+    );
+  };
+  const deleteStartMenuElement = (id: string) => {
+    updateWebSettings(
+      'startMenuElements',
+      (webSettings.startMenuElements || []).filter((element) => element.id !== id),
+    );
+    setSelectedStartMenuElementId(null);
+  };
+  const addStartMenuText = () => {
+    const id = `text-${Date.now()}`;
+    updateWebSettings('startMenuElements', [
+      ...(webSettings.startMenuElements || []),
+      {
+        id,
+        kind: 'text',
+        role: 'custom',
+        text: '',
+        visible: true,
+        x: 36,
+        y: 34,
+        width: 28,
+        height: 8,
+        scale: 1,
+        rotation: 0,
+        fontSize: 18,
+        textColor: '#ffffff',
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
+  const addStartMenuImage = () => {
+    const id = `image-${Date.now()}`;
+    updateWebSettings('startMenuElements', [
+      ...(webSettings.startMenuElements || []),
+      {
+        id,
+        kind: 'image',
+        role: 'custom',
+        text: '',
+        visible: true,
+        x: 36,
+        y: 34,
+        width: 24,
+        height: 18,
+        scale: 1,
+        rotation: 0,
+        imageUrl: '',
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -172,6 +252,9 @@ export function WebWorkspace({
             settings={webSettings}
             projectTitle={webProjectName}
             previewMode={startMenuPreviewMode}
+            selectedStartMenuElementId={selectedStartMenuElementId}
+            onSelectStartMenuElement={setSelectedStartMenuElementId}
+            onDeleteStartMenuElement={deleteStartMenuElement}
             onUpdateSettings={updateWebSettings}
             onUpdateRenderStyle={updateWebRenderStyle}
           />
@@ -256,21 +339,70 @@ export function WebWorkspace({
             icon={LayoutTemplate}
             title="启动界面设计"
             action={
-              <WebPillToggleGroup
-                value={startMenuPreviewMode}
-                options={[
-                  { value: 'edit', label: '编辑模式' },
-                  { value: 'test', label: '测试模式' },
-                ]}
-                onChange={(value) => {
-                  setStartMenuPreviewMode(value as 'edit' | 'test');
-                  setPreviewRefreshKey((key) => key + 1);
-                }}
-              />
+              <div className="w-36">
+                <WebPillToggleGroup
+                  value={startMenuPreviewMode}
+                  options={[
+                    { value: 'edit', label: '编辑模式' },
+                    { value: 'test', label: '测试模式' },
+                  ]}
+                  onChange={(value) => {
+                    const nextMode = value as 'edit' | 'test';
+                    if (nextMode === 'test') saveStartMenuDesign();
+                    setStartMenuPreviewMode(nextMode);
+                    setPreviewRefreshKey((key) => key + 1);
+                  }}
+                />
+              </div>
             }
           />
           {startMenuPreviewMode === 'edit' ? (
           <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
+            <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+              <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+                {selectedStartMenuElement
+                  ? t('正在修改选中元素', '選択要素を編集中', 'Editing selected element')
+                  : t('点击背景后修改启动背景', '背景をクリックして編集', 'Editing start background')}
+              </div>
+              {selectedStartMenuElement ? (
+                <StartMenuElementInspector
+                  element={selectedStartMenuElement}
+                  language={language}
+                  onUpdate={(patch) => updateStartMenuElement(selectedStartMenuElement.id, patch)}
+                />
+              ) : (
+                <StartMenuBackgroundInspector
+                  settings={webSettings}
+                  language={language}
+                  updateWebSettings={updateWebSettings}
+                />
+              )}
+              <div className="grid grid-cols-3 gap-2">
+                <IconToolButton
+                  icon={Type}
+                  label={t('添加文字', 'テキスト追加', 'Add text')}
+                  onClick={addStartMenuText}
+                />
+                <IconToolButton
+                  icon={ImagePlus}
+                  label={t('添加图片', '画像追加', 'Add image')}
+                  onClick={addStartMenuImage}
+                />
+                <IconToolButton
+                  icon={Volume2}
+                  label={t('主界面背景音乐', 'タイトルBGM', 'Start menu music')}
+                  onClick={() => updateWebSettings('startMenuBackgroundMusicUrl', webSettings.startMenuBackgroundMusicUrl || '')}
+                />
+              </div>
+              <input
+                type="text"
+                value={webSettings.startMenuBackgroundMusicUrl}
+                onChange={(event) => updateWebSettings('startMenuBackgroundMusicUrl', event.target.value)}
+                placeholder={t('主界面背景音乐 URL', 'タイトルBGM URL', 'Start menu music URL')}
+                className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+                aria-label={t('主界面背景音乐 URL', 'タイトルBGM URL', 'Start menu music URL')}
+              />
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { value: 'cinematic', label: 'Cinematic' },
@@ -326,6 +458,10 @@ export function WebWorkspace({
                 <span className="truncate">{t('套用设计', '適用', 'Apply Design')}</span>
               </button>
             </div>
+            <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+              <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+                {t('按钮组布局', 'ボタングループ', 'Button group')}
+              </div>
             <div className="grid grid-cols-2 gap-2">
               <WebSettingCard
                 description={
@@ -446,6 +582,7 @@ export function WebWorkspace({
                 onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
               />
             </WebSettingCard>
+            </div>
           </div>
           ) : null}
 
@@ -637,6 +774,255 @@ function StartMenuTemplatePreview({
       </span>
     </span>
   );
+}
+
+function IconToolButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="grid h-9 place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
+      title={label}
+      aria-label={label}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+}
+
+type StartMenuElement = WebExportSettings['startMenuElements'][number];
+
+function StartMenuBackgroundInspector({
+  settings,
+  language,
+  updateWebSettings,
+}: {
+  settings: WebExportSettings;
+  language: Language;
+  updateWebSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
+}) {
+  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const backgroundPreview =
+    settings.startMenuBackgroundType === 'image' && settings.startMenuBackgroundImageUrl
+      ? `center / cover url("${settings.startMenuBackgroundImageUrl.replace(/"/g, '\\"')}")`
+      : settings.startMenuBackgroundType === 'gradient'
+        ? `linear-gradient(${settings.startMenuBackgroundGradientAngle}deg, ${settings.startMenuBackgroundGradientStart}, ${settings.startMenuBackgroundGradientEnd})`
+        : settings.startMenuBackgroundColor;
+  return (
+    <div className="grid gap-2">
+      <WebSettingCard description={t('背景类型', '背景タイプ', 'Background type')}>
+        <WebSegmentedGroup
+          value={settings.startMenuBackgroundType}
+          options={[
+            { value: 'solid', label: t('底色', '単色', 'Solid') },
+            { value: 'gradient', label: t('渐变', 'グラデ', 'Gradient') },
+            { value: 'image', label: t('图片', '画像', 'Image') },
+          ]}
+          onChange={(value) =>
+            updateWebSettings('startMenuBackgroundType', value as WebExportSettings['startMenuBackgroundType'])
+          }
+        />
+      </WebSettingCard>
+      {settings.startMenuBackgroundType === 'solid' && (
+        <ColorField
+          label={t('底色', '単色', 'Solid')}
+          value={settings.startMenuBackgroundColor}
+          onChange={(value) => updateWebSettings('startMenuBackgroundColor', value)}
+        />
+      )}
+      {settings.startMenuBackgroundType === 'gradient' && (
+        <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField
+              label={t('起点', '開始', 'Start')}
+              value={settings.startMenuBackgroundGradientStart}
+              onChange={(value) => updateWebSettings('startMenuBackgroundGradientStart', value)}
+            />
+            <ColorField
+              label={t('终点', '終了', 'End')}
+              value={settings.startMenuBackgroundGradientEnd}
+              onChange={(value) => updateWebSettings('startMenuBackgroundGradientEnd', value)}
+            />
+          </div>
+          <RangeField
+            label={t('角度', '角度', 'Angle')}
+            value={settings.startMenuBackgroundGradientAngle}
+            min={0}
+            max={360}
+            onChange={(value) => updateWebSettings('startMenuBackgroundGradientAngle', value)}
+          />
+        </div>
+      )}
+      {settings.startMenuBackgroundType === 'image' && (
+        <input
+          type="text"
+          value={settings.startMenuBackgroundImageUrl}
+          onChange={(event) => updateWebSettings('startMenuBackgroundImageUrl', event.target.value)}
+          placeholder={t('背景图片 URL', '背景画像 URL', 'Background image URL')}
+          className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+          aria-label={t('背景图片 URL', '背景画像 URL', 'Background image URL')}
+        />
+      )}
+      <div className="h-8 rounded-lg border border-[var(--vr-border)]" style={{ background: backgroundPreview }} />
+    </div>
+  );
+}
+
+function StartMenuElementInspector({
+  element,
+  language,
+  onUpdate,
+}: {
+  element: StartMenuElement;
+  language: Language;
+  onUpdate: (patch: Partial<StartMenuElement>) => void;
+}) {
+  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  return (
+    <div className="grid gap-2">
+      <div className="rounded-lg bg-[var(--vr-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--vr-text-muted)]">
+        {element.kind === 'button'
+          ? t('这里会修改当前选中按钮自己的颜色和背景，不会改变其他按钮布局。', '選択ボタンだけを編集します。', 'Edits only the selected button; layout stays unchanged.')
+          : element.kind === 'image'
+            ? t('这里会修改当前选中图片。', '選択画像を編集します。', 'Edits the selected image.')
+            : t('这里会修改当前选中文字。', '選択テキストを編集します。', 'Edits the selected text.')}
+      </div>
+      {element.kind === 'image' ? (
+        <input
+          type="text"
+          value={element.imageUrl || ''}
+          onChange={(event) => onUpdate({ imageUrl: event.target.value })}
+          placeholder={t('图片 URL', '画像 URL', 'Image URL')}
+          className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+          aria-label={t('图片 URL', '画像 URL', 'Image URL')}
+        />
+      ) : (
+        <ColorField
+          label={t('文字颜色', '文字色', 'Text')}
+          value={element.textColor || '#ffffff'}
+          onChange={(value) => onUpdate({ textColor: value })}
+        />
+      )}
+      {element.kind === 'button' && (
+        <>
+          <WebSettingCard description={t('按钮背景', 'ボタン背景', 'Button background')}>
+            <WebPillToggleGroup
+              value={element.backgroundType || 'solid'}
+              options={[
+                { value: 'solid', label: t('底色', '単色', 'Solid') },
+                { value: 'gradient', label: t('渐变', 'グラデ', 'Gradient') },
+              ]}
+              onChange={(value) => onUpdate({ backgroundType: value as StartMenuElement['backgroundType'] })}
+            />
+          </WebSettingCard>
+          {(element.backgroundType || 'solid') === 'solid' ? (
+            <ColorField
+              label={t('按钮底色', 'ボタン色', 'Button')}
+              value={colorInputValue(element.backgroundColor || '#0ea5e9')}
+              onChange={(value) => onUpdate({ backgroundColor: value, backgroundType: 'solid' })}
+            />
+          ) : (
+            <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <ColorField
+                  label={t('起点', '開始', 'Start')}
+                  value={element.backgroundGradientStart || '#0ea5e9'}
+                  onChange={(value) => onUpdate({ backgroundGradientStart: value, backgroundType: 'gradient' })}
+                />
+                <ColorField
+                  label={t('终点', '終了', 'End')}
+                  value={element.backgroundGradientEnd || '#0f172a'}
+                  onChange={(value) => onUpdate({ backgroundGradientEnd: value, backgroundType: 'gradient' })}
+                />
+              </div>
+              <RangeField
+                label={t('角度', '角度', 'Angle')}
+                value={element.backgroundGradientAngle ?? 135}
+                min={0}
+                max={360}
+                onChange={(value) => onUpdate({ backgroundGradientAngle: value, backgroundType: 'gradient' })}
+              />
+            </div>
+          )}
+          <ColorField
+            label={t('边框颜色', '枠線色', 'Border')}
+            value={colorInputValue(element.borderColor || '#ffffff')}
+            onChange={(value) => onUpdate({ borderColor: value })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+      <span className="truncate">{label}</span>
+      <input
+        type="color"
+        value={colorInputValue(value)}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-8 w-full rounded border-0 bg-transparent"
+        aria-label={label}
+      />
+    </label>
+  );
+}
+
+function RangeField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="grid grid-cols-[72px_minmax(0,1fr)_36px] items-center gap-2 text-[10px] font-black text-[var(--vr-text-muted)]">
+      <span className="truncate">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="accent-[var(--vr-accent)]"
+      />
+      <span className="text-right">{value}</span>
+    </label>
+  );
+}
+
+function colorInputValue(value: string, fallback = '#111827') {
+  const trimmed = String(value || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+  const rgba = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!rgba) return fallback;
+  return `#${[rgba[1], rgba[2], rgba[3]]
+    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
 }
 
 function SingleChoicePopupGlyph() {

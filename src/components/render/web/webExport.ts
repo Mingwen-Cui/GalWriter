@@ -22,9 +22,40 @@ type WebExportSettings = {
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   showStartMenu: boolean;
   startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
+  startMenuBackgroundType: 'solid' | 'gradient' | 'image';
+  startMenuBackgroundColor: string;
+  startMenuBackgroundGradientStart: string;
+  startMenuBackgroundGradientEnd: string;
+  startMenuBackgroundGradientAngle: number;
+  startMenuBackgroundImageUrl: string;
+  startMenuBackgroundMusicUrl: string;
   startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
   startMenuButtonLayout: 'vertical' | 'horizontal';
   startMenuButtonSize: 'compact' | 'normal' | 'large';
+  startMenuElements: Array<{
+    id: string;
+    kind: 'button' | 'text' | 'image';
+    role?: 'save' | 'new' | 'settings' | 'title' | 'subtitle' | 'custom';
+    text: string;
+    visible: boolean;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scale: number;
+    rotation: number;
+    primary?: boolean;
+    disabled?: boolean;
+    fontSize?: number;
+    textColor?: string;
+    backgroundType?: 'solid' | 'gradient';
+    backgroundColor?: string;
+    backgroundGradientStart?: string;
+    backgroundGradientEnd?: string;
+    backgroundGradientAngle?: number;
+    borderColor?: string;
+    imageUrl?: string;
+  }>;
   startMenuShowSave: boolean;
   startMenuShowNewGame: boolean;
   startMenuShowSettings: boolean;
@@ -890,6 +921,10 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         #07111f;
     }
     .start-screen.open { display: grid; }
+    .start-screen.has-custom-elements {
+      padding: 0;
+      place-items: stretch;
+    }
     .start-panel {
       width: min(440px, 100%);
       display: grid;
@@ -1012,6 +1047,56 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     }
     .start-screen.template-glass .start-action {
       background: rgba(255,255,255,0.13);
+    }
+    .start-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .start-element {
+      position: absolute;
+      transform-origin: center;
+    }
+    .start-element-text {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      color: #fff;
+      font-weight: 900;
+      text-shadow: 0 12px 36px rgba(0,0,0,0.55);
+      overflow-wrap: anywhere;
+    }
+    .start-element-text.subtitle {
+      color: rgba(248,250,252,0.68);
+      text-shadow: none;
+    }
+    .start-element-button {
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.10);
+      color: #f8fafc;
+      cursor: pointer;
+      font-weight: 900;
+      backdrop-filter: blur(16px);
+    }
+    .start-element-button.primary {
+      border-color: color-mix(in srgb, var(--choice-color, #0ea5e9), white 20%);
+      background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 8%);
+      color: var(--choice-text-color, #fff);
+    }
+    .start-element-button:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+    .start-element-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
     }
     .settings-backdrop {
       position: fixed;
@@ -1178,6 +1263,8 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
         <button class="start-action" id="settingsButton" type="button"></button>
       </div>
     </div>
+    <div class="start-layer" id="startLayer"></div>
+    <audio id="startMenuAudio" preload="auto" loop hidden></audio>
   </div>
   <div class="settings-backdrop" id="settingsBackdrop">
     <div class="settings-panel" role="dialog" aria-modal="true">
@@ -1214,9 +1301,17 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     settings.choicesPosition = settings.choicesPosition || "center";
     settings.showStartMenu = settings.showStartMenu !== false;
     settings.startMenuTemplate = ["cinematic", "minimal", "glass"].includes(settings.startMenuTemplate) ? settings.startMenuTemplate : "cinematic";
+    settings.startMenuBackgroundType = ["solid", "gradient", "image"].includes(settings.startMenuBackgroundType) ? settings.startMenuBackgroundType : (settings.startMenuBackgroundImageUrl ? "image" : "gradient");
+    settings.startMenuBackgroundColor = String(settings.startMenuBackgroundColor || "#070b12");
+    settings.startMenuBackgroundGradientStart = String(settings.startMenuBackgroundGradientStart || "#0f172a");
+    settings.startMenuBackgroundGradientEnd = String(settings.startMenuBackgroundGradientEnd || "#0891b2");
+    settings.startMenuBackgroundGradientAngle = Number.isFinite(Number(settings.startMenuBackgroundGradientAngle)) ? Number(settings.startMenuBackgroundGradientAngle) : 135;
+    settings.startMenuBackgroundImageUrl = String(settings.startMenuBackgroundImageUrl || "");
+    settings.startMenuBackgroundMusicUrl = String(settings.startMenuBackgroundMusicUrl || "");
     settings.startMenuButtonPosition = ["center", "bottomLeft", "bottomRight"].includes(settings.startMenuButtonPosition) ? settings.startMenuButtonPosition : "center";
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
+    settings.startMenuElements = Array.isArray(settings.startMenuElements) ? settings.startMenuElements : [];
     settings.startMenuShowSave = settings.startMenuShowSave !== false;
     settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
     settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
@@ -1360,6 +1455,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const startTitle = document.getElementById("startTitle");
     const startSubtitle = document.getElementById("startSubtitle");
     const startActions = document.querySelector(".start-actions");
+    const startPanel = document.querySelector(".start-panel");
+    const startLayer = document.getElementById("startLayer");
+    const startMenuAudio = document.getElementById("startMenuAudio");
     const saveSlotButton = document.getElementById("saveSlotButton");
     const newGameButton = document.getElementById("newGameButton");
     const settingsButton = document.getElementById("settingsButton");
@@ -1375,9 +1473,23 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     const settingControlsButton = document.getElementById("settingControlsButton");
     titleEl.textContent = content.title || "GalWriter";
     startTitle.textContent = content.title || "GalWriter";
+    if (settings.startMenuBackgroundMusicUrl) {
+      startMenuAudio.src = settings.startMenuBackgroundMusicUrl;
+      startMenuAudio.volume = 0.7;
+    }
     startScreen.classList.add("template-" + settings.startMenuTemplate);
     startScreen.classList.add("buttons-" + settings.startMenuButtonPosition.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase()));
     startScreen.classList.add("button-size-" + settings.startMenuButtonSize);
+    startScreen.classList.toggle("has-custom-elements", settings.startMenuElements.length > 0);
+    if (settings.startMenuBackgroundType === "image" && settings.startMenuBackgroundImageUrl) {
+      startScreen.style.backgroundImage = 'linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("' + settings.startMenuBackgroundImageUrl.replace(/"/g, '\\"') + '")';
+      startScreen.style.backgroundPosition = "center";
+      startScreen.style.backgroundSize = "cover";
+    } else if (settings.startMenuBackgroundType === "gradient") {
+      startScreen.style.background = "linear-gradient(" + settings.startMenuBackgroundGradientAngle + "deg, " + settings.startMenuBackgroundGradientStart + ", " + settings.startMenuBackgroundGradientEnd + ")";
+    } else if (settings.startMenuBackgroundType === "solid") {
+      startScreen.style.background = settings.startMenuBackgroundColor;
+    }
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
     settingsTitle.textContent = labels.settings;
     settingAutoLabel.textContent = labels.autoPlay;
@@ -1473,6 +1585,80 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       return labels.savedAt + " " + date.toLocaleString();
     }
 
+    function renderCustomStartMenu(save) {
+      const hasCustomElements = settings.startMenuElements.length > 0;
+      startPanel.hidden = hasCustomElements;
+      startLayer.hidden = !hasCustomElements;
+      if (!hasCustomElements) return;
+      startLayer.innerHTML = "";
+      const actionByRole = {
+        save: {
+          label: labels.saveSlot,
+          disabled: !save,
+          primary: true,
+          onClick: () => {
+            const loaded = readSave();
+            if (loaded && applySave(loaded)) startGameFromCurrent();
+          },
+        },
+        new: {
+          label: labels.newGame,
+          disabled: false,
+          primary: !settings.startMenuShowSave,
+          onClick: startNewGame,
+        },
+        settings: {
+          label: labels.settings,
+          disabled: false,
+          primary: false,
+          onClick: () => settingsBackdrop.classList.add("open"),
+        },
+      };
+      settings.startMenuElements.forEach((element) => {
+        if (!element || element.visible === false) return;
+        const wrapper = document.createElement("div");
+        wrapper.className = "start-element";
+        wrapper.style.left = Number(element.x || 0) + "%";
+        wrapper.style.top = Number(element.y || 0) + "%";
+        wrapper.style.width = Math.max(1, Number(element.width || 10)) + "%";
+        wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
+        wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
+        if (element.kind === "image") {
+          if (!element.imageUrl) return;
+          const image = document.createElement("img");
+          image.className = "start-element-image";
+          image.src = element.imageUrl;
+          image.alt = "";
+          wrapper.appendChild(image);
+        } else if (element.kind === "button") {
+          const action = actionByRole[element.role] || null;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
+          button.textContent = element.text || action?.label || "";
+          button.disabled = Boolean(element.disabled || action?.disabled);
+          if (element.backgroundType === "gradient") {
+            button.style.background = "linear-gradient(" + (Number(element.backgroundGradientAngle) || 135) + "deg, " + (element.backgroundGradientStart || style.choiceColor || "#0ea5e9") + ", " + (element.backgroundGradientEnd || "#0f172a") + ")";
+          } else if (element.backgroundColor) {
+            button.style.background = element.backgroundColor;
+          }
+          if (element.textColor) button.style.color = element.textColor;
+          if (element.borderColor) button.style.borderColor = element.borderColor;
+          if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
+          if (action?.onClick) button.addEventListener("click", action.onClick);
+          wrapper.appendChild(button);
+        } else {
+          const text = document.createElement("div");
+          text.className = "start-element-text" + (element.role === "subtitle" ? " subtitle" : "");
+          text.textContent = element.role === "subtitle" && !element.text ? (save ? saveLabel(save) : labels.noSave) : (element.text || "");
+          if (Number.isFinite(Number(element.fontSize))) text.style.fontSize = Number(element.fontSize) + "px";
+          if (element.textColor) text.style.color = element.textColor;
+          wrapper.appendChild(text);
+        }
+        startLayer.appendChild(wrapper);
+      });
+    }
+
     function updateStartMenu() {
       const save = readSave();
       const showSave = Boolean(settings.startMenuShowSave);
@@ -1486,15 +1672,18 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
       newGameButton.hidden = !showNewGame;
       settingsButton.textContent = labels.settings;
       settingsButton.hidden = !showSettings;
+      renderCustomStartMenu(save);
     }
 
     function showStartMenu() {
       updateStartMenu();
       startScreen.classList.add("open");
+      if (settings.startMenuBackgroundMusicUrl) startMenuAudio.play().catch(() => {});
     }
 
     function hideStartMenu() {
       startScreen.classList.remove("open");
+      startMenuAudio.pause();
     }
 
     function startGameFromCurrent() {
@@ -2569,9 +2758,17 @@ export async function buildInteractiveWebZipBlob(
     choicesPosition: options.settings?.choicesPosition || 'center',
     showStartMenu: options.settings?.showStartMenu ?? true,
     startMenuTemplate: options.settings?.startMenuTemplate || 'cinematic',
+    startMenuBackgroundType: options.settings?.startMenuBackgroundType || 'gradient',
+    startMenuBackgroundColor: options.settings?.startMenuBackgroundColor || '#070b12',
+    startMenuBackgroundGradientStart: options.settings?.startMenuBackgroundGradientStart || '#0f172a',
+    startMenuBackgroundGradientEnd: options.settings?.startMenuBackgroundGradientEnd || '#0891b2',
+    startMenuBackgroundGradientAngle: options.settings?.startMenuBackgroundGradientAngle ?? 135,
+    startMenuBackgroundImageUrl: options.settings?.startMenuBackgroundImageUrl || '',
+    startMenuBackgroundMusicUrl: options.settings?.startMenuBackgroundMusicUrl || '',
     startMenuButtonPosition: options.settings?.startMenuButtonPosition || 'center',
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
+    startMenuElements: options.settings?.startMenuElements || [],
     startMenuShowSave: options.settings?.startMenuShowSave ?? true,
     startMenuShowNewGame: options.settings?.startMenuShowNewGame ?? true,
     startMenuShowSettings: options.settings?.startMenuShowSettings ?? true,
@@ -2584,6 +2781,18 @@ export async function buildInteractiveWebZipBlob(
     hideCharacterTags: options.settings?.hideCharacterTags ?? true,
     hideSceneTags: options.settings?.hideSceneTags ?? true,
   };
+  settings.startMenuBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.startMenuBackgroundImageUrl,
+    `${title}-start-background`,
+    assetMap,
+  );
+  settings.startMenuBackgroundMusicUrl = await addAudioAsset(
+    zip,
+    settings.startMenuBackgroundMusicUrl,
+    `${title}-start-menu-music`,
+    assetMap,
+  );
 
   const webNodes: WebExportNode[] = [];
   for (const node of nodes.filter(
