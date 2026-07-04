@@ -90,34 +90,56 @@ export function WebWorkspace({
 }: WebWorkspaceProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const startMenuDesignStorageKey = 'galwriter-web-start-menu-design:v1';
+  const createStartMenuDesignSnapshot = (stripEmbeddedMedia = false): Partial<WebExportSettings> => ({
+    showStartMenu: webSettings.showStartMenu,
+    startMenuTemplate: webSettings.startMenuTemplate,
+    startMenuBackgroundType: webSettings.startMenuBackgroundType,
+    startMenuBackgroundColor: webSettings.startMenuBackgroundColor,
+    startMenuBackgroundGradientStart: webSettings.startMenuBackgroundGradientStart,
+    startMenuBackgroundGradientEnd: webSettings.startMenuBackgroundGradientEnd,
+    startMenuBackgroundGradientAngle: webSettings.startMenuBackgroundGradientAngle,
+    startMenuBackgroundImageUrl:
+      stripEmbeddedMedia && webSettings.startMenuBackgroundImageUrl.startsWith('data:')
+        ? ''
+        : webSettings.startMenuBackgroundImageUrl,
+    startMenuBackgroundMusicUrl:
+      stripEmbeddedMedia && webSettings.startMenuBackgroundMusicUrl.startsWith('data:')
+        ? ''
+        : webSettings.startMenuBackgroundMusicUrl,
+    startMenuButtonPosition: webSettings.startMenuButtonPosition,
+    startMenuButtonLayout: webSettings.startMenuButtonLayout,
+    startMenuButtonSize: webSettings.startMenuButtonSize,
+    startMenuElements: webSettings.startMenuElements.map((element) =>
+      stripEmbeddedMedia && element.imageUrl?.startsWith('data:')
+        ? { ...element, imageUrl: '' }
+        : element,
+    ),
+    startMenuPlacementBoundsLocked: webSettings.startMenuPlacementBoundsLocked,
+    startMenuPlacementMinX: webSettings.startMenuPlacementMinX,
+    startMenuPlacementMinY: webSettings.startMenuPlacementMinY,
+    startMenuPlacementMaxX: webSettings.startMenuPlacementMaxX,
+    startMenuPlacementMaxY: webSettings.startMenuPlacementMaxY,
+    startMenuShowSave: webSettings.startMenuShowSave,
+    startMenuShowNewGame: webSettings.startMenuShowNewGame,
+    startMenuShowSettings: webSettings.startMenuShowSettings,
+  });
   const saveStartMenuDesign = () => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      startMenuDesignStorageKey,
-      JSON.stringify({
-        showStartMenu: webSettings.showStartMenu,
-        startMenuTemplate: webSettings.startMenuTemplate,
-        startMenuBackgroundType: webSettings.startMenuBackgroundType,
-        startMenuBackgroundColor: webSettings.startMenuBackgroundColor,
-        startMenuBackgroundGradientStart: webSettings.startMenuBackgroundGradientStart,
-        startMenuBackgroundGradientEnd: webSettings.startMenuBackgroundGradientEnd,
-        startMenuBackgroundGradientAngle: webSettings.startMenuBackgroundGradientAngle,
-        startMenuBackgroundImageUrl: webSettings.startMenuBackgroundImageUrl,
-        startMenuBackgroundMusicUrl: webSettings.startMenuBackgroundMusicUrl,
-        startMenuButtonPosition: webSettings.startMenuButtonPosition,
-        startMenuButtonLayout: webSettings.startMenuButtonLayout,
-        startMenuButtonSize: webSettings.startMenuButtonSize,
-        startMenuElements: webSettings.startMenuElements,
-        startMenuPlacementBoundsLocked: webSettings.startMenuPlacementBoundsLocked,
-        startMenuPlacementMinX: webSettings.startMenuPlacementMinX,
-        startMenuPlacementMinY: webSettings.startMenuPlacementMinY,
-        startMenuPlacementMaxX: webSettings.startMenuPlacementMaxX,
-        startMenuPlacementMaxY: webSettings.startMenuPlacementMaxY,
-        startMenuShowSave: webSettings.startMenuShowSave,
-        startMenuShowNewGame: webSettings.startMenuShowNewGame,
-        startMenuShowSettings: webSettings.startMenuShowSettings,
-      }),
-    );
+    try {
+      window.localStorage.setItem(
+        startMenuDesignStorageKey,
+        JSON.stringify(createStartMenuDesignSnapshot()),
+      );
+    } catch (error) {
+      try {
+        window.localStorage.setItem(
+          startMenuDesignStorageKey,
+          JSON.stringify(createStartMenuDesignSnapshot(true)),
+        );
+      } catch {
+        console.warn('Could not save start menu design preset:', error);
+      }
+    }
   };
   const loadStartMenuDesign = () => {
     if (typeof window === 'undefined') return;
@@ -362,7 +384,6 @@ export function WebWorkspace({
                   ]}
                   onChange={(value) => {
                     const nextMode = value as 'edit' | 'test';
-                    if (nextMode === 'test') saveStartMenuDesign();
                     setStartMenuPreviewMode(nextMode);
                     setPreviewRefreshKey((key) => key + 1);
                   }}
