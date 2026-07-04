@@ -74,6 +74,42 @@ const resizeCursorByHandle: Record<StartMenuResizeHandle, string> = {
   nw: 'nwse-resize',
   se: 'nwse-resize',
 };
+const resizeHandlePositionClass: Record<StartMenuResizeHandle, string> = {
+  nw: '-left-1.5 -top-1.5',
+  n: 'left-1/2 -top-1.5 -translate-x-1/2',
+  ne: '-right-1.5 -top-1.5',
+  e: '-right-1.5 top-1/2 -translate-y-1/2',
+  se: '-bottom-1.5 -right-1.5',
+  s: 'left-1/2 -bottom-1.5 -translate-x-1/2',
+  sw: '-bottom-1.5 -left-1.5',
+  w: '-left-1.5 top-1/2 -translate-y-1/2',
+};
+const resizeHandleShapeClass: Record<StartMenuResizeHandle, string> = {
+  nw: 'h-3 w-3 rounded-full',
+  n: 'h-2 rounded-full',
+  ne: 'h-3 w-3 rounded-full',
+  e: 'w-2 rounded-full',
+  se: 'h-3 w-3 rounded-full',
+  s: 'h-2 rounded-full',
+  sw: 'h-3 w-3 rounded-full',
+  w: 'w-2 rounded-full',
+};
+const getResizeHandleStyle = (handle: StartMenuResizeHandle): React.CSSProperties => {
+  if (handle === 'n' || handle === 's') {
+    return { width: 'min(72%, 120px)', minWidth: 24, cursor: resizeCursorByHandle[handle] };
+  }
+  if (handle === 'e' || handle === 'w') {
+    return { height: 'min(72%, 120px)', minHeight: 24, cursor: resizeCursorByHandle[handle] };
+  }
+  return { cursor: resizeCursorByHandle[handle] };
+};
+const readStartMenuImageFile = (file: File, onReady: (value: string) => void) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result === 'string') onReady(reader.result);
+  };
+  reader.readAsDataURL(file);
+};
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -167,6 +203,19 @@ export function WebPlaytestPreview({
     centerX?: number;
     centerY?: number;
     startAngle?: number;
+  } | null>(null);
+  const startMenuBoundsDragRef = useRef<{
+    type: 'move' | 'resize';
+    resizeHandle?: StartMenuResizeHandle;
+    startClientX: number;
+    startClientY: number;
+    rect: DOMRect;
+    initial: {
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    };
   } | null>(null);
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<string | null>(null);
@@ -1046,8 +1095,6 @@ export function WebPlaytestPreview({
   );
   const startMenuActionMap = new Map(startMenuActions.map((action) => [action.key, action]));
   const defaultStartMenuElements = React.useMemo<StartMenuElement[]>(() => {
-    const textAlign =
-      settings.startMenuButtonPosition === 'center' ? 'center' : 'left';
     const textX = settings.startMenuButtonPosition === 'center' ? 22 : defaultButtonX;
     const elements: StartMenuElement[] = [
       {
@@ -1063,6 +1110,7 @@ export function WebPlaytestPreview({
         scale: 1,
         rotation: 0,
         fontSize: 34,
+        borderRadius: 0,
       },
       {
         id: 'subtitle',
@@ -1077,6 +1125,7 @@ export function WebPlaytestPreview({
         scale: 1,
         rotation: 0,
         fontSize: 13,
+        borderRadius: 0,
       },
     ];
     startMenuActions.forEach((action, index) => {
@@ -1103,9 +1152,10 @@ export function WebPlaytestPreview({
         backgroundGradientEnd: '#0f172a',
         backgroundGradientAngle: 135,
         borderColor: action.primary ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.16)',
+        borderRadius: 12,
       });
     });
-    return elements.map((element) => ({ ...element, text: element.text || textAlign }));
+    return elements;
   }, [
     buttonHeight,
     defaultButtonWidth,
@@ -1123,6 +1173,86 @@ export function WebPlaytestPreview({
     settings.startMenuElements && settings.startMenuElements.length > 0
       ? settings.startMenuElements
       : defaultStartMenuElements;
+  const getStartMenuPlacementBounds = React.useCallback(
+    (element: StartMenuElement) => {
+      const locked = settings.startMenuPlacementBoundsLocked && element.kind !== 'button';
+      const minX = locked ? settings.startMenuPlacementMinX ?? 0 : 0;
+      const minY = locked ? settings.startMenuPlacementMinY ?? 0 : 0;
+      const maxX = locked ? settings.startMenuPlacementMaxX ?? 100 : 100;
+      const maxY = locked ? settings.startMenuPlacementMaxY ?? 100 : 100;
+      return {
+        minX: Math.max(0, Math.min(94, minX)),
+        minY: Math.max(0, Math.min(96, minY)),
+        maxX: Math.max(minX + 6, Math.min(100, maxX)),
+        maxY: Math.max(minY + 4, Math.min(100, maxY)),
+      };
+    },
+    [
+      settings.startMenuPlacementBoundsLocked,
+      settings.startMenuPlacementMaxX,
+      settings.startMenuPlacementMaxY,
+      settings.startMenuPlacementMinX,
+      settings.startMenuPlacementMinY,
+    ],
+  );
+  const getStartMenuSnapGuides = React.useCallback(
+    (axis: 'x' | 'y', movingId: string, bounds: ReturnType<typeof getStartMenuPlacementBounds>) => {
+      const min = axis === 'x' ? bounds.minX : bounds.minY;
+      const max = axis === 'x' ? bounds.maxX : bounds.maxY;
+      const guides = [min, min + (max - min) / 2, max, 50];
+      startMenuElements.forEach((element) => {
+        if (element.id === movingId || !element.visible) return;
+        const start = axis === 'x' ? element.x : element.y;
+        const size = axis === 'x' ? element.width : element.height;
+        guides.push(start, start + size / 2, start + size);
+      });
+      return guides;
+    },
+    [startMenuElements],
+  );
+  const snapStartMenuValue = (
+    value: number,
+    guides: number[],
+    tolerance: number,
+  ) => {
+    let best = value;
+    let bestDelta = tolerance;
+    guides.forEach((guide) => {
+      const delta = Math.abs(value - guide);
+      if (delta <= bestDelta) {
+        best = guide;
+        bestDelta = delta;
+      }
+    });
+    return best;
+  };
+  const snapStartMenuBox = (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    bounds: ReturnType<typeof getStartMenuPlacementBounds>,
+    rect: DOMRect,
+  ) => {
+    const xGuides = getStartMenuSnapGuides('x', id, bounds);
+    const yGuides = getStartMenuSnapGuides('y', id, bounds);
+    const toleranceX = (2 / rect.width) * 100;
+    const toleranceY = (2 / rect.height) * 100;
+    const snappedLeft = snapStartMenuValue(x, xGuides, toleranceX);
+    const snappedCenterX = snapStartMenuValue(x + width / 2, xGuides, toleranceX) - width / 2;
+    const snappedRight = snapStartMenuValue(x + width, xGuides, toleranceX) - width;
+    const snappedTop = snapStartMenuValue(y, yGuides, toleranceY);
+    const snappedCenterY = snapStartMenuValue(y + height / 2, yGuides, toleranceY) - height / 2;
+    const snappedBottom = snapStartMenuValue(y + height, yGuides, toleranceY) - height;
+    const nextX = [snappedLeft, snappedCenterX, snappedRight].reduce((best, candidate) =>
+      Math.abs(candidate - x) < Math.abs(best - x) ? candidate : best,
+    );
+    const nextY = [snappedTop, snappedCenterY, snappedBottom].reduce((best, candidate) =>
+      Math.abs(candidate - y) < Math.abs(best - y) ? candidate : best,
+    );
+    return { x: nextX, y: nextY };
+  };
   const commitStartMenuElements = React.useCallback(
     (next: StartMenuElement[]) => onUpdateSettings('startMenuElements', next),
     [onUpdateSettings],
@@ -1137,6 +1267,67 @@ export function WebPlaytestPreview({
     },
     [commitStartMenuElements, defaultStartMenuElements, settings.startMenuElements],
   );
+  const beginStartMenuBoundsDrag = (
+    event: React.PointerEvent<HTMLElement>,
+    type: 'move' | 'resize',
+    resizeHandle?: StartMenuResizeHandle,
+  ) => {
+    if (previewMode !== 'edit' || !settings.startMenuPlacementBoundsLocked) return;
+    const rect = startMenuEditorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedStartMenuElementId(null);
+    startMenuBoundsDragRef.current = {
+      type,
+      resizeHandle,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      rect,
+      initial: {
+        minX: settings.startMenuPlacementMinX ?? 0,
+        minY: settings.startMenuPlacementMinY ?? 0,
+        maxX: settings.startMenuPlacementMaxX ?? 100,
+        maxY: settings.startMenuPlacementMaxY ?? 100,
+      },
+    };
+    document.body.style.cursor =
+      type === 'resize' && resizeHandle ? resizeCursorByHandle[resizeHandle] : 'grabbing';
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const updateStartMenuBoundsDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = startMenuBoundsDragRef.current;
+    if (!drag) return false;
+    const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
+    const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
+    let minX = drag.initial.minX;
+    let minY = drag.initial.minY;
+    let maxX = drag.initial.maxX;
+    let maxY = drag.initial.maxY;
+    if (drag.type === 'move') {
+      const width = maxX - minX;
+      const height = maxY - minY;
+      minX = Math.max(0, Math.min(100 - width, minX + dx));
+      minY = Math.max(0, Math.min(100 - height, minY + dy));
+      maxX = minX + width;
+      maxY = minY + height;
+    } else {
+      const handle = drag.resizeHandle || 'se';
+      if (handle.includes('w')) minX += dx;
+      if (handle.includes('e')) maxX += dx;
+      if (handle.includes('n')) minY += dy;
+      if (handle.includes('s')) maxY += dy;
+      minX = Math.max(0, Math.min(maxX - 6, minX));
+      minY = Math.max(0, Math.min(maxY - 4, minY));
+      maxX = Math.min(100, Math.max(minX + 6, maxX));
+      maxY = Math.min(100, Math.max(minY + 4, maxY));
+    }
+    onUpdateSettings('startMenuPlacementMinX', Math.round(minX));
+    onUpdateSettings('startMenuPlacementMinY', Math.round(minY));
+    onUpdateSettings('startMenuPlacementMaxX', Math.round(maxX));
+    onUpdateSettings('startMenuPlacementMaxY', Math.round(maxY));
+    return true;
+  };
   const beginStartMenuEditDrag = (
     event: React.PointerEvent<HTMLElement>,
     element: StartMenuElement,
@@ -1173,14 +1364,25 @@ export function WebPlaytestPreview({
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
   const handleStartMenuEditPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (updateStartMenuBoundsDrag(event)) return;
     const drag = startMenuEditDragRef.current;
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
     const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
+    const bounds = getStartMenuPlacementBounds(drag.initial);
     if (drag.type === 'move') {
+      const snapped = snapStartMenuBox(
+        drag.id,
+        drag.initial.x + dx,
+        drag.initial.y + dy,
+        drag.initial.width,
+        drag.initial.height,
+        bounds,
+        drag.rect,
+      );
       updateStartMenuElement(drag.id, {
-        x: Math.max(0, Math.min(100 - drag.initial.width, drag.initial.x + dx)),
-        y: Math.max(0, Math.min(100 - drag.initial.height, drag.initial.y + dy)),
+        x: Math.max(bounds.minX, Math.min(bounds.maxX - drag.initial.width, snapped.x)),
+        y: Math.max(bounds.minY, Math.min(bounds.maxY - drag.initial.height, snapped.y)),
       });
     } else if (drag.type === 'resize') {
       const handle = drag.resizeHandle || 'se';
@@ -1206,18 +1408,48 @@ export function WebPlaytestPreview({
         if (handle.includes('n')) nextY = drag.initial.y + drag.initial.height - 4;
         nextHeight = 4;
       }
-      nextX = Math.max(0, Math.min(100 - nextWidth, nextX));
-      nextY = Math.max(0, Math.min(100 - nextHeight, nextY));
+      const xGuides = getStartMenuSnapGuides('x', drag.id, bounds);
+      const yGuides = getStartMenuSnapGuides('y', drag.id, bounds);
+      const toleranceX = (2 / drag.rect.width) * 100;
+      const toleranceY = (2 / drag.rect.height) * 100;
+      if (handle.includes('e')) {
+        const snappedRight = snapStartMenuValue(nextX + nextWidth, xGuides, toleranceX);
+        nextWidth += snappedRight - (nextX + nextWidth);
+      }
+      if (handle.includes('w')) {
+        const snappedLeft = snapStartMenuValue(nextX, xGuides, toleranceX);
+        nextWidth += nextX - snappedLeft;
+        nextX = snappedLeft;
+      }
+      if (handle.includes('s')) {
+        const snappedBottom = snapStartMenuValue(nextY + nextHeight, yGuides, toleranceY);
+        nextHeight += snappedBottom - (nextY + nextHeight);
+      }
+      if (handle.includes('n')) {
+        const snappedTop = snapStartMenuValue(nextY, yGuides, toleranceY);
+        nextHeight += nextY - snappedTop;
+        nextY = snappedTop;
+      }
+      if (nextWidth < 6) {
+        if (handle.includes('w')) nextX = drag.initial.x + drag.initial.width - 6;
+        nextWidth = 6;
+      }
+      if (nextHeight < 4) {
+        if (handle.includes('n')) nextY = drag.initial.y + drag.initial.height - 4;
+        nextHeight = 4;
+      }
+      nextX = Math.max(bounds.minX, Math.min(bounds.maxX - nextWidth, nextX));
+      nextY = Math.max(bounds.minY, Math.min(bounds.maxY - nextHeight, nextY));
       updateStartMenuElement(drag.id, {
         x: nextX,
         y: nextY,
-        width: Math.max(6, Math.min(100 - nextX, nextWidth)),
-        height: Math.max(4, Math.min(100 - nextY, nextHeight)),
+        width: Math.max(6, Math.min(bounds.maxX - nextX, nextWidth)),
+        height: Math.max(4, Math.min(bounds.maxY - nextY, nextHeight)),
       });
     } else if (drag.centerX !== undefined && drag.centerY !== undefined && drag.startAngle !== undefined) {
       const angle = Math.atan2(event.clientY - drag.centerY, event.clientX - drag.centerX) * (180 / Math.PI);
       const rawRotation = drag.initial.rotation + angle - drag.startAngle;
-      const nextRotation = event.shiftKey || event.ctrlKey ? Math.round(rawRotation / 30) * 30 : Math.round(rawRotation);
+      const nextRotation = event.shiftKey || event.ctrlKey ? Math.round(rawRotation / 5) * 5 : Math.round(rawRotation);
       updateStartMenuElement(drag.id, {
         rotation: nextRotation,
       });
@@ -1225,6 +1457,7 @@ export function WebPlaytestPreview({
   };
   const stopStartMenuEditDrag = () => {
     startMenuEditDragRef.current = null;
+    startMenuBoundsDragRef.current = null;
     document.body.style.cursor = '';
   };
   const startMenuBackgroundStyle: React.CSSProperties | undefined =
@@ -1244,6 +1477,8 @@ export function WebPlaytestPreview({
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
+    const selectedGuideElement = startMenuElements.find((element) => element.id === selectedStartMenuElementId);
+    const selectedGuideBounds = selectedGuideElement ? getStartMenuPlacementBounds(selectedGuideElement) : null;
     return (
       <div
         className={`absolute inset-0 z-40 grid p-[clamp(20px,6vw,64px)] text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
@@ -1268,6 +1503,77 @@ export function WebPlaytestPreview({
             if (previewMode === 'edit') setSelectedStartMenuElementId(null);
           }}
         >
+          {previewMode === 'edit' && (
+            <div className="pointer-events-none absolute inset-0 text-[9px] font-black text-white/55">
+              <div className="absolute left-1/2 top-0 h-full border-l border-cyan-300/35" />
+              <div className="absolute left-0 top-1/2 w-full border-t border-cyan-300/35" />
+              {selectedGuideBounds && settings.startMenuPlacementBoundsLocked && selectedGuideElement?.kind !== 'button' && (
+                <div
+                  className="absolute border border-dashed border-amber-300/70 bg-amber-300/[0.04]"
+                  style={{
+                    left: `${selectedGuideBounds.minX}%`,
+                    top: `${selectedGuideBounds.minY}%`,
+                    width: `${selectedGuideBounds.maxX - selectedGuideBounds.minX}%`,
+                    height: `${selectedGuideBounds.maxY - selectedGuideBounds.minY}%`,
+                  }}
+                />
+              )}
+              {selectedGuideElement && (
+                <>
+                  <div
+                    className="absolute top-0 h-full border-l border-sky-300/55"
+                    style={{ left: `${selectedGuideElement.x}%` }}
+                  />
+                  <div
+                    className="absolute top-0 h-full border-l border-sky-300/35"
+                    style={{ left: `${selectedGuideElement.x + selectedGuideElement.width / 2}%` }}
+                  />
+                  <div
+                    className="absolute top-0 h-full border-l border-sky-300/55"
+                    style={{ left: `${selectedGuideElement.x + selectedGuideElement.width}%` }}
+                  />
+                  <div
+                    className="absolute left-0 w-full border-t border-sky-300/55"
+                    style={{ top: `${selectedGuideElement.y}%` }}
+                  />
+                  <div
+                    className="absolute left-0 w-full border-t border-sky-300/35"
+                    style={{ top: `${selectedGuideElement.y + selectedGuideElement.height / 2}%` }}
+                  />
+                  <div
+                    className="absolute left-0 w-full border-t border-sky-300/55"
+                    style={{ top: `${selectedGuideElement.y + selectedGuideElement.height}%` }}
+                  />
+                </>
+              )}
+            </div>
+          )}
+          {previewMode === 'edit' &&
+            settings.startMenuPlacementBoundsLocked &&
+            selectedStartMenuElementId === null && (
+              <div
+                className="absolute z-20 cursor-grab border border-dashed border-amber-300/90 bg-amber-300/[0.06] shadow-[0_0_0_1px_rgba(0,0,0,0.18)] active:cursor-grabbing"
+                style={{
+                  left: `${settings.startMenuPlacementMinX ?? 0}%`,
+                  top: `${settings.startMenuPlacementMinY ?? 0}%`,
+                  width: `${(settings.startMenuPlacementMaxX ?? 100) - (settings.startMenuPlacementMinX ?? 0)}%`,
+                  height: `${(settings.startMenuPlacementMaxY ?? 100) - (settings.startMenuPlacementMinY ?? 0)}%`,
+                }}
+                onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'move')}
+                title={t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
+              >
+                {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
+                  <button
+                    key={handle}
+                    type="button"
+                    className={`absolute border border-amber-200 bg-white shadow ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
+                    style={getResizeHandleStyle(handle)}
+                    onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
+                    aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
+                  />
+                ))}
+              </div>
+            )}
           {settings.startMenuTemplate !== 'minimal' && !settings.startMenuElements?.length && (
             <div
               className="absolute h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]"
@@ -1285,9 +1591,11 @@ export function WebPlaytestPreview({
             if (!element.visible && previewMode !== 'edit') return null;
             const action = element.kind === 'button' && element.role ? startMenuActionMap.get(element.role) : null;
             const elementBackground =
-              element.backgroundType === 'gradient'
-                ? `linear-gradient(${element.backgroundGradientAngle ?? 135}deg, ${element.backgroundGradientStart || choiceColor}, ${element.backgroundGradientEnd || '#0f172a'})`
-                : element.backgroundColor;
+              element.backgroundType === 'image' && element.backgroundImageUrl
+                ? `center / cover url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
+                : element.backgroundType === 'gradient'
+                  ? `linear-gradient(${element.backgroundGradientAngle ?? 135}deg, ${element.backgroundGradientStart || choiceColor}, ${element.backgroundGradientEnd || '#0f172a'})`
+                  : element.backgroundColor;
             const elementStyle: React.CSSProperties = {
               left: `${element.x}%`,
               top: `${element.y}%`,
@@ -1359,13 +1667,33 @@ export function WebPlaytestPreview({
                     <img
                       src={element.imageUrl}
                       alt=""
-                      className="h-full w-full rounded-lg object-cover"
+                      className="h-full w-full object-cover"
+                      style={{ borderRadius: element.borderRadius ?? 12 }}
                       draggable={false}
                     />
                   ) : (
-                    <div className="grid h-full w-full place-items-center rounded-lg border border-dashed border-white/35 bg-white/10 px-2 text-center text-[11px] font-black text-white/60">
+                    <label
+                      className="grid h-full w-full cursor-pointer place-items-center border border-dashed border-white/35 bg-white/10 px-2 text-center text-[11px] font-black text-white/60"
+                      style={{ borderRadius: element.borderRadius ?? 12 }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {t('选择图片', '画像 URL', 'Image')}
-                    </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file) {
+                            readStartMenuImageFile(file, (value) =>
+                              updateStartMenuElement(element.id, { imageUrl: value }),
+                            );
+                          }
+                          event.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
                   )
                 ) : element.kind === 'button' ? (
                   <button
@@ -1388,6 +1716,7 @@ export function WebPlaytestPreview({
                       color: element.textColor || (element.primary ? choiceTextColor : undefined),
                       borderColor: element.borderColor,
                       fontSize: element.fontSize,
+                      borderRadius: element.borderRadius ?? 12,
                     }}
                   >
                     {content}
@@ -1397,14 +1726,17 @@ export function WebPlaytestPreview({
                     className={`flex h-full w-full items-center ${
                       element.role === 'subtitle' ? 'text-white/68' : 'text-white'
                     } ${element.role === 'title' ? 'font-black leading-[1.06] [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]' : 'font-black'}`}
-                    style={{ fontSize: element.fontSize, color: element.textColor }}
+                    style={{ fontSize: element.fontSize, color: element.textColor, borderRadius: element.borderRadius ?? 0 }}
                   >
                     {content}
                   </div>
                 )}
                 {previewMode === 'edit' && selected && (
                   <>
-                    <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-sky-300" />
+                    <div
+                      className="pointer-events-none absolute inset-0 ring-2 ring-sky-300"
+                      style={{ borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12) }}
+                    />
                     <button
                       type="button"
                       className="absolute -right-8 -top-3 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-white shadow"
@@ -1433,25 +1765,18 @@ export function WebPlaytestPreview({
                     <button
                       type="button"
                       className="absolute -left-8 -top-3 grid h-6 w-6 cursor-alias place-items-center rounded-full bg-white text-slate-900 shadow"
+                      style={{ cursor: 'alias' }}
                       onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'rotate')}
                       title={t('旋转', '回転', 'Rotate')}
                     >
                       <RotateCw className="h-3.5 w-3.5" />
                     </button>
-                    {([
-                      ['nw', '-left-1.5 -top-1.5 h-3 w-3 cursor-nwse-resize rounded-full'],
-                      ['n', 'left-1/2 -top-1.5 h-2 w-9 -translate-x-1/2 cursor-ns-resize rounded-full'],
-                      ['ne', '-right-1.5 -top-1.5 h-3 w-3 cursor-nesw-resize rounded-full'],
-                      ['e', '-right-1.5 top-1/2 h-9 w-2 -translate-y-1/2 cursor-ew-resize rounded-full'],
-                      ['se', '-bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-full'],
-                      ['s', 'left-1/2 -bottom-1.5 h-2 w-9 -translate-x-1/2 cursor-ns-resize rounded-full'],
-                      ['sw', '-bottom-1.5 -left-1.5 h-3 w-3 cursor-nesw-resize rounded-full'],
-                      ['w', '-left-1.5 top-1/2 h-9 w-2 -translate-y-1/2 cursor-ew-resize rounded-full'],
-                    ] as Array<[StartMenuResizeHandle, string]>).map(([handle, className]) => (
+                    {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
                       <button
                         key={handle}
                         type="button"
-                        className={`absolute border border-sky-200 bg-white shadow ${className}`}
+                        className={`absolute border border-sky-200 bg-white shadow ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
+                        style={getResizeHandleStyle(handle)}
                         onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'resize', handle)}
                         title={t('调整大小', 'リサイズ', 'Resize')}
                         aria-label={t('调整大小', 'リサイズ', 'Resize')}

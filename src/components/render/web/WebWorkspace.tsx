@@ -9,6 +9,7 @@ import {
   ImagePlus,
   Info,
   LayoutTemplate,
+  Lock,
   Hand,
   MousePointerClick,
   Palette,
@@ -19,6 +20,7 @@ import {
   RotateCw,
   Type,
   Upload,
+  Unlock,
   Video,
   Volume2,
 } from 'lucide-react';
@@ -106,6 +108,11 @@ export function WebWorkspace({
         startMenuButtonLayout: webSettings.startMenuButtonLayout,
         startMenuButtonSize: webSettings.startMenuButtonSize,
         startMenuElements: webSettings.startMenuElements,
+        startMenuPlacementBoundsLocked: webSettings.startMenuPlacementBoundsLocked,
+        startMenuPlacementMinX: webSettings.startMenuPlacementMinX,
+        startMenuPlacementMinY: webSettings.startMenuPlacementMinY,
+        startMenuPlacementMaxX: webSettings.startMenuPlacementMaxX,
+        startMenuPlacementMaxY: webSettings.startMenuPlacementMaxY,
         startMenuShowSave: webSettings.startMenuShowSave,
         startMenuShowNewGame: webSettings.startMenuShowNewGame,
         startMenuShowSettings: webSettings.startMenuShowSettings,
@@ -132,6 +139,11 @@ export function WebWorkspace({
         startMenuButtonLayout: parsed.startMenuButtonLayout,
         startMenuButtonSize: parsed.startMenuButtonSize,
         startMenuElements: parsed.startMenuElements,
+        startMenuPlacementBoundsLocked: parsed.startMenuPlacementBoundsLocked,
+        startMenuPlacementMinX: parsed.startMenuPlacementMinX,
+        startMenuPlacementMinY: parsed.startMenuPlacementMinY,
+        startMenuPlacementMaxX: parsed.startMenuPlacementMaxX,
+        startMenuPlacementMaxY: parsed.startMenuPlacementMaxY,
         startMenuShowSave: parsed.startMenuShowSave,
         startMenuShowNewGame: parsed.startMenuShowNewGame,
         startMenuShowSettings: parsed.startMenuShowSettings,
@@ -188,6 +200,7 @@ export function WebWorkspace({
         rotation: 0,
         fontSize: 18,
         textColor: '#ffffff',
+        borderRadius: 0,
       },
     ]);
     setSelectedStartMenuElementId(id);
@@ -209,6 +222,7 @@ export function WebWorkspace({
         scale: 1,
         rotation: 0,
         imageUrl: '',
+        borderRadius: 12,
       },
     ]);
     setSelectedStartMenuElementId(id);
@@ -358,6 +372,25 @@ export function WebWorkspace({
           />
           {startMenuPreviewMode === 'edit' ? (
           <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
+            <WebSettingCard
+              icon={Gamepad2}
+              description={
+                showSettingDescriptions
+                  ? t('进入主界面', 'タイトル画面', 'Start screen')
+                  : undefined
+              }
+            >
+              <WebPillToggleGroup
+                value={webSettings.showStartMenu ? 'on' : 'off'}
+                options={[
+                  { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
+                  { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
+                ]}
+                onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
+              />
+            </WebSettingCard>
+            {webSettings.showStartMenu && (
+              <>
             <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
               <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
                 {selectedStartMenuElement
@@ -565,24 +598,9 @@ export function WebWorkspace({
                 />
               </WebSettingCard>
             </div>
-            <WebSettingCard
-              icon={Gamepad2}
-              description={
-                showSettingDescriptions
-                  ? t('进入主界面', 'タイトル画面', 'Start screen')
-                  : undefined
-              }
-            >
-              <WebPillToggleGroup
-                value={webSettings.showStartMenu ? 'on' : 'off'}
-                options={[
-                  { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
-                  { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
-                ]}
-                onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
-              />
-            </WebSettingCard>
             </div>
+              </>
+            )}
           </div>
           ) : null}
 
@@ -800,6 +818,14 @@ function IconToolButton({
 
 type StartMenuElement = WebExportSettings['startMenuElements'][number];
 
+function readImageFileAsDataUrl(file: File, onReady: (value: string) => void) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result === 'string') onReady(reader.result);
+  };
+  reader.readAsDataURL(file);
+}
+
 function StartMenuBackgroundInspector({
   settings,
   language,
@@ -872,6 +898,35 @@ function StartMenuBackgroundInspector({
         />
       )}
       <div className="h-8 rounded-lg border border-[var(--vr-border)]" style={{ background: backgroundPreview }} />
+      <div className="grid gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+            {t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              updateWebSettings('startMenuPlacementBoundsLocked', !settings.startMenuPlacementBoundsLocked)
+            }
+            className={`grid h-7 w-7 place-items-center rounded-lg border transition-colors ${
+              settings.startMenuPlacementBoundsLocked
+                ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent)]'
+                : 'border-[var(--vr-border)] bg-[var(--vr-surface)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+            }`}
+            title={t('锁定放置范围', '範囲をロック', 'Lock placement bounds')}
+            aria-label={t('锁定放置范围', '範囲をロック', 'Lock placement bounds')}
+          >
+            {settings.startMenuPlacementBoundsLocked ? (
+              <Lock className="h-3.5 w-3.5" />
+            ) : (
+              <Unlock className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+        <div className="rounded-md bg-[var(--vr-surface)] px-2 py-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
+          {t('范围框在左侧预览中拖动和缩放。', '範囲枠は左のプレビューで調整します。', 'Adjust the bounds box in the preview.')}
+        </div>
+      </div>
     </div>
   );
 }
@@ -895,15 +950,51 @@ function StartMenuElementInspector({
             ? t('这里会修改当前选中图片。', '選択画像を編集します。', 'Edits the selected image.')
             : t('这里会修改当前选中文字。', '選択テキストを編集します。', 'Edits the selected text.')}
       </div>
+      {element.kind !== 'image' && (
+        <label className="grid gap-1">
+          <span className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+            {element.kind === 'button'
+              ? t('按钮名称', 'ボタン名', 'Button name')
+              : t('文字内容', 'テキスト', 'Text')}
+          </span>
+          <input
+            type="text"
+            value={element.text}
+            onChange={(event) => onUpdate({ text: event.target.value })}
+            placeholder={
+              element.kind === 'button'
+                ? t('输入按钮名称', 'ボタン名を入力', 'Enter button name')
+                : t('输入文字', 'テキストを入力', 'Enter text')
+            }
+            className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+          />
+        </label>
+      )}
       {element.kind === 'image' ? (
-        <input
-          type="text"
-          value={element.imageUrl || ''}
-          onChange={(event) => onUpdate({ imageUrl: event.target.value })}
-          placeholder={t('图片 URL', '画像 URL', 'Image URL')}
-          className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
-          aria-label={t('图片 URL', '画像 URL', 'Image URL')}
-        />
+        <div className="grid gap-2">
+          <input
+            type="text"
+            value={element.imageUrl || ''}
+            onChange={(event) => onUpdate({ imageUrl: event.target.value })}
+            placeholder={t('图片 URL', '画像 URL', 'Image URL')}
+            className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+            aria-label={t('图片 URL', '画像 URL', 'Image URL')}
+          />
+          <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]">
+            <ImagePlus className="h-3.5 w-3.5" />
+            <span>{t('选择图片', '画像を選択', 'Choose image')}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) readImageFileAsDataUrl(file, (value) => onUpdate({ imageUrl: value }));
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+        </div>
       ) : (
         <ColorField
           label={t('文字颜色', '文字色', 'Text')}
@@ -911,6 +1002,13 @@ function StartMenuElementInspector({
           onChange={(value) => onUpdate({ textColor: value })}
         />
       )}
+      <RangeField
+        label={t('圆角', '角丸', 'Radius')}
+        value={element.borderRadius ?? (element.kind === 'text' ? 0 : 12)}
+        min={0}
+        max={40}
+        onChange={(value) => onUpdate({ borderRadius: value })}
+      />
       {element.kind === 'button' && (
         <>
           <WebSettingCard description={t('按钮背景', 'ボタン背景', 'Button background')}>
@@ -919,6 +1017,7 @@ function StartMenuElementInspector({
               options={[
                 { value: 'solid', label: t('底色', '単色', 'Solid') },
                 { value: 'gradient', label: t('渐变', 'グラデ', 'Gradient') },
+                { value: 'image', label: t('图片', '画像', 'Image') },
               ]}
               onChange={(value) => onUpdate({ backgroundType: value as StartMenuElement['backgroundType'] })}
             />
@@ -929,7 +1028,7 @@ function StartMenuElementInspector({
               value={colorInputValue(element.backgroundColor || '#0ea5e9')}
               onChange={(value) => onUpdate({ backgroundColor: value, backgroundType: 'solid' })}
             />
-          ) : (
+          ) : (element.backgroundType || 'solid') === 'gradient' ? (
             <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
               <div className="grid grid-cols-2 gap-2">
                 <ColorField
@@ -950,6 +1049,35 @@ function StartMenuElementInspector({
                 max={360}
                 onChange={(value) => onUpdate({ backgroundGradientAngle: value, backgroundType: 'gradient' })}
               />
+            </div>
+          ) : (
+            <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
+              <input
+                type="text"
+                value={element.backgroundImageUrl || ''}
+                onChange={(event) => onUpdate({ backgroundImageUrl: event.target.value, backgroundType: 'image' })}
+                placeholder={t('按钮背景图片 URL', 'ボタン背景画像 URL', 'Button background image URL')}
+                className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
+                aria-label={t('按钮背景图片 URL', 'ボタン背景画像 URL', 'Button background image URL')}
+              />
+              <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-3 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]">
+                <ImagePlus className="h-3.5 w-3.5" />
+                <span>{t('选择背景图', '背景画像を選択', 'Choose background')}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    if (file) {
+                      readImageFileAsDataUrl(file, (value) =>
+                        onUpdate({ backgroundImageUrl: value, backgroundType: 'image' }),
+                      );
+                    }
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
             </div>
           )}
           <ColorField

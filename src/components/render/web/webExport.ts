@@ -48,14 +48,21 @@ type WebExportSettings = {
     disabled?: boolean;
     fontSize?: number;
     textColor?: string;
-    backgroundType?: 'solid' | 'gradient';
+    backgroundType?: 'solid' | 'gradient' | 'image';
     backgroundColor?: string;
     backgroundGradientStart?: string;
     backgroundGradientEnd?: string;
     backgroundGradientAngle?: number;
+    backgroundImageUrl?: string;
     borderColor?: string;
+    borderRadius?: number;
     imageUrl?: string;
   }>;
+  startMenuPlacementBoundsLocked: boolean;
+  startMenuPlacementMinX: number;
+  startMenuPlacementMinY: number;
+  startMenuPlacementMaxX: number;
+  startMenuPlacementMaxY: number;
   startMenuShowSave: boolean;
   startMenuShowNewGame: boolean;
   startMenuShowSettings: boolean;
@@ -1312,6 +1319,11 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
     settings.startMenuElements = Array.isArray(settings.startMenuElements) ? settings.startMenuElements : [];
+    settings.startMenuPlacementBoundsLocked = Boolean(settings.startMenuPlacementBoundsLocked);
+    settings.startMenuPlacementMinX = clamp(settings.startMenuPlacementMinX, 0, 94, 0);
+    settings.startMenuPlacementMinY = clamp(settings.startMenuPlacementMinY, 0, 96, 0);
+    settings.startMenuPlacementMaxX = clamp(settings.startMenuPlacementMaxX, settings.startMenuPlacementMinX + 6, 100, 100);
+    settings.startMenuPlacementMaxY = clamp(settings.startMenuPlacementMaxY, settings.startMenuPlacementMinY + 4, 100, 100);
     settings.startMenuShowSave = settings.startMenuShowSave !== false;
     settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
     settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
@@ -1629,6 +1641,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           image.className = "start-element-image";
           image.src = element.imageUrl;
           image.alt = "";
+          image.style.borderRadius = px(element.borderRadius, 12);
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
           const action = actionByRole[element.role] || null;
@@ -1637,7 +1650,9 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
           button.textContent = element.text || action?.label || "";
           button.disabled = Boolean(element.disabled || action?.disabled);
-          if (element.backgroundType === "gradient") {
+          if (element.backgroundType === "image" && element.backgroundImageUrl) {
+            button.style.background = "center / cover url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
+          } else if (element.backgroundType === "gradient") {
             button.style.background = "linear-gradient(" + (Number(element.backgroundGradientAngle) || 135) + "deg, " + (element.backgroundGradientStart || style.choiceColor || "#0ea5e9") + ", " + (element.backgroundGradientEnd || "#0f172a") + ")";
           } else if (element.backgroundColor) {
             button.style.background = element.backgroundColor;
@@ -1645,6 +1660,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           if (element.textColor) button.style.color = element.textColor;
           if (element.borderColor) button.style.borderColor = element.borderColor;
           if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
+          button.style.borderRadius = px(element.borderRadius, 12);
           if (action?.onClick) button.addEventListener("click", action.onClick);
           wrapper.appendChild(button);
         } else {
@@ -1653,6 +1669,7 @@ const makeIndexHtml = (title: string, language: string, faviconPath: string) => 
           text.textContent = element.role === "subtitle" && !element.text ? (save ? saveLabel(save) : labels.noSave) : (element.text || "");
           if (Number.isFinite(Number(element.fontSize))) text.style.fontSize = Number(element.fontSize) + "px";
           if (element.textColor) text.style.color = element.textColor;
+          text.style.borderRadius = px(element.borderRadius, 0);
           wrapper.appendChild(text);
         }
         startLayer.appendChild(wrapper);
@@ -2769,6 +2786,11 @@ export async function buildInteractiveWebZipBlob(
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuElements: options.settings?.startMenuElements || [],
+    startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
+    startMenuPlacementMinX: options.settings?.startMenuPlacementMinX ?? 0,
+    startMenuPlacementMinY: options.settings?.startMenuPlacementMinY ?? 0,
+    startMenuPlacementMaxX: options.settings?.startMenuPlacementMaxX ?? 100,
+    startMenuPlacementMaxY: options.settings?.startMenuPlacementMaxY ?? 100,
     startMenuShowSave: options.settings?.startMenuShowSave ?? true,
     startMenuShowNewGame: options.settings?.startMenuShowNewGame ?? true,
     startMenuShowSettings: options.settings?.startMenuShowSettings ?? true,
@@ -2792,6 +2814,18 @@ export async function buildInteractiveWebZipBlob(
     settings.startMenuBackgroundMusicUrl,
     `${title}-start-menu-music`,
     assetMap,
+  );
+  settings.startMenuElements = await Promise.all(
+    settings.startMenuElements.map(async (element) => ({
+      ...element,
+      imageUrl: await addImageAsset(zip, element.imageUrl, `${title}-${element.id || 'start-element'}`, assetMap),
+      backgroundImageUrl: await addImageAsset(
+        zip,
+        element.backgroundImageUrl,
+        `${title}-${element.id || 'start-button'}-background`,
+        assetMap,
+      ),
+    })),
   );
 
   const webNodes: WebExportNode[] = [];
