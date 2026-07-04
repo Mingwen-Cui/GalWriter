@@ -91,7 +91,10 @@ export const useVideoExport = ({
   const [isCancellingRender, setIsCancellingRender] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const renderVideo = async () => {
+  const renderVideo = async (options?: { fileName?: string; frameRate?: number; exportFormat?: ExportFormat }) => {
+    const resolvedFrameRate = options?.frameRate ?? frameRate;
+    const resolvedFormat = options?.exportFormat ?? exportFormat;
+    const fileName = options?.fileName;
     if (selectedNodes.length === 0 || status === 'rendering') return;
     const canvas2d = canvasRef.current;
     const ctx2d = canvas2d?.getContext('2d');
@@ -131,7 +134,7 @@ export const useVideoExport = ({
         nodeDurations.push(duration);
         totalDuration += duration;
       }
-      const totalFrames = Math.max(1, Math.ceil(totalDuration * frameRate));
+      const totalFrames = Math.max(1, Math.ceil(totalDuration * resolvedFrameRate));
 
       const audioSegments: SegmentRenderInfo[] = activeAudioSegments.flatMap((segment) =>
         getSegmentAudioSources(segment.node).map((source) => ({
@@ -265,8 +268,8 @@ export const useVideoExport = ({
       const { renderVideoToBuffer } = await import('../export/browserVideoEncoder');
       const bytes = await renderVideoToBuffer({
         canvas,
-        format: exportFormat,
-        frameRate,
+        format: resolvedFormat,
+        frameRate: resolvedFrameRate,
         totalFrames,
         drawFrame: useGpu ? drawFrameGPU : drawFrame2D,
         audioBuffer: audioBuffer || undefined,
@@ -279,8 +282,8 @@ export const useVideoExport = ({
 
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
-          fileName: `galwriter-render-${Date.now()}`,
-          format: exportFormat,
+          fileName: (fileName?.trim() || `galwriter-render-${Date.now()}`),
+          format: resolvedFormat,
           bytes: Array.from(bytes),
           outputDir,
           videoBitrate: DEFAULT_VIDEO_BITRATE,
@@ -288,15 +291,15 @@ export const useVideoExport = ({
         setSavedPath(result.path);
       } else {
         const mimeType =
-          exportFormat === 'mov'
+          resolvedFormat === 'mov'
             ? 'video/quicktime'
-            : exportFormat === 'mkv'
+            : resolvedFormat === 'mkv'
               ? 'video/x-matroska'
               : 'video/mp4';
         const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `galwriter-render-${Date.now()}.${exportFormat}`;
+        link.download = `${fileName?.trim() || `galwriter-render-${Date.now()}`}.${resolvedFormat}`;
         document.body.appendChild(link);
         link.click();
         link.remove();

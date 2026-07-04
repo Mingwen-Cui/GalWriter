@@ -41,8 +41,8 @@ type RenderHeaderProps = {
   redoTimeline: () => void;
   undoWeb: () => void;
   redoWeb: () => void;
-  renderVideo: () => void;
-  exportWebProject: () => void;
+  /** 点击导出按钮时打开弹窗，而非直接导出 */
+  onExportClick: () => void;
   onClose: () => void;
 };
 
@@ -70,8 +70,7 @@ export function RenderHeader({
   redoTimeline,
   undoWeb,
   redoWeb,
-  renderVideo,
-  exportWebProject,
+  onExportClick,
   onClose,
 }: RenderHeaderProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
@@ -192,7 +191,7 @@ export function RenderHeader({
         )}
         <button
           type="button"
-          onClick={workspaceMode === 'web' ? exportWebProject : renderVideo}
+          onClick={onExportClick}
           disabled={
             isRendering ||
             (workspaceMode === 'video' && selectedNodes.length === 0) ||

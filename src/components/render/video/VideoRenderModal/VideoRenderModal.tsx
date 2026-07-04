@@ -11,6 +11,7 @@ import { isWebGPUSupported } from '../gpu/webgpuRenderer';
 import { RenderContextMenu } from '../panels/RenderContextMenu';
 import { RenderHeader } from '../panels/RenderHeader';
 import { RenderProgressModal } from '../panels/RenderProgressModal';
+import { ExportDialog } from '../panels/ExportDialog';
 import { VideoAssetSidebar } from '../panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from '../panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
@@ -359,6 +360,8 @@ export function VideoRenderModal({
   const [outputDirError, setOutputDirError] = useState('');
   const [webOutputDirError, setWebOutputDirError] = useState('');
   const [savedPath, setSavedPath] = useState('');
+  // NOTE: 控制导出确认弹窗的显示状态
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetPanelLastWidthRef = useRef(assetPanelWidth || 320);
@@ -1847,10 +1850,10 @@ export function VideoRenderModal({
           redoTimeline={redoTimeline}
           undoWeb={undoWeb}
           redoWeb={redoWeb}
-          renderVideo={renderVideo}
-          exportWebProject={exportWebProject}
+          onExportClick={() => setIsExportDialogOpen(true)}
           onClose={closeRenderWorkspace}
         />
+
 
         {workspaceMode === 'video' ? (
           <>
@@ -2137,6 +2140,40 @@ export function VideoRenderModal({
           progressValue={progressValue}
           cancelling={isCancellingRender}
           onCancel={cancelVideoRender}
+        />
+      )}
+      {isExportDialogOpen && (
+        <ExportDialog
+          workspaceMode={workspaceMode}
+          language={language}
+          isDesktopApp={isDesktopApp}
+          defaultVideoFileName={`galwriter-render-${Date.now()}`}
+          defaultWebProjectName={defaultWebProjectName}
+          videoOutputDir={outputDir}
+          webOutputDir={webOutputDir}
+          videoOutputDirError={outputDirError}
+          webOutputDirError={webOutputDirError}
+          webProjectName={webProjectName}
+          frameRate={frameRate}
+          exportFormat={exportFormat}
+          onClose={() => setIsExportDialogOpen(false)}
+          onConfirm={({ name, frameRate: chosenFrameRate, exportFormat: chosenFormat }) => {
+            setIsExportDialogOpen(false);
+            if (workspaceMode === 'video') {
+              setFrameRate(chosenFrameRate);
+              setExportFormat(chosenFormat);
+              renderVideo(name);
+            } else {
+              exportWebProject();
+            }
+          }}
+          onChooseVideoOutputDir={chooseOutputDir}
+          onChooseWebOutputDir={chooseWebOutputDir}
+          setVideoOutputDir={setOutputDir}
+          setWebOutputDir={setWebOutputDir}
+          setVideoOutputDirError={setOutputDirError}
+          setWebOutputDirError={setWebOutputDirError}
+          setWebProjectName={setWebProjectName}
         />
       )}
       <VideoNoticeModal notice={noticeModal} onClose={() => setNoticeModal(null)} />
