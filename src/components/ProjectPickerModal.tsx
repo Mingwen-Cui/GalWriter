@@ -8,7 +8,6 @@ import {
   FolderOpen,
   LayoutTemplate,
   Pencil,
-  RefreshCw,
   Search,
   Square,
   Trash2,
@@ -307,31 +306,13 @@ export function ProjectPickerModal({
               : 'Download ZIP templates or import one as a new project.'}
           </div>
         </div>
-        {onRefreshExamples && (
-          <button
-            type="button"
-            onClick={onRefreshExamples}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-indigo-300"
-            title={isZh ? '刷新模板' : 'Refresh templates'}
-          >
-            <RefreshCw className={`h-4 w-4 ${examplesLoading ? 'animate-spin' : ''}`} />
-          </button>
-        )}
       </div>
       {examplesLoading ? (
         <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
           {isZh ? '正在读取模板...' : 'Loading templates...'}
         </div>
-      ) : examplesError ? (
-        <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-8 text-sm font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
-          {examplesError}
-        </div>
-      ) : filteredTemplates.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          {isZh
-            ? '还没有可用模板。请在 examples/manifest.json 中添加模板。'
-            : 'No templates available yet. Add templates in examples/manifest.json.'}
-        </div>
+      ) : examplesError || filteredTemplates.length === 0 ? (
+        null
       ) : (
         filteredTemplates.map((template) => (
           <div
@@ -481,17 +462,17 @@ export function ProjectPickerModal({
             <button
               type="button"
               onClick={onCreateProject}
-              className={actionButtonClass}
+              className={`${actionButtonClass} group/create-project border border-indigo-200 bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:border-cyan-200 hover:bg-cyan-100 hover:text-indigo-700 dark:border-indigo-400/40 dark:bg-indigo-500 dark:text-white dark:hover:border-cyan-200 dark:hover:bg-cyan-200 dark:hover:text-slate-950`}
             >
               <div>
-                <div className="text-sm font-bold">
+                <div className={`${isMobile ? 'text-sm' : 'text-[15px]'} font-black`}>
                   {isZh ? '创建新项目' : 'Create new project'}
                 </div>
                 <div className="hidden">
                   {isZh ? '从空白画布开始新的故事。' : 'Start from a blank canvas.'}
                 </div>
               </div>
-              <FilePlus2 className={actionIconClass} />
+              <FilePlus2 className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'} shrink-0 text-white transition-colors group-hover/create-project:text-indigo-700 dark:group-hover/create-project:text-slate-950`} />
             </button>
 
             <button
