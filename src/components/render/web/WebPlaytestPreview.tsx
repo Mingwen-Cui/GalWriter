@@ -1215,14 +1215,10 @@ export function WebPlaytestPreview({
       : startMenuElements;
   const getStartMenuPlacementBounds = React.useCallback(
     (element: StartMenuElement) => {
-      const locked = settings.startMenuPlacementBoundsLocked && element.kind !== 'button';
-      const minX = locked ? settings.startMenuPlacementMinX ?? 0 : -1000;
-      const minY = locked ? settings.startMenuPlacementMinY ?? 0 : -1000;
-      const maxX = locked ? settings.startMenuPlacementMaxX ?? 100 : 1100;
-      const maxY = locked ? settings.startMenuPlacementMaxY ?? 100 : 1100;
-      if (!locked) {
-        return { minX, minY, maxX, maxY };
-      }
+      const minX = settings.startMenuPlacementMinX ?? 10;
+      const minY = settings.startMenuPlacementMinY ?? 10;
+      const maxX = settings.startMenuPlacementMaxX ?? 90;
+      const maxY = settings.startMenuPlacementMaxY ?? 90;
       return {
         minX: Math.max(0, Math.min(94, minX)),
         minY: Math.max(0, Math.min(96, minY)),
@@ -1231,7 +1227,6 @@ export function WebPlaytestPreview({
       };
     },
     [
-      settings.startMenuPlacementBoundsLocked,
       settings.startMenuPlacementMaxX,
       settings.startMenuPlacementMaxY,
       settings.startMenuPlacementMinX,
@@ -1318,8 +1313,9 @@ export function WebPlaytestPreview({
     type: 'move' | 'resize',
     resizeHandle?: StartMenuResizeHandle,
   ) => {
-    if (previewMode !== 'edit') return;
-    const rect = startMenuEditorRef.current?.getBoundingClientRect();
+    if (previewMode !== 'edit' || settings.startMenuPlacementBoundsLocked) return;
+    const parentRect = startMenuEditorRef.current?.parentElement?.getBoundingClientRect();
+    const rect = parentRect || startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1331,10 +1327,10 @@ export function WebPlaytestPreview({
       startClientY: event.clientY,
       rect,
       initial: {
-        minX: settings.startMenuPlacementMinX ?? 0,
-        minY: settings.startMenuPlacementMinY ?? 0,
-        maxX: settings.startMenuPlacementMaxX ?? 100,
-        maxY: settings.startMenuPlacementMaxY ?? 100,
+        minX: settings.startMenuPlacementMinX ?? 10,
+        minY: settings.startMenuPlacementMinY ?? 10,
+        maxX: settings.startMenuPlacementMaxX ?? 90,
+        maxY: settings.startMenuPlacementMaxY ?? 90,
       },
     };
     document.body.style.cursor =
@@ -1368,10 +1364,36 @@ export function WebPlaytestPreview({
       maxX = Math.min(100, Math.max(minX + 6, maxX));
       maxY = Math.min(100, Math.max(minY + 4, maxY));
     }
-    onUpdateSettings('startMenuPlacementMinX', Math.round(minX));
-    onUpdateSettings('startMenuPlacementMinY', Math.round(minY));
-    onUpdateSettings('startMenuPlacementMaxX', Math.round(maxX));
-    onUpdateSettings('startMenuPlacementMaxY', Math.round(maxY));
+    const nextMinX = Math.round(minX);
+    const nextMinY = Math.round(minY);
+    const nextMaxX = Math.round(maxX);
+    const nextMaxY = Math.round(maxY);
+
+    onUpdateSettings('startMenuPlacementMinX', nextMinX);
+    onUpdateSettings('startMenuPlacementMinY', nextMinY);
+    onUpdateSettings('startMenuPlacementMaxX', nextMaxX);
+    onUpdateSettings('startMenuPlacementMaxY', nextMaxY);
+
+    const currentElements = settings.startMenuElements && settings.startMenuElements.length > 0
+      ? settings.startMenuElements
+      : defaultStartMenuElements;
+
+    const pushedElements = currentElements.map((element) => {
+      const newWidth = Math.max(6, Math.min(element.width, nextMaxX - nextMinX));
+      const newHeight = Math.max(4, Math.min(element.height, nextMaxY - nextMinY));
+      const newX = Math.max(nextMinX, Math.min(nextMaxX - newWidth, element.x));
+      const newY = Math.max(nextMinY, Math.min(nextMaxY - newHeight, element.y));
+      return {
+        ...element,
+        x: Number(newX.toFixed(2)),
+        y: Number(newY.toFixed(2)),
+        width: Number(newWidth.toFixed(2)),
+        height: Number(newHeight.toFixed(2)),
+      };
+    });
+
+    onUpdateSettings('startMenuElements', pushedElements);
+
     return true;
   };
   const beginStartMenuEditDrag = (
@@ -1525,10 +1547,22 @@ export function WebPlaytestPreview({
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
     const selectedGuideElement = startMenuElements.find((element) => element.id === selectedStartMenuElementId);
     const selectedGuideBounds = selectedGuideElement ? getStartMenuPlacementBounds(selectedGuideElement) : null;
+
+    const boundsMinX = settings.startMenuPlacementMinX ?? 10;
+    const boundsMinY = settings.startMenuPlacementMinY ?? 10;
+    const boundsMaxX = settings.startMenuPlacementMaxX ?? 90;
+    const boundsMaxY = settings.startMenuPlacementMaxY ?? 90;
+
     return (
       <div
-        className={`absolute inset-0 z-40 grid p-[clamp(20px,6vw,64px)] text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
+        className={`absolute inset-0 z-40 grid text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
         style={startMenuBackgroundStyle}
+        onPointerMove={handleStartMenuEditPointerMove}
+        onPointerUp={stopStartMenuEditDrag}
+        onPointerCancel={stopStartMenuEditDrag}
+        onClick={() => {
+          if (previewMode === 'edit') setSelectedStartMenuElementId(null);
+        }}
       >
         {settings.startMenuBackgroundMusicUrl && (
           <audio
@@ -1541,12 +1575,24 @@ export function WebPlaytestPreview({
         )}
         <div
           ref={startMenuEditorRef}
-          className={`relative h-full w-full overflow-hidden ${startMenuPanelSurfaceClass}`}
+          className={`absolute overflow-hidden ${startMenuPanelSurfaceClass} ${
+            previewMode === 'edit' && selectedStartMenuElementId === null ? 'pointer-events-none' : ''
+          }`}
+          style={{
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 20,
+          }}
           onPointerMove={handleStartMenuEditPointerMove}
           onPointerUp={stopStartMenuEditDrag}
           onPointerCancel={stopStartMenuEditDrag}
-          onClick={() => {
-            if (previewMode === 'edit') setSelectedStartMenuElementId(null);
+          onClick={(event) => {
+            if (previewMode === 'edit') {
+              event.stopPropagation();
+              setSelectedStartMenuElementId(null);
+            }
           }}
         >
           {previewMode === 'edit' && (
@@ -1594,64 +1640,7 @@ export function WebPlaytestPreview({
               )}
             </div>
           )}
-          {previewMode === 'edit' && selectedStartMenuElementId === null && (
-              <div
-                className={`absolute z-20 cursor-grab border border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.18)] active:cursor-grabbing ${
-                  settings.startMenuPlacementBoundsLocked
-                    ? 'border-amber-300/90 bg-amber-300/[0.06]'
-                    : 'border-white/45 bg-white/[0.03]'
-                }`}
-                style={{
-                  left: `${settings.startMenuPlacementMinX ?? 0}%`,
-                  top: `${settings.startMenuPlacementMinY ?? 0}%`,
-                  width: `${(settings.startMenuPlacementMaxX ?? 100) - (settings.startMenuPlacementMinX ?? 0)}%`,
-                  height: `${(settings.startMenuPlacementMaxY ?? 100) - (settings.startMenuPlacementMinY ?? 0)}%`,
-                }}
-                onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'move')}
-                title={t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
-              >
-                <button
-                  type="button"
-                  className={`absolute -right-8 -top-3 grid h-6 w-6 place-items-center rounded-full border shadow transition-colors ${
-                    settings.startMenuPlacementBoundsLocked
-                      ? 'border-amber-200 bg-amber-300 text-slate-950'
-                      : 'border-white/35 bg-slate-950/70 text-white hover:bg-slate-900'
-                  }`}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onUpdateSettings(
-                      'startMenuPlacementBoundsLocked',
-                      !settings.startMenuPlacementBoundsLocked,
-                    );
-                  }}
-                  title={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
-                  aria-label={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
-                >
-                  {settings.startMenuPlacementBoundsLocked ? (
-                    <Lock className="h-3.5 w-3.5" />
-                  ) : (
-                    <Unlock className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
-                  <button
-                    key={handle}
-                    type="button"
-                    className={`absolute border bg-white shadow ${
-                      settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
-                    } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-                    style={getResizeHandleStyle(handle)}
-                    onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
-                    aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
-                  />
-                ))}
-              </div>
-            )}
+
           {settings.startMenuTemplate !== 'minimal' && !settings.startMenuElements?.length && (
             <div
               className="absolute h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]"
@@ -1724,8 +1713,11 @@ export function WebPlaytestPreview({
             return (
               <div
                 key={element.id}
-                className={`absolute origin-center ${previewMode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                style={elementStyle}
+                className={`absolute origin-center pointer-events-auto ${previewMode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                style={{
+                  ...elementStyle,
+                  zIndex: selected ? 40 : 20,
+                }}
                 onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'move')}
                 onClick={(event) => {
                   if (previewMode !== 'edit') return;
@@ -1866,6 +1858,82 @@ export function WebPlaytestPreview({
             );
           })}
         </div>
+        {previewMode === 'edit' && (
+          <div
+            className={`absolute z-10 border-[2.5px] border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ${
+              settings.startMenuPlacementBoundsLocked
+                ? 'border-amber-400/90'
+                : 'border-white/60'
+            } ${
+              selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked
+                ? 'cursor-grab active:cursor-grabbing pointer-events-auto'
+                : 'pointer-events-none'
+            }`}
+            style={{
+              left: `${boundsMinX}%`,
+              top: `${boundsMinY}%`,
+              width: `${boundsMaxX - boundsMinX}%`,
+              height: `${boundsMaxY - boundsMinY}%`,
+            }}
+            onPointerDown={(event) => {
+              if (selectedStartMenuElementId === null) {
+                beginStartMenuBoundsDrag(event, 'move');
+              }
+            }}
+            onClick={(event) => event.stopPropagation()}
+            title={t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
+          >
+            {selectedStartMenuElementId === null && (
+              <button
+                type="button"
+                className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border shadow transition-colors pointer-events-auto border-white/35 bg-slate-950/70 text-white hover:bg-slate-900"
+                style={{
+                  borderColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
+                  backgroundColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
+                  color: settings.startMenuPlacementBoundsLocked ? '#ffffff' : undefined,
+                  zIndex: 30,
+                }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onUpdateSettings(
+                    'startMenuPlacementBoundsLocked',
+                    !settings.startMenuPlacementBoundsLocked,
+                  );
+                }}
+                title={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
+                aria-label={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
+              >
+                {settings.startMenuPlacementBoundsLocked ? (
+                  <Lock className="h-3.5 w-3.5" />
+                ) : (
+                  <Unlock className="h-3.5 w-3.5" />
+                )}
+              </button>
+            )}
+            {selectedStartMenuElementId === null &&
+              (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
+                <button
+                  key={handle}
+                  type="button"
+                  className={`absolute border bg-white shadow pointer-events-auto ${
+                    settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
+                  } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
+                  style={{
+                    ...getResizeHandleStyle(handle),
+                    zIndex: 30,
+                  }}
+                  onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
+                />
+              ))}
+          </div>
+        )}
         {previewStartSettingsOpen && (
           <div
             className="absolute inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
