@@ -81,6 +81,52 @@ interface AssistantPanelProps {
   language: Language;
 }
 
+const SHORT_DRAMA_TEST_PROMPTS = {
+  zh: [
+    '生成一个关于失忆少女在雨夜便利店遇见未来自己的短剧。',
+    '生成一个关于落魄编剧和过气偶像被迫同居三天的短剧。',
+    '生成一个关于外卖员误送一封来自十年后的信的短剧。',
+    '生成一个关于天才黑客发现自己的恋人是AI客服的短剧。',
+    '生成一个关于小镇医生隐瞒末日倒计时真相的短剧。',
+    '生成一个关于婚礼当天新郎突然变成陌生人的短剧。',
+    '生成一个关于高中同桌在同一天循环里互相拯救的短剧。',
+    '生成一个关于职场新人发现老板每天都会重启记忆的短剧。',
+    '生成一个关于咖啡店老板只接待失恋者的奇幻短剧。',
+    '生成一个关于退役刑警和网络主播联手追查旧案的短剧。',
+  ],
+  ja: [
+    '雨の夜のコンビニで記憶喪失の少女が未来の自分に出会う短編ドラマを生成してください。',
+    '落ちぶれた脚本家と元人気アイドルが三日間だけ同居する短編ドラマを生成してください。',
+    '配達員が十年後から届いた手紙を誤配する短編ドラマを生成してください。',
+    '天才ハッカーが恋人はAIカスタマーサポートだと知る短編ドラマを生成してください。',
+    '田舎町の医師が終末へのカウントダウンを隠す短編ドラマを生成してください。',
+    '結婚式当日に新郎が突然別人になる短編ドラマを生成してください。',
+    '高校時代の同級生二人が同じ一日を繰り返しながら救い合う短編ドラマを生成してください。',
+    '新人社員が上司の記憶は毎日リセットされると気づく短編ドラマを生成してください。',
+    '失恋した人だけを迎える喫茶店のファンタジー短編ドラマを生成してください。',
+    '元刑事と配信者が未解決事件を追う短編ドラマを生成してください。',
+  ],
+  en: [
+    'Generate a short drama about an amnesiac girl meeting her future self in a convenience store on a rainy night.',
+    'Generate a short drama about a washed-up screenwriter and a fading idol forced to live together for three days.',
+    'Generate a short drama about a delivery rider accidentally delivering a letter from ten years in the future.',
+    'Generate a short drama about a genius hacker discovering their lover is an AI support agent.',
+    'Generate a short drama about a small-town doctor hiding the truth about a countdown to the end of the world.',
+    'Generate a short drama about a groom suddenly becoming a stranger on his wedding day.',
+    'Generate a short drama about two former classmates saving each other inside the same repeating day.',
+    'Generate a short drama about a new employee discovering their boss resets their memory every day.',
+    'Generate a fantasy short drama about a cafe owner who only serves people with broken hearts.',
+    'Generate a short drama about a retired detective and a livestreamer investigating a cold case together.',
+  ],
+};
+
+const getShortDramaTestPrompts = (language: Language) =>
+  language === 'zh'
+    ? SHORT_DRAMA_TEST_PROMPTS.zh
+    : language === 'ja'
+      ? SHORT_DRAMA_TEST_PROMPTS.ja
+      : SHORT_DRAMA_TEST_PROMPTS.en;
+
 export function AssistantPanel({
   assistantOpen,
   isMobile,
@@ -151,6 +197,7 @@ export function AssistantPanel({
     left: 0,
     top: 0,
   });
+  const [shortDramaPromptIndex, setShortDramaPromptIndex] = useState<number | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -233,6 +280,7 @@ export function AssistantPanel({
   const applyAssistantTemplate = (template: string) => {
     const cursorIndex = template.indexOf('_');
     setAssistantInput(template);
+    setShortDramaPromptIndex(null);
     setCardGenerateOpen(false);
     setSuggestMenuOpen(false);
     window.requestAnimationFrame(() => {
@@ -241,6 +289,31 @@ export function AssistantPanel({
       input.focus();
       if (cursorIndex >= 0) input.setSelectionRange(cursorIndex, cursorIndex + 1);
     });
+  };
+
+  const applyShortDramaTestPrompt = (nextIndex?: number) => {
+    const prompts = getShortDramaTestPrompts(language);
+    const index =
+      typeof nextIndex === 'number' ? nextIndex : Math.floor(Math.random() * prompts.length);
+    setShortDramaPromptIndex(index);
+    setAssistantInput(prompts[index]);
+    window.requestAnimationFrame(() => {
+      assistantInputRef.current?.focus();
+    });
+  };
+
+  const replaceShortDramaTestPrompt = () => {
+    const prompts = getShortDramaTestPrompts(language);
+    if (prompts.length <= 1) {
+      applyShortDramaTestPrompt(0);
+      return;
+    }
+
+    let nextIndex = Math.floor(Math.random() * prompts.length);
+    if (shortDramaPromptIndex !== null && nextIndex === shortDramaPromptIndex) {
+      nextIndex = (nextIndex + 1) % prompts.length;
+    }
+    applyShortDramaTestPrompt(nextIndex);
   };
 
   const getFloatingMenuPosition = (button: HTMLButtonElement, menuWidth = 256) => {
@@ -398,6 +471,7 @@ export function AssistantPanel({
 
   const sendAssistantMessage = (overrideText?: string) => {
     fadeOutWelcomeGradient();
+    setShortDramaPromptIndex(null);
     return handleAssistantSend(overrideText);
   };
 
@@ -1108,26 +1182,27 @@ export function AssistantPanel({
             </div>
           )}
         </div>
-        <div className="assistant-quick-actions mb-2 flex gap-2">
+        <div className="assistant-quick-actions mb-2 flex gap-2 overflow-x-auto pb-1">
           <button
-            ref={suggestButtonRef}
             type="button"
-            onClick={toggleSuggestMenu}
+            onClick={() => applyShortDramaTestPrompt()}
             disabled={assistantLoading}
-            className="assistant-bottom-glass-action assistant-bottom-action-suggest flex items-center justify-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-900/20 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="assistant-bottom-glass-action assistant-bottom-action-short-drama flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-orange-100 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-orange-50 disabled:opacity-50 dark:border-orange-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-orange-950/40"
           >
-            {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
-            <ChevronDown
-              className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
-            />
+            <PencilLine className="h-3.5 w-3.5 text-orange-500" />
+            {language === 'zh'
+              ? '快速生成一个短剧'
+              : language === 'ja'
+                ? '短編ドラマを生成'
+                : 'Quick short drama'}
           </button>
-          <div className="relative flex-1">
+          <div className="relative shrink-0">
             <button
               ref={cardGenerateButtonRef}
               type="button"
               onClick={toggleCardGenerateMenu}
               disabled={assistantLoading}
-              className="assistant-bottom-glass-action assistant-bottom-action-generate flex w-full items-center justify-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900"
+              className="assistant-bottom-glass-action assistant-bottom-action-generate flex items-center justify-center gap-1 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 text-xs font-bold text-indigo-600 shadow-sm transition-colors hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-400/20 dark:bg-slate-900/80 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
             >
               {language === 'zh' ? '生成卡片' : language === 'ja' ? 'カード生成' : 'Generate cards'}
               <ChevronDown
@@ -1136,19 +1211,16 @@ export function AssistantPanel({
             </button>
           </div>
           <button
-            onClick={() =>
-              sendAssistantMessage(
-                language === 'zh'
-                  ? '填充或修改选中的空白卡片。剧情卡片写标题和正文；人物设定卡片写人物名、性格、特点、背景；场景设定卡片写场景名、位置、物品、氛围。回复格式：按【已填字段】【补全理由】【可继续扩写】说明修改结果。'
-                  : language === 'ja'
-                    ? '選択した空白のカードを埋めるか、修正してください。ストーリーカードはタイトルと本文を書き、キャラクター設定カードはキャラクター名、性格、特徴、背景を書き、シーン設定カードはシーン名、場所、アイテム、雰囲気を書いてください。返答形式は【入力済みフィールド】【補完の理由】【さらなる展開案】に沿って修正結果を説明してください。'
-                    : 'Fill in or modify the selected blank cards. Write title and body for story cards; character name, personality, traits, and background for character cards; scene name, location, items, and atmosphere for scene cards. Reply format: Explain the revision results in terms of [Filled Fields] [Reason for Completion] [Can Continue to Expand].',
-              )
-            }
-            disabled={assistantLoading || selectedAssistantTargetNodesCount === 0}
-            className="assistant-bottom-glass-action assistant-bottom-action-fill rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900"
+            ref={suggestButtonRef}
+            type="button"
+            onClick={toggleSuggestMenu}
+            disabled={assistantLoading}
+            className="assistant-bottom-glass-action assistant-bottom-action-suggest flex shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            {language === 'zh' ? '填充选中' : language === 'ja' ? '選択を補完' : 'Fill selected'}
+            {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
+            <ChevronDown
+              className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
+            />
           </button>
         </div>
         <div className="assistant-input-box flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
@@ -1177,7 +1249,10 @@ export function AssistantPanel({
           <textarea
             ref={assistantInputRef}
             value={assistantInput}
-            onChange={(event) => setAssistantInput(event.target.value)}
+            onChange={(event) => {
+              setAssistantInput(event.target.value);
+              setShortDramaPromptIndex(null);
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -1206,6 +1281,18 @@ export function AssistantPanel({
           >
             <Mic className="h-4 w-4" />
           </button>
+          {shortDramaPromptIndex !== null && (
+            <button
+              type="button"
+              onClick={replaceShortDramaTestPrompt}
+              disabled={assistantLoading}
+              className="assistant-input-icon-button flex h-9 shrink-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+              title={language === 'zh' ? '换一个测试句' : language === 'ja' ? '別のテスト文に変更' : 'Try another prompt'}
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+              <span>{language === 'zh' ? '换一个' : language === 'ja' ? '変更' : 'Swap'}</span>
+            </button>
+          )}
           <button
             onClick={() => void sendAssistantMessage()}
             disabled={assistantLoading || !assistantInput.trim()}

@@ -1215,35 +1215,39 @@ body,
 }
 
 .bubble-glass-mode .assistant-quick-actions {
-  gap: 0 !important;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  gap: 0.5rem !important;
+  border: none;
+  background: transparent;
 }
 
 [data-theme='dark'] .bubble-glass-mode .assistant-quick-actions {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
 }
 
 .bubble-glass-mode .assistant-bottom-glass-action {
-  flex: 1;
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  flex: 0 0 auto;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   box-shadow: none !important;
+  backdrop-filter: blur(16px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.25) !important;
   transition:
     background 0.2s ease,
+    box-shadow 0.2s ease,
     color 0.2s ease !important;
 }
 
 .bubble-glass-mode .assistant-bottom-glass-action:hover {
-  background: rgba(15, 23, 42, 0.05) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: none !important;
 }
 
 [data-theme='dark'] .bubble-glass-mode .assistant-bottom-glass-action:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(30, 41, 59, 0.92) !important;
+}
+
+.bubble-glass-mode .assistant-bottom-action-short-drama {
+  color: #334155 !important;
 }
 
 .bubble-glass-mode .assistant-bottom-action-suggest {
@@ -1258,6 +1262,12 @@ body,
   color: #059669 !important;
 }
 
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-glass-action {
+  background: rgba(15, 23, 42, 0.82) !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .bubble-glass-mode .assistant-bottom-action-short-drama,
 [data-theme='dark'] .bubble-glass-mode .assistant-bottom-action-suggest {
   color: #cbd5e1 !important;
 }
@@ -2022,7 +2032,6 @@ body,
 
 .bubble-glass-mode.glass-opaque-assistant-messages .assistant-glass-action,
 .bubble-glass-mode.glass-opaque-assistant-messages .assistant-task-tab,
-.bubble-glass-mode.glass-opaque-assistant-messages .assistant-quick-actions,
 .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box {
   background: #ffffff !important;
   border-color: #e2e8f0 !important;
@@ -2067,7 +2076,6 @@ body,
 
 [data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-glass-action,
 [data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-task-tab,
-[data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-quick-actions,
 [data-theme='dark'] .bubble-glass-mode.glass-opaque-assistant-messages .assistant-input-box {
   background: #0f172a !important;
   border-color: #334155 !important;

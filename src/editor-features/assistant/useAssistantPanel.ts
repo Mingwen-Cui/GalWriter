@@ -121,6 +121,42 @@ const normalizeAssistantPlainText = (value: unknown) =>
     .replace(/\s+/g, '')
     .replace(/[.。…]+$/g, '');
 
+const extractFirstJsonObject = (value: string) => {
+  const text = value
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+  const start = text.indexOf('{');
+  if (start < 0) return text;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+
+  return text.slice(start);
+};
+
 const isDefaultRootStoryNode = (node: Node) =>
   node.type === 'storyNode' &&
   node.id === 'root' &&
@@ -311,7 +347,7 @@ const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOpti
     .replace(/```(?:json)?/gi, '')
     .replace(/```/g, '')
     .trim();
-  const jsonText = normalized.match(/\{[\s\S]*\}/)?.[0] || normalized;
+  const jsonText = extractFirstJsonObject(normalized);
 
   const parseJson = (value: string) => {
     const parsed = JSON.parse(value) as {
@@ -767,7 +803,7 @@ export const useAssistantPanel = ({
   );
 
   const parseArticleAnalysisJson = (content: string): Record<string, any> => {
-    const jsonText = content.match(/\{[\s\S]*\}/)?.[0] || content;
+    const jsonText = extractFirstJsonObject(content);
     try {
       return JSON.parse(jsonText) as Record<string, any>;
     } catch {
@@ -1368,7 +1404,7 @@ You must fill every placeholder card index exactly once. Placeholder card plan: 
       const hasIncompleteStreamedCards = cards.some((card) => !hasAssistantCardContent(card));
       if (hasIncompleteStreamedCards) {
         try {
-          const jsonText = result.content.match(/\{[\s\S]*\}/)?.[0] || result.content;
+          const jsonText = extractFirstJsonObject(result.content);
           const parsed = JSON.parse(jsonText) as {
             reply?: string;
             cards?: AssistantCardDraft[];
@@ -1394,7 +1430,7 @@ You must fill every placeholder card index exactly once. Placeholder card plan: 
           const retryResult = await callAIForTextResult(`${prompt}
 
 The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`);
-          const jsonText = retryResult.content.match(/\{[\s\S]*\}/)?.[0] || retryResult.content;
+          const jsonText = extractFirstJsonObject(retryResult.content);
           const parsed = JSON.parse(jsonText) as {
             reply?: string;
             cards?: AssistantCardDraft[];
@@ -1796,7 +1832,7 @@ ${canvasContext || '无'}`;
         const aiResult = await callAIForTextResult(prompt);
         await playAssistantThought(aiResult.reasoning);
         const raw = aiResult.content;
-        const jsonText = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+        const jsonText = extractFirstJsonObject(raw);
 
         let parsed: {
           reply?: string;
@@ -1807,7 +1843,15 @@ ${canvasContext || '无'}`;
         try {
           parsed = JSON.parse(jsonText);
         } catch {
-          parsed = { reply: raw, cards: [] };
+          const looksLikeCardJson = /"cards"\s*:/.test(raw) || /"reply"\s*:/.test(raw);
+          parsed = {
+            reply: looksLikeCardJson
+              ? language === 'zh'
+                ? 'AI 返回了卡片 JSON，但解析失败。我已拦截原始 JSON，避免直接显示在聊天里。请再点一次生成，或缩短文章后重试。'
+                : 'AI returned card JSON, but parsing failed. I blocked the raw JSON from appearing in chat. Please try again.'
+              : raw,
+            cards: [],
+          };
         }
 
         const cards = orderAssistantCardsForCreation(
@@ -2079,7 +2123,7 @@ options 必须正好有 3 项。`);
 ${context || '画布当前没有选中卡片，请给出适合故事开篇后的通用目标。'}
 只返回 JSON：{"reply":"一句引导语","cards":[{"type":"story","title":"目标标题","text":"目标发生时的具体剧情"}]}
 cards 必须正好有 3 张。`);
-        const jsonText = result.content.match(/\{[\s\S]*\}/)?.[0] || result.content;
+        const jsonText = extractFirstJsonObject(result.content);
         const parsed = JSON.parse(jsonText) as {
           reply?: string;
           cards?: AssistantCardDraft[];
