@@ -7,17 +7,13 @@ import {
   Lock,
   Maximize2,
   Minimize2,
-  Trash2,
-  Sparkles,
   RotateCcw,
   RotateCw,
-  Undo2,
+  Trash2,
   Unlock,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 
-import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -27,14 +23,10 @@ import type {
 } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
 import {
-  clampCharacterLayer,
-  getCharacterEnterDelay,
-  getCharacterStagePosition,
-  getPresentationExitDuration,
-  getPresentationTransform,
-  getSceneExitDelay,
-  normalizeStoryPresentation,
-} from '../../../lib/presentation';
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+} from '../../../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
   inlineActionAnimation,
@@ -44,11 +36,16 @@ import {
   latestPersistentInlineAction,
 } from '../../../lib/inlinePresentationPlayback';
 import {
-  getInlineSwitchAction,
-  resolveCharacterImageUrl,
-  resolveSceneMedia,
-} from '../../../lib/inlineAssetSwitch';
+  clampCharacterLayer,
+  getCharacterEnterDelay,
+  getCharacterStagePosition,
+  getPresentationExitDuration,
+  getPresentationTransform,
+  getSceneExitDelay,
+  normalizeStoryPresentation,
+} from '../../../lib/presentation';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
+import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import {
   getNameplateCharacterCenterX,
@@ -64,58 +61,20 @@ import {
   webAnimationStyle,
 } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
-import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
+import { ChoiceButton, ControlsToggle } from './WebPlaytestPreviewControls';
+import type { StartMenuResizeHandle } from './webPlaytestStartMenuTools';
+import {
+  getResizeHandleStyle,
+  protectedStartMenuElementRoles,
+  readStartMenuImageFile,
+  resizeCursorByHandle,
+  resizeHandlePositionClass,
+  resizeHandleShapeClass,
+} from './webPlaytestStartMenuTools';
+import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 
 type StartMenuElement = WebExportSettings['startMenuElements'][number];
-type StartMenuResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
-const resizeCursorByHandle: Record<StartMenuResizeHandle, string> = {
-  n: 'ns-resize',
-  s: 'ns-resize',
-  e: 'ew-resize',
-  w: 'ew-resize',
-  ne: 'nesw-resize',
-  sw: 'nesw-resize',
-  nw: 'nwse-resize',
-  se: 'nwse-resize',
-};
-const resizeHandlePositionClass: Record<StartMenuResizeHandle, string> = {
-  nw: '-left-1.5 -top-1.5',
-  n: 'left-1/2 -top-1.5 -translate-x-1/2',
-  ne: '-right-1.5 -top-1.5',
-  e: '-right-1.5 top-1/2 -translate-y-1/2',
-  se: '-bottom-1.5 -right-1.5',
-  s: 'left-1/2 -bottom-1.5 -translate-x-1/2',
-  sw: '-bottom-1.5 -left-1.5',
-  w: '-left-1.5 top-1/2 -translate-y-1/2',
-};
-const resizeHandleShapeClass: Record<StartMenuResizeHandle, string> = {
-  nw: 'h-3 w-3 rounded-full',
-  n: 'h-2 rounded-full',
-  ne: 'h-3 w-3 rounded-full',
-  e: 'w-2 rounded-full',
-  se: 'h-3 w-3 rounded-full',
-  s: 'h-2 rounded-full',
-  sw: 'h-3 w-3 rounded-full',
-  w: 'w-2 rounded-full',
-};
-const getResizeHandleStyle = (handle: StartMenuResizeHandle): React.CSSProperties => {
-  if (handle === 'n' || handle === 's') {
-    return { width: 'min(72%, 120px)', minWidth: 24, cursor: resizeCursorByHandle[handle] };
-  }
-  if (handle === 'e' || handle === 'w') {
-    return { height: 'min(72%, 120px)', minHeight: 24, cursor: resizeCursorByHandle[handle] };
-  }
-  return { cursor: resizeCursorByHandle[handle] };
-};
-const readStartMenuImageFile = (file: File, onReady: (value: string) => void) => {
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (typeof reader.result === 'string') onReady(reader.result);
-  };
-  reader.readAsDataURL(file);
-};
-const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -174,8 +133,7 @@ export function WebPlaytestPreview({
     () =>
       nodes.filter(
         (node) =>
-          (node.type === 'storyNode' || node.type === 'numberConditionNode') &&
-          !node.data?.hidden,
+          (node.type === 'storyNode' || node.type === 'numberConditionNode') && !node.data?.hidden,
       ),
     [nodes],
   );
@@ -231,7 +189,9 @@ export function WebPlaytestPreview({
     };
   } | null>(null);
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
-  const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<string | null>(null);
+  const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<
+    string | null
+  >(null);
   const [editingStartMenuElementId, setEditingStartMenuElementId] = useState<string | null>(null);
   const selectedStartMenuElementId =
     controlledSelectedStartMenuElementId !== undefined
@@ -542,13 +502,15 @@ export function WebPlaytestPreview({
     stripHtml(getNodeDisplayText(currentNode)).trim().replace(/\s+/g, ' ').slice(0, 42) ||
     t('未命名录音', '名称未設定の録音', 'Untitled audio');
   const presentation = useMemo(
-    () => normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
+    () =>
+      normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
     [currentNode?.data?.presentation],
   );
   const sceneSource = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
     : null;
-  const sceneData = sceneSource?.type === 'sceneNode' ? (sceneSource.data as SceneNodeData) : undefined;
+  const sceneData =
+    sceneSource?.type === 'sceneNode' ? (sceneSource.data as SceneNodeData) : undefined;
   const activeSceneSwitchAction = getInlineSwitchAction(
     'scene',
     presentation.scene?.sourceNodeId,
@@ -597,11 +559,7 @@ export function WebPlaytestPreview({
       );
   }, [activeInlineAction, completedSwitchActions, presentation.characters, nodes]);
   const rawText = getNodeDisplayText(currentNode);
-  const text = filterMentionTags(
-    rawText,
-    settings.hideCharacterTags,
-    settings.hideSceneTags,
-  );
+  const text = filterMentionTags(rawText, settings.hideCharacterTags, settings.hideSceneTags);
   const shouldHideCenteredSingleChoice =
     settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices =
@@ -624,7 +582,9 @@ export function WebPlaytestPreview({
     const top = 0;
     const translateY = `calc(-100% - 8px + ${renderStyle.nameplateOffsetY ?? 0}px)`;
     const baseStyle: React.CSSProperties = {
-      ...(renderStyle.nameplateInside ? { background: 'transparent' } : getNameplateCssBackground(renderStyle)),
+      ...(renderStyle.nameplateInside
+        ? { background: 'transparent' }
+        : getNameplateCssBackground(renderStyle)),
       color: withAlpha(
         colorInputValue(renderStyle.nameplateTextColor),
         (renderStyle.nameplateTextColorAlpha ?? 100) / 100,
@@ -680,7 +640,8 @@ export function WebPlaytestPreview({
       );
     }
 
-    const dialogueLeft = 50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5 - dialogWidth / 2;
+    const dialogueLeft =
+      50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5 - dialogWidth / 2;
     if (renderStyle.nameplateInside) {
       return (
         <div
@@ -689,7 +650,10 @@ export function WebPlaytestPreview({
         >
           {nameplateItems.map((item) => {
             const characterPercent = getNameplateCharacterCenterX(item.config, 100);
-            const localLeft = Math.max(4, Math.min(96, ((characterPercent - dialogueLeft) / dialogWidth) * 100));
+            const localLeft = Math.max(
+              4,
+              Math.min(96, ((characterPercent - dialogueLeft) / dialogWidth) * 100),
+            );
             return (
               <div
                 key={item.sourceNodeId}
@@ -711,7 +675,10 @@ export function WebPlaytestPreview({
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
         {nameplateItems.map((item) => {
           const characterPercent = getNameplateCharacterCenterX(item.config, 100);
-          const localLeft = Math.max(4, Math.min(96, ((characterPercent - dialogueLeft) / dialogWidth) * 100));
+          const localLeft = Math.max(
+            4,
+            Math.min(96, ((characterPercent - dialogueLeft) / dialogWidth) * 100),
+          );
           return (
             <div
               key={item.sourceNodeId}
@@ -823,13 +790,19 @@ export function WebPlaytestPreview({
       });
       setCompletedSwitchActions(
         playbackSteps
-          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .filter(
+            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+              step.kind === 'action',
+          )
           .map((step) => step.action)
           .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
       );
       setCompletedInlineActions(
         playbackSteps
-          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .filter(
+            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+              step.kind === 'action',
+          )
           .map((step) => step.action)
           .filter(isPersistentInlineAction),
       );
@@ -857,17 +830,20 @@ export function WebPlaytestPreview({
 
       if (step.kind === 'action') {
         setActiveInlineAction(step.action);
-        inlineActionTimerRef.current = window.setTimeout(() => {
-          setActiveInlineAction(null);
-          if (step.action.action === 'switch' && step.action.targetAssetId) {
-            setCompletedSwitchActions((previous) => [...previous, step.action]);
-          }
-          if (isPersistentInlineAction(step.action)) {
-            setCompletedInlineActions((previous) => [...previous, step.action]);
-          }
-          stepIndex += 1;
-          playNext();
-        }, Math.max(0, step.action.duration || 0));
+        inlineActionTimerRef.current = window.setTimeout(
+          () => {
+            setActiveInlineAction(null);
+            if (step.action.action === 'switch' && step.action.targetAssetId) {
+              setCompletedSwitchActions((previous) => [...previous, step.action]);
+            }
+            if (isPersistentInlineAction(step.action)) {
+              setCompletedInlineActions((previous) => [...previous, step.action]);
+            }
+            stepIndex += 1;
+            playNext();
+          },
+          Math.max(0, step.action.duration || 0),
+        );
         return;
       }
 
@@ -1075,9 +1051,7 @@ export function WebPlaytestPreview({
         ? 'items-end justify-items-end text-left'
         : 'place-items-center text-center';
   const startMenuPanelClass =
-    settings.startMenuButtonPosition === 'center'
-      ? 'w-[min(440px,100%)]'
-      : 'w-[min(380px,100%)]';
+    settings.startMenuButtonPosition === 'center' ? 'w-[min(440px,100%)]' : 'w-[min(380px,100%)]';
   const startMenuBackgroundClass =
     settings.startMenuTemplate === 'minimal'
       ? 'bg-slate-950'
@@ -1098,7 +1072,12 @@ export function WebPlaytestPreview({
       : settings.startMenuButtonSize === 'large'
         ? 'min-h-14 px-5 text-base'
         : 'min-h-12 px-4 text-sm';
-  const buttonHeight = settings.startMenuButtonSize === 'compact' ? 8 : settings.startMenuButtonSize === 'large' ? 12 : 10;
+  const buttonHeight =
+    settings.startMenuButtonSize === 'compact'
+      ? 8
+      : settings.startMenuButtonSize === 'large'
+        ? 12
+        : 10;
   const defaultButtonWidth = settings.startMenuButtonLayout === 'horizontal' ? 18 : 34;
   const defaultButtonY = settings.startMenuButtonPosition === 'center' ? 61 : 66;
   const defaultButtonX =
@@ -1209,7 +1188,12 @@ export function WebPlaytestPreview({
         rotation: 0,
         primary: action.primary,
         disabled: action.disabled,
-        fontSize: settings.startMenuButtonSize === 'large' ? 16 : settings.startMenuButtonSize === 'compact' ? 12 : 14,
+        fontSize:
+          settings.startMenuButtonSize === 'large'
+            ? 16
+            : settings.startMenuButtonSize === 'compact'
+              ? 12
+              : 14,
         textColor: action.primary ? choiceTextColor : '#f8fafc',
         backgroundType: 'solid',
         backgroundColor: action.primary ? choiceColor : 'rgba(255,255,255,0.10)',
@@ -1312,11 +1296,7 @@ export function WebPlaytestPreview({
     },
     [settings.startMenuPlacementBoundsLocked, startMenuElements],
   );
-  const snapStartMenuValue = (
-    value: number,
-    guides: number[],
-    tolerance: number,
-  ) => {
+  const snapStartMenuValue = (value: number, guides: number[], tolerance: number) => {
     let best = value;
     let bestDelta = tolerance;
     guides.forEach((guide) => {
@@ -1365,7 +1345,9 @@ export function WebPlaytestPreview({
         settings.startMenuElements && settings.startMenuElements.length > 0
           ? settings.startMenuElements
           : defaultStartMenuElements;
-      commitStartMenuElements(source.map((element) => (element.id === id ? { ...element, ...patch } : element)));
+      commitStartMenuElements(
+        source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+      );
     },
     [commitStartMenuElements, defaultStartMenuElements, settings.startMenuElements],
   );
@@ -1435,19 +1417,20 @@ export function WebPlaytestPreview({
     onUpdateSettings('startMenuPlacementMaxX', nextMaxX);
     onUpdateSettings('startMenuPlacementMaxY', nextMaxY);
 
-    const pushElementsIntoBounds = (currentElements: StartMenuElement[]) => currentElements.map((element) => {
-      const newWidth = Math.max(6, Math.min(element.width, nextMaxX - nextMinX));
-      const newHeight = Math.max(4, Math.min(element.height, nextMaxY - nextMinY));
-      const newX = Math.max(nextMinX, Math.min(nextMaxX - newWidth, element.x));
-      const newY = Math.max(nextMinY, Math.min(nextMaxY - newHeight, element.y));
-      return {
-        ...element,
-        x: Number(newX.toFixed(2)),
-        y: Number(newY.toFixed(2)),
-        width: Number(newWidth.toFixed(2)),
-        height: Number(newHeight.toFixed(2)),
-      };
-    });
+    const pushElementsIntoBounds = (currentElements: StartMenuElement[]) =>
+      currentElements.map((element) => {
+        const newWidth = Math.max(6, Math.min(element.width, nextMaxX - nextMinX));
+        const newHeight = Math.max(4, Math.min(element.height, nextMaxY - nextMinY));
+        const newX = Math.max(nextMinX, Math.min(nextMaxX - newWidth, element.x));
+        const newY = Math.max(nextMinY, Math.min(nextMaxY - newHeight, element.y));
+        return {
+          ...element,
+          x: Number(newX.toFixed(2)),
+          y: Number(newY.toFixed(2)),
+          width: Number(newWidth.toFixed(2)),
+          height: Number(newHeight.toFixed(2)),
+        };
+      });
 
     onUpdateSettings(
       'startMenuElements',
@@ -1578,10 +1561,16 @@ export function WebPlaytestPreview({
         width: Math.max(6, Math.min(bounds.maxX - nextX, nextWidth)),
         height: Math.max(4, Math.min(bounds.maxY - nextY, nextHeight)),
       });
-    } else if (drag.centerX !== undefined && drag.centerY !== undefined && drag.startAngle !== undefined) {
-      const angle = Math.atan2(event.clientY - drag.centerY, event.clientX - drag.centerX) * (180 / Math.PI);
+    } else if (
+      drag.centerX !== undefined &&
+      drag.centerY !== undefined &&
+      drag.startAngle !== undefined
+    ) {
+      const angle =
+        Math.atan2(event.clientY - drag.centerY, event.clientX - drag.centerX) * (180 / Math.PI);
       const rawRotation = drag.initial.rotation + angle - drag.startAngle;
-      const nextRotation = event.shiftKey || event.ctrlKey ? Math.round(rawRotation / 5) * 5 : Math.round(rawRotation);
+      const nextRotation =
+        event.shiftKey || event.ctrlKey ? Math.round(rawRotation / 5) * 5 : Math.round(rawRotation);
       updateStartMenuElement(drag.id, {
         rotation: nextRotation,
       });
@@ -1609,8 +1598,12 @@ export function WebPlaytestPreview({
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
-    const selectedGuideElement = startMenuElements.find((element) => element.id === selectedStartMenuElementId);
-    const selectedGuideBounds = selectedGuideElement ? getStartMenuPlacementBounds(selectedGuideElement) : null;
+    const selectedGuideElement = startMenuElements.find(
+      (element) => element.id === selectedStartMenuElementId,
+    );
+    const selectedGuideBounds = selectedGuideElement
+      ? getStartMenuPlacementBounds(selectedGuideElement)
+      : null;
 
     const boundsMinX = settings.startMenuPlacementMinX ?? 10;
     const boundsMinY = settings.startMenuPlacementMinY ?? 10;
@@ -1640,7 +1633,9 @@ export function WebPlaytestPreview({
         <div
           ref={startMenuEditorRef}
           className={`absolute overflow-hidden ${startMenuPanelSurfaceClass} ${
-            previewMode === 'edit' && selectedStartMenuElementId === null ? 'pointer-events-none' : ''
+            previewMode === 'edit' && selectedStartMenuElementId === null
+              ? 'pointer-events-none'
+              : ''
           }`}
           style={{
             left: 0,
@@ -1663,17 +1658,19 @@ export function WebPlaytestPreview({
             <div className="pointer-events-none absolute inset-0 text-[9px] font-black text-white/55">
               <div className="absolute left-1/2 top-0 h-full border-l border-cyan-300/35" />
               <div className="absolute left-0 top-1/2 w-full border-t border-cyan-300/35" />
-              {selectedGuideBounds && settings.startMenuPlacementBoundsLocked && selectedGuideElement?.kind !== 'button' && (
-                <div
-                  className="absolute border border-dashed border-amber-300/70 bg-amber-300/[0.04]"
-                  style={{
-                    left: `${selectedGuideBounds.minX}%`,
-                    top: `${selectedGuideBounds.minY}%`,
-                    width: `${selectedGuideBounds.maxX - selectedGuideBounds.minX}%`,
-                    height: `${selectedGuideBounds.maxY - selectedGuideBounds.minY}%`,
-                  }}
-                />
-              )}
+              {selectedGuideBounds &&
+                settings.startMenuPlacementBoundsLocked &&
+                selectedGuideElement?.kind !== 'button' && (
+                  <div
+                    className="absolute border border-dashed border-amber-300/70 bg-amber-300/[0.04]"
+                    style={{
+                      left: `${selectedGuideBounds.minX}%`,
+                      top: `${selectedGuideBounds.minY}%`,
+                      width: `${selectedGuideBounds.maxX - selectedGuideBounds.minX}%`,
+                      height: `${selectedGuideBounds.maxY - selectedGuideBounds.minY}%`,
+                    }}
+                  />
+                )}
               {selectedGuideElement && (
                 <>
                   <div
@@ -1711,7 +1708,10 @@ export function WebPlaytestPreview({
               style={
                 {
                   '--preview-choice-color': choiceColor,
-                  left: settings.startMenuButtonPosition === 'center' ? 'calc(50% - 34px)' : `${defaultButtonX}%`,
+                  left:
+                    settings.startMenuButtonPosition === 'center'
+                      ? 'calc(50% - 34px)'
+                      : `${defaultButtonX}%`,
                   top: settings.startMenuButtonPosition === 'center' ? '16%' : '36%',
                 } as React.CSSProperties
               }
@@ -1720,7 +1720,10 @@ export function WebPlaytestPreview({
           {testStartMenuElements.map((element) => {
             const selected = selectedStartMenuElementId === element.id;
             if (!element.visible && previewMode !== 'edit') return null;
-            const action = element.kind === 'button' && element.role ? startMenuActionMap.get(element.role) : null;
+            const action =
+              element.kind === 'button' && element.role
+                ? startMenuActionMap.get(element.role)
+                : null;
             const elementBackground =
               element.backgroundType === 'image' && element.backgroundImageUrl
                 ? `center / cover url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
@@ -1744,7 +1747,8 @@ export function WebPlaytestPreview({
                   if (previewMode !== 'edit') return;
                   event.stopPropagation();
                   event.preventDefault();
-                  if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+                  if (!settings.startMenuElements?.length)
+                    commitStartMenuElements(defaultStartMenuElements);
                   setSelectedStartMenuElementId(element.id);
                   setEditingStartMenuElementId(element.id);
                 }}
@@ -1752,7 +1756,9 @@ export function WebPlaytestPreview({
                   if (previewMode === 'edit') event.stopPropagation();
                 }}
                 onBlur={(event) => {
-                  updateStartMenuElement(element.id, { text: event.currentTarget.textContent || '' });
+                  updateStartMenuElement(element.id, {
+                    text: event.currentTarget.textContent || '',
+                  });
                   setEditingStartMenuElementId(null);
                 }}
                 onKeyDown={(event) => {
@@ -1762,21 +1768,29 @@ export function WebPlaytestPreview({
                   }
                 }}
                 className={`outline-none ${
-                  previewMode === 'edit' && editingStartMenuElementId !== element.id ? 'cursor-text' : ''
+                  previewMode === 'edit' && editingStartMenuElementId !== element.id
+                    ? 'cursor-text'
+                    : ''
                 } ${!element.text && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
               >
-                {element.text || (previewMode === 'edit' && editingStartMenuElementId !== element.id ? t('双击编辑', '編集', 'Edit') : '')}
+                {element.text ||
+                  (previewMode === 'edit' && editingStartMenuElementId !== element.id
+                    ? t('双击编辑', '編集', 'Edit')
+                    : '')}
               </span>
             );
             const startEditingText = (event: React.MouseEvent<HTMLElement>) => {
-              if (previewMode !== 'edit' || (element.kind !== 'text' && element.kind !== 'button')) return;
+              if (previewMode !== 'edit' || (element.kind !== 'text' && element.kind !== 'button'))
+                return;
               event.stopPropagation();
               event.preventDefault();
-              if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+              if (!settings.startMenuElements?.length)
+                commitStartMenuElements(defaultStartMenuElements);
               setSelectedStartMenuElementId(element.id);
               setEditingStartMenuElementId(element.id);
             };
-            const canDeleteElement = !element.role || !protectedStartMenuElementRoles.has(element.role);
+            const canDeleteElement =
+              !element.role || !protectedStartMenuElementRoles.has(element.role);
             return (
               <div
                 key={element.id}
@@ -1789,7 +1803,8 @@ export function WebPlaytestPreview({
                 onClick={(event) => {
                   if (previewMode !== 'edit') return;
                   event.stopPropagation();
-                  if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+                  if (!settings.startMenuElements?.length)
+                    commitStartMenuElements(defaultStartMenuElements);
                   setSelectedStartMenuElementId(element.id);
                 }}
                 onDoubleClick={startEditingText}
@@ -1850,7 +1865,8 @@ export function WebPlaytestPreview({
                         : 'border-white/16 bg-white/10 text-white'
                     } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
                     style={{
-                      background: elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
+                      background:
+                        elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
                       color: element.textColor || (element.primary ? choiceTextColor : undefined),
                       borderColor: element.borderColor,
                       fontSize: element.fontSize,
@@ -1864,7 +1880,11 @@ export function WebPlaytestPreview({
                     className={`flex h-full w-full items-center ${
                       element.role === 'subtitle' ? 'text-white/68' : 'text-white'
                     } ${element.role === 'title' ? 'font-black leading-[1.06] [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]' : 'font-black'}`}
-                    style={{ fontSize: element.fontSize, color: element.textColor, borderRadius: element.borderRadius ?? 0 }}
+                    style={{
+                      fontSize: element.fontSize,
+                      color: element.textColor,
+                      borderRadius: element.borderRadius ?? 0,
+                    }}
                   >
                     {content}
                   </div>
@@ -1873,7 +1893,9 @@ export function WebPlaytestPreview({
                   <>
                     <div
                       className="pointer-events-none absolute inset-0 ring-2 ring-sky-300"
-                      style={{ borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12) }}
+                      style={{
+                        borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12),
+                      }}
                     />
                     <button
                       type="button"
@@ -1883,23 +1905,29 @@ export function WebPlaytestPreview({
                         event.stopPropagation();
                         updateStartMenuElement(element.id, { visible: !element.visible });
                       }}
-                      title={element.visible ? t('隐藏', '非表示', 'Hide') : t('显示', '表示', 'Show')}
+                      title={
+                        element.visible ? t('隐藏', '非表示', 'Hide') : t('显示', '表示', 'Show')
+                      }
                     >
-                      {element.visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {element.visible ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
                     </button>
                     {canDeleteElement && (
                       <button
-                      type="button"
-                      className="absolute -right-8 top-5 grid h-6 w-6 place-items-center rounded-full bg-rose-500 text-white shadow"
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteStartMenuElement?.(element.id);
-                      }}
-                      title={t('删除', '削除', 'Delete')}
-                      aria-label={t('删除', '削除', 'Delete')}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
+                        type="button"
+                        className="absolute -right-8 top-5 grid h-6 w-6 place-items-center rounded-full bg-rose-500 text-white shadow"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteStartMenuElement?.(element.id);
+                        }}
+                        title={t('删除', '削除', 'Delete')}
+                        aria-label={t('删除', '削除', 'Delete')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button
@@ -1911,17 +1939,21 @@ export function WebPlaytestPreview({
                     >
                       <RotateCw className="h-3.5 w-3.5" />
                     </button>
-                    {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
-                      <button
-                        key={handle}
-                        type="button"
-                        className={`absolute border border-sky-200 bg-white shadow ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-                        style={getResizeHandleStyle(handle)}
-                        onPointerDown={(event) => beginStartMenuEditDrag(event, element, 'resize', handle)}
-                        title={t('调整大小', 'リサイズ', 'Resize')}
-                        aria-label={t('调整大小', 'リサイズ', 'Resize')}
-                      />
-                    ))}
+                    {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map(
+                      (handle) => (
+                        <button
+                          key={handle}
+                          type="button"
+                          className={`absolute border border-sky-200 bg-white shadow ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
+                          style={getResizeHandleStyle(handle)}
+                          onPointerDown={(event) =>
+                            beginStartMenuEditDrag(event, element, 'resize', handle)
+                          }
+                          title={t('调整大小', 'リサイズ', 'Resize')}
+                          aria-label={t('调整大小', 'リサイズ', 'Resize')}
+                        />
+                      ),
+                    )}
                   </>
                 )}
               </div>
@@ -1931,9 +1963,7 @@ export function WebPlaytestPreview({
         {previewMode === 'edit' && (
           <div
             className={`absolute z-10 border-[2.5px] border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ${
-              settings.startMenuPlacementBoundsLocked
-                ? 'border-slate-400/65'
-                : 'border-white/60'
+              settings.startMenuPlacementBoundsLocked ? 'border-slate-400/65' : 'border-white/60'
             } ${
               selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked
                 ? 'cursor-grab active:cursor-grabbing pointer-events-auto'
@@ -1960,8 +1990,12 @@ export function WebPlaytestPreview({
                 type="button"
                 className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border shadow transition-colors pointer-events-auto border-white/35 bg-slate-950/70 text-white hover:bg-slate-900"
                 style={{
-                  borderColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
-                  backgroundColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
+                  borderColor: settings.startMenuPlacementBoundsLocked
+                    ? 'var(--vr-accent)'
+                    : undefined,
+                  backgroundColor: settings.startMenuPlacementBoundsLocked
+                    ? 'var(--vr-accent)'
+                    : undefined,
                   color: settings.startMenuPlacementBoundsLocked ? '#ffffff' : undefined,
                   zIndex: 30,
                 }}
@@ -1977,8 +2011,16 @@ export function WebPlaytestPreview({
                     !settings.startMenuPlacementBoundsLocked,
                   );
                 }}
-                title={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
-                aria-label={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
+                title={t(
+                  '锁定文字/图片范围',
+                  'テキスト/画像範囲をロック',
+                  'Lock text/image bounds',
+                )}
+                aria-label={t(
+                  '锁定文字/图片范围',
+                  'テキスト/画像範囲をロック',
+                  'Lock text/image bounds',
+                )}
               >
                 {settings.startMenuPlacementBoundsLocked ? (
                   <Lock className="h-3.5 w-3.5" />
@@ -1989,22 +2031,24 @@ export function WebPlaytestPreview({
             )}
             {selectedStartMenuElementId === null &&
               !settings.startMenuPlacementBoundsLocked &&
-              (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
-                <button
-                  key={handle}
-                  type="button"
-                  className={`absolute border bg-white shadow pointer-events-auto ${
-                    settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
-                  } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-                  style={{
-                    ...getResizeHandleStyle(handle),
-                    zIndex: 30,
-                  }}
-                  onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
-                  onClick={(event) => event.stopPropagation()}
-                  aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
-                />
-              ))}
+              (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map(
+                (handle) => (
+                  <button
+                    key={handle}
+                    type="button"
+                    className={`absolute border bg-white shadow pointer-events-auto ${
+                      settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
+                    } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
+                    style={{
+                      ...getResizeHandleStyle(handle),
+                      zIndex: 30,
+                    }}
+                    onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
+                  />
+                ),
+              )}
           </div>
         )}
         <WebPreviewMenuPages
@@ -2035,14 +2079,18 @@ export function WebPlaytestPreview({
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
           onSelectElement={setSelectedStartMenuElementId}
           onUpdateArchiveElement={(id, patch) => {
-            const source = settings.archivePageElements?.length ? settings.archivePageElements : defaultArchivePageElements;
+            const source = settings.archivePageElements?.length
+              ? settings.archivePageElements
+              : defaultArchivePageElements;
             onUpdateSettings(
               'archivePageElements',
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
             );
           }}
           onUpdateSettingsElement={(id, patch) => {
-            const source = settings.settingsPageElements?.length ? settings.settingsPageElements : defaultSettingsPageElements;
+            const source = settings.settingsPageElements?.length
+              ? settings.settingsPageElements
+              : defaultSettingsPageElements;
             onUpdateSettings(
               'settingsPageElements',
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
@@ -2188,11 +2236,7 @@ export function WebPlaytestPreview({
       activeUrl={playlistAudioUrl}
       isPlaying={isPlaylistAudioPlaying}
       title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-      hint={t(
-        '最近听过的录音排在最上方',
-        '最近聞いた録音を上に表示',
-        'Most recently heard first',
-      )}
+      hint={t('最近听过的录音排在最上方', '最近聞いた録音を上に表示', 'Most recently heard first')}
       emptyText={t(
         '听过的录音会显示在这里',
         '再生した録音がここに表示されます',
@@ -2248,7 +2292,11 @@ export function WebPlaytestPreview({
     activeInlineAction?.kind === 'scene' &&
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
-      : latestPersistentInlineAction(completedInlineActions, 'scene', presentation.scene?.sourceNodeId);
+      : latestPersistentInlineAction(
+          completedInlineActions,
+          'scene',
+          presentation.scene?.sourceNodeId,
+        );
   const sceneInlineDuration = activeSceneInlineAction
     ? Math.max(80, activeSceneInlineAction.duration || 300)
     : 0;
@@ -2286,10 +2334,9 @@ export function WebPlaytestPreview({
     animation: inlineActionAnimation(activeSceneInlineAction),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
-    transitionDuration:
-      activeSceneInlineAction
-        ? `${sceneInlineDuration}ms`
-        : settings.layoutMode === 'classic'
+    transitionDuration: activeSceneInlineAction
+      ? `${sceneInlineDuration}ms`
+      : settings.layoutMode === 'classic'
         ? '0ms'
         : `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
     transitionDelay:
@@ -2346,7 +2393,11 @@ export function WebPlaytestPreview({
               activeInlineAction?.kind === 'character' &&
               activeInlineAction.sourceNodeId === config.sourceNodeId
                 ? activeInlineAction
-                : latestPersistentInlineAction(completedInlineActions, 'character', config.sourceNodeId);
+                : latestPersistentInlineAction(
+                    completedInlineActions,
+                    'character',
+                    config.sourceNodeId,
+                  );
             const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
             return (
               <img
@@ -2426,90 +2477,95 @@ export function WebPlaytestPreview({
                 {renderMediaLayers()}
               </VirtualPresentationStage>
             ) : (
-            <div className="absolute inset-0 overflow-hidden">
-              {currentImageUrl ? (
-                <img
-                  key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
-                  src={currentImageUrl}
-                  alt=""
-                  draggable={false}
-                  onDragStart={(event) => event.preventDefault()}
-                  className="preview-media-safe h-full w-full"
-                  style={sceneStyle}
-                />
-              ) : currentVideoUrl ? (
-                <video
-                  ref={currentVideoRef}
-                  src={currentVideoUrl}
-                  controls
-                  playsInline
-                  autoPlay={settings.videoAutoPlay || settings.autoAdvance}
-                  muted={settings.videoAutoPlay}
-                  onEnded={() => setCurrentVideoEnded(true)}
-                  className="h-full w-full"
-                  style={sceneStyle}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
-                  {t(
-                    '当前节点没有图片或视频',
-                    '現在のノードに画像または動画がありません',
-                    'This node has no image or video',
-                  )}
-                </div>
-              )}
-              {presentedCharacters.length > 0 && (
-                <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
-                  {presentedCharacters.map(({ config, data, imageUrl }) => {
-                    const motion = presentationExiting ? config.exit : config.enter;
-                    const animationActive =
-                      settings.layoutMode === 'immersive' &&
-                      (presentationExiting || !presentationVisible);
-                    const animationTransform =
-                      animationActive && motion
-                        ? getPresentationTransform(motion.type, presentationExiting)
-                        : '';
-                    const inlineAction =
-                      activeInlineAction?.kind === 'character' &&
-                      activeInlineAction.sourceNodeId === config.sourceNodeId
-                        ? activeInlineAction
-                        : latestPersistentInlineAction(completedInlineActions, 'character', config.sourceNodeId);
-                    const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
-                    return (
-                      <img
-                        key={config.sourceNodeId}
-                        src={imageUrl}
-                        alt={data.characterName}
-                        draggable={false}
-                        onDragStart={(event) => event.preventDefault()}
-                        className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
-                        style={{
-                          ...getCharacterStagePosition(config),
-                          zIndex: clampCharacterLayer(config.layer),
-                          opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-                          transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-                          animation: inlineActionAnimation(inlineAction),
-                          ...inlineActionCssVars(inlineAction),
-                          transformOrigin: 'center center',
-                          transitionProperty: 'opacity, transform',
-                          transitionDuration:
-                            inlineAction
+              <div className="absolute inset-0 overflow-hidden">
+                {currentImageUrl ? (
+                  <img
+                    key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
+                    src={currentImageUrl}
+                    alt=""
+                    draggable={false}
+                    onDragStart={(event) => event.preventDefault()}
+                    className="preview-media-safe h-full w-full"
+                    style={sceneStyle}
+                  />
+                ) : currentVideoUrl ? (
+                  <video
+                    ref={currentVideoRef}
+                    src={currentVideoUrl}
+                    controls
+                    playsInline
+                    autoPlay={settings.videoAutoPlay || settings.autoAdvance}
+                    muted={settings.videoAutoPlay}
+                    onEnded={() => setCurrentVideoEnded(true)}
+                    className="h-full w-full"
+                    style={sceneStyle}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
+                    {t(
+                      '当前节点没有图片或视频',
+                      '現在のノードに画像または動画がありません',
+                      'This node has no image or video',
+                    )}
+                  </div>
+                )}
+                {presentedCharacters.length > 0 && (
+                  <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+                    {presentedCharacters.map(({ config, data, imageUrl }) => {
+                      const motion = presentationExiting ? config.exit : config.enter;
+                      const animationActive =
+                        settings.layoutMode === 'immersive' &&
+                        (presentationExiting || !presentationVisible);
+                      const animationTransform =
+                        animationActive && motion
+                          ? getPresentationTransform(motion.type, presentationExiting)
+                          : '';
+                      const inlineAction =
+                        activeInlineAction?.kind === 'character' &&
+                        activeInlineAction.sourceNodeId === config.sourceNodeId
+                          ? activeInlineAction
+                          : latestPersistentInlineAction(
+                              completedInlineActions,
+                              'character',
+                              config.sourceNodeId,
+                            );
+                      const inlineDuration = inlineAction
+                        ? Math.max(80, inlineAction.duration || 300)
+                        : 0;
+                      return (
+                        <img
+                          key={config.sourceNodeId}
+                          src={imageUrl}
+                          alt={data.characterName}
+                          draggable={false}
+                          onDragStart={(event) => event.preventDefault()}
+                          className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+                          style={{
+                            ...getCharacterStagePosition(config),
+                            zIndex: clampCharacterLayer(config.layer),
+                            opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+                            transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+                            animation: inlineActionAnimation(inlineAction),
+                            ...inlineActionCssVars(inlineAction),
+                            transformOrigin: 'center center',
+                            transitionProperty: 'opacity, transform',
+                            transitionDuration: inlineAction
                               ? `${inlineDuration}ms`
                               : settings.layoutMode === 'classic'
-                              ? '0ms'
-                              : `${motion.type === 'none' ? 0 : motion.duration}ms`,
-                          transitionDelay:
-                            settings.layoutMode === 'classic' || presentationExiting
-                              ? '0ms'
-                              : `${getCharacterEnterDelay(presentation)}ms`,
-                          transitionTimingFunction: 'ease-out',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                                ? '0ms'
+                                : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                            transitionDelay:
+                              settings.layoutMode === 'classic' || presentationExiting
+                                ? '0ms'
+                                : `${getCharacterEnterDelay(presentation)}ms`,
+                            transitionTimingFunction: 'ease-out',
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -2625,382 +2681,5 @@ export function WebPlaytestPreview({
       </div>
       {renderStartMenuPreview()}
     </div>
-  );
-}
-
-function ChoiceButton({
-  label,
-  choiceColor,
-  choiceTextColor,
-  onClick,
-}: {
-  label: string;
-  choiceColor: string;
-  choiceTextColor: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug shadow-lg shadow-black/15 transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
-      style={{
-        backgroundColor: `${choiceColor}cc`,
-        border: `1px solid ${choiceColor}`,
-        color: choiceTextColor,
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function ControlsToggle({
-  label,
-  hidden,
-  onClick,
-  positionClass,
-  style,
-}: {
-  label: string;
-  hidden: boolean;
-  onClick: () => void;
-  positionClass: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${positionClass} z-30 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-black/35 text-white shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-black/55 active:scale-95`}
-      style={style}
-      title={label}
-      aria-label={label}
-    >
-      {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-    </button>
-  );
-}
-
-function PreviewSettingsPopover({
-  t,
-  settings,
-  renderStyle,
-  reset,
-  onUpdateSettings,
-  onUpdateRenderStyle,
-}: {
-  t: (zh: string, ja: string, en: string) => string;
-  settings: WebExportSettings;
-  renderStyle: RenderStyle;
-  reset: () => void;
-  onUpdateSettings: <K extends keyof WebExportSettings>(
-    key: K,
-    value: WebExportSettings[K],
-  ) => void;
-  onUpdateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
-}) {
-  return (
-    <div
-      className="absolute right-0 top-10 z-40 w-[min(560px,calc(100vw-2rem))] max-h-[min(72vh,560px)] overflow-y-auto rounded-2xl border border-white/12 bg-slate-950/94 p-4 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <button
-        type="button"
-        onClick={reset}
-        className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-black text-white/82 transition-colors hover:bg-white/16 hover:text-white"
-      >
-        <Undo2 className="h-4 w-4" />
-        <span>{t('重置预览', 'プレビューをリセット', 'Reset preview')}</span>
-      </button>
-      <div className="grid gap-3 md:grid-cols-2">
-        <PreviewOptionGroup
-          title={t('界面排版', 'レイアウト', 'Layout')}
-          options={[
-            { value: 'classic', label: t('经典', 'クラシック', 'Classic') },
-            { value: 'immersive', label: t('沉浸', '没入', 'Immersive') },
-          ]}
-          value={settings.layoutMode}
-          onChange={(value) =>
-            onUpdateSettings('layoutMode', value as WebExportSettings['layoutMode'])
-          }
-        />
-        <PreviewOptionGroup
-          title={t('选项位置', '選択肢の位置', 'Choice Position')}
-          columns="grid-cols-3"
-          options={[
-            { value: 'aboveText', label: t('上', '上', 'Above') },
-            { value: 'center', label: t('中', '中', 'Center') },
-            { value: 'belowText', label: t('下', '下', 'Below') },
-          ]}
-          value={settings.choicesPosition}
-          onChange={(value) =>
-            onUpdateSettings('choicesPosition', value as WebExportSettings['choicesPosition'])
-          }
-        />
-        <PreviewOptionGroup
-          title={t('交互', 'インタラクション', 'Interaction')}
-          options={[
-            { value: 'typewriter', label: t('打字机', 'タイプライター', 'Typewriter') },
-            { value: 'immediate', label: t('立即显示', '即時表示', 'Immediate') },
-          ]}
-          value={settings.interactionMode}
-          onChange={(value) =>
-            onUpdateSettings('interactionMode', value as WebExportSettings['interactionMode'])
-          }
-        />
-        <PreviewOptionGroup
-          title={t('自动翻页', '自動進行', 'Auto Advance')}
-          options={[
-            { value: 'on', label: t('自动', '自動', 'On') },
-            { value: 'off', label: t('手动', '手動', 'Manual') },
-          ]}
-          value={settings.autoAdvance ? 'on' : 'off'}
-          onChange={(value) => onUpdateSettings('autoAdvance', value === 'on')}
-        />
-        <PreviewOptionGroup
-          title={t('显示效果', '表示効果', 'Display')}
-          options={[
-            {
-              value: 'backdrop',
-              label: t('背景虚化', '背景ぼかし', 'Backdrop'),
-              icon: <BlurGlyph />,
-            },
-            {
-              value: 'skip',
-              label: t('隐藏单选', '単一選択を隠す', 'Skip Single'),
-              icon: <SingleChoicePopupGlyph />,
-            },
-          ]}
-          value={
-            settings.blurBackground ? 'backdrop' : settings.skipSingleChoicePopup ? 'skip' : ''
-          }
-          onChange={(value) => {
-            if (value === 'backdrop') onUpdateSettings('blurBackground', !settings.blurBackground);
-            if (value === 'skip') {
-              onUpdateSettings('skipSingleChoicePopup', !settings.skipSingleChoicePopup);
-            }
-          }}
-        />
-        <PreviewOptionGroup
-          title={t('媒体', 'メディア', 'Media')}
-          options={[
-            { value: 'autoplay', label: t('视频自动播放', '動画自動再生', 'Video Autoplay') },
-          ]}
-          value={settings.videoAutoPlay ? 'autoplay' : ''}
-          onChange={() => onUpdateSettings('videoAutoPlay', !settings.videoAutoPlay)}
-        />
-        <PreviewOptionGroup
-          title={t('人物标签', 'キャラタグ', 'Character Tags')}
-          titleIcon={<CharacterTagGlyph />}
-          options={[
-            { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
-            { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
-          ]}
-          value={settings.hideCharacterTags ? 'hide' : 'show'}
-          onChange={(value) => onUpdateSettings('hideCharacterTags', value === 'hide')}
-        />
-        <PreviewOptionGroup
-          title={t('场景标签', 'シーンタグ', 'Scene Tags')}
-          titleIcon={<SceneTagGlyph />}
-          options={[
-            { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
-            { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
-          ]}
-          value={settings.hideSceneTags ? 'hide' : 'show'}
-          onChange={(value) => onUpdateSettings('hideSceneTags', value === 'hide')}
-        />
-        <PreviewRange
-          label={t('标题字号', 'タイトルサイズ', 'Title Size')}
-          value={renderStyle.titleFontSize}
-          min={18}
-          max={120}
-          onChange={(value) => onUpdateRenderStyle('titleFontSize', value)}
-        />
-        <PreviewRange
-          label={t('正文字号', '本文サイズ', 'Body Size')}
-          value={renderStyle.bodyFontSize}
-          min={16}
-          max={96}
-          onChange={(value) => onUpdateRenderStyle('bodyFontSize', value)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PreviewOptionGroup({
-  title,
-  titleIcon,
-  options,
-  value,
-  onChange,
-  columns = 'grid-cols-2',
-}: {
-  title: string;
-  titleIcon?: ReactNode;
-  options: { value: string; label: string; icon?: ReactNode }[];
-  value: string;
-  onChange: (value: string) => void;
-  columns?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-white/45">
-        {titleIcon}
-        {title}
-      </div>
-      <div className={`grid ${columns} gap-2`}>
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            title={option.label}
-            className={`h-8 rounded-lg px-2 text-xs font-black transition-colors ${
-              value === option.value
-                ? 'bg-sky-500 text-white'
-                : 'bg-white/10 text-white/75 hover:bg-white/16'
-            }`}
-          >
-            {option.icon}
-            {option.icon ? null : option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ChoiceTopGlyph() {
-  return (
-    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-2 rounded-full bg-white" />
-        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
-      </span>
-    </span>
-  );
-}
-
-function ChoiceMiddleGlyph() {
-  return (
-    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
-        <span className="h-0.5 w-2 rounded-full bg-white" />
-        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
-      </span>
-    </span>
-  );
-}
-
-function ChoiceBottomGlyph() {
-  return (
-    <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-1.5 rounded-full bg-white/55" />
-        <span className="h-0.5 w-2 rounded-full bg-white" />
-      </span>
-    </span>
-  );
-}
-
-function CharacterTagGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-    >
-      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
-      <circle cx="12" cy="10" r="2" />
-      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
-    </svg>
-  );
-}
-
-function SingleChoicePopupGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-    >
-      <rect x="4.5" y="5" width="15" height="11.5" rx="2.5" />
-      <path d="M9 20l3-3.5 3 3.5" />
-      <path d="M8.5 9h7" />
-      <path d="M8.5 12.5h4" />
-    </svg>
-  );
-}
-
-function SceneTagGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-    >
-      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
-      <circle cx="9" cy="9.5" r="1.4" />
-      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
-    </svg>
-  );
-}
-
-function BlurGlyph() {
-  return (
-    <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-white/20 bg-white/10">
-      <Sparkles className="h-2.5 w-2.5" />
-      <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-white/30 blur-[1px]" />
-    </span>
-  );
-}
-
-function PreviewRange({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-      <div className="mb-2 flex items-center justify-between text-xs font-black text-white/75">
-        <span>{label}</span>
-        <span>{value}px</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-sky-400"
-      />
-    </label>
   );
 }
