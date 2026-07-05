@@ -58,23 +58,35 @@ import {
   getNodeDisplayText,
   getNodeDisplayTitle,
   stripHtml,
-  webAnimationStyle,
 } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import { ChoiceButton, ControlsToggle } from './WebPlaytestPreviewControls';
-import type { StartMenuResizeHandle } from './webPlaytestStartMenuTools';
+import type {
+  StartMenuAction,
+  StartMenuElement,
+  StartMenuResizeHandle,
+} from './webPlaytestStartMenuTools';
 import {
+  buildDefaultStartMenuElements,
   getResizeHandleStyle,
+  getStartMenuPlacementBounds,
   protectedStartMenuElementRoles,
   readStartMenuImageFile,
   resizeCursorByHandle,
   resizeHandlePositionClass,
   resizeHandleShapeClass,
+  snapStartMenuBox,
+  snapStartMenuValue,
 } from './webPlaytestStartMenuTools';
+import {
+  buildBodyStyle,
+  buildDialogueShellStyle,
+  buildTitleStyle,
+  colorInputValue,
+  withAlpha,
+} from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
-
-type StartMenuElement = WebExportSettings['startMenuElements'][number];
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -122,7 +134,7 @@ export function WebPlaytestPreview({
   onSelectStartMenuElement,
   onDeleteStartMenuElement,
   onUpdateSettings,
-  onUpdateRenderStyle,
+  onUpdateRenderStyle: _onUpdateRenderStyle,
 }: WebPlaytestPreviewProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const playableNodes = useMemo(
@@ -265,104 +277,9 @@ export function WebPlaytestPreview({
     lastJumpedNodeRef.current = null;
   }, [clearPlaybackTimers]);
 
-  const colorInputValue = (value: string, fallback = '#111827') => {
-    const trimmed = value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
-    const rgba = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-    if (!rgba) return fallback;
-    return `#${[rgba[1], rgba[2], rgba[3]]
-      .map((channel) => Number(channel).toString(16).padStart(2, '0'))
-      .join('')}`;
-  };
-  const withAlpha = (hex: string, alpha: number) => {
-    const normalized = colorInputValue(hex);
-    const red = Number.parseInt(normalized.slice(1, 3), 16);
-    const green = Number.parseInt(normalized.slice(3, 5), 16);
-    const blue = Number.parseInt(normalized.slice(5, 7), 16);
-    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-  };
-  const gradientStops =
-    renderStyle.dialogGradientStops?.length >= 2
-      ? [...renderStyle.dialogGradientStops].sort((a, b) => a.position - b.position)
-      : [
-          {
-            color: colorInputValue(renderStyle.dialogGradientStartColor),
-            alpha: 0,
-            position: 0,
-          },
-          {
-            color: colorInputValue(renderStyle.dialogGradientColor),
-            alpha: 86,
-            position: 100,
-          },
-        ];
-  const dialogueBackgroundStyle = (): React.CSSProperties => {
-    if (renderStyle.dialogBackgroundType === 'gradient') {
-      const angle = Number.isFinite(renderStyle.dialogGradientAngle)
-        ? renderStyle.dialogGradientAngle
-        : 90;
-      const stops = gradientStops
-        .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
-        .join(', ');
-      return { background: `linear-gradient(${angle}deg, ${stops})` };
-    }
-    if (renderStyle.dialogBackgroundType === 'image' && renderStyle.dialogImageUrl) {
-      return {
-        backgroundImage: `url("${renderStyle.dialogImageUrl.replace(/"/g, '\\"')}")`,
-        backgroundPosition: 'center',
-        backgroundSize: 'cover',
-      };
-    }
-    return {
-      backgroundColor: withAlpha(renderStyle.panelColor, (renderStyle.panelColorAlpha ?? 82) / 100),
-    };
-  };
-  const textStroke = (width: number, color: string) =>
-    width > 0 ? `${width}px ${colorInputValue(color, '#000000')}` : undefined;
-  const titleStyle: React.CSSProperties = {
-    fontFamily: renderStyle.titleFontFamily,
-    color: withAlpha(
-      colorInputValue(renderStyle.titleColor),
-      (renderStyle.titleColorAlpha ?? 100) / 100,
-    ),
-    WebkitTextStroke: textStroke(renderStyle.titleStrokeWidth, renderStyle.titleStrokeColor),
-    fontSize: renderStyle.titleFontSize,
-    letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
-    lineHeight: renderStyle.titleLineHeight,
-    textAlign: renderStyle.titleAlign,
-    overflowWrap: 'anywhere',
-    ...webAnimationStyle(renderStyle.titleAnimation),
-  };
-  const bodyStyle: React.CSSProperties = {
-    fontFamily: renderStyle.bodyFontFamily,
-    color: withAlpha(
-      colorInputValue(renderStyle.bodyColor),
-      (renderStyle.bodyColorAlpha ?? 100) / 100,
-    ),
-    WebkitTextStroke: textStroke(renderStyle.bodyStrokeWidth, renderStyle.bodyStrokeColor),
-    fontSize: renderStyle.bodyFontSize,
-    letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
-    lineHeight: renderStyle.bodyLineHeight,
-    textAlign: renderStyle.bodyAlign,
-    overflowWrap: 'anywhere',
-    ...webAnimationStyle(renderStyle.bodyAnimation),
-  };
-  const dialogueShellStyle: React.CSSProperties = {
-    ...(renderStyle.dialogVisible
-      ? dialogueBackgroundStyle()
-      : {
-          background: 'transparent',
-          backgroundColor: 'transparent',
-          backgroundImage: 'none',
-          borderColor: 'transparent',
-          boxShadow: 'none',
-          backdropFilter: 'none',
-        }),
-    borderRadius: renderStyle.dialogRadius,
-    maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
-    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-  };
+  const titleStyle = buildTitleStyle(renderStyle);
+  const bodyStyle = buildBodyStyle(renderStyle);
+  const dialogueShellStyle = buildDialogueShellStyle(renderStyle, settings.layoutMode);
   const dialogueOffsetX = Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0));
   const dialogueCenter = 50 + dialogueOffsetX * 0.5;
   const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
@@ -1050,8 +967,6 @@ export function WebPlaytestPreview({
       : settings.startMenuButtonPosition === 'bottomRight'
         ? 'items-end justify-items-end text-left'
         : 'place-items-center text-center';
-  const startMenuPanelClass =
-    settings.startMenuButtonPosition === 'center' ? 'w-[min(440px,100%)]' : 'w-[min(380px,100%)]';
   const startMenuBackgroundClass =
     settings.startMenuTemplate === 'minimal'
       ? 'bg-slate-950'
@@ -1062,16 +977,6 @@ export function WebPlaytestPreview({
     settings.startMenuTemplate === 'glass'
       ? 'rounded-[18px] border border-white/16 bg-white/[0.08] p-6 shadow-2xl shadow-black/35 backdrop-blur-2xl'
       : '';
-  const startMenuActionsClass =
-    settings.startMenuButtonLayout === 'horizontal'
-      ? 'grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2'
-      : 'grid gap-2.5';
-  const startMenuActionSizeClass =
-    settings.startMenuButtonSize === 'compact'
-      ? 'min-h-10 px-3 text-xs'
-      : settings.startMenuButtonSize === 'large'
-        ? 'min-h-14 px-5 text-base'
-        : 'min-h-12 px-4 text-sm';
   const buttonHeight =
     settings.startMenuButtonSize === 'compact'
       ? 8
@@ -1126,98 +1031,34 @@ export function WebPlaytestPreview({
           },
         }
       : null,
-  ].filter(
-    (
-      action,
-    ): action is {
-      key: string;
-      label: string;
-      disabled: boolean;
-      primary: boolean;
-      onClick: () => void;
-    } => Boolean(action),
-  );
+  ].filter((action): action is StartMenuAction => Boolean(action));
   const startMenuActionMap = new Map(startMenuActions.map((action) => [action.key, action]));
-  const defaultStartMenuElements = React.useMemo<StartMenuElement[]>(() => {
-    const textX = settings.startMenuButtonPosition === 'center' ? 22 : defaultButtonX;
-    const elements: StartMenuElement[] = [
-      {
-        id: 'title',
-        kind: 'text',
-        role: 'title',
-        text: projectTitle || t('开始', 'スタート', 'Start'),
-        visible: true,
-        x: textX,
-        y: settings.startMenuButtonPosition === 'center' ? 30 : 50,
-        width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
-        height: 12,
-        scale: 1,
-        rotation: 0,
-        fontSize: 34,
-        borderRadius: 0,
-      },
-      {
-        id: 'subtitle',
-        kind: 'text',
-        role: 'subtitle',
-        text: t('没有存档', 'セーブなし', 'No save'),
-        visible: true,
-        x: textX,
-        y: settings.startMenuButtonPosition === 'center' ? 43 : 62,
-        width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
-        height: 5,
-        scale: 1,
-        rotation: 0,
-        fontSize: 13,
-        borderRadius: 0,
-      },
-    ];
-    startMenuActions.forEach((action, index) => {
-      const horizontal = settings.startMenuButtonLayout === 'horizontal';
-      elements.push({
-        id: action.key,
-        kind: 'button',
-        role: action.key as StartMenuElement['role'],
-        text: action.label,
-        visible: true,
-        x: horizontal ? defaultButtonX + index * (defaultButtonWidth + 2) : defaultButtonX,
-        y: horizontal ? defaultButtonY : defaultButtonY + index * (buttonHeight + 2),
-        width: defaultButtonWidth,
-        height: buttonHeight,
-        scale: 1,
-        rotation: 0,
-        primary: action.primary,
-        disabled: action.disabled,
-        fontSize:
-          settings.startMenuButtonSize === 'large'
-            ? 16
-            : settings.startMenuButtonSize === 'compact'
-              ? 12
-              : 14,
-        textColor: action.primary ? choiceTextColor : '#f8fafc',
-        backgroundType: 'solid',
-        backgroundColor: action.primary ? choiceColor : 'rgba(255,255,255,0.10)',
-        backgroundGradientStart: choiceColor,
-        backgroundGradientEnd: '#0f172a',
-        backgroundGradientAngle: 135,
-        borderColor: action.primary ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.16)',
-        borderRadius: 12,
-      });
-    });
-    return elements;
-  }, [
-    buttonHeight,
-    defaultButtonWidth,
-    defaultButtonX,
-    defaultButtonY,
-    projectTitle,
-    settings.startMenuButtonLayout,
-    settings.startMenuButtonPosition,
-    settings.startMenuButtonSize,
-    startMenuActions,
-    choiceColor,
-    choiceTextColor,
-  ]);
+  const defaultStartMenuElements = React.useMemo<StartMenuElement[]>(
+    () =>
+      buildDefaultStartMenuElements({
+        settings,
+        projectTitle,
+        startMenuActions,
+        choiceColor,
+        choiceTextColor,
+        defaultButtonX,
+        defaultButtonY,
+        defaultButtonWidth,
+        buttonHeight,
+        t,
+      }),
+    [
+      buttonHeight,
+      choiceColor,
+      choiceTextColor,
+      defaultButtonWidth,
+      defaultButtonX,
+      defaultButtonY,
+      projectTitle,
+      settings,
+      startMenuActions,
+    ],
+  );
   const startMenuElements =
     settings.startMenuElements && settings.startMenuElements.length > 0
       ? settings.startMenuElements
@@ -1258,28 +1099,12 @@ export function WebPlaytestPreview({
             .map((element) => ({ ...element, id: `system-${element.id}` })),
         ]
       : startMenuElements;
-  const getStartMenuPlacementBounds = React.useCallback(
-    (element: StartMenuElement) => {
-      const minX = settings.startMenuPlacementMinX ?? 10;
-      const minY = settings.startMenuPlacementMinY ?? 10;
-      const maxX = settings.startMenuPlacementMaxX ?? 90;
-      const maxY = settings.startMenuPlacementMaxY ?? 90;
-      return {
-        minX: Math.max(0, Math.min(94, minX)),
-        minY: Math.max(0, Math.min(96, minY)),
-        maxX: Math.max(minX + 6, Math.min(100, maxX)),
-        maxY: Math.max(minY + 4, Math.min(100, maxY)),
-      };
-    },
-    [
-      settings.startMenuPlacementMaxX,
-      settings.startMenuPlacementMaxY,
-      settings.startMenuPlacementMinX,
-      settings.startMenuPlacementMinY,
-    ],
+  const startMenuPlacementBounds = React.useMemo(
+    () => getStartMenuPlacementBounds(settings),
+    [settings],
   );
   const getStartMenuSnapGuides = React.useCallback(
-    (axis: 'x' | 'y', movingId: string, bounds: ReturnType<typeof getStartMenuPlacementBounds>) => {
+    (axis: 'x' | 'y', movingId: string, bounds: typeof startMenuPlacementBounds) => {
       const min = axis === 'x' ? bounds.minX : bounds.minY;
       const max = axis === 'x' ? bounds.maxX : bounds.maxY;
       const guides =
@@ -1296,45 +1121,6 @@ export function WebPlaytestPreview({
     },
     [settings.startMenuPlacementBoundsLocked, startMenuElements],
   );
-  const snapStartMenuValue = (value: number, guides: number[], tolerance: number) => {
-    let best = value;
-    let bestDelta = tolerance;
-    guides.forEach((guide) => {
-      const delta = Math.abs(value - guide);
-      if (delta <= bestDelta) {
-        best = guide;
-        bestDelta = delta;
-      }
-    });
-    return best;
-  };
-  const snapStartMenuBox = (
-    id: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    bounds: ReturnType<typeof getStartMenuPlacementBounds>,
-    rect: DOMRect,
-  ) => {
-    const xGuides = getStartMenuSnapGuides('x', id, bounds);
-    const yGuides = getStartMenuSnapGuides('y', id, bounds);
-    const toleranceX = (2 / rect.width) * 100;
-    const toleranceY = (2 / rect.height) * 100;
-    const snappedLeft = snapStartMenuValue(x, xGuides, toleranceX);
-    const snappedCenterX = snapStartMenuValue(x + width / 2, xGuides, toleranceX) - width / 2;
-    const snappedRight = snapStartMenuValue(x + width, xGuides, toleranceX) - width;
-    const snappedTop = snapStartMenuValue(y, yGuides, toleranceY);
-    const snappedCenterY = snapStartMenuValue(y + height / 2, yGuides, toleranceY) - height / 2;
-    const snappedBottom = snapStartMenuValue(y + height, yGuides, toleranceY) - height;
-    const nextX = [snappedLeft, snappedCenterX, snappedRight].reduce((best, candidate) =>
-      Math.abs(candidate - x) < Math.abs(best - x) ? candidate : best,
-    );
-    const nextY = [snappedTop, snappedCenterY, snappedBottom].reduce((best, candidate) =>
-      Math.abs(candidate - y) < Math.abs(best - y) ? candidate : best,
-    );
-    return { x: nextX, y: nextY };
-  };
   const commitStartMenuElements = React.useCallback(
     (next: StartMenuElement[]) => onUpdateSettings('startMenuElements', next),
     [onUpdateSettings],
@@ -1484,17 +1270,17 @@ export function WebPlaytestPreview({
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
     const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
-    const bounds = getStartMenuPlacementBounds(drag.initial);
+    const bounds = startMenuPlacementBounds;
     if (drag.type === 'move') {
-      const snapped = snapStartMenuBox(
-        drag.id,
-        drag.initial.x + dx,
-        drag.initial.y + dy,
-        drag.initial.width,
-        drag.initial.height,
-        bounds,
-        drag.rect,
-      );
+      const snapped = snapStartMenuBox({
+        x: drag.initial.x + dx,
+        y: drag.initial.y + dy,
+        width: drag.initial.width,
+        height: drag.initial.height,
+        rect: drag.rect,
+        xGuides: getStartMenuSnapGuides('x', drag.id, bounds),
+        yGuides: getStartMenuSnapGuides('y', drag.id, bounds),
+      });
       updateStartMenuElement(drag.id, {
         x: Math.max(bounds.minX, Math.min(bounds.maxX - drag.initial.width, snapped.x)),
         y: Math.max(bounds.minY, Math.min(bounds.maxY - drag.initial.height, snapped.y)),
@@ -1601,9 +1387,7 @@ export function WebPlaytestPreview({
     const selectedGuideElement = startMenuElements.find(
       (element) => element.id === selectedStartMenuElementId,
     );
-    const selectedGuideBounds = selectedGuideElement
-      ? getStartMenuPlacementBounds(selectedGuideElement)
-      : null;
+    const selectedGuideBounds = selectedGuideElement ? startMenuPlacementBounds : null;
 
     const boundsMinX = settings.startMenuPlacementMinX ?? 10;
     const boundsMinY = settings.startMenuPlacementMinY ?? 10;
