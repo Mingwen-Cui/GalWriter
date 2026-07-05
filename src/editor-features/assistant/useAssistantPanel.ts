@@ -59,6 +59,19 @@ type AssistantWorkflowState =
   | { type: 'future-generate-bridge'; targetNodeId: string; count: number }
   | { type: 'article-teach-generate'; teachingMode: 'interactive' | 'lecture' };
 
+export type AssistantArticleAnalysisStep = {
+  title: string;
+  status: 'pending' | 'active' | 'done' | 'error';
+  detail: string;
+  evidence?: string;
+};
+
+export type AssistantArticleAnalysisState = {
+  status: 'idle' | 'reading' | 'analyzing' | 'ready' | 'error';
+  summary: string;
+  steps: AssistantArticleAnalysisStep[];
+};
+
 export type AssistantCardPlacementResult = {
   count: number;
   position?: { x: number; y: number; zoom?: number };
@@ -475,6 +488,7 @@ interface UseAssistantPanelResult {
   assistantListening: boolean;
   assistantDocuments: AssistantDocument[];
   assistantDocumentLoading: boolean;
+  assistantArticleAnalysis: AssistantArticleAnalysisState;
   assistantTasks: AssistantTask[];
   setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
   activeAssistantTaskId: string;
@@ -540,6 +554,12 @@ export const useAssistantPanel = ({
   const [assistantListening, setAssistantListening] = useState(false);
   const [assistantDocuments, setAssistantDocuments] = useState<AssistantDocument[]>([]);
   const [assistantDocumentLoading, setAssistantDocumentLoading] = useState(false);
+  const [assistantArticleAnalysis, setAssistantArticleAnalysis] =
+    useState<AssistantArticleAnalysisState>({
+      status: 'idle',
+      summary: '',
+      steps: [],
+    });
   const initialAssistantTaskRef = useRef(createInitialAssistantTask(language));
   const [activeAssistantTaskId, setActiveAssistantTaskId] = useState(
     initialAssistantTaskRef.current.id,
@@ -674,6 +694,92 @@ export const useAssistantPanel = ({
     [activeAssistantTaskId],
   );
 
+  const createArticleAnalysisSteps = useCallback(
+    (): AssistantArticleAnalysisStep[] => [
+      {
+        title: language === 'zh' ? '文章内容读取' : 'Reading Article',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '等待提取文档中的正文、标题和段落内容。'
+            : 'Waiting to extract text, headings, and paragraphs.',
+      },
+      {
+        title: language === 'zh' ? '主题与核心观点识别' : 'Finding Core Ideas',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '等待 AI 阅读文章并判断主题、核心观点和关键概念。'
+            : 'Waiting for AI to identify topic, claims, and key concepts.',
+      },
+      {
+        title: language === 'zh' ? '章节结构梳理' : 'Structuring Chapters',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '等待 AI 根据文章逻辑拆分章节和知识点顺序。'
+            : 'Waiting for AI to split chapters and knowledge order.',
+      },
+      {
+        title: language === 'zh' ? '教学路径规划' : 'Planning Teaching Path',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '等待 AI 规划提问点、讲解点、反馈节奏和学习路径。'
+            : 'Waiting for AI to plan questions, explanations, and feedback flow.',
+      },
+      {
+        title: language === 'zh' ? 'Galgame 场景转化' : 'Converting To Galgame',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '等待 AI 规划教学角色、场景、对白节奏和章节背景框。'
+            : 'Waiting for AI to plan roles, scenes, dialogue rhythm, and chapter regions.',
+      },
+      {
+        title: language === 'zh' ? '等待教学方式' : 'Choose Teaching Style',
+        status: 'pending',
+        detail:
+          language === 'zh'
+            ? '文章真实解析完成后，请选择接下来用哪种方式转成 Galgame。'
+            : 'After real analysis completes, choose how to turn it into a Galgame.',
+      },
+    ],
+    [language],
+  );
+
+  const updateArticleAnalysisStep = useCallback(
+    (
+      index: number,
+      updates: Partial<AssistantArticleAnalysisStep>,
+      status?: AssistantArticleAnalysisState['status'],
+      summary?: string,
+    ) => {
+      setAssistantArticleAnalysis((current) => ({
+        status: status || current.status,
+        summary: summary ?? current.summary,
+        steps: current.steps.map((step, stepIndex) =>
+          stepIndex === index ? { ...step, ...updates } : step,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const parseArticleAnalysisJson = (content: string): Record<string, any> => {
+    const jsonText = content.match(/\{[\s\S]*\}/)?.[0] || content;
+    try {
+      return JSON.parse(jsonText) as Record<string, any>;
+    } catch {
+      return { detail: content.trim() };
+    }
+  };
+
+  const runArticleAnalysisStage = useCallback(
+    async (prompt: string) => parseArticleAnalysisJson((await callAIForTextResult(prompt)).content),
+    [callAIForTextResult],
+  );
+
   const handleNewAssistantTask = useCallback(() => {
     if (assistantThoughtTimerRef.current !== null) {
       window.clearInterval(assistantThoughtTimerRef.current);
@@ -725,6 +831,7 @@ export const useAssistantPanel = ({
       setAssistantHistoryVersion((version) => version + 1);
       setAssistantLoading(false);
       setAssistantListening(false);
+      setAssistantArticleAnalysis({ status: 'idle', summary: '', steps: [] });
       setAssistantDocuments((documents) => {
         documents.forEach((document) => URL.revokeObjectURL(document.objectUrl));
         return [];
@@ -739,48 +846,238 @@ export const useAssistantPanel = ({
       if (selectedFiles.length === 0) return;
 
       setAssistantDocumentLoading(true);
+      if (intent === 'article-to-galgame') {
+        const steps = createArticleAnalysisSteps();
+        steps[0] = {
+          ...steps[0],
+          status: 'active',
+          detail:
+            language === 'zh'
+              ? '正在提取文档正文、标题、段落和可读取文本。'
+              : 'Extracting readable text, headings, and paragraphs.',
+        };
+        setAssistantArticleAnalysis({
+          status: 'reading',
+          summary: language === 'zh' ? '正在读取上传文档...' : 'Reading uploaded document...',
+          steps,
+        });
+      }
+
       try {
         const documents = await Promise.all(
           selectedFiles.map((file) => readAssistantDocument(file)),
         );
+        let nextDocuments: AssistantDocument[] = [];
         setAssistantDocuments((currentDocuments) => {
           const documentMap = new Map(currentDocuments.map((document) => [document.id, document]));
           documents.forEach((document) => documentMap.set(document.id, document));
-          return Array.from(documentMap.values()).slice(-5);
+          nextDocuments = Array.from(documentMap.values()).slice(-5);
+          return nextDocuments;
         });
+
+        if (intent === 'article-to-galgame') {
+          const analyzedDocuments = nextDocuments.length > 0 ? nextDocuments : documents;
+          const documentCount = analyzedDocuments.length;
+          const charCount = analyzedDocuments.reduce((sum, document) => sum + document.charCount, 0);
+          const truncatedCount = analyzedDocuments.filter((document) => document.truncated).length;
+          const summary =
+            language === 'zh'
+              ? `已读取 ${documentCount} 个文档，约 ${charCount.toLocaleString()} 字${
+                  truncatedCount > 0 ? `，其中 ${truncatedCount} 个文档因过长已截取前段内容` : ''
+                }。`
+              : `Read ${documentCount} document(s), about ${charCount.toLocaleString()} characters${
+                  truncatedCount > 0 ? `; ${truncatedCount} document(s) were truncated` : ''
+                }.`;
+          updateArticleAnalysisStep(
+            0,
+            {
+              status: 'done',
+              detail:
+                language === 'zh'
+                  ? `已真实提取 ${documentCount} 个文档的可读文本，共约 ${charCount.toLocaleString()} 字。`
+                  : `Extracted readable text from ${documentCount} document(s), about ${charCount.toLocaleString()} characters.`,
+              evidence: analyzedDocuments
+                .map((document) => `${document.name} · ${document.type.toUpperCase()}`)
+                .join(' / '),
+            },
+            'analyzing',
+            summary,
+          );
+
+          if (!hasTextApiKey) {
+            onMissingTextApiKeyRequest?.();
+            updateArticleAnalysisStep(
+              1,
+              {
+                status: 'error',
+                detail:
+                  language === 'zh'
+                    ? '无法进行真实 AI 阅读：还没有配置文本 AI 接口。请先在设置中添加 API Key。'
+                    : 'Unable to run real AI reading: no text AI API is configured.',
+              },
+              'error',
+            );
+            return;
+          }
+
+          const documentContext = buildAssistantDocumentContext(analyzedDocuments).slice(0, 36000);
+          const jsonRule =
+            '只返回 JSON，不要 Markdown。字段格式：{"detail":"一句阶段结论","evidence":"引用文章中的具体标题、概念或段落线索","items":["要点1","要点2"]}';
+
+          updateArticleAnalysisStep(1, {
+            status: 'active',
+            detail:
+              language === 'zh'
+                ? 'AI 正在阅读全文，识别主题、核心观点和关键概念。'
+                : 'AI is reading the full text to identify topic, claims, and key concepts.',
+          });
+          const theme = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“主题与核心观点识别”阶段。
+${jsonRule}
+要求：detail 说明文章主要讨论什么；evidence 必须来自文章内容；items 列出 3-5 个关键概念或观点。
+
+文章内容：
+${documentContext}`);
+          updateArticleAnalysisStep(1, {
+            status: 'done',
+            detail: String(theme.detail || theme.summary || '已识别文章主题和核心观点。'),
+            evidence: String(
+              theme.evidence ||
+                (Array.isArray(theme.items) ? theme.items.slice(0, 3).join(' / ') : ''),
+            ),
+          });
+
+          updateArticleAnalysisStep(2, {
+            status: 'active',
+            detail:
+              language === 'zh'
+                ? 'AI 正在按文章逻辑拆分章节、层级和知识点顺序。'
+                : 'AI is splitting the article into chapters and knowledge order.',
+          });
+          const chapters = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“章节结构梳理”阶段。
+${jsonRule}
+要求：detail 说明你把文章拆成几段/几章以及拆分依据；evidence 必须提到文章中的结构线索；items 列出建议章节标题，3-6 个。
+
+文章内容：
+${documentContext}`);
+          updateArticleAnalysisStep(2, {
+            status: 'done',
+            detail: String(chapters.detail || '已根据文章逻辑拆分章节结构。'),
+            evidence: String(
+              chapters.evidence ||
+                (Array.isArray(chapters.items) ? chapters.items.slice(0, 6).join(' / ') : ''),
+            ),
+          });
+
+          updateArticleAnalysisStep(3, {
+            status: 'active',
+            detail:
+              language === 'zh'
+                ? 'AI 正在把文章知识点转成可教学的提问、讲解和反馈路径。'
+                : 'AI is turning knowledge points into questions, explanations, and feedback.',
+          });
+          const teaching = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“教学路径规划”阶段。
+${jsonRule}
+要求：detail 说明这篇文章适合怎样教学；evidence 必须说明依据文章中的哪些概念/论证关系；items 列出提问点或讲解顺序。
+
+文章内容：
+${documentContext}`);
+          updateArticleAnalysisStep(3, {
+            status: 'done',
+            detail: String(teaching.detail || '已规划文章的教学路径。'),
+            evidence: String(
+              teaching.evidence ||
+                (Array.isArray(teaching.items) ? teaching.items.slice(0, 4).join(' / ') : ''),
+            ),
+          });
+
+          updateArticleAnalysisStep(4, {
+            status: 'active',
+            detail:
+              language === 'zh'
+                ? 'AI 正在规划教学角色、场景、对白节奏和章节背景框。'
+                : 'AI is planning roles, scenes, dialogue rhythm, and chapter regions.',
+          });
+          const galgame = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“Galgame 场景转化”阶段。
+${jsonRule}
+要求：detail 说明如何把文章转成 galgame 教学项目；evidence 必须关联文章章节/概念；items 列出建议角色、场景或章节背景框方向。
+
+文章内容：
+${documentContext}`);
+          updateArticleAnalysisStep(4, {
+            status: 'done',
+            detail: String(galgame.detail || '已规划 Galgame 化的角色、场景和章节框。'),
+            evidence: String(
+              galgame.evidence ||
+                (Array.isArray(galgame.items) ? galgame.items.slice(0, 5).join(' / ') : ''),
+            ),
+          });
+          updateArticleAnalysisStep(
+            5,
+            {
+              status: 'done',
+              detail:
+                language === 'zh'
+                  ? '真实解析已完成。请选择对话式教学或讲课式教学，我会基于上面的分析生成章节背景框和剧情卡。'
+                  : 'Real analysis is complete. Choose interactive or lecture teaching to generate chapter regions and story cards.',
+              evidence:
+                language === 'zh'
+                  ? '后续生成会沿用本次主题、章节、教学路径和 Galgame 转化结论。'
+                  : 'Generation will reuse the topic, chapter, teaching path, and Galgame conversion analysis above.',
+            },
+            'ready',
+          );
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                language === 'zh'
+                  ? '我已经完成了对文章的真实阅读和结构诊断。请在解析页面选择“对话式教学”或“讲课式教学”，我会继续生成章节背景框和剧情卡。'
+                  : 'I finished a real reading and structural diagnosis. Choose a teaching style on the analysis page to continue.',
+            },
+          ]);
+          return;
+        }
+
         setAssistantMessages((messages) => [
           ...messages,
           {
             id: uuidv4(),
             role: 'assistant',
             content:
-              intent === 'article-to-galgame' && language === 'zh'
-                ? `已读取 ${documents.length} 个文章文档。我会先自己理清文章内容和结构，再按章节在画布上画出对应背景框。你希望我怎么把它教给读者？`
-                : language === 'zh'
+              language === 'zh'
                 ? `已读取 ${documents.length} 个参考文档。接下来我会结合这些文档内容来回答和生成剧情。`
                 : language === 'ja'
                   ? `${documents.length}個の参照ドキュメントを読み込みました。今後のストーリー生成のコンテキストとして使用します。`
                   : `Read ${documents.length} reference document(s). I will use them as context for the next story requests.`,
-            options:
-              intent === 'article-to-galgame' && language === 'zh'
-                ? [
-                    {
-                      id: uuidv4(),
-                      label: '对话式教学',
-                      description: '强调交互、提问、反馈和分步确认，像一对一辅导。',
-                      value: '__article_teach__:interactive',
-                    },
-                    {
-                      id: uuidv4(),
-                      label: '讲课式教学',
-                      description: '强调讲解语气、逻辑层次和知识点推进，像课堂授课。',
-                      value: '__article_teach__:lecture',
-                    },
-                  ]
-                : undefined,
           },
         ]);
       } catch (error: any) {
+        if (intent === 'article-to-galgame') {
+          setAssistantArticleAnalysis((current) => ({
+            status: 'error',
+            summary:
+              language === 'zh'
+                ? `文章解析失败：${error.message || '请确认文件可读取，并检查 AI 配置。'}`
+                : `Article analysis failed: ${error.message || 'Please check the file and AI configuration.'}`,
+            steps:
+              current.steps.length > 0
+                ? current.steps.map((step) =>
+                    step.status === 'active'
+                      ? {
+                          ...step,
+                          status: 'error',
+                          detail:
+                            language === 'zh'
+                              ? `此阶段失败：${error.message || '未知错误'}`
+                              : `This stage failed: ${error.message || 'Unknown error'}`,
+                        }
+                      : step,
+                  )
+                : createArticleAnalysisSteps(),
+          }));
+        }
         setAssistantMessages((messages) => [
           ...messages,
           {
@@ -798,7 +1095,15 @@ export const useAssistantPanel = ({
         setAssistantDocumentLoading(false);
       }
     },
-    [language, setAssistantMessages],
+    [
+      createArticleAnalysisSteps,
+      hasTextApiKey,
+      language,
+      onMissingTextApiKeyRequest,
+      runArticleAnalysisStage,
+      setAssistantMessages,
+      updateArticleAnalysisStep,
+    ],
   );
 
   const handleRemoveAssistantDocument = useCallback((documentId: string) => {
@@ -2121,6 +2426,7 @@ cards 必须正好有 3 张。`);
     assistantListening,
     assistantDocuments,
     assistantDocumentLoading,
+    assistantArticleAnalysis,
     assistantTasks,
     setAssistantTasks,
     activeAssistantTaskId,

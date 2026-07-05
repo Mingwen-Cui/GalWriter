@@ -1,6 +1,7 @@
 ﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import {
+  ChevronDown,
   Gamepad2,
   Eye,
   EyeOff,
@@ -819,7 +820,7 @@ JSON schema:
                       </div>
                       <div className="h-px flex-1 bg-[var(--vr-border)]" />
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
                       <IconToolButton
                         icon={Type}
                         label={t('添加文字', 'テキスト追加', 'Add text')}
@@ -831,14 +832,19 @@ JSON schema:
                         onClick={addStartMenuImage}
                       />
                       <label
-                        className="grid h-9 min-w-0 cursor-pointer place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
+                        className="flex h-9 min-w-0 cursor-pointer items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-indigo-500/25 hover:bg-white/5 hover:text-[var(--vr-text)]"
                         title={
                           webSettings.startMenuBackgroundMusicUrl
                             ? t('更换音乐', 'BGM変更', 'Replace music')
                             : t('导入 MP3', 'MP3読込', 'Import MP3')
                         }
                       >
-                        <Volume2 className="h-4 w-4" />
+                        <Volume2 className="h-3.5 w-3.5 shrink-0" />
+                        <span className="min-w-0 truncate">
+                          {webSettings.startMenuBackgroundMusicUrl
+                            ? t('更换音乐', 'BGM変更', 'Replace music')
+                            : t('导入音乐', 'BGM読込', 'Import music')}
+                        </span>
                         <input
                           type="file"
                           accept="audio/mpeg,audio/mp3,.mp3"
@@ -864,44 +870,34 @@ JSON schema:
                       </div>
                       <div className="h-px flex-1 bg-[var(--vr-border)]" />
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void generateStartMenuDesignWithAI()}
-                        disabled={!callAIForTextResult || aiStartMenuDesigning}
-                        className="grid h-9 min-w-0 place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                        title={
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
+                      <IconToolButton
+                        icon={Sparkles}
+                        label={
                           aiStartMenuDesigning
                             ? t('AI 设计中', 'AI設計中', 'AI designing')
                             : t('AI 设计', 'AI設計', 'AI Design')
                         }
-                      >
-                        <Sparkles
-                          className={`h-4 w-4 ${aiStartMenuDesigning ? 'animate-spin' : ''}`}
-                        />
-                      </button>
-                      <button
-                        type="button"
+                        onClick={() => void generateStartMenuDesignWithAI()}
+                        disabled={!callAIForTextResult || aiStartMenuDesigning}
+                        iconClassName={aiStartMenuDesigning ? 'animate-spin' : ''}
+                      />
+                      <IconToolButton
+                        icon={Save}
+                        label={t('保存设计', '保存', 'Save Design')}
                         onClick={saveStartMenuDesign}
-                        className="grid h-9 min-w-0 place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
-                        title={t('保存设计', '保存', 'Save Design')}
-                      >
-                        <Save className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <IconToolButton
+                        icon={Upload}
+                        label={t('套用设计', '適用', 'Apply Design')}
                         onClick={loadStartMenuDesign}
-                        className="grid h-9 min-w-0 place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
-                        title={t('套用设计', '適用', 'Apply Design')}
-                      >
-                        <Upload className="h-4 w-4" />
-                      </button>
+                      />
                     </div>
                     {webSettings.startMenuBackgroundMusicUrl && (
                       <button
                         type="button"
                         onClick={() => updateWebSettings('startMenuBackgroundMusicUrl', '')}
-                        className="flex h-9 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-rose-400/45 hover:bg-rose-500/10 hover:text-rose-500"
+                        className="flex h-9 min-w-0 items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-rose-400/45 hover:bg-rose-500/10 hover:text-rose-500"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="truncate">{t('移除音乐', 'BGM削除', 'Remove music')}</span>
@@ -1169,20 +1165,26 @@ function IconToolButton({
   icon: Icon,
   label,
   onClick,
+  disabled = false,
+  iconClassName = '',
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
+  iconClassName?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="grid h-9 place-items-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
+      disabled={disabled}
+      className="flex h-9 min-w-0 items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-indigo-500/25 hover:bg-white/5 hover:text-[var(--vr-text)] disabled:cursor-not-allowed disabled:opacity-50"
       title={label}
       aria-label={label}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={`h-3.5 w-3.5 shrink-0 ${iconClassName}`} />
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
@@ -1223,26 +1225,16 @@ function StartMenuBackgroundInspector({
       <StartMenuBackgroundField
         description={showDescriptions ? t('背景类型', '背景タイプ', 'Background type') : undefined}
       >
-        <div className="grid grid-cols-3 gap-2">
-          <StartMenuBackgroundChoiceButton
-            icon={Palette}
-            label={t('底色', '単色', 'Solid')}
-            active={settings.startMenuBackgroundType === 'solid'}
-            onClick={() => updateWebSettings('startMenuBackgroundType', 'solid')}
-          />
-          <StartMenuBackgroundChoiceButton
-            icon={Sparkles}
-            label={t('渐变', 'グラデ', 'Gradient')}
-            active={settings.startMenuBackgroundType === 'gradient'}
-            onClick={() => updateWebSettings('startMenuBackgroundType', 'gradient')}
-          />
-          <StartMenuBackgroundChoiceButton
-            icon={ImagePlus}
-            label={t('图片', '画像', 'Image')}
-            active={settings.startMenuBackgroundType === 'image'}
-            onClick={() => updateWebSettings('startMenuBackgroundType', 'image')}
-          />
-        </div>
+        <StartMenuBackgroundTypeSelect
+          value={settings.startMenuBackgroundType}
+          label={t('底色类型', '背景タイプ', 'Background type')}
+          options={[
+            { value: 'solid', label: t('纯色', '単色', 'Solid') },
+            { value: 'gradient', label: t('渐变', 'グラデ', 'Gradient') },
+            { value: 'image', label: t('图片', '画像', 'Image') },
+          ]}
+          onChange={(value) => updateWebSettings('startMenuBackgroundType', value)}
+        />
       </StartMenuBackgroundField>
       {settings.startMenuBackgroundType === 'solid' && (
         <StartMenuBackgroundField
@@ -1369,32 +1361,81 @@ function StartMenuBackgroundIconTile({
   );
 }
 
-function StartMenuBackgroundChoiceButton({
-  icon: Icon,
+function StartMenuBackgroundTypeSelect({
+  value,
   label,
-  active,
-  onClick,
+  options,
+  onChange,
 }: {
-  icon: LucideIcon;
+  value: WebExportSettings['startMenuBackgroundType'];
   label: string;
-  active: boolean;
-  onClick: () => void;
+  options: Array<{ value: WebExportSettings['startMenuBackgroundType']; label: string }>;
+  onChange: (value: WebExportSettings['startMenuBackgroundType']) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((option) => option.value === value)?.label || options[0].label;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-10 min-w-0 items-center justify-start gap-1.5 rounded-lg px-2 text-left text-[11px] font-normal transition-colors ${
-        active
-          ? 'border border-indigo-500/25 bg-indigo-500/15 text-indigo-500 ring-1 ring-indigo-400/35'
-          : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-      }`}
-      aria-pressed={active}
-      title={label}
+    <div
+      className="space-y-1"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
+      <div className="grid h-10 grid-cols-[28px_minmax(0,1fr)] items-stretch rounded-lg bg-[var(--vr-surface-soft)]">
+        <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+          <Palette className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0">
+          <div className="relative z-0 min-w-0">
+            <button
+              type="button"
+              onClick={() => setOpen((current) => !current)}
+              className="flex h-10 w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5"
+              title={label}
+              aria-haspopup="listbox"
+              aria-expanded={open}
+            >
+              <span className="min-w-0 truncate">{selectedLabel}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${
+                  open ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {open && (
+              <div
+                className="absolute right-0 top-[calc(100%+4px)] z-30 w-full min-w-[120px] overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1 shadow-xl shadow-black/15"
+                role="listbox"
+              >
+                {options.map((option) => {
+                  const active = option.value === value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        onChange(option.value);
+                        setOpen(false);
+                      }}
+                      className={`flex h-8 w-full items-center justify-end rounded-md px-2 text-right text-xs font-normal transition-colors ${
+                        active
+                          ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'
+                          : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+                      }`}
+                      role="option"
+                      aria-selected={active}
+                    >
+                      <span className="min-w-0 truncate">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

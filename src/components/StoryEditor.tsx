@@ -4259,6 +4259,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     assistantListening,
     assistantDocuments,
     assistantDocumentLoading,
+    assistantArticleAnalysis,
     assistantTasks,
     setAssistantTasks,
     activeAssistantTaskId,
@@ -5941,6 +5942,7 @@ ${layoutConfig.label}
           assistantListening={assistantListening}
           assistantDocuments={assistantDocuments}
           assistantDocumentLoading={assistantDocumentLoading}
+          assistantArticleAnalysis={assistantArticleAnalysis}
           assistantInput={assistantInput}
           selectedAssistantTargetNodesCount={selectedAssistantTargetNodes.length}
           assistantTasks={assistantTasks}

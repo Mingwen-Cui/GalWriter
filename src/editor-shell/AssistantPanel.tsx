@@ -1,6 +1,7 @@
 import {
   BrainCircuit,
   ChevronDown,
+  CheckCircle2,
   Download,
   FileText,
   Lightbulb,
@@ -30,6 +31,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
+import type { AssistantArticleAnalysisState } from '../editor-features/assistant/useAssistantPanel';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 
@@ -41,6 +43,7 @@ interface AssistantPanelProps {
   assistantListening: boolean;
   assistantDocuments: AssistantDocument[];
   assistantDocumentLoading: boolean;
+  assistantArticleAnalysis: AssistantArticleAnalysisState;
   assistantInput: string;
   selectedAssistantTargetNodesCount: number;
   assistantTasks: AssistantTask[];
@@ -86,6 +89,7 @@ export function AssistantPanel({
   assistantListening,
   assistantDocuments,
   assistantDocumentLoading,
+  assistantArticleAnalysis,
   assistantInput,
   selectedAssistantTargetNodesCount,
   assistantTasks,
@@ -123,6 +127,12 @@ export function AssistantPanel({
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
   const [documentUploadIntent, setDocumentUploadIntent] = useState<'article-to-galgame' | null>(
     null,
+  );
+  const [articleUploadStage, setArticleUploadStage] = useState<'upload' | 'analyzing' | 'ready'>(
+    'upload',
+  );
+  const [expandedArticleAnalysisSteps, setExpandedArticleAnalysisSteps] = useState<Set<string>>(
+    () => new Set(),
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
@@ -203,11 +213,20 @@ export function AssistantPanel({
   const uploadAccept =
     '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/*';
 
-  const handleDocumentFiles = (files: FileList | null) => {
+  const handleDocumentFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    void handleAssistantDocumentUpload(files, documentUploadIntent || undefined);
-    setDocumentUploadOpen(false);
     setDocumentDragActive(false);
+    const isArticleUpload = documentUploadIntent === 'article-to-galgame';
+
+    if (isArticleUpload) {
+      setArticleUploadStage('analyzing');
+      await handleAssistantDocumentUpload(files, 'article-to-galgame');
+      setArticleUploadStage('ready');
+      return;
+    }
+
+    await handleAssistantDocumentUpload(files);
+    setDocumentUploadOpen(false);
     setDocumentUploadIntent(null);
   };
 
@@ -390,6 +409,7 @@ export function AssistantPanel({
   const openArticleUploadFlow = () => {
     fadeOutWelcomeGradient();
     setDocumentUploadIntent('article-to-galgame');
+    setArticleUploadStage('upload');
     setDocumentUploadOpen(true);
   };
 
@@ -397,6 +417,29 @@ export function AssistantPanel({
     setDocumentUploadOpen(false);
     setDocumentDragActive(false);
     setDocumentUploadIntent(null);
+    setArticleUploadStage('upload');
+    setExpandedArticleAnalysisSteps(new Set());
+  };
+
+  const selectArticleTeachingMode = (mode: 'interactive' | 'lecture') => {
+    setDocumentUploadOpen(false);
+    setDocumentDragActive(false);
+    setDocumentUploadIntent(null);
+    setArticleUploadStage('upload');
+    setExpandedArticleAnalysisSteps(new Set());
+    void handleAssistantOptionSelect(`__article_teach__:${mode}`);
+  };
+
+  const toggleArticleAnalysisStep = (stepTitle: string) => {
+    setExpandedArticleAnalysisSteps((current) => {
+      const next = new Set(current);
+      if (next.has(stepTitle)) {
+        next.delete(stepTitle);
+      } else {
+        next.add(stepTitle);
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -422,6 +465,30 @@ export function AssistantPanel({
       window.removeEventListener('scroll', handleWindowChange, true);
     };
   }, [suggestMenuOpen]);
+
+  const articleDocumentCount = assistantDocuments.length;
+  const articleDocumentCharCount = assistantDocuments.reduce(
+    (sum, document) => sum + document.charCount,
+    0,
+  );
+  const articleDocumentSummary =
+    language === 'zh'
+      ? articleDocumentCount > 0
+        ? `已读取 ${articleDocumentCount} 个文档，约 ${articleDocumentCharCount.toLocaleString()} 字。`
+        : '上传后会在这里显示文档解析结果。'
+      : articleDocumentCount > 0
+        ? `Read ${articleDocumentCount} document(s), about ${articleDocumentCharCount.toLocaleString()} characters.`
+        : 'Document analysis results will appear here after upload.';
+  const articleAnalysisSteps = assistantArticleAnalysis.steps;
+  const effectiveArticleStage =
+    assistantArticleAnalysis.status === 'ready'
+      ? 'ready'
+      : assistantArticleAnalysis.status === 'reading' ||
+          assistantArticleAnalysis.status === 'analyzing' ||
+          assistantArticleAnalysis.status === 'error'
+        ? 'analyzing'
+        : articleUploadStage;
+  const articleAnalysisSummary = assistantArticleAnalysis.summary || articleDocumentSummary;
 
   if (!shouldRender) return null;
 
@@ -624,76 +691,200 @@ export function AssistantPanel({
             </div>
             <div className="assistant-article-upload-hero">
               <div className="assistant-article-upload-icon">
-                <FileText className="h-7 w-7" />
+                {effectiveArticleStage === 'upload' ? (
+                  <FileText className="h-7 w-7" />
+                ) : effectiveArticleStage === 'analyzing' ? (
+                  <Loader2 className="h-7 w-7 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-7 w-7" />
+                )}
               </div>
               <p className="assistant-article-upload-kicker">
                 {language === 'zh' ? '文章转 Galgame' : 'Article to Galgame'}
               </p>
               <h2>
-                {language === 'zh'
-                  ? '上传文章，我来拆成可教学的章节剧本'
-                  : 'Upload an article and turn it into teachable chapters'}
+                {effectiveArticleStage === 'upload'
+                  ? language === 'zh'
+                    ? '上传文章，我来拆成可教学的章节剧本'
+                    : 'Upload an article and turn it into teachable chapters'
+                  : effectiveArticleStage === 'analyzing'
+                    ? language === 'zh'
+                      ? assistantArticleAnalysis.status === 'error'
+                        ? '文章解析遇到问题'
+                        : 'AI 正在真实阅读文章...'
+                      : 'AI is analyzing the article...'
+                    : language === 'zh'
+                      ? '文章结构已解析完成'
+                      : 'Article structure is ready'}
               </h2>
               <p>
-                {language === 'zh'
-                  ? '我会先梳理文章内容、结构和章节重点，再询问教学方式，并在画布上按章节生成背景框和剧情卡。'
-                  : 'I will analyze the article, ask how to teach it, then generate chapter regions and story cards.'}
+                {effectiveArticleStage === 'upload'
+                  ? language === 'zh'
+                    ? '我会先梳理文章内容、结构和章节重点，再询问教学方式，并在画布上按章节生成背景框和剧情卡。'
+                    : 'I will analyze the article, ask how to teach it, then generate chapter regions and story cards.'
+                  : articleAnalysisSummary}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => documentInputRef.current?.click()}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(true);
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(false);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                handleDocumentFiles(event.dataTransfer.files);
-              }}
-              disabled={assistantDocumentLoading}
-              className={`assistant-article-upload-dropzone ${
-                documentDragActive ? 'assistant-article-upload-dropzone-active' : ''
-              }`}
-            >
-              {assistantDocumentLoading ? (
-                <Loader2 className="h-9 w-9 animate-spin" />
-              ) : (
-                <UploadCloud className="h-9 w-9" />
-              )}
-              <span className="assistant-article-upload-drop-title">
-                {language === 'zh'
-                  ? '拖拽 PDF 或 Word 文档到这里'
-                  : 'Drop PDF or Word documents here'}
-              </span>
-              <span className="assistant-article-upload-drop-subtitle">
-                {language === 'zh'
-                  ? '也可以点击选择文件。支持 PDF、Word、Excel、PPT 和常见文本文件。'
-                  : 'Or click to choose files. PDF, Word, Excel, PPT, and common text files are supported.'}
-              </span>
-            </button>
-            <div className="assistant-article-upload-steps">
-              <div>
-                <span>1</span>
-                <p>{language === 'zh' ? '读取文章文本' : 'Read the article'}</p>
-              </div>
-              <div>
-                <span>2</span>
-                <p>{language === 'zh' ? '选择教学方式' : 'Choose teaching style'}</p>
-              </div>
-              <div>
-                <span>3</span>
-                <p>{language === 'zh' ? '生成章节背景框' : 'Generate chapter regions'}</p>
-              </div>
-            </div>
+            {effectiveArticleStage === 'upload' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => documentInputRef.current?.click()}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setDocumentDragActive(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDocumentDragActive(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setDocumentDragActive(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    void handleDocumentFiles(event.dataTransfer.files);
+                  }}
+                  disabled={assistantDocumentLoading}
+                  className={`assistant-article-upload-dropzone ${
+                    documentDragActive ? 'assistant-article-upload-dropzone-active' : ''
+                  }`}
+                >
+                  <UploadCloud className="h-9 w-9" />
+                  <span className="assistant-article-upload-drop-title">
+                    {language === 'zh'
+                      ? '拖拽 PDF 或 Word 文档到这里'
+                      : 'Drop PDF or Word documents here'}
+                  </span>
+                  <span className="assistant-article-upload-drop-subtitle">
+                    {language === 'zh'
+                      ? '也可以点击选择文件。支持 PDF、Word、Excel、PPT 和常见文本文件。'
+                      : 'Or click to choose files. PDF, Word, Excel, PPT, and common text files are supported.'}
+                  </span>
+                </button>
+                <div className="assistant-article-upload-steps">
+                  <div>
+                    <span>1</span>
+                    <p>{language === 'zh' ? '上传文章文档' : 'Upload article documents'}</p>
+                  </div>
+                  <div>
+                    <span>2</span>
+                    <p>{language === 'zh' ? '展示 AI 解析过程' : 'Show AI analysis process'}</p>
+                  </div>
+                  <div>
+                    <span>3</span>
+                    <p>{language === 'zh' ? '生成章节背景框' : 'Generate chapter regions'}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="assistant-article-analysis-card">
+                  <div className="assistant-article-analysis-card-title">
+                    <BrainCircuit className="h-4 w-4" />
+                    <span>
+                      {effectiveArticleStage === 'analyzing'
+                        ? language === 'zh'
+                          ? assistantArticleAnalysis.status === 'error'
+                            ? 'AI 文章解析失败'
+                            : 'AI 文章解析中...'
+                          : 'AI Article Analysis...'
+                        : language === 'zh'
+                          ? 'AI 已完成文章诊断'
+                          : 'AI analysis complete'}
+                    </span>
+                  </div>
+                  <div className="assistant-article-analysis-timeline">
+                    {articleAnalysisSteps.map((step, index) => {
+                      const state = step.status;
+                      const lastDoneStepIndex = articleAnalysisSteps.reduce(
+                        (lastIndex, currentStep, currentIndex) =>
+                          currentStep.status === 'done' ? currentIndex : lastIndex,
+                        -1,
+                      );
+                      const isAutoExpanded =
+                        state === 'active' ||
+                        state === 'error' ||
+                        (state === 'done' && index === lastDoneStepIndex);
+                      const isExpanded =
+                        isAutoExpanded || expandedArticleAnalysisSteps.has(step.title);
+                      const canToggle = state === 'done' || state === 'error';
+                      return (
+                        <div
+                          key={step.title}
+                          className={`assistant-article-analysis-step assistant-article-analysis-step-${state} ${
+                            isExpanded ? 'assistant-article-analysis-step-expanded' : ''
+                          }`}
+                        >
+                          <span className="assistant-article-analysis-marker">
+                            {state === 'done' ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : state === 'active' ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : state === 'error' ? (
+                              <X className="h-4 w-4" />
+                            ) : null}
+                          </span>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => canToggle && toggleArticleAnalysisStep(step.title)}
+                              disabled={!canToggle}
+                              className="assistant-article-analysis-step-title"
+                            >
+                              <strong>{step.title}</strong>
+                              {canToggle && (
+                                <ChevronDown
+                                  className={`h-3.5 w-3.5 transition-transform ${
+                                    isExpanded ? 'rotate-180' : ''
+                                  }`}
+                                />
+                              )}
+                            </button>
+                            {isExpanded && (
+                              <>
+                                <p>{step.detail}</p>
+                                {step.evidence && (
+                                  <p className="assistant-article-analysis-evidence">
+                                    {step.evidence}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {effectiveArticleStage === 'ready' && (
+                  <div className="assistant-article-teach-choice">
+                    <p>
+                      {language === 'zh'
+                        ? '选择你希望读者如何学习这篇文章：'
+                        : 'Choose how readers should learn this article:'}
+                    </p>
+                    <button type="button" onClick={() => selectArticleTeachingMode('interactive')}>
+                      <span>{language === 'zh' ? '对话式教学' : 'Interactive Teaching'}</span>
+                      <small>
+                        {language === 'zh'
+                          ? '强调交互、提问、反馈和分步确认。'
+                          : 'Questions, interaction, feedback, and step-by-step checks.'}
+                      </small>
+                    </button>
+                    <button type="button" onClick={() => selectArticleTeachingMode('lecture')}>
+                      <span>{language === 'zh' ? '讲课式教学' : 'Lecture Teaching'}</span>
+                      <small>
+                        {language === 'zh'
+                          ? '强调讲解语气、逻辑层次和知识点推进。'
+                          : 'Clear explanation, logic, examples, and knowledge flow.'}
+                      </small>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </section>
         ) : visibleAssistantMessages.length === 0 && !assistantLoading ? (
           <section className="assistant-welcome-card">
