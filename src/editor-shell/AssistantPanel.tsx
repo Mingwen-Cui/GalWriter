@@ -278,9 +278,9 @@ export function AssistantPanel({
           },
           {
             icon: <SearchCheck className="h-4 w-4" />,
-            title: '我卡在剧情里了',
-            description: '一起拆卡点，找冲突、节奏、转折和解决方向。',
-            prompt: '我卡在剧情里了，请帮我分析问题并给我几个可写下去的方向。',
+            title: '我想把文章转成 Galgame',
+            description: '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。',
+            prompt: '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。',
           },
         ]
       : [
@@ -1062,14 +1062,14 @@ export function AssistantPanel({
               <div className="min-w-0">
                 <div className="truncate text-sm font-black text-slate-800 dark:text-white">
                   {language === 'zh'
-                    ? '上传参考文件'
+                    ? '上传文章文档'
                     : language === 'ja'
                       ? '参考ファイルをアップロード'
                       : 'Upload reference files'}
                 </div>
                 <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   {language === 'zh'
-                    ? '支持 PDF、Word、Excel、PPT 和常见文本文件'
+                    ? '支持 PDF、Word 等文档，上传后可交给 AI 转成 galgame'
                     : language === 'ja'
                       ? 'PDF、Word、Excel、PPT、および一般的なテキストファイルをサポート'
                       : 'Supports PDF, Word, Excel, PPT, and common text files'}
@@ -1120,7 +1120,7 @@ export function AssistantPanel({
               )}
               <div className="text-sm font-black">
                 {language === 'zh'
-                  ? '拖拽文件到这里，或点击上传'
+                  ? '拖拽 PDF 或 Word 文档到这里，或点击上传'
                   : language === 'ja'
                     ? 'ファイルをここにドラッグするか、クリックしてアップロード'
                     : 'Drop files here, or click to upload'}
