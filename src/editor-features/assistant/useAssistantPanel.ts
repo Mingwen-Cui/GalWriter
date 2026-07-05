@@ -56,7 +56,8 @@ type AssistantWorkflowState =
   | { type: 'starter-generate'; theme: string; style: string; supplement?: string }
   | { type: 'revision-awaiting-opinion' }
   | { type: 'future-awaiting-count'; targetNodeId: string }
-  | { type: 'future-generate-bridge'; targetNodeId: string; count: number };
+  | { type: 'future-generate-bridge'; targetNodeId: string; count: number }
+  | { type: 'article-teach-generate'; teachingMode: 'interactive' | 'lecture' };
 
 export type AssistantCardPlacementResult = {
   count: number;
@@ -489,7 +490,10 @@ interface UseAssistantPanelResult {
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
   handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
-  handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
+  handleAssistantDocumentUpload: (
+    files: FileList | null,
+    intent?: 'article-to-galgame',
+  ) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
   toggleAssistantThought: (messageId: string) => void;
@@ -730,7 +734,7 @@ export const useAssistantPanel = ({
   );
 
   const handleAssistantDocumentUpload = useCallback(
-    async (files: FileList | null) => {
+    async (files: FileList | null, intent?: 'article-to-galgame') => {
       const selectedFiles = Array.from(files || []);
       if (selectedFiles.length === 0) return;
 
@@ -750,11 +754,30 @@ export const useAssistantPanel = ({
             id: uuidv4(),
             role: 'assistant',
             content:
-              language === 'zh'
+              intent === 'article-to-galgame' && language === 'zh'
+                ? `已读取 ${documents.length} 个文章文档。我会先自己理清文章内容和结构，再按章节在画布上画出对应背景框。你希望我怎么把它教给读者？`
+                : language === 'zh'
                 ? `已读取 ${documents.length} 个参考文档。接下来我会结合这些文档内容来回答和生成剧情。`
                 : language === 'ja'
                   ? `${documents.length}個の参照ドキュメントを読み込みました。今後のストーリー生成のコンテキストとして使用します。`
                   : `Read ${documents.length} reference document(s). I will use them as context for the next story requests.`,
+            options:
+              intent === 'article-to-galgame' && language === 'zh'
+                ? [
+                    {
+                      id: uuidv4(),
+                      label: '对话式教学',
+                      description: '强调交互、提问、反馈和分步确认，像一对一辅导。',
+                      value: '__article_teach__:interactive',
+                    },
+                    {
+                      id: uuidv4(),
+                      label: '讲课式教学',
+                      description: '强调讲解语气、逻辑层次和知识点推进，像课堂授课。',
+                      value: '__article_teach__:lecture',
+                    },
+                  ]
+                : undefined,
           },
         ]);
       } catch (error: any) {
@@ -1297,6 +1320,20 @@ The previous streaming response did not complete every placeholder card. Return 
         forcedMode = 'bridge-to-target';
         placementOptions = { targetNodeId: workflow.targetNodeId };
         assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'article-teach-generate') {
+        const modeInstruction =
+          workflow.teachingMode === 'interactive'
+            ? '教学方式：对话式教学。强调交互和反馈，把内容拆成提问、用户回应、AI 点评/补充、下一步引导的节拍。每一章都要安排可演出的问答和确认点。'
+            : '教学方式：讲课式教学。强调语气和逻辑上的递进，用清楚的讲授口吻组织概念、例子、总结和过渡。每一章都要有讲解层次和重点句。';
+        effectiveUserText = `请把用户上传的文章转化成 galgame/视觉小说教学项目。${modeInstruction}
+重点要求：
+1. 你必须先自行理清文章的主题、章节结构、关键概念、论证顺序和读者学习路径。
+2. 按文章结构拆成 3 到 6 个章节；每张剧情卡都必须带 chapterTitle 字段，chapterTitle 是所属章节标题。
+3. 为每个章节生成一组连续 story 卡，落到画布后系统会按 chapterTitle 自动画出对应背景框。
+4. 适量生成人物卡和场景卡；人物用于教学者/学习者或旁白角色，场景用于课堂、书桌、资料室等教学空间。
+5. 剧情卡要适合 galgame 演出，短句、分步、可交互，不要把整篇文章直接塞进单张卡。
+用户补充要求：${userText}`;
+        assistantWorkflowRef.current = { type: 'idle' };
       }
 
       const wantsCards =
@@ -1315,6 +1352,8 @@ The previous streaming response did not complete every placeholder card. Return 
 
       const numberLogicInstruction = `Number logic rule: Only create {"type":"number-condition"} cards when the user explicitly asks for affection, numeric values, value changes, conditional branches, route logic, hidden endings, or other complex logic. Do not use number-condition cards for ordinary story generation or normal setting cards. To control affection or another score, set "nodeValue" on relevant story cards, for example {"type":"story","title":"Affection rises","text":"...","nodeValue":5}. A number-condition card reads the accumulated upstream story nodeValue and may use {"type":"number-condition","key":"check","title":"Affection check","threshold":10,"ranges":[{"min":0,"max":9},{"min":10,"max":99}],"branchTargets":[{"handle":"less","target":"bad_end","label":"low affection"},{"handle":"greater","target":"good_end","label":"high affection"}]}. For any branching story, give cards stable "key" values and use "connectTo":["next_key"] or "branchTargets":[{"target":"ending_a"},{"target":"ending_b"}] so one card can connect to multiple later cards. When the user asks for multiple endings, create several ending story cards and connect the shared parent card to all of them with branchTargets, not a linear chain.`;
 
+      const isArticleTeachingWorkflow = workflow.type === 'article-teach-generate';
+
       const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
 ${numberLogicInstruction}
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
@@ -1324,12 +1363,13 @@ ${numberLogicInstruction}
 剧情卡正文要按视觉小说台本来写：对白优先，少写大段环境描写和心理散文。不要手写裸 @ 前缀，不要写“角色名：台词”，不要用冒号表示说话范围，不要用引号包裹台词，不要把动作或神态放进中文/英文括号里。
 剧情正文必须明确写出主要人物名和场景名；每一张 story 普通卡都必须包含对应场景名，让系统插入场景 tag 并把对应场景照片放进卡片内部。只有人物 tag、没有场景 tag 的普通卡会缺少场景照片，必须避免。人物第一次出场、靠近/转身/沉默/离开等关键动作处，都要再次写人物名或场景名，方便系统自动插入人物/场景 tag 并控制入场、中场动作和出场动画。系统自动插入的 tag 是必要的，可以保留；tag 在正文开头或结尾用于入场/出场动画，在正文中央用于角色中场动画。中场人物 tag 要少用，只在需要表现明显神态或情绪反应时使用，例如紧张、惊讶、害怕、激动、兴奋等可以通过抖动或反应动画表达的瞬间；普通叙述和普通台词不要频繁插入中场 tag。人物名或场景名应自然放在句首或句中，例如“艾琳在旧图书馆低声说，隐藏附录怎么可能”，不要写成“@艾琳：‘隐藏附录怎么可能？’”。
 拆卡粒度要求：不要把一整个场景塞进一张 story 卡。一个角色的一次发言、一次沉默、一次靠近/离开/转身等短动作，尽量单独写成一张 story 卡。不同人说的话必须拆到不同的 story 卡里；每张 story 卡只承载一个角色的一句或一小组连续台词，或一个短动作节拍。不要害怕生成很多剧情卡，完整片段通常生成 6 到 12 张 story 卡。
+文章转 galgame 教学要求：如果用户要求把上传文章转成 galgame，必须先理解文章结构，再把不同章节拆成 story 卡；每张 story 卡必须包含 "chapterTitle" 字段，系统会用 chapterTitle 给对应章节自动画背景框。chapterTitle 要稳定、简短、来自文章结构，不要把所有卡都放在同一个章节。
 
 必须只返回 JSON，不要使用 Markdown 代码块：
 {
   "reply": "给用户看的中文回复，说明思路和你做了什么",
   "cards": [
-    {"type": "story", "title": "剧情卡片标题", "text": "剧情卡片正文"},
+    {"type": "story", "chapterTitle": "章节标题，可选；文章转 galgame 时必填", "title": "剧情卡片标题", "text": "剧情卡片正文"},
     {"type": "character", "characterName": "人物名", "traits": "综合设定", "personality": "性格", "features": "人物特点", "background": "人物背景", "other": "其他设定"},
     {"type": "scene", "sceneName": "场景名", "description": "综合描述", "location": "位置描写", "items": "场景物品", "atmosphere": "氛围环境", "other": "其他设定"}
   ],
@@ -1380,7 +1420,13 @@ ${canvasContext || '无'}`;
       }
 
       try {
-        if (wantsCards && !fillSelected && callAIForTextStream && updateStreamingAssistantCards) {
+        if (
+          wantsCards &&
+          !fillSelected &&
+          !isArticleTeachingWorkflow &&
+          callAIForTextStream &&
+          updateStreamingAssistantCards
+        ) {
           const streamed = await runStructuredCardStream({
             prompt,
             userText: effectiveUserText,
@@ -1823,6 +1869,21 @@ cards 必须正好有 3 张。`);
         } finally {
           setAssistantLoading(false);
         }
+        return;
+      }
+
+      if (value.startsWith('__article_teach__:')) {
+        const teachingMode = value.slice('__article_teach__:'.length);
+        const isInteractive = teachingMode === 'interactive';
+        assistantWorkflowRef.current = {
+          type: 'article-teach-generate',
+          teachingMode: isInteractive ? 'interactive' : 'lecture',
+        };
+        await handleAssistantSend(
+          isInteractive
+            ? '请用对话式教学把上传文章转化成 galgame。强调交互、提问、反馈和分步确认。'
+            : '请用讲课式教学把上传文章转化成 galgame。强调讲解语气、逻辑层次和知识点推进。',
+        );
         return;
       }
 

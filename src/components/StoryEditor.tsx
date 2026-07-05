@@ -2903,6 +2903,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           ...card,
           type: getDraftType(card),
           key: cleanText(card.key),
+          chapterTitle: cleanText(card.chapterTitle),
           title: cleanText(card.title),
           text: cleanText(card.text),
           nodeValue:
@@ -3435,6 +3436,60 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           };
         });
       }
+
+      const storyChapterTitles = storyIndexes
+        .map((index) => remainingCards[index].chapterTitle)
+        .filter((title): title is string => Boolean(title));
+      const uniqueStoryChapterTitles = Array.from(new Set(storyChapterTitles));
+      const chapterBackgroundNodes: Node[] = [];
+      if (uniqueStoryChapterTitles.length > 0) {
+        const storyX = columnXByType.get('story') ?? center.x - AI_STORY_CARD_WIDTH / 2;
+        const chapterGap = 140;
+        const chapterPadding = 56;
+        let chapterTop = layoutTop;
+
+        uniqueStoryChapterTitles.forEach((chapterTitle, chapterIndex) => {
+          const chapterStoryIndexes = storyIndexes.filter(
+            (storyIndex) => remainingCards[storyIndex].chapterTitle === chapterTitle,
+          );
+          if (chapterStoryIndexes.length === 0) return;
+
+          chapterStoryIndexes.forEach((storyIndex, rowIndex) => {
+            const node = newNodes[storyIndex];
+            if (!node) return;
+            node.position = {
+              x: storyX,
+              y: chapterTop + chapterPadding + rowIndex * (AI_STORY_CARD_HEIGHT + 72),
+            };
+          });
+
+          const chapterHeight =
+            chapterPadding * 2 +
+            chapterStoryIndexes.length * AI_STORY_CARD_HEIGHT +
+            Math.max(0, chapterStoryIndexes.length - 1) * 72;
+          const backgroundId = uuidv4();
+          const chapterColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
+          chapterBackgroundNodes.push({
+            id: backgroundId,
+            type: 'backgroundNode',
+            position: { x: storyX - chapterPadding, y: chapterTop },
+            dragHandle: '.custom-drag-handle',
+            style: {
+              width: AI_STORY_CARD_WIDTH + chapterPadding * 2,
+              height: chapterHeight,
+              zIndex: -3,
+            },
+            data: {
+              id: backgroundId,
+              title: chapterTitle,
+              color: chapterColors[chapterIndex % chapterColors.length],
+            },
+          });
+
+          chapterTop += chapterHeight + chapterGap;
+        });
+      }
+
       const nodeByDraftRef = new Map<string, Node>();
       remainingCards.forEach((card, index) => {
         const node = newNodes[index];
@@ -3607,6 +3662,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           }))
           .filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
         ...newNodes,
+        ...chapterBackgroundNodes,
       ]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
       return {

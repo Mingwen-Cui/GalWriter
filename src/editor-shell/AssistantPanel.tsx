@@ -56,7 +56,10 @@ interface AssistantPanelProps {
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
   handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
-  handleAssistantDocumentUpload: (files: FileList | null) => Promise<void>;
+  handleAssistantDocumentUpload: (
+    files: FileList | null,
+    intent?: 'article-to-galgame',
+  ) => Promise<void>;
   handleRemoveAssistantDocument: (documentId: string) => void;
   handleAssistantVoiceInput: () => void;
   toggleAssistantThought: (messageId: string) => void;
@@ -118,6 +121,9 @@ export function AssistantPanel({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [documentUploadOpen, setDocumentUploadOpen] = useState(false);
+  const [documentUploadIntent, setDocumentUploadIntent] = useState<'article-to-galgame' | null>(
+    null,
+  );
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
@@ -197,9 +203,10 @@ export function AssistantPanel({
 
   const handleDocumentFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    void handleAssistantDocumentUpload(files);
+    void handleAssistantDocumentUpload(files, documentUploadIntent || undefined);
     setDocumentUploadOpen(false);
     setDocumentDragActive(false);
+    setDocumentUploadIntent(null);
   };
 
   const applyAssistantTemplate = (template: string) => {
@@ -376,6 +383,12 @@ export function AssistantPanel({
   const startAssistantFlowWithGradientExit = (flow: 'idea' | 'starter' | 'revision' | 'future') => {
     fadeOutWelcomeGradient();
     return handleStartAssistantFlow(flow);
+  };
+
+  const openArticleUploadFlow = () => {
+    fadeOutWelcomeGradient();
+    setDocumentUploadIntent('article-to-galgame');
+    setDocumentUploadOpen(true);
   };
 
   useEffect(() => {
@@ -592,6 +605,8 @@ export function AssistantPanel({
                     onClick={() =>
                       index === 0
                         ? void startAssistantFlowWithGradientExit('idea')
+                        : index === 2
+                          ? openArticleUploadFlow()
                         : void sendAssistantMessage(item.prompt)
                     }
                     disabled={assistantLoading}
@@ -845,7 +860,10 @@ export function AssistantPanel({
         <div className="assistant-input-box flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
-            onClick={() => setDocumentUploadOpen(true)}
+            onClick={() => {
+              setDocumentUploadIntent(null);
+              setDocumentUploadOpen(true);
+            }}
             disabled={assistantLoading || assistantDocumentLoading}
             className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
             title={
@@ -1080,6 +1098,7 @@ export function AssistantPanel({
                 onClick={() => {
                   setDocumentUploadOpen(false);
                   setDocumentDragActive(false);
+                  setDocumentUploadIntent(null);
                 }}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
                 title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
