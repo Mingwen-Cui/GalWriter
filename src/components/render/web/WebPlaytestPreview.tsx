@@ -1990,10 +1990,16 @@ export function WebPlaytestPreview({
         <WebPreviewMenuPages
           language={language}
           settings={settings}
+          previewMode={previewMode}
+          selectedStartMenuElementId={selectedStartMenuElementId}
           archiveOpen={previewArchiveOpen}
           settingsOpen={previewStartSettingsOpen}
           backgroundClass={startMenuBackgroundClass}
           backgroundStyle={startMenuBackgroundStyle}
+          boundsMinX={boundsMinX}
+          boundsMinY={boundsMinY}
+          boundsMaxX={boundsMaxX}
+          boundsMaxY={boundsMaxY}
           choiceColor={choiceColor}
           choiceTextColor={choiceTextColor}
           previewControlsHidden={previewControlsHidden}
@@ -2005,6 +2011,7 @@ export function WebPlaytestPreview({
             setPreviewStartMenuOpen(false);
           }}
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
+          onBeginBoundsDrag={beginStartMenuBoundsDrag}
           onUpdateSettings={onUpdateSettings}
         />
       </div>
