@@ -32,6 +32,7 @@ export type VideoRenderModalProps = {
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   voiceTtsConfig?: TTSConfig;
+  callAIForTextResult?: (prompt: string) => Promise<{ content: string; reasoning?: string }>;
 };
 
 export type RenderStyle = {

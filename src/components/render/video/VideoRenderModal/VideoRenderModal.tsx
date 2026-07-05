@@ -110,6 +110,7 @@ export function VideoRenderModal({
   workspaceKey,
   renderStyle,
   updateRenderStyle,
+  callAIForTextResult,
   voiceTtsConfig,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
@@ -2091,21 +2092,15 @@ export function VideoRenderModal({
             webChoiceTextColor={webChoiceTextColor}
             webSettings={webSettings}
             webProjectName={webProjectName}
-            defaultWebProjectName={defaultWebProjectName}
             progress={progress}
             error={error}
             progressValue={progressValue}
             savedPath={savedPath}
-            outputDir={webOutputDir}
-            outputDirError={webOutputDirError}
-            setWebProjectName={setWebProjectName}
-            setOutputDir={setWebOutputDir}
-            setOutputDirError={setWebOutputDirError}
-            chooseOutputDir={chooseWebOutputDir}
             updateWebSettings={updateWebSettings}
             updateWebChoiceTextColor={updateWebChoiceTextColor}
             updateWebChoiceColor={updateWebChoiceColor}
             updateWebRenderStyle={updateRenderStyle}
+            callAIForTextResult={callAIForTextResult}
           />
         )}
       </div>

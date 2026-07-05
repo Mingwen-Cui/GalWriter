@@ -6005,6 +6005,7 @@ ${layoutConfig.label}
             workspaceKey={currentProjectId || currentProjectFilePath || 'draft'}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
+            callAIForTextResult={callAIForTextResult}
             voiceTtsConfig={{
               provider: ttsProvider,
               apiUrl: ttsApiUrl,

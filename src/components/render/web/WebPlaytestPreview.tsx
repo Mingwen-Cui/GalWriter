@@ -113,6 +113,7 @@ const readStartMenuImageFile = (file: File, onReady: (value: string) => void) =>
   };
   reader.readAsDataURL(file);
 };
+const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -125,6 +126,7 @@ type WebPlaytestPreviewProps = {
   projectTitle: string;
   previewMode?: 'edit' | 'test';
   selectedStartMenuElementId?: string | null;
+  onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
   onDeleteStartMenuElement?: (id: string) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
@@ -133,6 +135,8 @@ type WebPlaytestPreviewProps = {
   ) => void;
   onUpdateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
 };
+
+export type WebPreviewSurface = 'start' | 'archive' | 'settings' | 'game';
 
 type PlayedAudio = {
   nodeId: string;
@@ -151,6 +155,7 @@ export function WebPlaytestPreview({
   projectTitle,
   previewMode = 'test',
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
+  onSurfaceChange,
   onSelectStartMenuElement,
   onDeleteStartMenuElement,
   onUpdateSettings,
@@ -187,6 +192,7 @@ export function WebPlaytestPreview({
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
   const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
   const [previewStartSettingsOpen, setPreviewStartSettingsOpen] = useState(false);
+  const [previewArchiveOpen, setPreviewArchiveOpen] = useState(false);
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
   const dialogueBoxRef = useRef<HTMLDivElement>(null);
@@ -481,6 +487,7 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     setPreviewStartSettingsOpen(false);
+    setPreviewArchiveOpen(false);
     setPreviewStartMenuOpen(settings.showStartMenu);
 
     if (previewMode !== 'test') return;
@@ -490,6 +497,17 @@ export function WebPlaytestPreview({
     setHistory([]);
     setCurrentNodeId(root?.id || null);
   }, [previewMode, restartPlaybackSession, root?.id, settings.showStartMenu]);
+
+  React.useEffect(() => {
+    const surface: WebPreviewSurface = previewStartMenuOpen
+      ? previewStartSettingsOpen
+        ? 'settings'
+        : previewArchiveOpen
+          ? 'archive'
+          : 'start'
+      : 'game';
+    onSurfaceChange?.(surface);
+  }, [onSurfaceChange, previewArchiveOpen, previewStartMenuOpen, previewStartSettingsOpen]);
 
   const currentNode =
     currentNodeId && currentNodeId !== 'THE_END'
@@ -1009,6 +1027,7 @@ export function WebPlaytestPreview({
     currentVideoRef.current?.pause();
     setShowAudioPlaylist(false);
     setPreviewStartSettingsOpen(false);
+    setPreviewArchiveOpen(false);
     setPreviewStartMenuOpen(true);
   };
 
@@ -1076,7 +1095,10 @@ export function WebPlaytestPreview({
           label: t('存档', 'セーブ', 'Save'),
           disabled: true,
           primary: true,
-          onClick: () => {},
+          onClick: () => {
+            setPreviewArchiveOpen(true);
+            setPreviewStartSettingsOpen(false);
+          },
         }
       : null,
     settings.startMenuShowNewGame ||
@@ -1090,6 +1112,7 @@ export function WebPlaytestPreview({
             reset();
             setPreviewStartMenuOpen(false);
             setPreviewStartSettingsOpen(false);
+            setPreviewArchiveOpen(false);
           },
         }
       : null,
@@ -1099,7 +1122,10 @@ export function WebPlaytestPreview({
           label: t('设置', '設定', 'Settings'),
           disabled: false,
           primary: false,
-          onClick: () => setPreviewStartSettingsOpen(true),
+          onClick: () => {
+            setPreviewStartSettingsOpen(true);
+            setPreviewArchiveOpen(false);
+          },
         }
       : null,
   ].filter(
@@ -1679,12 +1705,13 @@ export function WebPlaytestPreview({
                 onDoubleClick={(event) => {
                   if (previewMode !== 'edit') return;
                   event.stopPropagation();
+                  event.preventDefault();
                   if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
                   setSelectedStartMenuElementId(element.id);
                   setEditingStartMenuElementId(element.id);
                 }}
                 onPointerDown={(event) => {
-                  if (editingStartMenuElementId === element.id) event.stopPropagation();
+                  if (previewMode === 'edit') event.stopPropagation();
                 }}
                 onBlur={(event) => {
                   updateStartMenuElement(element.id, { text: event.currentTarget.textContent || '' });
@@ -1704,12 +1731,14 @@ export function WebPlaytestPreview({
               </span>
             );
             const startEditingText = (event: React.MouseEvent<HTMLElement>) => {
-              if (previewMode !== 'edit' || element.kind !== 'text') return;
+              if (previewMode !== 'edit' || (element.kind !== 'text' && element.kind !== 'button')) return;
               event.stopPropagation();
+              event.preventDefault();
               if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
               setSelectedStartMenuElementId(element.id);
               setEditingStartMenuElementId(element.id);
             };
+            const canDeleteElement = !element.role || !protectedStartMenuElementRoles.has(element.role);
             return (
               <div
                 key={element.id}
@@ -1729,7 +1758,7 @@ export function WebPlaytestPreview({
               >
                 {previewMode === 'edit' && element.kind === 'button' && (
                   <div className="pointer-events-none absolute left-0 top-0 z-10 max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
-                    {element.text || action?.label || element.id}
+                    {action?.label || element.id}
                   </div>
                 )}
                 {element.kind === 'image' ? (
@@ -1768,8 +1797,9 @@ export function WebPlaytestPreview({
                 ) : element.kind === 'button' ? (
                   <button
                     type="button"
-                    disabled={previewMode !== 'edit' && Boolean(element.disabled || action?.disabled)}
+                    disabled={previewMode !== 'edit' && Boolean(element.disabled && !action)}
                     onClick={(event) => {
+                      if (editingStartMenuElementId === element.id) return;
                       if (previewMode === 'edit') {
                         event.preventDefault();
                         return;
@@ -1819,7 +1849,8 @@ export function WebPlaytestPreview({
                     >
                       {element.visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     </button>
-                    <button
+                    {canDeleteElement && (
+                      <button
                       type="button"
                       className="absolute -right-8 top-5 grid h-6 w-6 place-items-center rounded-full bg-rose-500 text-white shadow"
                       onPointerDown={(event) => event.stopPropagation()}
@@ -1831,7 +1862,8 @@ export function WebPlaytestPreview({
                       aria-label={t('删除', '削除', 'Delete')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="absolute -left-8 -top-3 grid h-6 w-6 cursor-alias place-items-center rounded-full bg-white text-slate-900 shadow"
@@ -1862,12 +1894,14 @@ export function WebPlaytestPreview({
           <div
             className={`absolute z-10 border-[2.5px] border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ${
               settings.startMenuPlacementBoundsLocked
-                ? 'border-amber-400/90'
+                ? 'border-slate-400/65'
                 : 'border-white/60'
             } ${
               selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked
                 ? 'cursor-grab active:cursor-grabbing pointer-events-auto'
-                : 'pointer-events-none'
+                : selectedStartMenuElementId === null
+                  ? 'pointer-events-auto'
+                  : 'pointer-events-none'
             }`}
             style={{
               left: `${boundsMinX}%`,
@@ -1876,7 +1910,7 @@ export function WebPlaytestPreview({
               height: `${boundsMaxY - boundsMinY}%`,
             }}
             onPointerDown={(event) => {
-              if (selectedStartMenuElementId === null) {
+              if (selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked) {
                 beginStartMenuBoundsDrag(event, 'move');
               }
             }}
@@ -1916,6 +1950,7 @@ export function WebPlaytestPreview({
               </button>
             )}
             {selectedStartMenuElementId === null &&
+              !settings.startMenuPlacementBoundsLocked &&
               (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map((handle) => (
                 <button
                   key={handle}
@@ -1932,6 +1967,53 @@ export function WebPlaytestPreview({
                   aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
                 />
               ))}
+          </div>
+        )}
+        {previewArchiveOpen && (
+          <div
+            className="absolute inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewArchiveOpen(false)}
+          >
+            <div
+              className="grid w-[min(480px,calc(100%-32px))] gap-3 rounded-2xl border border-white/14 bg-slate-950/95 p-4 text-left text-white shadow-2xl shadow-black/40"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-black">{t('存档', 'セーブ', 'Save')}</div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewArchiveOpen(false)}
+                  className="grid h-8 w-8 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white/14 hover:text-white"
+                  aria-label="Close"
+                >
+                  x
+                </button>
+              </div>
+              <button
+                type="button"
+                className="grid min-h-16 gap-1 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-left text-xs font-black text-white/80"
+              >
+                <span>{t('没有存档', 'セーブなし', 'No save')}</span>
+                <span className="text-[10px] font-bold text-white/42">
+                  {t(
+                    '导出后的网页会在这里显示上次进度。',
+                    '書き出し後のWebでは前回の進捗が表示されます。',
+                    'Exported web builds show the last progress here.',
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  reset();
+                  setPreviewArchiveOpen(false);
+                  setPreviewStartMenuOpen(false);
+                }}
+                className="h-11 rounded-xl bg-sky-500 px-3 text-xs font-black text-white transition-colors hover:bg-sky-400"
+              >
+                {t('新游戏', '新規ゲーム', 'New Game')}
+              </button>
+            </div>
           </div>
         )}
         {previewStartSettingsOpen && (
