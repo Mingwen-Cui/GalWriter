@@ -65,6 +65,7 @@ import {
 } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
+import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 
 type StartMenuElement = WebExportSettings['startMenuElements'][number];
 type StartMenuResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -1237,6 +1238,22 @@ export function WebPlaytestPreview({
     settings.startMenuElements && settings.startMenuElements.length > 0
       ? settings.startMenuElements
       : defaultStartMenuElements;
+  const defaultArchivePageElements = React.useMemo(
+    () => buildArchivePageElements(language, choiceColor, choiceTextColor),
+    [choiceColor, choiceTextColor, language],
+  );
+  const defaultSettingsPageElements = React.useMemo(
+    () => buildSettingsPageElements(language, choiceColor, choiceTextColor),
+    [choiceColor, choiceTextColor, language],
+  );
+  const archivePageElements =
+    settings.archivePageElements && settings.archivePageElements.length > 0
+      ? settings.archivePageElements
+      : defaultArchivePageElements;
+  const settingsPageElements =
+    settings.settingsPageElements && settings.settingsPageElements.length > 0
+      ? settings.settingsPageElements
+      : defaultSettingsPageElements;
   const visibleStartMenuActionRoles = new Set(
     startMenuElements
       .filter((element) => element.kind === 'button' && element.visible !== false && element.role)
@@ -1418,11 +1435,7 @@ export function WebPlaytestPreview({
     onUpdateSettings('startMenuPlacementMaxX', nextMaxX);
     onUpdateSettings('startMenuPlacementMaxY', nextMaxY);
 
-    const currentElements = settings.startMenuElements && settings.startMenuElements.length > 0
-      ? settings.startMenuElements
-      : defaultStartMenuElements;
-
-    const pushedElements = currentElements.map((element) => {
+    const pushElementsIntoBounds = (currentElements: StartMenuElement[]) => currentElements.map((element) => {
       const newWidth = Math.max(6, Math.min(element.width, nextMaxX - nextMinX));
       const newHeight = Math.max(4, Math.min(element.height, nextMaxY - nextMinY));
       const newX = Math.max(nextMinX, Math.min(nextMaxX - newWidth, element.x));
@@ -1436,7 +1449,14 @@ export function WebPlaytestPreview({
       };
     });
 
-    onUpdateSettings('startMenuElements', pushedElements);
+    onUpdateSettings(
+      'startMenuElements',
+      pushElementsIntoBounds(
+        settings.startMenuElements && settings.startMenuElements.length > 0
+          ? settings.startMenuElements
+          : defaultStartMenuElements,
+      ),
+    );
 
     return true;
   };
@@ -2000,6 +2020,8 @@ export function WebPlaytestPreview({
           boundsMinY={boundsMinY}
           boundsMaxX={boundsMaxX}
           boundsMaxY={boundsMaxY}
+          archiveElements={archivePageElements}
+          settingsElements={settingsPageElements}
           choiceColor={choiceColor}
           choiceTextColor={choiceTextColor}
           previewControlsHidden={previewControlsHidden}
@@ -2011,6 +2033,21 @@ export function WebPlaytestPreview({
             setPreviewStartMenuOpen(false);
           }}
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
+          onSelectElement={setSelectedStartMenuElementId}
+          onUpdateArchiveElement={(id, patch) => {
+            const source = settings.archivePageElements?.length ? settings.archivePageElements : defaultArchivePageElements;
+            onUpdateSettings(
+              'archivePageElements',
+              source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+            );
+          }}
+          onUpdateSettingsElement={(id, patch) => {
+            const source = settings.settingsPageElements?.length ? settings.settingsPageElements : defaultSettingsPageElements;
+            onUpdateSettings(
+              'settingsPageElements',
+              source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+            );
+          }}
           onBeginBoundsDrag={beginStartMenuBoundsDrag}
           onUpdateSettings={onUpdateSettings}
         />

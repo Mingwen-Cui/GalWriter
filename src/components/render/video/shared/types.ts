@@ -98,6 +98,33 @@ export type RenderStyle = {
   bodyAnimation: TextAnimation;
 };
 
+export type WebMenuElement = {
+  id: string;
+  kind: 'button' | 'text' | 'image';
+  role?: 'save' | 'new' | 'settings' | 'title' | 'subtitle' | 'custom' | 'back' | 'slot' | 'auto' | 'speed' | 'controls';
+  text: string;
+  visible: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  scale: number;
+  rotation: number;
+  primary?: boolean;
+  disabled?: boolean;
+  fontSize?: number;
+  textColor?: string;
+  backgroundType?: 'solid' | 'gradient' | 'image';
+  backgroundColor?: string;
+  backgroundGradientStart?: string;
+  backgroundGradientEnd?: string;
+  backgroundGradientAngle?: number;
+  backgroundImageUrl?: string;
+  borderColor?: string;
+  borderRadius?: number;
+  imageUrl?: string;
+};
+
 export type WebExportSettings = {
   layoutMode: 'classic' | 'immersive';
   choicesPosition: 'center' | 'aboveText' | 'belowText';
@@ -113,32 +140,9 @@ export type WebExportSettings = {
   startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
   startMenuButtonLayout: 'vertical' | 'horizontal';
   startMenuButtonSize: 'compact' | 'normal' | 'large';
-  startMenuElements: Array<{
-    id: string;
-    kind: 'button' | 'text' | 'image';
-    role?: 'save' | 'new' | 'settings' | 'title' | 'subtitle' | 'custom';
-    text: string;
-    visible: boolean;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    scale: number;
-    rotation: number;
-    primary?: boolean;
-    disabled?: boolean;
-    fontSize?: number;
-    textColor?: string;
-    backgroundType?: 'solid' | 'gradient' | 'image';
-    backgroundColor?: string;
-    backgroundGradientStart?: string;
-    backgroundGradientEnd?: string;
-    backgroundGradientAngle?: number;
-    backgroundImageUrl?: string;
-    borderColor?: string;
-    borderRadius?: number;
-    imageUrl?: string;
-  }>;
+  startMenuElements: WebMenuElement[];
+  archivePageElements: WebMenuElement[];
+  settingsPageElements: WebMenuElement[];
   startMenuPlacementBoundsLocked: boolean;
   startMenuPlacementMinX: number;
   startMenuPlacementMinY: number;

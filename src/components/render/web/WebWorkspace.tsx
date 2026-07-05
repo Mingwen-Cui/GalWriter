@@ -28,9 +28,10 @@ import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
-import type { RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
+import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 
 const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 
@@ -190,6 +191,8 @@ export function WebWorkspace({
         startMenuButtonLayout: parsed.startMenuButtonLayout,
         startMenuButtonSize: parsed.startMenuButtonSize,
         startMenuElements: parsed.startMenuElements,
+        archivePageElements: parsed.archivePageElements,
+        settingsPageElements: parsed.settingsPageElements,
         startMenuPlacementBoundsLocked: parsed.startMenuPlacementBoundsLocked,
         startMenuPlacementMinX: parsed.startMenuPlacementMinX,
         startMenuPlacementMinY: parsed.startMenuPlacementMinY,
@@ -220,8 +223,35 @@ export function WebWorkspace({
   );
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
+  const defaultArchivePageElements = buildArchivePageElements(language, webChoiceColor, webChoiceTextColor);
+  const defaultSettingsPageElements = buildSettingsPageElements(language, webChoiceColor, webChoiceTextColor);
+  const archivePageElements = webSettings.archivePageElements?.length
+    ? webSettings.archivePageElements
+    : defaultArchivePageElements;
+  const settingsPageElements = webSettings.settingsPageElements?.length
+    ? webSettings.settingsPageElements
+    : defaultSettingsPageElements;
+  const activeElementSettingsKey: 'startMenuElements' | 'archivePageElements' | 'settingsPageElements' =
+    currentPreviewSurface === 'archive'
+      ? 'archivePageElements'
+      : currentPreviewSurface === 'settings'
+        ? 'settingsPageElements'
+        : 'startMenuElements';
+  const activePageElements =
+    activeElementSettingsKey === 'archivePageElements'
+      ? archivePageElements
+      : activeElementSettingsKey === 'settingsPageElements'
+        ? settingsPageElements
+        : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
-    webSettings.startMenuElements?.find((element) => element.id === selectedStartMenuElementId) || null;
+    activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
+  const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
+    const source = activePageElements;
+    updateWebSettings(
+      activeElementSettingsKey,
+      source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+    );
+  };
   const updateStartMenuElement = (id: string, patch: Partial<WebExportSettings['startMenuElements'][number]>) => {
     updateWebSettings(
       'startMenuElements',
@@ -657,6 +687,7 @@ JSON schema:
                   columns="grid-cols-4"
                   onChange={(value) => {
                     const surface = value as WebPreviewSurface;
+                    setSelectedStartMenuElementId(null);
                     setEditPreviewSurface(surface);
                     setCurrentPreviewSurface(surface);
                   }}
@@ -683,7 +714,7 @@ JSON schema:
                 <StartMenuElementInspector
                   element={selectedStartMenuElement}
                   language={language}
-                  onUpdate={(patch) => updateStartMenuElement(selectedStartMenuElement.id, patch)}
+                  onUpdate={(patch) => updateActivePageElement(selectedStartMenuElement.id, patch)}
                 />
               ) : (
                 <StartMenuBackgroundInspector
@@ -781,7 +812,22 @@ JSON schema:
 
           {currentPreviewSurface === 'settings' && (
             <>
-          <WebPanelTitle icon={LayoutTemplate} title="网页参数" />
+          <WebPanelTitle icon={LayoutTemplate} title="设置页面界面设计" />
+          <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+            <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+              {selectedStartMenuElement
+                ? t('正在修改设置页面选中元素', '設定画面の選択要素を編集中', 'Editing selected settings page element')
+                : t('点击左侧设置页面中的文字或按钮后进行修改', '左の設定画面のテキストまたはボタンをクリックして編集', 'Click text or buttons on the settings page to edit them')}
+            </div>
+            {selectedStartMenuElement && (
+              <StartMenuElementInspector
+                element={selectedStartMenuElement}
+                language={language}
+                onUpdate={(patch) => updateActivePageElement(selectedStartMenuElement.id, patch)}
+              />
+            )}
+          </div>
+          <WebPanelTitle icon={Settings} title="网页参数" />
           <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
             <div className="grid grid-cols-3 gap-2">
               <WebSettingCard
@@ -897,6 +943,20 @@ JSON schema:
           {currentPreviewSurface === 'archive' && (
             <>
               <WebPanelTitle icon={Save} title="档案页界面设计" />
+              <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+                <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+                  {selectedStartMenuElement
+                    ? t('正在修改档案页选中元素', 'セーブ画面の選択要素を編集中', 'Editing selected archive page element')
+                    : t('点击左侧档案页中的文字或按钮后进行修改', '左のセーブ画面のテキストまたはボタンをクリックして編集', 'Click text or buttons on the archive page to edit them')}
+                </div>
+                {selectedStartMenuElement && (
+                  <StartMenuElementInspector
+                    element={selectedStartMenuElement}
+                    language={language}
+                    onUpdate={(patch) => updateActivePageElement(selectedStartMenuElement.id, patch)}
+                  />
+                )}
+              </div>
               <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
                 <WebSettingCard
                   icon={Save}

@@ -18,6 +18,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   startMenuButtonLayout: 'vertical',
   startMenuButtonSize: 'normal',
   startMenuElements: [],
+  archivePageElements: [],
+  settingsPageElements: [],
   startMenuPlacementBoundsLocked: false,
   startMenuPlacementMinX: 0,
   startMenuPlacementMinY: 0,
