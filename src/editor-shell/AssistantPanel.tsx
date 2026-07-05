@@ -11,6 +11,7 @@ import {
   PencilLine,
   Plus,
   PlusCircle,
+  RefreshCw,
   Redo2,
   SearchCheck,
   Send,
@@ -198,6 +199,7 @@ export function AssistantPanel({
     top: 0,
   });
   const [shortDramaPromptIndex, setShortDramaPromptIndex] = useState<number | null>(null);
+  const [assistantInputFocused, setAssistantInputFocused] = useState(false);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -206,6 +208,7 @@ export function AssistantPanel({
   const welcomeGradientTimerRef = useRef<number | null>(null);
   const showArticleUploadPage =
     documentUploadOpen && documentUploadIntent === 'article-to-galgame';
+  const assistantInputExpanded = assistantInputFocused || assistantInput.trim().length > 0;
 
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
@@ -233,6 +236,30 @@ export function AssistantPanel({
       }
     };
   }, [assistantOpen]);
+
+  useEffect(() => {
+    const input = assistantInputRef.current;
+    if (!input) return;
+
+    if (!assistantInputExpanded) {
+      input.style.height = '36px';
+      input.style.overflowY = 'hidden';
+      return;
+    }
+
+    const maxHeight = 192;
+    input.style.height = 'auto';
+    const nextHeight = Math.min(input.scrollHeight, maxHeight);
+    input.style.height = `${nextHeight}px`;
+    input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [assistantInput, assistantInputExpanded, assistantOpen]);
+
+  useEffect(() => {
+    if (!assistantInputExpanded || !assistantInputFocused) return;
+    window.requestAnimationFrame(() => {
+      assistantInputRef.current?.focus();
+    });
+  }, [assistantInputExpanded, assistantInputFocused]);
 
   const handlePanelTransitionEnd = (event: ReactTransitionEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
@@ -1223,88 +1250,210 @@ export function AssistantPanel({
             />
           </button>
         </div>
-        <div className="assistant-input-box flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-900">
-          <button
-            type="button"
-            onClick={() => {
-              setDocumentUploadIntent(null);
-              setDocumentUploadOpen(true);
-            }}
-            disabled={assistantLoading || assistantDocumentLoading}
-            className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
-            title={
-              language === 'zh'
-                ? '上传参考文件'
-                : language === 'ja'
-                  ? '参考ファイルをアップロード'
-                  : 'Upload reference files'
-            }
-          >
-            {assistantDocumentLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-          </button>
-          <textarea
-            ref={assistantInputRef}
-            value={assistantInput}
-            onChange={(event) => {
-              setAssistantInput(event.target.value);
-              setShortDramaPromptIndex(null);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                void sendAssistantMessage();
-              }
-            }}
-            placeholder={
-              language === 'zh'
-                ? '请你给我生成一个故事'
-                : language === 'ja'
-                  ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
-                  : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
-            }
-            rows={2}
-            className="custom-scrollbar max-h-28 flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-white"
-          />
-          <button
-            onClick={handleAssistantVoiceInput}
-            disabled={assistantLoading || assistantListening}
-            className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
-              assistantListening
-                ? 'animate-pulse bg-rose-500 text-white'
-                : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
-            } flex items-center justify-center disabled:opacity-50`}
-            title={language === 'zh' ? '语音输入' : language === 'ja' ? '音声入力' : 'Voice input'}
-          >
-            <Mic className="h-4 w-4" />
-          </button>
-          {shortDramaPromptIndex !== null && (
+        <div
+          className={`assistant-input-box overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition-all duration-300 ease-out dark:border-slate-800 dark:bg-slate-900 ${
+            assistantInputExpanded
+              ? 'flex flex-col gap-2 p-3'
+              : 'flex items-center gap-2 p-2'
+          }`}
+        >
+          {assistantInputExpanded ? (
+            <>
+              <textarea
+                ref={assistantInputRef}
+                value={assistantInput}
+                onChange={(event) => {
+                  setAssistantInput(event.target.value);
+                  setShortDramaPromptIndex(null);
+                }}
+                onFocus={() => setAssistantInputFocused(true)}
+                onBlur={() => setAssistantInputFocused(false)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendAssistantMessage();
+                  }
+                }}
+                placeholder={
+                  language === 'zh'
+                    ? '请你给我生成一个故事'
+                    : language === 'ja'
+                      ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
+                      : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
+                }
+                rows={3}
+                className="custom-scrollbar max-h-48 min-h-[4.75rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
+              />
+              <div className="flex w-full shrink-0 items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocumentUploadIntent(null);
+                    setDocumentUploadOpen(true);
+                  }}
+                  disabled={assistantLoading || assistantDocumentLoading}
+                  className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+                  aria-label={
+                    language === 'zh'
+                      ? '上传参考文件'
+                      : language === 'ja'
+                        ? '参考ファイルをアップロード'
+                        : 'Upload reference files'
+                  }
+                >
+                  {assistantDocumentLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAssistantVoiceInput}
+                    disabled={assistantLoading || assistantListening}
+                    className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
+                      assistantListening
+                        ? 'animate-pulse bg-rose-500 text-white'
+                        : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
+                    } flex items-center justify-center disabled:opacity-50`}
+                    title={
+                      language === 'zh'
+                        ? '语音输入'
+                        : language === 'ja'
+                          ? '音声入力'
+                          : 'Voice input'
+                    }
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
+                  {shortDramaPromptIndex !== null && (
+                    <button
+                      type="button"
+                      onClick={replaceShortDramaTestPrompt}
+                      disabled={assistantLoading}
+                      className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+                      aria-label={
+                        language === 'zh'
+                          ? '换一个测试句'
+                          : language === 'ja'
+                            ? '別のテスト文に変更'
+                            : 'Try another prompt'
+                      }
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void sendAssistantMessage()}
+                    disabled={assistantLoading || !assistantInput.trim()}
+                    className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
+                    title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
+                  >
+                    {assistantLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
             <button
               type="button"
-              onClick={replaceShortDramaTestPrompt}
-              disabled={assistantLoading}
-              className="assistant-input-icon-button flex h-9 shrink-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
-              title={language === 'zh' ? '换一个测试句' : language === 'ja' ? '別のテスト文に変更' : 'Try another prompt'}
+              onClick={() => {
+                setDocumentUploadIntent(null);
+                setDocumentUploadOpen(true);
+              }}
+              disabled={assistantLoading || assistantDocumentLoading}
+              className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+              aria-label={
+                language === 'zh'
+                  ? '上传参考文件'
+                  : language === 'ja'
+                    ? '参考ファイルをアップロード'
+                    : 'Upload reference files'
+              }
             >
-              <Redo2 className="h-3.5 w-3.5" />
-              <span>{language === 'zh' ? '换一个' : language === 'ja' ? '変更' : 'Swap'}</span>
+              {assistantDocumentLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
             </button>
+            <textarea
+              ref={assistantInputRef}
+              value={assistantInput}
+              onChange={(event) => {
+                setAssistantInput(event.target.value);
+                setShortDramaPromptIndex(null);
+              }}
+              onFocus={() => setAssistantInputFocused(true)}
+              onBlur={() => setAssistantInputFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendAssistantMessage();
+                }
+              }}
+              placeholder={
+                language === 'zh'
+                  ? '请你给我生成一个故事'
+                  : language === 'ja'
+                    ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
+                    : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
+              }
+              rows={1}
+              className="custom-scrollbar h-9 min-h-9 flex-1 resize-none bg-transparent text-sm leading-9 text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAssistantVoiceInput}
+                disabled={assistantLoading || assistantListening}
+                className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
+                  assistantListening
+                    ? 'animate-pulse bg-rose-500 text-white'
+                    : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
+                } flex items-center justify-center disabled:opacity-50`}
+                title={
+                  language === 'zh' ? '语音输入' : language === 'ja' ? '音声入力' : 'Voice input'
+                }
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+              {shortDramaPromptIndex !== null && (
+                <button
+                  type="button"
+                  onClick={replaceShortDramaTestPrompt}
+                  disabled={assistantLoading}
+                  className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+                  aria-label={
+                    language === 'zh'
+                      ? '换一个测试句'
+                      : language === 'ja'
+                        ? '別のテスト文に変更'
+                        : 'Try another prompt'
+                  }
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => void sendAssistantMessage()}
+                disabled={assistantLoading || !assistantInput.trim()}
+                className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
+                title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
+              >
+                {assistantLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            </>
           )}
-          <button
-            onClick={() => void sendAssistantMessage()}
-            disabled={assistantLoading || !assistantInput.trim()}
-            className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
-            title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
-          >
-            {assistantLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </button>
         </div>
       </div>
       )}
@@ -1455,84 +1604,87 @@ export function AssistantPanel({
           </div>,
           document.body,
         )}
-      {documentUploadOpen && !showArticleUploadPage && (
-        <div className="fixed inset-0 z-[360] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-black text-slate-800 dark:text-white">
-                  {language === 'zh'
-                    ? '上传文章文档'
-                    : language === 'ja'
-                      ? '参考ファイルをアップロード'
-                      : 'Upload reference files'}
+      {documentUploadOpen &&
+        !showArticleUploadPage &&
+        createPortal(
+          <div className="fixed inset-0 z-[420] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-black text-slate-800 dark:text-white">
+                    {language === 'zh'
+                      ? '上传文章文档'
+                      : language === 'ja'
+                        ? '参考ファイルをアップロード'
+                        : 'Upload reference files'}
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    {language === 'zh'
+                      ? '支持 PDF、Word 等文档，上传后可交给 AI 转成 galgame'
+                      : language === 'ja'
+                        ? 'PDF、Word、Excel、PPT、および一般的なテキストファイルをサポート'
+                        : 'Supports PDF, Word, Excel, PPT, and common text files'}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {language === 'zh'
-                    ? '支持 PDF、Word 等文档，上传后可交给 AI 转成 galgame'
-                    : language === 'ja'
-                      ? 'PDF、Word、Excel、PPT、および一般的なテキストファイルをサポート'
-                      : 'Supports PDF, Word, Excel, PPT, and common text files'}
-                </div>
+                <button
+                  type="button"
+                  onClick={closeDocumentUpload}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
+                  title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               <button
                 type="button"
-                onClick={closeDocumentUpload}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
-                title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
+                onClick={() => documentInputRef.current?.click()}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDocumentDragActive(true);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDocumentDragActive(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setDocumentDragActive(false);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleDocumentFiles(event.dataTransfer.files);
+                }}
+                disabled={assistantDocumentLoading}
+                className={`flex min-h-44 w-full flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center transition-colors disabled:opacity-60 ${
+                  documentDragActive
+                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
+                    : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/40'
+                }`}
               >
-                <X className="h-4 w-4" />
+                {assistantDocumentLoading ? (
+                  <Loader2 className="mb-3 h-8 w-8 animate-spin" />
+                ) : (
+                  <UploadCloud className="mb-3 h-8 w-8" />
+                )}
+                <div className="text-sm font-black">
+                  {language === 'zh'
+                    ? '拖拽 PDF 或 Word 文档到这里，或点击上传'
+                    : language === 'ja'
+                      ? 'ファイルをここにドラッグするか、クリックしてアップロード'
+                      : 'Drop files here, or click to upload'}
+                </div>
+                <div className="mt-2 max-w-xs text-xs leading-relaxed opacity-80">
+                  {language === 'zh'
+                    ? '为保证安全，只提取可读取的文本内容；不会执行宏、脚本或外部链接。旧版 .doc/.xls/.ppt 可能无法读取，请优先使用新版格式。'
+                    : language === 'ja'
+                      ? '安全のため、読み取り可能なテキスト内容のみが抽出されます。マクロ、スクリプト、または外部リンクは実行されません。旧バージョンの.doc/.xls/.pptファイルは読み取れない場合があります。新しいフォーマット（docx等）を優先して使用してください。'
+                      : 'For safety, only readable text is extracted. Macros, scripts, and external links are not executed. Legacy .doc/.xls/.ppt files may not be readable; modern formats are preferred.'}
+                </div>
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => documentInputRef.current?.click()}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(true);
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setDocumentDragActive(false);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                handleDocumentFiles(event.dataTransfer.files);
-              }}
-              disabled={assistantDocumentLoading}
-              className={`flex min-h-44 w-full flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center transition-colors disabled:opacity-60 ${
-                documentDragActive
-                  ? 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
-                  : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/40'
-              }`}
-            >
-              {assistantDocumentLoading ? (
-                <Loader2 className="mb-3 h-8 w-8 animate-spin" />
-              ) : (
-                <UploadCloud className="mb-3 h-8 w-8" />
-              )}
-              <div className="text-sm font-black">
-                {language === 'zh'
-                  ? '拖拽 PDF 或 Word 文档到这里，或点击上传'
-                  : language === 'ja'
-                    ? 'ファイルをここにドラッグするか、クリックしてアップロード'
-                    : 'Drop files here, or click to upload'}
-              </div>
-              <div className="mt-2 max-w-xs text-xs leading-relaxed opacity-80">
-                {language === 'zh'
-                  ? '为保证安全，只提取可读取的文本内容；不会执行宏、脚本或外部链接。旧版 .doc/.xls/.ppt 可能无法读取，请优先使用新版格式。'
-                  : language === 'ja'
-                    ? '安全のため、読み取り可能なテキスト内容のみが抽出されます。マクロ、スクリプト、または外部リンクは実行されません。旧バージョンの.doc/.xls/.pptファイルは読み取れない場合があります。新しいフォーマット（docx等）を優先して使用してください。'
-                    : 'For safety, only readable text is extracted. Macros, scripts, and external links are not executed. Legacy .doc/.xls/.ppt files may not be readable; modern formats are preferred.'}
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </aside>
   );
 }
