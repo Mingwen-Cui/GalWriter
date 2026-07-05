@@ -147,6 +147,8 @@ export function AssistantPanel({
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeAnimationTimerRef = useRef<number | null>(null);
   const welcomeGradientTimerRef = useRef<number | null>(null);
+  const showArticleUploadPage =
+    documentUploadOpen && documentUploadIntent === 'article-to-galgame';
 
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
@@ -391,6 +393,12 @@ export function AssistantPanel({
     setDocumentUploadOpen(true);
   };
 
+  const closeDocumentUpload = () => {
+    setDocumentUploadOpen(false);
+    setDocumentDragActive(false);
+    setDocumentUploadIntent(null);
+  };
+
   useEffect(() => {
     if (!cardGenerateOpen) return undefined;
 
@@ -574,15 +582,120 @@ export function AssistantPanel({
         </div>
       </div>
 
+      <input
+        ref={documentInputRef}
+        type="file"
+        multiple
+        accept={uploadAccept}
+        className="hidden"
+        onChange={(event) => {
+          handleDocumentFiles(event.target.files);
+          event.target.value = '';
+        }}
+      />
+
       <div
         ref={assistantMessagesRef}
         className={`assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4 ${
-          showTransparentWelcomeGradient
+          showTransparentWelcomeGradient && !showArticleUploadPage
             ? `assistant-message-transparent-gradient assistant-message-gradient-${welcomeGradientState}`
             : ''
         }`}
       >
-        {visibleAssistantMessages.length === 0 && !assistantLoading && (
+        {showArticleUploadPage ? (
+          <section className="assistant-article-upload-page">
+            <div className="assistant-article-upload-topbar">
+              <button
+                type="button"
+                onClick={closeDocumentUpload}
+                className="assistant-article-upload-back"
+                title={language === 'zh' ? '返回' : language === 'ja' ? '戻る' : 'Back'}
+              >
+                <ChevronDown className="h-4 w-4 rotate-90" />
+              </button>
+              <button
+                type="button"
+                onClick={closeDocumentUpload}
+                className="assistant-article-upload-close"
+                title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="assistant-article-upload-hero">
+              <div className="assistant-article-upload-icon">
+                <FileText className="h-7 w-7" />
+              </div>
+              <p className="assistant-article-upload-kicker">
+                {language === 'zh' ? '文章转 Galgame' : 'Article to Galgame'}
+              </p>
+              <h2>
+                {language === 'zh'
+                  ? '上传文章，我来拆成可教学的章节剧本'
+                  : 'Upload an article and turn it into teachable chapters'}
+              </h2>
+              <p>
+                {language === 'zh'
+                  ? '我会先梳理文章内容、结构和章节重点，再询问教学方式，并在画布上按章节生成背景框和剧情卡。'
+                  : 'I will analyze the article, ask how to teach it, then generate chapter regions and story cards.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => documentInputRef.current?.click()}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setDocumentDragActive(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleDocumentFiles(event.dataTransfer.files);
+              }}
+              disabled={assistantDocumentLoading}
+              className={`assistant-article-upload-dropzone ${
+                documentDragActive ? 'assistant-article-upload-dropzone-active' : ''
+              }`}
+            >
+              {assistantDocumentLoading ? (
+                <Loader2 className="h-9 w-9 animate-spin" />
+              ) : (
+                <UploadCloud className="h-9 w-9" />
+              )}
+              <span className="assistant-article-upload-drop-title">
+                {language === 'zh'
+                  ? '拖拽 PDF 或 Word 文档到这里'
+                  : 'Drop PDF or Word documents here'}
+              </span>
+              <span className="assistant-article-upload-drop-subtitle">
+                {language === 'zh'
+                  ? '也可以点击选择文件。支持 PDF、Word、Excel、PPT 和常见文本文件。'
+                  : 'Or click to choose files. PDF, Word, Excel, PPT, and common text files are supported.'}
+              </span>
+            </button>
+            <div className="assistant-article-upload-steps">
+              <div>
+                <span>1</span>
+                <p>{language === 'zh' ? '读取文章文本' : 'Read the article'}</p>
+              </div>
+              <div>
+                <span>2</span>
+                <p>{language === 'zh' ? '选择教学方式' : 'Choose teaching style'}</p>
+              </div>
+              <div>
+                <span>3</span>
+                <p>{language === 'zh' ? '生成章节背景框' : 'Generate chapter regions'}</p>
+              </div>
+            </div>
+          </section>
+        ) : visibleAssistantMessages.length === 0 && !assistantLoading ? (
           <section className="assistant-welcome-card">
             <div className="assistant-welcome-hero">
               <div className="assistant-welcome-copy">
@@ -623,8 +736,8 @@ export function AssistantPanel({
               </div>
             </div>
           </section>
-        )}
-        {visibleAssistantMessages.map((message) =>
+        ) : null}
+        {!showArticleUploadPage && visibleAssistantMessages.map((message) =>
           message.role === 'thought' ? (
             <div key={message.id} className="flex justify-start">
               <button
@@ -722,7 +835,7 @@ export function AssistantPanel({
             </div>
           ),
         )}
-        {assistantLoading && (
+        {!showArticleUploadPage && assistantLoading && (
           <div className="flex justify-start">
             <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -736,19 +849,9 @@ export function AssistantPanel({
         )}
       </div>
 
+      {!showArticleUploadPage && (
       <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
         <div className="mb-2 flex items-center gap-2">
-          <input
-            ref={documentInputRef}
-            type="file"
-            multiple
-            accept={uploadAccept}
-            className="hidden"
-            onChange={(event) => {
-              handleDocumentFiles(event.target.files);
-              event.target.value = '';
-            }}
-          />
           <button
             type="button"
             onClick={() => documentInputRef.current?.click()}
@@ -926,6 +1029,7 @@ export function AssistantPanel({
           </button>
         </div>
       </div>
+      )}
       {cardGenerateOpen &&
         createPortal(
           <div
@@ -1073,7 +1177,7 @@ export function AssistantPanel({
           </div>,
           document.body,
         )}
-      {documentUploadOpen && (
+      {documentUploadOpen && !showArticleUploadPage && (
         <div className="fixed inset-0 z-[360] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1095,11 +1199,7 @@ export function AssistantPanel({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setDocumentUploadOpen(false);
-                  setDocumentDragActive(false);
-                  setDocumentUploadIntent(null);
-                }}
+                onClick={closeDocumentUpload}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
                 title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
               >
