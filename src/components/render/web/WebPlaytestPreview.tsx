@@ -1,4 +1,4 @@
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
   EyeOff,
@@ -1970,115 +1970,114 @@ export function WebPlaytestPreview({
           </div>
         )}
         {previewArchiveOpen && (
-          <div
-            className="absolute inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
-            onClick={() => setPreviewArchiveOpen(false)}
-          >
-            <div
-              className="grid w-[min(480px,calc(100%-32px))] gap-3 rounded-2xl border border-white/14 bg-slate-950/95 p-4 text-left text-white shadow-2xl shadow-black/40"
-              onClick={(event) => event.stopPropagation()}
-            >
+          <div className={`absolute inset-0 z-50 text-white ${startMenuBackgroundClass}`} style={startMenuBackgroundStyle}>
+            <div className="relative z-10 flex h-full flex-col bg-black/28 p-6 text-white">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-black">{t('存档', 'セーブ', 'Save')}</div>
+                <div className="text-xl font-black tracking-wide">{t('存档', 'セーブ', 'Save')}</div>
                 <button
                   type="button"
                   onClick={() => setPreviewArchiveOpen(false)}
-                  className="grid h-8 w-8 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white/14 hover:text-white"
-                  aria-label="Close"
+                  className="h-10 rounded-xl border border-white/14 bg-white/10 px-4 text-xs font-black text-white/82 transition-colors hover:bg-white/18 hover:text-white"
                 >
-                  x
+                  {t('返回', '戻る', 'Back')}
                 </button>
               </div>
-              <button
-                type="button"
-                className="grid min-h-16 gap-1 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-left text-xs font-black text-white/80"
-              >
-                <span>{t('没有存档', 'セーブなし', 'No save')}</span>
-                <span className="text-[10px] font-bold text-white/42">
-                  {t(
-                    '导出后的网页会在这里显示上次进度。',
-                    '書き出し後のWebでは前回の進捗が表示されます。',
-                    'Exported web builds show the last progress here.',
-                  )}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  reset();
-                  setPreviewArchiveOpen(false);
-                  setPreviewStartMenuOpen(false);
-                }}
-                className="h-11 rounded-xl bg-sky-500 px-3 text-xs font-black text-white transition-colors hover:bg-sky-400"
-              >
-                {t('新游戏', '新規ゲーム', 'New Game')}
-              </button>
+              <div className="flex flex-1 items-center justify-center">
+                <div className="grid w-[min(520px,100%)] gap-3">
+                  <button
+                    type="button"
+                    className="grid min-h-20 gap-1 rounded-xl border px-4 py-4 text-left text-sm font-black transition-transform active:scale-[0.99]"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.16)',
+                      background: 'rgba(255,255,255,0.10)',
+                      color: '#f8fafc',
+                    }}
+                  >
+                    <span>{t('没有存档', 'セーブなし', 'No save')}</span>
+                    <span className="text-xs font-bold text-white/50">
+                      {t('导出后的网页会在这里显示上次进度。', '書き出し後のWebでは前回の進行がここに表示されます。', 'Exported web builds show the last progress here.')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reset();
+                      setPreviewArchiveOpen(false);
+                      setPreviewStartMenuOpen(false);
+                    }}
+                    className="h-12 rounded-xl border px-4 text-sm font-black transition-transform hover:brightness-110 active:scale-[0.99]"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.22)',
+                      background: choiceColor,
+                      color: choiceTextColor,
+                    }}
+                  >
+                    {t('新游戏', '新規ゲーム', 'New Game')}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
         {previewStartSettingsOpen && (
-          <div
-            className="absolute inset-0 z-50 grid place-items-center bg-black/45 p-4 backdrop-blur-sm"
-            onClick={() => setPreviewStartSettingsOpen(false)}
-          >
-            <div
-              className="grid w-[min(420px,calc(100%-32px))] gap-3 rounded-2xl border border-white/14 bg-slate-950/95 p-4 text-left text-white shadow-2xl shadow-black/40"
-              onClick={(event) => event.stopPropagation()}
-            >
+          <div className={`absolute inset-0 z-50 text-white ${startMenuBackgroundClass}`} style={startMenuBackgroundStyle}>
+            <div className="relative z-10 flex h-full flex-col bg-black/28 p-6 text-white">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-black">{t('设置', '設定', 'Settings')}</div>
+                <div className="text-xl font-black tracking-wide">{t('设置', '設定', 'Settings')}</div>
                 <button
                   type="button"
                   onClick={() => setPreviewStartSettingsOpen(false)}
-                  className="grid h-8 w-8 place-items-center rounded-lg bg-white/8 text-white/70 hover:bg-white/14 hover:text-white"
-                  aria-label="Close"
+                  className="h-10 rounded-xl border border-white/14 bg-white/10 px-4 text-xs font-black text-white/82 transition-colors hover:bg-white/18 hover:text-white"
                 >
-                  ×
+                  {t('返回', '戻る', 'Back')}
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => onUpdateSettings('autoAdvance', !settings.autoAdvance)}
-                className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-black text-white/80"
-              >
-                <span>{t('自动播放', '自動再生', 'Auto play')}</span>
-                <span className={`h-5 w-10 rounded-full p-0.5 ${settings.autoAdvance ? 'bg-sky-500' : 'bg-white/16'}`}>
-                  <span
-                    className={`block h-4 w-4 rounded-full bg-white transition-transform ${
-                      settings.autoAdvance ? 'translate-x-5' : ''
-                    }`}
-                  />
-                </span>
-              </button>
-              <label className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.05] p-3">
-                <div className="flex items-center justify-between text-xs font-black text-white/80">
-                  <span>{t('打字速度', 'テキスト速度', 'Text speed')}</span>
-                  <span className="text-white/50">{settings.typewriterSpeed}ms</span>
+              <div className="flex flex-1 items-center justify-center">
+                <div className="grid w-[min(520px,100%)] gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings('autoAdvance', !settings.autoAdvance)}
+                    className="flex h-12 items-center justify-between rounded-xl border border-white/12 bg-white/10 px-4 text-sm font-black text-white/86 transition-colors hover:bg-white/16"
+                  >
+                    <span>{t('自动播放', '自動再生', 'Auto play')}</span>
+                    <span className={`h-5 w-10 rounded-full p-0.5 ${settings.autoAdvance ? 'bg-sky-500' : 'bg-white/18'}`}>
+                      <span
+                        className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                          settings.autoAdvance ? 'translate-x-5' : ''
+                        }`}
+                      />
+                    </span>
+                  </button>
+                  <label className="grid gap-2 rounded-xl border border-white/12 bg-white/10 p-4">
+                    <div className="flex items-center justify-between text-sm font-black text-white/86">
+                      <span>{t('打字速度', 'テキスト速度', 'Text speed')}</span>
+                      <span className="text-xs text-white/55">{settings.typewriterSpeed}ms</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={200}
+                      step={5}
+                      value={settings.typewriterSpeed}
+                      onChange={(event) => onUpdateSettings('typewriterSpeed', Number(event.target.value))}
+                      className="w-full accent-sky-400"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewControlsHidden((current) => !current)}
+                    className="flex h-12 items-center justify-between rounded-xl border px-4 text-sm font-black transition-transform hover:brightness-110 active:scale-[0.99]"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.22)',
+                      background: choiceColor,
+                      color: choiceTextColor,
+                    }}
+                  >
+                    <span>{t('显示控制栏', '操作表示', 'Show controls')}</span>
+                    <span>{previewControlsHidden ? t('关闭', 'オフ', 'Off') : t('开启', 'オン', 'On')}</span>
+                  </button>
                 </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={200}
-                  step={5}
-                  value={settings.typewriterSpeed}
-                  onChange={(event) => onUpdateSettings('typewriterSpeed', Number(event.target.value))}
-                  className="w-full accent-sky-400"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => setPreviewControlsHidden((current) => !current)}
-                className="flex h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-black text-white/80"
-              >
-                <span>{t('显示控制栏', '操作表示', 'Show controls')}</span>
-                <span className={`h-5 w-10 rounded-full p-0.5 ${!previewControlsHidden ? 'bg-sky-500' : 'bg-white/16'}`}>
-                  <span
-                    className={`block h-4 w-4 rounded-full bg-white transition-transform ${
-                      !previewControlsHidden ? 'translate-x-5' : ''
-                    }`}
-                  />
-                </span>
-              </button>
+              </div>
             </div>
           </div>
         )}

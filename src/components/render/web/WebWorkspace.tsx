@@ -218,6 +218,7 @@ export function WebWorkspace({
   const [currentPreviewSurface, setCurrentPreviewSurface] = useState<WebPreviewSurface>(
     webSettings.showStartMenu ? 'start' : 'game',
   );
+  const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const selectedStartMenuElement =
     webSettings.startMenuElements?.find((element) => element.id === selectedStartMenuElementId) || null;
@@ -585,6 +586,9 @@ JSON schema:
             settings={webSettings}
             projectTitle={webProjectName}
             previewMode={startMenuPreviewMode}
+            requestedSurface={
+              startMenuPreviewMode === 'edit' && webSettings.showStartMenu ? editPreviewSurface : undefined
+            }
             selectedStartMenuElementId={selectedStartMenuElementId}
             onSurfaceChange={setCurrentPreviewSurface}
             onSelectStartMenuElement={setSelectedStartMenuElementId}
@@ -639,6 +643,28 @@ JSON schema:
         </div>
 
         <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+          {startMenuPreviewMode === 'edit' && webSettings.showStartMenu && (
+            <div className="space-y-3">
+              <WebSettingCard>
+                <WebSegmentedGroup
+                  value={editPreviewSurface}
+                  options={[
+                    { value: 'start', label: t('主界面', 'メイン', 'Menu') },
+                    { value: 'archive', label: t('存档', 'セーブ', 'Save') },
+                    { value: 'game', label: t('对话', '会話', 'Dialog') },
+                    { value: 'settings', label: t('设置', '設定', 'Settings') },
+                  ]}
+                  columns="grid-cols-4"
+                  onChange={(value) => {
+                    const surface = value as WebPreviewSurface;
+                    setEditPreviewSurface(surface);
+                    setCurrentPreviewSurface(surface);
+                  }}
+                />
+              </WebSettingCard>
+              <div className="h-px bg-[var(--vr-border)]" />
+            </div>
+          )}
           {currentPreviewSurface === 'start' && (
             <>
           <WebPanelTitle
@@ -935,12 +961,6 @@ JSON schema:
               >
                 {error || progress}
               </p>
-            </div>
-          )}
-          {savedPath && (
-            <div className="rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)] break-all">
-              Saved:
-              {savedPath}
             </div>
           )}
         </div>
