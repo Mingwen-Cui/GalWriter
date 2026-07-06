@@ -1283,9 +1283,12 @@ The previous streaming response did not complete every placeholder card. Return 
       let effectiveUserText = userText;
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
+      const isShortDramaBundleRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
       if (isIdeaWorkflow) {
         effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;
         assistantWorkflowRef.current = { type: 'idle' };
+      } else if (isShortDramaBundleRequest) {
+        effectiveUserText = `请把这个短剧脑洞扩展成可落地的视觉小说/互动短剧开篇。用户请求：${userText}。必须像“我有一个新脑洞”一样生成完整组合卡片：先生成主要人物设定卡、核心场景设定卡，再生成 6 到 10 张按顺序推进的剧情卡。人物卡要覆盖剧情里实际出场的人，场景卡要覆盖剧情实际发生的地点，剧情卡正文要自然使用这些人物和场景，并补足故事设定、角色关系、核心冲突和第一幕推进。不要只返回剧情卡。`;
       } else if (workflow.type === 'revision-awaiting-opinion') {
         effectiveUserText = `请根据用户的修改意见改写选中的卡片。保留原卡片，并返回一张同类型、已经修改好的新卡片。修改意见：${userText}`;
         forcedMode = 'adjacent-revision';

@@ -206,8 +206,7 @@ export function AssistantPanel({
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeAnimationTimerRef = useRef<number | null>(null);
   const welcomeGradientTimerRef = useRef<number | null>(null);
-  const showArticleUploadPage =
-    documentUploadOpen && documentUploadIntent === 'article-to-galgame';
+  const showArticleUploadPage = documentUploadOpen && documentUploadIntent === 'article-to-galgame';
   const assistantInputExpanded = assistantInputFocused || assistantInput.trim().length > 0;
 
   useEffect(() => {
@@ -322,8 +321,15 @@ export function AssistantPanel({
     const prompts = getShortDramaTestPrompts(language);
     const index =
       typeof nextIndex === 'number' ? nextIndex : Math.floor(Math.random() * prompts.length);
+    const prompt = prompts[index];
+    const bundleInstruction =
+      language === 'zh'
+        ? `${prompt}\n\n请像“我有一个新脑洞”一样扩展：先生成主要人物设定卡和核心场景设定卡，再生成 6 到 10 张按顺序推进的剧情卡。人物、场景和剧情要互相对应。`
+        : language === 'ja'
+          ? `${prompt}\n\n「新しいアイデア」と同じように展開してください。主要キャラクター設定カードと中心シーン設定カードを先に作り、その後に順番に進む6から10枚のストーリーカードを生成してください。人物、場所、剧情が互いに対応するようにしてください。`
+          : `${prompt}\n\nExpand this like a new story idea: create the main character setting cards and core scene setting cards first, then generate 6 to 10 ordered story cards. The characters, scenes, and plot beats should match each other.`;
     setShortDramaPromptIndex(index);
-    setAssistantInput(prompts[index]);
+    setAssistantInput(bundleInstruction);
     window.requestAnimationFrame(() => {
       assistantInputRef.current?.focus();
     });
@@ -407,8 +413,10 @@ export function AssistantPanel({
           {
             icon: <SearchCheck className="h-4 w-4" />,
             title: '我想把文章转成 Galgame',
-            description: '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。',
-            prompt: '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。',
+            description:
+              '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。',
+            prompt:
+              '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。',
           },
         ]
       : [
@@ -970,7 +978,9 @@ export function AssistantPanel({
                       type="button"
                       onClick={() => void handleAssistantOptionSelect('__article_roles_create__')}
                     >
-                      <span>{language === 'zh' ? '生成候选人物卡' : 'Generate Character Cards'}</span>
+                      <span>
+                        {language === 'zh' ? '生成候选人物卡' : 'Generate Character Cards'}
+                      </span>
                       <small>
                         {language === 'zh'
                           ? 'AI 助手会在画布上摆出 4 张人物设定卡，选中一张后继续。'
@@ -1000,7 +1010,11 @@ export function AssistantPanel({
                 <p className="assistant-welcome-kicker">
                   {language === 'zh' ? '我是你的 AI 剧本搭子' : 'Your AI story partner'}
                 </p>
-                <h2>{language === 'zh' ? '随时陪你把脑洞写成作品' : 'Ready to turn ideas into finished work'}</h2>
+                <h2>
+                  {language === 'zh'
+                    ? '随时陪你把脑洞写成作品'
+                    : 'Ready to turn ideas into finished work'}
+                </h2>
               </div>
               <img src="./glass.png" alt="" className="assistant-welcome-logo" />
             </div>
@@ -1018,7 +1032,7 @@ export function AssistantPanel({
                         ? void startAssistantFlowWithGradientExit('idea')
                         : index === 2
                           ? openArticleUploadFlow()
-                        : void sendAssistantMessage(item.prompt)
+                          : void sendAssistantMessage(item.prompt)
                     }
                     disabled={assistantLoading}
                     className="assistant-welcome-option"
@@ -1035,104 +1049,107 @@ export function AssistantPanel({
             </div>
           </section>
         ) : null}
-        {!showArticleUploadPage && visibleAssistantMessages.map((message) =>
-          message.role === 'thought' ? (
-            <div key={message.id} className="flex justify-start">
-              <button
-                type="button"
-                onClick={() => toggleAssistantThought(message.id)}
-                className="assistant-message-bubble assistant-message-thought max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
-              >
-                <div className="mb-1 flex items-center gap-2 font-black">
-                  <BrainCircuit className="h-3.5 w-3.5" />
-                  <span>
-                    {message.collapsed
-                      ? language === 'zh'
-                        ? 'AI 已完成思考'
-                        : language === 'ja'
-                          ? 'AIの思考が完了しました'
-                          : 'AI thought complete'
-                      : language === 'zh'
-                        ? 'AI 正在思考'
-                        : language === 'ja'
-                          ? 'AI思考中...'
-                          : 'AI is thinking...'}
-                  </span>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 transition-transform ${
-                      message.collapsed ? '-rotate-90' : ''
-                    }`}
-                  />
-                </div>
-                {!message.collapsed && (
-                  <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
-                    {message.content}
+        {!showArticleUploadPage &&
+          visibleAssistantMessages.map((message) =>
+            message.role === 'thought' ? (
+              <div key={message.id} className="flex justify-start">
+                <button
+                  type="button"
+                  onClick={() => toggleAssistantThought(message.id)}
+                  className="assistant-message-bubble assistant-message-thought max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
+                >
+                  <div className="mb-1 flex items-center gap-2 font-black">
+                    <BrainCircuit className="h-3.5 w-3.5" />
+                    <span>
+                      {message.collapsed
+                        ? language === 'zh'
+                          ? 'AI 已完成思考'
+                          : language === 'ja'
+                            ? 'AIの思考が完了しました'
+                            : 'AI thought complete'
+                        : language === 'zh'
+                          ? 'AI 正在思考'
+                          : language === 'ja'
+                            ? 'AI思考中...'
+                            : 'AI is thinking...'}
+                    </span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${
+                        message.collapsed ? '-rotate-90' : ''
+                      }`}
+                    />
                   </div>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`assistant-message-bubble max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                  message.role === 'user'
-                    ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
-                    : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
-                }`}
-              >
-                {message.content}
-                {message.role === 'assistant' && message.options && message.options.length > 0 && (
-                  <div className="mt-3 grid gap-2">
-                    {message.options.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => void handleAssistantOptionSelect(option.value)}
-                        disabled={assistantLoading}
-                        className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60"
-                      >
-                        <span className="block text-xs font-black text-indigo-700 dark:text-indigo-200">
-                          {option.label}
-                        </span>
-                        {option.description && (
-                          <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                            {option.description}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {message.role === 'assistant' &&
-                  (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onAssistantMessagePositionClick({
-                        position: message.cardPosition,
-                        nodeIds: message.cardNodeIds,
-                      })
-                    }
-                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                    title={
-                      language === 'zh'
-                        ? '跳转到生成卡片的位置'
-                        : language === 'ja'
-                          ? '生成したカードの位置へ移動'
-                          : 'Jump to generated card position'
-                    }
-                  >
-                    <MapPin className="h-3.5 w-3.5" />
-                    {language === 'zh' ? '位置' : language === 'ja' ? '位置' : 'Position'}
-                  </button>
-                )}
+                  {!message.collapsed && (
+                    <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
+                      {message.content}
+                    </div>
+                  )}
+                </button>
               </div>
-            </div>
-          ),
-        )}
+            ) : (
+              <div
+                key={message.id}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`assistant-message-bubble max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                    message.role === 'user'
+                      ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                      : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                  }`}
+                >
+                  {message.content}
+                  {message.role === 'assistant' &&
+                    message.options &&
+                    message.options.length > 0 && (
+                      <div className="mt-3 grid gap-2">
+                        {message.options.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => void handleAssistantOptionSelect(option.value)}
+                            disabled={assistantLoading}
+                            className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60"
+                          >
+                            <span className="block text-xs font-black text-indigo-700 dark:text-indigo-200">
+                              {option.label}
+                            </span>
+                            {option.description && (
+                              <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                {option.description}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  {message.role === 'assistant' &&
+                    (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAssistantMessagePositionClick({
+                            position: message.cardPosition,
+                            nodeIds: message.cardNodeIds,
+                          })
+                        }
+                        className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                        title={
+                          language === 'zh'
+                            ? '跳转到生成卡片的位置'
+                            : language === 'ja'
+                              ? '生成したカードの位置へ移動'
+                              : 'Jump to generated card position'
+                        }
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                        {language === 'zh' ? '位置' : language === 'ja' ? '位置' : 'Position'}
+                      </button>
+                    )}
+                </div>
+              </div>
+            ),
+          )}
         {!showArticleUploadPage && assistantLoading && (
           <div className="flex justify-start">
             <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -1148,149 +1165,226 @@ export function AssistantPanel({
       </div>
 
       {!showArticleUploadPage && (
-      <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-2 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => documentInputRef.current?.click()}
-            disabled={assistantLoading || assistantDocumentLoading}
-            className="hidden"
-            title={
-              language === 'zh'
-                ? '上传 PDF 或 Word 文档作为参考'
-                : language === 'ja'
-                  ? 'PDFまたはWordドキュメントを参考としてアップロード'
-                  : 'Upload PDF or Word reference documents'
-            }
-          >
-            {assistantDocumentLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <UploadCloud className="h-3.5 w-3.5" />
-            )}
-            <span>
-              {language === 'zh' ? '参考文档' : language === 'ja' ? '参考ドキュメント' : 'Docs'}
-            </span>
-          </button>
-          {assistantDocuments.length > 0 && (
-            <div className="custom-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-              {assistantDocuments.map((document) => (
-                <div
-                  key={document.id}
-                  className="flex h-8 max-w-[160px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                  title={document.name}
-                >
-                  <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-                  <span className="truncate">{document.name}</span>
-                  <a
-                    href={document.objectUrl}
-                    download={document.name}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600"
-                    title={
-                      language === 'zh'
-                        ? '下载文档'
-                        : language === 'ja'
-                          ? 'ドキュメントをダウンロード'
-                          : 'Download document'
-                    }
-                  >
-                    <Download className="h-3 w-3" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAssistantDocument(document.id)}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-rose-500"
-                    title={
-                      language === 'zh'
-                        ? '移除文档'
-                        : language === 'ja'
-                          ? 'ドキュメントを削除'
-                          : 'Remove document'
-                    }
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="assistant-quick-actions mb-2 flex gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => applyShortDramaTestPrompt()}
-            disabled={assistantLoading}
-            className="assistant-bottom-glass-action assistant-bottom-action-short-drama flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-orange-100 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-orange-50 disabled:opacity-50 dark:border-orange-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-orange-950/40"
-          >
-            <PencilLine className="h-3.5 w-3.5 text-orange-500" />
-            {language === 'zh'
-              ? '快速生成一个短剧'
-              : language === 'ja'
-                ? '短編ドラマを生成'
-                : 'Quick short drama'}
-          </button>
-          <div className="relative shrink-0">
+        <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-2 flex items-center gap-2">
             <button
-              ref={cardGenerateButtonRef}
               type="button"
-              onClick={toggleCardGenerateMenu}
-              disabled={assistantLoading}
-              className="assistant-bottom-glass-action assistant-bottom-action-generate flex items-center justify-center gap-1 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 text-xs font-bold text-indigo-600 shadow-sm transition-colors hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-400/20 dark:bg-slate-900/80 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+              onClick={() => documentInputRef.current?.click()}
+              disabled={assistantLoading || assistantDocumentLoading}
+              className="hidden"
+              title={
+                language === 'zh'
+                  ? '上传 PDF 或 Word 文档作为参考'
+                  : language === 'ja'
+                    ? 'PDFまたはWordドキュメントを参考としてアップロード'
+                    : 'Upload PDF or Word reference documents'
+              }
             >
-              {language === 'zh' ? '生成卡片' : language === 'ja' ? 'カード生成' : 'Generate cards'}
+              {assistantDocumentLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-3.5 w-3.5" />
+              )}
+              <span>
+                {language === 'zh' ? '参考文档' : language === 'ja' ? '参考ドキュメント' : 'Docs'}
+              </span>
+            </button>
+            {assistantDocuments.length > 0 && (
+              <div className="custom-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                {assistantDocuments.map((document) => (
+                  <div
+                    key={document.id}
+                    className="flex h-8 max-w-[160px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                    title={document.name}
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    <span className="truncate">{document.name}</span>
+                    <a
+                      href={document.objectUrl}
+                      download={document.name}
+                      className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600"
+                      title={
+                        language === 'zh'
+                          ? '下载文档'
+                          : language === 'ja'
+                            ? 'ドキュメントをダウンロード'
+                            : 'Download document'
+                      }
+                    >
+                      <Download className="h-3 w-3" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAssistantDocument(document.id)}
+                      className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-rose-500"
+                      title={
+                        language === 'zh'
+                          ? '移除文档'
+                          : language === 'ja'
+                            ? 'ドキュメントを削除'
+                            : 'Remove document'
+                      }
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="assistant-quick-actions mb-2 flex gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => applyShortDramaTestPrompt()}
+              disabled={assistantLoading}
+              className="assistant-bottom-glass-action assistant-bottom-action-short-drama flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-orange-100 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-orange-50 disabled:opacity-50 dark:border-orange-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-orange-950/40"
+            >
+              <PencilLine className="h-3.5 w-3.5 text-orange-500" />
+              {language === 'zh'
+                ? '快速生成一个短剧'
+                : language === 'ja'
+                  ? '短編ドラマを生成'
+                  : 'Quick short drama'}
+            </button>
+            <div className="relative shrink-0">
+              <button
+                ref={cardGenerateButtonRef}
+                type="button"
+                onClick={toggleCardGenerateMenu}
+                disabled={assistantLoading}
+                className="assistant-bottom-glass-action assistant-bottom-action-generate flex items-center justify-center gap-1 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 text-xs font-bold text-indigo-600 shadow-sm transition-colors hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-400/20 dark:bg-slate-900/80 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+              >
+                {language === 'zh'
+                  ? '生成卡片'
+                  : language === 'ja'
+                    ? 'カード生成'
+                    : 'Generate cards'}
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            </div>
+            <button
+              ref={suggestButtonRef}
+              type="button"
+              onClick={toggleSuggestMenu}
+              disabled={assistantLoading}
+              className="assistant-bottom-glass-action assistant-bottom-action-suggest flex shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
               <ChevronDown
-                className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`}
+                className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
               />
             </button>
           </div>
-          <button
-            ref={suggestButtonRef}
-            type="button"
-            onClick={toggleSuggestMenu}
-            disabled={assistantLoading}
-            className="assistant-bottom-glass-action assistant-bottom-action-suggest flex shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800"
+          <div
+            className={`assistant-input-box overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition-all duration-300 ease-out dark:border-slate-800 dark:bg-slate-900 ${
+              assistantInputExpanded ? 'flex flex-col gap-2 p-3' : 'flex items-center gap-2 p-2'
+            }`}
           >
-            {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
-            <ChevronDown
-              className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-        </div>
-        <div
-          className={`assistant-input-box overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition-all duration-300 ease-out dark:border-slate-800 dark:bg-slate-900 ${
-            assistantInputExpanded
-              ? 'flex flex-col gap-2 p-3'
-              : 'flex items-center gap-2 p-2'
-          }`}
-        >
-          {assistantInputExpanded ? (
-            <>
-              <textarea
-                ref={assistantInputRef}
-                value={assistantInput}
-                onChange={(event) => {
-                  setAssistantInput(event.target.value);
-                  setShortDramaPromptIndex(null);
-                }}
-                onFocus={() => setAssistantInputFocused(true)}
-                onBlur={() => setAssistantInputFocused(false)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendAssistantMessage();
+            {assistantInputExpanded ? (
+              <>
+                <textarea
+                  ref={assistantInputRef}
+                  value={assistantInput}
+                  onChange={(event) => {
+                    setAssistantInput(event.target.value);
+                    setShortDramaPromptIndex(null);
+                  }}
+                  onFocus={() => setAssistantInputFocused(true)}
+                  onBlur={() => setAssistantInputFocused(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendAssistantMessage();
+                    }
+                  }}
+                  placeholder={
+                    language === 'zh'
+                      ? '请你给我生成一个故事'
+                      : language === 'ja'
+                        ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
+                        : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
                   }
-                }}
-                placeholder={
-                  language === 'zh'
-                    ? '请你给我生成一个故事'
-                    : language === 'ja'
-                      ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
-                      : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
-                }
-                rows={3}
-                className="custom-scrollbar max-h-48 min-h-[4.75rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
-              />
-              <div className="flex w-full shrink-0 items-center justify-between gap-2">
+                  rows={3}
+                  className="custom-scrollbar max-h-48 min-h-[4.75rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
+                />
+                <div className="flex w-full shrink-0 items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentUploadIntent(null);
+                      setDocumentUploadOpen(true);
+                    }}
+                    disabled={assistantLoading || assistantDocumentLoading}
+                    className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+                    aria-label={
+                      language === 'zh'
+                        ? '上传参考文件'
+                        : language === 'ja'
+                          ? '参考ファイルをアップロード'
+                          : 'Upload reference files'
+                    }
+                  >
+                    {assistantDocumentLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleAssistantVoiceInput}
+                      disabled={assistantLoading || assistantListening}
+                      className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
+                        assistantListening
+                          ? 'animate-pulse bg-rose-500 text-white'
+                          : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
+                      } flex items-center justify-center disabled:opacity-50`}
+                      title={
+                        language === 'zh'
+                          ? '语音输入'
+                          : language === 'ja'
+                            ? '音声入力'
+                            : 'Voice input'
+                      }
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
+                    {shortDramaPromptIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={replaceShortDramaTestPrompt}
+                        disabled={assistantLoading}
+                        className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
+                        aria-label={
+                          language === 'zh'
+                            ? '换一个测试句'
+                            : language === 'ja'
+                              ? '別のテスト文に変更'
+                              : 'Try another prompt'
+                        }
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void sendAssistantMessage()}
+                      disabled={assistantLoading || !assistantInput.trim()}
+                      className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
+                      title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
+                    >
+                      {assistantLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
                 <button
                   type="button"
                   onClick={() => {
@@ -1313,6 +1407,31 @@ export function AssistantPanel({
                     <Plus className="h-4 w-4" />
                   )}
                 </button>
+                <textarea
+                  ref={assistantInputRef}
+                  value={assistantInput}
+                  onChange={(event) => {
+                    setAssistantInput(event.target.value);
+                    setShortDramaPromptIndex(null);
+                  }}
+                  onFocus={() => setAssistantInputFocused(true)}
+                  onBlur={() => setAssistantInputFocused(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendAssistantMessage();
+                    }
+                  }}
+                  placeholder={
+                    language === 'zh'
+                      ? '请你给我生成一个故事'
+                      : language === 'ja'
+                        ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
+                        : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
+                  }
+                  rows={1}
+                  className="custom-scrollbar h-9 min-h-9 flex-1 resize-none bg-transparent text-sm leading-9 text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
+                />
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleAssistantVoiceInput}
@@ -1362,106 +1481,10 @@ export function AssistantPanel({
                     )}
                   </button>
                 </div>
-              </div>
-            </>
-          ) : (
-            <>
-            <button
-              type="button"
-              onClick={() => {
-                setDocumentUploadIntent(null);
-                setDocumentUploadOpen(true);
-              }}
-              disabled={assistantLoading || assistantDocumentLoading}
-              className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
-              aria-label={
-                language === 'zh'
-                  ? '上传参考文件'
-                  : language === 'ja'
-                    ? '参考ファイルをアップロード'
-                    : 'Upload reference files'
-              }
-            >
-              {assistantDocumentLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </button>
-            <textarea
-              ref={assistantInputRef}
-              value={assistantInput}
-              onChange={(event) => {
-                setAssistantInput(event.target.value);
-                setShortDramaPromptIndex(null);
-              }}
-              onFocus={() => setAssistantInputFocused(true)}
-              onBlur={() => setAssistantInputFocused(false)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  void sendAssistantMessage();
-                }
-              }}
-              placeholder={
-                language === 'zh'
-                  ? '请你给我生成一个故事'
-                  : language === 'ja'
-                    ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
-                    : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
-              }
-              rows={1}
-              className="custom-scrollbar h-9 min-h-9 flex-1 resize-none bg-transparent text-sm leading-9 text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
-            />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleAssistantVoiceInput}
-                disabled={assistantLoading || assistantListening}
-                className={`hidden h-9 w-9 shrink-0 rounded-xl transition-colors ${
-                  assistantListening
-                    ? 'animate-pulse bg-rose-500 text-white'
-                    : 'assistant-input-icon-button border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white'
-                } flex items-center justify-center disabled:opacity-50`}
-                title={
-                  language === 'zh' ? '语音输入' : language === 'ja' ? '音声入力' : 'Voice input'
-                }
-              >
-                <Mic className="h-4 w-4" />
-              </button>
-              {shortDramaPromptIndex !== null && (
-                <button
-                  type="button"
-                  onClick={replaceShortDramaTestPrompt}
-                  disabled={assistantLoading}
-                  className="assistant-input-icon-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-white"
-                  aria-label={
-                    language === 'zh'
-                      ? '换一个测试句'
-                      : language === 'ja'
-                        ? '別のテスト文に変更'
-                        : 'Try another prompt'
-                  }
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                onClick={() => void sendAssistantMessage()}
-                disabled={assistantLoading || !assistantInput.trim()}
-                className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
-                title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
-              >
-                {assistantLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
       )}
       {cardGenerateOpen &&
         createPortal(
