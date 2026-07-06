@@ -101,6 +101,14 @@ import { useTimelineDragDrop } from './useTimelineDragDrop';
 import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
+import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
+import {
+  buildInteractiveSegments,
+  makeInteractiveSegmentFileName,
+  type InteractiveSegmentDraft,
+} from '../interactive/interactiveSegments';
+
+type VideoWorkspaceMode = 'timeline' | 'interactive';
 
 export function VideoRenderModal({
   nodes,
@@ -120,6 +128,7 @@ export function VideoRenderModal({
       ? persistedWorkspace.workspaceMode
       : 'video',
   );
+  const [videoWorkspaceMode, setVideoWorkspaceMode] = useState<VideoWorkspaceMode>('timeline');
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
@@ -364,6 +373,12 @@ export function VideoRenderModal({
   const [savedPath, setSavedPath] = useState('');
   // NOTE: 控制导出确认弹窗的显示状态
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [interactiveSegments, setInteractiveSegments] = useState<InteractiveSegmentDraft[]>(() =>
+    buildInteractiveSegments(nodes, edges),
+  );
+  const [activeInteractiveSegmentId, setActiveInteractiveSegmentId] = useState(
+    () => interactiveSegments[0]?.id || '',
+  );
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetPanelLastWidthRef = useRef(assetPanelWidth || 320);
@@ -427,6 +442,15 @@ export function VideoRenderModal({
   const nodeById = useMemo(
     () => new Map([...assetNodeById, ...timelineNodeById]),
     [assetNodeById, timelineNodeById],
+  );
+  const storyNodeById = useMemo(
+    () =>
+      new Map(
+        nodes
+          .filter((node) => node.type === 'storyNode' && !node.data?.hidden)
+          .map((node) => [node.id, node]),
+      ),
+    [nodes],
   );
   const selectedNodes = useMemo(
     () => timelineNodes.filter((node) => selectedIds.has(node.id)),
@@ -1682,6 +1706,63 @@ export function VideoRenderModal({
     setProgress,
     setProgressValue,
   });
+  const rescanInteractiveSegments = () => {
+    const next = buildInteractiveSegments(nodes, edges);
+    setInteractiveSegments(next);
+    setActiveInteractiveSegmentId(next[0]?.id || '');
+    setError('');
+    setProgress('');
+    setSavedPath('');
+  };
+  const interactiveSegmentOutputDir = () => {
+    const base = outputDir.trim();
+    if (!isDesktopApp || !base) return base;
+    const separator = base.includes('/') && !base.includes('\\') ? '/' : '\\';
+    return `${base.replace(/[\\/]+$/, '')}${separator}video${separator}segments`;
+  };
+  const exportInteractiveSegments = async () => {
+    const enabledSegments = interactiveSegments.filter((segment) => segment.enabled);
+    if (enabledSegments.length === 0 || status === 'rendering') return;
+    setError('');
+    setSavedPath('');
+    setProgressValue(0);
+    setProgress(
+      renderCopy(
+        language,
+        `准备导出 ${enabledSegments.length} 个互动片段`,
+        `${enabledSegments.length} 個のインタラクティブセグメントを書き出す準備中`,
+        `Preparing ${enabledSegments.length} interactive segment(s)`,
+      ),
+    );
+
+    const targetOutputDir = interactiveSegmentOutputDir();
+    for (let index = 0; index < enabledSegments.length; index += 1) {
+      const segment = enabledSegments[index];
+      const segmentNodes = segment.nodeIds
+        .map((id) => storyNodeById.get(id))
+        .filter(Boolean) as FlowNode[];
+      if (segmentNodes.length === 0) continue;
+      setProgressValue(Math.round((index / enabledSegments.length) * 100));
+      await renderVideo({
+        fileName: makeInteractiveSegmentFileName(segment, index),
+        frameRate,
+        exportFormat,
+        nodes: segmentNodes,
+        audioSegments: [],
+        outputDir: targetOutputDir,
+        progressPrefix: `${index + 1}/${enabledSegments.length}`,
+      });
+    }
+    setProgressValue(100);
+    setProgress(
+      renderCopy(
+        language,
+        `互动分段导出完成：${enabledSegments.length} 个视频`,
+        `${enabledSegments.length} 個のインタラクティブセグメントを書き出しました`,
+        `Interactive segment export complete: ${enabledSegments.length} video(s)`,
+      ),
+    );
+  };
   const { exportWebProject } = useWebProjectExport({
     nodes,
     edges,
@@ -1826,12 +1907,15 @@ export function VideoRenderModal({
           gridTemplateRows:
             workspaceMode === 'web'
               ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
-              : `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px`,
+              : videoWorkspaceMode === 'interactive'
+                ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
+                : `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px`,
         }}
       >
         <RenderHeader
           language={language}
           workspaceMode={workspaceMode}
+          videoWorkspaceMode={videoWorkspaceMode}
           status={status}
           isFullscreen={isFullscreen}
           assetPanelCollapsed={assetPanelCollapsed}
@@ -1840,12 +1924,17 @@ export function VideoRenderModal({
           timelineFuture={timelineFuture}
           webPast={webPast}
           webFuture={webFuture}
-          selectedNodes={selectedNodes}
+          selectedNodes={
+            videoWorkspaceMode === 'interactive'
+              ? interactiveSegments.filter((segment) => segment.enabled)
+              : selectedNodes
+          }
           nodes={nodes}
           setWorkspaceMode={(mode) => {
             saveWorkspaceImmediately();
             setWorkspaceMode(mode);
           }}
+          setVideoWorkspaceMode={setVideoWorkspaceMode}
           setError={setError}
           setProgress={setProgress}
           setSavedPath={setSavedPath}
@@ -1856,11 +1945,56 @@ export function VideoRenderModal({
           redoTimeline={redoTimeline}
           undoWeb={undoWeb}
           redoWeb={redoWeb}
-          onExportClick={() => setIsExportDialogOpen(true)}
+          onExportClick={() => {
+            if (workspaceMode === 'video' && videoWorkspaceMode === 'interactive') {
+              exportInteractiveSegments();
+              return;
+            }
+            setIsExportDialogOpen(true);
+          }}
           onClose={closeRenderWorkspace}
         />
 
         {workspaceMode === 'video' ? (
+          videoWorkspaceMode === 'interactive' ? (
+            <InteractiveSegmentExportWorkspace
+              language={language}
+              segments={interactiveSegments}
+              nodes={nodes}
+              nodesById={storyNodeById}
+              renderStyle={renderStyle}
+              videoTextScaleMode={videoTextScaleMode}
+              animationLeadSeconds={animationLeadSeconds}
+              hideCharacterTags={hideCharacterTags}
+              hideSceneTags={hideSceneTags}
+              activeSegmentId={activeInteractiveSegmentId}
+              status={status}
+              exportFormat={exportFormat}
+              frameRate={frameRate}
+              resolutionIndex={resolutionIndex}
+              resolutionWidth={resolutionWidth}
+              resolutionHeight={resolutionHeight}
+              outputDir={outputDir}
+              outputDirError={outputDirError}
+              progress={progress}
+              error={error}
+              progressValue={progressValue}
+              savedPath={savedPath}
+              defaultSeconds={defaultSeconds}
+              onSelectSegment={setActiveInteractiveSegmentId}
+              onSegmentsChange={setInteractiveSegments}
+              onRescan={rescanInteractiveSegments}
+              onExport={exportInteractiveSegments}
+              setExportFormat={setExportFormat}
+              setFrameRate={setFrameRate}
+              setResolutionIndex={setResolutionIndex}
+              setResolutionWidth={setResolutionWidth}
+              setResolutionHeight={setResolutionHeight}
+              setOutputDir={setOutputDir}
+              setOutputDirError={setOutputDirError}
+              chooseOutputDir={chooseOutputDir}
+            />
+          ) : (
           <>
             <main className="min-h-0 min-w-0 flex overflow-hidden bg-[var(--vr-bg)]">
               <VideoAssetSidebar
@@ -2086,6 +2220,7 @@ export function VideoRenderModal({
               setTimelineDurationById={setTimelineDurationById}
             />
           </>
+          )
         ) : (
           <WebWorkspace
             nodes={nodes}
@@ -2108,7 +2243,7 @@ export function VideoRenderModal({
           />
         )}
       </div>
-      {workspaceMode === 'video' && (
+      {workspaceMode === 'video' && videoWorkspaceMode === 'timeline' && (
         <RenderContextMenu
           contextMenu={contextMenu}
           nodeById={nodeById}

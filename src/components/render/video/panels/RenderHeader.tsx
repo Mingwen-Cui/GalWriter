@@ -20,6 +20,7 @@ import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 type RenderHeaderProps = {
   language: Language;
   workspaceMode: RenderWorkspaceMode;
+  videoWorkspaceMode: 'timeline' | 'interactive';
   status: RenderStatus;
   isFullscreen: boolean;
   assetPanelCollapsed: boolean;
@@ -31,6 +32,7 @@ type RenderHeaderProps = {
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
+  setVideoWorkspaceMode: (mode: 'timeline' | 'interactive') => void;
   setError: (value: string) => void;
   setProgress: (value: string) => void;
   setSavedPath: (value: string) => void;
@@ -49,6 +51,7 @@ type RenderHeaderProps = {
 export function RenderHeader({
   language,
   workspaceMode,
+  videoWorkspaceMode,
   status,
   isFullscreen,
   assetPanelCollapsed,
@@ -60,6 +63,7 @@ export function RenderHeader({
   selectedNodes,
   nodes,
   setWorkspaceMode,
+  setVideoWorkspaceMode,
   setError,
   setProgress,
   setSavedPath,
@@ -131,6 +135,42 @@ export function RenderHeader({
         >
           {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
         </button>
+        {workspaceMode === 'video' && (
+          <div className="mx-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+            {[
+              {
+                value: 'timeline' as const,
+                label: renderCopy(language, '时间线导出', 'タイムライン書出し', 'Timeline'),
+              },
+              {
+                value: 'interactive' as const,
+                label: renderCopy(language, '互动分段导出', 'インタラクティブ分割', 'Interactive'),
+              },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => {
+                  if (isRendering) return;
+                  setVideoWorkspaceMode(mode.value);
+                  setError('');
+                  setProgress('');
+                  setSavedPath('');
+                }}
+                disabled={isRendering}
+                className={`h-7 rounded-md px-3 text-[11px] font-black transition-colors ${
+                  videoWorkspaceMode === mode.value
+                    ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                    : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                } disabled:opacity-40`}
+                aria-pressed={videoWorkspaceMode === mode.value}
+                title={mode.label}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        )}
         {exportPanelCollapsed ? (
           <button
             type="button"

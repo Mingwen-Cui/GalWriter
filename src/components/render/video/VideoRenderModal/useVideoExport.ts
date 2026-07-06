@@ -91,11 +91,22 @@ export const useVideoExport = ({
   const [isCancellingRender, setIsCancellingRender] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const renderVideo = async (options?: { fileName?: string; frameRate?: number; exportFormat?: ExportFormat }) => {
+  const renderVideo = async (options?: {
+    fileName?: string;
+    frameRate?: number;
+    exportFormat?: ExportFormat;
+    nodes?: FlowNode[];
+    audioSegments?: TimelineSegmentMetric[];
+    outputDir?: string;
+    progressPrefix?: string;
+  }) => {
     const resolvedFrameRate = options?.frameRate ?? frameRate;
     const resolvedFormat = options?.exportFormat ?? exportFormat;
+    const renderNodes = options?.nodes ?? selectedNodes;
+    const renderAudioSegments = options?.audioSegments ?? activeAudioSegments;
+    const resolvedOutputDir = options?.outputDir ?? outputDir;
     const fileName = options?.fileName;
-    if (selectedNodes.length === 0 || status === 'rendering') return;
+    if (renderNodes.length === 0 || status === 'rendering') return;
     const canvas2d = canvasRef.current;
     const ctx2d = canvas2d?.getContext('2d');
     if (!canvas2d || !ctx2d) return;
@@ -128,7 +139,7 @@ export const useVideoExport = ({
       canvas.height = resolution.height;
       const nodeDurations: number[] = [];
       let totalDuration = 0;
-      for (const node of selectedNodes) {
+      for (const node of renderNodes) {
         throwIfCancelled();
         const duration = await getNodeRenderDuration(node);
         nodeDurations.push(duration);
@@ -136,7 +147,7 @@ export const useVideoExport = ({
       }
       const totalFrames = Math.max(1, Math.ceil(totalDuration * resolvedFrameRate));
 
-      const audioSegments: SegmentRenderInfo[] = activeAudioSegments.flatMap((segment) =>
+      const audioSegments: SegmentRenderInfo[] = renderAudioSegments.flatMap((segment) =>
         getSegmentAudioSources(segment.node).map((source) => ({
           node: segment.node,
           startSecs: segment.start,
@@ -148,8 +159,21 @@ export const useVideoExport = ({
         })),
       );
       let regionCursor = 0;
-      selectedNodes.forEach((node, index) => {
+      renderNodes.forEach((node, index) => {
         const duration = nodeDurations[index];
+        if (renderAudioSegments.length === 0) {
+          getSegmentAudioSources(node).forEach((source) => {
+            audioSegments.push({
+              node,
+              startSecs: regionCursor,
+              durationSecs: duration,
+              audioUrl: source.url,
+              volume: Number(node.data?.volume ?? 1),
+              fadeIn: Number(node.data?.fadeIn ?? 0),
+              fadeOut: Number(node.data?.fadeOut ?? 0),
+            });
+          });
+        }
         const match = resolveRegionBackgroundMusic(nodes, node);
         const previous = audioSegments[audioSegments.length - 1];
         const canExtend =
@@ -184,7 +208,7 @@ export const useVideoExport = ({
       throwIfCancelled();
 
       const videoCache = new Map<string, HTMLVideoElement>();
-      for (const node of selectedNodes) {
+      for (const node of renderNodes) {
         throwIfCancelled();
         const videoUrl = node.data?.videoUrl as string | undefined;
         if (videoUrl && !videoCache.has(videoUrl)) {
@@ -198,14 +222,14 @@ export const useVideoExport = ({
         cursor += duration;
       });
       const resolveFrame = (timestamp: number) => {
-        let nodeIndex = selectedNodes.length - 1;
-        for (let index = 0; index < selectedNodes.length; index += 1) {
+        let nodeIndex = renderNodes.length - 1;
+        for (let index = 0; index < renderNodes.length; index += 1) {
           if (timestamp < nodeStartTimes[index] + nodeDurations[index]) {
             nodeIndex = index;
             break;
           }
         }
-        const node = selectedNodes[nodeIndex];
+        const node = renderNodes[nodeIndex];
         const nodeDuration = nodeDurations[nodeIndex];
         return {
           node,
@@ -226,7 +250,9 @@ export const useVideoExport = ({
         };
       };
       const reportNode = (node: FlowNode, nodeIndex: number) =>
-        setProgress(`${nodeIndex + 1}/${selectedNodes.length} ${String(node.data?.title || '')}`);
+        setProgress(
+          `${options?.progressPrefix ? `${options.progressPrefix} ` : ''}${nodeIndex + 1}/${renderNodes.length} ${String(node.data?.title || '')}`,
+        );
 
       const drawFrame2D = async (_frameIndex: number, timestamp: number) => {
         throwIfCancelled();
@@ -285,7 +311,7 @@ export const useVideoExport = ({
           fileName: (fileName?.trim() || `galwriter-render-${Date.now()}`),
           format: resolvedFormat,
           bytes: Array.from(bytes),
-          outputDir,
+          outputDir: resolvedOutputDir,
           videoBitrate: DEFAULT_VIDEO_BITRATE,
         });
         setSavedPath(result.path);

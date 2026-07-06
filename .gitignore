@@ -12,6 +12,11 @@ scripts/
 api/
 public/api/
 
+# Local private template workspace. Keep character cards, scene cards,
+# render-page mockups, settings screens, and save-entry templates here.
+# This folder is intentionally not uploaded to GitHub.
+LOCAL_TEMPLATES_DO_NOT_COMMIT/
+
 # Tauri/Rust generated output
 src-tauri/gen/
 
