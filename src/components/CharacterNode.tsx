@@ -78,6 +78,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const name = data.characterName || '';
   const traits = data.traits || '';
   const avatarUrl = data.avatarUrl;
+  const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
     typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
@@ -547,7 +548,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   return (
     <div
       data-agent-node-id={id}
-      className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
+      className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${
+        isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
+      } ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
       style={{
         height: isMinimized ? 'auto' : '100%',
         minHeight: isMinimized ? 'auto' : effectiveMinHeight,

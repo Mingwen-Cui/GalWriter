@@ -57,7 +57,40 @@ type AssistantWorkflowState =
   | { type: 'revision-awaiting-opinion' }
   | { type: 'future-awaiting-count'; targetNodeId: string }
   | { type: 'future-generate-bridge'; targetNodeId: string; count: number }
-  | { type: 'article-teach-generate'; teachingMode: 'interactive' | 'lecture' };
+  | { type: 'article-role-awaiting'; candidateNodeIds: string[] }
+  | {
+      type: 'article-role-selected';
+      characterNodeId: string;
+      characterName: string;
+    }
+  | {
+      type: 'article-scene-custom-awaiting';
+      characterNodeId: string;
+      characterName: string;
+    }
+  | {
+      type: 'article-scene-awaiting';
+      characterNodeId: string;
+      characterName: string;
+      candidateNodeIds: string[];
+    }
+  | {
+      type: 'article-ready-to-teach';
+      characterNodeId: string;
+      characterName: string;
+      sceneNodeId?: string;
+      sceneName?: string;
+      useScene: boolean;
+    }
+  | {
+      type: 'article-teach-generate';
+      teachingMode: 'interactive' | 'lecture';
+      characterNodeId?: string;
+      characterName?: string;
+      sceneNodeId?: string;
+      sceneName?: string;
+      useScene?: boolean;
+    };
 
 export type AssistantArticleAnalysisStep = {
   title: string;
@@ -115,6 +148,134 @@ const ASSISTANT_VISUALIZE_OPTION_PREFIX = '__assistant_visualize__:';
 const LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX = '__generate_visuals__:';
 
 const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
+
+const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [
+  {
+    type: 'character',
+    characterName: '教学角色 A',
+    traits: '候选教学者。语气温和，适合把复杂文章拆成容易理解的步骤。',
+    personality: '耐心、清晰、善于确认读者是否理解。',
+    features: '人物图片暂时留空，后续可以替换为正式立绘。',
+    background: '负责把上传文章转化为单人 Galgame 教学流程。',
+    other: '候选角色，确认后会删除其他候选人物卡。',
+  },
+  {
+    type: 'character',
+    characterName: '教学角色 B',
+    traits: '候选教学者。表达更活泼，适合用提问和反馈推动学习。',
+    personality: '主动、亲切、节奏轻快。',
+    features: '人物图片暂时留空，后续可以替换为正式立绘。',
+    background: '负责用单人讲解或问答方式带读者理解文章。',
+    other: '候选角色，确认后会删除其他候选人物卡。',
+  },
+  {
+    type: 'character',
+    characterName: '教学角色 C',
+    traits: '候选教学者。风格冷静，适合严谨梳理论点、概念和结构。',
+    personality: '理性、简洁、重视逻辑顺序。',
+    features: '人物图片暂时留空，后续可以替换为正式立绘。',
+    background: '负责把文章知识点组织成清楚的章节教学。',
+    other: '候选角色，确认后会删除其他候选人物卡。',
+  },
+  {
+    type: 'character',
+    characterName: '教学角色 D',
+    traits: '候选教学者。风格柔和，适合用故事化方式引导读者学习。',
+    personality: '细腻、鼓励式、擅长总结。',
+    features: '人物图片暂时留空，后续可以替换为正式立绘。',
+    background: '负责把文章转成单人 Galgame 教学演出。',
+    other: '候选角色，确认后会删除其他候选人物卡。',
+  },
+];
+
+const createArticleSelfDrawRoleCard = (): AssistantCardDraft => ({
+  type: 'character',
+  characterName: '自绘教学角色',
+  traits: '用户自绘或自行上传的教学角色。完成绘制后选中这张卡并确认。',
+  personality: '由用户后续补充。',
+  features: '请在人物卡中放入用户绘制或上传的角色图。',
+  background: '作为本次文章教学 Galgame 的唯一出场人物。',
+  other: '确认后会删除其他候选人物卡。',
+});
+
+const createArticleDefaultSceneCards = (): AssistantCardDraft[] => [
+  {
+    type: 'scene',
+    sceneName: '安静教室',
+    description: '适合章节讲解和课堂式提问的默认教学空间。',
+    location: '明亮教室，前方有白板和讲台。',
+    items: '白板、课桌、投影幕、笔记本。',
+    atmosphere: '清楚、专注、适合系统化学习。',
+    other: '候选场景，确认后会删除其他候选场景卡。',
+  },
+  {
+    type: 'scene',
+    sceneName: '书桌学习角',
+    description: '适合一对一陪读和文章细读的默认教学空间。',
+    location: '靠窗书桌旁，桌面摆着资料和水杯。',
+    items: '台灯、资料夹、便签、打开的文章。',
+    atmosphere: '安静、贴近读者、适合逐段拆解。',
+    other: '候选场景，确认后会删除其他候选场景卡。',
+  },
+  {
+    type: 'scene',
+    sceneName: '资料室',
+    description: '适合整理概念、证据和章节结构的默认教学空间。',
+    location: '资料柜与长桌围成的学习区域。',
+    items: '档案盒、索引卡、白板、文件夹。',
+    atmosphere: '理性、有条理、适合分析型文章。',
+    other: '候选场景，确认后会删除其他候选场景卡。',
+  },
+  {
+    type: 'scene',
+    sceneName: '白板前',
+    description: '适合用图示、关键词和小结推进教学的默认教学空间。',
+    location: '一面大白板前，旁边有简洁讲台。',
+    items: '马克笔、板擦、流程图、章节标题。',
+    atmosphere: '明快、聚焦、适合讲课式推进。',
+    other: '候选场景，确认后会删除其他候选场景卡。',
+  },
+];
+
+const createArticleCustomSceneCards = (request: string): AssistantCardDraft[] => {
+  const sceneRequest = request.trim() || '用户自定义教学场景';
+  return ['A', 'B', 'C', 'D'].map((suffix) => ({
+    type: 'scene',
+    sceneName: `新场景 ${suffix}`,
+    description: `根据用户描述创建的候选场景：${sceneRequest}`,
+    location: `围绕“${sceneRequest}”设计的教学空间 ${suffix}。`,
+    items: '可后续在场景卡中补充具体物品。',
+    atmosphere: '贴合用户自定义方向，适合文章教学演出。',
+    other: '候选场景，确认后会删除其他候选场景卡。',
+  }));
+};
+
+const createArticleRoleSelectionOptions = () => [
+  { id: uuidv4(), label: '确认当前选中的人物卡', value: '__article_role_confirm__' },
+  { id: uuidv4(), label: '添加自绘角色卡', value: '__article_role_self_draw__' },
+];
+
+const createArticleSceneChoiceOptions = () => [
+  { id: uuidv4(), label: '添加默认场景候选卡', value: '__article_scenes_create__:default' },
+  { id: uuidv4(), label: '添加新场景候选卡', value: '__article_scenes_custom_prompt__' },
+  { id: uuidv4(), label: '不添加场景，继续选择教学方式', value: '__article_scene_skip__' },
+];
+
+const createArticleTeachingModeOptions = () => [
+  { id: uuidv4(), label: '对话式教学', value: '__article_teach__:interactive' },
+  { id: uuidv4(), label: '讲课式教学', value: '__article_teach__:lecture' },
+];
+
+const markArticleCandidateCards = (
+  cards: AssistantCardDraft[],
+  kind: 'article-role' | 'article-scene',
+  groupId = uuidv4(),
+) =>
+  cards.map((card) => ({
+    ...card,
+    assistantCandidateKind: kind,
+    assistantCandidateGroupId: groupId,
+  }));
 
 const normalizeAssistantPlainText = (value: unknown) =>
   htmlToSpeechText(String(value || ''))
@@ -503,6 +664,7 @@ interface UseAssistantPanelParams {
     nodeIds: string[] | undefined,
     cards: AssistantCardDraft[],
   ) => void;
+  removeAssistantNodes?: (nodeIds: string[]) => void;
   onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting?: () => void;
@@ -539,6 +701,7 @@ interface UseAssistantPanelResult {
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
+  handleAssistantCandidateNodeSelect: (nodeId: string) => void;
   handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (
     files: FileList | null,
@@ -567,6 +730,7 @@ export const useAssistantPanel = ({
   callAIForTextStream,
   createAssistantCards,
   updateStreamingAssistantCards,
+  removeAssistantNodes,
   onGenerateAssistantImagesRequest,
   startAgentWaiting,
   stopAgentWaiting,
@@ -1069,8 +1233,15 @@ ${documentContext}`);
               role: 'assistant',
               content:
                 language === 'zh'
-                  ? '我已经完成了对文章的真实阅读和结构诊断。请在解析页面选择“对话式教学”或“讲课式教学”，我会继续生成章节背景框和剧情卡。'
-                  : 'I finished a real reading and structural diagnosis. Choose a teaching style on the analysis page to continue.',
+                  ? '我已经完成了对文章的真实阅读和结构诊断。下一步会先在画布上生成 4 张候选人物设定卡，请选择本次唯一教学角色。'
+                  : 'I finished the reading and structure diagnosis. Next, generate four candidate character cards and choose the single teaching character.',
+              options: [
+                {
+                  id: uuidv4(),
+                  label: '生成 4 张候选人物卡',
+                  value: '__article_roles_create__',
+                },
+              ],
             },
           ]);
           return;
@@ -1553,6 +1724,35 @@ The previous streaming response did not complete every placeholder card. Return 
         return;
       }
 
+      if (workflow.type === 'article-scene-custom-awaiting') {
+        const placement = await createAssistantCards(
+          markArticleCandidateCards(createArticleCustomSceneCards(userText), 'article-scene'),
+          'append',
+        );
+        assistantWorkflowRef.current = {
+          type: 'article-scene-awaiting',
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+          candidateNodeIds: placement.nodeIds || [],
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '我已经根据你的描述在画布上生成 4 张新场景候选卡。请选中要使用的那张，然后点击确认。',
+            cardPosition: placement.position,
+            cardNodeIds: placement.nodeIds,
+            options: [
+              { id: uuidv4(), label: '确认当前选中的场景卡', value: '__article_scene_confirm__' },
+              { id: uuidv4(), label: '不使用场景', value: '__article_scene_skip__' },
+            ],
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+
       if (workflow.type === 'idle' && isGenericStoryIdeaRequest(userText)) {
         assistantWorkflowRef.current = { type: 'idea-awaiting' };
         setAssistantMessages((messages) => [
@@ -1694,6 +1894,22 @@ The previous streaming response did not complete every placeholder card. Return 
       const numberLogicInstruction = `Number logic rule: Only create {"type":"number-condition"} cards when the user explicitly asks for affection, numeric values, value changes, conditional branches, route logic, hidden endings, or other complex logic. Do not use number-condition cards for ordinary story generation or normal setting cards. To control affection or another score, set "nodeValue" on relevant story cards, for example {"type":"story","title":"Affection rises","text":"...","nodeValue":5}. A number-condition card reads the accumulated upstream story nodeValue and may use {"type":"number-condition","key":"check","title":"Affection check","threshold":10,"ranges":[{"min":0,"max":9},{"min":10,"max":99}],"branchTargets":[{"handle":"less","target":"bad_end","label":"low affection"},{"handle":"greater","target":"good_end","label":"high affection"}]}. For any branching story, give cards stable "key" values and use "connectTo":["next_key"] or "branchTargets":[{"target":"ending_a"},{"target":"ending_b"}] so one card can connect to multiple later cards. When the user asks for multiple endings, create several ending story cards and connect the shared parent card to all of them with branchTargets, not a linear chain.`;
 
       const isArticleTeachingWorkflow = workflow.type === 'article-teach-generate';
+      const articleTeachingSelectionInstruction = isArticleTeachingWorkflow
+        ? `\nArticle teaching selection rule:
+- The selected teaching character is "${workflow.characterName || '教学角色'}".
+- Use exactly this one character in all story cards. Do not create or mention a second teacher, student, narrator, assistant, partner, or extra character.
+- Do not return any character cards. The character card already exists on the canvas.
+- ${
+            workflow.useScene && workflow.sceneName
+              ? `The selected scene is "${workflow.sceneName}". Use this scene name naturally in story card text. Do not return any scene cards.`
+              : 'The user chose not to add a scene card. Do not return any scene cards.'
+          }
+- For this workflow, the JSON cards array must contain story cards only.\n`
+        : '';
+
+      if (articleTeachingSelectionInstruction) {
+        effectiveUserText += articleTeachingSelectionInstruction;
+      }
 
       const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
 ${numberLogicInstruction}
@@ -1854,7 +2070,7 @@ ${canvasContext || '无'}`;
           };
         }
 
-        const cards = orderAssistantCardsForCreation(
+        let cards = orderAssistantCardsForCreation(
           alignAssistantCardsToPlaceholders(
             Array.isArray(parsed.cards)
               ? parsed.cards.map((card) =>
@@ -1866,6 +2082,9 @@ ${canvasContext || '无'}`;
             preparedPlaceholderCards,
           ),
         );
+        if (isArticleTeachingWorkflow) {
+          cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
+        }
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
         if (preparedPlacement?.count && cards.length === 0) {
@@ -2221,12 +2440,266 @@ cards 必须正好有 3 张。`);
         return;
       }
 
+      if (value === '__article_roles_create__') {
+        setAssistantLoading(true);
+        try {
+          const placement = await createAssistantCards(
+            markArticleCandidateCards(createArticleRoleCandidateCards(), 'article-role'),
+            'append',
+          );
+          assistantWorkflowRef.current = {
+            type: 'article-role-awaiting',
+            candidateNodeIds: placement.nodeIds || [],
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                '我已经在画布上摆出 4 张候选人物设定卡。请在画布上选中你要使用的那一张，然后点击确认。也可以添加一张自绘角色卡，完成绘制/上传后再选中确认。',
+              cardPosition: placement.position,
+              cardNodeIds: placement.nodeIds,
+              options: createArticleRoleSelectionOptions(),
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
+      if (value === '__article_role_self_draw__') {
+        const workflow = assistantWorkflowRef.current;
+        setAssistantLoading(true);
+        try {
+          const shouldCreateFullSet = workflow.type !== 'article-role-awaiting';
+          const cards = shouldCreateFullSet
+            ? [...createArticleRoleCandidateCards(), createArticleSelfDrawRoleCard()]
+            : [createArticleSelfDrawRoleCard()];
+          const placement = await createAssistantCards(
+            markArticleCandidateCards(cards, 'article-role'),
+            'append',
+          );
+          const candidateNodeIds =
+            workflow.type === 'article-role-awaiting'
+              ? [...workflow.candidateNodeIds, ...(placement.nodeIds || [])]
+              : placement.nodeIds || [];
+          assistantWorkflowRef.current = {
+            type: 'article-role-awaiting',
+            candidateNodeIds,
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                '自绘角色卡已经放到画布上。请在这张人物卡里放入你绘制或上传的角色图，完成后选中它并点击确认。',
+              cardPosition: placement.position,
+              cardNodeIds: placement.nodeIds,
+              options: createArticleRoleSelectionOptions(),
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
+      if (value === '__article_role_confirm__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'article-role-awaiting') return;
+        const candidateIds = new Set(workflow.candidateNodeIds);
+        const selectedRole = selectedAssistantTargetNodes.find(
+          (node) => candidateIds.has(node.id) && node.type === 'characterNode',
+        );
+        if (!selectedRole) {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: '请先在画布上选中一张候选人物设定卡，然后再确认。',
+              options: createArticleRoleSelectionOptions(),
+            },
+          ]);
+          return;
+        }
+        const removedIds = workflow.candidateNodeIds.filter((nodeId) => nodeId !== selectedRole.id);
+        removeAssistantNodes?.(removedIds);
+        const characterName = String(selectedRole.data?.characterName || '教学角色');
+        assistantWorkflowRef.current = {
+          type: 'article-role-selected',
+          characterNodeId: selectedRole.id,
+          characterName,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `已选择「${characterName}」作为本次唯一教学角色，并清理了其他候选人物卡。接下来要添加场景吗？`,
+            cardNodeIds: [selectedRole.id],
+            options: createArticleSceneChoiceOptions(),
+          },
+        ]);
+        return;
+      }
+
+      if (value === '__article_scenes_custom_prompt__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'article-role-selected' && workflow.type !== 'article-ready-to-teach') {
+          return;
+        }
+        assistantWorkflowRef.current = {
+          type: 'article-scene-custom-awaiting',
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '请直接输入你想要的新场景方向，我会在画布上生成 4 张候选场景卡。',
+          },
+        ]);
+        return;
+      }
+
+      if (value.startsWith('__article_scenes_create__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'article-role-selected' && workflow.type !== 'article-ready-to-teach') {
+          return;
+        }
+        setAssistantLoading(true);
+        try {
+          const placement = await createAssistantCards(
+            markArticleCandidateCards(createArticleDefaultSceneCards(), 'article-scene'),
+            'append',
+          );
+          assistantWorkflowRef.current = {
+            type: 'article-scene-awaiting',
+            characterNodeId: workflow.characterNodeId,
+            characterName: workflow.characterName,
+            candidateNodeIds: placement.nodeIds || [],
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: '我已经在画布上摆出默认场景候选卡。请选中你要使用的场景卡，然后点击确认。',
+              cardPosition: placement.position,
+              cardNodeIds: placement.nodeIds,
+              options: [
+                { id: uuidv4(), label: '确认当前选中的场景卡', value: '__article_scene_confirm__' },
+                { id: uuidv4(), label: '不使用场景', value: '__article_scene_skip__' },
+              ],
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
+      if (value === '__article_scene_confirm__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'article-scene-awaiting') return;
+        const candidateIds = new Set(workflow.candidateNodeIds);
+        const selectedScene = selectedAssistantTargetNodes.find(
+          (node) => candidateIds.has(node.id) && node.type === 'sceneNode',
+        );
+        if (!selectedScene) {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: '请先在画布上选中一张候选场景设定卡，然后再确认。',
+              options: [
+                { id: uuidv4(), label: '确认当前选中的场景卡', value: '__article_scene_confirm__' },
+                { id: uuidv4(), label: '不使用场景', value: '__article_scene_skip__' },
+              ],
+            },
+          ]);
+          return;
+        }
+        const removedIds = workflow.candidateNodeIds.filter((nodeId) => nodeId !== selectedScene.id);
+        removeAssistantNodes?.(removedIds);
+        const sceneName = String(selectedScene.data?.sceneName || '教学场景');
+        assistantWorkflowRef.current = {
+          type: 'article-ready-to-teach',
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+          sceneNodeId: selectedScene.id,
+          sceneName,
+          useScene: true,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `已选择「${sceneName}」作为教学场景，并清理了其他候选场景卡。请选择教学方式。`,
+            cardNodeIds: [workflow.characterNodeId, selectedScene.id],
+            options: createArticleTeachingModeOptions(),
+          },
+        ]);
+        return;
+      }
+
+      if (value === '__article_scene_skip__') {
+        const workflow = assistantWorkflowRef.current;
+        if (
+          workflow.type !== 'article-role-selected' &&
+          workflow.type !== 'article-ready-to-teach' &&
+          workflow.type !== 'article-scene-awaiting'
+        ) {
+          return;
+        }
+        if (workflow.type === 'article-scene-awaiting') {
+          removeAssistantNodes?.(workflow.candidateNodeIds);
+        }
+        assistantWorkflowRef.current = {
+          type: 'article-ready-to-teach',
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+          useScene: false,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `将使用「${workflow.characterName}」单人生成教学剧情，不额外添加场景卡。请选择教学方式。`,
+            cardNodeIds: [workflow.characterNodeId],
+            options: createArticleTeachingModeOptions(),
+          },
+        ]);
+        return;
+      }
+
       if (value.startsWith('__article_teach__:')) {
         const teachingMode = value.slice('__article_teach__:'.length);
         const isInteractive = teachingMode === 'interactive';
+        const workflow = assistantWorkflowRef.current;
+        const articleContext =
+          workflow.type === 'article-ready-to-teach'
+            ? {
+                characterNodeId: workflow.characterNodeId,
+                characterName: workflow.characterName,
+                sceneNodeId: workflow.sceneNodeId,
+                sceneName: workflow.sceneName,
+                useScene: workflow.useScene,
+              }
+            : {};
         assistantWorkflowRef.current = {
           type: 'article-teach-generate',
           teachingMode: isInteractive ? 'interactive' : 'lecture',
+          ...articleContext,
         };
         await handleAssistantSend(
           isInteractive
@@ -2366,6 +2839,66 @@ cards 必须正好有 3 张。`);
     ],
   );
 
+  const handleAssistantCandidateNodeSelect = useCallback(
+    (nodeId: string) => {
+      const workflow = assistantWorkflowRef.current;
+      if (workflow.type === 'article-role-awaiting') {
+        if (!workflow.candidateNodeIds.includes(nodeId)) return;
+        const selectedRole = nodes.find(
+          (node) => node.id === nodeId && node.type === 'characterNode',
+        );
+        if (!selectedRole) return;
+        const removedIds = workflow.candidateNodeIds.filter((candidateId) => candidateId !== nodeId);
+        removeAssistantNodes?.(removedIds);
+        const characterName = String(selectedRole.data?.characterName || '教学角色');
+        assistantWorkflowRef.current = {
+          type: 'article-role-selected',
+          characterNodeId: selectedRole.id,
+          characterName,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `已选择「${characterName}」作为本次唯一教学角色，并清理了其他候选人物卡。接下来要添加场景吗？`,
+            cardNodeIds: [selectedRole.id],
+            options: createArticleSceneChoiceOptions(),
+          },
+        ]);
+        return;
+      }
+
+      if (workflow.type === 'article-scene-awaiting') {
+        if (!workflow.candidateNodeIds.includes(nodeId)) return;
+        const selectedScene = nodes.find((node) => node.id === nodeId && node.type === 'sceneNode');
+        if (!selectedScene) return;
+        const removedIds = workflow.candidateNodeIds.filter((candidateId) => candidateId !== nodeId);
+        removeAssistantNodes?.(removedIds);
+        const sceneName = String(selectedScene.data?.sceneName || '教学场景');
+        assistantWorkflowRef.current = {
+          type: 'article-ready-to-teach',
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+          sceneNodeId: selectedScene.id,
+          sceneName,
+          useScene: true,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `已选择「${sceneName}」作为教学场景，并清理了其他候选场景卡。请选择教学方式。`,
+            cardNodeIds: [workflow.characterNodeId, selectedScene.id],
+            options: createArticleTeachingModeOptions(),
+          },
+        ]);
+      }
+    },
+    [nodes, removeAssistantNodes, setAssistantMessages],
+  );
+
   const handleAssistantVoiceInput = useCallback(() => {
     const runtimeWindow = window as Window & {
       SpeechRecognition?: AssistantSpeechRecognitionCtor;
@@ -2485,6 +3018,7 @@ cards 必须正好有 3 张。`);
     assistantTaskPendingCloseId,
     handleAssistantSend,
     handleAssistantOptionSelect,
+    handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,

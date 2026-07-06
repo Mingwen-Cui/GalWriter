@@ -75,6 +75,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   const name = data.sceneName || '';
   const description = data.description || '';
   const coverImageUrl = data.coverImageUrl;
+  const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false;
   const isMinimized = !!data.isMinimized;
   const images = data.images || [];
@@ -497,7 +498,9 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     <>
       <div
         data-agent-node-id={id}
-        className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${selected ? 'border-blue-800 ring-2 ring-blue-800/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
+        className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${
+          isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
+        } ${selected ? 'border-blue-800 ring-2 ring-blue-800/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
         style={{
           height: isMinimized ? 'auto' : '100%',
           minHeight: isMinimized ? 'auto' : effectiveMinHeight,

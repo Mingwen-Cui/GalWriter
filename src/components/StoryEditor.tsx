@@ -803,7 +803,7 @@ const getMediaDimensions = (
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
-  const { alert: showDialogAlert } = useDialog();
+  const { alert: showDialogAlert, confirm: showDialogConfirm } = useDialog();
   const { agentState, runAgentCardPlacement, startAgentWaiting, stopAgentWaiting } =
     useAgentRuntime();
 
@@ -3233,6 +3233,28 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         ...generatedMentionReferences,
         ...existingMentionReferences,
       ];
+      const isAssistantCandidateLayout =
+        remainingCards.length > 1 &&
+        remainingCards.every((card) => Boolean(card.assistantCandidateGroupId));
+      const candidateGap = 48;
+      const candidateTotalWidth =
+        remainingCards.reduce(
+          (width, _card, cardIndex) => width + cardLayouts[cardIndex].width,
+          0,
+        ) + Math.max(0, remainingCards.length - 1) * candidateGap;
+      const candidateLeft = center.x - candidateTotalWidth / 2;
+      const getAssistantCandidatePosition = (cardIndex: number) => ({
+        x:
+          candidateLeft +
+          remainingCards
+            .slice(0, cardIndex)
+            .reduce(
+              (offset, _card, previousIndex) =>
+                offset + cardLayouts[previousIndex].width + candidateGap,
+              0,
+            ),
+        y: center.y - cardLayouts[cardIndex].height / 2,
+      });
 
       const newNodes: Node[] = remainingCards.map((card, index) => {
         const id = cardIds[index];
@@ -3261,7 +3283,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     index,
                     columnXByType.get('story') ?? center.x - layout.width / 2,
                   );
-        if (mode === 'adjacent-revision' && sourceNode) {
+        if (isAssistantCandidateLayout) {
+          position = getAssistantCandidatePosition(index);
+        } else if (mode === 'adjacent-revision' && sourceNode) {
           position = {
             x: sourceNode.position.x + (sourceNode.measured?.width || 300) + 80,
             y: sourceNode.position.y + index * (layout.height + 60),
@@ -3291,7 +3315,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             id,
             type: 'characterNode',
             position,
-            selected: true,
+            selected: !card.assistantCandidateGroupId,
             data: {
               id,
               characterName:
@@ -3307,6 +3331,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               showFeatures: !!card.features,
               showBackground: !!card.background,
               showOther: !!card.other,
+              assistantCandidateKind: card.assistantCandidateKind,
+              assistantCandidateGroupId: card.assistantCandidateGroupId,
             } satisfies CharacterNodeData,
           };
         }
@@ -3316,7 +3342,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             id,
             type: 'sceneNode',
             position,
-            selected: true,
+            selected: !card.assistantCandidateGroupId,
             data: {
               id,
               sceneName:
@@ -3330,6 +3356,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               showItems: !!card.items,
               showAtmosphere: !!card.atmosphere,
               showOther: !!card.other,
+              assistantCandidateKind: card.assistantCandidateKind,
+              assistantCandidateGroupId: card.assistantCandidateGroupId,
             } satisfies SceneNodeData,
           };
         }
@@ -4248,6 +4276,20 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [fitView, nodes, setCenter, setNodes, tzoom],
   );
 
+  const removeAssistantNodes = useCallback(
+    (nodeIds: string[]) => {
+      if (nodeIds.length === 0) return;
+      const nodeIdSet = new Set(nodeIds);
+      setNodes((currentNodes) => currentNodes.filter((node) => !nodeIdSet.has(node.id)));
+      setEdges((currentEdges) =>
+        currentEdges.filter(
+          (edge) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target),
+        ),
+      );
+    },
+    [setEdges, setNodes],
+  );
+
   const {
     assistantOpen,
     setAssistantOpen,
@@ -4274,6 +4316,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     assistantTaskPendingCloseId,
     handleAssistantSend,
     handleAssistantOptionSelect,
+    handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
@@ -4297,6 +4340,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     callAIForTextStream,
     createAssistantCards,
     updateStreamingAssistantCards,
+    removeAssistantNodes,
     onGenerateAssistantImagesRequest: handleGenerateAssistantImagesForNodes,
     startAgentWaiting: skipAssistantAgentAnimation ? undefined : startAgentWaiting,
     stopAgentWaiting,
@@ -5517,7 +5561,46 @@ ${layoutConfig.label}
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   const handleNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
+    async (event: React.MouseEvent, node: Node) => {
+      const assistantCandidateKind = node.data?.assistantCandidateKind;
+      if (assistantCandidateKind === 'article-role' || assistantCandidateKind === 'article-scene') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isMobile) {
+          const confirmed = await showDialogConfirm({
+            title: language === 'zh' ? '确认选择这张卡片？' : 'Confirm this card?',
+            description:
+              assistantCandidateKind === 'article-role'
+                ? language === 'zh'
+                  ? '确认后会保留这张人物卡，并删除其他候选人物卡。'
+                  : 'This keeps this character card and removes the other candidates.'
+                : language === 'zh'
+                  ? '确认后会保留这张场景卡，并删除其他候选场景卡。'
+                  : 'This keeps this scene card and removes the other candidates.',
+            confirmLabel: language === 'zh' ? '确认选择' : 'Confirm',
+            cancelLabel: language === 'zh' ? '取消' : 'Cancel',
+          });
+          if (!confirmed) return;
+        }
+        setNodes((currentNodes) =>
+          currentNodes.map((currentNode) => {
+            const isSelectedCandidate = currentNode.id === node.id;
+            if (!isSelectedCandidate) return { ...currentNode, selected: false };
+            const {
+              assistantCandidateKind: _assistantCandidateKind,
+              assistantCandidateGroupId: _assistantCandidateGroupId,
+              ...nextData
+            } = currentNode.data;
+            return {
+              ...currentNode,
+              selected: true,
+              data: nextData,
+            };
+          }),
+        );
+        handleAssistantCandidateNodeSelect(node.id);
+        return;
+      }
       if (!event.shiftKey) return;
       event.preventDefault();
       event.stopPropagation();
@@ -5529,7 +5612,7 @@ ${layoutConfig.label}
         ),
       );
     },
-    [setNodes],
+    [handleAssistantCandidateNodeSelect, isMobile, language, setNodes, showDialogConfirm],
   );
 
   // Bind callbacks to nodes and edges on render

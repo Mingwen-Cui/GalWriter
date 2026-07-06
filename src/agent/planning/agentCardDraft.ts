@@ -21,6 +21,8 @@ export type AssistantCardDraft = {
   connectTo?: string[];
   branchTargets?: Array<{ target: string; handle?: string; label?: string }>;
   generateImage?: boolean;
+  assistantCandidateKind?: 'article-role' | 'article-scene';
+  assistantCandidateGroupId?: string;
 };
 
 export type AssistantCardPlacementMode =

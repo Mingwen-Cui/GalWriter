@@ -966,20 +966,26 @@ export function AssistantPanel({
                         ? '选择你希望读者如何学习这篇文章：'
                         : 'Choose how readers should learn this article:'}
                     </p>
-                    <button type="button" onClick={() => selectArticleTeachingMode('interactive')}>
-                      <span>{language === 'zh' ? '对话式教学' : 'Interactive Teaching'}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleAssistantOptionSelect('__article_roles_create__')}
+                    >
+                      <span>{language === 'zh' ? '生成候选人物卡' : 'Generate Character Cards'}</span>
                       <small>
                         {language === 'zh'
-                          ? '强调交互、提问、反馈和分步确认。'
-                          : 'Questions, interaction, feedback, and step-by-step checks.'}
+                          ? 'AI 助手会在画布上摆出 4 张人物设定卡，选中一张后继续。'
+                          : 'The assistant will place four candidate character cards on the canvas.'}
                       </small>
                     </button>
-                    <button type="button" onClick={() => selectArticleTeachingMode('lecture')}>
-                      <span>{language === 'zh' ? '讲课式教学' : 'Lecture Teaching'}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleAssistantOptionSelect('__article_role_self_draw__')}
+                    >
+                      <span>{language === 'zh' ? '使用自绘角色' : 'Use Drawn Character'}</span>
                       <small>
                         {language === 'zh'
-                          ? '强调讲解语气、逻辑层次和知识点推进。'
-                          : 'Clear explanation, logic, examples, and knowledge flow.'}
+                          ? '会追加自绘角色卡，等你完成绘制或上传后再确认选择。'
+                          : 'Adds a self-drawn character card and waits for you to finish it.'}
                       </small>
                     </button>
                   </div>
