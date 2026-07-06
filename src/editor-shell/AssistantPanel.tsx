@@ -983,19 +983,8 @@ export function AssistantPanel({
                       </span>
                       <small>
                         {language === 'zh'
-                          ? 'AI 助手会在画布上摆出 4 张人物设定卡，选中一张后继续。'
-                          : 'The assistant will place four candidate character cards on the canvas.'}
-                      </small>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleAssistantOptionSelect('__article_role_self_draw__')}
-                    >
-                      <span>{language === 'zh' ? '使用自绘角色' : 'Use Drawn Character'}</span>
-                      <small>
-                        {language === 'zh'
-                          ? '会追加自绘角色卡，等你完成绘制或上传后再确认选择。'
-                          : 'Adds a self-drawn character card and waits for you to finish it.'}
+                          ? 'AI 助手会摆出 3 张人物模板和 1 张空白自填卡。'
+                          : 'The assistant will place three role templates and one blank fill-in card.'}
                       </small>
                     </button>
                   </div>

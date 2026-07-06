@@ -1,4 +1,6 @@
-import type { RenderStyle } from '../../video/shared/types';
+import type { RenderStyle, WebExportSettings } from '../../video/shared/types';
+
+export type { WebExportSettings };
 
 export type WebExportOptions = {
   projectName?: string;
@@ -10,65 +12,6 @@ export type WebExportOptions = {
 export type WebExportStyle = Partial<RenderStyle> & {
   choiceColor: string;
   choiceTextColor: string;
-};
-
-export type WebExportSettings = {
-  layoutMode: 'classic' | 'immersive';
-  choicesPosition: 'center' | 'aboveText' | 'belowText';
-  showStartMenu: boolean;
-  startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
-  startMenuBackgroundType: 'solid' | 'gradient' | 'image';
-  startMenuBackgroundColor: string;
-  startMenuBackgroundGradientStart: string;
-  startMenuBackgroundGradientEnd: string;
-  startMenuBackgroundGradientAngle: number;
-  startMenuBackgroundImageUrl: string;
-  startMenuBackgroundMusicUrl: string;
-  startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
-  startMenuButtonLayout: 'vertical' | 'horizontal';
-  startMenuButtonSize: 'compact' | 'normal' | 'large';
-  startMenuElements: Array<{
-    id: string;
-    kind: 'button' | 'text' | 'image';
-    role?: 'save' | 'new' | 'settings' | 'title' | 'subtitle' | 'custom';
-    text: string;
-    visible: boolean;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    scale: number;
-    rotation: number;
-    primary?: boolean;
-    disabled?: boolean;
-    fontSize?: number;
-    textColor?: string;
-    backgroundType?: 'solid' | 'gradient' | 'image';
-    backgroundColor?: string;
-    backgroundGradientStart?: string;
-    backgroundGradientEnd?: string;
-    backgroundGradientAngle?: number;
-    backgroundImageUrl?: string;
-    borderColor?: string;
-    borderRadius?: number;
-    imageUrl?: string;
-  }>;
-  startMenuPlacementBoundsLocked: boolean;
-  startMenuPlacementMinX: number;
-  startMenuPlacementMinY: number;
-  startMenuPlacementMaxX: number;
-  startMenuPlacementMaxY: number;
-  startMenuShowSave: boolean;
-  startMenuShowNewGame: boolean;
-  startMenuShowSettings: boolean;
-  blurBackground: boolean;
-  skipSingleChoicePopup: boolean;
-  interactionMode: 'immediate' | 'typewriter';
-  typewriterSpeed: number;
-  autoAdvance: boolean;
-  videoAutoPlay: boolean;
-  hideCharacterTags: boolean;
-  hideSceneTags: boolean;
 };
 
 export type WebExportNode = {

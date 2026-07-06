@@ -40,7 +40,6 @@ import type {
   SceneNodeData,
   StoryAudioClip,
   StoryNodeData,
-  StoryPresentation,
   StoryTitlePlacement,
   TextAIProfile,
   TtsNarrationMode,
@@ -123,16 +122,16 @@ import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { edgeTypes, nodeTypes } from './flowTypes';
-import { PlayTestModal, SettingsModal, VideoRenderModal, ZenEditor } from './lazyModals';
+import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
 import { SmartGuides } from './SmartGuides';
+import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
 import { syncCloseButtonBehavior } from './windowBehavior';
 import {
   applyAssistantStoryTags,
   type AssistantMentionReference,
   buildAssistantMentionReferencesFromNodes,
   resolveAssistantStorySceneMedia,
-  syncPresentationWithStoryMentions,
 } from './assistantMentions';
 import { isDefaultInitialStoryNode, mixHexColor, resolveAccentColor } from './colorUtils';
 import {
@@ -182,7 +181,7 @@ import type {
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
-  const { alert: showDialogAlert, confirm: showDialogConfirm } = useDialog();
+  const { alert: showDialogAlert } = useDialog();
   const { agentState, runAgentCardPlacement, startAgentWaiting, stopAgentWaiting } =
     useAgentRuntime();
 
@@ -2551,25 +2550,43 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         .filter((index) => index >= 0);
       const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
       const columnGap = 150;
+      const storyCardsPerColumn = 10;
+      const storyColumnGap = 120;
+      const storyColumnCount = Math.max(1, Math.ceil(storyIndexes.length / storyCardsPerColumn));
+      const storyLayoutWidth =
+        AI_STORY_CARD_WIDTH * storyColumnCount + storyColumnGap * (storyColumnCount - 1);
       const rowGap = 200;
       const layoutColumns = [
         { type: 'character' as const, indexes: characterIndexes, width: 280 },
         { type: 'scene' as const, indexes: sceneIndexes, width: 280 },
-        { type: 'story' as const, indexes: storyIndexes, width: 300 },
+        { type: 'story' as const, indexes: storyIndexes, width: storyLayoutWidth },
         { type: 'number-condition' as const, indexes: numberConditionIndexes, width: 300 },
       ].filter((column) => column.indexes.length > 0);
-      const getColumnHeight = (indexes: number[]) =>
-        indexes.reduce(
-          (height, cardIndex, rowIndex) =>
-            height + cardLayouts[cardIndex].height + (rowIndex > 0 ? rowGap : 0),
-          0,
-        );
+      const getColumnHeight = (indexes: number[], type?: (typeof layoutColumns)[number]['type']) =>
+        type === 'story'
+          ? Math.max(
+              0,
+              ...Array.from({ length: storyColumnCount }, (_, columnIndex) =>
+                storyIndexes
+                  .slice(columnIndex * storyCardsPerColumn, (columnIndex + 1) * storyCardsPerColumn)
+                  .reduce(
+                    (height, cardIndex, rowIndex) =>
+                      height + cardLayouts[cardIndex].height + (rowIndex > 0 ? rowGap : 0),
+                    0,
+                  ),
+              ),
+            )
+          : indexes.reduce(
+              (height, cardIndex, rowIndex) =>
+                height + cardLayouts[cardIndex].height + (rowIndex > 0 ? rowGap : 0),
+              0,
+            );
       const totalLayoutWidth =
         layoutColumns.reduce((width, column) => width + column.width, 0) +
         Math.max(0, layoutColumns.length - 1) * columnGap;
       const maxColumnHeight = Math.max(
         0,
-        ...layoutColumns.map((column) => getColumnHeight(column.indexes)),
+        ...layoutColumns.map((column) => getColumnHeight(column.indexes, column.type)),
       );
       const layoutLeft = center.x - totalLayoutWidth / 2;
       const layoutTop = center.y - maxColumnHeight / 2;
@@ -2589,6 +2606,24 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               0,
             );
         return { x, y };
+      };
+      const getStoryColumnPosition = (cardIndex: number, x: number) => {
+        const storyIndex = Math.max(0, storyIndexes.indexOf(cardIndex));
+        const columnIndex = Math.floor(storyIndex / storyCardsPerColumn);
+        const rowIndex = storyIndex % storyCardsPerColumn;
+        const columnStartIndex = columnIndex * storyCardsPerColumn;
+        const y =
+          layoutTop +
+          storyIndexes
+            .slice(columnStartIndex, columnStartIndex + rowIndex)
+            .reduce(
+              (offset, previousIndex) => offset + cardLayouts[previousIndex].height + rowGap,
+              0,
+            );
+        return {
+          x: x + columnIndex * (AI_STORY_CARD_WIDTH + storyColumnGap),
+          y,
+        };
       };
 
       const cardIds = remainingCards.map(() => uuidv4());
@@ -2616,7 +2651,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         remainingCards.length > 1 &&
         remainingCards.every((card) => Boolean(card.assistantCandidateGroupId)) &&
         new Set(remainingCards.map((card) => card.assistantCandidateGroupId)).size === 1;
-      const candidateGap = 48;
+      const candidateGap = 96;
       const candidateTotalWidth =
         remainingCards.reduce(
           (width, _card, cardIndex) => width + cardLayouts[cardIndex].width,
@@ -2659,8 +2694,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     index,
                     columnXByType.get('number-condition') ?? center.x - layout.width / 2,
                   )
-                : getVerticalColumnPosition(
-                    storyIndexes,
+                : getStoryColumnPosition(
                     index,
                     columnXByType.get('story') ?? center.x - layout.width / 2,
                   );
@@ -2872,20 +2906,31 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             (storyIndex) => remainingCards[storyIndex].chapterTitle === chapterTitle,
           );
           if (chapterStoryIndexes.length === 0) return;
+          const chapterColumnCount = Math.max(
+            1,
+            Math.ceil(chapterStoryIndexes.length / storyCardsPerColumn),
+          );
+          const chapterColumnGap = storyColumnGap;
 
           chapterStoryIndexes.forEach((storyIndex, rowIndex) => {
             const node = newNodes[storyIndex];
             if (!node) return;
+            const chapterColumnIndex = Math.floor(rowIndex / storyCardsPerColumn);
+            const chapterRowIndex = rowIndex % storyCardsPerColumn;
             node.position = {
-              x: storyX,
-              y: chapterTop + chapterPadding + rowIndex * (AI_STORY_CARD_HEIGHT + 72),
+              x: storyX + chapterColumnIndex * (AI_STORY_CARD_WIDTH + chapterColumnGap),
+              y: chapterTop + chapterPadding + chapterRowIndex * (AI_STORY_CARD_HEIGHT + 72),
             };
           });
 
+          const rowsInTallestChapterColumn = Math.min(
+            storyCardsPerColumn,
+            chapterStoryIndexes.length,
+          );
           const chapterHeight =
             chapterPadding * 2 +
-            chapterStoryIndexes.length * AI_STORY_CARD_HEIGHT +
-            Math.max(0, chapterStoryIndexes.length - 1) * 72;
+            rowsInTallestChapterColumn * AI_STORY_CARD_HEIGHT +
+            Math.max(0, rowsInTallestChapterColumn - 1) * 72;
           const backgroundId = uuidv4();
           const chapterColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
           chapterBackgroundNodes.push({
@@ -2894,7 +2939,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             position: { x: storyX - chapterPadding, y: chapterTop },
             dragHandle: '.custom-drag-handle',
             style: {
-              width: AI_STORY_CARD_WIDTH + chapterPadding * 2,
+              width:
+                chapterColumnCount * AI_STORY_CARD_WIDTH +
+                Math.max(0, chapterColumnCount - 1) * chapterColumnGap +
+                chapterPadding * 2,
               height: chapterHeight,
               zIndex: -3,
             },
@@ -3445,7 +3493,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
       const imageRequests = cards
         .map((card, index) => ({ card, index, type: getAgentDraftType(card) }))
-        .filter(({ card }) => card.generateImage === true);
+        .filter(
+          ({ card, type }) =>
+            card.generateImage === true || (type === 'character' && card.generateImage !== false),
+        );
 
       if (imageRequests.length > 0 && !allowAssistantImageGeneration) {
         showToast(
@@ -4980,21 +5031,24 @@ ${layoutConfig.label}
       if (assistantCandidateKind === 'article-role' || assistantCandidateKind === 'article-scene') {
         event.preventDefault();
         event.stopPropagation();
-        if (isMobile) {
-          const confirmed = await showDialogConfirm({
-            title: language === 'zh' ? '确认选择这张卡片？' : 'Confirm this card?',
-            description:
-              assistantCandidateKind === 'article-role'
-                ? language === 'zh'
-                  ? '确认后会保留这张人物卡，并删除其他候选人物卡。'
-                  : 'This keeps this character card and removes the other candidates.'
-                : language === 'zh'
-                  ? '确认后会保留这张场景卡，并删除其他候选场景卡。'
-                  : 'This keeps this scene card and removes the other candidates.',
-            confirmLabel: language === 'zh' ? '确认选择' : 'Confirm',
-            cancelLabel: language === 'zh' ? '取消' : 'Cancel',
-          });
-          if (!confirmed) return;
+        if (assistantCandidateKind === 'article-role' && node.data?.assistantTemplateIsUserOwned) {
+          setNodes((currentNodes) =>
+            currentNodes.map((currentNode) => {
+              const isSelectedCandidate = currentNode.id === node.id;
+              if (!isSelectedCandidate) return { ...currentNode, selected: false };
+              const {
+                assistantCandidateKind: _assistantCandidateKind,
+                assistantCandidateGroupId: _assistantCandidateGroupId,
+                ...nextData
+              } = currentNode.data;
+              return {
+                ...currentNode,
+                selected: true,
+                data: nextData,
+              };
+            }),
+          );
+          return;
         }
         setNodes((currentNodes) =>
           currentNodes.map((currentNode) => {
@@ -5026,7 +5080,7 @@ ${layoutConfig.label}
         ),
       );
     },
-    [handleAssistantCandidateNodeSelect, isMobile, language, setNodes, showDialogConfirm],
+    [handleAssistantCandidateNodeSelect, setNodes],
   );
 
   // Bind callbacks to nodes and edges on render
@@ -5868,154 +5922,17 @@ ${layoutConfig.label}
         onConfirm={handleConfirmCloseAssistantTask}
       />
 
-      {/* Zen Mode Overlay */}
-      <Suspense fallback={null}>
-        {zenModeNodeId &&
-          (() => {
-            const node = nodes.find((n) => n.id === zenModeNodeId);
-            const zenPresentation = normalizeStoryPresentation(node?.data.presentation as any);
-            const characterTags = node
-              ? nodes
-                  .filter(
-                    (n) =>
-                      n.type === 'characterNode' &&
-                      typeof n.data.characterName === 'string' &&
-                      n.data.characterName.trim().length > 0,
-                  )
-                  .filter((n) => {
-                    const isGlobal = n.data?.isGlobal !== false;
-                    const isConnected = edges.some(
-                      (e) =>
-                        (e.source === n.id && e.target === node.id) ||
-                        (e.target === n.id && e.source === node.id),
-                    );
-                    const isPresented = zenPresentation.characters.some(
-                      (item) => item.sourceNodeId === n.id,
-                    );
-                    return isGlobal || isConnected || isPresented;
-                  })
-                  .map((n) => {
-                    const config = zenPresentation.characters.find(
-                      (item) => item.sourceNodeId === n.id,
-                    );
-                    const outfits = Array.isArray(n.data.outfits) ? n.data.outfits : [];
-                    const outfit = config?.outfitId
-                      ? outfits.find((item: any) => item.id === config.outfitId)
-                      : outfits.find((item: any) => item.imageUrl);
-                    return {
-                      id: n.id,
-                      name: String(n.data.characterName).trim(),
-                      imageUrl:
-                        (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
-                        (typeof n.data.avatarUrl === 'string' ? n.data.avatarUrl : undefined),
-                    };
-                  })
-              : [];
-            const sceneTags = node
-              ? nodes
-                  .filter(
-                    (n) =>
-                      n.type === 'sceneNode' &&
-                      typeof n.data.sceneName === 'string' &&
-                      n.data.sceneName.trim().length > 0,
-                  )
-                  .filter((n) => {
-                    const isGlobal = n.data?.isGlobal !== false;
-                    const isConnected = edges.some(
-                      (e) =>
-                        (e.source === n.id && e.target === node.id) ||
-                        (e.target === n.id && e.source === node.id),
-                    );
-                    const isPresented = zenPresentation.scene?.sourceNodeId === n.id;
-                    return isGlobal || isConnected || isPresented;
-                  })
-                  .map((n) => ({ id: n.id, name: String(n.data.sceneName).trim() }))
-              : [];
-            const presentationScene = zenPresentation.scene
-              ? nodes.find((n) => n.id === zenPresentation.scene?.sourceNodeId)
-              : undefined;
-            const presentationSceneImages = Array.isArray(presentationScene?.data.images)
-              ? (presentationScene.data.images as Array<{
-                  id: string;
-                  imageUrl?: string;
-                  videoUrl?: string;
-                }>)
-              : [];
-            const selectedPresentationSceneMedia = zenPresentation.scene?.imageId
-              ? presentationSceneImages.find((image) => image.id === zenPresentation.scene?.imageId)
-              : undefined;
-            const zenVideoUrl =
-              selectedPresentationSceneMedia?.videoUrl ||
-              (typeof node?.data.videoUrl === 'string' ? node.data.videoUrl : undefined);
-            const zenImageUrl = zenVideoUrl
-              ? undefined
-              : (typeof node?.data.imageUrl === 'string' ? node.data.imageUrl : undefined) ||
-                selectedPresentationSceneMedia?.imageUrl ||
-                (typeof presentationScene?.data.coverImageUrl === 'string'
-                  ? presentationScene.data.coverImageUrl
-                  : '');
-            const handleZenPresentationChange = (presentation: StoryPresentation) => {
-              const nextPresentation = normalizeStoryPresentation(presentation);
-              const updates: Partial<StoryNodeData> = { presentation: nextPresentation };
-              if (nextPresentation.scene) {
-                Object.assign(updates, resolveAssistantStorySceneMedia(nextPresentation, nodes));
-              } else if (zenPresentation.scene) {
-                updates.imageUrl = zenPresentation.scene.previousImageUrl;
-                updates.videoUrl = zenPresentation.scene.previousVideoUrl;
-                updates.showTextOverlay =
-                  zenPresentation.scene.previousShowTextOverlay ??
-                  (node?.data.showTextOverlay as boolean | undefined);
-              }
-              handleUpdateNode(zenModeNodeId, updates);
-            };
-            const handleZenTextChange = (val: string) => {
-              const synced = syncPresentationWithStoryMentions(val, zenPresentation, nodes);
-              const updates: Partial<StoryNodeData> = {
-                text: val,
-                presentation: synced.presentation,
-              };
-              if (synced.removedScene) {
-                updates.imageUrl = synced.removedScene.previousImageUrl;
-                updates.videoUrl = synced.removedScene.previousVideoUrl;
-                updates.showTextOverlay =
-                  synced.removedScene.previousShowTextOverlay ??
-                  (node?.data.showTextOverlay as boolean | undefined);
-              }
-              handleUpdateNode(zenModeNodeId, updates);
-            };
-            return (
-              <ZenEditor
-                nodeId={zenModeNodeId}
-                value={typeof node?.data.text === 'string' ? node.data.text : ''}
-                imageUrl={zenImageUrl}
-                videoUrl={zenVideoUrl}
-                audioUrl={typeof node?.data.audioUrl === 'string' ? node.data.audioUrl : ''}
-                audioClips={
-                  Array.isArray(node?.data.audioClips)
-                    ? (node.data.audioClips as StoryAudioClip[])
-                    : []
-                }
-                characterTags={characterTags}
-                sceneTags={sceneTags}
-                presentation={zenPresentation}
-                isAILoading={aiLoadingNodeId === zenModeNodeId}
-                onAIGenerate={() => handleAIButtonClick(zenModeNodeId)}
-                onGenerateImage={() => handleGenerateStoryNodeImage(zenModeNodeId)}
-                onGenerateAudio={() => handleGenerateStoryNodeSpeech(zenModeNodeId)}
-                onAudioClipsChange={(audioClips) => {
-                  const firstPlayable = audioClips.find((clip) => !clip.skipped);
-                  handleUpdateNode(zenModeNodeId, {
-                    audioClips,
-                    audioUrl: firstPlayable?.url,
-                  });
-                }}
-                onChange={handleZenTextChange}
-                onPresentationChange={handleZenPresentationChange}
-                onClose={() => setZenModeNodeId(null)}
-              />
-            );
-          })()}
-      </Suspense>
+      <StoryEditorZenOverlay
+        nodes={nodes}
+        edges={edges}
+        zenModeNodeId={zenModeNodeId}
+        aiLoadingNodeId={aiLoadingNodeId}
+        onAIGenerate={handleAIButtonClick}
+        onGenerateImage={handleGenerateStoryNodeImage}
+        onGenerateAudio={handleGenerateStoryNodeSpeech}
+        onUpdateNode={handleUpdateNode}
+        onClose={() => setZenModeNodeId(null)}
+      />
 
       <AgentOverlay state={agentState} language={language} />
 

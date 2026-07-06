@@ -37,7 +37,6 @@ import {
   createArticleDefaultSceneCards,
   createArticleRoleCandidateCards,
   createArticleRoleSelectionOptions,
-  createArticleSelfDrawRoleCard,
   createArticleTeachingModeOptions,
   createAssistantWelcomeMessage,
   createInitialAssistantTask,
@@ -662,8 +661,8 @@ ${documentContext}`);
                 role: 'assistant',
                 content:
                   language === 'zh'
-                    ? '我已经完成文章分析，并在画布上横向生成了 4 张候选人物模板卡。请直接单击你想使用的模板卡，我会立刻按这张卡的风格改写文章。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
-                    : 'I finished the article analysis and placed four role template cards on the canvas. Click one template to continue, or select your own character card and use it as the template.',
+                    ? '我已经完成文章分析，并在画布上横向生成了 4 张候选人物模板卡。前三张会自动生成对应人物图；第 4 张是空白自填卡，你可以填写设定或上传图片后，在右侧点击确认。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
+                    : 'I finished the article analysis and placed four role template cards on the canvas. The first three will generate matching character images; the fourth is blank for your own settings or uploaded image. Select a card and confirm from the panel.',
                 cardPosition: placement.position,
                 cardNodeIds: placement.nodeIds,
                 options: [
@@ -672,7 +671,11 @@ ${documentContext}`);
                     label: '使用当前选中的人物模板',
                     value: '__article_role_use_selected_template__',
                   },
-                  { id: uuidv4(), label: '添加自绘角色卡', value: '__article_role_self_draw__' },
+                  {
+                    id: uuidv4(),
+                    label: '确认当前选中的人物卡',
+                    value: '__article_role_confirm__',
+                  },
                 ],
               },
             ]);
@@ -1955,7 +1958,7 @@ cards 必须正好有 3 张。`);
               id: uuidv4(),
               role: 'assistant',
               content:
-                '我已经在画布上摆出 4 张候选人物设定卡。请在画布上选中你要使用的那一张，然后点击确认。也可以添加一张自绘角色卡，完成绘制/上传后再选中确认。',
+                '我已经在画布上摆出 4 张候选人物设定卡。前三张会自动生成对应人物图；第 4 张是空白自填卡，填写设定或上传图片后，请在右侧点击确认。',
               cardPosition: placement.position,
               cardNodeIds: placement.nodeIds,
               options: createArticleRoleSelectionOptions(),
@@ -1986,44 +1989,6 @@ cards 必须正好有 3 张。`);
           return;
         }
         await continueArticleTeachingWithRole(selectedRole, candidateNodeIds);
-        return;
-      }
-
-      if (value === '__article_role_self_draw__') {
-        const workflow = assistantWorkflowRef.current;
-        setAssistantLoading(true);
-        try {
-          const shouldCreateFullSet = workflow.type !== 'article-role-awaiting';
-          const cards = shouldCreateFullSet
-            ? [...createArticleRoleCandidateCards(), createArticleSelfDrawRoleCard()]
-            : [createArticleSelfDrawRoleCard()];
-          const placement = await createAssistantCards(
-            markArticleCandidateCards(cards, 'article-role'),
-            'append',
-          );
-          const candidateNodeIds =
-            workflow.type === 'article-role-awaiting'
-              ? [...workflow.candidateNodeIds, ...(placement.nodeIds || [])]
-              : placement.nodeIds || [];
-          assistantWorkflowRef.current = {
-            type: 'article-role-awaiting',
-            candidateNodeIds,
-          };
-          setAssistantMessages((messages) => [
-            ...messages,
-            {
-              id: uuidv4(),
-              role: 'assistant',
-              content:
-                '自绘角色卡已经放到画布上。请在这张人物卡里放入你绘制或上传的角色图，完成后选中它并点击确认。',
-              cardPosition: placement.position,
-              cardNodeIds: placement.nodeIds,
-              options: createArticleRoleSelectionOptions(),
-            },
-          ]);
-        } finally {
-          setAssistantLoading(false);
-        }
         return;
       }
 

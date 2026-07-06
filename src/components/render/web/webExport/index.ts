@@ -312,6 +312,8 @@ export async function buildInteractiveWebZipBlob(
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuElements: options.settings?.startMenuElements || [],
+    archivePageElements: options.settings?.archivePageElements || [],
+    settingsPageElements: options.settings?.settingsPageElements || [],
     startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
     startMenuPlacementMinX: options.settings?.startMenuPlacementMinX ?? 0,
     startMenuPlacementMinY: options.settings?.startMenuPlacementMinY ?? 0,
@@ -341,23 +343,27 @@ export async function buildInteractiveWebZipBlob(
     `${title}-start-menu-music`,
     assetMap,
   );
-  settings.startMenuElements = await Promise.all(
-    settings.startMenuElements.map(async (element) => ({
-      ...element,
-      imageUrl: await addImageAsset(
-        zip,
-        element.imageUrl,
-        `${title}-${element.id || 'start-element'}`,
-        assetMap,
-      ),
-      backgroundImageUrl: await addImageAsset(
-        zip,
-        element.backgroundImageUrl,
-        `${title}-${element.id || 'start-button'}-background`,
-        assetMap,
-      ),
-    })),
-  );
+  const packMenuElements = (elements: WebExportSettings['startMenuElements'], pageName: string) =>
+    Promise.all(
+      elements.map(async (element) => ({
+        ...element,
+        imageUrl: await addImageAsset(
+          zip,
+          element.imageUrl,
+          `${title}-${pageName}-${element.id || 'element'}`,
+          assetMap,
+        ),
+        backgroundImageUrl: await addImageAsset(
+          zip,
+          element.backgroundImageUrl,
+          `${title}-${pageName}-${element.id || 'button'}-background`,
+          assetMap,
+        ),
+      })),
+    );
+  settings.startMenuElements = await packMenuElements(settings.startMenuElements, 'start');
+  settings.archivePageElements = await packMenuElements(settings.archivePageElements, 'archive');
+  settings.settingsPageElements = await packMenuElements(settings.settingsPageElements, 'settings');
 
   const webNodes: WebExportNode[] = [];
   for (const node of nodes.filter(

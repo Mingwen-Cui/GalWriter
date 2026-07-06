@@ -156,8 +156,12 @@ export function VideoRenderModal({
   // NOTE: 这两个 ref 必须在对应 useState 之前声明，
   // 以便在每次渲染时同步写入最新状态值，供 useEffect 读取，
   // 避免验证 effect 因 stale closure 将恢复的时间轴 ID 错误地全部清空。
-  const timelineSourceByIdRef = useRef<Record<string, string>>(persistedWorkspace?.timelineSourceById || {});
-  const timelineIdsRef = useRef<string[]>(Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : []);
+  const timelineSourceByIdRef = useRef<Record<string, string>>(
+    persistedWorkspace?.timelineSourceById || {},
+  );
+  const timelineIdsRef = useRef<string[]>(
+    Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : [],
+  );
   const [timelineIds, setTimelineIds] = useState<string[]>(() =>
     Array.isArray(persistedWorkspace?.timelineIds) ? persistedWorkspace.timelineIds : [],
   );
@@ -259,12 +263,7 @@ export function VideoRenderModal({
   const [previewDuration, setPreviewDuration] = useState(defaultSeconds);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [assetPanelWidth, setAssetPanelWidth] = useState(() =>
-    clampPersistedNumber(
-      persistedWorkspace?.assetPanelWidth,
-      320,
-      0,
-      PANEL_SIZE_LIMITS.asset.max,
-    ),
+    clampPersistedNumber(persistedWorkspace?.assetPanelWidth, 320, 0, PANEL_SIZE_LIMITS.asset.max),
   );
   const [assetCardLayout, setAssetCardLayout] = useState<AssetCardLayout>(() =>
     isAssetCardLayout(persistedWorkspace?.assetCardLayout)
@@ -300,7 +299,9 @@ export function VideoRenderModal({
       TIMELINE_COLLAPSED_HEIGHT,
       PANEL_SIZE_LIMITS.timeline.max,
     );
-    return persistedHeight < TIMELINE_COLLAPSED_HEIGHT ? TIMELINE_COLLAPSED_HEIGHT : persistedHeight;
+    return persistedHeight < TIMELINE_COLLAPSED_HEIGHT
+      ? TIMELINE_COLLAPSED_HEIGHT
+      : persistedHeight;
   });
   const [timelineScaleMode, setTimelineScaleMode] = useState<TimelineScaleMode>(() =>
     isTimelineScaleMode(persistedWorkspace?.timelineScaleMode)
@@ -496,14 +497,24 @@ export function VideoRenderModal({
   };
   const toggleAssetPanel = () => {
     setAssetPanelWidth((prev) => {
-      if (prev === 0) return clamp(assetPanelLastWidthRef.current || 320, PANEL_SIZE_LIMITS.asset.min, assetPanelMax);
+      if (prev === 0)
+        return clamp(
+          assetPanelLastWidthRef.current || 320,
+          PANEL_SIZE_LIMITS.asset.min,
+          assetPanelMax,
+        );
       assetPanelLastWidthRef.current = prev;
       return 0;
     });
   };
   const toggleExportPanel = () => {
     setExportPanelWidth((prev) => {
-      if (prev === 0) return clamp(exportPanelLastWidthRef.current || 380, PANEL_SIZE_LIMITS.export.min, exportPanelMax);
+      if (prev === 0)
+        return clamp(
+          exportPanelLastWidthRef.current || 380,
+          PANEL_SIZE_LIMITS.export.min,
+          exportPanelMax,
+        );
       exportPanelLastWidthRef.current = prev;
       return 0;
     });
@@ -843,9 +854,7 @@ export function VideoRenderModal({
       } catch (err) {
         // Ignore user cancellation.
         if (err instanceof Error && err.name !== 'AbortError') {
-          setOutputDirError(
-            isZh ? '选择保存位置失败。' : 'Failed to choose save location.',
-          );
+          setOutputDirError(isZh ? '选择保存位置失败。' : 'Failed to choose save location.');
         }
       }
       return;
@@ -1143,12 +1152,7 @@ export function VideoRenderModal({
       });
       return next;
     });
-  }, [
-    allAssetNodes,
-    videoTrackIds,
-    audioTrackIds,
-    timelineExcludedSourceIds,
-  ]);
+  }, [allAssetNodes, videoTrackIds, audioTrackIds, timelineExcludedSourceIds]);
 
   React.useEffect(() => {
     return () => {
@@ -1286,11 +1290,15 @@ export function VideoRenderModal({
   }, [timelineMetrics.totalDuration]);
 
   React.useEffect(() => {
-    setAssetPanelWidth((prev) => (prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.asset.min, assetPanelMax)));
+    setAssetPanelWidth((prev) =>
+      prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.asset.min, assetPanelMax),
+    );
   }, [assetPanelMax]);
 
   React.useEffect(() => {
-    setExportPanelWidth((prev) => (prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.export.min, exportPanelMax)));
+    setExportPanelWidth((prev) =>
+      prev === 0 ? 0 : clamp(prev, PANEL_SIZE_LIMITS.export.min, exportPanelMax),
+    );
   }, [exportPanelMax]);
 
   React.useEffect(() => {
@@ -1379,8 +1387,6 @@ export function VideoRenderModal({
       cancelled = true;
     };
   }, []);
-
-
 
   const addNodeToTimeline = (
     id: string,
@@ -1855,7 +1861,6 @@ export function VideoRenderModal({
           onClose={closeRenderWorkspace}
         />
 
-
         {workspaceMode === 'video' ? (
           <>
             <main className="min-h-0 min-w-0 flex overflow-hidden bg-[var(--vr-bg)]">
@@ -1962,7 +1967,7 @@ export function VideoRenderModal({
                   onDragEnd={commitExportPanelWidth}
                 />
               )}
-<VideoExportSettingsPanel
+              <VideoExportSettingsPanel
                 language={language}
                 exportPanelWidth={exportPanelCollapsed ? 0 : exportPanelWidth}
                 exportSettingsMode={exportSettingsMode}
@@ -2157,7 +2162,11 @@ export function VideoRenderModal({
             if (workspaceMode === 'video') {
               setFrameRate(chosenFrameRate);
               setExportFormat(chosenFormat);
-              renderVideo(name);
+              renderVideo({
+                fileName: name,
+                frameRate: chosenFrameRate,
+                exportFormat: chosenFormat,
+              });
             } else {
               exportWebProject();
             }
@@ -2175,5 +2184,3 @@ export function VideoRenderModal({
     </div>
   );
 }
-
-

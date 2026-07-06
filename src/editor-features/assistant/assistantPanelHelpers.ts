@@ -147,21 +147,24 @@ export const LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX = '__generate_visuals__:';
 
 export const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 
-export const createArticleRoleCandidateCards = (): AssistantCardDraft[] =>
-  createArticleTeachingRoleTemplateCards();
+export const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [
+  ...createArticleTeachingRoleTemplateCards(),
+  createArticleSelfDrawRoleCard(),
+];
 
 export const createArticleSelfDrawRoleCard = (): AssistantCardDraft => ({
   type: 'character',
-  characterName: '自绘教学角色',
-  traits: '用户自绘或自行上传的教学角色。完成绘制后选中这张卡并确认。',
-  personality: '由用户后续补充。',
-  features: '请在人物卡中放入用户绘制或上传的角色图。',
-  background: '作为本次文章教学 Galgame 的唯一出场人物。',
-  other: '确认后会删除其他候选人物卡。',
+  characterName: '自填教学角色',
+  traits: '',
+  personality: '',
+  features: '',
+  background: '',
+  other: '',
+  generateImage: false,
   assistantTemplateId: 'user-self-draw-role',
-  assistantTemplateName: '自绘教学角色',
+  assistantTemplateName: '自填教学角色',
   assistantTemplateInstruction:
-    '使用用户自绘或自行上传的人物模板作为唯一教学角色。优先保留用户在人物卡中填写的性格、特征、背景和图片设定，并围绕这个角色生成教学剧情。',
+    '使用用户自行填写或上传图片的人物模板作为唯一教学角色。优先保留用户在人物卡中填写的性格、特征、背景和图片设定，并围绕这个角色生成教学剧情。',
   assistantTemplateTeachingMode: 'interactive',
   assistantTemplateIsUserOwned: true,
 });
@@ -225,7 +228,6 @@ export const createArticleRoleSelectionOptions = () => [
     label: '使用当前选中的人物模板',
     value: '__article_role_use_selected_template__',
   },
-  { id: uuidv4(), label: '添加自绘角色卡', value: '__article_role_self_draw__' },
 ];
 
 export const createArticleSceneChoiceOptions = () => [
