@@ -25,6 +25,27 @@ import type {
   AssistantCardPlacementOptions,
 } from '../agent/planning/agentCardDraft';
 import { useAgentRuntime } from '../agent/runtime/useAgentRuntime';
+import type {
+  BackgroundRemovalAIProfile,
+  CharacterImageMode,
+  CharacterNodeData,
+  CharacterPresentation,
+  ImageAIProfile,
+  InlinePresentationActionType,
+  NumberConditionNodeData,
+  PlotStructureGenerateDirection,
+  ProjectAIProfilesExport,
+  SavedAIProfile,
+  SceneImageMode,
+  SceneNodeData,
+  StoryAudioClip,
+  StoryNodeData,
+  StoryPresentation,
+  StoryTitlePlacement,
+  TextAIProfile,
+  TtsNarrationMode,
+  VoiceAIProfile,
+} from '../domain/project';
 import { useAIActions } from '../editor-features/ai/useAIActions';
 import {
   type AssistantCardPlacementResult,
@@ -53,52 +74,29 @@ import { useSelectionMenu } from '../editor-features/selection-tools/useSelectio
 import { localPersistenceService } from '../editor-services/localPersistenceService';
 import { createProjectSerializer } from '../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../editor-services/projectThumbnail';
-import { stableStringify } from '../lib/stableStringify';
 import { ttsService } from '../editor-services/ttsService';
 import { useAutoSave } from '../editor-services/useAutoSave';
 import { AIActionModal } from '../editor-shell/AIActionModal';
 import { AssistantPanel } from '../editor-shell/AssistantPanel';
 import { AutoSaveRecoveryModal } from '../editor-shell/AutoSaveRecoveryModal';
+import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
+import { useDialog } from '../editor-shell/DialogProvider';
 import { EditorHeader } from '../editor-shell/EditorHeader';
 import { EditorLeftToolbar } from '../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../editor-shell/EditorRightToolbar';
 import { EditorToast } from '../editor-shell/EditorToast';
-import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
-import { useDialog } from '../editor-shell/DialogProvider';
 import { ProjectSavePromptModal } from '../editor-shell/ProjectSavePromptModal';
 import { SaveProjectModal } from '../editor-shell/SaveProjectModal';
 import {
-  type AssistantTask,
   type AIButtonsConfig,
   type AIGenerationBalance,
   type AIPromptsConfig,
+  type AssistantTask,
   defaultAIButtonsConfig,
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
-import type {
-  BackgroundRemovalAIProfile,
-  CharacterImageMode,
-  ImageAIProfile,
-  ProjectAIProfilesExport,
-  SavedAIProfile,
-  CharacterNodeData,
-  CharacterPresentation,
-  InlinePresentationActionType,
-  SceneNodeData,
-  SceneImageMode,
-  NumberConditionNodeData,
-  PlotStructureGenerateDirection,
-  StoryAudioClip,
-  StoryPresentation,
-  StoryTitlePlacement,
-  StoryNodeData,
-  TextAIProfile,
-  TtsNarrationMode,
-  VoiceAIProfile,
-} from '../domain/project';
 import { usePlaytestSettings } from '../editor-state/usePlaytestSettings';
 import { useSharedRenderStyle } from '../editor-state/useSharedRenderStyle';
-import { Language, translations } from '../lib/i18n';
 import {
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
@@ -107,6 +105,12 @@ import {
   HOSTED_VOICE_PROXY_PROFILE,
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../lib/hostedProxy';
+import { Language, translations } from '../lib/i18n';
+import {
+  expandBackgroundToFitNodes,
+  formatRegionStoryForPrompt,
+  parseGeneratedPlotCards,
+} from '../lib/plotStructure';
 import {
   createCharacterPresentation,
   createInlinePresentationAction,
@@ -114,15 +118,11 @@ import {
   createScenePresentation,
   normalizeStoryPresentation,
 } from '../lib/presentation';
-import {
-  expandBackgroundToFitNodes,
-  formatRegionStoryForPrompt,
-  parseGeneratedPlotCards,
-} from '../lib/plotStructure';
+import { stableStringify } from '../lib/stableStringify';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from './PlotStructureNode';
-import { ProjectPickerModal, type ProjectExampleTemplate } from './ProjectPickerModal';
-import { nodeTypes, edgeTypes } from './story-editor/flowTypes';
+import { type ProjectExampleTemplate, ProjectPickerModal } from './ProjectPickerModal';
+import { edgeTypes, nodeTypes } from './story-editor/flowTypes';
 import {
   PlayTestModal,
   SettingsModal,
@@ -1008,8 +1008,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     return (
       savedAIProfiles.find(
         (profile): profile is BackgroundRemovalAIProfile =>
-          profile.kind === 'background-removal' &&
-          profile.id === activeBackgroundRemovalProfileId,
+          profile.kind === 'background-removal' && profile.id === activeBackgroundRemovalProfileId,
       ) ?? null
     );
   }, [activeBackgroundRemovalProfileId, savedAIProfiles]);
@@ -1087,8 +1086,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           ? activeImageProfileId
           : null,
       activeBackgroundRemovalProfileId:
-        activeBackgroundRemovalProfileId &&
-        exportedProfileIds.has(activeBackgroundRemovalProfileId)
+        activeBackgroundRemovalProfileId && exportedProfileIds.has(activeBackgroundRemovalProfileId)
           ? activeBackgroundRemovalProfileId
           : null,
       activeVoiceProfileId:
@@ -1434,10 +1432,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback(
     (target: 'text' | 'image' | 'background-removal' | 'voice') => {
-    setSettingsAttentionTarget(target);
-    setSettingsAttention(false);
-    window.setTimeout(() => setSettingsAttention(true), 0);
-    window.setTimeout(() => setSettingsAttention(false), 1800);
+      setSettingsAttentionTarget(target);
+      setSettingsAttention(false);
+      window.setTimeout(() => setSettingsAttention(true), 0);
+      window.setTimeout(() => setSettingsAttention(false), 1800);
     },
     [],
   );
@@ -1799,8 +1797,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         activeTextProfileId === HOSTED_PROXY_PROFILE_ID ? null : activeTextProfileId,
       activeImageProfileId:
         activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID ? null : activeImageProfileId,
-      activeBackgroundRemovalProfileId:
-        activeBackgroundRemovalProfileId,
+      activeBackgroundRemovalProfileId: activeBackgroundRemovalProfileId,
       activeVoiceProfileId:
         activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID ? null : activeVoiceProfileId,
     });
@@ -2603,10 +2600,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         );
       };
 
-      const getNumberConditionSourceHandleForTotal = (
-        conditionNodeId: string,
-        total: number,
-      ) => {
+      const getNumberConditionSourceHandleForTotal = (conditionNodeId: string, total: number) => {
         const currentNode = nodeById.get(conditionNodeId);
         if (currentNode?.type !== 'numberConditionNode') return null;
 
@@ -2787,19 +2781,18 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             currentNode?.type === 'numberConditionNode'
               ? (outgoingEdgesBySource.get(currentId) || []).filter(
                   (edge) =>
-                    edge.sourceHandle ===
-                    getNumberConditionSourceHandleForTotal(currentId, total),
+                    edge.sourceHandle === getNumberConditionSourceHandleForTotal(currentId, total),
                 )
               : outgoingEdgesBySource.get(currentId) || [];
 
           outgoingEdges.forEach((edge, index) => {
             const edgeColor =
-              currentNode?.type === 'numberConditionNode'
-                ? color
-                : getBranchColor(index, color);
+              currentNode?.type === 'numberConditionNode' ? color : getBranchColor(index, color);
             const targetNode = nodeById.get(edge.target);
             const nextTotal =
-              targetNode?.type === 'numberConditionNode' ? total : total + getNodeValue(edge.target);
+              targetNode?.type === 'numberConditionNode'
+                ? total
+                : total + getNodeValue(edge.target);
             addPathEdge(edge, edgeColor);
             if (!visited.has(`${edge.target}:${nextTotal}:${edgeColor}`)) {
               queue.push({ id: edge.target, color: edgeColor, total: nextTotal });
@@ -2945,6 +2938,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                 }))
                 .filter((branch) => branch.target)
             : undefined,
+          assistantCandidateKind: card.assistantCandidateKind,
+          assistantCandidateGroupId: cleanText(card.assistantCandidateGroupId),
+          assistantTemplateId: cleanText(card.assistantTemplateId),
+          assistantTemplateName: cleanText(card.assistantTemplateName),
+          assistantTemplateInstruction: cleanText(card.assistantTemplateInstruction),
+          assistantTemplateTeachingMode: card.assistantTemplateTeachingMode,
+          assistantTemplateIsUserOwned: card.assistantTemplateIsUserOwned === true,
         }))
         .filter((card) => {
           if (card.type === 'character') {
@@ -2984,7 +2984,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       if (validCards.length === 0) return { count: 0 };
 
       const explicitFillTargetIds = new Set(options?.targetNodeIds || []);
-      let selectedFillTargets = nodes.filter(
+      const selectedFillTargets = nodes.filter(
         (n) =>
           (explicitFillTargetIds.size > 0 ? explicitFillTargetIds.has(n.id) : n.selected) &&
           (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
@@ -3235,13 +3235,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ];
       const isAssistantCandidateLayout =
         remainingCards.length > 1 &&
-        remainingCards.every((card) => Boolean(card.assistantCandidateGroupId));
+        remainingCards.every((card) => Boolean(card.assistantCandidateGroupId)) &&
+        new Set(remainingCards.map((card) => card.assistantCandidateGroupId)).size === 1;
       const candidateGap = 48;
       const candidateTotalWidth =
         remainingCards.reduce(
           (width, _card, cardIndex) => width + cardLayouts[cardIndex].width,
           0,
-        ) + Math.max(0, remainingCards.length - 1) * candidateGap;
+        ) +
+        Math.max(0, remainingCards.length - 1) * candidateGap;
       const candidateLeft = center.x - candidateTotalWidth / 2;
       const getAssistantCandidatePosition = (cardIndex: number) => ({
         x:
@@ -3333,6 +3335,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               showOther: !!card.other,
               assistantCandidateKind: card.assistantCandidateKind,
               assistantCandidateGroupId: card.assistantCandidateGroupId,
+              assistantTemplateId: card.assistantTemplateId,
+              assistantTemplateName: card.assistantTemplateName,
+              assistantTemplateInstruction: card.assistantTemplateInstruction,
+              assistantTemplateTeachingMode: card.assistantTemplateTeachingMode,
+              assistantTemplateIsUserOwned: card.assistantTemplateIsUserOwned,
             } satisfies CharacterNodeData,
           };
         }
@@ -3358,6 +3365,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               showOther: !!card.other,
               assistantCandidateKind: card.assistantCandidateKind,
               assistantCandidateGroupId: card.assistantCandidateGroupId,
+              assistantTemplateId: card.assistantTemplateId,
+              assistantTemplateName: card.assistantTemplateName,
+              assistantTemplateInstruction: card.assistantTemplateInstruction,
+              assistantTemplateTeachingMode: card.assistantTemplateTeachingMode,
+              assistantTemplateIsUserOwned: card.assistantTemplateIsUserOwned,
             } satisfies SceneNodeData,
           };
         }
@@ -3748,6 +3760,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           key: card.key || card.title,
           connectTo: card.connectTo,
           branchTargets: card.branchTargets,
+          assistantCandidateKind: card.assistantCandidateKind,
+          assistantCandidateGroupId: card.assistantCandidateGroupId,
+          assistantTemplateId: card.assistantTemplateId,
+          assistantTemplateName: card.assistantTemplateName,
+          assistantTemplateInstruction: card.assistantTemplateInstruction,
+          assistantTemplateTeachingMode: card.assistantTemplateTeachingMode,
+          assistantTemplateIsUserOwned: card.assistantTemplateIsUserOwned,
         };
         if (type === 'character') {
           return {
@@ -4282,9 +4301,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       const nodeIdSet = new Set(nodeIds);
       setNodes((currentNodes) => currentNodes.filter((node) => !nodeIdSet.has(node.id)));
       setEdges((currentEdges) =>
-        currentEdges.filter(
-          (edge) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target),
-        ),
+        currentEdges.filter((edge) => !nodeIdSet.has(edge.source) && !nodeIdSet.has(edge.target)),
       );
     },
     [setEdges, setNodes],
@@ -4357,75 +4374,80 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ? { right: assistantPanelWidth + 16 }
       : undefined;
 
-  const { getProjectSnapshot, applyProjectData, confirmExportJSON, importProjectFile, handleImportZIP } =
-    useProjectSerialization({
-      nodes,
-      edges,
-      settings: editorProjectSettings,
-      settingsSetters: editorProjectSettingsSetters,
-      assistantTasks,
-      activeAssistantTaskId,
-      setAssistantTasks,
-      setActiveAssistantTaskId,
-      saveFileName,
-      currentProjectId,
-      currentProjectFilePath,
-      defaultProjectSaveDir,
-      setNodes,
-      setEdges,
-      setIsDirty,
-      setShowSaveNameModal,
-      lastSavedSnapshotRef: lastSavedSnapshot,
-      showToast,
-      getProjectThumbnailDataUrl: createCurrentProjectThumbnail,
-      getExportedAIProfiles,
-      onProjectFilePathSaved: async (filePath) => {
-        setCurrentProjectFilePath(filePath);
-        if (currentProjectId) {
-          await localPersistenceService.saveProjectFilePath(currentProjectId, filePath);
-        }
-      },
-      onImportedProject: async ({
-        projectData,
-        suggestedProjectName,
-        replaceCurrentProject,
-        zip,
-        thumbnailDataUrl,
-      }) => {
-        const restoredProjectData = zip
-          ? await createProjectSerializer({
-              defaultEdgeOptions,
-              defaultAIPrompts,
-              defaultAIButtonsConfig,
-            }).restoreImportedProject(projectData, zip)
-          : projectData;
-        const shouldReplaceCurrentProject =
-          replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
+  const {
+    getProjectSnapshot,
+    applyProjectData,
+    confirmExportJSON,
+    importProjectFile,
+    handleImportZIP,
+  } = useProjectSerialization({
+    nodes,
+    edges,
+    settings: editorProjectSettings,
+    settingsSetters: editorProjectSettingsSetters,
+    assistantTasks,
+    activeAssistantTaskId,
+    setAssistantTasks,
+    setActiveAssistantTaskId,
+    saveFileName,
+    currentProjectId,
+    currentProjectFilePath,
+    defaultProjectSaveDir,
+    setNodes,
+    setEdges,
+    setIsDirty,
+    setShowSaveNameModal,
+    lastSavedSnapshotRef: lastSavedSnapshot,
+    showToast,
+    getProjectThumbnailDataUrl: createCurrentProjectThumbnail,
+    getExportedAIProfiles,
+    onProjectFilePathSaved: async (filePath) => {
+      setCurrentProjectFilePath(filePath);
+      if (currentProjectId) {
+        await localPersistenceService.saveProjectFilePath(currentProjectId, filePath);
+      }
+    },
+    onImportedProject: async ({
+      projectData,
+      suggestedProjectName,
+      replaceCurrentProject,
+      zip,
+      thumbnailDataUrl,
+    }) => {
+      const restoredProjectData = zip
+        ? await createProjectSerializer({
+            defaultEdgeOptions,
+            defaultAIPrompts,
+            defaultAIButtonsConfig,
+          }).restoreImportedProject(projectData, zip)
+        : projectData;
+      const shouldReplaceCurrentProject =
+        replaceCurrentProject && currentProjectId && importModeRef.current !== 'new';
 
-        if (shouldReplaceCurrentProject) {
-          await restoreProjectSession(currentProjectId, restoredProjectData, suggestedProjectName);
-          importModeRef.current = 'replace';
-          return true;
-        }
-
-        const nextProjectId = uuidv4();
-        const normalizedName = suggestedProjectName.trim() || DEFAULT_PROJECT_FILE_NAME;
-        await restoreProjectSession(nextProjectId, restoredProjectData, normalizedName);
-        await localPersistenceService.saveLocalProject({
-          id: nextProjectId,
-          projectName: normalizedName,
-          projectData: restoredProjectData,
-          updatedAt: Date.now(),
-          thumbnailDataUrl: thumbnailDataUrl ?? null,
-        });
+      if (shouldReplaceCurrentProject) {
+        await restoreProjectSession(currentProjectId, restoredProjectData, suggestedProjectName);
         importModeRef.current = 'replace';
-        await refreshProjectSummaries();
         return true;
-      },
-      defaultEdgeOptions,
-      defaultAIPrompts,
-      defaultAIButtonsConfig,
-    });
+      }
+
+      const nextProjectId = uuidv4();
+      const normalizedName = suggestedProjectName.trim() || DEFAULT_PROJECT_FILE_NAME;
+      await restoreProjectSession(nextProjectId, restoredProjectData, normalizedName);
+      await localPersistenceService.saveLocalProject({
+        id: nextProjectId,
+        projectName: normalizedName,
+        projectData: restoredProjectData,
+        updatedAt: Date.now(),
+        thumbnailDataUrl: thumbnailDataUrl ?? null,
+      });
+      importModeRef.current = 'replace';
+      await refreshProjectSummaries();
+      return true;
+    },
+    defaultEdgeOptions,
+    defaultAIPrompts,
+    defaultAIButtonsConfig,
+  });
 
   const refreshProjectSummaries = useCallback(async () => {
     const projects = await localPersistenceService.listProjects();
@@ -4494,14 +4516,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       projectName: string,
       options?: { fromHome?: boolean; updatedAt?: number },
     ) => {
-    await applyProjectData(projectData, { markSaved: true });
-    const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
+      await applyProjectData(projectData, { markSaved: true });
+      const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
 
-    pendingInitialSnapshotSyncProjectIdRef.current = projectId;
-    pendingInitialSnapshotCandidateRef.current = '';
-    setIsProjectSnapshotSynced(false);
-    setCurrentProjectId(projectId);
-    setCurrentProjectFilePath(projectFilePath);
+      pendingInitialSnapshotSyncProjectIdRef.current = projectId;
+      pendingInitialSnapshotCandidateRef.current = '';
+      setIsProjectSnapshotSynced(false);
+      setCurrentProjectId(projectId);
+      setCurrentProjectFilePath(projectFilePath);
       setSaveFileName(projectName.trim() || DEFAULT_PROJECT_FILE_NAME);
       setProjectTitle(projectData.settings?.projectTitle?.trim() || '');
       setLastSavedTime(options?.updatedAt || null);
@@ -5273,7 +5295,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
       if (regionStoryNodes.length === 0) {
         await showDialogAlert({
-          title: language === 'zh' ? '无法生成剧情' : language === 'ja' ? '生成できません' : 'Unable to generate',
+          title:
+            language === 'zh'
+              ? '无法生成剧情'
+              : language === 'ja'
+                ? '生成できません'
+                : 'Unable to generate',
           description:
             language === 'zh'
               ? '区域内没有找到可续写的剧情卡片'
@@ -5467,7 +5494,15 @@ ${layoutConfig.label}
         });
       }
     },
-    [callAIForText, generateLength, language, plotStructureGenerateDirection, setEdges, setNodes, showDialogAlert],
+    [
+      callAIForText,
+      generateLength,
+      language,
+      plotStructureGenerateDirection,
+      setEdges,
+      setNodes,
+      showDialogAlert,
+    ],
   );
 
   const handleAIAnalyze = useCallback(
@@ -5598,7 +5633,7 @@ ${layoutConfig.label}
             };
           }),
         );
-        handleAssistantCandidateNodeSelect(node.id);
+        await handleAssistantCandidateNodeSelect(node.id);
         return;
       }
       if (!event.shiftKey) return;
@@ -6343,7 +6378,13 @@ ${layoutConfig.label}
       <ConfirmActionModal
         visible={showAppClosePrompt}
         language={language}
-        title={language === 'zh' ? '退出应用？' : language === 'ja' ? 'アプリを終了しますか？' : 'Quit app?'}
+        title={
+          language === 'zh'
+            ? '退出应用？'
+            : language === 'ja'
+              ? 'アプリを終了しますか？'
+              : 'Quit app?'
+        }
         description={
           language === 'zh'
             ? '确定要关闭 GalWriter AI 吗？'

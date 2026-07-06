@@ -23,6 +23,11 @@ export type AssistantCardDraft = {
   generateImage?: boolean;
   assistantCandidateKind?: 'article-role' | 'article-scene';
   assistantCandidateGroupId?: string;
+  assistantTemplateId?: string;
+  assistantTemplateName?: string;
+  assistantTemplateInstruction?: string;
+  assistantTemplateTeachingMode?: 'interactive' | 'lecture';
+  assistantTemplateIsUserOwned?: boolean;
 };
 
 export type AssistantCardPlacementMode =

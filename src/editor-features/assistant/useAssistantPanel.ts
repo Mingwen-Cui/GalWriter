@@ -3,649 +3,61 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
-import { useDialog } from '../../editor-shell/DialogProvider';
 import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
+import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
+import { useDialog } from '../../editor-shell/DialogProvider';
+import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import {
+  type AssistantDocument,
   buildAssistantDocumentContext,
   readAssistantDocument,
-  type AssistantDocument,
 } from '../../lib/documentReader';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
-import { htmlToSpeechText } from '../../lib/tts';
-import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
-
-type AssistantSpeechRecognitionResult = {
-  transcript?: string;
-};
-
-type AssistantSpeechRecognitionEvent = {
-  results?: ArrayLike<ArrayLike<AssistantSpeechRecognitionResult>>;
-};
-
-type AssistantSpeechRecognitionInstance = {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onstart: (() => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-  onresult: ((event: AssistantSpeechRecognitionEvent) => void) | null;
-  start: () => void;
-};
-
-type AssistantSpeechRecognitionCtor = new () => AssistantSpeechRecognitionInstance;
-
-type AssistantHistorySnapshot = {
-  tasks: AssistantTask[];
-  activeTaskId: string;
-  input: string;
-};
-
-type AssistantWorkflowState =
-  | { type: 'idle' }
-  | { type: 'idea-awaiting' }
-  | { type: 'starter-theme' }
-  | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
-  | { type: 'starter-supplement'; theme: string; style: string }
-  | { type: 'starter-generate'; theme: string; style: string; supplement?: string }
-  | { type: 'revision-awaiting-opinion' }
-  | { type: 'future-awaiting-count'; targetNodeId: string }
-  | { type: 'future-generate-bridge'; targetNodeId: string; count: number }
-  | { type: 'article-role-awaiting'; candidateNodeIds: string[] }
-  | {
-      type: 'article-role-selected';
-      characterNodeId: string;
-      characterName: string;
-    }
-  | {
-      type: 'article-scene-custom-awaiting';
-      characterNodeId: string;
-      characterName: string;
-    }
-  | {
-      type: 'article-scene-awaiting';
-      characterNodeId: string;
-      characterName: string;
-      candidateNodeIds: string[];
-    }
-  | {
-      type: 'article-ready-to-teach';
-      characterNodeId: string;
-      characterName: string;
-      sceneNodeId?: string;
-      sceneName?: string;
-      useScene: boolean;
-    }
-  | {
-      type: 'article-teach-generate';
-      teachingMode: 'interactive' | 'lecture';
-      characterNodeId?: string;
-      characterName?: string;
-      sceneNodeId?: string;
-      sceneName?: string;
-      useScene?: boolean;
-    };
-
-export type AssistantArticleAnalysisStep = {
-  title: string;
-  status: 'pending' | 'active' | 'done' | 'error';
-  detail: string;
-  evidence?: string;
-};
-
-export type AssistantArticleAnalysisState = {
-  status: 'idle' | 'reading' | 'analyzing' | 'ready' | 'error';
-  summary: string;
-  steps: AssistantArticleAnalysisStep[];
-};
-
-export type AssistantCardPlacementResult = {
-  count: number;
-  position?: { x: number; y: number; zoom?: number };
-  nodeIds?: string[];
-};
-
-const createAssistantWelcomeMessage = (language: Language): AssistantMessage => ({
-  id: uuidv4(),
-  role: 'assistant',
-  content:
-    language === 'zh'
-      ? '你好，我可以帮你生成故事、整理设定和续写剧情。'
-      : language === 'ja'
-        ? 'こんにちは！ストーリーの生成、設定の整理、プロットの継続をお手伝いできます。'
-        : 'Hello! I can help you generate stories, organize settings, and continue writing plots.',
-});
-
-const createInitialAssistantTask = (language: Language): AssistantTask => {
-  const now = Date.now();
-  return {
-    id: uuidv4(),
-    title: language === 'zh' ? '对话 1' : language === 'ja' ? '対話 1' : 'Conversation 1',
-    createdAt: now,
-    updatedAt: now,
-    messages: [createAssistantWelcomeMessage(language)],
-  };
-};
-
-const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
-  tasks.map((task) => ({
-    ...task,
-    messages: task.messages.map((message) => ({ ...message })),
-  }));
-
-type AssistantGeneratedOption = {
-  label: string;
-  description?: string;
-};
-
-const ASSISTANT_VISUALIZE_OPTION_PREFIX = '__assistant_visualize__:';
-const LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX = '__generate_visuals__:';
-
-const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
-
-const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [
-  {
-    type: 'character',
-    characterName: '教学角色 A',
-    traits: '候选教学者。语气温和，适合把复杂文章拆成容易理解的步骤。',
-    personality: '耐心、清晰、善于确认读者是否理解。',
-    features: '人物图片暂时留空，后续可以替换为正式立绘。',
-    background: '负责把上传文章转化为单人 Galgame 教学流程。',
-    other: '候选角色，确认后会删除其他候选人物卡。',
-  },
-  {
-    type: 'character',
-    characterName: '教学角色 B',
-    traits: '候选教学者。表达更活泼，适合用提问和反馈推动学习。',
-    personality: '主动、亲切、节奏轻快。',
-    features: '人物图片暂时留空，后续可以替换为正式立绘。',
-    background: '负责用单人讲解或问答方式带读者理解文章。',
-    other: '候选角色，确认后会删除其他候选人物卡。',
-  },
-  {
-    type: 'character',
-    characterName: '教学角色 C',
-    traits: '候选教学者。风格冷静，适合严谨梳理论点、概念和结构。',
-    personality: '理性、简洁、重视逻辑顺序。',
-    features: '人物图片暂时留空，后续可以替换为正式立绘。',
-    background: '负责把文章知识点组织成清楚的章节教学。',
-    other: '候选角色，确认后会删除其他候选人物卡。',
-  },
-  {
-    type: 'character',
-    characterName: '教学角色 D',
-    traits: '候选教学者。风格柔和，适合用故事化方式引导读者学习。',
-    personality: '细腻、鼓励式、擅长总结。',
-    features: '人物图片暂时留空，后续可以替换为正式立绘。',
-    background: '负责把文章转成单人 Galgame 教学演出。',
-    other: '候选角色，确认后会删除其他候选人物卡。',
-  },
-];
-
-const createArticleSelfDrawRoleCard = (): AssistantCardDraft => ({
-  type: 'character',
-  characterName: '自绘教学角色',
-  traits: '用户自绘或自行上传的教学角色。完成绘制后选中这张卡并确认。',
-  personality: '由用户后续补充。',
-  features: '请在人物卡中放入用户绘制或上传的角色图。',
-  background: '作为本次文章教学 Galgame 的唯一出场人物。',
-  other: '确认后会删除其他候选人物卡。',
-});
-
-const createArticleDefaultSceneCards = (): AssistantCardDraft[] => [
-  {
-    type: 'scene',
-    sceneName: '安静教室',
-    description: '适合章节讲解和课堂式提问的默认教学空间。',
-    location: '明亮教室，前方有白板和讲台。',
-    items: '白板、课桌、投影幕、笔记本。',
-    atmosphere: '清楚、专注、适合系统化学习。',
-    other: '候选场景，确认后会删除其他候选场景卡。',
-  },
-  {
-    type: 'scene',
-    sceneName: '书桌学习角',
-    description: '适合一对一陪读和文章细读的默认教学空间。',
-    location: '靠窗书桌旁，桌面摆着资料和水杯。',
-    items: '台灯、资料夹、便签、打开的文章。',
-    atmosphere: '安静、贴近读者、适合逐段拆解。',
-    other: '候选场景，确认后会删除其他候选场景卡。',
-  },
-  {
-    type: 'scene',
-    sceneName: '资料室',
-    description: '适合整理概念、证据和章节结构的默认教学空间。',
-    location: '资料柜与长桌围成的学习区域。',
-    items: '档案盒、索引卡、白板、文件夹。',
-    atmosphere: '理性、有条理、适合分析型文章。',
-    other: '候选场景，确认后会删除其他候选场景卡。',
-  },
-  {
-    type: 'scene',
-    sceneName: '白板前',
-    description: '适合用图示、关键词和小结推进教学的默认教学空间。',
-    location: '一面大白板前，旁边有简洁讲台。',
-    items: '马克笔、板擦、流程图、章节标题。',
-    atmosphere: '明快、聚焦、适合讲课式推进。',
-    other: '候选场景，确认后会删除其他候选场景卡。',
-  },
-];
-
-const createArticleCustomSceneCards = (request: string): AssistantCardDraft[] => {
-  const sceneRequest = request.trim() || '用户自定义教学场景';
-  return ['A', 'B', 'C', 'D'].map((suffix) => ({
-    type: 'scene',
-    sceneName: `新场景 ${suffix}`,
-    description: `根据用户描述创建的候选场景：${sceneRequest}`,
-    location: `围绕“${sceneRequest}”设计的教学空间 ${suffix}。`,
-    items: '可后续在场景卡中补充具体物品。',
-    atmosphere: '贴合用户自定义方向，适合文章教学演出。',
-    other: '候选场景，确认后会删除其他候选场景卡。',
-  }));
-};
-
-const createArticleRoleSelectionOptions = () => [
-  { id: uuidv4(), label: '确认当前选中的人物卡', value: '__article_role_confirm__' },
-  { id: uuidv4(), label: '添加自绘角色卡', value: '__article_role_self_draw__' },
-];
-
-const createArticleSceneChoiceOptions = () => [
-  { id: uuidv4(), label: '添加默认场景候选卡', value: '__article_scenes_create__:default' },
-  { id: uuidv4(), label: '添加新场景候选卡', value: '__article_scenes_custom_prompt__' },
-  { id: uuidv4(), label: '不添加场景，继续选择教学方式', value: '__article_scene_skip__' },
-];
-
-const createArticleTeachingModeOptions = () => [
-  { id: uuidv4(), label: '对话式教学', value: '__article_teach__:interactive' },
-  { id: uuidv4(), label: '讲课式教学', value: '__article_teach__:lecture' },
-];
-
-const markArticleCandidateCards = (
-  cards: AssistantCardDraft[],
-  kind: 'article-role' | 'article-scene',
-  groupId = uuidv4(),
-) =>
-  cards.map((card) => ({
-    ...card,
-    assistantCandidateKind: kind,
-    assistantCandidateGroupId: groupId,
-  }));
-
-const normalizeAssistantPlainText = (value: unknown) =>
-  htmlToSpeechText(String(value || ''))
-    .replace(/\s+/g, '')
-    .replace(/[.。…]+$/g, '');
-
-const extractFirstJsonObject = (value: string) => {
-  const text = value
-    .replace(/```(?:json)?/gi, '')
-    .replace(/```/g, '')
-    .trim();
-  const start = text.indexOf('{');
-  if (start < 0) return text;
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (char === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (char === '{') depth += 1;
-    if (char === '}') {
-      depth -= 1;
-      if (depth === 0) return text.slice(start, index + 1);
-    }
-  }
-
-  return text.slice(start);
-};
-
-const isDefaultRootStoryNode = (node: Node) =>
-  node.type === 'storyNode' &&
-  node.id === 'root' &&
-  String(node.data?.title || '') === '开头' &&
-  normalizeAssistantPlainText(node.data?.text) === DEFAULT_ROOT_STORY_TEXT;
-
-const isNarrativeSceneRequest = (text: string) =>
-  /(?:表白|告白|相遇|重逢|争吵|和好|离别|约会|亲吻|牵手|毕业|课堂|放学|雨天|天台|图书馆|校园|爱情|恋爱).{0,12}场景/.test(
-    text,
-  ) || /场景.{0,12}(?:片段|桥段|剧情|故事|正文|对话|表白|告白|爱情|恋爱)/.test(text);
-
-const shouldCreateStoryBundle = (text: string) => {
-  const asksSpecificCardOnly =
-    /只(?:要|生成|添加|创建|做)?(?:人物|角色|人设|场景设定|地点设定|场设|剧情)卡?/.test(text) ||
-    /(?:只|仅|单独).{0,8}(?:人物|角色|人设|场景设定|地点设定|场设|剧情)/.test(text);
-  if (asksSpecificCardOnly) return false;
-
-  return (
-    isNarrativeSceneRequest(text) ||
-    /脑洞|完整故事|故事大纲|故事开端|短篇故事|剧情片段|桥段|开场|开篇|梗概|扩展成.*故事|生成.*故事|写.*故事|构思.*故事/i.test(
-      text,
-    )
-  );
-};
-
-const isGenericStoryIdeaRequest = (text: string) => {
-  const normalized = text.toLowerCase().replace(/[\s,，.。!！?？;；:"“”'‘’、]/g, '');
-
-  return (
-    normalized === '我有一个新脑洞想让你帮我扩展成一个完整故事' ||
-    normalized === '我有一个新脑洞想让你帮我扩展成完整故事' ||
-    normalized === '我有一个脑洞想让你帮我扩展成一个完整故事' ||
-    normalized === '我有一个脑洞想让你帮我扩展成完整故事' ||
-    normalized === 'ihaveanewideahelpmeexpanditintoacompletestory' ||
-    normalized === 'ihaveanewideahelpmeexpandintoacompletestory'
-  );
-};
-
-const normalizeAssistantStoryDraftText = (value: string) =>
-  value
-    .split(/\r?\n/)
-    .map((line) => {
-      let nextLine = line.trim();
-      nextLine = nextLine.replace(/^[@＠]\s*/, '');
-      const wrappedAction = nextLine.match(/^[（(]\s*([\s\S]*?)\s*[）)]$/);
-      if (wrappedAction) nextLine = wrappedAction[1].trim();
-      nextLine = nextLine.replace(
-        /^([^：:\n]{1,36})\s*[：:]\s*[“"‘']?([\s\S]*?)[”"’']?$/,
-        (_, speaker: string, speech: string) => `${speaker.trim()}${speech.trim()}`,
-      );
-      return nextLine.replace(/[“”‘']/g, '');
-    })
-    .filter((line) => line.length > 0)
-    .join('\n');
-
-const getAssistantDraftType = (
-  card: AssistantCardDraft,
-): 'story' | 'character' | 'scene' | 'number-condition' => {
-  const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-  if (
-    card.type === 'character' ||
-    card.type === 'scene' ||
-    card.type === 'story' ||
-    card.type === 'number-condition'
-  ) {
-    return card.type;
-  }
-  if (
-    typeof card.threshold === 'number' ||
-    (Array.isArray(card.ranges) && card.ranges.length > 0)
-  ) {
-    return 'number-condition';
-  }
-  if (
-    cleanText(card.characterName) ||
-    cleanText(card.traits) ||
-    cleanText(card.personality) ||
-    cleanText(card.features) ||
-    cleanText(card.background)
-  ) {
-    return 'character';
-  }
-  if (
-    cleanText(card.sceneName) ||
-    cleanText(card.description) ||
-    cleanText(card.location) ||
-    cleanText(card.items) ||
-    cleanText(card.atmosphere)
-  ) {
-    return 'scene';
-  }
-  return 'story';
-};
-
-const alignAssistantCardsToPlaceholders = (
-  cards: AssistantCardDraft[],
-  placeholders: AssistantCardDraft[],
-) => {
-  if (cards.length === 0 || placeholders.length === 0) return cards;
-
-  const usedIndexes = new Set<number>();
-  const alignedCards = placeholders
-    .map((placeholder) => {
-      const expectedType = getAssistantDraftType(placeholder);
-      const matchingIndex = cards.findIndex(
-        (card, index) => !usedIndexes.has(index) && getAssistantDraftType(card) === expectedType,
-      );
-      if (matchingIndex < 0) return null;
-      usedIndexes.add(matchingIndex);
-      return { ...cards[matchingIndex], type: expectedType };
-    })
-    .filter((card) => Boolean(card)) as AssistantCardDraft[];
-
-  const remainingCards = cards.filter((_, index) => !usedIndexes.has(index));
-  return [...alignedCards, ...remainingCards];
-};
-
-type AssistantCardStreamEvent =
-  | { type: 'reply_delta'; delta?: string }
-  | { type: 'card_start'; index: number; card?: AssistantCardDraft }
-  | { type: 'field_delta'; index: number; field: keyof AssistantCardDraft; delta?: string }
-  | { type: 'field_set'; index: number; field: keyof AssistantCardDraft; value?: unknown }
-  | { type: 'card_end'; index: number }
-  | { type: 'done' };
-
-const assistantCardStreamProtocol = `Streaming card protocol:
-For this streaming request, ignore any earlier instruction that asks for one complete JSON object.
-Return ONLY newline-delimited JSON events, one JSON object per line. Do not wrap in Markdown.
-Allowed events:
-{"type":"reply_delta","delta":"visible assistant reply text"}
-{"type":"card_start","index":0,"card":{"type":"story","key":"stable_key"}}
-{"type":"field_delta","index":0,"field":"title","delta":"partial title"}
-{"type":"field_delta","index":0,"field":"text","delta":"partial body"}
-{"type":"field_set","index":0,"field":"connectTo","value":["next_key"]}
-{"type":"field_set","index":0,"field":"branchTargets","value":[{"target":"ending_a","label":"Ending A"}]}
-{"type":"card_end","index":0}
-{"type":"done"}
-Use card indexes starting at 0. For character cards stream characterName, traits, personality, features, background, other. For scene cards stream sceneName, description, location, items, atmosphere, other. For story cards stream title and text.`;
-
-const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
-  const priority = { character: 0, scene: 1, story: 2, 'number-condition': 3 } as const;
-  return cards
-    .map((card, index) => ({ card, index, type: getAssistantDraftType(card) }))
-    .sort((left, right) => priority[left.type] - priority[right.type] || left.index - right.index)
-    .map(({ card, type }) => ({ ...card, type }));
-};
-
-const hasAssistantCardContent = (card: AssistantCardDraft) => {
-  const type = getAssistantDraftType(card);
-  if (type === 'character') {
-    return [
-      card.characterName,
-      card.traits,
-      card.personality,
-      card.features,
-      card.background,
-      card.other,
-      card.title,
-      card.text,
-    ].some((value) => typeof value === 'string' && value.trim().length > 0);
-  }
-  if (type === 'scene') {
-    return [
-      card.sceneName,
-      card.description,
-      card.location,
-      card.items,
-      card.atmosphere,
-      card.other,
-      card.title,
-      card.text,
-    ].some((value) => typeof value === 'string' && value.trim().length > 0);
-  }
-  if (type === 'number-condition') {
-    return (
-      typeof card.threshold === 'number' ||
-      (Array.isArray(card.ranges) && card.ranges.length > 0) ||
-      (typeof card.title === 'string' && card.title.trim().length > 0)
-    );
-  }
-  return [card.title, card.text].some(
-    (value) => typeof value === 'string' && value.trim().length > 0,
-  );
-};
-
-const parseAssistantGeneratedOptions = (content: string): AssistantGeneratedOption[] => {
-  const normalized = content
-    .replace(/```(?:json)?/gi, '')
-    .replace(/```/g, '')
-    .trim();
-  const jsonText = extractFirstJsonObject(normalized);
-
-  const parseJson = (value: string) => {
-    const parsed = JSON.parse(value) as {
-      options?: Array<{ label?: unknown; description?: unknown }>;
-    };
-    return (parsed.options || [])
-      .map((option) => ({
-        label: typeof option.label === 'string' ? option.label.trim() : '',
-        description: typeof option.description === 'string' ? option.description.trim() : undefined,
-      }))
-      .filter((option) => option.label);
-  };
-
-  try {
-    return parseJson(jsonText).slice(0, 3);
-  } catch {
-    try {
-      return parseJson(jsonText.replace(/,\s*([}\]])/g, '$1')).slice(0, 3);
-    } catch {
-      const objectOptions = Array.from(jsonText.matchAll(/\{[^{}]*"label"\s*:[^{}]*\}/g))
-        .map((match) => {
-          const block = match[0];
-          const label =
-            block.match(/"label"\s*:\s*"([^"\r\n]*)/)?.[1]?.trim() ||
-            block.match(/"label"\s*:\s*([^,\r\n}]+)/)?.[1]?.trim();
-          const description =
-            block.match(/"description"\s*:\s*"([\s\S]*?)"\s*(?:,|})/)?.[1]?.trim() ||
-            block.match(/"description"\s*:\s*([^,\r\n}]+)/)?.[1]?.trim();
-          return { label: label || '', description };
-        })
-        .filter((option) => option.label);
-
-      if (objectOptions.length >= 3) return objectOptions.slice(0, 3);
-
-      return normalized
-        .split(/\r?\n/)
-        .map((line) =>
-          line
-            .replace(/^\s*(?:[-*•]|\d+[.)、])\s*/, '')
-            .replace(/^["']|["'],?$/g, '')
-            .trim(),
-        )
-        .filter((line) => line.length > 1 && !/^(?:\{|\}|\[|\]|"options"|options|```)/i.test(line))
-        .slice(0, 3)
-        .map((line) => {
-          const [label, ...descriptionParts] = line.split(/[：:]\s*/);
-          return {
-            label: label.trim(),
-            description: descriptionParts.join('：').trim() || undefined,
-          };
-        });
-    }
-  }
-};
-
-const parseAssistantRequestedCardCount = (text: string, fallback = 1) => {
-  const arabicCount = text.match(/(\d+)/)?.[1];
-  if (arabicCount) return Math.max(1, Math.min(16, Number(arabicCount) || fallback));
-
-  const chineseNumbers: Record<string, number> = {
-    一: 1,
-    二: 2,
-    两: 2,
-    三: 3,
-    四: 4,
-    五: 5,
-    六: 6,
-    七: 7,
-    八: 8,
-    九: 9,
-    十: 10,
-  };
-  const chineseCount = text.match(/([一二两三四五六七八九十])\s*(?:张|寮犱|个|個)/)?.[1];
-  return chineseCount ? chineseNumbers[chineseCount] || fallback : fallback;
-};
-
-const buildAssistantPlaceholderCards = (
-  text: string,
-  forcedMode?: AssistantCardPlacementMode,
-): AssistantCardDraft[] => {
-  const fallbackCount = forcedMode === 'future-targets' ? 3 : 1;
-  const count = parseAssistantRequestedCardCount(text, fallbackCount);
-  const isFutureMode = forcedMode === 'future-targets' || forcedMode === 'bridge-to-target';
-  if (isFutureMode) {
-    return Array.from({ length: count }, () => ({ type: 'story' }));
-  }
-
-  if (shouldCreateStoryBundle(text)) {
-    const storyCardCount = parseAssistantRequestedCardCount(text, 8);
-    return [
-      { type: 'character' },
-      { type: 'scene' },
-      ...Array.from({ length: storyCardCount }, () => ({ type: 'story' as const })),
-    ];
-  }
-
-  const wantsCharacter = /人物|角色|人设|角色设定|character/i.test(text);
-  const wantsScene = /场景|地点|场设|场景设定|scene|location/i.test(text);
-  const wantsStory = /剧情|故事|后续|续写|分支|story|plot|continue/i.test(text);
-
-  if (wantsCharacter && wantsScene) {
-    const storyCount = wantsStory ? Math.max(1, Math.min(5, count)) : 0;
-    return [
-      { type: 'character' },
-      { type: 'scene' },
-      ...Array.from({ length: storyCount }, () => ({ type: 'story' as const })),
-    ];
-  }
-
-  if (wantsCharacter) return Array.from({ length: count }, () => ({ type: 'character' }));
-  if (wantsScene) return Array.from({ length: count }, () => ({ type: 'scene' }));
-
-  return Array.from({ length: count }, () => ({ type: 'story' }));
-};
-
-const inferAssistantMemoryNote = (text: string) => {
-  const normalized = text.trim().replace(/\s+/g, ' ');
-  if (normalized.length < 4) return '';
-
-  const looksLikePreference =
-    /(?:我|用户|以后|之后|请|希望|尽量|不要|少|多|更|偏好|习惯|喜欢|讨厌|prefer|avoid|more|less)/i.test(
-      normalized,
-    ) &&
-    /(?:对话|动作|描写|剧情|卡片|风格|节奏|台词|对白|生成|写法|习惯|偏好|dialogue|action|style|card|plot)/i.test(
-      normalized,
-    );
-
-  if (!looksLikePreference) return '';
-  return normalized.slice(0, 180);
-};
-
-const mergeAssistantMemoryNote = (notes: string[], note: string) => {
-  const cleanNote = note.trim();
-  if (!cleanNote) return notes;
-  const deduped = notes.filter((item) => item.trim() && item.trim() !== cleanNote);
-  return [cleanNote, ...deduped].slice(0, 24);
-};
+import { htmlToSpeechText } from '../../lib/tts';
+import {
+  alignAssistantCardsToPlaceholders,
+  ASSISTANT_VISUALIZE_OPTION_PREFIX,
+  type AssistantArticleAnalysisState,
+  type AssistantArticleAnalysisStep,
+  type AssistantCardPlacementResult,
+  type AssistantCardStreamEvent,
+  assistantCardStreamProtocol,
+  type AssistantHistorySnapshot,
+  type AssistantSpeechRecognitionCtor,
+  type AssistantSpeechRecognitionEvent,
+  type AssistantWorkflowState,
+  buildAssistantPlaceholderCards,
+  cloneAssistantTasks,
+  createArticleCustomSceneCards,
+  createArticleDefaultSceneCards,
+  createArticleRoleCandidateCards,
+  createArticleRoleSelectionOptions,
+  createArticleSelfDrawRoleCard,
+  createArticleTeachingModeOptions,
+  createAssistantWelcomeMessage,
+  createInitialAssistantTask,
+  extractFirstJsonObject,
+  getAssistantDraftType,
+  hasAssistantCardContent,
+  inferAssistantMemoryNote,
+  isDefaultRootStoryNode,
+  isGenericStoryIdeaRequest,
+  LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX,
+  markArticleCandidateCards,
+  mergeAssistantMemoryNote,
+  normalizeAssistantStoryDraftText,
+  orderAssistantCardsForCreation,
+  parseAssistantGeneratedOptions,
+} from './assistantPanelHelpers';
+export type {
+  AssistantArticleAnalysisState,
+  AssistantCardPlacementResult,
+} from './assistantPanelHelpers';
 
 interface UseAssistantPanelParams {
   language: Language;
@@ -701,7 +113,7 @@ interface UseAssistantPanelResult {
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
-  handleAssistantCandidateNodeSelect: (nodeId: string) => void;
+  handleAssistantCandidateNodeSelect: (nodeId: string) => Promise<void>;
   handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
   handleAssistantDocumentUpload: (
     files: FileList | null,
@@ -1078,7 +490,10 @@ export const useAssistantPanel = ({
         if (intent === 'article-to-galgame') {
           const analyzedDocuments = nextDocuments.length > 0 ? nextDocuments : documents;
           const documentCount = analyzedDocuments.length;
-          const charCount = analyzedDocuments.reduce((sum, document) => sum + document.charCount, 0);
+          const charCount = analyzedDocuments.reduce(
+            (sum, document) => sum + document.charCount,
+            0,
+          );
           const truncatedCount = analyzedDocuments.filter((document) => document.truncated).length;
           const summary =
             language === 'zh'
@@ -1131,7 +546,8 @@ export const useAssistantPanel = ({
                 ? 'AI 正在阅读全文，识别主题、核心观点和关键概念。'
                 : 'AI is reading the full text to identify topic, claims, and key concepts.',
           });
-          const theme = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“主题与核心观点识别”阶段。
+          const theme =
+            await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“主题与核心观点识别”阶段。
 ${jsonRule}
 要求：detail 说明文章主要讨论什么；evidence 必须来自文章内容；items 列出 3-5 个关键概念或观点。
 
@@ -1153,7 +569,8 @@ ${documentContext}`);
                 ? 'AI 正在按文章逻辑拆分章节、层级和知识点顺序。'
                 : 'AI is splitting the article into chapters and knowledge order.',
           });
-          const chapters = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“章节结构梳理”阶段。
+          const chapters =
+            await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“章节结构梳理”阶段。
 ${jsonRule}
 要求：detail 说明你把文章拆成几段/几章以及拆分依据；evidence 必须提到文章中的结构线索；items 列出建议章节标题，3-6 个。
 
@@ -1175,7 +592,8 @@ ${documentContext}`);
                 ? 'AI 正在把文章知识点转成可教学的提问、讲解和反馈路径。'
                 : 'AI is turning knowledge points into questions, explanations, and feedback.',
           });
-          const teaching = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“教学路径规划”阶段。
+          const teaching =
+            await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“教学路径规划”阶段。
 ${jsonRule}
 要求：detail 说明这篇文章适合怎样教学；evidence 必须说明依据文章中的哪些概念/论证关系；items 列出提问点或讲解顺序。
 
@@ -1197,7 +615,8 @@ ${documentContext}`);
                 ? 'AI 正在规划教学角色、场景、对白节奏和章节背景框。'
                 : 'AI is planning roles, scenes, dialogue rhythm, and chapter regions.',
           });
-          const galgame = await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“Galgame 场景转化”阶段。
+          const galgame =
+            await runArticleAnalysisStage(`你正在真实阅读用户上传的文章。请完成“Galgame 场景转化”阶段。
 ${jsonRule}
 要求：detail 说明如何把文章转成 galgame 教学项目；evidence 必须关联文章章节/概念；items 列出建议角色、场景或章节背景框方向。
 
@@ -1226,24 +645,40 @@ ${documentContext}`);
             },
             'ready',
           );
-          setAssistantMessages((messages) => [
-            ...messages,
-            {
-              id: uuidv4(),
-              role: 'assistant',
-              content:
-                language === 'zh'
-                  ? '我已经完成了对文章的真实阅读和结构诊断。下一步会先在画布上生成 4 张候选人物设定卡，请选择本次唯一教学角色。'
-                  : 'I finished the reading and structure diagnosis. Next, generate four candidate character cards and choose the single teaching character.',
-              options: [
-                {
-                  id: uuidv4(),
-                  label: '生成 4 张候选人物卡',
-                  value: '__article_roles_create__',
-                },
-              ],
-            },
-          ]);
+          setAssistantLoading(true);
+          try {
+            const placement = await createAssistantCards(
+              markArticleCandidateCards(createArticleRoleCandidateCards(), 'article-role'),
+              'append',
+            );
+            assistantWorkflowRef.current = {
+              type: 'article-role-awaiting',
+              candidateNodeIds: placement.nodeIds || [],
+            };
+            setAssistantMessages((messages) => [
+              ...messages,
+              {
+                id: uuidv4(),
+                role: 'assistant',
+                content:
+                  language === 'zh'
+                    ? '我已经完成文章分析，并在画布上横向生成了 4 张候选人物模板卡。请直接单击你想使用的模板卡，我会立刻按这张卡的风格改写文章。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
+                    : 'I finished the article analysis and placed four role template cards on the canvas. Click one template to continue, or select your own character card and use it as the template.',
+                cardPosition: placement.position,
+                cardNodeIds: placement.nodeIds,
+                options: [
+                  {
+                    id: uuidv4(),
+                    label: '使用当前选中的人物模板',
+                    value: '__article_role_use_selected_template__',
+                  },
+                  { id: uuidv4(), label: '添加自绘角色卡', value: '__article_role_self_draw__' },
+                ],
+              },
+            ]);
+          } finally {
+            setAssistantLoading(false);
+          }
           return;
         }
 
@@ -1304,6 +739,7 @@ ${documentContext}`);
     },
     [
       createArticleAnalysisSteps,
+      createAssistantCards,
       hasTextApiKey,
       language,
       onMissingTextApiKeyRequest,
@@ -1740,7 +1176,8 @@ The previous streaming response did not complete every placeholder card. Return 
           {
             id: uuidv4(),
             role: 'assistant',
-            content: '我已经根据你的描述在画布上生成 4 张新场景候选卡。请选中要使用的那张，然后点击确认。',
+            content:
+              '我已经根据你的描述在画布上生成 4 张新场景候选卡。请选中要使用的那张，然后点击确认。',
             cardPosition: placement.position,
             cardNodeIds: placement.nodeIds,
             options: [
@@ -1866,7 +1303,15 @@ The previous streaming response did not complete every placeholder card. Return 
           workflow.teachingMode === 'interactive'
             ? '教学方式：对话式教学。强调交互和反馈，把内容拆成提问、用户回应、AI 点评/补充、下一步引导的节拍。每一章都要安排可演出的问答和确认点。'
             : '教学方式：讲课式教学。强调语气和逻辑上的递进，用清楚的讲授口吻组织概念、例子、总结和过渡。每一章都要有讲解层次和重点句。';
+        const templateInstruction = workflow.templateInstruction
+          ? `\n已选人物模板要求：\n${workflow.templateInstruction}\n${
+              workflow.templateIsUserOwned
+                ? '这是用户自己的角色模板，必须优先保留该人物卡中的设定、语气和视觉设定，不要改成默认教学角色。'
+                : ''
+            }`
+          : '';
         effectiveUserText = `请把用户上传的文章转化成 galgame/视觉小说教学项目。${modeInstruction}
+${templateInstruction}
 重点要求：
 1. 你必须先自行理清文章的主题、章节结构、关键概念、论证顺序和读者学习路径。
 2. 按文章结构拆成 3 到 6 个章节；每张剧情卡都必须带 chapterTitle 字段，chapterTitle 是所属章节标题。
@@ -1897,6 +1342,9 @@ The previous streaming response did not complete every placeholder card. Return 
       const articleTeachingSelectionInstruction = isArticleTeachingWorkflow
         ? `\nArticle teaching selection rule:
 - The selected teaching character is "${workflow.characterName || '教学角色'}".
+- The selected role template instruction is: ${
+            workflow.templateInstruction || 'Use the selected character card as the teaching style.'
+          }
 - Use exactly this one character in all story cards. Do not create or mention a second teacher, student, narrator, assistant, partner, or extra character.
 - Do not return any character cards. The character card already exists on the canvas.
 - ${
@@ -2257,6 +1705,53 @@ options 必须正好有 3 项。`);
     [callAIForTextResult, hasTextApiKey, onMissingTextApiKeyRequest, setAssistantMessages],
   );
 
+  const continueArticleTeachingWithRole = useCallback(
+    async (selectedRole: Node, candidateNodeIds: string[] = []) => {
+      const removedIds = candidateNodeIds.filter((candidateId) => candidateId !== selectedRole.id);
+      if (removedIds.length > 0) removeAssistantNodes?.(removedIds);
+
+      const characterName = String(selectedRole.data?.characterName || '教学角色');
+      const templateInstruction =
+        String(selectedRole.data?.assistantTemplateInstruction || '').trim() ||
+        [
+          `使用用户选择的人物模板「${characterName}」作为唯一教学角色。`,
+          selectedRole.data?.traits ? `性格/定位：${selectedRole.data.traits}` : '',
+          selectedRole.data?.personality ? `人物性格：${selectedRole.data.personality}` : '',
+          selectedRole.data?.features ? `人物特点：${selectedRole.data.features}` : '',
+          selectedRole.data?.background ? `人物背景：${selectedRole.data.background}` : '',
+          selectedRole.data?.other ? `其他要求：${selectedRole.data.other}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      const templateTeachingMode =
+        selectedRole.data?.assistantTemplateTeachingMode === 'lecture' ? 'lecture' : 'interactive';
+      const templateIsUserOwned = selectedRole.data?.assistantTemplateIsUserOwned === true;
+
+      assistantWorkflowRef.current = {
+        type: 'article-teach-generate',
+        teachingMode: templateTeachingMode,
+        characterNodeId: selectedRole.id,
+        characterName,
+        useScene: false,
+        templateInstruction,
+        templateIsUserOwned,
+      };
+
+      setAssistantMessages((messages) => [
+        ...messages,
+        {
+          id: uuidv4(),
+          role: 'assistant',
+          content: `已选择「${characterName}」作为文章改写模板。我会按这张人物卡的设定和教学风格继续生成 Galgame 教学内容。`,
+          cardNodeIds: [selectedRole.id],
+        },
+      ]);
+
+      await handleAssistantSend(`请根据已选择的人物模板「${characterName}」开始改写文章。`);
+    },
+    [handleAssistantSend, removeAssistantNodes, setAssistantMessages],
+  );
+
   const handleStartAssistantFlow = useCallback(
     async (flow: 'idea' | 'starter' | 'revision' | 'future') => {
       if (assistantLoading) return;
@@ -2469,6 +1964,28 @@ cards 必须正好有 3 张。`);
         return;
       }
 
+      if (value === '__article_role_use_selected_template__') {
+        const workflow = assistantWorkflowRef.current;
+        const candidateNodeIds =
+          workflow.type === 'article-role-awaiting' ? workflow.candidateNodeIds : [];
+        const selectedRole = selectedAssistantTargetNodes.find(
+          (node) => node.type === 'characterNode' && !candidateNodeIds.includes(node.id),
+        );
+        if (!selectedRole) {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: '请先在画布上选中你自己的人物模板卡，然后再点“使用当前选中的人物模板”。',
+            },
+          ]);
+          return;
+        }
+        await continueArticleTeachingWithRole(selectedRole, candidateNodeIds);
+        return;
+      }
+
       if (value === '__article_role_self_draw__') {
         const workflow = assistantWorkflowRef.current;
         setAssistantLoading(true);
@@ -2526,30 +2043,16 @@ cards 必须正好有 3 张。`);
           ]);
           return;
         }
-        const removedIds = workflow.candidateNodeIds.filter((nodeId) => nodeId !== selectedRole.id);
-        removeAssistantNodes?.(removedIds);
-        const characterName = String(selectedRole.data?.characterName || '教学角色');
-        assistantWorkflowRef.current = {
-          type: 'article-role-selected',
-          characterNodeId: selectedRole.id,
-          characterName,
-        };
-        setAssistantMessages((messages) => [
-          ...messages,
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: `已选择「${characterName}」作为本次唯一教学角色，并清理了其他候选人物卡。接下来要添加场景吗？`,
-            cardNodeIds: [selectedRole.id],
-            options: createArticleSceneChoiceOptions(),
-          },
-        ]);
+        await continueArticleTeachingWithRole(selectedRole, workflow.candidateNodeIds);
         return;
       }
 
       if (value === '__article_scenes_custom_prompt__') {
         const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'article-role-selected' && workflow.type !== 'article-ready-to-teach') {
+        if (
+          workflow.type !== 'article-role-selected' &&
+          workflow.type !== 'article-ready-to-teach'
+        ) {
           return;
         }
         assistantWorkflowRef.current = {
@@ -2570,7 +2073,10 @@ cards 必须正好有 3 张。`);
 
       if (value.startsWith('__article_scenes_create__:')) {
         const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'article-role-selected' && workflow.type !== 'article-ready-to-teach') {
+        if (
+          workflow.type !== 'article-role-selected' &&
+          workflow.type !== 'article-ready-to-teach'
+        ) {
           return;
         }
         setAssistantLoading(true);
@@ -2627,7 +2133,9 @@ cards 必须正好有 3 张。`);
           ]);
           return;
         }
-        const removedIds = workflow.candidateNodeIds.filter((nodeId) => nodeId !== selectedScene.id);
+        const removedIds = workflow.candidateNodeIds.filter(
+          (nodeId) => nodeId !== selectedScene.id,
+        );
         removeAssistantNodes?.(removedIds);
         const sceneName = String(selectedScene.data?.sceneName || '教学场景');
         assistantWorkflowRef.current = {
@@ -2840,7 +2348,7 @@ cards 必须正好有 3 张。`);
   );
 
   const handleAssistantCandidateNodeSelect = useCallback(
-    (nodeId: string) => {
+    async (nodeId: string) => {
       const workflow = assistantWorkflowRef.current;
       if (workflow.type === 'article-role-awaiting') {
         if (!workflow.candidateNodeIds.includes(nodeId)) return;
@@ -2848,24 +2356,7 @@ cards 必须正好有 3 张。`);
           (node) => node.id === nodeId && node.type === 'characterNode',
         );
         if (!selectedRole) return;
-        const removedIds = workflow.candidateNodeIds.filter((candidateId) => candidateId !== nodeId);
-        removeAssistantNodes?.(removedIds);
-        const characterName = String(selectedRole.data?.characterName || '教学角色');
-        assistantWorkflowRef.current = {
-          type: 'article-role-selected',
-          characterNodeId: selectedRole.id,
-          characterName,
-        };
-        setAssistantMessages((messages) => [
-          ...messages,
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: `已选择「${characterName}」作为本次唯一教学角色，并清理了其他候选人物卡。接下来要添加场景吗？`,
-            cardNodeIds: [selectedRole.id],
-            options: createArticleSceneChoiceOptions(),
-          },
-        ]);
+        await continueArticleTeachingWithRole(selectedRole, workflow.candidateNodeIds);
         return;
       }
 
@@ -2873,7 +2364,9 @@ cards 必须正好有 3 张。`);
         if (!workflow.candidateNodeIds.includes(nodeId)) return;
         const selectedScene = nodes.find((node) => node.id === nodeId && node.type === 'sceneNode');
         if (!selectedScene) return;
-        const removedIds = workflow.candidateNodeIds.filter((candidateId) => candidateId !== nodeId);
+        const removedIds = workflow.candidateNodeIds.filter(
+          (candidateId) => candidateId !== nodeId,
+        );
         removeAssistantNodes?.(removedIds);
         const sceneName = String(selectedScene.data?.sceneName || '教学场景');
         assistantWorkflowRef.current = {
@@ -2896,7 +2389,7 @@ cards 必须正好有 3 张。`);
         ]);
       }
     },
-    [nodes, removeAssistantNodes, setAssistantMessages],
+    [continueArticleTeachingWithRole, nodes, removeAssistantNodes, setAssistantMessages],
   );
 
   const handleAssistantVoiceInput = useCallback(() => {
