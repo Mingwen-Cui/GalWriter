@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { Edge, Node } from '@xyflow/react';
+import React, { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Node, Edge } from '@xyflow/react';
 
 import type { ProjectAIProfilesExport } from '../../domain/project';
 import {
@@ -11,32 +11,24 @@ import { localPersistenceService } from '../../editor-services/localPersistenceS
 import { createProjectSerializer } from '../../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../../editor-services/projectThumbnail';
 import { useAutoSave } from '../../editor-services/useAutoSave';
-import type {
-  AIGenerationBalance,
-  AIButtonsConfig,
-  AIPromptsConfig,
-  AssistantTask,
-} from '../../editor-state/editorConfig';
-import {
-  defaultAIPrompts,
-  defaultAIButtonsConfig,
-} from '../../editor-state/editorConfig';
+import type { AssistantTask } from '../../editor-state/editorConfig';
+import { defaultAIButtonsConfig, defaultAIPrompts } from '../../editor-state/editorConfig';
 import {
   HOSTED_IMAGE_PROXY_PROFILE_ID,
   HOSTED_PROXY_PROFILE_ID,
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import type { Language } from '../../lib/i18n';
-import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
 import { stableStringify } from '../../lib/stableStringify';
+import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
+import type { ProjectExampleTemplate } from '../ProjectPickerModal';
+import type { CloseButtonBehavior } from './constants';
+import { DEFAULT_PROJECT_FILE_NAME } from './constants';
 import { EXAMPLES_MANIFEST_URL, normalizeExampleTemplates } from './exampleTemplates';
 import { INITIAL_NODES } from './initialGraph';
 import { buildAutoProjectName, getPersistedProjectName } from './projectNames';
-import { syncCloseButtonBehavior } from './windowBehavior';
-import type { CloseButtonBehavior } from './constants';
-import { DEFAULT_PROJECT_FILE_NAME } from './constants';
-import type { ProjectExampleTemplate } from '../ProjectPickerModal';
 import type { PendingProjectAction, ThemePreference } from './types';
+import { syncCloseButtonBehavior } from './windowBehavior';
 
 // ---------------------------------------------------------------------------
 // Params
@@ -124,7 +116,9 @@ interface UseProjectManagementParams {
   currentProjectPersisted: boolean;
   setCurrentProjectPersisted: React.Dispatch<React.SetStateAction<boolean>>;
   projectSummaries: Awaited<ReturnType<typeof localPersistenceService.listProjects>>;
-  setProjectSummaries: React.Dispatch<React.SetStateAction<Awaited<ReturnType<typeof localPersistenceService.listProjects>>>>;
+  setProjectSummaries: React.Dispatch<
+    React.SetStateAction<Awaited<ReturnType<typeof localPersistenceService.listProjects>>>
+  >;
   exampleTemplates: ProjectExampleTemplate[];
   setExampleTemplates: React.Dispatch<React.SetStateAction<ProjectExampleTemplate[]>>;
   examplesLoading: boolean;
@@ -157,20 +151,13 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     isMobile,
     editorProjectSettings,
     editorProjectSettingsSetters,
-    savedAIProfiles,
     setSavedAIProfiles,
-    activeTextProfileId,
     setActiveTextProfileId,
-    activeImageProfileId,
     setActiveImageProfileId,
-    activeBackgroundRemovalProfileId,
     setActiveBackgroundRemovalProfileId,
-    activeVoiceProfileId,
     setActiveVoiceProfileId,
     getExportedAIProfiles,
-    theme,
     setTheme,
-    closeButtonBehavior,
     setCloseButtonBehavior,
     isDirty,
     setIsDirty,
@@ -188,7 +175,6 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setProjectTitle,
     setShowSaveNameModal,
     setShowProjectHome,
-    setProjectIdsPendingDeletion,
     setShowProjectSavePrompt,
     setShowAppClosePrompt,
     setProjectListLoading,
@@ -418,7 +404,20 @@ export function useProjectManagement(params: UseProjectManagementParams) {
         showToast(language === 'zh' ? '已打开本地项目' : 'Project opened');
       }
     },
-    [applyProjectData, language, resetAssistantTasks, showToast, setHistory, lastHistoryState, setSaveFileName, setProjectTitle, setShowProjectHome, setLastSavedTime, pendingInitialSnapshotSyncProjectIdRef, pendingInitialSnapshotCandidateRef],
+    [
+      applyProjectData,
+      language,
+      resetAssistantTasks,
+      showToast,
+      setHistory,
+      lastHistoryState,
+      setSaveFileName,
+      setProjectTitle,
+      setShowProjectHome,
+      setLastSavedTime,
+      pendingInitialSnapshotSyncProjectIdRef,
+      pendingInitialSnapshotCandidateRef,
+    ],
   );
 
   // =========================================================================
@@ -475,7 +474,18 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     lastSavedSnapshot.current = stableStringify(blankSnapshot);
     setIsDirty(false);
     setIsProjectSnapshotSynced(true);
-  }, [editorProjectSettings, resetAssistantTasks, setEdges, setNodes, setHistory, lastHistoryState, lastSavedSnapshot, setIsDirty, setSaveFileName, setProjectTitle]);
+  }, [
+    editorProjectSettings,
+    resetAssistantTasks,
+    setEdges,
+    setNodes,
+    setHistory,
+    lastHistoryState,
+    lastSavedSnapshot,
+    setIsDirty,
+    setSaveFileName,
+    setProjectTitle,
+  ]);
 
   // =========================================================================
   // saveCurrentProject
@@ -490,7 +500,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
       const savedAt = Date.now();
       const projectId = currentProjectId ?? uuidv4();
       const snapshot = JSON.parse(getProjectSnapshot()) as ProjectSnapshotData;
-      const persistedProjectName = getPersistedProjectName(projectTitle, saveFileName, savedAt);
+      const persistedProjectName = getPersistedProjectName(projectTitle, saveFileName);
       const persistedProjectTitle = projectTitle.trim() || persistedProjectName;
 
       snapshot.settings = {
@@ -722,7 +732,12 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     const didSave = await saveCurrentProject();
     if (!didSave) return;
     await performPendingProjectAction(action);
-  }, [pendingProjectAction, performPendingProjectAction, saveCurrentProject, setShowProjectSavePrompt]);
+  }, [
+    pendingProjectAction,
+    performPendingProjectAction,
+    saveCurrentProject,
+    setShowProjectSavePrompt,
+  ]);
 
   const handleDiscardCurrentProjectChanges = useCallback(async () => {
     const action = pendingProjectAction;
@@ -1066,7 +1081,20 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     return () => {
       cancelled = true;
     };
-  }, [loadExampleTemplates, isMobile, setShowProjectHome, setDefaultProjectSaveDir, setSavedAIProfiles, setActiveTextProfileId, setActiveImageProfileId, setActiveBackgroundRemovalProfileId, setActiveVoiceProfileId, setTheme, setCloseButtonBehavior, setProjectListLoading]);
+  }, [
+    loadExampleTemplates,
+    isMobile,
+    setShowProjectHome,
+    setDefaultProjectSaveDir,
+    setSavedAIProfiles,
+    setActiveTextProfileId,
+    setActiveImageProfileId,
+    setActiveBackgroundRemovalProfileId,
+    setActiveVoiceProfileId,
+    setTheme,
+    setCloseButtonBehavior,
+    setProjectListLoading,
+  ]);
 
   // =========================================================================
   // Project loading effect
@@ -1134,7 +1162,14 @@ export function useProjectManagement(params: UseProjectManagementParams) {
 
     setIsProjectSnapshotSynced(true);
     setIsDirty(currentSnapshot !== savedSnapshot);
-  }, [currentProjectId, getProjectSnapshot, setIsDirty, lastSavedSnapshot, pendingInitialSnapshotSyncProjectIdRef, pendingInitialSnapshotCandidateRef]);
+  }, [
+    currentProjectId,
+    getProjectSnapshot,
+    setIsDirty,
+    lastSavedSnapshot,
+    pendingInitialSnapshotSyncProjectIdRef,
+    pendingInitialSnapshotCandidateRef,
+  ]);
 
   // =========================================================================
   // Return

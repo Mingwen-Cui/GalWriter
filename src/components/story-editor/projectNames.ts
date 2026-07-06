@@ -6,7 +6,7 @@ export const formatProjectTimestamp = (timestamp: number) => {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 };
 
-export const buildAutoProjectName = (timestamp = Date.now()) => `新建项目`;
+export const buildAutoProjectName = () => `新建项目`;
 
 export const getProjectDisplayName = (projectTitle: string, saveFileName: string) => {
   const normalizedTitle = projectTitle.trim();
@@ -19,11 +19,7 @@ export const getProjectDisplayName = (projectTitle: string, saveFileName: string
   return '';
 };
 
-export const getPersistedProjectName = (
-  projectTitle: string,
-  saveFileName: string,
-  timestamp = Date.now(),
-) => {
+export const getPersistedProjectName = (projectTitle: string, saveFileName: string) => {
   const displayName = getProjectDisplayName(projectTitle, saveFileName);
-  return displayName || buildAutoProjectName(timestamp);
+  return displayName || buildAutoProjectName();
 };

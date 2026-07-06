@@ -3,11 +3,11 @@ import { Suspense } from 'react';
 
 import type { StoryAudioClip, StoryNodeData, StoryPresentation } from '../../domain/project';
 import { normalizeStoryPresentation } from '../../lib/presentation';
-import { ZenEditor } from './lazyModals';
 import {
   resolveAssistantStorySceneMedia,
   syncPresentationWithStoryMentions,
 } from './assistantMentions';
+import { ZenEditor } from './lazyModals';
 
 type StoryEditorZenOverlayProps = {
   nodes: Node[];

@@ -230,7 +230,7 @@ export function useStorylineHighlight({
         return states;
       };
 
-      const addPathNode = (id: string, color = defaultStorylineColor) => {
+      const addPathNode = (id: string) => {
         pathNodes.add(id);
       };
 
@@ -243,13 +243,13 @@ export function useStorylineHighlight({
       };
 
       const addUpstreamTraceState = (state: UpstreamTraceState, color: string) => {
-        state.nodes.forEach((stateNodeId) => addPathNode(stateNodeId, color));
+        state.nodes.forEach((stateNodeId) => addPathNode(stateNodeId));
         state.edges.forEach((stateEdge) => addPathEdge(stateEdge, color));
       };
 
       const traceUp = (id: string, maxSerialOnly = false, color = defaultStorylineColor) => {
         if (pathNodes.has(id)) return;
-        addPathNode(id, color);
+        addPathNode(id);
         const currentNode = nodeById.get(id);
         const shouldUseMaxSerialInput =
           maxSerialOnly || currentNode?.type === 'numberConditionNode';
@@ -260,7 +260,7 @@ export function useStorylineHighlight({
         incomingEdges.forEach((edge, index) => {
           const sourceNode = nodeById.get(edge.source);
           if (sourceNode?.type === 'numberConditionNode') {
-            addPathNode(edge.source, color);
+            addPathNode(edge.source);
             const requiredHandle =
               edge.sourceHandle || getActiveNumberConditionSourceHandle(edge.source);
             getNumberConditionInputStatesForHandle(edge.source, requiredHandle).forEach(
@@ -294,7 +294,7 @@ export function useStorylineHighlight({
           const visitKey = `${currentId}:${total}:${color}`;
           if (visited.has(visitKey)) continue;
           visited.add(visitKey);
-          addPathNode(currentId, color);
+          addPathNode(currentId);
 
           const currentNode = nodeById.get(currentId);
           const outgoingEdges =

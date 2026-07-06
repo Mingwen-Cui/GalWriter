@@ -1,7 +1,7 @@
+import type { Edge, Node } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Node, Edge } from '@xyflow/react';
-import { useReactFlow } from '@xyflow/react';
 
 import type {
   AssistantCardDraft,
@@ -19,7 +19,6 @@ import {
   useAssistantPanel,
 } from '../../editor-features/assistant/useAssistantPanel';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
-import type { AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
 import {
   applyAssistantStoryTags,
@@ -738,9 +737,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       const isEndingDraft = (card: (typeof remainingCards)[number]) => {
         if (card.type !== 'story') return false;
         const searchable = `${card.key || ''} ${card.title || ''} ${card.text || ''}`;
-        return /ending|good\s*end|bad\s*end|true\s*end|结局|真结局|好结局|坏结局/i.test(
-          searchable,
-        );
+        return /ending|good\s*end|bad\s*end|true\s*end|结局|真结局|好结局|坏结局/i.test(searchable);
       };
       const inferredEndingIndexes = remainingCards
         .map((card, index) => (isEndingDraft(card) ? index : -1))

@@ -19,25 +19,15 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import { v4 as uuidv4 } from 'uuid';
 
 import { AgentOverlay } from '../../agent/animation/AgentOverlay';
-import type {
-  AssistantCardDraft,
-  AssistantCardPlacementMode,
-  AssistantCardPlacementOptions,
-} from '../../agent/planning/agentCardDraft';
 import { useAgentRuntime } from '../../agent/runtime/useAgentRuntime';
 import type {
   BackgroundRemovalAIProfile,
   CharacterImageMode,
-  CharacterNodeData,
-  CharacterPresentation,
   ImageAIProfile,
-  InlinePresentationActionType,
-  NumberConditionNodeData,
   PlotStructureGenerateDirection,
   ProjectAIProfilesExport,
   SavedAIProfile,
   SceneImageMode,
-  SceneNodeData,
   StoryAudioClip,
   StoryNodeData,
   StoryTitlePlacement,
@@ -46,10 +36,6 @@ import type {
   VoiceAIProfile,
 } from '../../domain/project';
 import { useAIActions } from '../../editor-features/ai/useAIActions';
-import {
-  type AssistantCardPlacementResult,
-  useAssistantPanel,
-} from '../../editor-features/assistant/useAssistantPanel';
 import { useCanvasDnD } from '../../editor-features/canvas/useCanvasDnD';
 import { useCanvasInteractions } from '../../editor-features/canvas/useCanvasInteractions';
 import {
@@ -63,18 +49,12 @@ import {
 } from '../../editor-features/media/imageGeneration';
 import { useMediaActions } from '../../editor-features/media/useMediaActions';
 import { useNodeActions } from '../../editor-features/node-actions/useNodeActions';
-import {
-  type ProjectSnapshotData,
-  useProjectSerialization,
-} from '../../editor-features/project-io/useProjectSerialization';
 import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
 import { useSelectionActions } from '../../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
-import { createProjectSerializer } from '../../editor-services/projectSerializer';
 import { createProjectThumbnail } from '../../editor-services/projectThumbnail';
 import { ttsService } from '../../editor-services/ttsService';
-import { useAutoSave } from '../../editor-services/useAutoSave';
 import { AIActionModal } from '../../editor-shell/AIActionModal';
 import { AssistantPanel } from '../../editor-shell/AssistantPanel';
 import { AutoSaveRecoveryModal } from '../../editor-shell/AutoSaveRecoveryModal';
@@ -90,7 +70,6 @@ import {
   type AIButtonsConfig,
   type AIGenerationBalance,
   type AIPromptsConfig,
-  type AssistantTask,
   defaultAIButtonsConfig,
   defaultAIPrompts,
 } from '../../editor-state/editorConfig';
@@ -104,7 +83,7 @@ import {
   HOSTED_VOICE_PROXY_PROFILE,
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
-import { Language, translations } from '../../lib/i18n';
+import { translations } from '../../lib/i18n';
 import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
@@ -112,50 +91,12 @@ import {
 } from '../../lib/plotStructure';
 import {
   createCharacterPresentation,
-  createInlinePresentationAction,
-  createPresentationMotion,
   createScenePresentation,
   normalizeStoryPresentation,
 } from '../../lib/presentation';
-import { stableStringify } from '../../lib/stableStringify';
-import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
+import { isTauriRuntime } from '../../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
-import { edgeTypes, nodeTypes } from './flowTypes';
-import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
-import { getSettingRename, replaceMentionNameInText } from './nodeRename';
-import { SmartGuides } from './SmartGuides';
-import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
-import { syncCloseButtonBehavior } from './windowBehavior';
-import {
-  applyAssistantStoryTags,
-  type AssistantMentionReference,
-  buildAssistantMentionReferencesFromNodes,
-  resolveAssistantStorySceneMedia,
-} from './assistantMentions';
-import { isDefaultInitialStoryNode, mixHexColor, resolveAccentColor } from './colorUtils';
-import {
-  AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT,
-  AI_SETTING_CARD_LAYOUT_HEIGHT,
-  AI_STORY_CARD_HEIGHT,
-  AI_STORY_CARD_WIDTH,
-  APP_TITLE,
-  DEFAULT_ARROW_CORNER_RADIUS,
-  DEFAULT_ARROW_SIZE,
-  DEFAULT_ARROW_TIP_ANGLE,
-  DEFAULT_EDGE_COLOR,
-  DEFAULT_PROJECT_FILE_NAME,
-  DEFAULT_TTS_API_URL,
-  DEFAULT_TTS_MODEL,
-  DEFAULT_TTS_VOICE,
-  DEFAULT_TEXT_MODEL,
-  PROJECT_TITLE_PLACEHOLDER,
-  type CloseButtonBehavior,
-} from './constants';
-import { EXAMPLES_MANIFEST_URL, normalizeExampleTemplates } from './exampleTemplates';
-import { createDefaultEdgeOptions, INITIAL_NODES } from './initialGraph';
-import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
-import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
 import {
   buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
@@ -163,12 +104,32 @@ import {
   buildDefaultVoiceProfile,
   updateProfileList,
 } from './aiProfiles';
+import { resolveAssistantStorySceneMedia } from './assistantMentions';
+import { mixHexColor, resolveAccentColor } from './colorUtils';
 import {
-  buildAutoProjectName,
-  formatProjectTimestamp,
-  getPersistedProjectName,
-  getProjectDisplayName,
-} from './projectNames';
+  AI_STORY_CARD_HEIGHT,
+  APP_TITLE,
+  type CloseButtonBehavior,
+  DEFAULT_ARROW_CORNER_RADIUS,
+  DEFAULT_ARROW_SIZE,
+  DEFAULT_ARROW_TIP_ANGLE,
+  DEFAULT_EDGE_COLOR,
+  DEFAULT_PROJECT_FILE_NAME,
+  DEFAULT_TEXT_MODEL,
+  DEFAULT_TTS_API_URL,
+  DEFAULT_TTS_MODEL,
+  DEFAULT_TTS_VOICE,
+  PROJECT_TITLE_PLACEHOLDER,
+} from './constants';
+import { edgeTypes, nodeTypes } from './flowTypes';
+import { createDefaultEdgeOptions, INITIAL_NODES } from './initialGraph';
+import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
+import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
+import { getSettingRename, replaceMentionNameInText } from './nodeRename';
+import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
+import { getPersistedProjectName, getProjectDisplayName } from './projectNames';
+import { SmartGuides } from './SmartGuides';
+import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
 import { resolveSystemTheme } from './theme';
 import type {
   AIProfileSeed,
@@ -179,6 +140,7 @@ import type {
 } from './types';
 import { useAssistantSystem } from './useAssistantSystem';
 import { useProjectManagement } from './useProjectManagement';
+import { syncCloseButtonBehavior } from './windowBehavior';
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
@@ -354,7 +316,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [isDirty, setIsDirtyRaw] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isProjectSnapshotSynced, setIsProjectSnapshotSynced] = useState(false);
-  const isSavingProjectRef = useRef(false);
   const lastSavedSnapshot = useRef<string>('');
   const pendingInitialSnapshotSyncProjectIdRef = useRef<string | null>(null);
   const pendingInitialSnapshotCandidateRef = useRef<string>('');
@@ -434,10 +395,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const ttsModel = activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
   const ttsVoice = activeVoiceProfile?.voice ?? DEFAULT_TTS_VOICE;
   const ttsProvider = activeVoiceProfile?.provider ?? 'system';
-  const activeTextProfileName = activeTextProfile?.name ?? '';
-  const activeImageProfileName = activeImageProfile?.name ?? '';
-  const activeVoiceProfileName = activeVoiceProfile?.name ?? '';
-
   const getExportedAIProfiles = useCallback((): ProjectAIProfilesExport | null => {
     const profiles = [
       activeTextProfile,
@@ -496,7 +453,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const { screenToFlowPosition, getIntersectingNodes, setCenter, fitView } = useReactFlow();
+  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -1871,7 +1828,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     addNewCharacterNode,
     addNewSceneNode,
     handleMediaUpload,
-    handleExportJSON,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
     connectSelectedToSummaryNode,
@@ -2090,7 +2046,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         return states;
       };
 
-      const addPathNode = (id: string, color = defaultStorylineColor) => {
+      const addPathNode = (id: string) => {
         pathNodes.add(id);
       };
 
@@ -2103,13 +2059,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       };
 
       const addUpstreamTraceState = (state: UpstreamTraceState, color: string) => {
-        state.nodes.forEach((stateNodeId) => addPathNode(stateNodeId, color));
+        state.nodes.forEach((stateNodeId) => addPathNode(stateNodeId));
         state.edges.forEach((stateEdge) => addPathEdge(stateEdge, color));
       };
 
       const traceUp = (id: string, maxSerialOnly = false, color = defaultStorylineColor) => {
         if (pathNodes.has(id)) return;
-        addPathNode(id, color);
+        addPathNode(id);
         const currentNode = nodeById.get(id);
         const shouldUseMaxSerialInput =
           maxSerialOnly || currentNode?.type === 'numberConditionNode';
@@ -2120,7 +2076,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         incomingEdges.forEach((edge, index) => {
           const sourceNode = nodeById.get(edge.source);
           if (sourceNode?.type === 'numberConditionNode') {
-            addPathNode(edge.source, color);
+            addPathNode(edge.source);
             const requiredHandle =
               edge.sourceHandle || getActiveNumberConditionSourceHandle(edge.source);
             getNumberConditionInputStatesForHandle(edge.source, requiredHandle).forEach(
@@ -2154,7 +2110,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           const visitKey = `${currentId}:${total}:${color}`;
           if (visited.has(visitKey)) continue;
           visited.add(visitKey);
-          addPathNode(currentId, color);
+          addPathNode(currentId);
 
           const currentNode = nodeById.get(currentId);
           const outgoingEdges =
@@ -2236,7 +2192,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [language, runAIGenerate, showDialogAlert],
   );
 
-
   // =========================================================================
   // Assistant System (extracted to useAssistantSystem)
   // =========================================================================
@@ -2280,10 +2235,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     canAssistantUndo,
     canAssistantRedo,
     resetAssistantTasks,
-    createAssistantCards,
-    updateStreamingAssistantCards,
-    removeAssistantNodes,
-    handleGenerateAssistantImagesForNodes,
     handleAssistantMessagePositionClick,
     miniMapOverlayStyle,
   } = useAssistantSystem({
@@ -2317,33 +2268,22 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     requestSettingsAttention,
   });
 
-
-
   // =========================================================================
   // Project Management (extracted to useProjectManagement)
   // =========================================================================
   const {
-    getProjectSnapshot,
-    applyProjectData,
     confirmExportJSON,
-    importProjectFile,
     handleImportZIP,
     autoSaveData,
     showAutoSaveModal,
     discardAutoSave,
     recoverAutoSave,
-    clearAutoSave,
-    refreshProjectSummaries,
     loadExampleTemplates,
     handleApplySettingsToOtherProjects,
-    restoreProjectSession,
-    resetEditorToBlankState,
     saveCurrentProject,
-    handleCreateProject,
     handleRenameProject,
     handleDeleteProject,
     handleDeleteProjects,
-    performPendingProjectAction,
     requestProjectAction,
     handleConfirmSaveCurrentProject,
     handleDiscardCurrentProjectChanges,
@@ -2439,7 +2379,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setDidHydrateLocalState,
     showToast,
   });
-
 
   const footerHint = useMemo(() => {
     if (assistantOpen) {
