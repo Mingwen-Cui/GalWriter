@@ -51,5 +51,24 @@ export default tseslint.config(
       'simple-import-sort/exports': 'warn',
     },
   },
+  {
+    files: ['build-scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['src/**/*.d.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
   prettier,
 );

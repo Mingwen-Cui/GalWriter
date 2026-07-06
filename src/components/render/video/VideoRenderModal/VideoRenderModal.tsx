@@ -846,7 +846,6 @@ export function VideoRenderModal({
     if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) {
       try {
         setOutputDirError('');
-        // @ts-ignore showDirectoryPicker may not exist in the bundled TS lib.
         const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
         setOutputDir(handle.name);
         setOutputDirError('');
