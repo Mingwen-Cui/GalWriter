@@ -206,6 +206,43 @@ export function StartMenuElementInspector({
     return (
       <div className="space-y-2 rounded-xl bg-indigo-500/5 p-2">
         <div className="grid grid-cols-3 gap-2">
+          <InspectorImageButton
+            label={t('更换图片', '画像を変更', 'Replace image')}
+            description={
+              showDescriptions
+                ? t('选择新的图片素材', '新しい画像素材を選択', 'Choose a new image')
+                : undefined
+            }
+            onChange={(value) => onUpdate({ imageUrl: value })}
+          />
+          <InspectorNumber
+            icon={Baseline}
+            label={t('描边宽度', '縁取り幅', 'Stroke width')}
+            description={
+              showDescriptions
+                ? t('拖动调整图片描边宽度', '画像の縁取り幅を調整', 'Adjust image stroke width')
+                : undefined
+            }
+            value={element.borderWidth ?? 0}
+            min={0}
+            max={16}
+            step={0.5}
+            unit="px"
+            onChange={(value) => onUpdate({ borderWidth: value })}
+          />
+          <InspectorColor
+            icon={Baseline}
+            label={t('描边颜色', '縁取り色', 'Stroke color')}
+            description={
+              showDescriptions
+                ? t('选择图片描边颜色', '画像の縁取り色を選択', 'Choose image stroke color')
+                : undefined
+            }
+            value={element.borderColor || '#ffffff'}
+            onChange={(value) => onUpdate({ borderColor: value })}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
           <InspectorNumber
             icon={Blend}
             label={t('透明度', '透明度', 'Opacity')}
@@ -454,6 +491,39 @@ function InspectorColor({
           title={label}
         />
       </InspectorShell>
+    </InspectorField>
+  );
+}
+
+function InspectorImageButton({
+  label,
+  description,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <InspectorField description={description}>
+      <label className="grid h-9 cursor-pointer grid-cols-[28px_minmax(0,1fr)] items-stretch rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text)] transition-colors hover:bg-white/5">
+        <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+          <ImagePlus className="h-3.5 w-3.5" />
+        </span>
+        <span className="flex min-w-0 items-center justify-end px-2 text-right text-xs font-normal">
+          <span className="min-w-0 truncate">{label}</span>
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            if (file) readImageFileAsDataUrl(file, onChange);
+            event.currentTarget.value = '';
+          }}
+        />
+      </label>
     </InspectorField>
   );
 }

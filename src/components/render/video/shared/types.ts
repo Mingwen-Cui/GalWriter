@@ -139,6 +139,7 @@ export type WebMenuElement = {
   backgroundGradientAngle?: number;
   backgroundImageUrl?: string;
   borderColor?: string;
+  borderWidth?: number;
   borderRadius?: number;
   opacity?: number;
   blendMode?: string;

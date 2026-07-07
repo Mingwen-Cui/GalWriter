@@ -192,6 +192,11 @@ export function WebPlaytestStartMenuElement({
             className="h-full w-full object-cover"
             style={{
               borderRadius: element.borderRadius ?? 12,
+              border:
+                (element.borderWidth ?? 0) > 0
+                  ? `${element.borderWidth}px solid ${element.borderColor || '#ffffff'}`
+                  : undefined,
+              boxSizing: 'border-box',
               mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
             }}
             draggable={false}

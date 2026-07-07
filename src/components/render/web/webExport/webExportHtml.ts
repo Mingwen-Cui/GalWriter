@@ -1293,6 +1293,10 @@ export const makeIndexHtml = (
           image.src = element.imageUrl;
           image.alt = "";
           image.style.borderRadius = px(element.borderRadius, 12);
+          if (Number(element.borderWidth) > 0) {
+            image.style.border = Number(element.borderWidth) + "px solid " + (element.borderColor || "#ffffff");
+            image.style.boxSizing = "border-box";
+          }
           if (element.blendMode) image.style.mixBlendMode = element.blendMode;
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
