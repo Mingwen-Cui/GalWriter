@@ -1257,7 +1257,7 @@ export const makeIndexHtml = (
           label: labels.settings,
           disabled: false,
           primary: false,
-          onClick: () => settingsBackdrop.classList.add("open"),
+          onClick: openSettingsPanel,
         },
       };
       settings.startMenuElements.forEach((element) => {
@@ -1431,10 +1431,12 @@ export const makeIndexHtml = (
     function openSettingsPanel() {
       updateSettingsPanel();
       settingsBackdrop.classList.add("open");
+      syncStartMenuMusicForOverlay("settings", true);
     }
 
     function closeSettingsPanel() {
       settingsBackdrop.classList.remove("open");
+      syncStartMenuMusicForOverlay("settings", false);
     }
 
     function hasZenBottomRightSpace() {

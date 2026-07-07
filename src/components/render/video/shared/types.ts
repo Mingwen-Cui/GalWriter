@@ -101,7 +101,18 @@ export type RenderStyle = {
 export type WebMenuElement = {
   id: string;
   kind: 'button' | 'text' | 'image';
-  role?: 'save' | 'new' | 'settings' | 'title' | 'subtitle' | 'custom' | 'back' | 'slot' | 'auto' | 'speed' | 'controls';
+  role?:
+    | 'save'
+    | 'new'
+    | 'settings'
+    | 'title'
+    | 'subtitle'
+    | 'custom'
+    | 'back'
+    | 'slot'
+    | 'auto'
+    | 'speed'
+    | 'controls';
   text: string;
   visible: boolean;
   x: number;

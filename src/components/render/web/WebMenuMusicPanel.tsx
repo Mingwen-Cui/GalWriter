@@ -109,7 +109,10 @@ export function WebMenuMusicPanel({
           label={t('存档页', 'セーブ画面', 'Save page')}
           active={settings.startMenuMusicApplyToArchive}
           onClick={() =>
-            updateWebSettings('startMenuMusicApplyToArchive', !settings.startMenuMusicApplyToArchive)
+            updateWebSettings(
+              'startMenuMusicApplyToArchive',
+              !settings.startMenuMusicApplyToArchive,
+            )
           }
         />
         <ToggleButton

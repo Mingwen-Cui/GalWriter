@@ -197,7 +197,9 @@ export const useWebExportSettings = (
   };
 
   const updateWebSettingsBulk = (patch: Partial<WebExportSettings>) => {
-    const entries = Object.entries(patch) as Array<[keyof WebExportSettings, WebExportSettings[keyof WebExportSettings]]>;
+    const entries = Object.entries(patch) as Array<
+      [keyof WebExportSettings, WebExportSettings[keyof WebExportSettings]]
+    >;
     if (entries.length === 0) return;
     if (entries.every(([key, value]) => webSettings[key] === value)) return;
     pushWebHistory();

@@ -58,6 +58,13 @@ type AIStartMenuDesign = {
   elements?: Partial<WebExportSettings['startMenuElements'][number]>[];
 };
 
+type WebExperienceSnapshot = {
+  settings?: Partial<WebExportSettings>;
+  renderStyle?: Partial<RenderStyle>;
+  choiceColor?: string;
+  choiceTextColor?: string;
+};
+
 const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -183,24 +190,25 @@ export function WebWorkspace({
     try {
       const raw = window.localStorage.getItem(startMenuDesignStorageKey);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as
-        | Partial<WebExportSettings>
-        | {
-            settings?: Partial<WebExportSettings>;
-            renderStyle?: Partial<RenderStyle>;
-            choiceColor?: string;
-            choiceTextColor?: string;
-          };
-      const settingsPatch = 'settings' in parsed ? parsed.settings : parsed;
+      const parsed = JSON.parse(raw) as Partial<WebExportSettings> | WebExperienceSnapshot;
+      const isExperienceSnapshot =
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        ('settings' in parsed ||
+          'renderStyle' in parsed ||
+          'choiceColor' in parsed ||
+          'choiceTextColor' in parsed);
+      const snapshot = isExperienceSnapshot ? (parsed as WebExperienceSnapshot) : null;
+      const settingsPatch = snapshot ? snapshot.settings : (parsed as Partial<WebExportSettings>);
       if (settingsPatch) updateWebSettingsBulk(settingsPatch);
-      if ('renderStyle' in parsed && parsed.renderStyle) {
-        Object.entries(parsed.renderStyle).forEach(([key, value]) => {
+      if (snapshot?.renderStyle) {
+        Object.entries(snapshot.renderStyle).forEach(([key, value]) => {
           updateWebRenderStyle(key as keyof RenderStyle, value as never);
         });
       }
-      if ('choiceColor' in parsed && parsed.choiceColor) updateWebChoiceColor(parsed.choiceColor);
-      if ('choiceTextColor' in parsed && parsed.choiceTextColor) {
-        updateWebChoiceTextColor(parsed.choiceTextColor);
+      if (snapshot?.choiceColor) updateWebChoiceColor(snapshot.choiceColor);
+      if (snapshot?.choiceTextColor) {
+        updateWebChoiceTextColor(snapshot.choiceTextColor);
       }
     } catch {
       // Ignore invalid local design presets.
@@ -278,9 +286,7 @@ export function WebWorkspace({
   const applyWebExperiencePreset = (presetId: string) => {
     const preset = webExperiencePresets.find((item) => item.id === presetId);
     if (!preset) return;
-    updateWebSettingsBulk(
-      pickPresetSettingsForScope(preset, currentPreviewSurface, presetScope),
-    );
+    updateWebSettingsBulk(pickPresetSettingsForScope(preset, currentPreviewSurface, presetScope));
     if (presetScope === 'all' || currentPreviewSurface === 'game') {
       if (preset.renderStyle) {
         Object.entries(preset.renderStyle).forEach(([key, value]) => {
@@ -937,18 +943,18 @@ JSON schema:
                         ))}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                      <IconToolButton
-                        icon={Save}
-                        label={t('保存预设', '保存', 'Save preset')}
-                        onClick={saveStartMenuDesign}
-                      />
-                      <IconToolButton
-                        icon={Upload}
-                        label={t('套用我的', '適用', 'Apply mine')}
-                        onClick={loadStartMenuDesign}
-                      />
+                        <IconToolButton
+                          icon={Save}
+                          label={t('保存预设', '保存', 'Save preset')}
+                          onClick={saveStartMenuDesign}
+                        />
+                        <IconToolButton
+                          icon={Upload}
+                          label={t('套用我的', '適用', 'Apply mine')}
+                          onClick={loadStartMenuDesign}
+                        />
+                      </div>
                     </div>
-                  </div>
                   </div>
 
                   {aiStartMenuDesignError && (

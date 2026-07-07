@@ -149,6 +149,7 @@ export function WebPlaytestPreview({
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
   const startMenuAudioRef = useRef<HTMLAudioElement>(null);
+  const startMenuAudioFadeFrameRef = useRef<number | null>(null);
   const startMenuEditorRef = useRef<HTMLDivElement>(null);
   const startMenuEditDragRef = useRef<{
     type: 'move' | 'resize' | 'rotate';
@@ -216,13 +217,49 @@ export function WebPlaytestPreview({
   React.useEffect(() => {
     const audio = startMenuAudioRef.current;
     if (!audio) return;
-    if (previewStartMenuOpen && settings.startMenuBackgroundMusicUrl) {
-      audio.volume = 0.7;
+    const fadeAudio = (from: number, to: number, seconds: number, done?: () => void) => {
+      if (startMenuAudioFadeFrameRef.current !== null) {
+        window.cancelAnimationFrame(startMenuAudioFadeFrameRef.current);
+      }
+      const duration = Math.max(0, Number(seconds) || 0) * 1000;
+      if (!duration) {
+        audio.volume = to;
+        done?.();
+        return;
+      }
+      const started = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - started) / duration);
+        audio.volume = from + (to - from) * progress;
+        if (progress < 1) startMenuAudioFadeFrameRef.current = window.requestAnimationFrame(tick);
+        else done?.();
+      };
+      startMenuAudioFadeFrameRef.current = window.requestAnimationFrame(tick);
+    };
+    const targetVolume = Math.max(0, Math.min(1, (settings.startMenuMusicVolume ?? 70) / 100));
+    const overlayStopsMusic =
+      (previewArchiveOpen && !settings.startMenuMusicApplyToArchive) ||
+      (previewStartSettingsOpen && !settings.startMenuMusicApplyToSettings);
+    if (previewStartMenuOpen && settings.startMenuBackgroundMusicUrl && !overlayStopsMusic) {
+      audio.loop = settings.startMenuMusicLoop !== false;
+      audio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
       audio.play().catch(() => undefined);
+      fadeAudio(audio.volume, targetVolume, settings.startMenuMusicFadeIn);
       return;
     }
-    audio.pause();
-  }, [previewStartMenuOpen, settings.startMenuBackgroundMusicUrl]);
+    fadeAudio(audio.volume, 0, settings.startMenuMusicFadeOut, () => audio.pause());
+  }, [
+    previewArchiveOpen,
+    previewStartMenuOpen,
+    previewStartSettingsOpen,
+    settings.startMenuBackgroundMusicUrl,
+    settings.startMenuMusicApplyToArchive,
+    settings.startMenuMusicApplyToSettings,
+    settings.startMenuMusicFadeIn,
+    settings.startMenuMusicFadeOut,
+    settings.startMenuMusicLoop,
+    settings.startMenuMusicVolume,
+  ]);
 
   const clearPlaybackTimers = React.useCallback(() => {
     if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
@@ -1135,7 +1172,7 @@ export function WebPlaytestPreview({
             ref={startMenuAudioRef}
             src={settings.startMenuBackgroundMusicUrl}
             preload="auto"
-            loop
+            loop={settings.startMenuMusicLoop !== false}
             className="hidden"
           />
         )}

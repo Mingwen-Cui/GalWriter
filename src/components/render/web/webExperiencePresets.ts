@@ -133,8 +133,24 @@ const makeStartElements = (
         textColor: choiceTextColor,
         backgroundColor: choiceColor,
       }),
-      buttonElement({ id: 'new', role: 'new', text: labels.newGame, x: 9, y: 69, width: 28, height: 9 }),
-      buttonElement({ id: 'settings', role: 'settings', text: labels.settings, x: 9, y: 80, width: 28, height: 9 }),
+      buttonElement({
+        id: 'new',
+        role: 'new',
+        text: labels.newGame,
+        x: 9,
+        y: 69,
+        width: 28,
+        height: 9,
+      }),
+      buttonElement({
+        id: 'settings',
+        role: 'settings',
+        text: labels.settings,
+        x: 9,
+        y: 80,
+        width: 28,
+        height: 9,
+      }),
     ];
   }
 
@@ -156,8 +172,26 @@ const makeStartElements = (
         backgroundColor: choiceColor,
         borderRadius: 18,
       }),
-      buttonElement({ id: 'new', role: 'new', text: labels.newGame, x: 37, y: 71, width: 26, height: 8, borderRadius: 18 }),
-      buttonElement({ id: 'settings', role: 'settings', text: labels.settings, x: 37, y: 81, width: 26, height: 8, borderRadius: 18 }),
+      buttonElement({
+        id: 'new',
+        role: 'new',
+        text: labels.newGame,
+        x: 37,
+        y: 71,
+        width: 26,
+        height: 8,
+        borderRadius: 18,
+      }),
+      buttonElement({
+        id: 'settings',
+        role: 'settings',
+        text: labels.settings,
+        x: 37,
+        y: 81,
+        width: 26,
+        height: 8,
+        borderRadius: 18,
+      }),
     ];
   }
 
@@ -177,8 +211,24 @@ const makeStartElements = (
       textColor: choiceTextColor,
       backgroundColor: choiceColor,
     }),
-    buttonElement({ id: 'new', role: 'new', text: labels.newGame, x: 33, y: 73, width: 34, height: 10 }),
-    buttonElement({ id: 'settings', role: 'settings', text: labels.settings, x: 33, y: 85, width: 34, height: 10 }),
+    buttonElement({
+      id: 'new',
+      role: 'new',
+      text: labels.newGame,
+      x: 33,
+      y: 73,
+      width: 34,
+      height: 10,
+    }),
+    buttonElement({
+      id: 'settings',
+      role: 'settings',
+      text: labels.settings,
+      x: 33,
+      y: 85,
+      width: 34,
+      height: 10,
+    }),
   ];
 };
 
@@ -188,7 +238,16 @@ const makeArchiveElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => [
   textElement('archive-title', 'title', labels.archiveTitle, 8, 7, 34, 9, 28),
-  buttonElement({ id: 'archive-back', role: 'back', text: labels.archiveBack, x: 78, y: 7, width: 14, height: 8, fontSize: 12 }),
+  buttonElement({
+    id: 'archive-back',
+    role: 'back',
+    text: labels.archiveBack,
+    x: 78,
+    y: 7,
+    width: 14,
+    height: 8,
+    fontSize: 12,
+  }),
   buttonElement({
     id: 'archive-slot',
     role: 'slot',
@@ -220,9 +279,34 @@ const makeSettingsElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => [
   textElement('settings-title', 'title', labels.settingsTitle, 8, 7, 34, 9, 28),
-  buttonElement({ id: 'settings-back', role: 'back', text: labels.settingsBack, x: 78, y: 7, width: 14, height: 8, fontSize: 12 }),
-  buttonElement({ id: 'settings-auto', role: 'auto', text: labels.settingsAuto, x: 25, y: 38, width: 50, height: 10 }),
-  buttonElement({ id: 'settings-speed', role: 'speed', text: labels.settingsSpeed, x: 25, y: 52, width: 50, height: 12 }),
+  buttonElement({
+    id: 'settings-back',
+    role: 'back',
+    text: labels.settingsBack,
+    x: 78,
+    y: 7,
+    width: 14,
+    height: 8,
+    fontSize: 12,
+  }),
+  buttonElement({
+    id: 'settings-auto',
+    role: 'auto',
+    text: labels.settingsAuto,
+    x: 25,
+    y: 38,
+    width: 50,
+    height: 10,
+  }),
+  buttonElement({
+    id: 'settings-speed',
+    role: 'speed',
+    text: labels.settingsSpeed,
+    x: 25,
+    y: 52,
+    width: 50,
+    height: 12,
+  }),
   buttonElement({
     id: 'settings-controls',
     role: 'controls',
