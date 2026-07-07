@@ -102,9 +102,9 @@ import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
 import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
+import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
 import {
   buildInteractiveSegments,
-  makeInteractiveSegmentFileName,
   type InteractiveSegmentDraft,
 } from '../interactive/interactiveSegments';
 
@@ -1653,8 +1653,8 @@ export function VideoRenderModal({
     setProgressValue(percent);
   };
 
-  // renderStaticFramesWithFfmpeg �?ensureFfmpegForDesktopTranscode 已移除，
-  // 统一使用 mediabunny 浏览器内编码
+  // renderStaticFramesWithFfmpeg and ensureFfmpegForDesktopTranscode were removed.
+  // Video encoding now uses mediabunny in the browser runtime.
 
   const { drawFrame } = usePreviewRenderer({
     canvasRef,
@@ -1714,56 +1714,23 @@ export function VideoRenderModal({
     setProgress('');
     setSavedPath('');
   };
-  const interactiveSegmentOutputDir = () => {
-    const base = outputDir.trim();
-    if (!isDesktopApp || !base) return base;
-    const separator = base.includes('/') && !base.includes('\\') ? '/' : '\\';
-    return `${base.replace(/[\\/]+$/, '')}${separator}video${separator}segments`;
-  };
   const exportInteractiveSegments = async () => {
-    const enabledSegments = interactiveSegments.filter((segment) => segment.enabled);
-    if (enabledSegments.length === 0 || status === 'rendering') return;
-    setError('');
-    setSavedPath('');
-    setProgressValue(0);
-    setProgress(
-      renderCopy(
-        language,
-        `准备导出 ${enabledSegments.length} 个互动片段`,
-        `${enabledSegments.length} 個のインタラクティブセグメントを書き出す準備中`,
-        `Preparing ${enabledSegments.length} interactive segment(s)`,
-      ),
-    );
-
-    const targetOutputDir = interactiveSegmentOutputDir();
-    for (let index = 0; index < enabledSegments.length; index += 1) {
-      const segment = enabledSegments[index];
-      const segmentNodes = segment.nodeIds
-        .map((id) => storyNodeById.get(id))
-        .filter(Boolean) as FlowNode[];
-      if (segmentNodes.length === 0) continue;
-      setProgressValue(Math.round((index / enabledSegments.length) * 100));
-      await renderVideo({
-        fileName: makeInteractiveSegmentFileName(segment, index),
-        frameRate,
-        exportFormat,
-        nodes: segmentNodes,
-        audioSegments: [],
-        outputDir: targetOutputDir,
-        progressPrefix: `${index + 1}/${enabledSegments.length}`,
-      });
-    }
-    setProgressValue(100);
-    setProgress(
-      renderCopy(
-        language,
-        `互动分段导出完成：${enabledSegments.length} 个视频`,
-        `${enabledSegments.length} 個のインタラクティブセグメントを書き出しました`,
-        `Interactive segment export complete: ${enabledSegments.length} video(s)`,
-      ),
-    );
-  };
-  const { exportWebProject } = useWebProjectExport({
+    if (status === 'rendering') return;
+    await exportInteractiveSegmentZip({
+      language,
+      segments: interactiveSegments,
+      nodesById: storyNodeById,
+      activeSegmentId: activeInteractiveSegmentId,
+      outputDir,
+      frameRate,
+      renderVideo,
+      setStatus,
+      setError,
+      setSavedPath,
+      setProgress,
+      setProgressValue,
+    });
+  };  const { exportWebProject } = useWebProjectExport({
     nodes,
     edges,
     status,
@@ -1984,7 +1951,6 @@ export function VideoRenderModal({
               onSelectSegment={setActiveInteractiveSegmentId}
               onSegmentsChange={setInteractiveSegments}
               onRescan={rescanInteractiveSegments}
-              onExport={exportInteractiveSegments}
               setExportFormat={setExportFormat}
               setFrameRate={setFrameRate}
               setResolutionIndex={setResolutionIndex}

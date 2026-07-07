@@ -6,9 +6,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
-  Eye,
-  EyeOff,
   FolderOpen,
   GitBranch,
   Layers3,
@@ -21,11 +18,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import {
-  EXPORT_FORMAT_OPTIONS,
-  FRAME_RATE_OPTIONS,
-  RESOLUTION_OPTIONS,
-} from '../shared/constants';
+import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
 import { loadVideo, seekVideo } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../shared/storyNodes';
@@ -40,6 +33,16 @@ import {
   segmentLinkPath,
 } from './interactiveSegmentGraphLayout';
 import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
+import {
+  GraphEditingOverlays,
+  SegmentConnectionHandles,
+  useInteractiveSegmentGraphEditing,
+} from './InteractiveSegmentGraphEditing';
+import {
+  buildInteractiveSegmentExportOrder,
+  exportOrderNumberMap,
+  reconcileInteractiveSegmentExportOrder,
+} from './InteractiveSegmentExportOrder';
 import { InteractiveSegmentMinimap } from './InteractiveSegmentMinimap';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
@@ -70,7 +73,6 @@ type Props = {
   onSelectSegment: (id: string) => void;
   onSegmentsChange: (segments: InteractiveSegmentDraft[]) => void;
   onRescan: () => void;
-  onExport: () => void;
   setExportFormat: (value: ExportFormat) => void;
   setFrameRate: (value: number) => void;
   setResolutionIndex: (value: number) => void;
@@ -146,6 +148,7 @@ const formatPlaybackTime = (seconds: number) => {
 const MIN_VIEWPORT_ZOOM = 0.35;
 const MAX_VIEWPORT_ZOOM = 1.85;
 
+
 export function InteractiveSegmentExportWorkspace({
   language,
   segments,
@@ -173,7 +176,6 @@ export function InteractiveSegmentExportWorkspace({
   onSelectSegment,
   onSegmentsChange,
   onRescan,
-  onExport,
   setExportFormat,
   setFrameRate,
   setResolutionIndex,
@@ -200,7 +202,10 @@ export function InteractiveSegmentExportWorkspace({
   const positions = useMemo(() => {
     const next = new Map<string, GraphPoint>();
     segments.forEach((segment) => {
-      next.set(segment.id, manualPositions[segment.id] || autoPositions.get(segment.id) || { x: 96, y: 92 });
+      next.set(
+        segment.id,
+        manualPositions[segment.id] || autoPositions.get(segment.id) || { x: 96, y: 92 },
+      );
     });
     return next;
   }, [autoPositions, manualPositions, segments]);
@@ -221,6 +226,7 @@ export function InteractiveSegmentExportWorkspace({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
   const [viewportZoom, setViewportZoom] = useState(1);
+  const [exportOrderIds, setExportOrderIds] = useState<string[]>([]);
   const [previewSegmentId, setPreviewSegmentId] = useState('');
   const [previewItemIndex, setPreviewItemIndex] = useState(0);
   const [previewPosition, setPreviewPosition] = useState({ x: 96, y: 92 });
@@ -257,6 +263,8 @@ export function InteractiveSegmentExportWorkspace({
     position: GraphPoint;
   } | null>(null);
   const scheduledViewportPanRef = useRef<GraphPoint | null>(null);
+  const viewportPanRef = useRef<GraphPoint>(viewportPan);
+  const viewportZoomRef = useRef(viewportZoom);
   const cardDragFrameRef = useRef<number | null>(null);
   const viewportPanFrameRef = useRef<number | null>(null);
   const previewDragRef = useRef<{
@@ -268,11 +276,14 @@ export function InteractiveSegmentExportWorkspace({
   } | null>(null);
   const previewSegment = segments.find((segment) => segment.id === previewSegmentId);
   const previewItems = previewSegment ? segmentPreviewItems(previewSegment, nodesById) : [];
-  const previewItem = previewItems[Math.min(previewItemIndex, Math.max(0, previewItems.length - 1))];
+  const previewItem =
+    previewItems[Math.min(previewItemIndex, Math.max(0, previewItems.length - 1))];
   const previewNode = previewItem ? nodesById.get(previewItem.id) : undefined;
   const previewCardDuration = Math.max(0.1, defaultSeconds);
   const previewAspectRatio =
-    resolutionWidth > 0 && resolutionHeight > 0 ? `${resolutionWidth} / ${resolutionHeight}` : '16 / 9';
+    resolutionWidth > 0 && resolutionHeight > 0
+      ? `${resolutionWidth} / ${resolutionHeight}`
+      : '16 / 9';
   const graphLinks = segments.flatMap((segment) =>
     segment.choices.map((choice, index) => ({
       id: choice.id,
@@ -294,20 +305,13 @@ export function InteractiveSegmentExportWorkspace({
     '--interactive-bg-y': `${viewportPan.y}px`,
     '--interactive-bg-scale': viewportZoom,
   } as React.CSSProperties;
-  const viewportOverflowing =
-    graphWidth * viewportZoom + viewportPan.x > viewportSize.width ||
-    graphHeight * viewportZoom + viewportPan.y > viewportSize.height ||
-    viewportPan.x < 0 ||
-    viewportPan.y < 0;
-  const showMinimap =
-    viewportSize.width > 0 &&
-    viewportSize.height > 0 &&
-    (graphWidth * viewportZoom > viewportSize.width ||
-      graphHeight * viewportZoom > viewportSize.height ||
-      viewportOverflowing);
-  const setAllEnabled = (enabled: boolean) =>
+  const exportOrderNumbers = useMemo(() => exportOrderNumberMap(exportOrderIds), [exportOrderIds]);
+  const setAllEnabled = (enabled: boolean) => {
     onSegmentsChange(segments.map((segment) => ({ ...segment, enabled, source: 'edited' })));
+    setExportOrderIds(enabled ? buildInteractiveSegmentExportOrder(segments, activeSegment?.id) : []);
+  };
   const scheduleViewportPan = (nextPan: GraphPoint) => {
+    viewportPanRef.current = nextPan;
     scheduledViewportPanRef.current = nextPan;
     if (viewportPanFrameRef.current !== null) return;
     viewportPanFrameRef.current = requestAnimationFrame(() => {
@@ -331,6 +335,68 @@ export function InteractiveSegmentExportWorkspace({
       }));
     });
   };
+  const setViewportZoomAt = (
+    nextZoom: number,
+    anchorX = viewportSize.width / 2,
+    anchorY = viewportSize.height / 2,
+  ) => {
+    const currentZoom = viewportZoomRef.current;
+    const currentPan = viewportPanRef.current;
+    const zoom = clamp(nextZoom, MIN_VIEWPORT_ZOOM, MAX_VIEWPORT_ZOOM);
+    if (Math.abs(zoom - currentZoom) < 0.001) return;
+    const graphX = (anchorX - currentPan.x) / currentZoom;
+    const graphY = (anchorY - currentPan.y) / currentZoom;
+    viewportZoomRef.current = zoom;
+    setViewportZoom(zoom);
+    scheduleViewportPan({
+      x: anchorX - graphX * zoom,
+      y: anchorY - graphY * zoom,
+    });
+  };
+  const fitViewportToGraph = () => {
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) return;
+    const fitPadding = 56;
+    const nextZoom = clamp(
+      Math.min(
+        (viewportSize.width - fitPadding * 2) / Math.max(1, graphWidth),
+        (viewportSize.height - fitPadding * 2) / Math.max(1, graphHeight),
+      ),
+      MIN_VIEWPORT_ZOOM,
+      MAX_VIEWPORT_ZOOM,
+    );
+    viewportZoomRef.current = nextZoom;
+    setViewportZoom(nextZoom);
+    scheduleViewportPan({
+      x: (viewportSize.width - graphWidth * nextZoom) / 2,
+      y: (viewportSize.height - graphHeight * nextZoom) / 2,
+    });
+  };
+  const {
+    selectedSegmentIds,
+    selectionBox,
+    connectionDrag,
+    beginConnectionDrag,
+    beginSelectionDrag,
+    updateSelectionDrag,
+    endSelectionDrag,
+    mergeSelectedSegments,
+  } = useInteractiveSegmentGraphEditing({
+    segments,
+    renderPositions,
+    cardWidth,
+    cardHeight,
+    viewportPan,
+    viewportZoom,
+    graphViewportRef,
+    onSegmentsChange,
+    onSelectSegment,
+    setManualPositions,
+  });
+  useEffect(() => {
+    if (exportOrderIds.length === 0) return;
+    const reconciled = reconcileInteractiveSegmentExportOrder(segments, exportOrderIds, activeSegment?.id);
+    if (reconciled.join('|') !== exportOrderIds.join('|')) setExportOrderIds(reconciled);
+  }, [activeSegment?.id, exportOrderIds, segments]);
   const openPreview = (segmentId: string) => {
     onSelectSegment(segmentId);
     setPreviewSegmentId(segmentId);
@@ -388,6 +454,7 @@ export function InteractiveSegmentExportWorkspace({
         source: 'edited',
       })),
     );
+    setExportOrderIds((previous) => reconcileInteractiveSegmentExportOrder(segments, previous, activeSegment?.id));
   };
   const renameSegment = (segmentId: string, name: string) => {
     onSegmentsChange(
@@ -401,37 +468,38 @@ export function InteractiveSegmentExportWorkspace({
   const resetLayout = (direction: LayoutDirection) => {
     setLayoutDirection(direction);
     setManualPositions({});
+    viewportPanRef.current = { x: 0, y: 0 };
+    viewportZoomRef.current = 1;
     setViewportPan({ x: 0, y: 0 });
     setViewportZoom(1);
   };
-  const handleViewportWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleViewportWheel = (event: WheelEvent, viewport: HTMLDivElement) => {
     event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = viewport.getBoundingClientRect();
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
-    const zoomDelta = Math.exp(-event.deltaY * 0.0012);
-    const nextZoom = clamp(viewportZoom * zoomDelta, MIN_VIEWPORT_ZOOM, MAX_VIEWPORT_ZOOM);
-    if (Math.abs(nextZoom - viewportZoom) < 0.001) return;
-    const graphX = (pointerX - viewportPan.x) / viewportZoom;
-    const graphY = (pointerY - viewportPan.y) / viewportZoom;
-    setViewportZoom(nextZoom);
-    scheduleViewportPan({
-      x: pointerX - graphX * nextZoom,
-      y: pointerY - graphY * nextZoom,
-    });
+    const modeScale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+    const normalizedDelta = clamp(event.deltaY * modeScale, -240, 240);
+    const zoomDelta = Math.exp(-normalizedDelta * 0.0014);
+    setViewportZoomAt(viewportZoomRef.current * zoomDelta, pointerX, pointerY);
   };
   const beginCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (event.shiftKey) {
+      beginSelectionDrag(event);
+      return;
+    }
     canvasPanRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      originX: viewportPan.x,
-      originY: viewportPan.y,
+      originX: viewportPanRef.current.x,
+      originY: viewportPanRef.current.y,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const dragCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (updateSelectionDrag(event)) return;
     const drag = canvasPanRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     scheduleViewportPan({
@@ -440,6 +508,7 @@ export function InteractiveSegmentExportWorkspace({
     });
   };
   const endCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (endSelectionDrag(event)) return;
     if (canvasPanRef.current?.pointerId === event.pointerId) {
       canvasPanRef.current = null;
     }
@@ -507,6 +576,14 @@ export function InteractiveSegmentExportWorkspace({
   }, []);
 
   useEffect(() => {
+    const viewport = graphViewportRef.current;
+    if (!viewport) return;
+    const handleWheel = (event: WheelEvent) => handleViewportWheel(event, viewport);
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [handleViewportWheel]);
+
+  useEffect(() => {
     setManualPositions((previous) => {
       const validIds = new Set(segments.map((segment) => segment.id));
       const entries = Object.entries(previous).filter(([id]) => validIds.has(id));
@@ -549,7 +626,14 @@ export function InteractiveSegmentExportWorkspace({
       return;
     }
     setVideoPlaying(false);
-  }, [previewCardDuration, previewItemIndex, previewItems.length, previewSegment, videoPlaying, videoProgress]);
+  }, [
+    previewCardDuration,
+    previewItemIndex,
+    previewItems.length,
+    previewSegment,
+    videoPlaying,
+    videoProgress,
+  ]);
 
   useEffect(() => {
     const canvas = previewRenderCanvasRef.current;
@@ -688,11 +772,11 @@ export function InteractiveSegmentExportWorkspace({
           </button>
         </div>
 
+
         <div
           ref={graphViewportRef}
           className="interactive-segment-graph-viewport relative min-h-0 flex-1 overflow-hidden"
           style={graphStyle}
-          onWheel={handleViewportWheel}
         >
           <div
             className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
@@ -715,160 +799,190 @@ export function InteractiveSegmentExportWorkspace({
               willChange: canvasPanRef.current ? 'transform' : undefined,
             }}
           >
-          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-            <defs>
-              <marker
-                id="interactive-arrow"
-                markerWidth="10"
-                markerHeight="10"
-                refX="9"
-                refY="5"
-                orient="auto"
-                markerUnits="strokeWidth"
-              >
-                <path d="M0,0 L10,5 L0,10 Z" fill="currentColor" />
-              </marker>
-            </defs>
-            {graphLinks.map((link) => {
-              const fromSegment = segments.find((segment) => segment.id === link.fromSegmentId);
-              const from = renderPositions.get(link.fromSegmentId);
-              if (!from) return null;
-              const to = renderPositions.get(link.toSegmentId);
-              if (!to || !fromSegment) return null;
-              const active =
-                activeSegmentId === link.fromSegmentId || activeSegmentId === link.toSegmentId;
-              const path = segmentLinkPath(from, to, cardWidth, cardHeight, layoutDirection, lineRadius);
-              const labelX =
-                layoutDirection === 'right'
-                  ? from.x + cardWidth + Math.max(84, (to.x - from.x - cardWidth) / 2)
-                  : to.x + cardWidth / 2 + (link.index - (fromSegment.choices.length - 1) / 2) * 104;
-              const labelY =
-                layoutDirection === 'right'
-                  ? from.y + cardHeight / 2 + (to.y > from.y ? 24 : -24) + link.index * 18
-                  : from.y + cardHeight + Math.max(48, (to.y - from.y - cardHeight) / 2) - 26;
-              const label = isGeneratedChoiceLabel(link.label)
-                ? ''
-                : (link.isChoice ? link.label : t('缁х画', '缍氥亶', 'Continue')).slice(0, 10);
-              const labelWidth = Math.max(56, Math.min(116, label.length * 8 + 24));
-              return (
-                <g
-                  key={link.id}
-                  className={active ? 'text-[var(--vr-accent)]' : 'text-[var(--vr-border-strong)]'}
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id="interactive-arrow"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="9"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth"
                 >
-                  <path
-                    d={path}
-                    fill="none"
-                    stroke="var(--vr-bg)"
-                    strokeWidth={active ? 8 : 6}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={lineOpacity}
-                  />
-                  <path
-                    d={path}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={active ? 4 : 2.8}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray={link.isChoice ? undefined : '7 7'}
-                    markerEnd="url(#interactive-arrow)"
-                    opacity={active ? 1 : lineOpacity}
-                  />
-                  <circle
-                    cx={from.x + cardWidth}
-                    cy={from.y + cardHeight / 2}
-                    r={active ? 4.5 : 3.5}
-                    className="fill-current"
-                    opacity={active ? 1 : 0.72}
-                  />
-                  <rect
-                    x={labelX - 46}
-                    y={labelY - 13}
-                    width="92"
-                    height="24"
-                    rx="7"
-                    className="fill-[var(--vr-surface-strong)] stroke-current"
-                    opacity={label ? 1 : 0}
-                    strokeWidth={active ? 1.8 : 1}
-                  />
-                  <text
-                    x={labelX}
-                    y={labelY + 3}
-                    textAnchor="middle"
-                    className="fill-current text-[10px] font-black"
-                    opacity={label ? 1 : 0}
+                  <path d="M0,0 L10,5 L0,10 Z" fill="currentColor" />
+                </marker>
+              </defs>
+              {graphLinks.map((link) => {
+                const fromSegment = segments.find((segment) => segment.id === link.fromSegmentId);
+                const from = renderPositions.get(link.fromSegmentId);
+                if (!from) return null;
+                const to = renderPositions.get(link.toSegmentId);
+                if (!to || !fromSegment) return null;
+                const active =
+                  activeSegmentId === link.fromSegmentId || activeSegmentId === link.toSegmentId;
+                const path = segmentLinkPath(
+                  from,
+                  to,
+                  cardWidth,
+                  cardHeight,
+                  layoutDirection,
+                  lineRadius,
+                );
+                const labelX =
+                  layoutDirection === 'right'
+                    ? from.x + cardWidth + Math.max(84, (to.x - from.x - cardWidth) / 2)
+                    : to.x +
+                      cardWidth / 2 +
+                      (link.index - (fromSegment.choices.length - 1) / 2) * 104;
+                const labelY =
+                  layoutDirection === 'right'
+                    ? from.y + cardHeight / 2 + (to.y > from.y ? 24 : -24) + link.index * 18
+                    : from.y + cardHeight + Math.max(48, (to.y - from.y - cardHeight) / 2) - 26;
+                const label = isGeneratedChoiceLabel(link.label)
+                  ? ''
+                  : (link.isChoice ? link.label : t('继续', '続き', 'Continue')).slice(0, 10);
+                const labelWidth = Math.max(56, Math.min(116, label.length * 8 + 24));
+                return (
+                  <g
+                    key={link.id}
+                    className={
+                      active ? 'text-[var(--vr-accent)]' : 'text-[var(--vr-border-strong)]'
+                    }
                   >
-                    {(link.isChoice ? link.label : t('继续', '続き', 'Continue')).slice(0, 10)}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke="var(--vr-bg)"
+                      strokeWidth={active ? 8 : 6}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={lineOpacity}
+                    />
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={active ? 4 : 2.8}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray={link.isChoice ? undefined : '7 7'}
+                      markerEnd="url(#interactive-arrow)"
+                      opacity={active ? 1 : lineOpacity}
+                    />
+                    <circle
+                      cx={from.x + cardWidth}
+                      cy={from.y + cardHeight / 2}
+                      r={active ? 4.5 : 3.5}
+                      className="fill-current"
+                      opacity={active ? 1 : 0.72}
+                    />
+                    <rect
+                      x={labelX - 46}
+                      y={labelY - 13}
+                      width="92"
+                      height="24"
+                      rx="7"
+                      className="fill-[var(--vr-surface-strong)] stroke-current"
+                      opacity={label ? 1 : 0}
+                      strokeWidth={active ? 1.8 : 1}
+                    />
+                    <text
+                      x={labelX}
+                      y={labelY + 3}
+                      textAnchor="middle"
+                      className="fill-current text-[10px] font-black"
+                      opacity={label ? 1 : 0}
+                    >
+                      {(link.isChoice ? link.label : t('缁х画', '缍氥亶', 'Continue')).slice(0, 10)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
 
-          {segments.map((segment) => {
-            const position = renderPositions.get(segment.id)!;
-            const active = activeSegment?.id === segment.id;
-            const mediaItems = segmentMediaItems(segment, nodesById);
-            const summary = segmentTextSummary(segment, nodesById) || segmentSummary(segment, nodesById);
-            const internalItems = [] as Array<{ id: string; title: string; hasMedia: boolean }>;
-            const internalStep = 0;
-            return (
-              <div
-                key={segment.id}
-                role="button"
-                tabIndex={0}
-                onDoubleClick={() => openPreview(segment.id)}
-                onPointerDown={(event) => beginCardDrag(event, segment.id)}
-                onPointerMove={dragCard}
-                onPointerUp={endCardDrag}
-                onPointerCancel={endCardDrag}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
+            <GraphEditingOverlays
+              selectionBox={selectionBox}
+              connectionDrag={connectionDrag}
+              renderPositions={renderPositions}
+              cardWidth={cardWidth}
+              cardHeight={cardHeight}
+            />
+
+            {segments.map((segment) => {
+              const position = renderPositions.get(segment.id)!;
+              const active = activeSegment?.id === segment.id;
+              const selected = selectedSegmentIds.includes(segment.id);
+              const mediaItems = segmentMediaItems(segment, nodesById);
+              const summary =
+                segmentTextSummary(segment, nodesById) || segmentSummary(segment, nodesById);
+              const internalItems = [] as Array<{ id: string; title: string; hasMedia: boolean }>;
+              const internalStep = 0;
+              return (
+                <div
+                  key={segment.id}
+                  role="button"
+                  tabIndex={0}
+                  onDoubleClick={() => openPreview(segment.id)}
+                  onPointerDown={(event) => beginCardDrag(event, segment.id)}
+                  onPointerMove={dragCard}
+                  onPointerUp={endCardDrag}
+                  onPointerCancel={endCardDrag}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectSegment(segment.id);
+                    }
+                  }}
+                  onContextMenu={(event) => {
                     event.preventDefault();
                     onSelectSegment(segment.id);
-                  }
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  onSelectSegment(segment.id);
-                  setContextMenu({
-                    x: event.clientX,
-                    y: event.clientY,
-                    segmentId: segment.id,
-                  });
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.querySelectorAll('video').forEach((video) => {
-                    video.currentTime = 0;
-                    void video.play().catch(() => undefined);
-                  });
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.querySelectorAll('video').forEach((video) => {
-                    video.pause();
-                    video.currentTime = 0;
-                  });
-                }}
-                className={`absolute left-0 top-0 w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-[border-color,background-color,box-shadow,opacity] active:cursor-grabbing ${
-                  active
-                    ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/20'
-                    : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:border-[var(--vr-accent)]/50'
-                } ${segment.enabled ? '' : 'opacity-50'}`}
-                style={{
-                  height: cardHeight,
-                  borderRadius: 'var(--interactive-card-radius)',
-                  transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
-                  willChange: cardDragRef.current?.segmentId === segment.id ? 'transform' : undefined,
-                }}
-              >
-                <div className="p-3">
-                  <div className="hidden items-center justify-end gap-2">
-                    <span className="rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
-                      {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
+                    setContextMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      segmentId: segment.id,
+                    });
+                  }}
+                  onMouseEnter={(event) => {
+                    event.currentTarget.querySelectorAll('video').forEach((video) => {
+                      video.currentTime = 0;
+                      void video.play().catch(() => undefined);
+                    });
+                  }}
+                  onMouseLeave={(event) => {
+                    event.currentTarget.querySelectorAll('video').forEach((video) => {
+                      video.pause();
+                      video.currentTime = 0;
+                    });
+                  }}
+                  className={`absolute left-0 top-0 w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-[border-color,background-color,box-shadow,opacity] active:cursor-grabbing ${
+                    active || selected
+                      ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/20'
+                      : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:border-[var(--vr-accent)]/50'
+                  } ${segment.enabled ? '' : 'opacity-50'}`}
+                  style={{
+                    height: cardHeight,
+                    borderRadius: 'var(--interactive-card-radius)',
+                    transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+                    willChange:
+                      cardDragRef.current?.segmentId === segment.id ? 'transform' : undefined,
+                  }}
+                >
+                  {exportOrderNumbers.has(segment.id) && segment.enabled && (
+                    <div className="pointer-events-none absolute left-3 top-3 z-20 flex h-14 min-w-14 items-center justify-center rounded-2xl bg-[var(--vr-accent)] px-3 text-4xl font-black leading-none text-white shadow-lg shadow-[var(--vr-accent)]/25 ring-4 ring-white/75">
+                      {exportOrderNumbers.get(segment.id)}
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <div className="hidden items-center justify-end gap-2">
+                      <span className="rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
+                        {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
                     <input
                       value={segment.name}
                       onChange={(event) => renameSegment(segment.id, event.target.value)}
@@ -877,102 +991,107 @@ export function InteractiveSegmentExportWorkspace({
                       className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-black text-[var(--vr-text)] outline-none transition-colors focus:border-[var(--vr-accent)] focus:bg-[var(--vr-surface)]"
                       aria-label={t('视频名称', '動画名', 'Video name')}
                     />
-                    <span className="shrink-0 rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
-                      {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
-                    </span>
+                      <span className="shrink-0 rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
+                        {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
+                      </span>
+                    </div>
+                    <div className="mt-2 line-clamp-2 h-9 text-[11px] leading-[18px] text-[var(--vr-text-muted)]">
+                      {summary}
+                    </div>
                   </div>
-                  <div className="mt-2 line-clamp-2 h-9 text-[11px] leading-[18px] text-[var(--vr-text-muted)]">
-                    {summary}
-                  </div>
-                </div>
-                <div className="hidden mx-2 mb-2 rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2">
-                  <div className="mb-1 flex items-center justify-between text-[10px] font-black text-[var(--vr-text-muted)]">
+                  <div className="hidden mx-2 mb-2 rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2">
+                    <div className="mb-1 flex items-center justify-between text-[10px] font-black text-[var(--vr-text-muted)]">
                     <span>{t('内部卡片关系', '内部カード関係', 'Internal card links')}</span>
-                    <span>{segment.nodeIds.length}</span>
-                  </div>
-                  <div className="relative h-12">
-                    {internalItems.length > 1 && (
-                      <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-                        <defs>
-                          <marker
-                            id={`internal-arrow-${segment.id}`}
-                            markerWidth="6"
-                            markerHeight="6"
-                            refX="5.5"
-                            refY="3"
-                            orient="auto"
-                          >
-                            <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
-                          </marker>
-                        </defs>
-                        {internalItems.slice(0, -1).map((item, index) => (
-                          <line
-                            key={`${item.id}-line`}
-                            x1={22 + index * internalStep}
-                            y1="20"
-                            x2={18 + (index + 1) * internalStep}
-                            y2="20"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            markerEnd={`url(#internal-arrow-${segment.id})`}
-                            className="text-[var(--vr-border-strong)]"
-                            opacity="0.8"
-                          />
-                        ))}
-                      </svg>
-                    )}
-                    {internalItems.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className={`absolute top-1 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-md border text-[10px] font-black ${
-                          item.hasMedia
-                            ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]'
-                            : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)]'
-                        }`}
-                        style={{ left: internalItems.length === 1 ? 18 : 18 + index * internalStep }}
-                        title={item.title}
-                      >
-                        {index + 1}
-                      </div>
-                    ))}
-                    {segment.nodeIds.length > internalItems.length && (
-                      <div className="absolute right-0 top-2 rounded-md bg-[var(--vr-surface-strong)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-muted)]">
-                        +{segment.nodeIds.length - internalItems.length}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="border-t border-[var(--vr-border)] bg-black/10 p-2 pb-3">
-                  {mediaItems.length > 0 ? (
-                    <div
-                      className={`grid gap-1.5 ${
-                        mediaItems.length === 1 ? 'grid-cols-1' : 'grid-cols-4'
-                      }`}
-                    >
-                      {mediaItems.map((item) => (
+                      <span>{segment.nodeIds.length}</span>
+                    </div>
+                    <div className="relative h-12">
+                      {internalItems.length > 1 && (
+                        <svg
+                          className="absolute inset-0 h-full w-full overflow-visible"
+                          aria-hidden="true"
+                        >
+                          <defs>
+                            <marker
+                              id={`internal-arrow-${segment.id}`}
+                              markerWidth="6"
+                              markerHeight="6"
+                              refX="5.5"
+                              refY="3"
+                              orient="auto"
+                            >
+                              <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
+                            </marker>
+                          </defs>
+                          {internalItems.slice(0, -1).map((item, index) => (
+                            <line
+                              key={`${item.id}-line`}
+                              x1={22 + index * internalStep}
+                              y1="20"
+                              x2={18 + (index + 1) * internalStep}
+                              y2="20"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              markerEnd={`url(#internal-arrow-${segment.id})`}
+                              className="text-[var(--vr-border-strong)]"
+                              opacity="0.8"
+                            />
+                          ))}
+                        </svg>
+                      )}
+                      {internalItems.map((item, index) => (
                         <div
                           key={item.id}
-                          className={`relative overflow-hidden rounded-md bg-[var(--vr-surface-soft)] ${
-                            mediaItems.length === 1 ? 'h-[74px]' : 'h-[62px]'
+                          className={`absolute top-1 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-md border text-[10px] font-black ${
+                            item.hasMedia
+                              ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]'
+                              : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)]'
                           }`}
+                          style={{
+                            left: internalItems.length === 1 ? 18 : 18 + index * internalStep,
+                          }}
+                          title={item.title}
                         >
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : item.videoUrl ? (
-                            <video
-                              src={item.videoUrl}
-                              className="h-full w-full object-cover"
-                              muted
-                              playsInline
-                              preload="metadata"
-                            />
-                          ) : null}
+                          {index + 1}
+                        </div>
+                      ))}
+                      {segment.nodeIds.length > internalItems.length && (
+                        <div className="absolute right-0 top-2 rounded-md bg-[var(--vr-surface-strong)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+                          +{segment.nodeIds.length - internalItems.length}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t border-[var(--vr-border)] bg-black/10 p-2 pb-3">
+                    {mediaItems.length > 0 ? (
+                      <div
+                        className={`grid gap-1.5 ${
+                          mediaItems.length === 1 ? 'grid-cols-1' : 'grid-cols-4'
+                        }`}
+                      >
+                        {mediaItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`relative overflow-hidden rounded-md bg-[var(--vr-surface-soft)] ${
+                              mediaItems.length === 1 ? 'h-[74px]' : 'h-[62px]'
+                            }`}
+                          >
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                draggable={false}
+                              />
+                            ) : item.videoUrl ? (
+                              <video
+                                src={item.videoUrl}
+                                className="h-full w-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : null}
                           {item.videoUrl && (
                             <>
                               <button
@@ -987,57 +1106,82 @@ export function InteractiveSegmentExportWorkspace({
                                 className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white shadow-lg transition-colors hover:bg-black/80"
                                 aria-label={t('播放视频', '動画を再生', 'Play video')}
                               >
-                                <Play className="h-4 w-4 translate-x-0.5" />
-                              </button>
-                              <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black text-white">
-                                VIDEO
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
+                                  <Play className="h-4 w-4 translate-x-0.5" />
+                                </button>
+                                <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black text-white">
+                                  VIDEO
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
                     <div className="flex h-[74px] items-center justify-center rounded-md border border-dashed border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[11px] font-black text-[var(--vr-text-muted)]">
                       {t('文字片段', 'テキストセグメント', 'Text segment')}
                     </div>
                   )}
-                  <div className="mt-2 flex min-h-4 items-center gap-1 truncate text-[10px] font-black text-[var(--vr-text-muted)]">
-                    <Layers3 className="h-3 w-3" />
-                    {segment.choices.length > 0
-                      ? `${segment.choices.length} choices -> ${segment.choices
-                          .map((choice) => choice.targetSegmentId)
-                          .join(', ')}`
-                      : `${segment.nodeIds.length} clips / no outgoing choices`}
+                    <div className="mt-2 flex min-h-4 items-center gap-1 truncate text-[10px] font-black text-[var(--vr-text-muted)]">
+                      <Layers3 className="h-3 w-3" />
+                      {segment.choices.length > 0
+                        ? `${segment.choices.length} choices -> ${segment.choices
+                            .map((choice) => choice.targetSegmentId)
+                            .join(', ')}`
+                        : `${segment.nodeIds.length} clips / no outgoing choices`}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-        {showMinimap && (
+              );
+            })}
+            {segments.map((segment) => {
+              const position = renderPositions.get(segment.id);
+              if (!position) return null;
+              return (
+                <SegmentConnectionHandles
+                  key={`${segment.id}-handles`}
+                  segmentId={segment.id}
+                  position={position}
+                  cardWidth={cardWidth}
+                  cardHeight={cardHeight}
+                  onBeginConnection={beginConnectionDrag}
+                />
+              );
+            })}
+          </div>
           <InteractiveSegmentMinimap
-            label={t('小地图', 'ミニマップ', 'Minimap')}
             ariaLabel={t('定位画布', 'キャンバスを移動', 'Navigate canvas')}
-            segments={segments}
-            graphLinks={graphLinks}
-            renderPositions={renderPositions}
-            activeSegmentId={activeSegment?.id}
-            graphWidth={graphWidth}
-            graphHeight={graphHeight}
-            cardWidth={cardWidth}
-            cardHeight={cardHeight}
-            viewportPan={viewportPan}
-            viewportZoom={viewportZoom}
-            viewportSize={viewportSize}
-            lineOpacity={lineOpacity}
-            onViewportPanChange={scheduleViewportPan}
+              segments={segments}
+              graphLinks={graphLinks}
+              renderPositions={renderPositions}
+              activeSegmentId={activeSegment?.id}
+              graphWidth={graphWidth}
+              graphHeight={graphHeight}
+              cardWidth={cardWidth}
+              cardHeight={cardHeight}
+              viewportPan={viewportPan}
+              viewportZoom={viewportZoom}
+              viewportSize={viewportSize}
+              lineOpacity={lineOpacity}
+              canZoomIn={viewportZoom < MAX_VIEWPORT_ZOOM - 0.001}
+              canZoomOut={viewportZoom > MIN_VIEWPORT_ZOOM + 0.001}
+              onViewportPanChange={scheduleViewportPan}
+              onZoomIn={() => setViewportZoomAt(viewportZoom * 1.18)}
+              onZoomOut={() => setViewportZoomAt(viewportZoom / 1.18)}
+            onFitView={fitViewportToGraph}
           />
-        )}
+          {selectedSegmentIds.length > 1 && (
+            <button
+              type="button"
+              onClick={mergeSelectedSegments}
+              className="absolute left-4 top-4 z-30 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-3 py-2 text-xs font-black text-[var(--vr-text-soft)] shadow-xl hover:border-[var(--vr-accent)]/50 hover:text-[var(--vr-accent-strong)]"
+            >
+              合并选中片段
+            </button>
+          )}
         </div>
         {previewSegment && (
           <div
-            className="fixed z-[580] max-h-[calc(100vh-32px)] w-[min(860px,calc(100vw-32px))] overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-2xl"
+            className="fixed z-[580] max-h-[min(720px,calc(100vh-96px))] w-[min(860px,calc(100vw-32px))] overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-2xl"
             style={{ left: previewPosition.x, top: previewPosition.y }}
           >
             <div
@@ -1049,10 +1193,11 @@ export function InteractiveSegmentExportWorkspace({
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-black text-[var(--vr-text)]">
-                  {previewSegment.id} · {previewSegment.name}
+                  {previewSegment.id} 路 {previewSegment.name}
                 </div>
                 <div className="mt-0.5 text-xs font-bold text-[var(--vr-text-muted)]">
-                  {formatApproxDuration(previewSegment.nodeIds.length * defaultSeconds)} / {previewItems.length} cards
+                  {formatApproxDuration(previewSegment.nodeIds.length * defaultSeconds)} /{' '}
+                  {previewItems.length} cards
                 </div>
               </div>
               <button
@@ -1065,12 +1210,12 @@ export function InteractiveSegmentExportWorkspace({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid max-h-[calc(100vh-132px)] grid-cols-[minmax(0,1fr)_220px] gap-3 overflow-hidden p-3">
+            <div className="grid max-h-[min(624px,calc(100vh-196px))] grid-cols-[minmax(0,1fr)_220px] gap-3 overflow-hidden p-3">
               <div className="min-h-0">
                 <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-lg bg-black p-2">
                   <div
                     className="relative max-w-full overflow-hidden rounded-md bg-black"
-                    style={{ aspectRatio: previewAspectRatio, height: 'min(38vh, 360px)' }}
+                    style={{ aspectRatio: previewAspectRatio, height: 'min(34vh, 320px)' }}
                   >
                     {previewItem?.videoUrl ? (
                       <video
@@ -1082,8 +1227,12 @@ export function InteractiveSegmentExportWorkspace({
                         muted
                         playsInline
                         preload="metadata"
-                        onLoadedMetadata={(event) => setVideoDuration(event.currentTarget.duration || 0)}
-                        onTimeUpdate={(event) => setVideoProgress(event.currentTarget.currentTime || 0)}
+                        onLoadedMetadata={(event) =>
+                          setVideoDuration(event.currentTarget.duration || 0)
+                        }
+                        onTimeUpdate={(event) =>
+                          setVideoProgress(event.currentTarget.currentTime || 0)
+                        }
                         onPlay={() => setVideoPlaying(true)}
                         onPause={() => setVideoPlaying(false)}
                         onEnded={() => {
@@ -1159,9 +1308,15 @@ export function InteractiveSegmentExportWorkspace({
                         type="button"
                         onClick={togglePreviewVideo}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]"
-                        aria-label={videoPlaying ? t('暂停', '一時停止', 'Pause') : t('播放', '再生', 'Play')}
+                        aria-label={
+                          videoPlaying ? t('暂停', '一時停止', 'Pause') : t('播放', '再生', 'Play')
+                        }
                       >
-                        {videoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        {videoPlaying ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
                       </button>
                       <span className="text-[10px] font-black tabular-nums text-[var(--vr-text-muted)]">
                         {formatPlaybackTime(videoProgress)}
@@ -1346,106 +1501,6 @@ export function InteractiveSegmentExportWorkspace({
             </button>
           </div>
 
-          {activeSegment && (
-            <div className="space-y-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
-              <label className="block text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
-                {t('当前片段', '現在のセグメント', 'Active segment')}
-              </label>
-              <input
-                value={activeSegment.name}
-                onChange={(event) =>
-                  onSegmentsChange(
-                    updateSegment(segments, activeSegment.id, (segment) => ({
-                      ...segment,
-                      name: event.target.value,
-                      source: 'edited',
-                    })),
-                  )
-                }
-                className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  onSegmentsChange(
-                    updateSegment(segments, activeSegment.id, (segment) => ({
-                      ...segment,
-                      enabled: !segment.enabled,
-                      source: 'edited',
-                    })),
-                  )
-                }
-                className={`flex h-9 w-full items-center justify-center gap-2 rounded-lg text-xs font-black ${
-                  activeSegment.enabled
-                    ? 'bg-[var(--vr-accent)] text-white'
-                    : 'bg-[var(--vr-surface)] text-[var(--vr-text-muted)]'
-                }`}
-              >
-                {activeSegment.enabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                {activeSegment.enabled
-                  ? t('会导出这个片段', 'このセグメントを書き出す', 'Export this segment')
-                  : t('跳过这个片段', 'このセグメントをスキップ', 'Skip this segment')}
-              </button>
-
-              <div className="space-y-2">
-                <div className="text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
-                  {t('选择跳转', '選択遷移', 'Choice targets')}
-                </div>
-                {activeSegment.choices.length === 0 ? (
-                  <div className="rounded-lg bg-[var(--vr-surface)] px-3 py-2 text-xs font-bold text-[var(--vr-text-muted)]">
-                    {t('这个片段没有后续选择。', 'このセグメントには選択がありません。', 'This segment has no choices.')}
-                  </div>
-                ) : (
-                  activeSegment.choices.map((choice) => (
-                    <div key={choice.id} className="grid grid-cols-[minmax(0,1fr)_132px] gap-2">
-                      <input
-                        value={choice.label}
-                        onChange={(event) =>
-                          onSegmentsChange(
-                            updateSegment(segments, activeSegment.id, (segment) => ({
-                              ...segment,
-                              source: 'edited',
-                              choices: segment.choices.map((item) =>
-                                item.id === choice.id ? { ...item, label: event.target.value } : item,
-                              ),
-                            })),
-                          )
-                        }
-                        className="h-9 min-w-0 rounded-lg border border-transparent bg-[var(--vr-surface)] px-2 text-xs font-bold text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
-                      />
-                      <div className="relative">
-                        <select
-                          value={choice.targetSegmentId}
-                          onChange={(event) =>
-                            onSegmentsChange(
-                              updateSegment(segments, activeSegment.id, (segment) => ({
-                                ...segment,
-                                source: 'edited',
-                                choices: segment.choices.map((item) =>
-                                  item.id === choice.id
-                                    ? { ...item, targetSegmentId: event.target.value }
-                                    : item,
-                                ),
-                              })),
-                            )
-                          }
-                          className="h-9 w-full appearance-none rounded-lg border border-transparent bg-[var(--vr-surface)] pl-2 pr-7 text-xs font-bold text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
-                        >
-                          {segments.map((segment) => (
-                            <option key={segment.id} value={segment.id}>
-                              {segment.id}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--vr-text-muted)]" />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
           <div className="space-y-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
             <div className="text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
               {t('导出设置', '書き出し設定', 'Export settings')}
@@ -1459,7 +1514,10 @@ export function InteractiveSegmentExportWorkspace({
               <SelectBox
                 value={String(frameRate)}
                 onChange={(value) => setFrameRate(Number(value))}
-                options={FRAME_RATE_OPTIONS.map((fps) => ({ value: String(fps), label: `${fps} fps` }))}
+                options={FRAME_RATE_OPTIONS.map((fps) => ({
+                  value: String(fps),
+                  label: `${fps} fps`,
+                }))}
               />
             </div>
             <SelectBox
@@ -1539,19 +1597,6 @@ export function InteractiveSegmentExportWorkspace({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={isRendering || enabledCount === 0}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-4 text-sm font-black text-white shadow-sm transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-45"
-          >
-            <Download className="h-4 w-4" />
-            {t(
-              `导出 ${enabledCount} 个互动片段`,
-              `${enabledCount} 個のセグメントを書き出し`,
-              `Export ${enabledCount} segment(s)`,
-            )}
-          </button>
         </div>
       </aside>
     </main>
@@ -1593,3 +1638,4 @@ function SelectBox({
     </div>
   );
 }
+

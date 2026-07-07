@@ -99,6 +99,7 @@ export const useVideoExport = ({
     audioSegments?: TimelineSegmentMetric[];
     outputDir?: string;
     progressPrefix?: string;
+    returnBytes?: boolean;
   }) => {
     const resolvedFrameRate = options?.frameRate ?? frameRate;
     const resolvedFormat = options?.exportFormat ?? exportFormat;
@@ -118,13 +119,13 @@ export const useVideoExport = ({
     setError('');
     setSavedPath('');
     setProgressValue(0);
-    setProgress(isZh ? '准备渲染 0%' : 'Preparing render 0%');
+    setProgress(renderCopy(language, '准备渲染 0%', 'レンダリング準備中 0%', 'Preparing render 0%'));
 
     let gpuContext: Awaited<ReturnType<typeof initWebGPU>> | null = null;
     if (useGpuAcceleration && isWebGPUSupported()) {
       try {
         gpuContext = await initWebGPU(resolution.width, resolution.height);
-        if (gpuContext) setProgress(isZh ? 'GPU 加速已启用' : 'GPU acceleration enabled');
+        if (gpuContext) setProgress(renderCopy(language, 'GPU 加速已启用', 'GPU アクセラレーションを有効にしました', 'GPU acceleration enabled'));
       } catch (error) {
         console.warn('[GPU] Initialization failed; falling back to 2D canvas:', error);
       }
@@ -306,6 +307,12 @@ export const useVideoExport = ({
       });
       throwIfCancelled();
 
+      if (options?.returnBytes) {
+        setStatus('done');
+        setProgressValue(100);
+        return bytes;
+      }
+
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
           fileName: (fileName?.trim() || `galwriter-render-${Date.now()}`),
@@ -334,23 +341,19 @@ export const useVideoExport = ({
       setStatus('done');
       setProgressValue(100);
       setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
+      return bytes;
     } catch (error: any) {
       if (error?.name === 'AbortError' || abortController.signal.aborted) {
         setStatus('idle');
         setError('');
         setProgressValue(0);
         setProgress(
-          renderCopy(
-            language,
-            '渲染已取消',
-            'レンダリングをキャンセルしました',
-            'Render cancelled',
-          ),
+          renderCopy(language, '渲染已取消', 'レンダリングをキャンセルしました', 'Render cancelled'),
         );
       } else {
         console.error('Video render failed:', error);
         setStatus('error');
-        setError(error?.message || (isZh ? '视频渲染失败' : 'Video render failed'));
+        setError(error?.message || renderCopy(language, '视频渲染失败', '動画のレンダリングに失敗しました', 'Video render failed'));
       }
     } finally {
       if (abortControllerRef.current === abortController) abortControllerRef.current = null;
@@ -367,12 +370,7 @@ export const useVideoExport = ({
     if (!controller || controller.signal.aborted) return;
     setIsCancellingRender(true);
     setProgress(
-      renderCopy(
-        language,
-        '正在取消渲染...',
-        'レンダリングをキャンセルしています...',
-        'Cancelling render...',
-      ),
+      renderCopy(language, '正在取消渲染...', 'レンダリングをキャンセル中...', 'Cancelling render...'),
     );
     controller.abort();
   };
