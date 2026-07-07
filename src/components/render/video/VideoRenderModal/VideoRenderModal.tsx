@@ -152,6 +152,7 @@ export function VideoRenderModal({
     undoWeb,
     redoWeb,
     updateWebSettings,
+    updateWebSettingsBulk,
     updateWebChoiceColor,
     updateWebChoiceTextColor,
   } = useWebExportSettings(defaultWebProjectName, status === 'rendering', {
@@ -2225,6 +2226,7 @@ export function VideoRenderModal({
             progressValue={progressValue}
             savedPath={savedPath}
             updateWebSettings={updateWebSettings}
+            updateWebSettingsBulk={updateWebSettingsBulk}
             updateWebChoiceTextColor={updateWebChoiceTextColor}
             updateWebChoiceColor={updateWebChoiceColor}
             updateWebRenderStyle={updateRenderStyle}

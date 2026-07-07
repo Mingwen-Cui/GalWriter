@@ -11,7 +11,7 @@ import {
   Layers3,
   Pause,
   Play,
-  RefreshCw,
+  RotateCw,
   Square,
   X,
 } from 'lucide-react';
@@ -784,52 +784,54 @@ export function InteractiveSegmentExportWorkspace({
 
   return (
     <main className="min-h-0 min-w-0 grid grid-cols-[minmax(0,1fr)_380px] overflow-hidden bg-[var(--vr-bg)]">
-      <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden">
-        <div className="z-10 flex items-center justify-between border-b border-[var(--vr-border)] bg-[var(--vr-bg)]/90 px-4 py-3 backdrop-blur-xl">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm font-black text-[var(--vr-text)]">
-              <GitBranch className="h-4 w-4 text-[var(--vr-accent-strong)]" />
+      <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--vr-surface-soft)]">
+        <div className="z-10 grid h-12 grid-cols-[1fr_auto] items-center gap-3 border-b border-[var(--vr-border)] px-4">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
+            <GitBranch className="h-4 w-4 text-[var(--vr-accent)]" />
+            <span className="truncate">
               {t('互动分段结构', 'インタラクティブ分割構造', 'Interactive segment map')}
+            </span>
+          </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => resetLayout('right')}
+                className={`relative grid h-8 w-8 place-items-center rounded-lg rounded-r-none border border-[var(--vr-border)] transition-colors hover:z-10 ${
+                  layoutDirection === 'right'
+                    ? 'z-10 bg-[var(--vr-accent)] text-white'
+                    : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
+                }`}
+                title={t('向右排列', '右方向', 'Arrange right')}
+                aria-label={t('向右排列', '右方向', 'Arrange right')}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => resetLayout('down')}
+                className={`relative -ml-px grid h-8 w-8 place-items-center rounded-lg rounded-l-none border border-[var(--vr-border)] transition-colors hover:z-10 ${
+                  layoutDirection === 'down'
+                    ? 'z-10 bg-[var(--vr-accent)] text-white'
+                    : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
+                }`}
+                title={t('向下排列', '下方向', 'Arrange down')}
+                aria-label={t('向下排列', '下方向', 'Arrange down')}
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
             </div>
-          </div>
-          <div className="mr-2 flex h-9 shrink-0 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
             <button
               type="button"
-              onClick={() => resetLayout('right')}
-              className={`flex w-10 items-center justify-center transition-colors ${
-                layoutDirection === 'right'
-                  ? 'bg-[var(--vr-accent)] text-white'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)]'
-              }`}
-              title={t('向右排列', '右方向', 'Arrange right')}
-              aria-label={t('向右排列', '右方向', 'Arrange right')}
+              onClick={onRescan}
+              disabled={isRendering}
+              title={t('重新识别', '再スキャン', 'Rescan')}
+              aria-label={t('重新识别', '再スキャン', 'Rescan')}
+              className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)] disabled:opacity-40"
             >
-              <ArrowRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => resetLayout('down')}
-              className={`flex w-10 items-center justify-center transition-colors ${
-                layoutDirection === 'down'
-                  ? 'bg-[var(--vr-accent)] text-white'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)]'
-              }`}
-              title={t('向下排列', '下方向', 'Arrange down')}
-              aria-label={t('向下排列', '下方向', 'Arrange down')}
-            >
-              <ArrowDown className="h-4 w-4" />
+              <RotateCw className="h-4 w-4" />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={onRescan}
-            disabled={isRendering}
-            title={t('重新识别', '再スキャン', 'Rescan')}
-            aria-label={t('重新识别', '再スキャン', 'Rescan')}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-accent)]/50 hover:text-[var(--vr-accent-strong)] disabled:opacity-40"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
         </div>
 
 

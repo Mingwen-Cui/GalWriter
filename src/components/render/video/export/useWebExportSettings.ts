@@ -14,6 +14,12 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   startMenuBackgroundGradientAngle: 135,
   startMenuBackgroundImageUrl: '',
   startMenuBackgroundMusicUrl: '',
+  startMenuMusicVolume: 70,
+  startMenuMusicFadeIn: 0,
+  startMenuMusicFadeOut: 0,
+  startMenuMusicLoop: true,
+  startMenuMusicApplyToArchive: true,
+  startMenuMusicApplyToSettings: true,
   startMenuButtonPosition: 'center',
   startMenuButtonLayout: 'vertical',
   startMenuButtonSize: 'normal',
@@ -190,6 +196,14 @@ export const useWebExportSettings = (
     setWebSettings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateWebSettingsBulk = (patch: Partial<WebExportSettings>) => {
+    const entries = Object.entries(patch) as Array<[keyof WebExportSettings, WebExportSettings[keyof WebExportSettings]]>;
+    if (entries.length === 0) return;
+    if (entries.every(([key, value]) => webSettings[key] === value)) return;
+    pushWebHistory();
+    setWebSettings((prev) => ({ ...prev, ...patch }));
+  };
+
   const updateWebChoiceColor = (value: string) => {
     if (webChoiceColor === value) return;
     pushWebHistory();
@@ -214,6 +228,7 @@ export const useWebExportSettings = (
     undoWeb,
     redoWeb,
     updateWebSettings,
+    updateWebSettingsBulk,
     updateWebRenderStyle,
     updateWebChoiceColor,
     updateWebChoiceTextColor,

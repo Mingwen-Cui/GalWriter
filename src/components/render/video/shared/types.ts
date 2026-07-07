@@ -137,6 +137,12 @@ export type WebExportSettings = {
   startMenuBackgroundGradientAngle: number;
   startMenuBackgroundImageUrl: string;
   startMenuBackgroundMusicUrl: string;
+  startMenuMusicVolume: number;
+  startMenuMusicFadeIn: number;
+  startMenuMusicFadeOut: number;
+  startMenuMusicLoop: boolean;
+  startMenuMusicApplyToArchive: boolean;
+  startMenuMusicApplyToSettings: boolean;
   startMenuButtonPosition: 'center' | 'bottomLeft' | 'bottomRight';
   startMenuButtonLayout: 'vertical' | 'horizontal';
   startMenuButtonSize: 'compact' | 'normal' | 'large';

@@ -938,6 +938,12 @@ export const makeIndexHtml = (
     settings.startMenuBackgroundGradientAngle = Number.isFinite(Number(settings.startMenuBackgroundGradientAngle)) ? Number(settings.startMenuBackgroundGradientAngle) : 135;
     settings.startMenuBackgroundImageUrl = String(settings.startMenuBackgroundImageUrl || "");
     settings.startMenuBackgroundMusicUrl = String(settings.startMenuBackgroundMusicUrl || "");
+    settings.startMenuMusicVolume = clamp(settings.startMenuMusicVolume, 0, 100, 70);
+    settings.startMenuMusicFadeIn = clamp(settings.startMenuMusicFadeIn, 0, 10, 0);
+    settings.startMenuMusicFadeOut = clamp(settings.startMenuMusicFadeOut, 0, 10, 0);
+    settings.startMenuMusicLoop = settings.startMenuMusicLoop !== false;
+    settings.startMenuMusicApplyToArchive = settings.startMenuMusicApplyToArchive !== false;
+    settings.startMenuMusicApplyToSettings = settings.startMenuMusicApplyToSettings !== false;
     settings.startMenuButtonPosition = ["center", "bottomLeft", "bottomRight"].includes(settings.startMenuButtonPosition) ? settings.startMenuButtonPosition : "center";
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
@@ -1111,7 +1117,8 @@ export const makeIndexHtml = (
     startTitle.textContent = content.title || "GalWriter";
     if (settings.startMenuBackgroundMusicUrl) {
       startMenuAudio.src = settings.startMenuBackgroundMusicUrl;
-      startMenuAudio.volume = 0.7;
+      startMenuAudio.volume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100 || 0.7));
+      startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
     }
     startScreen.classList.add("template-" + settings.startMenuTemplate);
     startScreen.classList.add("buttons-" + settings.startMenuButtonPosition.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase()));
@@ -1154,6 +1161,7 @@ export const makeIndexHtml = (
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
+    let startMenuFadeFrame = 0;
     let regionUnlockCleanup = null;
     let zenPositionFrame = 0;
     let zenPositionObserver = null;
@@ -1318,15 +1326,60 @@ export const makeIndexHtml = (
       renderCustomStartMenu(save);
     }
 
+    function fadeStartMenuAudio(from, to, seconds, done) {
+      cancelAnimationFrame(startMenuFadeFrame);
+      const duration = Math.max(0, Number(seconds) || 0) * 1000;
+      if (!duration) {
+        startMenuAudio.volume = to;
+        if (done) done();
+        return;
+      }
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / duration);
+        startMenuAudio.volume = from + (to - from) * progress;
+        if (progress < 1) startMenuFadeFrame = requestAnimationFrame(tick);
+        else if (done) done();
+      };
+      startMenuFadeFrame = requestAnimationFrame(tick);
+    }
+
+    function playStartMenuMusic() {
+      if (!settings.startMenuBackgroundMusicUrl) return;
+      const targetVolume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100 || 0.7));
+      startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
+      startMenuAudio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
+      startMenuAudio.play().catch(() => {});
+      fadeStartMenuAudio(startMenuAudio.volume, targetVolume, settings.startMenuMusicFadeIn);
+    }
+
+    function stopStartMenuMusic() {
+      if (!settings.startMenuBackgroundMusicUrl) return;
+      fadeStartMenuAudio(startMenuAudio.volume, 0, settings.startMenuMusicFadeOut, () => {
+        startMenuAudio.pause();
+      });
+    }
+
+    function syncStartMenuMusicForOverlay(kind, open) {
+      if (!settings.startMenuBackgroundMusicUrl) return;
+      if (!startScreen.classList.contains("open")) return;
+      const keepPlaying =
+        open &&
+        ((kind === "archive" && settings.startMenuMusicApplyToArchive) ||
+          (kind === "settings" && settings.startMenuMusicApplyToSettings));
+      if (open && !keepPlaying) stopStartMenuMusic();
+      if (!open) playStartMenuMusic();
+    }
+
     function showStartMenu() {
       updateStartMenu();
       startScreen.classList.add("open");
-      if (settings.startMenuBackgroundMusicUrl) startMenuAudio.play().catch(() => {});
+      playStartMenuMusic();
     }
 
     function hideStartMenu() {
       startScreen.classList.remove("open");
-      startMenuAudio.pause();
+      stopStartMenuMusic();
     }
 
     function returnToMainMenu() {

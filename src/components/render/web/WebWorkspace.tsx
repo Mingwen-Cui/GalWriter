@@ -16,22 +16,27 @@ import {
   Settings,
   Sparkles,
   RotateCw,
-  Trash2,
   Type,
   Upload,
   Video,
   Volume2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { createElement, isValidElement, useEffect, useState } from 'react';
+import { createElement, isValidElement, useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
+import {
+  buildWebExperiencePresets,
+  pickPresetSettingsForScope,
+  type WebPresetScope,
+} from './webExperiencePresets';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 
 const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
@@ -92,6 +97,7 @@ type WebWorkspaceProps = {
     key: K,
     value: WebExportSettings[K],
   ) => void;
+  updateWebSettingsBulk: (patch: Partial<WebExportSettings>) => void;
   updateWebChoiceTextColor: (value: string) => void;
   updateWebChoiceColor: (value: string) => void;
   updateWebRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
@@ -112,6 +118,7 @@ export function WebWorkspace({
   progressValue,
   savedPath,
   updateWebSettings,
+  updateWebSettingsBulk,
   updateWebChoiceTextColor,
   updateWebChoiceColor,
   updateWebRenderStyle,
@@ -120,42 +127,39 @@ export function WebWorkspace({
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const [aiStartMenuDesigning, setAiStartMenuDesigning] = useState(false);
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
+  const [showMenuMusicSettings, setShowMenuMusicSettings] = useState(false);
+  const [presetScope, setPresetScope] = useState<WebPresetScope>('all');
   const startMenuDesignStorageKey = 'galwriter-web-start-menu-design:v1';
-  const createStartMenuDesignSnapshot = (
-    stripEmbeddedMedia = false,
-  ): Partial<WebExportSettings> => ({
-    showStartMenu: webSettings.showStartMenu,
-    startMenuTemplate: webSettings.startMenuTemplate,
-    startMenuBackgroundType: webSettings.startMenuBackgroundType,
-    startMenuBackgroundColor: webSettings.startMenuBackgroundColor,
-    startMenuBackgroundGradientStart: webSettings.startMenuBackgroundGradientStart,
-    startMenuBackgroundGradientEnd: webSettings.startMenuBackgroundGradientEnd,
-    startMenuBackgroundGradientAngle: webSettings.startMenuBackgroundGradientAngle,
-    startMenuBackgroundImageUrl:
-      stripEmbeddedMedia && webSettings.startMenuBackgroundImageUrl.startsWith('data:')
-        ? ''
-        : webSettings.startMenuBackgroundImageUrl,
-    startMenuBackgroundMusicUrl:
-      stripEmbeddedMedia && webSettings.startMenuBackgroundMusicUrl.startsWith('data:')
-        ? ''
-        : webSettings.startMenuBackgroundMusicUrl,
-    startMenuButtonPosition: webSettings.startMenuButtonPosition,
-    startMenuButtonLayout: webSettings.startMenuButtonLayout,
-    startMenuButtonSize: webSettings.startMenuButtonSize,
-    startMenuElements: webSettings.startMenuElements.map((element) =>
-      stripEmbeddedMedia && element.imageUrl?.startsWith('data:')
-        ? { ...element, imageUrl: '' }
-        : element,
-    ),
-    startMenuPlacementBoundsLocked: webSettings.startMenuPlacementBoundsLocked,
-    startMenuPlacementMinX: webSettings.startMenuPlacementMinX,
-    startMenuPlacementMinY: webSettings.startMenuPlacementMinY,
-    startMenuPlacementMaxX: webSettings.startMenuPlacementMaxX,
-    startMenuPlacementMaxY: webSettings.startMenuPlacementMaxY,
-    startMenuShowSave: webSettings.startMenuShowSave,
-    startMenuShowNewGame: webSettings.startMenuShowNewGame,
-    startMenuShowSettings: webSettings.startMenuShowSettings,
-  });
+  const createStartMenuDesignSnapshot = (stripEmbeddedMedia = false) => {
+    const stripElementMedia = (element: WebMenuElement): WebMenuElement => ({
+      ...element,
+      imageUrl: stripEmbeddedMedia && element.imageUrl?.startsWith('data:') ? '' : element.imageUrl,
+      backgroundImageUrl:
+        stripEmbeddedMedia && element.backgroundImageUrl?.startsWith('data:')
+          ? ''
+          : element.backgroundImageUrl,
+    });
+    return {
+      version: 2,
+      settings: {
+        ...webSettings,
+        startMenuBackgroundImageUrl:
+          stripEmbeddedMedia && webSettings.startMenuBackgroundImageUrl.startsWith('data:')
+            ? ''
+            : webSettings.startMenuBackgroundImageUrl,
+        startMenuBackgroundMusicUrl:
+          stripEmbeddedMedia && webSettings.startMenuBackgroundMusicUrl.startsWith('data:')
+            ? ''
+            : webSettings.startMenuBackgroundMusicUrl,
+        startMenuElements: webSettings.startMenuElements.map(stripElementMedia),
+        archivePageElements: (webSettings.archivePageElements || []).map(stripElementMedia),
+        settingsPageElements: (webSettings.settingsPageElements || []).map(stripElementMedia),
+      },
+      renderStyle: webRenderStyle,
+      choiceColor: webChoiceColor,
+      choiceTextColor: webChoiceTextColor,
+    };
+  };
   const saveStartMenuDesign = () => {
     if (typeof window === 'undefined') return;
     try {
@@ -179,37 +183,25 @@ export function WebWorkspace({
     try {
       const raw = window.localStorage.getItem(startMenuDesignStorageKey);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<WebExportSettings>;
-      const entries: Partial<WebExportSettings> = {
-        showStartMenu: parsed.showStartMenu,
-        startMenuTemplate: parsed.startMenuTemplate,
-        startMenuBackgroundType: parsed.startMenuBackgroundType,
-        startMenuBackgroundColor: parsed.startMenuBackgroundColor,
-        startMenuBackgroundGradientStart: parsed.startMenuBackgroundGradientStart,
-        startMenuBackgroundGradientEnd: parsed.startMenuBackgroundGradientEnd,
-        startMenuBackgroundGradientAngle: parsed.startMenuBackgroundGradientAngle,
-        startMenuBackgroundImageUrl: parsed.startMenuBackgroundImageUrl,
-        startMenuBackgroundMusicUrl: parsed.startMenuBackgroundMusicUrl,
-        startMenuButtonPosition: parsed.startMenuButtonPosition,
-        startMenuButtonLayout: parsed.startMenuButtonLayout,
-        startMenuButtonSize: parsed.startMenuButtonSize,
-        startMenuElements: parsed.startMenuElements,
-        archivePageElements: parsed.archivePageElements,
-        settingsPageElements: parsed.settingsPageElements,
-        startMenuPlacementBoundsLocked: parsed.startMenuPlacementBoundsLocked,
-        startMenuPlacementMinX: parsed.startMenuPlacementMinX,
-        startMenuPlacementMinY: parsed.startMenuPlacementMinY,
-        startMenuPlacementMaxX: parsed.startMenuPlacementMaxX,
-        startMenuPlacementMaxY: parsed.startMenuPlacementMaxY,
-        startMenuShowSave: parsed.startMenuShowSave,
-        startMenuShowNewGame: parsed.startMenuShowNewGame,
-        startMenuShowSettings: parsed.startMenuShowSettings,
-      };
-      Object.entries(entries).forEach(([key, value]) => {
-        if (value !== undefined) {
-          updateWebSettings(key as keyof WebExportSettings, value as never);
-        }
-      });
+      const parsed = JSON.parse(raw) as
+        | Partial<WebExportSettings>
+        | {
+            settings?: Partial<WebExportSettings>;
+            renderStyle?: Partial<RenderStyle>;
+            choiceColor?: string;
+            choiceTextColor?: string;
+          };
+      const settingsPatch = 'settings' in parsed ? parsed.settings : parsed;
+      if (settingsPatch) updateWebSettingsBulk(settingsPatch);
+      if ('renderStyle' in parsed && parsed.renderStyle) {
+        Object.entries(parsed.renderStyle).forEach(([key, value]) => {
+          updateWebRenderStyle(key as keyof RenderStyle, value as never);
+        });
+      }
+      if ('choiceColor' in parsed && parsed.choiceColor) updateWebChoiceColor(parsed.choiceColor);
+      if ('choiceTextColor' in parsed && parsed.choiceTextColor) {
+        updateWebChoiceTextColor(parsed.choiceTextColor);
+      }
     } catch {
       // Ignore invalid local design presets.
     }
@@ -242,6 +234,30 @@ export function WebWorkspace({
   const settingsPageElements = webSettings.settingsPageElements?.length
     ? webSettings.settingsPageElements
     : defaultSettingsPageElements;
+  const webExperiencePresets = useMemo(
+    () =>
+      buildWebExperiencePresets({
+        title: webProjectName || t('开始', 'スタート', 'Start'),
+        subtitle: t('没有存档', 'セーブなし', 'No save'),
+        save: t('存档', 'セーブ', 'Save'),
+        newGame: t('新游戏', '新規ゲーム', 'New Game'),
+        settings: t('设置', '設定', 'Settings'),
+        archiveTitle: t('存档', 'セーブ', 'Save'),
+        archiveBack: t('返回', '戻る', 'Back'),
+        archiveSlot: t(
+          '没有存档\n导出后的网页会在这里显示上次进度。',
+          'セーブなし\n書き出し後のWebでは前回の進行がここに表示されます。',
+          'No save\nExported web builds show the last progress here.',
+        ),
+        archiveNew: t('新游戏', '新規ゲーム', 'New Game'),
+        settingsTitle: t('设置', '設定', 'Settings'),
+        settingsBack: t('返回', '戻る', 'Back'),
+        settingsAuto: t('自动播放', '自動再生', 'Auto play'),
+        settingsSpeed: t('打字速度', 'テキスト速度', 'Text speed'),
+        settingsControls: t('显示控制栏', '操作表示', 'Show controls'),
+      }),
+    [language, webProjectName, webChoiceColor, webChoiceTextColor],
+  );
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
@@ -259,6 +275,24 @@ export function WebWorkspace({
         : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
+  const applyWebExperiencePreset = (presetId: string) => {
+    const preset = webExperiencePresets.find((item) => item.id === presetId);
+    if (!preset) return;
+    updateWebSettingsBulk(
+      pickPresetSettingsForScope(preset, currentPreviewSurface, presetScope),
+    );
+    if (presetScope === 'all' || currentPreviewSurface === 'game') {
+      if (preset.renderStyle) {
+        Object.entries(preset.renderStyle).forEach(([key, value]) => {
+          updateWebRenderStyle(key as keyof RenderStyle, value as never);
+        });
+      }
+      if (preset.choiceColor) updateWebChoiceColor(preset.choiceColor);
+      if (preset.choiceTextColor) updateWebChoiceTextColor(preset.choiceTextColor);
+    }
+    setSelectedStartMenuElementId(null);
+    setPreviewRefreshKey((key) => key + 1);
+  };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
     const source = activePageElements;
     updateWebSettings(
@@ -750,8 +784,8 @@ JSON schema:
                   options={[
                     { value: 'start', label: t('主界面', 'メイン', 'Menu') },
                     { value: 'archive', label: t('存档', 'セーブ', 'Save') },
-                    { value: 'game', label: t('对话', '会話', 'Dialog') },
                     { value: 'settings', label: t('设置', '設定', 'Settings') },
+                    { value: 'game', label: t('对话', '会話', 'Dialog') },
                   ]}
                   columns="grid-cols-4"
                   onChange={(value) => {
@@ -821,36 +855,19 @@ JSON schema:
                         label={t('添加图片', '画像追加', 'Add image')}
                         onClick={addStartMenuImage}
                       />
-                      <label
-                        className="flex h-9 min-w-0 cursor-pointer items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-indigo-500/25 hover:bg-white/5 hover:text-[var(--vr-text)]"
-                        title={
-                          webSettings.startMenuBackgroundMusicUrl
-                            ? t('更换音乐', 'BGM変更', 'Replace music')
-                            : t('导入 MP3', 'MP3読込', 'Import MP3')
-                        }
-                      >
-                        <Volume2 className="h-3.5 w-3.5 shrink-0" />
-                        <span className="min-w-0 truncate">
-                          {webSettings.startMenuBackgroundMusicUrl
-                            ? t('更换音乐', 'BGM変更', 'Replace music')
-                            : t('导入音乐', 'BGM読込', 'Import music')}
-                        </span>
-                        <input
-                          type="file"
-                          accept="audio/mpeg,audio/mp3,.mp3"
-                          className="hidden"
-                          onChange={(event) => {
-                            const file = event.currentTarget.files?.[0];
-                            if (file) {
-                              readImageFileAsDataUrl(file, (value) =>
-                                updateWebSettings('startMenuBackgroundMusicUrl', value),
-                              );
-                            }
-                            event.currentTarget.value = '';
-                          }}
-                        />
-                      </label>
+                      <IconToolButton
+                        icon={Volume2}
+                        label={t('设置音乐', 'BGM設定', 'Music')}
+                        onClick={() => setShowMenuMusicSettings((current) => !current)}
+                      />
                     </div>
+                    {showMenuMusicSettings && (
+                      <WebMenuMusicPanel
+                        language={language}
+                        settings={webSettings}
+                        updateWebSettings={updateWebSettings}
+                      />
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -860,39 +877,78 @@ JSON schema:
                       </div>
                       <div className="h-px flex-1 bg-[var(--vr-border)]" />
                     </div>
-                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
+                    <div className="grid gap-2 rounded-xl bg-indigo-500/5 p-2">
                       <IconToolButton
                         icon={Sparkles}
                         label={
                           aiStartMenuDesigning
                             ? t('AI 设计中', 'AI設計中', 'AI designing')
-                            : t('AI 设计', 'AI設計', 'AI Design')
+                            : t('AI 生成整套设计', 'AIで全体設計', 'AI full design')
                         }
                         onClick={() => void generateStartMenuDesignWithAI()}
                         disabled={!callAIForTextResult || aiStartMenuDesigning}
                         iconClassName={aiStartMenuDesigning ? 'animate-spin' : ''}
                       />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPresetScope('all')}
+                          className={`h-8 rounded-lg px-2 text-[11px] font-black transition-colors ${
+                            presetScope === 'all'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                          }`}
+                        >
+                          {t('整套体验', '全体', 'Full set')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPresetScope('current')}
+                          className={`h-8 rounded-lg px-2 text-[11px] font-black transition-colors ${
+                            presetScope === 'current'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-text)]'
+                          }`}
+                        >
+                          {t('仅当前页', '現在のみ', 'Current only')}
+                        </button>
+                      </div>
+                      <div className="grid gap-2">
+                        {webExperiencePresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => applyWebExperiencePreset(preset.id)}
+                            className="grid gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] p-2 text-left transition-colors hover:border-indigo-500/25 hover:bg-white/5"
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
+                                {preset.name}
+                              </span>
+                              <span
+                                className="h-3 w-8 shrink-0 rounded-full"
+                                style={{ background: preset.accent }}
+                              />
+                            </span>
+                            <span className="line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                              {preset.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
                       <IconToolButton
                         icon={Save}
-                        label={t('保存设计', '保存', 'Save Design')}
+                        label={t('保存预设', '保存', 'Save preset')}
                         onClick={saveStartMenuDesign}
                       />
                       <IconToolButton
                         icon={Upload}
-                        label={t('套用设计', '適用', 'Apply Design')}
+                        label={t('套用我的', '適用', 'Apply mine')}
                         onClick={loadStartMenuDesign}
                       />
                     </div>
-                    {webSettings.startMenuBackgroundMusicUrl && (
-                      <button
-                        type="button"
-                        onClick={() => updateWebSettings('startMenuBackgroundMusicUrl', '')}
-                        className="flex h-9 min-w-0 items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-rose-400/45 hover:bg-rose-500/10 hover:text-rose-500"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="truncate">{t('移除音乐', 'BGM削除', 'Remove music')}</span>
-                      </button>
-                    )}
+                  </div>
                   </div>
 
                   {aiStartMenuDesignError && (
