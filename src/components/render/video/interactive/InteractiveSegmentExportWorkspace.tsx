@@ -40,6 +40,7 @@ import {
   segmentLinkPath,
 } from './interactiveSegmentGraphLayout';
 import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
+import { InteractiveSegmentMinimap } from './InteractiveSegmentMinimap';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
 type Props = {
@@ -142,6 +143,9 @@ const formatPlaybackTime = (seconds: number) => {
   return `${minutes}:${String(rest).padStart(2, '0')}`;
 };
 
+const MIN_VIEWPORT_ZOOM = 0.35;
+const MAX_VIEWPORT_ZOOM = 1.85;
+
 export function InteractiveSegmentExportWorkspace({
   language,
   segments,
@@ -185,7 +189,7 @@ export function InteractiveSegmentExportWorkspace({
   const enabledCount = segments.filter((segment) => segment.enabled).length;
   const choiceCount = segments.reduce((sum, segment) => sum + segment.choices.length, 0);
   const cardWidth = 280;
-  const cardHeight = 196;
+  const cardHeight = 222;
   const graphPadding = 120;
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('right');
   const autoPositions = useMemo(
@@ -214,14 +218,9 @@ export function InteractiveSegmentExportWorkspace({
   }, [positions, renderOffset.x, renderOffset.y]);
   const graphWidth = Math.max(1040, graphBounds.maxX - graphBounds.minX + graphPadding * 2);
   const graphHeight = Math.max(620, graphBounds.maxY - graphBounds.minY + graphPadding * 2);
-  const minimapWidth = 172;
-  const minimapHeight = 112;
-  const minimapScale = Math.min(
-    minimapWidth / Math.max(1, graphWidth),
-    minimapHeight / Math.max(1, graphHeight),
-  );
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
+  const [viewportZoom, setViewportZoom] = useState(1);
   const [previewSegmentId, setPreviewSegmentId] = useState('');
   const [previewItemIndex, setPreviewItemIndex] = useState(0);
   const [previewPosition, setPreviewPosition] = useState({ x: 96, y: 92 });
@@ -253,6 +252,13 @@ export function InteractiveSegmentExportWorkspace({
     originY: number;
     moved: boolean;
   } | null>(null);
+  const scheduledCardPositionRef = useRef<{
+    segmentId: string;
+    position: GraphPoint;
+  } | null>(null);
+  const scheduledViewportPanRef = useRef<GraphPoint | null>(null);
+  const cardDragFrameRef = useRef<number | null>(null);
+  const viewportPanFrameRef = useRef<number | null>(null);
   const previewDragRef = useRef<{
     pointerId: number;
     offsetX: number;
@@ -278,31 +284,53 @@ export function InteractiveSegmentExportWorkspace({
     })),
   );
   const lineRadius = Math.min(Math.max(0, renderStyle.dialogRadius || 0), 36);
-  const uiRadius = Math.min(Math.max(6, renderStyle.dialogRadius || 12), 24);
+  const uiRadius = 12;
   const lineOpacity = clamp((renderStyle.panelColorAlpha ?? 82) / 100, 0.25, 1);
   const graphStyle = {
     '--interactive-line-alpha': String(lineOpacity),
     '--interactive-card-radius': `${uiRadius}px`,
     '--interactive-panel-color': colorWithAlpha(renderStyle.panelColor || '#111827', lineOpacity),
+    '--interactive-bg-x': `${viewportPan.x}px`,
+    '--interactive-bg-y': `${viewportPan.y}px`,
+    '--interactive-bg-scale': viewportZoom,
   } as React.CSSProperties;
   const viewportOverflowing =
-    graphWidth + viewportPan.x > viewportSize.width ||
-    graphHeight + viewportPan.y > viewportSize.height ||
+    graphWidth * viewportZoom + viewportPan.x > viewportSize.width ||
+    graphHeight * viewportZoom + viewportPan.y > viewportSize.height ||
     viewportPan.x < 0 ||
     viewportPan.y < 0;
   const showMinimap =
     viewportSize.width > 0 &&
     viewportSize.height > 0 &&
-    (graphWidth > viewportSize.width || graphHeight > viewportSize.height || viewportOverflowing);
-  const minimapViewport = {
-    x: clamp((-viewportPan.x / Math.max(1, graphWidth)) * minimapWidth, 0, minimapWidth),
-    y: clamp((-viewportPan.y / Math.max(1, graphHeight)) * minimapHeight, 0, minimapHeight),
-    width: clamp((viewportSize.width / Math.max(1, graphWidth)) * minimapWidth, 12, minimapWidth),
-    height: clamp((viewportSize.height / Math.max(1, graphHeight)) * minimapHeight, 12, minimapHeight),
-  };
-
+    (graphWidth * viewportZoom > viewportSize.width ||
+      graphHeight * viewportZoom > viewportSize.height ||
+      viewportOverflowing);
   const setAllEnabled = (enabled: boolean) =>
     onSegmentsChange(segments.map((segment) => ({ ...segment, enabled, source: 'edited' })));
+  const scheduleViewportPan = (nextPan: GraphPoint) => {
+    scheduledViewportPanRef.current = nextPan;
+    if (viewportPanFrameRef.current !== null) return;
+    viewportPanFrameRef.current = requestAnimationFrame(() => {
+      viewportPanFrameRef.current = null;
+      const next = scheduledViewportPanRef.current;
+      scheduledViewportPanRef.current = null;
+      if (next) setViewportPan(next);
+    });
+  };
+  const scheduleCardPosition = (segmentId: string, position: GraphPoint) => {
+    scheduledCardPositionRef.current = { segmentId, position };
+    if (cardDragFrameRef.current !== null) return;
+    cardDragFrameRef.current = requestAnimationFrame(() => {
+      cardDragFrameRef.current = null;
+      const next = scheduledCardPositionRef.current;
+      scheduledCardPositionRef.current = null;
+      if (!next) return;
+      setManualPositions((previous) => ({
+        ...previous,
+        [next.segmentId]: next.position,
+      }));
+    });
+  };
   const openPreview = (segmentId: string) => {
     onSelectSegment(segmentId);
     setPreviewSegmentId(segmentId);
@@ -374,6 +402,23 @@ export function InteractiveSegmentExportWorkspace({
     setLayoutDirection(direction);
     setManualPositions({});
     setViewportPan({ x: 0, y: 0 });
+    setViewportZoom(1);
+  };
+  const handleViewportWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const zoomDelta = Math.exp(-event.deltaY * 0.0012);
+    const nextZoom = clamp(viewportZoom * zoomDelta, MIN_VIEWPORT_ZOOM, MAX_VIEWPORT_ZOOM);
+    if (Math.abs(nextZoom - viewportZoom) < 0.001) return;
+    const graphX = (pointerX - viewportPan.x) / viewportZoom;
+    const graphY = (pointerY - viewportPan.y) / viewportZoom;
+    setViewportZoom(nextZoom);
+    scheduleViewportPan({
+      x: pointerX - graphX * nextZoom,
+      y: pointerY - graphY * nextZoom,
+    });
   };
   const beginCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
@@ -389,7 +434,7 @@ export function InteractiveSegmentExportWorkspace({
   const dragCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = canvasPanRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    setViewportPan({
+    scheduleViewportPan({
       x: drag.originX + event.clientX - drag.startX,
       y: drag.originY + event.clientY - drag.startY,
     });
@@ -421,13 +466,10 @@ export function InteractiveSegmentExportWorkspace({
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
-    setManualPositions((previous) => ({
-      ...previous,
-      [drag.segmentId]: {
-        x: drag.originX + dx,
-        y: drag.originY + dy,
-      },
-    }));
+    scheduleCardPosition(drag.segmentId, {
+      x: drag.originX + dx / viewportZoom,
+      y: drag.originY + dy / viewportZoom,
+    });
   };
   const endCardDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (cardDragRef.current?.pointerId === event.pointerId) {
@@ -472,6 +514,13 @@ export function InteractiveSegmentExportWorkspace({
       return Object.fromEntries(entries);
     });
   }, [segments]);
+
+  useEffect(() => {
+    return () => {
+      if (cardDragFrameRef.current !== null) cancelAnimationFrame(cardDragFrameRef.current);
+      if (viewportPanFrameRef.current !== null) cancelAnimationFrame(viewportPanFrameRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     setVideoProgress(0);
@@ -641,8 +690,9 @@ export function InteractiveSegmentExportWorkspace({
 
         <div
           ref={graphViewportRef}
-          className="relative min-h-0 flex-1 overflow-hidden"
+          className="interactive-segment-graph-viewport relative min-h-0 flex-1 overflow-hidden"
           style={graphStyle}
+          onWheel={handleViewportWheel}
         >
           <div
             className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
@@ -660,7 +710,9 @@ export function InteractiveSegmentExportWorkspace({
             style={{
               width: graphWidth,
               height: graphHeight,
-              transform: `translate(${viewportPan.x}px, ${viewportPan.y}px)`,
+              transform: `matrix(${viewportZoom}, 0, 0, ${viewportZoom}, ${viewportPan.x}, ${viewportPan.y})`,
+              transformOrigin: '0 0',
+              willChange: canvasPanRef.current ? 'transform' : undefined,
             }}
           >
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
@@ -798,16 +850,16 @@ export function InteractiveSegmentExportWorkspace({
                     video.currentTime = 0;
                   });
                 }}
-                className={`absolute w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-all active:cursor-grabbing ${
+                className={`absolute left-0 top-0 w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-[border-color,background-color,box-shadow,opacity] active:cursor-grabbing ${
                   active
                     ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/20'
                     : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:border-[var(--vr-accent)]/50'
                 } ${segment.enabled ? '' : 'opacity-50'}`}
                 style={{
-                  left: position.x,
-                  top: position.y,
                   height: cardHeight,
                   borderRadius: 'var(--interactive-card-radius)',
+                  transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+                  willChange: cardDragRef.current?.segmentId === segment.id ? 'transform' : undefined,
                 }}
               >
                 <div className="p-3">
@@ -891,7 +943,7 @@ export function InteractiveSegmentExportWorkspace({
                     )}
                   </div>
                 </div>
-                <div className="border-t border-[var(--vr-border)] bg-black/10 p-2">
+                <div className="border-t border-[var(--vr-border)] bg-black/10 p-2 pb-3">
                   {mediaItems.length > 0 ? (
                     <div
                       className={`grid gap-1.5 ${
@@ -950,7 +1002,7 @@ export function InteractiveSegmentExportWorkspace({
                       {t('文字片段', 'テキストセグメント', 'Text segment')}
                     </div>
                   )}
-                  <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[var(--vr-text-muted)]">
+                  <div className="mt-2 flex min-h-4 items-center gap-1 truncate text-[10px] font-black text-[var(--vr-text-muted)]">
                     <Layers3 className="h-3 w-3" />
                     {segment.choices.length > 0
                       ? `${segment.choices.length} choices -> ${segment.choices
@@ -964,64 +1016,23 @@ export function InteractiveSegmentExportWorkspace({
           })}
         </div>
         {showMinimap && (
-        <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 p-2 shadow-xl backdrop-blur-xl">
-          <div className="mb-1 text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
-            {t('小地图', 'ミニマップ', 'Minimap')}
-          </div>
-          <svg width={minimapWidth} height={minimapHeight} viewBox={`0 0 ${minimapWidth} ${minimapHeight}`}>
-            <defs>
-              <marker id="interactive-minimap-arrow" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto">
-                <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
-              </marker>
-            </defs>
-            {graphLinks.map((link) => {
-              const from = renderPositions.get(link.fromSegmentId);
-              const to = renderPositions.get(link.toSegmentId);
-              if (!from || !to) return null;
-              return (
-                <line
-                  key={link.id}
-                  x1={(from.x + cardWidth / 2) * minimapScale}
-                  y1={(from.y + cardHeight / 2) * minimapScale}
-                  x2={(to.x + cardWidth / 2) * minimapScale}
-                  y2={(to.y + cardHeight / 2) * minimapScale}
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  markerEnd="url(#interactive-minimap-arrow)"
-                  className="text-[var(--vr-border-strong)]"
-                  opacity={link.isChoice ? lineOpacity : lineOpacity * 0.62}
-                />
-              );
-            })}
-            {segments.map((segment) => {
-              const position = renderPositions.get(segment.id)!;
-              const active = activeSegment?.id === segment.id;
-              return (
-                <rect
-                  key={segment.id}
-                  x={position.x * minimapScale}
-                  y={position.y * minimapScale}
-                  width={cardWidth * minimapScale}
-                  height={cardHeight * minimapScale}
-                  rx={Math.min(uiRadius, 6)}
-                  className={active ? 'fill-[var(--vr-accent)]' : 'fill-[var(--vr-text-muted)]'}
-                  opacity={active ? 0.95 : 0.38}
-                />
-              );
-            })}
-            <rect
-              x={minimapViewport.x}
-              y={minimapViewport.y}
-              width={minimapViewport.width}
-              height={minimapViewport.height}
-              rx={Math.min(uiRadius, 5)}
-              fill="none"
-              stroke="var(--vr-accent)"
-              strokeWidth="1.4"
-              opacity="0.9"
-            />
-          </svg>
-        </div>
+          <InteractiveSegmentMinimap
+            label={t('小地图', 'ミニマップ', 'Minimap')}
+            ariaLabel={t('定位画布', 'キャンバスを移動', 'Navigate canvas')}
+            segments={segments}
+            graphLinks={graphLinks}
+            renderPositions={renderPositions}
+            activeSegmentId={activeSegment?.id}
+            graphWidth={graphWidth}
+            graphHeight={graphHeight}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            viewportPan={viewportPan}
+            viewportZoom={viewportZoom}
+            viewportSize={viewportSize}
+            lineOpacity={lineOpacity}
+            onViewportPanChange={scheduleViewportPan}
+          />
         )}
         </div>
         {previewSegment && (

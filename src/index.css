@@ -310,6 +310,61 @@ body,
   cursor: grabbing;
 }
 
+.interactive-segment-graph-viewport {
+  background-color: color-mix(in srgb, var(--app-bg) 88%, #e0f2fe);
+  background-image:
+    radial-gradient(circle at 0 0, rgba(79, 70, 229, 0.18) 1px, transparent 1.4px),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(239, 246, 255, 0.92));
+  background-position:
+    var(--interactive-bg-x, 0px) var(--interactive-bg-y, 0px),
+    0 0;
+  background-size:
+    calc(24px * var(--interactive-bg-scale, 1)) calc(24px * var(--interactive-bg-scale, 1)),
+    auto;
+}
+
+.interactive-segment-graph-viewport::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 28%, rgba(79, 70, 229, 0.12) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 72% 22%, rgba(14, 165, 233, 0.12) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 36% 76%, rgba(16, 185, 129, 0.1) 0 1.4px, transparent 2px),
+    radial-gradient(circle at 82% 68%, rgba(99, 102, 241, 0.1) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.42), transparent 64%);
+  background-size:
+    180px 150px,
+    220px 180px,
+    260px 210px,
+    300px 240px,
+    100% 100%;
+  background-position:
+    calc(var(--interactive-bg-x, 0px) * 0.08) calc(var(--interactive-bg-y, 0px) * 0.08),
+    calc(var(--interactive-bg-x, 0px) * 0.06) calc(var(--interactive-bg-y, 0px) * 0.06),
+    calc(var(--interactive-bg-x, 0px) * 0.05) calc(var(--interactive-bg-y, 0px) * 0.05),
+    calc(var(--interactive-bg-x, 0px) * 0.04) calc(var(--interactive-bg-y, 0px) * 0.04),
+    0 0;
+  opacity: 0.9;
+}
+
+[data-theme='dark'] .interactive-segment-graph-viewport {
+  background-color: color-mix(in srgb, var(--app-bg) 86%, #0f172a);
+  background-image:
+    radial-gradient(circle at 0 0, rgba(84, 185, 251, 0.22) 1px, transparent 1.5px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.94));
+}
+
+[data-theme='dark'] .interactive-segment-graph-viewport::before {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(84, 185, 251, 0.16) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 72% 22%, rgba(99, 102, 241, 0.14) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 36% 76%, rgba(16, 185, 129, 0.12) 0 1.4px, transparent 2px),
+    radial-gradient(circle at 82% 68%, rgba(125, 211, 252, 0.12) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.26), transparent 64%);
+}
+
 .assistant-candidate-card {
   box-shadow: 0 18px 48px rgba(99, 102, 241, 0.16);
 }
@@ -915,6 +970,39 @@ body,
   stroke-width: 1.5;
 }
 
+.interactive-segment-minimap {
+  background:
+    radial-gradient(circle at 24px 24px, rgba(79, 70, 229, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+  background-size:
+    16px 16px,
+    auto;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.interactive-segment-minimap-node {
+  fill: #dbeafe;
+  fill-opacity: 0.96;
+  stroke: #4f46e5;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
+}
+
+.interactive-segment-minimap-node-active {
+  fill: #4f46e5;
+  fill-opacity: 0.96;
+  stroke: #312e81;
+  stroke-width: 1.7;
+  filter: drop-shadow(0 2px 5px rgba(79, 70, 229, 0.28));
+}
+
+.interactive-segment-minimap-mask {
+  fill: rgba(79, 70, 229, 0.08);
+  stroke: rgba(79, 70, 229, 0.45);
+  stroke-width: 1.5;
+}
+
 [data-theme='dark'] .bubble-flat-mode .canvas-bottom-overlay .react-flow__minimap {
   background:
     radial-gradient(circle at 24px 24px, rgba(84, 185, 251, 0.1) 1px, transparent 1px),
@@ -933,6 +1021,32 @@ body,
 [data-theme='dark'] .bubble-flat-mode .react-flow__minimap-mask {
   fill: rgba(84, 185, 251, 0.12) !important;
   stroke: rgba(125, 211, 252, 0.5) !important;
+}
+
+[data-theme='dark'] .interactive-segment-minimap {
+  background:
+    radial-gradient(circle at 24px 24px, rgba(84, 185, 251, 0.1) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.96));
+  background-size:
+    16px 16px,
+    auto;
+}
+
+[data-theme='dark'] .interactive-segment-minimap-node {
+  fill: rgba(84, 185, 251, 0.32);
+  stroke: rgba(125, 211, 252, 0.9);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.36));
+}
+
+[data-theme='dark'] .interactive-segment-minimap-node-active {
+  fill: rgba(84, 185, 251, 0.58);
+  stroke: rgba(255, 255, 255, 0.62);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.42));
+}
+
+[data-theme='dark'] .interactive-segment-minimap-mask {
+  fill: rgba(84, 185, 251, 0.12);
+  stroke: rgba(125, 211, 252, 0.5);
 }
 
 .bubble-flat-mode .editor-footer {
