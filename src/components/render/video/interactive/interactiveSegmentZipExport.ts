@@ -36,6 +36,7 @@ type ExportZipArgs = {
   segments: InteractiveSegmentDraft[];
   nodesById: Map<string, FlowNode>;
   activeSegmentId: string;
+  exportOrderIds?: string[];
   outputDir: string;
   frameRate: number;
   renderVideo: RenderSegmentVideo;
@@ -64,6 +65,7 @@ export const exportInteractiveSegmentZip = async ({
   segments,
   nodesById,
   activeSegmentId,
+  exportOrderIds,
   outputDir,
   frameRate,
   renderVideo,
@@ -74,12 +76,17 @@ export const exportInteractiveSegmentZip = async ({
   setProgressValue,
 }: ExportZipArgs) => {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
-  const orderIds = buildInteractiveSegmentExportOrder(segments, activeSegmentId);
+  const orderIds = exportOrderIds?.length
+    ? exportOrderIds
+    : buildInteractiveSegmentExportOrder(segments, activeSegmentId);
   const enabledSegments = sortSegmentsByExportOrder(
     segments.filter((segment) => segment.enabled),
     orderIds,
   );
-  if (enabledSegments.length === 0) return;
+  if (enabledSegments.length === 0) {
+    setError(t('请先选择要导出的互动片段。', '書き出すインタラクティブセグメントを選択してください。', 'Select interactive segments to export first.'));
+    return;
+  }
 
   const fileName = zipName();
   const zip = new JSZip();

@@ -11,6 +11,7 @@ import type {
   WebExportSettings,
   WebHistoryState,
 } from '../shared/types';
+import type { InteractivePreviewBounds } from '../interactive/interactivePreviewWindow';
 
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
   titleVisible: true,
@@ -132,6 +133,7 @@ export type PersistedRenderWorkspaceState = {
   useGpuAcceleration?: boolean;
   hideCharacterTags?: boolean;
   hideSceneTags?: boolean;
+  interactivePreviewBounds?: InteractivePreviewBounds;
   webProjectName?: string;
   webChoiceColor?: string;
   webChoiceTextColor?: string;

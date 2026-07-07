@@ -15,6 +15,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
@@ -34,6 +35,11 @@ import {
 } from './interactiveSegmentGraphLayout';
 import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
 import {
+  type InteractivePreviewBounds,
+  type InteractivePreviewResizeEdge,
+  useInteractivePreviewWindow,
+} from './interactivePreviewWindow';
+import {
   GraphEditingOverlays,
   SegmentConnectionHandles,
   useInteractiveSegmentGraphEditing,
@@ -41,7 +47,6 @@ import {
 import {
   buildInteractiveSegmentExportOrder,
   exportOrderNumberMap,
-  reconcileInteractiveSegmentExportOrder,
 } from './InteractiveSegmentExportOrder';
 import { InteractiveSegmentMinimap } from './InteractiveSegmentMinimap';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
@@ -70,6 +75,11 @@ type Props = {
   progressValue: number;
   savedPath: string;
   defaultSeconds: number;
+  exportOrderIds: string[];
+  setExportOrderIds: Dispatch<SetStateAction<string[]>>;
+  previewBounds: InteractivePreviewBounds;
+  setPreviewBounds: Dispatch<SetStateAction<InteractivePreviewBounds>>;
+  onExportRequested: () => void;
   onSelectSegment: (id: string) => void;
   onSegmentsChange: (segments: InteractiveSegmentDraft[]) => void;
   onRescan: () => void;
@@ -173,6 +183,11 @@ export function InteractiveSegmentExportWorkspace({
   progressValue,
   savedPath,
   defaultSeconds,
+  exportOrderIds,
+  setExportOrderIds,
+  previewBounds,
+  setPreviewBounds,
+  onExportRequested,
   onSelectSegment,
   onSegmentsChange,
   onRescan,
@@ -194,6 +209,7 @@ export function InteractiveSegmentExportWorkspace({
   const cardHeight = 222;
   const graphPadding = 120;
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('right');
+  const [exportSelectionMode, setExportSelectionMode] = useState<'idle' | 'manual' | 'all'>('idle');
   const autoPositions = useMemo(
     () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight),
     [cardHeight, cardWidth, layoutDirection, segments],
@@ -226,10 +242,8 @@ export function InteractiveSegmentExportWorkspace({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
   const [viewportZoom, setViewportZoom] = useState(1);
-  const [exportOrderIds, setExportOrderIds] = useState<string[]>([]);
   const [previewSegmentId, setPreviewSegmentId] = useState('');
   const [previewItemIndex, setPreviewItemIndex] = useState(0);
-  const [previewPosition, setPreviewPosition] = useState({ x: 96, y: 92 });
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
@@ -267,13 +281,16 @@ export function InteractiveSegmentExportWorkspace({
   const viewportZoomRef = useRef(viewportZoom);
   const cardDragFrameRef = useRef<number | null>(null);
   const viewportPanFrameRef = useRef<number | null>(null);
-  const previewDragRef = useRef<{
-    pointerId: number;
-    offsetX: number;
-    offsetY: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  const lastCardDragMovedRef = useRef(false);
+  const {
+    beginDrag: beginPreviewDrag,
+    drag: dragPreview,
+    endDrag: endPreviewDrag,
+    beginResize: beginPreviewResize,
+    resize: resizePreview,
+    endResize: endPreviewResize,
+    windowStyle: previewWindowStyle,
+  } = useInteractivePreviewWindow(previewBounds, setPreviewBounds);
   const previewSegment = segments.find((segment) => segment.id === previewSegmentId);
   const previewItems = previewSegment ? segmentPreviewItems(previewSegment, nodesById) : [];
   const previewItem =
@@ -284,6 +301,17 @@ export function InteractiveSegmentExportWorkspace({
     resolutionWidth > 0 && resolutionHeight > 0
       ? `${resolutionWidth} / ${resolutionHeight}`
       : '16 / 9';
+  const isCompactPreviewWindow = previewBounds.width < 680;
+  const previewResizeEdges: InteractivePreviewResizeEdge[] = [
+    'top',
+    'right',
+    'bottom',
+    'left',
+    'top-left',
+    'top-right',
+    'bottom-right',
+    'bottom-left',
+  ];
   const graphLinks = segments.flatMap((segment) =>
     segment.choices.map((choice, index) => ({
       id: choice.id,
@@ -306,9 +334,53 @@ export function InteractiveSegmentExportWorkspace({
     '--interactive-bg-scale': viewportZoom,
   } as React.CSSProperties;
   const exportOrderNumbers = useMemo(() => exportOrderNumberMap(exportOrderIds), [exportOrderIds]);
-  const setAllEnabled = (enabled: boolean) => {
-    onSegmentsChange(segments.map((segment) => ({ ...segment, enabled, source: 'edited' })));
-    setExportOrderIds(enabled ? buildInteractiveSegmentExportOrder(segments, activeSegment?.id) : []);
+  const defaultExportOrderIds = useMemo(
+    () => buildInteractiveSegmentExportOrder(segments, activeSegment?.id),
+    [activeSegment?.id, segments],
+  );
+  const applyExportOrder = (orderIds: string[]) => {
+    const selectedIds = new Set(orderIds);
+    onSegmentsChange(
+      segments.map((segment) => ({
+        ...segment,
+        enabled: selectedIds.has(segment.id),
+        source: 'edited',
+      })),
+    );
+    setExportOrderIds(orderIds);
+  };
+  const startManualExportSelection = () => {
+    setExportSelectionMode('manual');
+    applyExportOrder([]);
+  };
+  const finishManualExportSelection = () => {
+    onExportRequested();
+  };
+  const selectAllForExport = () => {
+    setExportSelectionMode('all');
+    applyExportOrder(defaultExportOrderIds);
+  };
+  const clearExportSelection = () => {
+    setExportSelectionMode('idle');
+    applyExportOrder([]);
+  };
+  const toggleSegmentExportSelection = (segmentId: string) => {
+    if (exportSelectionMode === 'manual') {
+      const nextOrderIds = exportOrderIds.includes(segmentId)
+        ? exportOrderIds.filter((id) => id !== segmentId)
+        : [...exportOrderIds, segmentId];
+      applyExportOrder(nextOrderIds);
+      return;
+    }
+
+    if (exportSelectionMode === 'all') {
+      const selectedIds = new Set(exportOrderIds);
+      if (selectedIds.has(segmentId)) selectedIds.delete(segmentId);
+      else selectedIds.add(segmentId);
+      const nextOrderIds = defaultExportOrderIds.filter((id) => selectedIds.has(id));
+      applyExportOrder(nextOrderIds);
+      if (nextOrderIds.length === 0) setExportSelectionMode('idle');
+    }
   };
   const scheduleViewportTransform = (nextPan: GraphPoint, nextZoom = viewportZoomRef.current) => {
     viewportPanRef.current = nextPan;
@@ -402,9 +474,10 @@ export function InteractiveSegmentExportWorkspace({
   });
   useEffect(() => {
     if (exportOrderIds.length === 0) return;
-    const reconciled = reconcileInteractiveSegmentExportOrder(segments, exportOrderIds, activeSegment?.id);
+    const validIds = new Set(segments.map((segment) => segment.id));
+    const reconciled = exportOrderIds.filter((id) => validIds.has(id));
     if (reconciled.join('|') !== exportOrderIds.join('|')) setExportOrderIds(reconciled);
-  }, [activeSegment?.id, exportOrderIds, segments]);
+  }, [exportOrderIds, segments, setExportOrderIds]);
   const openPreview = (segmentId: string) => {
     onSelectSegment(segmentId);
     setPreviewSegmentId(segmentId);
@@ -422,32 +495,6 @@ export function InteractiveSegmentExportWorkspace({
   };
   const showPreviousPreviewItem = () => selectPreviewItem(previewItemIndex - 1);
   const showNextPreviewItem = () => selectPreviewItem(previewItemIndex + 1);
-  const beginPreviewDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.parentElement?.getBoundingClientRect();
-    if (!rect) return;
-    previewDragRef.current = {
-      pointerId: event.pointerId,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      width: rect.width,
-      height: rect.height,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const dragPreview = (event: React.PointerEvent<HTMLDivElement>) => {
-    const drag = previewDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    const maxX = Math.max(16, window.innerWidth - drag.width - 16);
-    const maxY = Math.max(16, window.innerHeight - drag.height - 16);
-    const nextX = Math.min(Math.max(16, event.clientX - drag.offsetX), maxX);
-    const nextY = Math.min(Math.max(16, event.clientY - drag.offsetY), maxY);
-    setPreviewPosition({ x: nextX, y: nextY });
-  };
-  const endPreviewDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (previewDragRef.current?.pointerId === event.pointerId) {
-      previewDragRef.current = null;
-    }
-  };
   const togglePreviewVideo = () => {
     setVideoPlaying((playing) => !playing);
   };
@@ -455,14 +502,18 @@ export function InteractiveSegmentExportWorkspace({
     setVideoProgress(Math.min(Math.max(0, value), previewCardDuration));
   };
   const toggleSegmentEnabled = (segmentId: string) => {
-    onSegmentsChange(
-      updateSegment(segments, segmentId, (segment) => ({
-        ...segment,
-        enabled: !segment.enabled,
-        source: 'edited',
-      })),
-    );
-    setExportOrderIds((previous) => reconcileInteractiveSegmentExportOrder(segments, previous, activeSegment?.id));
+    if (exportSelectionMode === 'idle') setExportSelectionMode('manual');
+    const selectedIds = new Set(exportOrderIds);
+    let nextOrderIds: string[];
+    if (selectedIds.has(segmentId)) {
+      nextOrderIds = exportOrderIds.filter((id) => id !== segmentId);
+    } else {
+      nextOrderIds =
+        exportSelectionMode === 'all'
+          ? defaultExportOrderIds.filter((id) => selectedIds.has(id) || id === segmentId)
+          : [...exportOrderIds, segmentId];
+    }
+    applyExportOrder(nextOrderIds);
   };
   const renameSegment = (segmentId: string, name: string) => {
     onSegmentsChange(
@@ -530,6 +581,7 @@ export function InteractiveSegmentExportWorkspace({
     if (event.button !== 0) return;
     const position = positions.get(segmentId);
     if (!position) return;
+    lastCardDragMovedRef.current = false;
     cardDragRef.current = {
       pointerId: event.pointerId,
       segmentId,
@@ -555,6 +607,7 @@ export function InteractiveSegmentExportWorkspace({
   };
   const endCardDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (cardDragRef.current?.pointerId === event.pointerId) {
+      lastCardDragMovedRef.current = cardDragRef.current.moved;
       cardDragRef.current = null;
     }
   };
@@ -948,6 +1001,7 @@ export function InteractiveSegmentExportWorkspace({
               const position = renderPositions.get(segment.id)!;
               const active = activeSegment?.id === segment.id;
               const selected = selectedSegmentIds.includes(segment.id);
+              const exportSelected = exportOrderNumbers.has(segment.id) && segment.enabled;
               const mediaItems = segmentMediaItems(segment, nodesById);
               const summary =
                 segmentTextSummary(segment, nodesById) || segmentSummary(segment, nodesById);
@@ -959,6 +1013,17 @@ export function InteractiveSegmentExportWorkspace({
                   role="button"
                   tabIndex={0}
                   onDoubleClick={() => openPreview(segment.id)}
+                  onClick={() => {
+                    if (lastCardDragMovedRef.current) {
+                      lastCardDragMovedRef.current = false;
+                      return;
+                    }
+                    if (exportSelectionMode === 'idle') {
+                      onSelectSegment(segment.id);
+                      return;
+                    }
+                    toggleSegmentExportSelection(segment.id);
+                  }}
                   onPointerDown={(event) => beginCardDrag(event, segment.id)}
                   onPointerMove={dragCard}
                   onPointerUp={endCardDrag}
@@ -991,7 +1056,7 @@ export function InteractiveSegmentExportWorkspace({
                     });
                   }}
                   className={`absolute left-0 top-0 w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-[border-color,background-color,box-shadow,opacity] active:cursor-grabbing ${
-                    active || selected
+                    active || selected || exportSelected
                       ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/20'
                       : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:border-[var(--vr-accent)]/50'
                   } ${segment.enabled ? '' : 'opacity-50'}`}
@@ -1003,7 +1068,7 @@ export function InteractiveSegmentExportWorkspace({
                       cardDragRef.current?.segmentId === segment.id ? 'transform' : undefined,
                   }}
                 >
-                  {exportOrderNumbers.has(segment.id) && segment.enabled && (
+                  {exportSelected && (
                     <div className="pointer-events-none absolute left-3 top-3 z-20 flex h-14 min-w-14 items-center justify-center rounded-2xl bg-[var(--vr-accent)] px-3 text-4xl font-black leading-none text-white shadow-lg shadow-[var(--vr-accent)]/25 ring-4 ring-white/75">
                       {exportOrderNumbers.get(segment.id)}
                     </div>
@@ -1213,11 +1278,39 @@ export function InteractiveSegmentExportWorkspace({
         </div>
         {previewSegment && (
           <div
-            className="fixed z-[580] max-h-[min(720px,calc(100vh-96px))] w-[min(860px,calc(100vw-32px))] overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-2xl"
-            style={{ left: previewPosition.x, top: previewPosition.y }}
+            className="fixed z-[580] flex flex-col overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-2xl"
+            style={previewWindowStyle}
+            onPointerMove={resizePreview}
+            onPointerUp={endPreviewResize}
+            onPointerCancel={endPreviewResize}
           >
+            {previewResizeEdges.map((edge) => (
+              <div
+                key={edge}
+                role="separator"
+                aria-label={`Resize preview ${edge}`}
+                className={`absolute z-30 ${
+                  edge === 'top'
+                    ? 'left-3 right-3 top-0 h-2 cursor-ns-resize'
+                    : edge === 'right'
+                      ? 'bottom-3 right-0 top-3 w-2 cursor-ew-resize'
+                      : edge === 'bottom'
+                        ? 'bottom-0 left-3 right-3 h-2 cursor-ns-resize'
+                        : edge === 'left'
+                          ? 'bottom-3 left-0 top-3 w-2 cursor-ew-resize'
+                          : edge === 'top-left'
+                            ? 'left-0 top-0 h-4 w-4 cursor-nwse-resize'
+                            : edge === 'top-right'
+                              ? 'right-0 top-0 h-4 w-4 cursor-nesw-resize'
+                              : edge === 'bottom-right'
+                                ? 'bottom-0 right-0 h-4 w-4 cursor-nwse-resize'
+                                : 'bottom-0 left-0 h-4 w-4 cursor-nesw-resize'
+                }`}
+                onPointerDown={beginPreviewResize(edge)}
+              />
+            ))}
             <div
-              className="flex cursor-move touch-none select-none items-center justify-between border-b border-[var(--vr-border)] px-4 py-3"
+              className="flex shrink-0 cursor-move touch-none select-none items-center justify-between border-b border-[var(--vr-border)] px-4 py-3"
               onPointerDown={beginPreviewDrag}
               onPointerMove={dragPreview}
               onPointerUp={endPreviewDrag}
@@ -1242,12 +1335,18 @@ export function InteractiveSegmentExportWorkspace({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid max-h-[min(624px,calc(100vh-196px))] grid-cols-[minmax(0,1fr)_220px] gap-3 overflow-hidden p-3">
-              <div className="min-h-0">
-                <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-lg bg-black p-2">
+            <div
+              className={`grid min-h-0 flex-1 gap-3 overflow-hidden p-3 ${
+                isCompactPreviewWindow
+                  ? 'grid-rows-[minmax(0,1fr)_150px]'
+                  : 'grid-cols-[minmax(0,1fr)_220px]'
+              }`}
+            >
+              <div className="flex min-h-0 flex-col overflow-hidden">
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-black p-2">
                   <div
                     className="relative max-w-full overflow-hidden rounded-md bg-black"
-                    style={{ aspectRatio: previewAspectRatio, height: 'min(34vh, 320px)' }}
+                    style={{ aspectRatio: previewAspectRatio, height: '100%' }}
                   >
                     {previewItem?.videoUrl ? (
                       <video
@@ -1324,7 +1423,7 @@ export function InteractiveSegmentExportWorkspace({
                     )}
                   </div>
                 </div>
-                <div className="mt-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
+                <div className="mt-3 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2">
                   {previewItem ? (
                     <div className="grid grid-cols-[30px_32px_42px_minmax(0,1fr)_42px_30px] items-center gap-2">
                       <button
@@ -1416,7 +1515,7 @@ export function InteractiveSegmentExportWorkspace({
                   )}
                 </div>
               </div>
-              <div className="min-h-0 overflow-y-auto">
+              <div className="min-h-0 overflow-y-auto pr-1">
                 <div className="mb-2 text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
                   {t('片段内部卡片', 'セグメント内カード', 'Cards in segment')}
                 </div>
@@ -1517,19 +1616,39 @@ export function InteractiveSegmentExportWorkspace({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setAllEnabled(true)}
-              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] text-xs font-black text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]"
+              onClick={
+                exportSelectionMode === 'manual'
+                  ? finishManualExportSelection
+                  : startManualExportSelection
+              }
+              className={`flex h-9 flex-1 items-center justify-center gap-2 rounded-lg text-xs font-black transition-colors ${
+                exportSelectionMode === 'manual'
+                  ? 'bg-[var(--vr-accent)] text-white hover:bg-[var(--vr-accent-strong)]'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]'
+              }`}
             >
-              <CheckSquare className="h-4 w-4" />
-              {t('全选', '全選択', 'All')}
+              {exportSelectionMode === 'manual' ? (
+                <CheckSquare className="h-4 w-4" />
+              ) : (
+                <GitBranch className="h-4 w-4" />
+              )}
+              {exportSelectionMode === 'manual'
+                ? t('完成', '完了', 'Done')
+                : t('选择导出', '選択して書き出し', 'Select export')}
             </button>
             <button
               type="button"
-              onClick={() => setAllEnabled(false)}
+              onClick={exportSelectionMode === 'all' ? clearExportSelection : selectAllForExport}
               className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] text-xs font-black text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]"
             >
-              <Square className="h-4 w-4" />
-              {t('全不选', '選択解除', 'None')}
+              {exportSelectionMode === 'all' ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <CheckSquare className="h-4 w-4" />
+              )}
+              {exportSelectionMode === 'all'
+                ? t('全不选', '選択解除', 'None')
+                : t('全部导出', 'すべて書き出し', 'Export all')}
             </button>
           </div>
 
@@ -1670,4 +1789,3 @@ function SelectBox({
     </div>
   );
 }
-

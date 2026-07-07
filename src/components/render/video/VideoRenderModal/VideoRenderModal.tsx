@@ -102,6 +102,11 @@ import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
 import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
+import {
+  DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
+  isInteractivePreviewBounds,
+  type InteractivePreviewBounds,
+} from '../interactive/interactivePreviewWindow';
 import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
 import {
   buildInteractiveSegments,
@@ -379,6 +384,13 @@ export function VideoRenderModal({
   const [activeInteractiveSegmentId, setActiveInteractiveSegmentId] = useState(
     () => interactiveSegments[0]?.id || '',
   );
+  const [interactiveExportOrderIds, setInteractiveExportOrderIds] = useState<string[]>([]);
+  const [interactivePreviewBounds, setInteractivePreviewBounds] =
+    useState<InteractivePreviewBounds>(() =>
+      isInteractivePreviewBounds(persistedWorkspace?.interactivePreviewBounds)
+        ? persistedWorkspace.interactivePreviewBounds
+        : DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
+    );
   const modalRootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetPanelLastWidthRef = useRef(assetPanelWidth || 320);
@@ -785,6 +797,7 @@ export function VideoRenderModal({
     useGpuAcceleration,
     hideCharacterTags,
     hideSceneTags,
+    interactivePreviewBounds,
     webProjectName,
     webChoiceColor,
     webChoiceTextColor,
@@ -1208,6 +1221,7 @@ export function VideoRenderModal({
     focusedPreviewId,
     hideCharacterTags,
     hideSceneTags,
+    interactivePreviewBounds,
     outputDir,
     renderStyle,
     resolutionHeight,
@@ -1710,6 +1724,7 @@ export function VideoRenderModal({
     const next = buildInteractiveSegments(nodes, edges);
     setInteractiveSegments(next);
     setActiveInteractiveSegmentId(next[0]?.id || '');
+    setInteractiveExportOrderIds([]);
     setError('');
     setProgress('');
     setSavedPath('');
@@ -1721,6 +1736,7 @@ export function VideoRenderModal({
       segments: interactiveSegments,
       nodesById: storyNodeById,
       activeSegmentId: activeInteractiveSegmentId,
+      exportOrderIds: interactiveExportOrderIds,
       outputDir,
       frameRate,
       renderVideo,
@@ -1948,6 +1964,11 @@ export function VideoRenderModal({
               progressValue={progressValue}
               savedPath={savedPath}
               defaultSeconds={defaultSeconds}
+              exportOrderIds={interactiveExportOrderIds}
+              setExportOrderIds={setInteractiveExportOrderIds}
+              previewBounds={interactivePreviewBounds}
+              setPreviewBounds={setInteractivePreviewBounds}
+              onExportRequested={exportInteractiveSegments}
               onSelectSegment={setActiveInteractiveSegmentId}
               onSegmentsChange={setInteractiveSegments}
               onRescan={rescanInteractiveSegments}
