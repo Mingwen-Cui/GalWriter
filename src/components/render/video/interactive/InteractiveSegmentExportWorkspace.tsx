@@ -1,5 +1,7 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
+  ArrowDown,
+  ArrowRight,
   CheckSquare,
   ChevronDown,
   ChevronLeft,
@@ -16,7 +18,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import {
@@ -29,6 +31,15 @@ import { renderCopy } from '../shared/renderCopy';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../shared/storyNodes';
 import type { ExportFormat, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
 import { drawRenderFrame } from '../preview/frameRenderer';
+import {
+  buildSegmentLayout,
+  clamp,
+  colorWithAlpha,
+  graphBoundsFromPositions,
+  isGeneratedChoiceLabel,
+  segmentLinkPath,
+} from './interactiveSegmentGraphLayout';
+import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
 type Props = {
@@ -131,20 +142,6 @@ const formatPlaybackTime = (seconds: number) => {
   return `${minutes}:${String(rest).padStart(2, '0')}`;
 };
 
-const segmentLinkPath = (
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  cardWidth: number,
-  cardHeight: number,
-) => {
-  const startX = from.x + cardWidth;
-  const startY = from.y + cardHeight / 2;
-  const endX = to.x;
-  const endY = to.y + cardHeight / 2;
-  const middleX = startX + Math.max(44, (endX - startX) / 2);
-  return `M${startX},${startY} L${middleX},${startY} L${middleX},${endY} L${endX},${endY}`;
-};
-
 export function InteractiveSegmentExportWorkspace({
   language,
   segments,
@@ -188,26 +185,43 @@ export function InteractiveSegmentExportWorkspace({
   const enabledCount = segments.filter((segment) => segment.enabled).length;
   const choiceCount = segments.reduce((sum, segment) => sum + segment.choices.length, 0);
   const cardWidth = 280;
-  const cardHeight = 218;
-  const columnGap = 360;
-  const rowGap = 278;
-  const graphWidth = Math.max(1040, 90 + Math.min(3, Math.max(1, segments.length)) * columnGap);
-  const graphHeight = Math.max(620, Math.ceil(segments.length / 3) * rowGap + 150);
-  const positions = new Map(
-    segments.map((segment, index) => [
-      segment.id,
-      {
-        x: 70 + (index % 3) * columnGap,
-        y: 82 + Math.floor(index / 3) * rowGap,
-      },
-    ]),
+  const cardHeight = 196;
+  const graphPadding = 120;
+  const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('right');
+  const autoPositions = useMemo(
+    () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight),
+    [cardHeight, cardWidth, layoutDirection, segments],
   );
+  const [manualPositions, setManualPositions] = useState<Record<string, GraphPoint>>({});
+  const positions = useMemo(() => {
+    const next = new Map<string, GraphPoint>();
+    segments.forEach((segment) => {
+      next.set(segment.id, manualPositions[segment.id] || autoPositions.get(segment.id) || { x: 96, y: 92 });
+    });
+    return next;
+  }, [autoPositions, manualPositions, segments]);
+  const graphBounds = graphBoundsFromPositions(positions, cardWidth, cardHeight);
+  const renderOffset = {
+    x: graphPadding - graphBounds.minX,
+    y: graphPadding - graphBounds.minY,
+  };
+  const renderPositions = useMemo(() => {
+    const next = new Map<string, GraphPoint>();
+    positions.forEach((position, id) => {
+      next.set(id, { x: position.x + renderOffset.x, y: position.y + renderOffset.y });
+    });
+    return next;
+  }, [positions, renderOffset.x, renderOffset.y]);
+  const graphWidth = Math.max(1040, graphBounds.maxX - graphBounds.minX + graphPadding * 2);
+  const graphHeight = Math.max(620, graphBounds.maxY - graphBounds.minY + graphPadding * 2);
   const minimapWidth = 172;
   const minimapHeight = 112;
   const minimapScale = Math.min(
     minimapWidth / Math.max(1, graphWidth),
     minimapHeight / Math.max(1, graphHeight),
   );
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
   const [previewSegmentId, setPreviewSegmentId] = useState('');
   const [previewItemIndex, setPreviewItemIndex] = useState(0);
   const [previewPosition, setPreviewPosition] = useState({ x: 96, y: 92 });
@@ -222,6 +236,23 @@ export function InteractiveSegmentExportWorkspace({
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewRenderCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRenderVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
+  const graphViewportRef = useRef<HTMLDivElement | null>(null);
+  const canvasPanRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const cardDragRef = useRef<{
+    pointerId: number;
+    segmentId: string;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
   const previewDragRef = useRef<{
     pointerId: number;
     offsetX: number;
@@ -246,6 +277,29 @@ export function InteractiveSegmentExportWorkspace({
       index,
     })),
   );
+  const lineRadius = Math.min(Math.max(0, renderStyle.dialogRadius || 0), 36);
+  const uiRadius = Math.min(Math.max(6, renderStyle.dialogRadius || 12), 24);
+  const lineOpacity = clamp((renderStyle.panelColorAlpha ?? 82) / 100, 0.25, 1);
+  const graphStyle = {
+    '--interactive-line-alpha': String(lineOpacity),
+    '--interactive-card-radius': `${uiRadius}px`,
+    '--interactive-panel-color': colorWithAlpha(renderStyle.panelColor || '#111827', lineOpacity),
+  } as React.CSSProperties;
+  const viewportOverflowing =
+    graphWidth + viewportPan.x > viewportSize.width ||
+    graphHeight + viewportPan.y > viewportSize.height ||
+    viewportPan.x < 0 ||
+    viewportPan.y < 0;
+  const showMinimap =
+    viewportSize.width > 0 &&
+    viewportSize.height > 0 &&
+    (graphWidth > viewportSize.width || graphHeight > viewportSize.height || viewportOverflowing);
+  const minimapViewport = {
+    x: clamp((-viewportPan.x / Math.max(1, graphWidth)) * minimapWidth, 0, minimapWidth),
+    y: clamp((-viewportPan.y / Math.max(1, graphHeight)) * minimapHeight, 0, minimapHeight),
+    width: clamp((viewportSize.width / Math.max(1, graphWidth)) * minimapWidth, 12, minimapWidth),
+    height: clamp((viewportSize.height / Math.max(1, graphHeight)) * minimapHeight, 12, minimapHeight),
+  };
 
   const setAllEnabled = (enabled: boolean) =>
     onSegmentsChange(segments.map((segment) => ({ ...segment, enabled, source: 'edited' })));
@@ -316,6 +370,70 @@ export function InteractiveSegmentExportWorkspace({
       })),
     );
   };
+  const resetLayout = (direction: LayoutDirection) => {
+    setLayoutDirection(direction);
+    setManualPositions({});
+    setViewportPan({ x: 0, y: 0 });
+  };
+  const beginCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    canvasPanRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: viewportPan.x,
+      originY: viewportPan.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const dragCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = canvasPanRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setViewportPan({
+      x: drag.originX + event.clientX - drag.startX,
+      y: drag.originY + event.clientY - drag.startY,
+    });
+  };
+  const endCanvasPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (canvasPanRef.current?.pointerId === event.pointerId) {
+      canvasPanRef.current = null;
+    }
+  };
+  const beginCardDrag = (event: React.PointerEvent<HTMLDivElement>, segmentId: string) => {
+    if (event.button !== 0) return;
+    const position = positions.get(segmentId);
+    if (!position) return;
+    cardDragRef.current = {
+      pointerId: event.pointerId,
+      segmentId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+  };
+  const dragCard = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = cardDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
+    setManualPositions((previous) => ({
+      ...previous,
+      [drag.segmentId]: {
+        x: drag.originX + dx,
+        y: drag.originY + dy,
+      },
+    }));
+  };
+  const endCardDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (cardDragRef.current?.pointerId === event.pointerId) {
+      cardDragRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -330,6 +448,30 @@ export function InteractiveSegmentExportWorkspace({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [contextMenu]);
+
+  useEffect(() => {
+    const viewport = graphViewportRef.current;
+    if (!viewport) return;
+    const updateSize = () => {
+      setViewportSize({
+        width: viewport.clientWidth,
+        height: viewport.clientHeight,
+      });
+    };
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(viewport);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setManualPositions((previous) => {
+      const validIds = new Set(segments.map((segment) => segment.id));
+      const entries = Object.entries(previous).filter(([id]) => validIds.has(id));
+      if (entries.length === Object.keys(previous).length) return previous;
+      return Object.fromEntries(entries);
+    });
+  }, [segments]);
 
   useEffect(() => {
     setVideoProgress(0);
@@ -443,8 +585,8 @@ export function InteractiveSegmentExportWorkspace({
 
   return (
     <main className="min-h-0 min-w-0 grid grid-cols-[minmax(0,1fr)_380px] overflow-hidden bg-[var(--vr-bg)]">
-      <section className="relative min-h-0 min-w-0 overflow-auto">
-        <div className="sticky left-0 top-0 z-10 flex items-center justify-between border-b border-[var(--vr-border)] bg-[var(--vr-bg)]/90 px-4 py-3 backdrop-blur-xl">
+      <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden">
+        <div className="z-10 flex items-center justify-between border-b border-[var(--vr-border)] bg-[var(--vr-bg)]/90 px-4 py-3 backdrop-blur-xl">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-black text-[var(--vr-text)]">
               <GitBranch className="h-4 w-4 text-[var(--vr-accent-strong)]" />
@@ -458,6 +600,34 @@ export function InteractiveSegmentExportWorkspace({
               )}
             </div>
           </div>
+          <div className="mr-2 flex h-9 shrink-0 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
+            <button
+              type="button"
+              onClick={() => resetLayout('right')}
+              className={`flex w-10 items-center justify-center transition-colors ${
+                layoutDirection === 'right'
+                  ? 'bg-[var(--vr-accent)] text-white'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)]'
+              }`}
+              title={t('向右排列', '右方向', 'Arrange right')}
+              aria-label={t('向右排列', '右方向', 'Arrange right')}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => resetLayout('down')}
+              className={`flex w-10 items-center justify-center transition-colors ${
+                layoutDirection === 'down'
+                  ? 'bg-[var(--vr-accent)] text-white'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-accent-strong)]'
+              }`}
+              title={t('向下排列', '下方向', 'Arrange down')}
+              aria-label={t('向下排列', '下方向', 'Arrange down')}
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+          </div>
           <button
             type="button"
             onClick={onRescan}
@@ -469,8 +639,31 @@ export function InteractiveSegmentExportWorkspace({
           </button>
         </div>
 
-        <div className="relative p-6" style={{ width: graphWidth, height: graphHeight }}>
-          <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+        <div
+          ref={graphViewportRef}
+          className="relative min-h-0 flex-1 overflow-hidden"
+          style={graphStyle}
+        >
+          <div
+            className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
+            onPointerDown={beginCanvasPan}
+            onPointerMove={dragCanvasPan}
+            onPointerUp={endCanvasPan}
+            onPointerCancel={endCanvasPan}
+          />
+          <div
+            className="absolute left-0 top-0 touch-none"
+            onPointerDown={beginCanvasPan}
+            onPointerMove={dragCanvasPan}
+            onPointerUp={endCanvasPan}
+            onPointerCancel={endCanvasPan}
+            style={{
+              width: graphWidth,
+              height: graphHeight,
+              transform: `translate(${viewportPan.x}px, ${viewportPan.y}px)`,
+            }}
+          >
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
             <defs>
               <marker
                 id="interactive-arrow"
@@ -486,15 +679,25 @@ export function InteractiveSegmentExportWorkspace({
             </defs>
             {graphLinks.map((link) => {
               const fromSegment = segments.find((segment) => segment.id === link.fromSegmentId);
-              const from = positions.get(link.fromSegmentId);
+              const from = renderPositions.get(link.fromSegmentId);
               if (!from) return null;
-              const to = positions.get(link.toSegmentId);
+              const to = renderPositions.get(link.toSegmentId);
               if (!to || !fromSegment) return null;
               const active =
                 activeSegmentId === link.fromSegmentId || activeSegmentId === link.toSegmentId;
-              const path = segmentLinkPath(from, to, cardWidth, cardHeight);
-              const labelX = from.x + cardWidth + Math.max(72, (to.x - from.x - cardWidth) / 2);
-              const labelY = from.y + cardHeight / 2 + (to.y > from.y ? 18 : -12) + link.index * 24;
+              const path = segmentLinkPath(from, to, cardWidth, cardHeight, layoutDirection, lineRadius);
+              const labelX =
+                layoutDirection === 'right'
+                  ? from.x + cardWidth + Math.max(84, (to.x - from.x - cardWidth) / 2)
+                  : to.x + cardWidth / 2 + (link.index - (fromSegment.choices.length - 1) / 2) * 104;
+              const labelY =
+                layoutDirection === 'right'
+                  ? from.y + cardHeight / 2 + (to.y > from.y ? 24 : -24) + link.index * 18
+                  : from.y + cardHeight + Math.max(48, (to.y - from.y - cardHeight) / 2) - 26;
+              const label = isGeneratedChoiceLabel(link.label)
+                ? ''
+                : (link.isChoice ? link.label : t('缁х画', '缍氥亶', 'Continue')).slice(0, 10);
+              const labelWidth = Math.max(56, Math.min(116, label.length * 8 + 24));
               return (
                 <g
                   key={link.id}
@@ -507,7 +710,7 @@ export function InteractiveSegmentExportWorkspace({
                     strokeWidth={active ? 8 : 6}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    opacity="0.88"
+                    opacity={lineOpacity}
                   />
                   <path
                     d={path}
@@ -518,7 +721,7 @@ export function InteractiveSegmentExportWorkspace({
                     strokeLinejoin="round"
                     strokeDasharray={link.isChoice ? undefined : '7 7'}
                     markerEnd="url(#interactive-arrow)"
-                    opacity={link.isChoice || active ? 1 : 0.78}
+                    opacity={active ? 1 : lineOpacity}
                   />
                   <circle
                     cx={from.x + cardWidth}
@@ -534,6 +737,7 @@ export function InteractiveSegmentExportWorkspace({
                     height="24"
                     rx="7"
                     className="fill-[var(--vr-surface-strong)] stroke-current"
+                    opacity={label ? 1 : 0}
                     strokeWidth={active ? 1.8 : 1}
                   />
                   <text
@@ -541,6 +745,7 @@ export function InteractiveSegmentExportWorkspace({
                     y={labelY + 3}
                     textAnchor="middle"
                     className="fill-current text-[10px] font-black"
+                    opacity={label ? 1 : 0}
                   >
                     {(link.isChoice ? link.label : t('继续', '続き', 'Continue')).slice(0, 10)}
                   </text>
@@ -550,7 +755,7 @@ export function InteractiveSegmentExportWorkspace({
           </svg>
 
           {segments.map((segment) => {
-            const position = positions.get(segment.id)!;
+            const position = renderPositions.get(segment.id)!;
             const active = activeSegment?.id === segment.id;
             const mediaItems = segmentMediaItems(segment, nodesById);
             const summary = segmentTextSummary(segment, nodesById) || segmentSummary(segment, nodesById);
@@ -561,11 +766,15 @@ export function InteractiveSegmentExportWorkspace({
                 key={segment.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => openPreview(segment.id)}
+                onDoubleClick={() => openPreview(segment.id)}
+                onPointerDown={(event) => beginCardDrag(event, segment.id)}
+                onPointerMove={dragCard}
+                onPointerUp={endCardDrag}
+                onPointerCancel={endCardDrag}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    openPreview(segment.id);
+                    onSelectSegment(segment.id);
                   }
                 }}
                 onContextMenu={(event) => {
@@ -589,20 +798,25 @@ export function InteractiveSegmentExportWorkspace({
                     video.currentTime = 0;
                   });
                 }}
-                className={`absolute w-[280px] overflow-hidden rounded-lg border text-left shadow-sm transition-all ${
+                className={`absolute w-[280px] cursor-grab overflow-hidden border text-left shadow-sm transition-all active:cursor-grabbing ${
                   active
                     ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] ring-2 ring-[var(--vr-accent)]/20'
                     : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:border-[var(--vr-accent)]/50'
                 } ${segment.enabled ? '' : 'opacity-50'}`}
-                style={{ left: position.x, top: position.y, height: cardHeight }}
+                style={{
+                  left: position.x,
+                  top: position.y,
+                  height: cardHeight,
+                  borderRadius: 'var(--interactive-card-radius)',
+                }}
               >
                 <div className="p-3">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="hidden items-center justify-end gap-2">
                     <span className="rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
                       {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <input
                       value={segment.name}
                       onChange={(event) => renameSegment(segment.id, event.target.value)}
@@ -611,6 +825,9 @@ export function InteractiveSegmentExportWorkspace({
                       className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-black text-[var(--vr-text)] outline-none transition-colors focus:border-[var(--vr-accent)] focus:bg-[var(--vr-surface)]"
                       aria-label={t('视频名称', '動画名', 'Video name')}
                     />
+                    <span className="shrink-0 rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
+                      {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
+                    </span>
                   </div>
                   <div className="mt-2 line-clamp-2 h-9 text-[11px] leading-[18px] text-[var(--vr-text-muted)]">
                     {summary}
@@ -710,6 +927,9 @@ export function InteractiveSegmentExportWorkspace({
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                }}
+                                onDoubleClick={(event) => {
+                                  event.stopPropagation();
                                   openPreview(segment.id);
                                 }}
                                 className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white shadow-lg transition-colors hover:bg-black/80"
@@ -743,7 +963,8 @@ export function InteractiveSegmentExportWorkspace({
             );
           })}
         </div>
-        <div className="hidden pointer-events-none absolute bottom-4 right-4 z-20 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 p-2 shadow-xl backdrop-blur-xl">
+        {showMinimap && (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 p-2 shadow-xl backdrop-blur-xl">
           <div className="mb-1 text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
             {t('小地图', 'ミニマップ', 'Minimap')}
           </div>
@@ -754,8 +975,8 @@ export function InteractiveSegmentExportWorkspace({
               </marker>
             </defs>
             {graphLinks.map((link) => {
-              const from = positions.get(link.fromSegmentId);
-              const to = positions.get(link.toSegmentId);
+              const from = renderPositions.get(link.fromSegmentId);
+              const to = renderPositions.get(link.toSegmentId);
               if (!from || !to) return null;
               return (
                 <line
@@ -768,12 +989,12 @@ export function InteractiveSegmentExportWorkspace({
                   strokeWidth="1"
                   markerEnd="url(#interactive-minimap-arrow)"
                   className="text-[var(--vr-border-strong)]"
-                  opacity={link.isChoice ? 0.85 : 0.45}
+                  opacity={link.isChoice ? lineOpacity : lineOpacity * 0.62}
                 />
               );
             })}
             {segments.map((segment) => {
-              const position = positions.get(segment.id)!;
+              const position = renderPositions.get(segment.id)!;
               const active = activeSegment?.id === segment.id;
               return (
                 <rect
@@ -782,13 +1003,26 @@ export function InteractiveSegmentExportWorkspace({
                   y={position.y * minimapScale}
                   width={cardWidth * minimapScale}
                   height={cardHeight * minimapScale}
-                  rx="2"
+                  rx={Math.min(uiRadius, 6)}
                   className={active ? 'fill-[var(--vr-accent)]' : 'fill-[var(--vr-text-muted)]'}
                   opacity={active ? 0.95 : 0.38}
                 />
               );
             })}
+            <rect
+              x={minimapViewport.x}
+              y={minimapViewport.y}
+              width={minimapViewport.width}
+              height={minimapViewport.height}
+              rx={Math.min(uiRadius, 5)}
+              fill="none"
+              stroke="var(--vr-accent)"
+              strokeWidth="1.4"
+              opacity="0.9"
+            />
           </svg>
+        </div>
+        )}
         </div>
         {previewSegment && (
           <div
