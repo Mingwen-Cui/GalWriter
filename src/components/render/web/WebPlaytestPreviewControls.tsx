@@ -146,7 +146,45 @@ export function PreviewToolbar({
       <div className="min-w-0 flex items-center gap-2.5">
         <span className="truncate text-sm font-black text-white/88">{titleText}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onToggleAudioPlaylist}
+            className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-black transition-all active:scale-95 ${
+              showAudioPlaylist
+                ? 'bg-sky-500/35 text-sky-100'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+            title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
+            aria-label={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
+          >
+            <ListMusic className="h-3.5 w-3.5" />
+            <span>{t('音频', '音声', 'Audio')}</span>
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleFullscreen}
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-sky-500/22 px-3 text-xs font-black text-sky-100 transition-all hover:bg-sky-500/34 active:scale-95"
+          title={
+            isPreviewFullscreen
+              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
+              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
+          }
+          aria-label={
+            isPreviewFullscreen
+              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
+              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
+          }
+        >
+          {isPreviewFullscreen ? (
+            <Minimize2 className="h-3.5 w-3.5" />
+          ) : (
+            <Maximize2 className="h-3.5 w-3.5" />
+          )}
+          <span>{isPreviewFullscreen ? t('退出', '終了', 'Exit') : t('最大化', '最大化', 'Max')}</span>
+        </button>
         <button
           type="button"
           onClick={onBack}
@@ -168,42 +206,6 @@ export function PreviewToolbar({
             <span>{t('主界面', 'メイン', 'Menu')}</span>
           </button>
         )}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={onToggleAudioPlaylist}
-            className={`grid h-8 w-8 place-items-center rounded-full transition-all active:scale-95 ${
-              showAudioPlaylist
-                ? 'bg-sky-500/35 text-sky-100'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-            title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-            aria-label={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-          >
-            <ListMusic className="h-4 w-4" />
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onToggleFullscreen}
-          className="grid h-8 w-8 place-items-center rounded-full bg-sky-500/22 text-sky-100 transition-all hover:bg-sky-500/34 active:scale-95"
-          title={
-            isPreviewFullscreen
-              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
-              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
-          }
-          aria-label={
-            isPreviewFullscreen
-              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
-              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
-          }
-        >
-          {isPreviewFullscreen ? (
-            <Minimize2 className="h-4 w-4" />
-          ) : (
-            <Maximize2 className="h-4 w-4" />
-          )}
-        </button>
       </div>
       {playlistAudioUrl && (
         <audio

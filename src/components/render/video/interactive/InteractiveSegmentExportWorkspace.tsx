@@ -791,13 +791,6 @@ export function InteractiveSegmentExportWorkspace({
               <GitBranch className="h-4 w-4 text-[var(--vr-accent-strong)]" />
               {t('互动分段结构', 'インタラクティブ分割構造', 'Interactive segment map')}
             </div>
-            <div className="mt-1 text-xs font-bold text-[var(--vr-text-muted)]">
-              {t(
-                `遇到选择点自动切断：${segments.length} 个视频片段，${choiceCount} 个选择跳转`,
-                `選択地点で自動分割: ${segments.length} 個の動画セグメント、${choiceCount} 個の選択遷移`,
-                `Cut at choices: ${segments.length} video segments, ${choiceCount} choice link(s)`,
-              )}
-            </div>
           </div>
           <div className="mr-2 flex h-9 shrink-0 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
             <button
@@ -831,10 +824,11 @@ export function InteractiveSegmentExportWorkspace({
             type="button"
             onClick={onRescan}
             disabled={isRendering}
-            className="flex h-9 items-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-xs font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-accent)]/50 hover:text-[var(--vr-accent-strong)] disabled:opacity-40"
+            title={t('重新识别', '再スキャン', 'Rescan')}
+            aria-label={t('重新识别', '再スキャン', 'Rescan')}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-accent)]/50 hover:text-[var(--vr-accent-strong)] disabled:opacity-40"
           >
             <RefreshCw className="h-4 w-4" />
-            {t('重新识别', '再スキャン', 'Rescan')}
           </button>
         </div>
 
@@ -1600,9 +1594,9 @@ export function InteractiveSegmentExportWorkspace({
             </div>
             <div className="mt-1 text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
               {t(
-                '按 B 站交互视频的素材方式，在选择点前结束当前视频，选择后跳到下一段。',
-                '選択地点で現在の動画を終了し、選択後に次のセグメントへ進みます。',
-                'Each video stops before a choice; each choice points to the next segment.',
+                `遇到选择点自动切断：${segments.length} 个视频片段，${choiceCount} 个选择跳转`,
+                `選択地点で自動分割: ${segments.length} 個の動画セグメント、${choiceCount} 個の選択遷移`,
+                `Cut at choices: ${segments.length} video segments, ${choiceCount} choice link(s)`,
               )}
             </div>
           </div>
@@ -1633,7 +1627,7 @@ export function InteractiveSegmentExportWorkspace({
                 <GitBranch className="h-4 w-4" />
               )}
               {exportSelectionMode === 'manual'
-                ? t('完成', '完了', 'Done')
+                ? t('导出', '書き出し', 'Export')
                 : t('选择导出', '選択して書き出し', 'Select export')}
             </button>
             <button

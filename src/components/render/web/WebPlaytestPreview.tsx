@@ -1179,21 +1179,6 @@ export function WebPlaytestPreview({
             </div>
           )}
 
-          {settings.startMenuTemplate !== 'minimal' && !settings.startMenuElements?.length && (
-            <div
-              className="absolute h-[68px] w-[68px] rounded-[18px] shadow-2xl shadow-black/30 bg-[radial-gradient(circle_at_42%_32%,rgba(255,255,255,0.78),transparent_18%),linear-gradient(135deg,var(--preview-choice-color,#0ea5e9),#0f172a)]"
-              style={
-                {
-                  '--preview-choice-color': choiceColor,
-                  left:
-                    settings.startMenuButtonPosition === 'center'
-                      ? 'calc(50% - 34px)'
-                      : `${defaultButtonX}%`,
-                  top: settings.startMenuButtonPosition === 'center' ? '16%' : '36%',
-                } as React.CSSProperties
-              }
-            />
-          )}
           {testStartMenuElements.map((element) => (
             <WebPlaytestStartMenuElement
               key={element.id}

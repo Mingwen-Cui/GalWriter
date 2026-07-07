@@ -3,11 +3,13 @@ import {
   Download,
   FileText,
   Film,
+  Gamepad2,
   Loader2,
   Maximize2,
   Minimize2,
   PanelLeftClose,
   PanelRightClose,
+  Play,
   Redo2,
   Undo2,
   X,
@@ -29,6 +31,7 @@ type RenderHeaderProps = {
   timelineFuture: unknown[];
   webPast: unknown[];
   webFuture: unknown[];
+  webShowStartMenu: boolean;
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
@@ -43,6 +46,7 @@ type RenderHeaderProps = {
   redoTimeline: () => void;
   undoWeb: () => void;
   redoWeb: () => void;
+  setWebShowStartMenu: (enabled: boolean) => void;
   /** 点击导出按钮时打开弹窗，而非直接导出 */
   onExportClick: () => void;
   onClose: () => void;
@@ -60,6 +64,7 @@ export function RenderHeader({
   timelineFuture,
   webPast,
   webFuture,
+  webShowStartMenu,
   selectedNodes,
   nodes,
   setWorkspaceMode,
@@ -74,6 +79,7 @@ export function RenderHeader({
   redoTimeline,
   undoWeb,
   redoWeb,
+  setWebShowStartMenu,
   onExportClick,
   onClose,
 }: RenderHeaderProps) {
@@ -135,6 +141,46 @@ export function RenderHeader({
         >
           {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
         </button>
+        {workspaceMode === 'web' && (
+          <div className="ml-1 grid h-8 grid-cols-2 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (isRendering) return;
+                setWebShowStartMenu(true);
+              }}
+              disabled={isRendering}
+              className={`flex h-7 items-center justify-center gap-1.5 rounded-md px-3 text-[11px] font-black transition-colors ${
+                webShowStartMenu
+                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              } disabled:opacity-40`}
+              title={t('启用主界面入口', 'メイン画面を有効化', 'Enable menu entry')}
+              aria-pressed={webShowStartMenu}
+            >
+              <Gamepad2 className="h-3.5 w-3.5" />
+              <span>{t('主界面', 'メイン', 'Menu')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (isRendering) return;
+                setWebShowStartMenu(false);
+              }}
+              disabled={isRendering}
+              className={`flex h-7 items-center justify-center gap-1.5 rounded-md px-3 text-[11px] font-black transition-colors ${
+                !webShowStartMenu
+                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              } disabled:opacity-40`}
+              title={t('直接进入剧情', '直接シナリオへ', 'Start directly')}
+              aria-pressed={!webShowStartMenu}
+            >
+              <Play className="h-3.5 w-3.5" />
+              <span>{t('无界面', '画面なし', 'No UI')}</span>
+            </button>
+          </div>
+        )}
         {workspaceMode === 'video' && (
           <div className="mx-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
             {[

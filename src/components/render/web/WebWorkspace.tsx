@@ -656,16 +656,6 @@ JSON schema:
             <span className="truncate">测试预览窗口</span>
           </div>
           <div className="flex min-w-0 items-center gap-2">
-            <div className="w-28">
-              <WebPillToggleGroup
-                value={webSettings.showStartMenu ? 'on' : 'off'}
-                options={[
-                  { value: 'on', label: 'Menu', icon: <Gamepad2 className="h-3.5 w-3.5" /> },
-                  { value: 'off', label: 'Direct', icon: <Play className="h-3.5 w-3.5" /> },
-                ]}
-                onChange={(value) => updateWebSettings('showStartMenu', value === 'on')}
-              />
-            </div>
             <button
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}

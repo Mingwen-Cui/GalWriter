@@ -1907,6 +1907,7 @@ export function VideoRenderModal({
           timelineFuture={timelineFuture}
           webPast={webPast}
           webFuture={webFuture}
+          webShowStartMenu={webSettings.showStartMenu}
           selectedNodes={
             videoWorkspaceMode === 'interactive'
               ? interactiveSegments.filter((segment) => segment.enabled)
@@ -1928,6 +1929,7 @@ export function VideoRenderModal({
           redoTimeline={redoTimeline}
           undoWeb={undoWeb}
           redoWeb={redoWeb}
+          setWebShowStartMenu={(enabled) => updateWebSettings('showStartMenu', enabled)}
           onExportClick={() => {
             if (workspaceMode === 'video' && videoWorkspaceMode === 'interactive') {
               exportInteractiveSegments();
