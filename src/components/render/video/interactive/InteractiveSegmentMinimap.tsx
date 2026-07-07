@@ -63,25 +63,33 @@ export function InteractiveSegmentMinimap({
     MINIMAP_WIDTH / Math.max(1, graphWidth),
     MINIMAP_HEIGHT / Math.max(1, graphHeight),
   );
+  const scaledGraphWidth = graphWidth * minimapScale;
+  const scaledGraphHeight = graphHeight * minimapScale;
+  const safeZoom = Math.max(0.01, viewportZoom);
+  const visibleGraphRect = {
+    x: -viewportPan.x / safeZoom,
+    y: -viewportPan.y / safeZoom,
+    width: viewportSize.width / safeZoom,
+    height: viewportSize.height / safeZoom,
+  };
   const viewport = {
     x: clamp(
-      (-viewportPan.x / Math.max(0.01, viewportZoom) / Math.max(1, graphWidth)) * MINIMAP_WIDTH,
+      visibleGraphRect.x * minimapScale,
       0,
       MINIMAP_WIDTH,
     ),
     y: clamp(
-      (-viewportPan.y / Math.max(0.01, viewportZoom) / Math.max(1, graphHeight)) * MINIMAP_HEIGHT,
+      visibleGraphRect.y * minimapScale,
       0,
       MINIMAP_HEIGHT,
     ),
     width: clamp(
-      (viewportSize.width / Math.max(0.01, viewportZoom) / Math.max(1, graphWidth)) * MINIMAP_WIDTH,
+      visibleGraphRect.width * minimapScale,
       12,
       MINIMAP_WIDTH,
     ),
     height: clamp(
-      (viewportSize.height / Math.max(0.01, viewportZoom) / Math.max(1, graphHeight)) *
-        MINIMAP_HEIGHT,
+      visibleGraphRect.height * minimapScale,
       12,
       MINIMAP_HEIGHT,
     ),
@@ -89,8 +97,10 @@ export function InteractiveSegmentMinimap({
 
   const centerAt = (event: PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const graphX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * graphWidth;
-    const graphY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * graphHeight;
+    const svgX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * MINIMAP_WIDTH;
+    const svgY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * MINIMAP_HEIGHT;
+    const graphX = clamp(svgX, 0, scaledGraphWidth) / Math.max(0.001, minimapScale);
+    const graphY = clamp(svgY, 0, scaledGraphHeight) / Math.max(0.001, minimapScale);
     onViewportPanChange({
       x: viewportSize.width / 2 - graphX * viewportZoom,
       y: viewportSize.height / 2 - graphY * viewportZoom,

@@ -107,8 +107,8 @@ export const useVideoExport = ({
     const renderAudioSegments = options?.audioSegments ?? activeAudioSegments;
     const resolvedOutputDir = options?.outputDir ?? outputDir;
     const fileName = options?.fileName;
-    if (renderNodes.length === 0 || status === 'rendering') return;
-    const canvas2d = canvasRef.current;
+    if (renderNodes.length === 0 || (status === 'rendering' && !options?.returnBytes)) return;
+    const canvas2d = canvasRef.current ?? (options?.returnBytes ? document.createElement('canvas') : null);
     const ctx2d = canvas2d?.getContext('2d');
     if (!canvas2d || !ctx2d) return;
 
@@ -308,8 +308,6 @@ export const useVideoExport = ({
       throwIfCancelled();
 
       if (options?.returnBytes) {
-        setStatus('done');
-        setProgressValue(100);
         return bytes;
       }
 

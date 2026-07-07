@@ -103,6 +103,51 @@ export function useInteractiveSegmentGraphEditing({
     );
   };
 
+  const deleteSegmentConnection = (fromSegmentId: string, choiceId: string) => {
+    onSegmentsChange(
+      updateSegment(segments, fromSegmentId, (segment) => ({
+        ...segment,
+        source: 'edited',
+        choices: segment.choices.filter((choice) => choice.id !== choiceId),
+      })),
+    );
+  };
+
+  const reverseSegmentConnection = (fromSegmentId: string, toSegmentId: string, choiceId: string, label: string) => {
+    const fromSegment = segments.find((segment) => segment.id === fromSegmentId);
+    const toSegment = segments.find((segment) => segment.id === toSegmentId);
+    if (!fromSegment || !toSegment || fromSegmentId === toSegmentId) return;
+    onSegmentsChange(
+      segments.map((segment) => {
+        if (segment.id === fromSegmentId) {
+          return {
+            ...segment,
+            source: 'edited' as const,
+            choices: segment.choices.filter((choice) => choice.id !== choiceId),
+          };
+        }
+        if (segment.id === toSegmentId) {
+          if (segment.choices.some((choice) => choice.targetSegmentId === fromSegmentId)) return segment;
+          return {
+            ...segment,
+            source: 'edited' as const,
+            choices: [
+              ...segment.choices,
+              {
+                id: `${segment.id}-choice-${uuidv4()}`,
+                label: label.trim() || `Choice ${segment.choices.length + 1}`,
+                targetSegmentId: fromSegment.id,
+                targetNodeId: fromSegment.nodeIds[0] || '',
+              },
+            ],
+          };
+        }
+        return segment;
+      }),
+    );
+    onSelectSegment(toSegmentId);
+  };
+
   const beginConnectionDrag = (
     event: React.PointerEvent<HTMLButtonElement>,
     segmentId: string,
@@ -238,6 +283,8 @@ export function useInteractiveSegmentGraphEditing({
     beginSelectionDrag,
     updateSelectionDrag,
     endSelectionDrag,
+    deleteSegmentConnection,
+    reverseSegmentConnection,
     mergeSelectedSegments,
   };
 }

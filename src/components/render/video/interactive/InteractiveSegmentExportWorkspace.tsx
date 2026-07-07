@@ -262,7 +262,7 @@ export function InteractiveSegmentExportWorkspace({
     segmentId: string;
     position: GraphPoint;
   } | null>(null);
-  const scheduledViewportPanRef = useRef<GraphPoint | null>(null);
+  const scheduledViewportTransformRef = useRef<{ pan: GraphPoint; zoom: number } | null>(null);
   const viewportPanRef = useRef<GraphPoint>(viewportPan);
   const viewportZoomRef = useRef(viewportZoom);
   const cardDragFrameRef = useRef<number | null>(null);
@@ -310,17 +310,21 @@ export function InteractiveSegmentExportWorkspace({
     onSegmentsChange(segments.map((segment) => ({ ...segment, enabled, source: 'edited' })));
     setExportOrderIds(enabled ? buildInteractiveSegmentExportOrder(segments, activeSegment?.id) : []);
   };
-  const scheduleViewportPan = (nextPan: GraphPoint) => {
+  const scheduleViewportTransform = (nextPan: GraphPoint, nextZoom = viewportZoomRef.current) => {
     viewportPanRef.current = nextPan;
-    scheduledViewportPanRef.current = nextPan;
+    viewportZoomRef.current = nextZoom;
+    scheduledViewportTransformRef.current = { pan: nextPan, zoom: nextZoom };
     if (viewportPanFrameRef.current !== null) return;
     viewportPanFrameRef.current = requestAnimationFrame(() => {
       viewportPanFrameRef.current = null;
-      const next = scheduledViewportPanRef.current;
-      scheduledViewportPanRef.current = null;
-      if (next) setViewportPan(next);
+      const next = scheduledViewportTransformRef.current;
+      scheduledViewportTransformRef.current = null;
+      if (!next) return;
+      setViewportPan(next.pan);
+      setViewportZoom(next.zoom);
     });
   };
+  const scheduleViewportPan = (nextPan: GraphPoint) => scheduleViewportTransform(nextPan);
   const scheduleCardPosition = (segmentId: string, position: GraphPoint) => {
     scheduledCardPositionRef.current = { segmentId, position };
     if (cardDragFrameRef.current !== null) return;
@@ -346,12 +350,13 @@ export function InteractiveSegmentExportWorkspace({
     if (Math.abs(zoom - currentZoom) < 0.001) return;
     const graphX = (anchorX - currentPan.x) / currentZoom;
     const graphY = (anchorY - currentPan.y) / currentZoom;
-    viewportZoomRef.current = zoom;
-    setViewportZoom(zoom);
-    scheduleViewportPan({
-      x: anchorX - graphX * zoom,
-      y: anchorY - graphY * zoom,
-    });
+    scheduleViewportTransform(
+      {
+        x: anchorX - graphX * zoom,
+        y: anchorY - graphY * zoom,
+      },
+      zoom,
+    );
   };
   const fitViewportToGraph = () => {
     if (viewportSize.width <= 0 || viewportSize.height <= 0) return;
@@ -364,12 +369,13 @@ export function InteractiveSegmentExportWorkspace({
       MIN_VIEWPORT_ZOOM,
       MAX_VIEWPORT_ZOOM,
     );
-    viewportZoomRef.current = nextZoom;
-    setViewportZoom(nextZoom);
-    scheduleViewportPan({
-      x: (viewportSize.width - graphWidth * nextZoom) / 2,
-      y: (viewportSize.height - graphHeight * nextZoom) / 2,
-    });
+    scheduleViewportTransform(
+      {
+        x: (viewportSize.width - graphWidth * nextZoom) / 2,
+        y: (viewportSize.height - graphHeight * nextZoom) / 2,
+      },
+      nextZoom,
+    );
   };
   const {
     selectedSegmentIds,
@@ -379,6 +385,8 @@ export function InteractiveSegmentExportWorkspace({
     beginSelectionDrag,
     updateSelectionDrag,
     endSelectionDrag,
+    deleteSegmentConnection,
+    reverseSegmentConnection,
     mergeSelectedSegments,
   } = useInteractiveSegmentGraphEditing({
     segments,
@@ -468,6 +476,11 @@ export function InteractiveSegmentExportWorkspace({
   const resetLayout = (direction: LayoutDirection) => {
     setLayoutDirection(direction);
     setManualPositions({});
+    if (viewportPanFrameRef.current !== null) {
+      cancelAnimationFrame(viewportPanFrameRef.current);
+      viewportPanFrameRef.current = null;
+    }
+    scheduledViewportTransformRef.current = null;
     viewportPanRef.current = { x: 0, y: 0 };
     viewportZoomRef.current = 1;
     setViewportPan({ x: 0, y: 0 });
@@ -581,7 +594,7 @@ export function InteractiveSegmentExportWorkspace({
     const handleWheel = (event: WheelEvent) => handleViewportWheel(event, viewport);
     viewport.addEventListener('wheel', handleWheel, { passive: false });
     return () => viewport.removeEventListener('wheel', handleWheel);
-  }, [handleViewportWheel]);
+  }, []);
 
   useEffect(() => {
     setManualPositions((previous) => {
@@ -853,6 +866,25 @@ export function InteractiveSegmentExportWorkspace({
                       active ? 'text-[var(--vr-accent)]' : 'text-[var(--vr-border-strong)]'
                     }
                   >
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={18}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="pointer-events-auto cursor-pointer"
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        deleteSegmentConnection(link.fromSegmentId, link.id);
+                      }}
+                      onDoubleClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        reverseSegmentConnection(link.fromSegmentId, link.toSegmentId, link.id, link.label);
+                      }}
+                    />
                     <path
                       d={path}
                       fill="none"

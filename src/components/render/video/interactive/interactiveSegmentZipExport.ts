@@ -90,6 +90,7 @@ export const exportInteractiveSegmentZip = async ({
   setProgress(t('准备导出互动分段 ZIP...', 'インタラクティブ分割 ZIP を準備中...', 'Preparing interactive ZIP...'));
 
   try {
+    let renderedVideoCount = 0;
     for (let index = 0; index < enabledSegments.length; index += 1) {
       const segment = enabledSegments[index];
       const segmentNodes = segment.nodeIds
@@ -105,6 +106,7 @@ export const exportInteractiveSegmentZip = async ({
           `Rendering interactive segment ${progressPrefix}`,
         ),
       );
+
       const bytes = await renderVideo({
         fileName: makeInteractiveSegmentFileName(segment, index),
         frameRate,
@@ -114,9 +116,15 @@ export const exportInteractiveSegmentZip = async ({
         progressPrefix,
         returnBytes: true,
       });
-      if (!bytes) continue;
+      if (!bytes || bytes.length === 0) continue;
+
       zip.file(`${String(index + 1).padStart(2, '0')}-${makeInteractiveSegmentFileName(segment, index)}.mp4`, bytes);
+      renderedVideoCount += 1;
       setProgressValue(Math.round(((index + 1) / enabledSegments.length) * 82));
+    }
+
+    if (renderedVideoCount === 0) {
+      throw new Error(t('没有成功生成任何视频片段。', '動画セグメントを生成できませんでした。', 'No video segments were generated.'));
     }
 
     const cardWidth = 280;
@@ -132,6 +140,7 @@ export const exportInteractiveSegmentZip = async ({
         y: position.y + graphPadding - graphBounds.minY,
       });
     });
+
     const graphLinks = segments.flatMap((segment) =>
       segment.choices.map((choice) => ({
         id: choice.id,

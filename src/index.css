@@ -1012,21 +1012,21 @@ body,
 
 .interactive-segment-minimap .react-flow__minimap-node {
   fill: rgba(255, 255, 255, 0.38);
-  stroke: rgba(255, 255, 255, 0.78);
-  stroke-width: 1.5;
+  stroke: transparent;
+  stroke-width: 0;
   filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
 }
 
 .interactive-segment-minimap .react-flow__minimap-node.interactive-segment-minimap-node-active {
-  fill: rgba(79, 70, 229, 0.5);
-  stroke: rgba(255, 255, 255, 0.9);
-  stroke-width: 1.8;
+  fill: rgba(100, 116, 139, 0.42);
+  stroke: transparent;
+  stroke-width: 0;
 }
 
 .interactive-segment-minimap .react-flow__minimap-mask {
   fill: rgba(0, 0, 0, 0.08);
-  stroke: rgba(79, 70, 229, 0.45);
-  stroke-width: 1.5;
+  stroke: transparent;
+  stroke-width: 0;
 }
 
 .interactive-segment-minimap-link {
@@ -1084,7 +1084,8 @@ body,
 
 [data-theme='dark'] .interactive-segment-minimap .react-flow__minimap-node {
   fill: rgba(84, 185, 251, 0.2);
-  stroke: rgba(255, 255, 255, 0.34);
+  stroke: transparent;
+  stroke-width: 0;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.36));
 }
 
@@ -1092,12 +1093,14 @@ body,
   .interactive-segment-minimap
   .react-flow__minimap-node.interactive-segment-minimap-node-active {
   fill: rgba(84, 185, 251, 0.42);
-  stroke: rgba(255, 255, 255, 0.62);
+  stroke: transparent;
+  stroke-width: 0;
 }
 
 [data-theme='dark'] .interactive-segment-minimap .react-flow__minimap-mask {
-  fill: rgba(84, 185, 251, 0.12);
-  stroke: rgba(125, 211, 252, 0.5);
+  fill: rgba(148, 163, 184, 0.12);
+  stroke: transparent;
+  stroke-width: 0;
 }
 
 [data-theme='dark'] .interactive-segment-minimap-link {
