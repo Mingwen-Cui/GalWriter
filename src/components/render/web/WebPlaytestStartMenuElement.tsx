@@ -1,4 +1,5 @@
 import { Eye, EyeOff, RotateCw, Trash2 } from 'lucide-react';
+import type { CSSProperties } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
 import type {
@@ -15,6 +16,26 @@ import {
 } from './webPlaytestStartMenuTools';
 
 const resizeHandles: StartMenuResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
+  const safeColor = color || '#ffffff';
+  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
+  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return safeColor;
+  const hex = match[1];
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+};
+
+const textAlignStyle = (
+  align: StartMenuElement['textAlign'],
+): Pick<CSSProperties, 'justifyContent' | 'textAlign'> => {
+  if (align === 'center') return { justifyContent: 'center', textAlign: 'center' };
+  if (align === 'right') return { justifyContent: 'flex-end', textAlign: 'right' };
+  return { justifyContent: 'flex-start', textAlign: 'left' };
+};
 
 type WebPlaytestStartMenuElementProps = {
   element: StartMenuElement;
@@ -72,7 +93,23 @@ export function WebPlaytestStartMenuElement({
     width: `${element.width}%`,
     height: `${element.height}%`,
     transform: `rotate(${element.rotation}deg) scale(${element.scale})`,
-    opacity: element.visible ? 1 : 0.34,
+    opacity: element.visible ? Math.max(0, Math.min(100, element.opacity ?? 100)) / 100 : 0.34,
+  };
+  const textElementStyle: CSSProperties = {
+    ...textAlignStyle(element.textAlign),
+    fontFamily: element.fontFamily,
+    fontSize: element.fontSize,
+    color: textColorWithAlpha(element.textColor, element.textColorAlpha),
+    WebkitTextStroke:
+      (element.textStrokeWidth ?? 0) > 0
+        ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
+        : undefined,
+    letterSpacing: Number.isFinite(Number(element.letterSpacing))
+      ? `${element.letterSpacing}px`
+      : undefined,
+    lineHeight: element.lineHeight,
+    borderRadius: element.borderRadius ?? 0,
+    whiteSpace: 'pre-wrap',
   };
 
   const ensureAndSelect = () => {
@@ -153,7 +190,10 @@ export function WebPlaytestStartMenuElement({
             src={element.imageUrl}
             alt=""
             className="h-full w-full object-cover"
-            style={{ borderRadius: element.borderRadius ?? 12 }}
+            style={{
+              borderRadius: element.borderRadius ?? 12,
+              mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
+            }}
             draggable={false}
           />
         ) : (
@@ -212,11 +252,7 @@ export function WebPlaytestStartMenuElement({
           className={`flex h-full w-full items-center ${
             element.role === 'subtitle' ? 'text-white/68' : 'text-white'
           } ${element.role === 'title' ? 'font-black leading-[1.06] [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]' : 'font-black'}`}
-          style={{
-            fontSize: element.fontSize,
-            color: element.textColor,
-            borderRadius: element.borderRadius ?? 0,
-          }}
+          style={textElementStyle}
         >
           {content}
         </div>

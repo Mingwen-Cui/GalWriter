@@ -695,6 +695,7 @@ export const makeIndexHtml = (
       font-weight: 900;
       text-shadow: 0 12px 36px rgba(0,0,0,0.55);
       overflow-wrap: anywhere;
+      white-space: pre-wrap;
     }
     .start-element-text.subtitle {
       color: rgba(248,250,252,0.68);
@@ -993,6 +994,21 @@ export const makeIndexHtml = (
       const numericAlpha = Number(alpha);
       return withAlpha(color || fallback, Number.isFinite(numericAlpha) ? numericAlpha / 100 : 1);
     }
+    function applyCustomTextStyle(target, element) {
+      if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
+      if (element.fontFamily) target.style.fontFamily = element.fontFamily;
+      target.style.color = styleColor(element.textColor, element.textColorAlpha, "#ffffff");
+      if (Number(element.textStrokeWidth) > 0) {
+        target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
+      }
+      if (Number.isFinite(Number(element.letterSpacing))) target.style.letterSpacing = Number(element.letterSpacing) + "px";
+      if (Number.isFinite(Number(element.lineHeight))) target.style.lineHeight = String(Number(element.lineHeight));
+      if (element.textAlign) {
+        target.style.textAlign = element.textAlign;
+        target.style.justifyContent = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start";
+      }
+      target.style.borderRadius = px(element.borderRadius, 0);
+    }
     function dialogueBackground() {
       if (style.dialogBackgroundType === "image" && style.dialogImageUrl) {
         return 'url("' + String(style.dialogImageUrl).replace(/"/g, '\\\\"') + '") center / cover';
@@ -1269,6 +1285,7 @@ export const makeIndexHtml = (
         wrapper.style.width = Math.max(1, Number(element.width || 10)) + "%";
         wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
         wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
+        wrapper.style.opacity = String(Math.max(0, Math.min(100, Number(element.opacity ?? 100))) / 100);
         if (element.kind === "image") {
           if (!element.imageUrl) return;
           const image = document.createElement("img");
@@ -1276,6 +1293,7 @@ export const makeIndexHtml = (
           image.src = element.imageUrl;
           image.alt = "";
           image.style.borderRadius = px(element.borderRadius, 12);
+          if (element.blendMode) image.style.mixBlendMode = element.blendMode;
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
           const action = actionByRole[element.role] || null;
@@ -1301,9 +1319,7 @@ export const makeIndexHtml = (
           const text = document.createElement("div");
           text.className = "start-element-text" + (element.role === "subtitle" ? " subtitle" : "");
           text.textContent = element.role === "subtitle" && !element.text ? (save ? saveLabel(save) : labels.noSave) : (element.text || "");
-          if (Number.isFinite(Number(element.fontSize))) text.style.fontSize = Number(element.fontSize) + "px";
-          if (element.textColor) text.style.color = element.textColor;
-          text.style.borderRadius = px(element.borderRadius, 0);
+          applyCustomTextStyle(text, element);
           wrapper.appendChild(text);
         }
         startLayer.appendChild(wrapper);

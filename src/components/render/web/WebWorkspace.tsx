@@ -1,4 +1,4 @@
-﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import {
   ChevronDown,
@@ -29,6 +29,7 @@ import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { StartMenuElementInspector } from './StartMenuElementInspector';
 import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
@@ -828,6 +829,7 @@ JSON schema:
                         <StartMenuElementInspector
                           element={selectedStartMenuElement}
                           language={language}
+                          showDescriptions={showSettingDescriptions}
                           onUpdate={(patch) =>
                             updateActivePageElement(selectedStartMenuElement.id, patch)
                           }
@@ -975,6 +977,7 @@ JSON schema:
                   <StartMenuElementInspector
                     element={selectedStartMenuElement}
                     language={language}
+                    showDescriptions={showSettingDescriptions}
                     onUpdate={(patch) =>
                       updateActivePageElement(selectedStartMenuElement.id, patch)
                     }
@@ -1119,6 +1122,7 @@ JSON schema:
                   <StartMenuElementInspector
                     element={selectedStartMenuElement}
                     language={language}
+                    showDescriptions={showSettingDescriptions}
                     onUpdate={(patch) =>
                       updateActivePageElement(selectedStartMenuElement.id, patch)
                     }
@@ -1242,14 +1246,6 @@ function IconToolButton({
 }
 
 type StartMenuElement = WebExportSettings['startMenuElements'][number];
-
-function readImageFileAsDataUrl(file: File, onReady: (value: string) => void) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (typeof reader.result === 'string') onReady(reader.result);
-  };
-  reader.readAsDataURL(file);
-}
 
 function StartMenuBackgroundInspector({
   settings,
@@ -1533,172 +1529,6 @@ function StartMenuBackgroundPreviewTile({
       <div className="p-1">
         <div className="h-full rounded-md border border-white/10" style={{ background }} />
       </div>
-    </div>
-  );
-}
-
-function StartMenuElementInspector({
-  element,
-  language,
-  onUpdate,
-}: {
-  element: StartMenuElement;
-  language: Language;
-  onUpdate: (patch: Partial<StartMenuElement>) => void;
-}) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
-  return (
-    <div className="grid gap-2">
-      {element.kind === 'text' && (
-        <label className="grid gap-1">
-          <span className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
-            {t('文字内容', 'テキスト', 'Text')}
-          </span>
-          <input
-            type="text"
-            value={element.text}
-            onChange={(event) => onUpdate({ text: event.target.value })}
-            placeholder={t('输入文字', 'テキストを入力', 'Enter text')}
-            className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
-          />
-        </label>
-      )}
-      {element.kind === 'image' ? (
-        <div className="grid gap-2">
-          <input
-            type="text"
-            value={element.imageUrl || ''}
-            onChange={(event) => onUpdate({ imageUrl: event.target.value })}
-            placeholder={t('图片 URL', '画像 URL', 'Image URL')}
-            className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
-            aria-label={t('图片 URL', '画像 URL', 'Image URL')}
-          />
-          <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]">
-            <ImagePlus className="h-3.5 w-3.5" />
-            <span>{t('选择图片', '画像を選択', 'Choose image')}</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file) readImageFileAsDataUrl(file, (value) => onUpdate({ imageUrl: value }));
-                event.currentTarget.value = '';
-              }}
-            />
-          </label>
-        </div>
-      ) : (
-        <ColorField
-          label={t('文字颜色', '文字色', 'Text')}
-          value={element.textColor || '#ffffff'}
-          onChange={(value) => onUpdate({ textColor: value })}
-        />
-      )}
-      <RangeField
-        label={t('圆角', '角丸', 'Radius')}
-        value={element.borderRadius ?? (element.kind === 'text' ? 0 : 12)}
-        min={0}
-        max={40}
-        onChange={(value) => onUpdate({ borderRadius: value })}
-      />
-      {element.kind === 'button' && (
-        <>
-          <WebSettingCard description={t('按钮背景', 'ボタン背景', 'Button background')}>
-            <WebPillToggleGroup
-              value={element.backgroundType || 'solid'}
-              options={[
-                { value: 'solid', label: t('底色', '単色', 'Solid') },
-                { value: 'gradient', label: t('渐变', 'グラデ', 'Gradient') },
-                { value: 'image', label: t('图片', '画像', 'Image') },
-              ]}
-              onChange={(value) =>
-                onUpdate({ backgroundType: value as StartMenuElement['backgroundType'] })
-              }
-              columns="grid-cols-3"
-            />
-          </WebSettingCard>
-          {(element.backgroundType || 'solid') === 'solid' ? (
-            <ColorField
-              label={t('按钮底色', 'ボタン色', 'Button')}
-              value={colorInputValue(element.backgroundColor || '#0ea5e9')}
-              onChange={(value) => onUpdate({ backgroundColor: value, backgroundType: 'solid' })}
-            />
-          ) : (element.backgroundType || 'solid') === 'gradient' ? (
-            <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
-              <div className="grid grid-cols-2 gap-2">
-                <ColorField
-                  label={t('起点', '開始', 'Start')}
-                  value={element.backgroundGradientStart || '#0ea5e9'}
-                  onChange={(value) =>
-                    onUpdate({ backgroundGradientStart: value, backgroundType: 'gradient' })
-                  }
-                />
-                <ColorField
-                  label={t('终点', '終了', 'End')}
-                  value={element.backgroundGradientEnd || '#0f172a'}
-                  onChange={(value) =>
-                    onUpdate({ backgroundGradientEnd: value, backgroundType: 'gradient' })
-                  }
-                />
-              </div>
-              <RangeField
-                label={t('角度', '角度', 'Angle')}
-                value={element.backgroundGradientAngle ?? 135}
-                min={0}
-                max={360}
-                onChange={(value) =>
-                  onUpdate({ backgroundGradientAngle: value, backgroundType: 'gradient' })
-                }
-              />
-            </div>
-          ) : (
-            <div className="grid gap-2 rounded-lg bg-[var(--vr-surface-soft)] p-2">
-              <input
-                type="text"
-                value={element.backgroundImageUrl || ''}
-                onChange={(event) =>
-                  onUpdate({ backgroundImageUrl: event.target.value, backgroundType: 'image' })
-                }
-                placeholder={t(
-                  '按钮背景图片 URL',
-                  'ボタン背景画像 URL',
-                  'Button background image URL',
-                )}
-                className="h-9 w-full rounded-lg border border-transparent bg-[var(--vr-surface)] px-3 text-xs font-bold text-[var(--vr-text)] outline-none transition-colors placeholder:text-[var(--vr-text-muted)] focus:border-[var(--vr-accent)]"
-                aria-label={t(
-                  '按钮背景图片 URL',
-                  'ボタン背景画像 URL',
-                  'Button background image URL',
-                )}
-              />
-              <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-3 text-[10px] font-black text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]">
-                <ImagePlus className="h-3.5 w-3.5" />
-                <span>{t('选择背景图', '背景画像を選択', 'Choose background')}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    if (file) {
-                      readImageFileAsDataUrl(file, (value) =>
-                        onUpdate({ backgroundImageUrl: value, backgroundType: 'image' }),
-                      );
-                    }
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </label>
-            </div>
-          )}
-          <ColorField
-            label={t('边框颜色', '枠線色', 'Border')}
-            value={colorInputValue(element.borderColor || '#ffffff')}
-            onChange={(value) => onUpdate({ borderColor: value })}
-          />
-        </>
-      )}
     </div>
   );
 }

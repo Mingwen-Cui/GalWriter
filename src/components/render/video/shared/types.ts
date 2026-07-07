@@ -124,7 +124,14 @@ export type WebMenuElement = {
   primary?: boolean;
   disabled?: boolean;
   fontSize?: number;
+  fontFamily?: string;
   textColor?: string;
+  textColorAlpha?: number;
+  textStrokeColor?: string;
+  textStrokeWidth?: number;
+  textAlign?: TextAlign;
+  letterSpacing?: number;
+  lineHeight?: number;
   backgroundType?: 'solid' | 'gradient' | 'image';
   backgroundColor?: string;
   backgroundGradientStart?: string;
@@ -133,6 +140,8 @@ export type WebMenuElement = {
   backgroundImageUrl?: string;
   borderColor?: string;
   borderRadius?: number;
+  opacity?: number;
+  blendMode?: string;
   imageUrl?: string;
 };
 
