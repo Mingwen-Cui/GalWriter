@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type React from 'react';
-import { Lock, Unlock } from 'lucide-react';
 
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
@@ -76,11 +75,6 @@ type WebPreviewMenuPagesProps = {
   onSelectElement?: (id: string | null) => void;
   onUpdateArchiveElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
-  onBeginBoundsDrag: (
-    event: React.PointerEvent<HTMLElement>,
-    type: 'move' | 'resize',
-    resizeHandle?: PlacementResizeHandle,
-  ) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
 };
 
@@ -109,7 +103,6 @@ export function WebPreviewMenuPages({
   onSelectElement,
   onUpdateArchiveElement,
   onUpdateSettingsElement,
-  onBeginBoundsDrag,
   onUpdateSettings,
 }: WebPreviewMenuPagesProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
@@ -207,21 +200,6 @@ export function WebPreviewMenuPages({
     elementDragRef.current = null;
     document.body.style.cursor = '';
   };
-  const placementBoundsOverlay = (
-    <PlacementBoundsOverlay
-      settings={settings}
-      previewMode={previewMode}
-      selectedStartMenuElementId={selectedStartMenuElementId}
-      boundsMinX={boundsMinX}
-      boundsMinY={boundsMinY}
-      boundsMaxX={boundsMaxX}
-      boundsMaxY={boundsMaxY}
-      t={t}
-      onBeginBoundsDrag={onBeginBoundsDrag}
-      onUpdateSettings={onUpdateSettings}
-    />
-  );
-
   return (
     <>
       {archiveOpen && (
@@ -249,7 +227,6 @@ export function WebPreviewMenuPages({
               if (role === 'new') onNewGame();
             }}
           />
-          {placementBoundsOverlay}
         </div>
       )}
       {settingsOpen && (
@@ -284,7 +261,6 @@ export function WebPreviewMenuPages({
               return '';
             }}
           />
-          {placementBoundsOverlay}
         </div>
       )}
     </>
@@ -496,114 +472,5 @@ function SelectedElementFrame({
         />
       ))}
     </>
-  );
-}
-
-type PlacementBoundsOverlayProps = {
-  settings: WebExportSettings;
-  previewMode: 'edit' | 'test';
-  selectedStartMenuElementId?: string | null;
-  boundsMinX: number;
-  boundsMinY: number;
-  boundsMaxX: number;
-  boundsMaxY: number;
-  t: (zh: string, ja: string, en: string) => string;
-  onBeginBoundsDrag: (
-    event: React.PointerEvent<HTMLElement>,
-    type: 'move' | 'resize',
-    resizeHandle?: PlacementResizeHandle,
-  ) => void;
-  onUpdateSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
-};
-
-function PlacementBoundsOverlay({
-  settings,
-  previewMode,
-  selectedStartMenuElementId,
-  boundsMinX,
-  boundsMinY,
-  boundsMaxX,
-  boundsMaxY,
-  t,
-  onBeginBoundsDrag,
-  onUpdateSettings,
-}: PlacementBoundsOverlayProps) {
-  if (previewMode !== 'edit') return null;
-
-  const canEditBounds = selectedStartMenuElementId === null;
-
-  return (
-    <div
-      className={`absolute z-10 border-[2.5px] border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ${
-        settings.startMenuPlacementBoundsLocked ? 'border-slate-400/65' : 'border-white/60'
-      } ${
-        canEditBounds && !settings.startMenuPlacementBoundsLocked
-          ? 'cursor-grab active:cursor-grabbing pointer-events-auto'
-          : canEditBounds
-            ? 'pointer-events-auto'
-            : 'pointer-events-none'
-      }`}
-      style={{
-        left: `${boundsMinX}%`,
-        top: `${boundsMinY}%`,
-        width: `${boundsMaxX - boundsMinX}%`,
-        height: `${boundsMaxY - boundsMinY}%`,
-      }}
-      onPointerDown={(event) => {
-        if (canEditBounds && !settings.startMenuPlacementBoundsLocked) {
-          onBeginBoundsDrag(event, 'move');
-        }
-      }}
-      onClick={(event) => event.stopPropagation()}
-      title={t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
-    >
-      {canEditBounds && (
-        <button
-          type="button"
-          className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border shadow transition-colors pointer-events-auto border-white/35 bg-slate-950/70 text-white hover:bg-slate-900"
-          style={{
-            borderColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
-            backgroundColor: settings.startMenuPlacementBoundsLocked ? 'var(--vr-accent)' : undefined,
-            color: settings.startMenuPlacementBoundsLocked ? '#ffffff' : undefined,
-            zIndex: 30,
-          }}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onUpdateSettings('startMenuPlacementBoundsLocked', !settings.startMenuPlacementBoundsLocked);
-          }}
-          title={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
-          aria-label={t('锁定文字/图片范围', 'テキスト/画像範囲をロック', 'Lock text/image bounds')}
-        >
-          {settings.startMenuPlacementBoundsLocked ? (
-            <Lock className="h-3.5 w-3.5" />
-          ) : (
-            <Unlock className="h-3.5 w-3.5" />
-          )}
-        </button>
-      )}
-      {canEditBounds &&
-        !settings.startMenuPlacementBoundsLocked &&
-        placementResizeHandles.map((handle) => (
-          <button
-            key={handle}
-            type="button"
-            className={`absolute border bg-white shadow pointer-events-auto ${
-              settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
-            } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-            style={{
-              ...getResizeHandleStyle(handle),
-              zIndex: 30,
-            }}
-            onPointerDown={(event) => onBeginBoundsDrag(event, 'resize', handle)}
-            onClick={(event) => event.stopPropagation()}
-            aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
-          />
-        ))}
-    </div>
   );
 }

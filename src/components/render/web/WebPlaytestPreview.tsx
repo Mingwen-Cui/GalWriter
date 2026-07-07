@@ -1,5 +1,4 @@
 ﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { Lock, Unlock } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type {
@@ -52,6 +51,11 @@ import {
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
+import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
+import {
+  snapElementBoxToElementGuides,
+  snapResizeBoxToElementGuides,
+} from './webElementAlignmentGuides';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -59,13 +63,8 @@ import type {
 } from './webPlaytestStartMenuTools';
 import {
   buildDefaultStartMenuElements,
-  getResizeHandleStyle,
   getStartMenuPlacementBounds,
   resizeCursorByHandle,
-  resizeHandlePositionClass,
-  resizeHandleShapeClass,
-  snapStartMenuBox,
-  snapStartMenuValue,
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
@@ -163,24 +162,14 @@ export function WebPlaytestPreview({
     centerY?: number;
     startAngle?: number;
   } | null>(null);
-  const startMenuBoundsDragRef = useRef<{
-    type: 'move' | 'resize';
-    resizeHandle?: StartMenuResizeHandle;
-    startClientX: number;
-    startClientY: number;
-    rect: DOMRect;
-    initial: {
-      minX: number;
-      minY: number;
-      maxX: number;
-      maxY: number;
-    };
-  } | null>(null);
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<
     string | null
   >(null);
   const [editingStartMenuElementId, setEditingStartMenuElementId] = useState<string | null>(null);
+  const [activeStartMenuGuideLines, setActiveStartMenuGuideLines] = useState<
+    WebAlignmentGuideLine[]
+  >([]);
   const selectedStartMenuElementId =
     controlledSelectedStartMenuElementId !== undefined
       ? controlledSelectedStartMenuElementId
@@ -960,24 +949,6 @@ export function WebPlaytestPreview({
     () => getStartMenuPlacementBounds(settings),
     [settings],
   );
-  const getStartMenuSnapGuides = React.useCallback(
-    (axis: 'x' | 'y', movingId: string, bounds: typeof startMenuPlacementBounds) => {
-      const min = axis === 'x' ? bounds.minX : bounds.minY;
-      const max = axis === 'x' ? bounds.maxX : bounds.maxY;
-      const guides =
-        settings.startMenuPlacementBoundsLocked && min >= 0 && max <= 100
-          ? [min, min + (max - min) / 2, max, 50]
-          : [50];
-      startMenuElements.forEach((element) => {
-        if (element.id === movingId || !element.visible) return;
-        const start = axis === 'x' ? element.x : element.y;
-        const size = axis === 'x' ? element.width : element.height;
-        guides.push(start, start + size / 2, start + size);
-      });
-      return guides;
-    },
-    [settings.startMenuPlacementBoundsLocked, startMenuElements],
-  );
   const commitStartMenuElements = React.useCallback(
     (next: StartMenuElement[]) => onUpdateSettings('startMenuElements', next),
     [onUpdateSettings],
@@ -994,98 +965,6 @@ export function WebPlaytestPreview({
     },
     [commitStartMenuElements, defaultStartMenuElements, settings.startMenuElements],
   );
-  const beginStartMenuBoundsDrag = (
-    event: React.PointerEvent<HTMLElement>,
-    type: 'move' | 'resize',
-    resizeHandle?: StartMenuResizeHandle,
-  ) => {
-    if (previewMode !== 'edit' || settings.startMenuPlacementBoundsLocked) return;
-    const parentRect = startMenuEditorRef.current?.parentElement?.getBoundingClientRect();
-    const rect = parentRect || startMenuEditorRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setSelectedStartMenuElementId(null);
-    startMenuBoundsDragRef.current = {
-      type,
-      resizeHandle,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      rect,
-      initial: {
-        minX: settings.startMenuPlacementMinX ?? 10,
-        minY: settings.startMenuPlacementMinY ?? 10,
-        maxX: settings.startMenuPlacementMaxX ?? 90,
-        maxY: settings.startMenuPlacementMaxY ?? 90,
-      },
-    };
-    document.body.style.cursor =
-      type === 'resize' && resizeHandle ? resizeCursorByHandle[resizeHandle] : 'grabbing';
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  };
-  const updateStartMenuBoundsDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    const drag = startMenuBoundsDragRef.current;
-    if (!drag) return false;
-    const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
-    const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
-    let minX = drag.initial.minX;
-    let minY = drag.initial.minY;
-    let maxX = drag.initial.maxX;
-    let maxY = drag.initial.maxY;
-    if (drag.type === 'move') {
-      const width = maxX - minX;
-      const height = maxY - minY;
-      minX = Math.max(0, Math.min(100 - width, minX + dx));
-      minY = Math.max(0, Math.min(100 - height, minY + dy));
-      maxX = minX + width;
-      maxY = minY + height;
-    } else {
-      const handle = drag.resizeHandle || 'se';
-      if (handle.includes('w')) minX += dx;
-      if (handle.includes('e')) maxX += dx;
-      if (handle.includes('n')) minY += dy;
-      if (handle.includes('s')) maxY += dy;
-      minX = Math.max(0, Math.min(maxX - 6, minX));
-      minY = Math.max(0, Math.min(maxY - 4, minY));
-      maxX = Math.min(100, Math.max(minX + 6, maxX));
-      maxY = Math.min(100, Math.max(minY + 4, maxY));
-    }
-    const nextMinX = Math.round(minX);
-    const nextMinY = Math.round(minY);
-    const nextMaxX = Math.round(maxX);
-    const nextMaxY = Math.round(maxY);
-
-    onUpdateSettings('startMenuPlacementMinX', nextMinX);
-    onUpdateSettings('startMenuPlacementMinY', nextMinY);
-    onUpdateSettings('startMenuPlacementMaxX', nextMaxX);
-    onUpdateSettings('startMenuPlacementMaxY', nextMaxY);
-
-    const pushElementsIntoBounds = (currentElements: StartMenuElement[]) =>
-      currentElements.map((element) => {
-        const newWidth = Math.max(6, Math.min(element.width, nextMaxX - nextMinX));
-        const newHeight = Math.max(4, Math.min(element.height, nextMaxY - nextMinY));
-        const newX = Math.max(nextMinX, Math.min(nextMaxX - newWidth, element.x));
-        const newY = Math.max(nextMinY, Math.min(nextMaxY - newHeight, element.y));
-        return {
-          ...element,
-          x: Number(newX.toFixed(2)),
-          y: Number(newY.toFixed(2)),
-          width: Number(newWidth.toFixed(2)),
-          height: Number(newHeight.toFixed(2)),
-        };
-      });
-
-    onUpdateSettings(
-      'startMenuElements',
-      pushElementsIntoBounds(
-        settings.startMenuElements && settings.startMenuElements.length > 0
-          ? settings.startMenuElements
-          : defaultStartMenuElements,
-      ),
-    );
-
-    return true;
-  };
   const beginStartMenuEditDrag = (
     event: React.PointerEvent<HTMLElement>,
     element: StartMenuElement,
@@ -1122,22 +1001,22 @@ export function WebPlaytestPreview({
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
   const handleStartMenuEditPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (updateStartMenuBoundsDrag(event)) return;
     const drag = startMenuEditDragRef.current;
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
     const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
     const bounds = startMenuPlacementBounds;
     if (drag.type === 'move') {
-      const snapped = snapStartMenuBox({
+      const snapped = snapElementBoxToElementGuides({
         x: drag.initial.x + dx,
         y: drag.initial.y + dy,
         width: drag.initial.width,
         height: drag.initial.height,
         rect: drag.rect,
-        xGuides: getStartMenuSnapGuides('x', drag.id, bounds),
-        yGuides: getStartMenuSnapGuides('y', drag.id, bounds),
+        elements: startMenuElements,
+        movingId: drag.id,
       });
+      setActiveStartMenuGuideLines(snapped.lines);
       updateStartMenuElement(drag.id, {
         x: Math.max(bounds.minX, Math.min(bounds.maxX - drag.initial.width, snapped.x)),
         y: Math.max(bounds.minY, Math.min(bounds.maxY - drag.initial.height, snapped.y)),
@@ -1166,28 +1045,21 @@ export function WebPlaytestPreview({
         if (handle.includes('n')) nextY = drag.initial.y + drag.initial.height - 4;
         nextHeight = 4;
       }
-      const xGuides = getStartMenuSnapGuides('x', drag.id, bounds);
-      const yGuides = getStartMenuSnapGuides('y', drag.id, bounds);
-      const toleranceX = (2 / drag.rect.width) * 100;
-      const toleranceY = (2 / drag.rect.height) * 100;
-      if (handle.includes('e')) {
-        const snappedRight = snapStartMenuValue(nextX + nextWidth, xGuides, toleranceX);
-        nextWidth += snappedRight - (nextX + nextWidth);
-      }
-      if (handle.includes('w')) {
-        const snappedLeft = snapStartMenuValue(nextX, xGuides, toleranceX);
-        nextWidth += nextX - snappedLeft;
-        nextX = snappedLeft;
-      }
-      if (handle.includes('s')) {
-        const snappedBottom = snapStartMenuValue(nextY + nextHeight, yGuides, toleranceY);
-        nextHeight += snappedBottom - (nextY + nextHeight);
-      }
-      if (handle.includes('n')) {
-        const snappedTop = snapStartMenuValue(nextY, yGuides, toleranceY);
-        nextHeight += nextY - snappedTop;
-        nextY = snappedTop;
-      }
+      const snapped = snapResizeBoxToElementGuides({
+        x: nextX,
+        y: nextY,
+        width: nextWidth,
+        height: nextHeight,
+        handle,
+        rect: drag.rect,
+        elements: startMenuElements,
+        movingId: drag.id,
+      });
+      nextX = snapped.x;
+      nextY = snapped.y;
+      nextWidth = snapped.width;
+      nextHeight = snapped.height;
+      setActiveStartMenuGuideLines(snapped.lines);
       if (nextWidth < 6) {
         if (handle.includes('w')) nextX = drag.initial.x + drag.initial.width - 6;
         nextWidth = 6;
@@ -1217,11 +1089,12 @@ export function WebPlaytestPreview({
       updateStartMenuElement(drag.id, {
         rotation: nextRotation,
       });
+      setActiveStartMenuGuideLines([]);
     }
   };
   const stopStartMenuEditDrag = () => {
     startMenuEditDragRef.current = null;
-    startMenuBoundsDragRef.current = null;
+    setActiveStartMenuGuideLines([]);
     document.body.style.cursor = '';
   };
   const startMenuBackgroundStyle: React.CSSProperties | undefined =
@@ -1241,11 +1114,6 @@ export function WebPlaytestPreview({
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
-    const selectedGuideElement = startMenuElements.find(
-      (element) => element.id === selectedStartMenuElementId,
-    );
-    const selectedGuideBounds = selectedGuideElement ? startMenuPlacementBounds : null;
-
     const boundsMinX = settings.startMenuPlacementMinX ?? 10;
     const boundsMinY = settings.startMenuPlacementMinY ?? 10;
     const boundsMaxX = settings.startMenuPlacementMaxX ?? 90;
@@ -1295,51 +1163,19 @@ export function WebPlaytestPreview({
             }
           }}
         >
-          {previewMode === 'edit' && (
-            <div className="pointer-events-none absolute inset-0 text-[9px] font-black text-white/55">
-              <div className="absolute left-1/2 top-0 h-full border-l border-cyan-300/35" />
-              <div className="absolute left-0 top-1/2 w-full border-t border-cyan-300/35" />
-              {selectedGuideBounds &&
-                settings.startMenuPlacementBoundsLocked &&
-                selectedGuideElement?.kind !== 'button' && (
-                  <div
-                    className="absolute border border-dashed border-amber-300/70 bg-amber-300/[0.04]"
-                    style={{
-                      left: `${selectedGuideBounds.minX}%`,
-                      top: `${selectedGuideBounds.minY}%`,
-                      width: `${selectedGuideBounds.maxX - selectedGuideBounds.minX}%`,
-                      height: `${selectedGuideBounds.maxY - selectedGuideBounds.minY}%`,
-                    }}
-                  />
-                )}
-              {selectedGuideElement && (
-                <>
-                  <div
-                    className="absolute top-0 h-full border-l border-sky-300/55"
-                    style={{ left: `${selectedGuideElement.x}%` }}
-                  />
-                  <div
-                    className="absolute top-0 h-full border-l border-sky-300/35"
-                    style={{ left: `${selectedGuideElement.x + selectedGuideElement.width / 2}%` }}
-                  />
-                  <div
-                    className="absolute top-0 h-full border-l border-sky-300/55"
-                    style={{ left: `${selectedGuideElement.x + selectedGuideElement.width}%` }}
-                  />
-                  <div
-                    className="absolute left-0 w-full border-t border-sky-300/55"
-                    style={{ top: `${selectedGuideElement.y}%` }}
-                  />
-                  <div
-                    className="absolute left-0 w-full border-t border-sky-300/35"
-                    style={{ top: `${selectedGuideElement.y + selectedGuideElement.height / 2}%` }}
-                  />
-                  <div
-                    className="absolute left-0 w-full border-t border-sky-300/55"
-                    style={{ top: `${selectedGuideElement.y + selectedGuideElement.height}%` }}
-                  />
-                </>
-              )}
+          {previewMode === 'edit' && activeStartMenuGuideLines.length > 0 && (
+            <div className="pointer-events-none absolute inset-0 z-30">
+              {activeStartMenuGuideLines.map((line, index) => (
+                <div
+                  key={`${line.axis}-${line.value}-${index}`}
+                  className={
+                    line.axis === 'x'
+                      ? 'absolute top-0 h-full border-l-[1.5px] border-dashed border-[#ef4444] shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+                      : 'absolute left-0 w-full border-t-[1.5px] border-dashed border-[#ef4444] shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+                  }
+                  style={line.axis === 'x' ? { left: `${line.value}%` } : { top: `${line.value}%` }}
+                />
+              ))}
             </div>
           )}
 
@@ -1384,97 +1220,6 @@ export function WebPlaytestPreview({
             />
           ))}
         </div>
-        {previewMode === 'edit' && (
-          <div
-            className={`absolute z-10 border-[2.5px] border-dashed shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ${
-              settings.startMenuPlacementBoundsLocked ? 'border-slate-400/65' : 'border-white/60'
-            } ${
-              selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked
-                ? 'cursor-grab active:cursor-grabbing pointer-events-auto'
-                : selectedStartMenuElementId === null
-                  ? 'pointer-events-auto'
-                  : 'pointer-events-none'
-            }`}
-            style={{
-              left: `${boundsMinX}%`,
-              top: `${boundsMinY}%`,
-              width: `${boundsMaxX - boundsMinX}%`,
-              height: `${boundsMaxY - boundsMinY}%`,
-            }}
-            onPointerDown={(event) => {
-              if (selectedStartMenuElementId === null && !settings.startMenuPlacementBoundsLocked) {
-                beginStartMenuBoundsDrag(event, 'move');
-              }
-            }}
-            onClick={(event) => event.stopPropagation()}
-            title={t('文字/图片范围', 'テキスト/画像範囲', 'Text/image bounds')}
-          >
-            {selectedStartMenuElementId === null && (
-              <button
-                type="button"
-                className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border shadow transition-colors pointer-events-auto border-white/35 bg-slate-950/70 text-white hover:bg-slate-900"
-                style={{
-                  borderColor: settings.startMenuPlacementBoundsLocked
-                    ? 'var(--vr-accent)'
-                    : undefined,
-                  backgroundColor: settings.startMenuPlacementBoundsLocked
-                    ? 'var(--vr-accent)'
-                    : undefined,
-                  color: settings.startMenuPlacementBoundsLocked ? '#ffffff' : undefined,
-                  zIndex: 30,
-                }}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onUpdateSettings(
-                    'startMenuPlacementBoundsLocked',
-                    !settings.startMenuPlacementBoundsLocked,
-                  );
-                }}
-                title={t(
-                  '锁定文字/图片范围',
-                  'テキスト/画像範囲をロック',
-                  'Lock text/image bounds',
-                )}
-                aria-label={t(
-                  '锁定文字/图片范围',
-                  'テキスト/画像範囲をロック',
-                  'Lock text/image bounds',
-                )}
-              >
-                {settings.startMenuPlacementBoundsLocked ? (
-                  <Lock className="h-3.5 w-3.5" />
-                ) : (
-                  <Unlock className="h-3.5 w-3.5" />
-                )}
-              </button>
-            )}
-            {selectedStartMenuElementId === null &&
-              !settings.startMenuPlacementBoundsLocked &&
-              (['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as StartMenuResizeHandle[]).map(
-                (handle) => (
-                  <button
-                    key={handle}
-                    type="button"
-                    className={`absolute border bg-white shadow pointer-events-auto ${
-                      settings.startMenuPlacementBoundsLocked ? 'border-amber-200' : 'border-white'
-                    } ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-                    style={{
-                      ...getResizeHandleStyle(handle),
-                      zIndex: 30,
-                    }}
-                    onPointerDown={(event) => beginStartMenuBoundsDrag(event, 'resize', handle)}
-                    onClick={(event) => event.stopPropagation()}
-                    aria-label={t('调整范围', '範囲を調整', 'Resize bounds')}
-                  />
-                ),
-              )}
-          </div>
-        )}
         <WebPreviewMenuPages
           language={language}
           settings={settings}
@@ -1520,7 +1265,6 @@ export function WebPlaytestPreview({
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
             );
           }}
-          onBeginBoundsDrag={beginStartMenuBoundsDrag}
           onUpdateSettings={onUpdateSettings}
         />
       </div>
