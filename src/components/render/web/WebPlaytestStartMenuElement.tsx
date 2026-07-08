@@ -244,10 +244,28 @@ export function WebPlaytestStartMenuElement({
           } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
             background: elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
-            color: element.textColor || (element.primary ? choiceTextColor : undefined),
+            color: textColorWithAlpha(
+              element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
+              element.textColorAlpha,
+            ),
+            display: 'flex',
+            alignItems: 'center',
+            ...textAlignStyle(element.textAlign || 'center'),
+            fontFamily: element.fontFamily,
+            WebkitTextStroke:
+              (element.textStrokeWidth ?? 0) > 0
+                ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
+                : undefined,
+            letterSpacing: Number.isFinite(Number(element.letterSpacing))
+              ? `${element.letterSpacing}px`
+              : undefined,
+            lineHeight: element.lineHeight,
+            whiteSpace: 'pre-wrap',
             borderColor: element.borderColor,
+            borderWidth: element.borderWidth,
             fontSize: element.fontSize,
             borderRadius: element.borderRadius ?? 12,
+            mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
           }}
         >
           {content}

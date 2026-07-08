@@ -1009,6 +1009,22 @@ export const makeIndexHtml = (
       }
       target.style.borderRadius = px(element.borderRadius, 0);
     }
+    function applyCustomButtonTextStyle(target, element, fallbackColor) {
+      if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
+      if (element.fontFamily) target.style.fontFamily = element.fontFamily;
+      target.style.color = styleColor(element.textColor, element.textColorAlpha, fallbackColor || "#ffffff");
+      if (Number(element.textStrokeWidth) > 0) {
+        target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
+      }
+      if (Number.isFinite(Number(element.letterSpacing))) target.style.letterSpacing = Number(element.letterSpacing) + "px";
+      if (Number.isFinite(Number(element.lineHeight))) target.style.lineHeight = String(Number(element.lineHeight));
+      target.style.display = "flex";
+      target.style.alignItems = "center";
+      const align = element.textAlign || "center";
+      target.style.textAlign = align;
+      target.style.justifyContent = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+      target.style.whiteSpace = "pre-wrap";
+    }
     function dialogueBackground() {
       if (style.dialogBackgroundType === "image" && style.dialogImageUrl) {
         return 'url("' + String(style.dialogImageUrl).replace(/"/g, '\\\\"') + '") center / cover';
@@ -1313,10 +1329,12 @@ export const makeIndexHtml = (
           } else if (element.backgroundColor) {
             button.style.background = element.backgroundColor;
           }
-          if (element.textColor) button.style.color = element.textColor;
+          applyCustomButtonTextStyle(button, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
           if (element.borderColor) button.style.borderColor = element.borderColor;
+          if (Number(element.borderWidth) >= 0) button.style.borderWidth = Number(element.borderWidth) + "px";
           if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
           button.style.borderRadius = px(element.borderRadius, 12);
+          if (element.blendMode) button.style.mixBlendMode = element.blendMode;
           if (action?.onClick) button.addEventListener("click", action.onClick);
           wrapper.appendChild(button);
         } else {
