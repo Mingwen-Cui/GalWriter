@@ -977,6 +977,30 @@ export const makeIndexHtml = (
       const blue = parseInt(normalized.slice(5, 7), 16);
       return "rgba(" + red + ", " + green + ", " + blue + ", " + Math.max(0, Math.min(1, Number(alpha))) + ")";
     }
+    function normalizeGradientStops(stops, startColor, endColor, startFallback, endFallback) {
+      if (Array.isArray(stops) && stops.length >= 2) {
+        return stops.map(function(stop, index) {
+          return {
+            id: String(stop && stop.id ? stop.id : "stop-" + index),
+            color: colorInputValue(stop && stop.color, startFallback || "#0ea5e9"),
+            alpha: Math.max(0, Math.min(100, Number(stop && stop.alpha) || 0)),
+            position: Math.max(0, Math.min(100, Number(stop && stop.position) || 0))
+          };
+        }).sort(function(a, b) { return a.position - b.position; });
+      }
+      return [
+        { id: "start", color: colorInputValue(startColor, startFallback || "#0ea5e9"), alpha: 100, position: 0 },
+        { id: "end", color: colorInputValue(endColor, endFallback || "#0f172a"), alpha: 100, position: 100 }
+      ];
+    }
+    function gradientStopsCss(stops) {
+      return stops.map(function(stop) {
+        return withAlpha(stop.color, stop.alpha / 100) + " " + stop.position + "%";
+      }).join(", ");
+    }
+    function linearGradientFromStops(angle, stops) {
+      return "linear-gradient(" + angle + "deg, " + gradientStopsCss(stops) + ")";
+    }
     function px(value, fallback) {
       const number = Number(value);
       return (Number.isFinite(number) ? number : fallback) + "px";
@@ -1161,7 +1185,7 @@ export const makeIndexHtml = (
       startScreen.style.backgroundPosition = "center";
       startScreen.style.backgroundSize = "cover";
     } else if (settings.startMenuBackgroundType === "gradient") {
-      startScreen.style.background = "linear-gradient(" + settings.startMenuBackgroundGradientAngle + "deg, " + settings.startMenuBackgroundGradientStart + ", " + settings.startMenuBackgroundGradientEnd + ")";
+      startScreen.style.background = linearGradientFromStops(settings.startMenuBackgroundGradientAngle, normalizeGradientStops(settings.startMenuBackgroundGradientStops, settings.startMenuBackgroundGradientStart, settings.startMenuBackgroundGradientEnd, "#0f172a", "#0891b2"));
     } else if (settings.startMenuBackgroundType === "solid") {
       startScreen.style.background = settings.startMenuBackgroundColor;
     }
@@ -1325,7 +1349,7 @@ export const makeIndexHtml = (
           if (element.backgroundType === "image" && element.backgroundImageUrl) {
             button.style.background = "center / cover url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
           } else if (element.backgroundType === "gradient") {
-            button.style.background = "linear-gradient(" + (Number(element.backgroundGradientAngle) || 135) + "deg, " + (element.backgroundGradientStart || style.choiceColor || "#0ea5e9") + ", " + (element.backgroundGradientEnd || "#0f172a") + ")";
+            button.style.background = linearGradientFromStops(Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
           } else if (element.backgroundColor) {
             button.style.background = element.backgroundColor;
           }

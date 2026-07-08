@@ -4,20 +4,25 @@ import {
   BetweenHorizontalStart,
   BetweenVerticalStart,
   Blend,
-  ChevronDown,
   ImagePlus,
   Palette,
   Radius,
   Type,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
-import { DragSizeControl } from '../video/controls/RenderControls';
+import {
+  StyleColorTile as ColorTile,
+  StyleGradientStopsTile,
+  StyleNumberTile as NumberTile,
+  StylePreviewTile,
+  StyleSelectTile as SelectTile,
+  StyleTileField as Field,
+} from '../video/controls/StyleControlTiles';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebMenuElement } from '../video/shared/types';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
 const FONT_OPTIONS = [
   { label: '雅黑', value: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif' },
@@ -198,6 +203,12 @@ export function StartMenuElementInspector({
     );
   }
 
+  const gradientStops = normalizeGradientStops(
+    element.backgroundGradientStops,
+    element.backgroundGradientStart || '#0ea5e9',
+    element.backgroundGradientEnd || '#0f172a',
+  );
+
   return (
     <GridPanel>
       <div className="grid grid-cols-3 gap-2">
@@ -323,6 +334,26 @@ export function StartMenuElementInspector({
         />
         <BackgroundValueTile element={element} t={t} onUpdate={onUpdate} />
       </div>
+      {(element.backgroundType || 'solid') === 'gradient' && (
+        <StyleGradientStopsTile
+          stops={gradientStops}
+          activeLabel={t('渐变色标', 'グラデーション色標', 'Gradient stop')}
+          removeLabel={t('删除一个色标', '色標を削除', 'Remove a color stop')}
+          addLabel={t('添加色标', '色標を追加', 'Add a color stop')}
+          alphaLabel={t('拖动调整透明度', '透明度を調整', 'Adjust alpha')}
+          onChangeStops={(stops) => {
+            const sorted = [...stops].sort((a, b) => a.position - b.position);
+            const start = sorted[0];
+            const end = sorted[sorted.length - 1];
+            onUpdate({
+              backgroundType: 'gradient',
+              backgroundGradientStops: sorted,
+              backgroundGradientStart: start?.color || element.backgroundGradientStart || '#0ea5e9',
+              backgroundGradientEnd: end?.color || element.backgroundGradientEnd || '#0f172a',
+            });
+          }}
+        />
+      )}
     </GridPanel>
   );
 }
@@ -462,34 +493,17 @@ function BackgroundValueTile({
     );
   }
   if ((element.backgroundType || 'solid') === 'gradient') {
+    const stops = normalizeGradientStops(
+      element.backgroundGradientStops,
+      element.backgroundGradientStart || '#0ea5e9',
+      element.backgroundGradientEnd || '#0f172a',
+    );
     return (
-      <Field>
-        <Shell icon={Palette}>
-          <div className="grid h-9 grid-cols-2 overflow-hidden rounded-r-lg">
-            <input
-              type="color"
-              value={colorInputValue(element.backgroundGradientStart || '#0ea5e9')}
-              onChange={(event) =>
-                onUpdate({
-                  backgroundGradientStart: event.target.value,
-                  backgroundType: 'gradient',
-                })
-              }
-              className="video-render-color-input h-9 w-full cursor-pointer border-0 bg-transparent p-0"
-              aria-label={t('渐变起点', 'グラデ開始', 'Gradient start')}
-            />
-            <input
-              type="color"
-              value={colorInputValue(element.backgroundGradientEnd || '#0f172a')}
-              onChange={(event) =>
-                onUpdate({ backgroundGradientEnd: event.target.value, backgroundType: 'gradient' })
-              }
-              className="video-render-color-input h-9 w-full cursor-pointer border-0 bg-transparent p-0"
-              aria-label={t('渐变终点', 'グラデ終了', 'Gradient end')}
-            />
-          </div>
-        </Shell>
-      </Field>
+      <StylePreviewTile
+        icon={Palette}
+        background={linearGradientFromStops(90, stops)}
+        label={t('\u6e10\u53d8\u9884\u89c8', '\u30b0\u30e9\u30c7\u8868\u793a', 'Gradient preview')}
+      />
     );
   }
   return (
@@ -504,95 +518,6 @@ function BackgroundValueTile({
 
 function GridPanel({ children }: { children: ReactNode }) {
   return <div className="space-y-2 rounded-xl bg-indigo-500/5 p-2">{children}</div>;
-}
-
-function Field({ description, children }: { description?: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1">
-      {description && (
-        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function Shell({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
-  return (
-    <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-stretch rounded-lg bg-[var(--vr-surface-soft)]">
-      <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function NumberTile({
-  icon,
-  label,
-  description,
-  value,
-  min,
-  max,
-  step,
-  unit,
-  onChange,
-}: {
-  icon: LucideIcon;
-  label: string;
-  description?: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <Field description={description}>
-      <Shell icon={icon}>
-        <DragSizeControl
-          label={label}
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          unit={unit}
-          onChange={onChange}
-        />
-      </Shell>
-    </Field>
-  );
-}
-
-function ColorTile({
-  icon,
-  label,
-  description,
-  value,
-  onChange,
-}: {
-  icon: LucideIcon;
-  label: string;
-  description?: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field description={description}>
-      <Shell icon={icon}>
-        <input
-          type="color"
-          value={colorInputValue(value)}
-          onChange={(event) => onChange(event.target.value)}
-          className="video-render-color-input h-9 w-full cursor-pointer rounded-r-lg border-0 bg-transparent p-0"
-          aria-label={label}
-          title={label}
-        />
-      </Shell>
-    </Field>
-  );
 }
 
 function ImageButton({
@@ -628,86 +553,6 @@ function ImageButton({
   );
 }
 
-function SelectTile({
-  icon,
-  value,
-  label,
-  description,
-  options,
-  onChange,
-}: {
-  icon: LucideIcon;
-  value: string;
-  label: string;
-  description?: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label || options[0]?.label || '';
-
-  return (
-    <Field description={description}>
-      <div
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-        }}
-      >
-        <Shell icon={icon}>
-          <div className="relative z-0 min-w-0">
-            <button
-              type="button"
-              onClick={() => setOpen((current) => !current)}
-              className="flex h-9 w-full min-w-0 items-center justify-end gap-1.5 rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)] outline-none transition-colors hover:bg-white/5"
-              title={label}
-              aria-haspopup="listbox"
-              aria-expanded={open}
-            >
-              <span className="min-w-0 truncate">{selectedLabel}</span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${
-                  open ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-            {open && (
-              <div
-                className="absolute right-0 top-[calc(100%+4px)] z-30 max-h-56 w-full min-w-[132px] overflow-y-auto rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1 shadow-xl shadow-black/15"
-                role="listbox"
-              >
-                {options.map((option) => {
-                  const active = option.value === value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        onChange(option.value);
-                        setOpen(false);
-                      }}
-                      className={`flex h-8 w-full items-center justify-end rounded-md px-2 text-right text-xs font-normal transition-colors ${
-                        active
-                          ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'
-                          : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-                      }`}
-                      role="option"
-                      aria-selected={active}
-                    >
-                      <span className="min-w-0 truncate">{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </Shell>
-      </div>
-    </Field>
-  );
-}
-
 function readImageFileAsDataUrl(file: File, onReady: (value: string) => void) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -715,13 +560,3 @@ function readImageFileAsDataUrl(file: File, onReady: (value: string) => void) {
   };
   reader.readAsDataURL(file);
 }
-
-const colorInputValue = (value: string) => {
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
-  const rgba = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (!rgba) return '#ffffff';
-  return `#${[rgba[1], rgba[2], rgba[3]]
-    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
-    .join('')}`;
-};

@@ -306,6 +306,7 @@ export async function buildInteractiveWebZipBlob(
       options.settings?.startMenuBackgroundGradientStart || '#0f172a',
     startMenuBackgroundGradientEnd: options.settings?.startMenuBackgroundGradientEnd || '#0891b2',
     startMenuBackgroundGradientAngle: options.settings?.startMenuBackgroundGradientAngle ?? 135,
+    startMenuBackgroundGradientStops: options.settings?.startMenuBackgroundGradientStops,
     startMenuBackgroundImageUrl: options.settings?.startMenuBackgroundImageUrl || '',
     startMenuBackgroundMusicUrl: options.settings?.startMenuBackgroundMusicUrl || '',
     startMenuMusicVolume: options.settings?.startMenuMusicVolume ?? 70,

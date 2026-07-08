@@ -5,6 +5,7 @@ import type React from 'react';
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -331,7 +332,14 @@ function MenuPageElementLayer({
           if (element.kind === 'button') {
             const background =
               element.backgroundType === 'gradient'
-                ? `linear-gradient(${element.backgroundGradientAngle ?? 135}deg, ${element.backgroundGradientStart || choiceColor}, ${element.backgroundGradientEnd || '#0f172a'})`
+                ? linearGradientFromStops(
+                    element.backgroundGradientAngle ?? 135,
+                    normalizeGradientStops(
+                      element.backgroundGradientStops,
+                      element.backgroundGradientStart || choiceColor,
+                      element.backgroundGradientEnd || '#0f172a',
+                    ),
+                  )
                 : element.backgroundType === 'image' && element.backgroundImageUrl
                   ? `linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.38)),url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
                   : element.backgroundColor || (element.primary ? choiceColor : 'rgba(255,255,255,0.10)');

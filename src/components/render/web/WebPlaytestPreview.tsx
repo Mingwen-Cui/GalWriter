@@ -67,6 +67,7 @@ import {
   resizeCursorByHandle,
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 
 type WebPlaytestPreviewProps = {
@@ -1143,7 +1144,16 @@ export function WebPlaytestPreview({
         }
       : settings.startMenuBackgroundType === 'gradient'
         ? {
-            background: `linear-gradient(${settings.startMenuBackgroundGradientAngle}deg, ${settings.startMenuBackgroundGradientStart}, ${settings.startMenuBackgroundGradientEnd})`,
+            background: linearGradientFromStops(
+              settings.startMenuBackgroundGradientAngle,
+              normalizeGradientStops(
+                settings.startMenuBackgroundGradientStops,
+                settings.startMenuBackgroundGradientStart,
+                settings.startMenuBackgroundGradientEnd,
+                '#0f172a',
+                '#0891b2',
+              ),
+            ),
           }
         : settings.startMenuBackgroundType === 'solid'
           ? { background: settings.startMenuBackgroundColor }

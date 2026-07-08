@@ -137,6 +137,7 @@ export type WebMenuElement = {
   backgroundGradientStart?: string;
   backgroundGradientEnd?: string;
   backgroundGradientAngle?: number;
+  backgroundGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   backgroundImageUrl?: string;
   borderColor?: string;
   borderWidth?: number;
@@ -156,6 +157,12 @@ export type WebExportSettings = {
   startMenuBackgroundGradientStart: string;
   startMenuBackgroundGradientEnd: string;
   startMenuBackgroundGradientAngle: number;
+  startMenuBackgroundGradientStops?: Array<{
+    id: string;
+    color: string;
+    alpha: number;
+    position: number;
+  }>;
   startMenuBackgroundImageUrl: string;
   startMenuBackgroundMusicUrl: string;
   startMenuMusicVolume: number;

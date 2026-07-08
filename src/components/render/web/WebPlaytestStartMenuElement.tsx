@@ -14,6 +14,7 @@ import {
   resizeHandlePositionClass,
   resizeHandleShapeClass,
 } from './webPlaytestStartMenuTools';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
 const resizeHandles: StartMenuResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
@@ -85,7 +86,14 @@ export function WebPlaytestStartMenuElement({
     element.backgroundType === 'image' && element.backgroundImageUrl
       ? `center / cover url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
       : element.backgroundType === 'gradient'
-        ? `linear-gradient(${element.backgroundGradientAngle ?? 135}deg, ${element.backgroundGradientStart || choiceColor}, ${element.backgroundGradientEnd || '#0f172a'})`
+        ? linearGradientFromStops(
+            element.backgroundGradientAngle ?? 135,
+            normalizeGradientStops(
+              element.backgroundGradientStops,
+              element.backgroundGradientStart || choiceColor,
+              element.backgroundGradientEnd || '#0f172a',
+            ),
+          )
         : element.backgroundColor;
   const elementStyle: React.CSSProperties = {
     left: `${element.x}%`,
