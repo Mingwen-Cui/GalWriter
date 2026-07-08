@@ -7,6 +7,7 @@ import {
   ImagePlus,
   Palette,
   Radius,
+  RotateCw,
   Type,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -16,13 +17,12 @@ import {
   StyleColorTile as ColorTile,
   StyleGradientStopsTile,
   StyleNumberTile as NumberTile,
-  StylePreviewTile,
   StyleSelectTile as SelectTile,
   StyleTileField as Field,
 } from '../video/controls/StyleControlTiles';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebMenuElement } from '../video/shared/types';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { normalizeGradientStops } from './webGradientStops';
 
 const FONT_OPTIONS = [
   { label: '雅黑', value: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif' },
@@ -72,9 +72,9 @@ export function StartMenuElementInspector({
         <div className="grid grid-cols-3 gap-2">
           <ColorTile
             icon={Palette}
-            label={t('文字颜色', '文字色', 'Text color')}
+            label={t('选择文字颜色', '文字色を選択', 'Choose text color')}
             description={
-              showDescriptions ? t('选择文字颜色', '文字色を選択', 'Choose text color') : undefined
+              showDescriptions ? t('文字颜色', '文字色', 'Text color'): undefined
             }
             value={element.textColor || '#ffffff'}
             onChange={(value) => onUpdate({ textColor: value })}
@@ -82,10 +82,10 @@ export function StartMenuElementInspector({
           <SelectTile
             icon={Type}
             value={element.fontFamily || FONT_OPTIONS[0].value}
-            label={t('字体', 'フォント', 'Font')}
+            label={t('选择文字字体', '文字フォントを選択', 'Choose text font')}
             description={
               showDescriptions
-                ? t('选择文字字体', '文字フォントを選択', 'Choose text font')
+                ? t('字体', 'フォント', 'Font')
                 : undefined
             }
             options={FONT_OPTIONS}
@@ -93,9 +93,9 @@ export function StartMenuElementInspector({
           />
           <NumberTile
             icon={ALargeSmall}
-            label={t('字体大小', 'フォントサイズ', 'Font size')}
+            label={t('拖动调整字号', 'サイズを調整', 'Adjust font size')}
             description={
-              showDescriptions ? t('拖动调整字号', 'サイズを調整', 'Adjust font size') : undefined
+              showDescriptions ? t('字体大小', 'フォントサイズ', 'Font size') : undefined
             }
             value={element.fontSize ?? 28}
             min={8}
@@ -120,20 +120,20 @@ export function StartMenuElementInspector({
       <GridPanel>
         <div className="grid grid-cols-3 gap-2">
           <ImageButton
-            label={t('更换图片', '画像を変更', 'Replace image')}
+            label={t('选择新的图片素材', '新しい画像素材を選択', 'Choose a new image')}
             description={
               showDescriptions
-                ? t('选择新的图片素材', '新しい画像素材を選択', 'Choose a new image')
+                ? t('更换图片', '画像を変更', 'Replace image')
                 : undefined
             }
             onChange={(value) => onUpdate({ imageUrl: value })}
           />
           <NumberTile
             icon={Baseline}
-            label={t('描边宽度', '縁取り幅', 'Stroke width')}
+            label={t('拖动调整图片描边宽度', '画像の縁取り幅を調整', 'Adjust image stroke width')}
             description={
               showDescriptions
-                ? t('拖动调整图片描边宽度', '画像の縁取り幅を調整', 'Adjust image stroke width')
+                ? t('描边宽度', '縁取り幅', 'Stroke width')
                 : undefined
             }
             value={element.borderWidth ?? 0}
@@ -145,10 +145,10 @@ export function StartMenuElementInspector({
           />
           <ColorTile
             icon={Baseline}
-            label={t('描边颜色', '縁取り色', 'Stroke color')}
+            label={t('选择图片描边颜色', '画像の縁取り色を選択', 'Choose image stroke color')}
             description={
               showDescriptions
-                ? t('选择图片描边颜色', '画像の縁取り色を選択', 'Choose image stroke color')
+                ? t('描边颜色', '縁取り色', 'Stroke color')
                 : undefined
             }
             value={element.borderColor || '#ffffff'}
@@ -158,10 +158,10 @@ export function StartMenuElementInspector({
         <div className="grid grid-cols-3 gap-2">
           <NumberTile
             icon={Blend}
-            label={t('透明度', '透明度', 'Opacity')}
+            label={t('拖动调整图片透明度', '画像の透明度を調整', 'Adjust image opacity')}
             description={
               showDescriptions
-                ? t('拖动调整图片透明度', '画像の透明度を調整', 'Adjust image opacity')
+                ? t('透明度', '透明度', 'Opacity')
                 : undefined
             }
             value={element.opacity ?? 100}
@@ -173,10 +173,10 @@ export function StartMenuElementInspector({
           />
           <NumberTile
             icon={Radius}
-            label={t('圆角', '角丸', 'Radius')}
+            label={t('拖动调整图片圆角', '画像の角丸を調整', 'Adjust image radius')}
             description={
               showDescriptions
-                ? t('拖动调整图片圆角', '画像の角丸を調整', 'Adjust image radius')
+                ? t('圆角', '角丸', 'Radius')
                 : undefined
             }
             value={element.borderRadius ?? 12}
@@ -214,10 +214,10 @@ export function StartMenuElementInspector({
       <div className="grid grid-cols-3 gap-2">
         <ColorTile
           icon={Palette}
-          label={t('按钮文字颜色', 'ボタン文字色', 'Button text color')}
+          label={t('选择按钮内部文字颜色', 'ボタン内の文字色を選択', 'Choose button text color')}
           description={
             showDescriptions
-              ? t('选择按钮内部文字颜色', 'ボタン内の文字色を選択', 'Choose button text color')
+              ? t('文字颜色', '文字色', 'Text color')
               : undefined
           }
           value={element.textColor || '#ffffff'}
@@ -226,10 +226,10 @@ export function StartMenuElementInspector({
         <SelectTile
           icon={Type}
           value={element.fontFamily || FONT_OPTIONS[0].value}
-          label={t('字体', 'フォント', 'Font')}
+          label={t('选择按钮文字字体', 'ボタン文字フォントを選択', 'Choose button font')}
           description={
             showDescriptions
-              ? t('选择按钮文字字体', 'ボタン文字フォントを選択', 'Choose button font')
+              ? t('字体', 'フォント', 'Font')
               : undefined
           }
           options={FONT_OPTIONS}
@@ -237,10 +237,10 @@ export function StartMenuElementInspector({
         />
         <NumberTile
           icon={ALargeSmall}
-          label={t('文字字号', '文字サイズ', 'Text size')}
+          label={t('拖动调整按钮文字字号', 'ボタン文字サイズを調整', 'Adjust button text size')}
           description={
             showDescriptions
-              ? t('拖动调整按钮文字字号', 'ボタン文字サイズを調整', 'Adjust button text size')
+              ? t('文字字号', '文字サイズ', 'Text size')
               : undefined
           }
           value={element.fontSize ?? 14}
@@ -261,10 +261,10 @@ export function StartMenuElementInspector({
       <div className="grid grid-cols-3 gap-2">
         <NumberTile
           icon={Baseline}
-          label={t('边框宽度', '枠線幅', 'Border width')}
+          label={t('拖动调整按钮边框宽度', 'ボタン枠線幅を調整', 'Adjust button border width')}
           description={
             showDescriptions
-              ? t('拖动调整按钮边框宽度', 'ボタン枠線幅を調整', 'Adjust button border width')
+              ? t('边框宽度', '枠線幅', 'Border width')
               : undefined
           }
           value={element.borderWidth ?? 1}
@@ -276,10 +276,10 @@ export function StartMenuElementInspector({
         />
         <ColorTile
           icon={Baseline}
-          label={t('边框颜色', '枠線色', 'Border color')}
+          label={t('选择按钮边框颜色', 'ボタン枠線色を選択', 'Choose button border color')}
           description={
             showDescriptions
-              ? t('选择按钮边框颜色', 'ボタン枠線色を選択', 'Choose button border color')
+              ? t('边框颜色', '枠線色', 'Border color')
               : undefined
           }
           value={element.borderColor || '#ffffff'}
@@ -291,7 +291,7 @@ export function StartMenuElementInspector({
           label={t('混合模式', 'ブレンド', 'Blend mode')}
           description={
             showDescriptions
-              ? t('对应 CSS mix-blend-mode', 'CSS mix-blend-mode に対応', 'CSS mix-blend-mode')
+              ? t('混合模式', 'ブレンド', 'Blend mode')
               : undefined
           }
           options={BLEND_OPTIONS}
@@ -301,10 +301,10 @@ export function StartMenuElementInspector({
       <div className="grid grid-cols-3 gap-2">
         <NumberTile
           icon={Radius}
-          label={t('圆角', '角丸', 'Radius')}
+          label={t('拖动调整按钮圆角', 'ボタン角丸を調整', 'Adjust button radius')}
           description={
             showDescriptions
-              ? t('拖动调整按钮圆角', 'ボタン角丸を調整', 'Adjust button radius')
+              ? t('圆角', '角丸', 'Radius')
               : undefined
           }
           value={element.borderRadius ?? 12}
@@ -317,10 +317,10 @@ export function StartMenuElementInspector({
         <SelectTile
           icon={Palette}
           value={element.backgroundType || 'solid'}
-          label={t('底色', '背景', 'Background')}
+          label={t('选择按钮底色类型', 'ボタン背景タイプを選択', 'Choose button background type')}
           description={
             showDescriptions
-              ? t('选择按钮底色类型', 'ボタン背景タイプを選択', 'Choose button background type')
+              ? t('底色', '背景', 'Background')
               : undefined
           }
           options={[
@@ -377,10 +377,10 @@ function TextDetailRows({
       <div className="grid grid-cols-3 gap-2">
         <NumberTile
           icon={Blend}
-          label={t('透明度', '透明度', 'Text alpha')}
+          label={t('拖动调整文字透明度', '文字の透明度を調整', 'Adjust text alpha')}
           description={
             showDescriptions
-              ? t('拖动调整文字透明度', '文字の透明度を調整', 'Adjust text alpha')
+              ? t('透明度', '透明度', 'Text alpha')
               : undefined
           }
           value={element.textColorAlpha ?? 100}
@@ -392,10 +392,10 @@ function TextDetailRows({
         />
         <NumberTile
           icon={Baseline}
-          label={t('描边宽度', '縁取り幅', 'Stroke width')}
+          label={t('拖动调整描边宽度', '縁取り幅を調整', 'Adjust stroke width')}
           description={
             showDescriptions
-              ? t('拖动调整描边宽度', '縁取り幅を調整', 'Adjust stroke width')
+              ? t('描边宽度', '縁取り幅', 'Stroke width')
               : undefined
           }
           value={element.textStrokeWidth ?? 0}
@@ -407,10 +407,10 @@ function TextDetailRows({
         />
         <ColorTile
           icon={Baseline}
-          label={t('描边颜色', '縁取り色', 'Stroke color')}
+          label={t('选择描边颜色', '縁取り色を選択', 'Choose stroke color')}
           description={
             showDescriptions
-              ? t('选择描边颜色', '縁取り色を選択', 'Choose stroke color')
+              ? t('描边颜色', '縁取り色', 'Stroke color')
               : undefined
           }
           value={element.textStrokeColor || '#000000'}
@@ -442,9 +442,9 @@ function TextDetailRows({
         </Field>
         <NumberTile
           icon={BetweenHorizontalStart}
-          label={t('文字间距', '文字間隔', 'Letter spacing')}
+          label={t('拖动调整文字间距', '文字間隔を調整', 'Adjust spacing')}
           description={
-            showDescriptions ? t('拖动调整文字间距', '文字間隔を調整', 'Adjust spacing') : undefined
+            showDescriptions ? t('文字间距', '文字間隔', 'Letter spacing') : undefined
           }
           value={element.letterSpacing ?? 0}
           min={-4}
@@ -455,9 +455,9 @@ function TextDetailRows({
         />
         <NumberTile
           icon={BetweenVerticalStart}
-          label={t('行间距', '行間', 'Line height')}
+          label={t('拖动调整行间距', '行間を調整', 'Adjust line height')}
           description={
-            showDescriptions ? t('拖动调整行间距', '行間を調整', 'Adjust line height') : undefined
+            showDescriptions ? t('行间距', '行間', 'Line height') : undefined
           }
           value={element.lineHeight ?? 1.25}
           min={0.8}
@@ -493,16 +493,16 @@ function BackgroundValueTile({
     );
   }
   if ((element.backgroundType || 'solid') === 'gradient') {
-    const stops = normalizeGradientStops(
-      element.backgroundGradientStops,
-      element.backgroundGradientStart || '#0ea5e9',
-      element.backgroundGradientEnd || '#0f172a',
-    );
     return (
-      <StylePreviewTile
-        icon={Palette}
-        background={linearGradientFromStops(90, stops)}
-        label={t('\u6e10\u53d8\u9884\u89c8', '\u30b0\u30e9\u30c7\u8868\u793a', 'Gradient preview')}
+      <NumberTile
+        icon={RotateCw}
+        label={t('渐变角度', 'グラデーション角度', 'Gradient angle')}
+        value={element.backgroundGradientAngle ?? 135}
+        min={0}
+        max={360}
+        step={1}
+        unit="deg"
+        onChange={(value) => onUpdate({ backgroundGradientAngle: value, backgroundType: 'gradient' })}
       />
     );
   }

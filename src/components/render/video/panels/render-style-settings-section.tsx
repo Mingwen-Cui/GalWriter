@@ -1400,7 +1400,7 @@ export function RenderStyleSettingsSection({
             <div className="space-y-1">
               {showDescriptions && (
                 <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                  {t('导入或替换对话框背景图片', 'ダイアログ背景画像を追加/差し替え', 'Import or replace dialogue background image')}
+                  {t('对话框背景图片', 'ダイアログ背景画像', 'Dialogue background image')}
                 </div>
               )}
               <div

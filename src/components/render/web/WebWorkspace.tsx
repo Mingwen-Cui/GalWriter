@@ -784,7 +784,7 @@ JSON schema:
 
         <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
           {startMenuPreviewMode === 'edit' && webSettings.showStartMenu && (
-            <div className="space-y-3">
+            <div className="sticky -top-4 z-30 -mx-4 -mt-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface)]/95 px-4 py-3 backdrop-blur-xl">
               <WebSettingCard>
                 <WebSegmentedGroup
                   value={editPreviewSurface}
@@ -803,7 +803,6 @@ JSON schema:
                   }}
                 />
               </WebSettingCard>
-              <div className="h-px bg-[var(--vr-border)]" />
             </div>
           )}
           {currentPreviewSurface === 'start' && (
