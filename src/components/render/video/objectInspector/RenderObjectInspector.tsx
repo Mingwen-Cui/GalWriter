@@ -17,6 +17,7 @@ import type React from 'react';
 import { useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { DragSizeControl } from '../controls/RenderControls';
 import { getRenderObjects, isTextRenderObject, updateRenderObject } from '../shared/renderObjects';
 import type {
   RenderEditableObject,
@@ -142,20 +143,28 @@ export function RenderObjectInspector({
       )}
 
       <InspectorGroup title={text.group.fill} icon={<PaintBucket className="h-3.5 w-3.5" />} className={groupTone.fill}>
-        <TypeTabs value={selected.fill.type} text={text} onChange={(type) => setFill({ type })} />
-        <ColorSummary
-          color={selected.fill.color}
-          alpha={selected.fill.alpha}
-          onClick={() => setPopover(popover?.group === 'fill' ? null : { group: 'fill', type: selected.fill.type })}
+        <TypeTabs
+          value={selected.fill.type}
+          text={text}
+          onChange={(type) => {
+            setFill({ type });
+            setPopover({ group: 'fill', type });
+          }}
         />
         {popover?.group === 'fill' && selected.fill.type === 'solid' && (
-          <SolidColorPopover tone="fill" text={text.popover} color={selected.fill.color} alpha={selected.fill.alpha} onColorChange={(color) => setFill({ color })} onAlphaChange={(alpha) => setFill({ alpha })} />
+          <FloatingPopover>
+            <SolidColorPopover tone="fill" text={text.popover} color={selected.fill.color} alpha={selected.fill.alpha} onColorChange={(color) => setFill({ color })} onAlphaChange={(alpha) => setFill({ alpha })} />
+          </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'gradient' && (
-          <GradientPopover tone="fill" text={text.popover} angle={selected.fill.gradientAngle} stops={selected.fill.gradientStops} onAngleChange={(gradientAngle) => setFill({ gradientAngle })} onStopsChange={(gradientStops) => setFill({ gradientStops })} />
+          <FloatingPopover>
+            <GradientPopover tone="fill" text={text.popover} angle={selected.fill.gradientAngle} stops={selected.fill.gradientStops} onAngleChange={(gradientAngle) => setFill({ gradientAngle })} onStopsChange={(gradientStops) => setFill({ gradientStops })} />
+          </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'image' && (
-          <ImageFillPopover tone="fill" text={text.popover} value={selected.fill} onChange={setFill} />
+          <FloatingPopover>
+            <ImageFillPopover tone="fill" text={text.popover} value={selected.fill} onChange={setFill} />
+          </FloatingPopover>
         )}
       </InspectorGroup>
 
@@ -166,9 +175,13 @@ export function RenderObjectInspector({
             <ToggleButton active={selected.stroke.enabled} label={text.group.stroke} onClick={() => setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })} compact />
             <NumberField label={text.field.strokeWidth} value={selected.stroke.width} min={0} max={40} onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })} />
           </div>
-          <ColorSummary color={selected.stroke.color} alpha={selected.stroke.alpha} onClick={() => setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })} />
+          <button type="button" onClick={() => setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })} className="mt-2 h-9 w-full rounded-lg bg-white text-xs font-bold">
+            {text.field.color}
+          </button>
           {popover?.group === 'stroke' && (
-            <SolidColorPopover tone="stroke" text={text.popover} color={selected.stroke.color} alpha={selected.stroke.alpha} onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })} onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })} />
+            <FloatingPopover>
+              <SolidColorPopover tone="stroke" text={text.popover} color={selected.stroke.color} alpha={selected.stroke.alpha} onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })} onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })} />
+            </FloatingPopover>
           )}
         </div>
       </InspectorGroup>
@@ -280,7 +293,7 @@ function syncLegacyFields(
 
 function InspectorGroup({ title, icon, className, children }: { title: string; icon: React.ReactNode; className: string; children: React.ReactNode }) {
   return (
-    <section className={`rounded-xl p-3 ${className}`}>
+    <section className={`relative rounded-xl p-3 ${className}`}>
       <div className="mb-2 flex items-center gap-2 text-xs font-black">
         {icon}
         {title}
@@ -292,10 +305,10 @@ function InspectorGroup({ title, icon, className, children }: { title: string; i
 
 function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) {
   return (
-    <label className="grid h-9 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-white px-2">
+    <div className="grid h-9 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-white px-2">
       <span className="text-xs font-bold text-slate-600">{label}</span>
-      <input type="number" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Math.max(min, Math.min(max, Number(event.target.value) || 0)))} className="min-w-0 bg-transparent text-right text-xs outline-none" />
-    </label>
+      <DragSizeControl label={label} value={value} min={min} max={max} step={step} unit="" onChange={onChange} />
+    </div>
   );
 }
 
@@ -356,13 +369,9 @@ function TypeTabs({ value, text, onChange }: { value: RenderFillStyle['type']; t
   );
 }
 
-function ColorSummary({ color, alpha, onClick }: { color: string; alpha: number; onClick: () => void }) {
+function FloatingPopover({ children }: { children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="grid h-9 w-full grid-cols-[44px_1fr_58px] overflow-hidden rounded-lg bg-white text-left text-xs font-bold">
-      <span style={{ background: color }} />
-      <span className="flex items-center px-2">{color}</span>
-      <span className="flex items-center justify-center text-slate-500">{alpha}%</span>
-    </button>
+    <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-[80]">{children}</div>
   );
 }
 

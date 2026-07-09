@@ -1,8 +1,8 @@
 import type React from 'react';
 import type { ReactNode, RefObject } from 'react';
 
-import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import { getRenderObjects } from '../video/shared/renderObjects';
+import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderEditableObjectKind, RenderStyle, WebExportSettings } from '../video/shared/types';
 
 type WebPlaytestDialoguePanelProps = {
@@ -118,7 +118,7 @@ export function WebPlaytestDialoguePanel({
         ref={dialogueBoxRef}
         className={`pointer-events-auto relative w-full border-t border-white/10 py-4 ${
           settings.layoutMode === 'immersive'
-            ? 'overflow-y-auto rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl'
+            ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
         } ${selectionClass('dialogBox')}`}
         style={dialogueShellStyle}

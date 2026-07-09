@@ -2301,7 +2301,7 @@ export function PlayTestModal({
                       }
                       handleTextContainerClick();
                     }}
-                    className={`pointer-events-auto relative w-full overflow-y-auto rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
+                    className={`pointer-events-auto relative w-full ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
                     style={dialogueShellStyle}
                   >
                     {currentNode?.data.audioUrl && (
@@ -2512,7 +2512,7 @@ export function PlayTestModal({
                     : mobileClassicLayout
                       ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
                       : 'h-32 md:h-48 shrink-0'
-                } overflow-y-auto py-4 md:py-8 ${
+                } ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} py-4 md:py-8 ${
                   mobileClassicLayout ? 'px-4' : 'px-6 md:px-12 lg:px-48 xl:px-64'
                 } ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 transition-all duration-300 relative ${
                   choicesPosition === 'center' && choicesReady && blurBackground
