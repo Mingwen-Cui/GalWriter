@@ -1,4 +1,3 @@
-import { Eye, EyeOff, RotateCw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -6,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { WebEditableElementFrame } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
@@ -15,27 +15,6 @@ import { linearGradientFromStops, normalizeGradientStops } from './webGradientSt
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
-const placementResizeHandles: PlacementResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-const resizeHandlePositionClass: Record<PlacementResizeHandle, string> = {
-  n: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2',
-  s: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
-  e: 'right-0 top-1/2 -translate-y-1/2 translate-x-1/2',
-  w: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
-  ne: 'right-0 top-0 translate-x-1/2 -translate-y-1/2',
-  nw: 'left-0 top-0 -translate-x-1/2 -translate-y-1/2',
-  se: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
-  sw: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2',
-};
-const resizeHandleShapeClass: Record<PlacementResizeHandle, string> = {
-  n: 'h-2.5 w-12 rounded-full',
-  s: 'h-2.5 w-12 rounded-full',
-  e: 'h-12 w-2.5 rounded-full',
-  w: 'h-12 w-2.5 rounded-full',
-  ne: 'h-4 w-4 rounded-full',
-  nw: 'h-4 w-4 rounded-full',
-  se: 'h-4 w-4 rounded-full',
-  sw: 'h-4 w-4 rounded-full',
-};
 const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',
@@ -45,16 +24,6 @@ const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
   sw: 'nesw-resize',
   nw: 'nwse-resize',
   se: 'nwse-resize',
-};
-
-const getResizeHandleStyle = (handle: PlacementResizeHandle): CSSProperties => {
-  if (handle === 'n' || handle === 's') {
-    return { width: 'min(72%, 120px)', minWidth: 24, cursor: resizeCursorByHandle[handle] };
-  }
-  if (handle === 'e' || handle === 'w') {
-    return { height: 'min(72%, 120px)', minHeight: 24, cursor: resizeCursorByHandle[handle] };
-  }
-  return { cursor: resizeCursorByHandle[handle] };
 };
 
 type WebPreviewMenuPagesProps = {
@@ -404,7 +373,7 @@ function MenuPageElementLayer({
               <button
                 key={element.id}
                 type="button"
-                className={`pointer-events-auto absolute flex items-center justify-between gap-2 overflow-hidden border px-4 text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-transform ${
+                className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
                   editable ? 'cursor-move' : 'active:scale-[0.99]'
                 }`}
                 style={{
@@ -434,8 +403,13 @@ function MenuPageElementLayer({
                   if (next !== null) onUpdateElement(element.id, { text: next });
                 }}
               >
-                <span className="whitespace-pre-line">{element.text}</span>
-                {suffix && <span className="text-xs opacity-70">{suffix}</span>}
+                <span
+                  className="flex h-full w-full items-center justify-between gap-2 overflow-hidden px-4"
+                  style={{ borderRadius: element.borderRadius ?? 12 }}
+                >
+                  <span className="whitespace-pre-line">{element.text}</span>
+                  {suffix && <span className="text-xs opacity-70">{suffix}</span>}
+                </span>
                 {selected && (
                   <SelectedElementFrame
                     page={page}
@@ -453,7 +427,7 @@ function MenuPageElementLayer({
               <button
                 key={element.id}
                 type="button"
-                className="pointer-events-auto absolute overflow-hidden border-0 bg-transparent p-0"
+                className="pointer-events-auto absolute border-0 bg-transparent p-0"
                 style={commonStyle}
                 onPointerDown={(event) => {
                   if (editable) onBeginElementDrag(page, event, element, 'move');
@@ -463,18 +437,19 @@ function MenuPageElementLayer({
                   if (editable) onSelectElement?.(element.id);
                 }}
               >
-                {element.imageUrl ? (
-                  <img
-                    src={element.imageUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    style={{ borderRadius: element.borderRadius ?? 12 }}
-                  />
-                ) : (
-                  <span className="grid h-full w-full place-items-center rounded-xl border border-white/16 bg-white/10 text-xs font-black text-white/60">
-                    Image
-                  </span>
-                )}
+                <span className="block h-full w-full overflow-hidden" style={{ borderRadius: element.borderRadius ?? 12 }}>
+                  {element.imageUrl ? (
+                    <img
+                      src={element.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center rounded-xl border border-white/16 bg-white/10 text-xs font-black text-white/60">
+                      Image
+                    </span>
+                  )}
+                </span>
                 {selected && (
                   <SelectedElementFrame
                     page={page}
@@ -541,48 +516,17 @@ function SelectedElementFrame({
   ) => void;
 }) {
   return (
-    <>
-      <span className="pointer-events-none absolute inset-0 ring-2 ring-sky-300" />
-      <span
-        role="button"
-        tabIndex={-1}
-        className="pointer-events-auto absolute -right-10 top-1/2 z-30 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-sky-500 text-white shadow-lg"
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation();
-          onUpdateElement(element.id, { visible: element.visible === false });
-        }}
-        aria-label={element.visible === false ? 'Show element' : 'Hide element'}
-      >
-        {element.visible === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </span>
-      <span
-        role="button"
-        tabIndex={-1}
-        className="pointer-events-auto absolute -left-10 top-1/2 z-30 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-        style={{ cursor: 'alias' }}
-        onPointerDown={(event) => onBeginElementDrag(page, event, element, 'rotate')}
-        onClick={(event) => event.stopPropagation()}
-        aria-label="Rotate"
-      >
-        <RotateCw className="h-4 w-4" />
-      </span>
-      {placementResizeHandles.map((handle) => (
-        <span
-          key={handle}
-          role="button"
-          tabIndex={-1}
-          className={`absolute border border-sky-200 bg-white shadow pointer-events-auto ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-          style={{
-            ...getResizeHandleStyle(handle),
-            zIndex: 30,
-          }}
-          onPointerDown={(event) => onBeginElementDrag(page, event, element, 'resize', handle)}
-          onClick={(event) => event.stopPropagation()}
-          aria-label="Resize"
-        />
-      ))}
-    </>
+    <WebEditableElementFrame
+      visible={element.visible !== false}
+      onRotatePointerDown={(event) => onBeginElementDrag(page, event, element, 'rotate')}
+      onToggleVisible={(event) => {
+        event.stopPropagation();
+        onUpdateElement(element.id, { visible: element.visible === false });
+      }}
+      onResizePointerDown={(event, handle) =>
+        onBeginElementDrag(page, event, element, 'resize', handle)
+      }
+    />
   );
 }
 

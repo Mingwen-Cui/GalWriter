@@ -1,4 +1,5 @@
 ﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type {
@@ -53,8 +54,8 @@ import { WebPlaytestNameplates } from './WebPlaytestNameplates';
 import type { PlayedAudio } from './WebPlaytestPreviewControls';
 import {
   ChoiceButtonsGroup,
-  ControlsToggle,
   PreviewAudioPlaylistModal,
+  PreviewFloatingElementLayer,
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
@@ -205,6 +206,35 @@ export function WebPlaytestPreview({
     },
     [_onUpdateRenderStyle, renderStyle],
   );
+  const patchRenderObject = React.useCallback(
+    (kind: RenderEditableObjectKind, patch: Parameters<typeof updateRenderObject>[2]) => {
+      const nextObjects = updateRenderObject(renderStyle, kind, patch);
+      _onUpdateRenderStyle('renderObjects', nextObjects);
+      if (kind === 'dialogBox') {
+        if (typeof patch.x === 'number') {
+          _onUpdateRenderStyle('dialogOffsetX', Math.max(-100, Math.min(100, Math.round(patch.x))));
+        }
+        if (typeof patch.y === 'number') {
+          _onUpdateRenderStyle('dialogOffsetY', Math.max(-100, Math.min(100, Math.round(patch.y))));
+        }
+        if (typeof patch.width === 'number') _onUpdateRenderStyle('dialogWidth', Math.round(patch.width));
+        if (typeof patch.height === 'number') _onUpdateRenderStyle('dialogHeight', Math.round(patch.height));
+        if (typeof patch.radius === 'number') _onUpdateRenderStyle('dialogRadius', Math.round(patch.radius));
+        if (typeof patch.visible === 'boolean') _onUpdateRenderStyle('dialogVisible', patch.visible);
+      }
+      if (kind === 'title' && typeof patch.visible === 'boolean') {
+        _onUpdateRenderStyle('titleVisible', patch.visible);
+      }
+      if (kind === 'nameplate') {
+        if (typeof patch.x === 'number') _onUpdateRenderStyle('nameplateOffsetX', Math.round(patch.x));
+        if (typeof patch.y === 'number') _onUpdateRenderStyle('nameplateOffsetY', Math.round(patch.y));
+        if (typeof patch.width === 'number') _onUpdateRenderStyle('nameplateScale', Math.round(patch.width));
+        if (typeof patch.radius === 'number') _onUpdateRenderStyle('nameplateRadius', Math.round(patch.radius));
+        if (typeof patch.visible === 'boolean') _onUpdateRenderStyle('nameplateVisible', patch.visible);
+      }
+    },
+    [_onUpdateRenderStyle, renderStyle],
+  );
   React.useEffect(() => {
     if (!editingStartMenuElementId) return;
     const editor = startMenuEditorRef.current?.querySelector<HTMLElement>(
@@ -305,69 +335,8 @@ export function WebPlaytestPreview({
   const titleStyle = buildTitleStyle(renderStyle);
   const bodyStyle = buildBodyStyle(renderStyle);
   const dialogueShellStyle = buildDialogueShellStyle(renderStyle, settings.layoutMode);
-  const dialogueOffsetX = Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0));
-  const dialogueCenter = 50 + dialogueOffsetX * 0.5;
   const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
-  const dialogueRightSpace = Math.max(0, 100 - (dialogueCenter + dialogWidth / 2));
-  const hasBottomRightSpace = settings.layoutMode !== 'immersive' || dialogueRightSpace >= 12;
-  const [controlsToggleBottom, setControlsToggleBottom] = useState(24);
-  const controlsToggleStyle: React.CSSProperties =
-    settings.layoutMode === 'immersive'
-      ? {
-          right: 24,
-          bottom: hasBottomRightSpace ? 24 : controlsToggleBottom,
-        }
-      : {};
 
-  React.useLayoutEffect(() => {
-    if (settings.layoutMode !== 'immersive' || hasBottomRightSpace) {
-      setControlsToggleBottom(24);
-      return;
-    }
-    const root = previewRootRef.current;
-    const dialogue = dialogueBoxRef.current;
-    if (!root || !dialogue) return;
-
-    let frame = 0;
-    const updatePosition = () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        const rootRect = root.getBoundingClientRect();
-        const dialogueRect = dialogue.getBoundingClientRect();
-        const nextBottom = Math.max(24, Math.ceil(rootRect.bottom - dialogueRect.top + 20));
-        setControlsToggleBottom((current) =>
-          Math.abs(current - nextBottom) > 1 ? nextBottom : current,
-        );
-      });
-    };
-
-    updatePosition();
-    const observer = new ResizeObserver(updatePosition);
-    observer.observe(root);
-    observer.observe(dialogue);
-    window.addEventListener('resize', updatePosition);
-    window.visualViewport?.addEventListener('resize', updatePosition);
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.removeEventListener('resize', updatePosition);
-      window.visualViewport?.removeEventListener('resize', updatePosition);
-    };
-  }, [
-    settings.layoutMode,
-    settings.choicesPosition,
-    hasBottomRightSpace,
-    currentNodeId,
-    displayedPreviewText,
-    renderStyle.dialogWidth,
-    renderStyle.dialogHeight,
-    renderStyle.dialogOffsetX,
-    renderStyle.dialogOffsetY,
-    renderStyle.dialogTextPaddingX,
-    renderStyle.bodyFontSize,
-    renderStyle.titleFontSize,
-    renderStyle.titleVisible,
-  ]);
 
   React.useEffect(() => {
     setPresentationExiting(false);
@@ -866,10 +835,6 @@ export function WebPlaytestPreview({
     }
   };
 
-  const controlsLabel = previewControlsHidden
-    ? t('显示上方按钮', '上部ボタンを表示', 'Show controls')
-    : t('隐藏上方按钮', '上部ボタンを隠す', 'Hide controls');
-
   const startMenuButtonPositionClass =
     settings.startMenuButtonPosition === 'bottomLeft'
       ? 'items-end justify-items-start text-left'
@@ -988,6 +953,118 @@ export function WebPlaytestPreview({
     settings.settingsPageElements && settings.settingsPageElements.length > 0
       ? settings.settingsPageElements
       : defaultSettingsPageElements;
+  const defaultToolbarElements = React.useMemo<StartMenuElement[]>(
+    () => [
+      {
+        id: 'toolbar-audio',
+        kind: 'button',
+        role: 'audio',
+        text: t('音频', '音声', 'Audio'),
+        visible: true,
+        x: 59,
+        y: 2.4,
+        width: 8.4,
+        height: 4.8,
+        scale: 1,
+        rotation: 0,
+        fontSize: 12,
+        textColor: '#ffffff',
+        backgroundType: 'solid',
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 8,
+      },
+      {
+        id: 'toolbar-fullscreen',
+        kind: 'button',
+        role: 'fullscreen',
+        text: t('最大化', '最大化', 'Max'),
+        visible: true,
+        x: 68.2,
+        y: 2.4,
+        width: 9.8,
+        height: 4.8,
+        scale: 1,
+        rotation: 0,
+        fontSize: 12,
+        textColor: '#ffffff',
+        backgroundType: 'solid',
+        backgroundColor: 'rgba(14,165,233,0.22)',
+        borderRadius: 8,
+      },
+      {
+        id: 'toolbar-return',
+        kind: 'button',
+        role: 'return',
+        text: t('返回', '戻る', 'Back'),
+        visible: true,
+        x: 79,
+        y: 2.4,
+        width: 8.4,
+        height: 4.8,
+        scale: 1,
+        rotation: 0,
+        fontSize: 12,
+        textColor: '#ffffff',
+        backgroundType: 'solid',
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 8,
+      },
+      {
+        id: 'toolbar-main',
+        kind: 'button',
+        role: 'mainMenu',
+        text: t('主界面', 'メニュー', 'Menu'),
+        visible: true,
+        x: 88.2,
+        y: 2.4,
+        width: 9.6,
+        height: 4.8,
+        scale: 1,
+        rotation: 0,
+        fontSize: 12,
+        textColor: '#ffffff',
+        backgroundType: 'solid',
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 8,
+      },
+      {
+        id: 'toolbar-controls-toggle',
+        kind: 'button',
+        role: 'controlsToggle',
+        text: '',
+        visible: true,
+        x: 92,
+        y: 84,
+        width: 4.4,
+        height: 5.2,
+        scale: 1,
+        rotation: 0,
+        fontSize: 12,
+        textColor: '#ffffff',
+        backgroundType: 'solid',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        borderRadius: 999,
+      },
+    ],
+    [t],
+  );
+  const toolbarElements =
+    settings.previewToolbarElements && settings.previewToolbarElements.length > 0
+      ? settings.previewToolbarElements
+      : defaultToolbarElements;
+  const updateToolbarElement = React.useCallback(
+    (id: string, patch: Partial<StartMenuElement>) => {
+      const source =
+        settings.previewToolbarElements && settings.previewToolbarElements.length > 0
+          ? settings.previewToolbarElements
+          : defaultToolbarElements;
+      onUpdateSettings(
+        'previewToolbarElements',
+        source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+      );
+    },
+    [defaultToolbarElements, onUpdateSettings, settings.previewToolbarElements],
+  );
   const visibleStartMenuActionRoles = new Set(
     startMenuElements
       .filter((element) => element.kind === 'button' && element.visible !== false && element.role)
@@ -1369,11 +1446,8 @@ export function WebPlaytestPreview({
     );
   };
 
-  const renderPreviewToolbar = (
-    titleText = projectTitle || t('网页标题', 'Webタイトル', 'Web Title'),
-  ) => (
+  const renderPreviewToolbar = () => (
     <PreviewToolbar
-      titleText={titleText}
       settings={settings}
       previewControlsHidden={previewControlsHidden}
       historyLength={history.length}
@@ -1381,7 +1455,18 @@ export function WebPlaytestPreview({
       playlistAudioUrl={playlistAudioUrl}
       playlistAudioRef={playlistAudioRef}
       isPreviewFullscreen={isPreviewFullscreen}
+      previewMode={previewMode}
+      toolbarElements={toolbarElements}
+      selectedToolbarElementId={selectedStartMenuElementId}
       t={t}
+      onSelectToolbarElement={(id) => {
+        if (id && !settings.previewToolbarElements?.length) {
+          onUpdateSettings('previewToolbarElements', defaultToolbarElements);
+        }
+        setSelectedStartMenuElementId(id);
+        onSelectStartMenuElement?.(id);
+      }}
+      onUpdateToolbarElement={updateToolbarElement}
       onBack={back}
       onReturnToStartMenu={returnToStartMenu}
       onToggleAudioPlaylist={() => setShowAudioPlaylist((visible) => !visible)}
@@ -1391,6 +1476,81 @@ export function WebPlaytestPreview({
       onPlaylistAudioEnded={() => setIsPlaylistAudioPlaying(false)}
     />
   );
+
+  const renderFloatingElements = () => {
+    const toolbarLayerElements = toolbarElements.filter(
+      (element) => settings.showStartMenu || element.role !== 'mainMenu',
+    );
+    const dialogueOverlayElements = settings.dialogueOverlayElements || [];
+    const floatingGuideElements = [...toolbarLayerElements, ...dialogueOverlayElements];
+
+    return (
+      <>
+      <PreviewFloatingElementLayer
+        elements={toolbarLayerElements}
+        guideElements={floatingGuideElements}
+        selectedElementId={selectedStartMenuElementId}
+        previewMode={previewMode}
+        onSelectElement={(id) => {
+          if (id && !settings.previewToolbarElements?.length) {
+            onUpdateSettings('previewToolbarElements', defaultToolbarElements);
+          }
+          setSelectedStartMenuElementId(id);
+          onSelectStartMenuElement?.(id);
+        }}
+        onUpdateElement={updateToolbarElement}
+        getIcon={(element) =>
+          element.role === 'audio' ? (
+            <ListMusic className="h-3.5 w-3.5" />
+          ) : element.role === 'fullscreen' ? (
+            isPreviewFullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )
+          ) : element.role === 'return' ? (
+            <RotateCcw className="h-3.5 w-3.5" />
+          ) : element.role === 'controlsToggle' ? (
+            previewControlsHidden ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )
+          ) : (
+            <House className="h-3.5 w-3.5" />
+          )
+        }
+        isActive={(element) => element.role === 'audio' && showAudioPlaylist}
+        isDisabled={(element) => element.role === 'return' && history.length === 0}
+        onAction={(element) => {
+          if (element.role === 'audio') setShowAudioPlaylist((visible) => !visible);
+          if (element.role === 'fullscreen') void togglePreviewFullscreen();
+          if (element.role === 'return') back();
+          if (element.role === 'mainMenu') returnToStartMenu();
+          if (element.role === 'controlsToggle') setPreviewControlsHidden((prev) => !prev);
+        }}
+      />
+      <PreviewFloatingElementLayer
+        elements={dialogueOverlayElements}
+        guideElements={floatingGuideElements}
+        selectedElementId={selectedStartMenuElementId}
+        previewMode={previewMode}
+        onSelectElement={(id) => {
+          setSelectedStartMenuElementId(id);
+          onSelectStartMenuElement?.(id);
+        }}
+        onUpdateElement={(id, patch) =>
+          onUpdateSettings(
+            'dialogueOverlayElements',
+            (settings.dialogueOverlayElements || []).map((element) =>
+              element.id === id ? { ...element, ...patch } : element,
+            ),
+          )
+        }
+      />
+      </>
+    );
+  };
 
   const renderAudioPlaylistModal = () => (
     <PreviewAudioPlaylistModal
@@ -1424,12 +1584,7 @@ export function WebPlaytestPreview({
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
-        <ControlsToggle
-          label={controlsLabel}
-          hidden={previewControlsHidden}
-          onClick={() => setPreviewControlsHidden((prev) => !prev)}
-          positionClass="absolute bottom-4 right-4"
-        />
+        {renderFloatingElements()}
         <div className="grid flex-1 place-items-center p-6 text-center text-2xl font-black text-[var(--vr-text)]">
           {t('剧本结束', 'シナリオ終了', 'The End')}
         </div>
@@ -1547,6 +1702,7 @@ export function WebPlaytestPreview({
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
+        {renderFloatingElements()}
         <div
           className={
             settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 px-4 pt-4'
@@ -1558,7 +1714,10 @@ export function WebPlaytestPreview({
                 ? 'rounded-none'
                 : 'rounded-t-lg border-x border-t border-white/10 bg-slate-950'
             }`}
-            onClick={continueFromText}
+            onClick={() => {
+              if (previewMode === 'edit') return;
+              continueFromText();
+            }}
           >
             {settings.layoutMode === 'classic' ? (
               <VirtualPresentationStage fit="cover" className="absolute inset-0 h-full w-full">
@@ -1597,21 +1756,11 @@ export function WebPlaytestPreview({
           previewMode={previewMode}
           onSelectRenderObject={selectRenderObject}
           onMoveRenderObject={moveRenderObject}
+          onUpdateRenderObject={patchRenderObject}
           t={t}
           onContinueFromText={continueFromText}
           onRecordCurrentAudio={recordCurrentAudio}
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}
-        />
-        <ControlsToggle
-          label={controlsLabel}
-          hidden={previewControlsHidden}
-          onClick={() => setPreviewControlsHidden((prev) => !prev)}
-          positionClass={
-            settings.layoutMode === 'immersive'
-              ? 'absolute pointer-events-auto'
-              : 'absolute bottom-3 right-3'
-          }
-          style={controlsToggleStyle}
         />
       </div>
       {renderStartMenuPreview()}

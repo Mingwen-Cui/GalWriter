@@ -36,13 +36,13 @@ export const resizeHandlePositionClass: Record<StartMenuResizeHandle, string> = 
 
 export const resizeHandleShapeClass: Record<StartMenuResizeHandle, string> = {
   nw: 'h-3 w-3 rounded-full',
-  n: 'h-2 rounded-full',
+  n: 'h-5 rounded-full opacity-0',
   ne: 'h-3 w-3 rounded-full',
-  e: 'w-2 rounded-full',
+  e: 'w-5 rounded-full opacity-0',
   se: 'h-3 w-3 rounded-full',
-  s: 'h-2 rounded-full',
+  s: 'h-5 rounded-full opacity-0',
   sw: 'h-3 w-3 rounded-full',
-  w: 'w-2 rounded-full',
+  w: 'w-5 rounded-full opacity-0',
 };
 
 export const getResizeHandleStyle = (handle: StartMenuResizeHandle): CSSProperties => {

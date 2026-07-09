@@ -10,9 +10,19 @@ import {
   Undo2,
 } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
+import { useState } from 'react';
 
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
-import type { RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import {
+  WebEditableElementFrame,
+  type WebEditableResizeHandle,
+} from './WebEditableElementFrame';
+import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
+import {
+  snapElementBoxToElementGuides,
+  snapResizeBoxToElementGuides,
+} from './webElementAlignmentGuides';
 
 export type PlayedAudio = {
   nodeId: string;
@@ -101,7 +111,6 @@ export function ControlsToggle({
 }
 
 export function PreviewToolbar({
-  titleText,
   settings,
   previewControlsHidden,
   historyLength,
@@ -109,7 +118,12 @@ export function PreviewToolbar({
   playlistAudioUrl,
   playlistAudioRef,
   isPreviewFullscreen,
+  previewMode = 'test',
+  toolbarElements,
+  selectedToolbarElementId,
   t,
+  onSelectToolbarElement,
+  onUpdateToolbarElement,
   onBack,
   onReturnToStartMenu,
   onToggleAudioPlaylist,
@@ -118,7 +132,6 @@ export function PreviewToolbar({
   onPlaylistAudioPause,
   onPlaylistAudioEnded,
 }: {
-  titleText: string;
   settings: WebExportSettings;
   previewControlsHidden: boolean;
   historyLength: number;
@@ -126,7 +139,12 @@ export function PreviewToolbar({
   playlistAudioUrl: string | null;
   playlistAudioRef: RefObject<HTMLAudioElement | null>;
   isPreviewFullscreen: boolean;
+  previewMode?: 'edit' | 'test';
+  toolbarElements: WebMenuElement[];
+  selectedToolbarElementId?: string | null;
   t: (zh: string, ja: string, en: string) => string;
+  onSelectToolbarElement?: (id: string | null) => void;
+  onUpdateToolbarElement?: (id: string, patch: Partial<WebMenuElement>) => void;
   onBack: () => void;
   onReturnToStartMenu: () => void;
   onToggleAudioPlaylist: () => void;
@@ -137,16 +155,49 @@ export function PreviewToolbar({
 }) {
   return (
     <div
+      data-toolbar-editor="true"
       className={`relative z-[200] flex h-12 items-center justify-between overflow-visible px-3 transition-opacity ${
         settings.layoutMode === 'immersive'
           ? 'absolute left-0 right-0 top-0 border-b border-transparent bg-transparent shadow-none backdrop-blur-0'
           : 'border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md'
       } ${previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
     >
-      <div className="min-w-0 flex items-center gap-2.5">
-        <span className="truncate text-sm font-black text-white/88">{titleText}</span>
+      <div className="hidden">
+        {toolbarElements
+          .filter((element) => previewMode === 'edit' || element.visible !== false)
+          .filter((element) => settings.showStartMenu || element.role !== 'mainMenu')
+          .map((element) => (
+            <ToolbarElement
+              key={element.id}
+              element={element}
+              selected={selectedToolbarElementId === element.id}
+              previewMode={previewMode}
+              disabled={element.role === 'return' && historyLength === 0}
+              active={element.role === 'audio' && showAudioPlaylist}
+              icon={
+                element.role === 'audio' ? (
+                  <ListMusic className="h-3.5 w-3.5" />
+                ) : element.role === 'fullscreen' ? (
+                  isPreviewFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />
+                ) : element.role === 'return' ? (
+                  <RotateCcw className="h-3.5 w-3.5" />
+                ) : (
+                  <House className="h-3.5 w-3.5" />
+                )
+              }
+              guideElements={toolbarElements}
+              onSelect={onSelectToolbarElement}
+              onUpdate={onUpdateToolbarElement}
+              onAction={() => {
+                if (element.role === 'audio') onToggleAudioPlaylist();
+                if (element.role === 'fullscreen') onToggleFullscreen();
+                if (element.role === 'return') onBack();
+                if (element.role === 'mainMenu') onReturnToStartMenu();
+              }}
+            />
+          ))}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <div className="hidden">
         <div className="relative">
           <button
             type="button"
@@ -219,6 +270,262 @@ export function PreviewToolbar({
         />
       )}
     </div>
+  );
+}
+
+export function PreviewFloatingElementLayer({
+  elements,
+  guideElements,
+  selectedElementId,
+  previewMode,
+  className = '',
+  onSelectElement,
+  onUpdateElement,
+  getIcon,
+  isActive,
+  isDisabled,
+  onAction,
+}: {
+  elements: WebMenuElement[];
+  guideElements?: WebMenuElement[];
+  selectedElementId?: string | null;
+  previewMode: 'edit' | 'test';
+  className?: string;
+  onSelectElement?: (id: string | null) => void;
+  onUpdateElement?: (id: string, patch: Partial<WebMenuElement>) => void;
+  getIcon?: (element: WebMenuElement) => ReactNode;
+  isActive?: (element: WebMenuElement) => boolean;
+  isDisabled?: (element: WebMenuElement) => boolean;
+  onAction?: (element: WebMenuElement) => void;
+}) {
+  const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
+  const snapGuideElements = guideElements || elements;
+
+  return (
+    <div
+      data-toolbar-editor="true"
+      className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
+    >
+      {previewMode === 'edit' && activeGuideLines.length > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-30">
+          {activeGuideLines.map((line, index) => (
+            <div
+              key={`${line.axis}-${line.value}-${index}`}
+              className={
+                line.axis === 'x'
+                  ? 'absolute top-0 h-full border-l-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+                  : 'absolute left-0 w-full border-t-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+              }
+              style={line.axis === 'x' ? { left: `${line.value}%` } : { top: `${line.value}%` }}
+            />
+          ))}
+        </div>
+      )}
+      {elements
+        .filter((element) => previewMode === 'edit' || element.visible !== false)
+        .map((element) => (
+          <ToolbarElement
+            key={element.id}
+            element={element}
+            selected={selectedElementId === element.id}
+            previewMode={previewMode}
+            disabled={Boolean(isDisabled?.(element))}
+            active={Boolean(isActive?.(element))}
+            icon={getIcon?.(element)}
+            guideElements={snapGuideElements}
+            onSelect={onSelectElement}
+            onUpdate={onUpdateElement}
+            onGuideLinesChange={setActiveGuideLines}
+            onAction={() => onAction?.(element)}
+          />
+        ))}
+    </div>
+  );
+}
+
+function ToolbarElement({
+  element,
+  selected,
+  previewMode,
+  disabled,
+  active,
+  icon,
+  guideElements,
+  onSelect,
+  onUpdate,
+  onGuideLinesChange,
+  onAction,
+}: {
+  element: WebMenuElement;
+  selected: boolean;
+  previewMode: 'edit' | 'test';
+  disabled: boolean;
+  active: boolean;
+  icon: ReactNode;
+  guideElements: WebMenuElement[];
+  onSelect?: (id: string | null) => void;
+  onUpdate?: (id: string, patch: Partial<WebMenuElement>) => void;
+  onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void;
+  onAction: () => void;
+}) {
+  const editable = previewMode === 'edit';
+  const beginDrag = (event: React.PointerEvent<HTMLElement>, type: 'move' | 'resize' | 'rotate', handle?: WebEditableResizeHandle) => {
+    if (!editable || !onUpdate) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect?.(element.id);
+    const parent = event.currentTarget.closest('[data-toolbar-editor="true"]')?.getBoundingClientRect();
+    const rect = parent || event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!rect) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = element;
+    const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
+    const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
+    const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+    const move = (moveEvent: PointerEvent) => {
+      if (type === 'rotate') {
+        const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
+        onGuideLinesChange?.([]);
+        onUpdate(element.id, { rotation: Math.round(initial.rotation + angle - startAngle) });
+        return;
+      }
+      const dx = ((moveEvent.clientX - startX) / rect.width) * 100;
+      const dy = ((moveEvent.clientY - startY) / rect.height) * 100;
+      let x = initial.x;
+      let y = initial.y;
+      let width = initial.width;
+      let height = initial.height;
+      if (type === 'move') {
+        x = initial.x + dx;
+        y = initial.y + dy;
+        const snapped = snapElementBoxToElementGuides({
+          x,
+          y,
+          width,
+          height,
+          rect,
+          elements: guideElements,
+          movingId: element.id,
+        });
+        x = snapped.x;
+        y = snapped.y;
+        onGuideLinesChange?.(snapped.lines);
+      } else {
+        const resizeHandle = handle || 'se';
+        if (resizeHandle.includes('e')) width = initial.width + dx;
+        if (resizeHandle.includes('s')) height = initial.height + dy;
+        if (resizeHandle.includes('w')) {
+          x = initial.x + dx;
+          width = initial.width - dx;
+        }
+        if (resizeHandle.includes('n')) {
+          y = initial.y + dy;
+          height = initial.height - dy;
+        }
+        const snapped = snapResizeBoxToElementGuides({
+          x,
+          y,
+          width,
+          height,
+          handle: resizeHandle,
+          rect,
+          elements: guideElements,
+          movingId: element.id,
+        });
+        x = snapped.x;
+        y = snapped.y;
+        width = snapped.width;
+        height = snapped.height;
+        onGuideLinesChange?.(snapped.lines);
+      }
+      width = Math.max(3, Math.min(60, width));
+      height = Math.max(3, Math.min(100, height));
+      x = Math.max(0, Math.min(100 - width, x));
+      y = Math.max(0, Math.min(100 - height, y));
+      onUpdate(element.id, { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)), width: Number(width.toFixed(2)), height: Number(height.toFixed(2)) });
+    };
+    const end = () => {
+      onGuideLinesChange?.([]);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`pointer-events-auto absolute text-xs font-black text-white ${
+        element.kind === 'text'
+          ? 'bg-transparent shadow-none'
+          : element.kind === 'image'
+            ? 'border-0 bg-transparent shadow-none'
+            : `shadow-lg ${active ? 'bg-sky-500/35 text-sky-100' : 'bg-white/12 hover:bg-white/20'}`
+      } ${disabled ? 'opacity-35 grayscale' : ''}`}
+      style={{
+        left: `${element.x}%`,
+        top: `${element.y}%`,
+        width: `${element.width}%`,
+        height: `${element.height}%`,
+        transform: `rotate(${element.rotation || 0}deg)`,
+        opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
+        borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8),
+        background:
+          element.kind === 'button' && element.backgroundColor
+            ? element.backgroundColor
+            : undefined,
+        color: element.textColor || undefined,
+        fontFamily: element.fontFamily || undefined,
+        fontSize: element.fontSize || undefined,
+        letterSpacing: element.letterSpacing,
+        lineHeight: element.lineHeight,
+      }}
+      disabled={!editable && disabled}
+      onPointerDown={(event) => beginDrag(event, 'move')}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (editable) {
+          onSelect?.(element.id);
+          return;
+        }
+        if (!disabled) onAction();
+      }}
+    >
+      <span
+        className={`flex h-full w-full items-center justify-center gap-1.5 overflow-hidden ${
+          element.kind === 'button' ? 'px-2' : ''
+        }`}
+        style={{ borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8) }}
+      >
+        {element.kind === 'image' ? (
+          element.imageUrl ? (
+            <img src={element.imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="grid h-full w-full place-items-center rounded-xl border border-white/20 bg-white/10 text-[10px] text-white/60">
+              Image
+            </span>
+          )
+        ) : (
+          <>
+            {icon}
+            <span className="whitespace-pre-line">{element.text}</span>
+          </>
+        )}
+      </span>
+      {selected && editable && onUpdate && (
+        <WebEditableElementFrame
+          visible={element.visible !== false}
+          onRotatePointerDown={(event) => beginDrag(event, 'rotate')}
+          onToggleVisible={(event) => {
+            event.stopPropagation();
+            onUpdate(element.id, { visible: element.visible === false });
+          }}
+          onResizePointerDown={(event, handle) => beginDrag(event, 'resize', handle)}
+        />
+      )}
+    </button>
   );
 }
 

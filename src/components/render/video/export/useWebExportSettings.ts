@@ -27,6 +27,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   startMenuElements: [],
   archivePageElements: [],
   settingsPageElements: [],
+  previewToolbarElements: [],
+  dialogueOverlayElements: [],
   startMenuPlacementBoundsLocked: false,
   startMenuPlacementMinX: 0,
   startMenuPlacementMinY: 0,

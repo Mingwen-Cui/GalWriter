@@ -2,6 +2,7 @@ import { Eye, EyeOff, RotateCw, Trash2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -14,7 +15,6 @@ import {
   resizeHandlePositionClass,
   resizeHandleShapeClass,
 } from './webPlaytestStartMenuTools';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
 const resizeHandles: StartMenuResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
@@ -245,7 +245,7 @@ export function WebPlaytestStartMenuElement({
             }
             action?.onClick();
           }}
-          className={`h-full w-full rounded-lg border font-black transition-transform ${
+          className={`h-full w-full rounded-lg border font-black ${
             element.primary
               ? 'border-white/24 text-white shadow-lg shadow-black/15'
               : 'border-white/16 bg-white/10 text-white'

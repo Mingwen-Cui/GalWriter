@@ -208,7 +208,12 @@ export type WebMenuElement = {
     | 'slot'
     | 'auto'
     | 'speed'
-    | 'controls';
+    | 'controls'
+    | 'audio'
+    | 'fullscreen'
+    | 'return'
+    | 'mainMenu'
+    | 'controlsToggle';
   text: string;
   visible: boolean;
   x: number;
@@ -273,6 +278,8 @@ export type WebExportSettings = {
   startMenuElements: WebMenuElement[];
   archivePageElements: WebMenuElement[];
   settingsPageElements: WebMenuElement[];
+  previewToolbarElements: WebMenuElement[];
+  dialogueOverlayElements: WebMenuElement[];
   startMenuPlacementBoundsLocked: boolean;
   startMenuPlacementMinX: number;
   startMenuPlacementMinY: number;

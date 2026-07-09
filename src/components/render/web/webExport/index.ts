@@ -324,6 +324,8 @@ export async function buildInteractiveWebZipBlob(
     startMenuElements: options.settings?.startMenuElements || [],
     archivePageElements: options.settings?.archivePageElements || [],
     settingsPageElements: options.settings?.settingsPageElements || [],
+    previewToolbarElements: options.settings?.previewToolbarElements || [],
+    dialogueOverlayElements: options.settings?.dialogueOverlayElements || [],
     startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
     startMenuPlacementMinX: options.settings?.startMenuPlacementMinX ?? 0,
     startMenuPlacementMinY: options.settings?.startMenuPlacementMinY ?? 0,
@@ -374,6 +376,8 @@ export async function buildInteractiveWebZipBlob(
   settings.startMenuElements = await packMenuElements(settings.startMenuElements, 'start');
   settings.archivePageElements = await packMenuElements(settings.archivePageElements, 'archive');
   settings.settingsPageElements = await packMenuElements(settings.settingsPageElements, 'settings');
+  settings.previewToolbarElements = await packMenuElements(settings.previewToolbarElements, 'toolbar');
+  settings.dialogueOverlayElements = await packMenuElements(settings.dialogueOverlayElements, 'dialogue');
 
   const webNodes: WebExportNode[] = [];
   for (const node of nodes.filter(

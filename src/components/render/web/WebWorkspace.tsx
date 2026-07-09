@@ -162,6 +162,8 @@ export function WebWorkspace({
         startMenuElements: webSettings.startMenuElements.map(stripElementMedia),
         archivePageElements: (webSettings.archivePageElements || []).map(stripElementMedia),
         settingsPageElements: (webSettings.settingsPageElements || []).map(stripElementMedia),
+        previewToolbarElements: (webSettings.previewToolbarElements || []).map(stripElementMedia),
+        dialogueOverlayElements: (webSettings.dialogueOverlayElements || []).map(stripElementMedia),
       },
       renderStyle: webRenderStyle,
       choiceColor: webChoiceColor,
@@ -270,18 +272,23 @@ export function WebWorkspace({
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
-    | 'settingsPageElements' =
+    | 'settingsPageElements'
+    | 'previewToolbarElements' =
     currentPreviewSurface === 'archive'
       ? 'archivePageElements'
       : currentPreviewSurface === 'settings'
         ? 'settingsPageElements'
-        : 'startMenuElements';
+        : currentPreviewSurface === 'game'
+          ? 'previewToolbarElements'
+          : 'startMenuElements';
   const activePageElements =
     activeElementSettingsKey === 'archivePageElements'
       ? archivePageElements
       : activeElementSettingsKey === 'settingsPageElements'
         ? settingsPageElements
-        : webSettings.startMenuElements || [];
+        : activeElementSettingsKey === 'previewToolbarElements'
+          ? [...(webSettings.previewToolbarElements || []), ...(webSettings.dialogueOverlayElements || [])]
+          : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
   const applyWebExperiencePreset = (presetId: string) => {
@@ -301,6 +308,24 @@ export function WebWorkspace({
     setPreviewRefreshKey((key) => key + 1);
   };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
+    if (currentPreviewSurface === 'game') {
+      const toolbar = webSettings.previewToolbarElements || [];
+      const dialogue = webSettings.dialogueOverlayElements || [];
+      if (toolbar.some((element) => element.id === id)) {
+        updateWebSettings(
+          'previewToolbarElements',
+          toolbar.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+        );
+        return;
+      }
+      if (dialogue.some((element) => element.id === id)) {
+        updateWebSettings(
+          'dialogueOverlayElements',
+          dialogue.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+        );
+        return;
+      }
+    }
     const source = activePageElements;
     updateWebSettings(
       activeElementSettingsKey,
@@ -364,6 +389,51 @@ export function WebWorkspace({
         x: 36,
         y: 34,
         width: 24,
+        height: 18,
+        scale: 1,
+        rotation: 0,
+        imageUrl: '',
+        borderRadius: 12,
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
+  const addDialogueOverlayText = () => {
+    const id = `dialogue-text-${Date.now()}`;
+    updateWebSettings('dialogueOverlayElements', [
+      ...(webSettings.dialogueOverlayElements || []),
+      {
+        id,
+        kind: 'text',
+        role: 'custom',
+        text: 'Text',
+        visible: true,
+        x: 18,
+        y: 62,
+        width: 24,
+        height: 7,
+        scale: 1,
+        rotation: 0,
+        fontSize: 20,
+        textColor: '#ffffff',
+        borderRadius: 0,
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
+  const addDialogueOverlayImage = () => {
+    const id = `dialogue-image-${Date.now()}`;
+    updateWebSettings('dialogueOverlayElements', [
+      ...(webSettings.dialogueOverlayElements || []),
+      {
+        id,
+        kind: 'image',
+        role: 'custom',
+        text: '',
+        visible: true,
+        x: 64,
+        y: 58,
+        width: 18,
         height: 18,
         scale: 1,
         rotation: 0,
@@ -1178,12 +1248,37 @@ JSON schema:
           {currentPreviewSurface === 'game' && (
             <>
               <WebPanelTitle icon={Palette} title="文字样式" />
-              <RenderObjectSettingsSection
-                language={language}
-                renderStyle={webRenderStyle}
-                updateRenderStyle={updateWebRenderStyle}
-                surface="web"
-              />
+              {selectedStartMenuElement ? (
+                <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+                  <StartMenuElementInspector
+                    element={selectedStartMenuElement}
+                    language={language}
+                    showDescriptions={showSettingDescriptions}
+                    onUpdate={(patch) =>
+                      updateActivePageElement(selectedStartMenuElement.id, patch)
+                    }
+                  />
+                </div>
+              ) : (
+                <RenderObjectSettingsSection
+                  language={language}
+                  renderStyle={webRenderStyle}
+                  updateRenderStyle={updateWebRenderStyle}
+                  surface="web"
+                />
+              )}
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-indigo-500/5 p-2">
+                <IconToolButton
+                  icon={Type}
+                  label={t('添加文字', 'テキスト追加', 'Add text')}
+                  onClick={addDialogueOverlayText}
+                />
+                <IconToolButton
+                  icon={ImagePlus}
+                  label={t('添加图片', '画像追加', 'Add image')}
+                  onClick={addDialogueOverlayImage}
+                />
+              </div>
             </>
           )}
 
