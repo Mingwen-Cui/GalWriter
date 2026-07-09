@@ -8,10 +8,21 @@ import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
 import { chooseRenderOutputDir, getDefaultRenderDir } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
 import { isWebGPUSupported } from '../gpu/webgpuRenderer';
+import {
+  DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
+  type InteractivePreviewBounds,
+  isInteractivePreviewBounds,
+} from '../interactive/interactivePreviewWindow';
+import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
+import {
+  buildInteractiveSegments,
+  type InteractiveSegmentDraft,
+} from '../interactive/interactiveSegments';
+import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
+import { ExportDialog } from '../panels/ExportDialog';
 import { RenderContextMenu } from '../panels/RenderContextMenu';
 import { RenderHeader } from '../panels/RenderHeader';
 import { RenderProgressModal } from '../panels/RenderProgressModal';
-import { ExportDialog } from '../panels/ExportDialog';
 import { VideoAssetSidebar } from '../panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from '../panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
@@ -46,29 +57,15 @@ import type {
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
-  VideoTextScaleMode,
   VideoRenderModalProps,
+  VideoTextScaleMode,
 } from '../shared/types';
 import {
   captureTimelineHistoryState,
   restoreTimelineHistoryState,
 } from '../timeline/timelineHistory';
 import { getTimelineTickSettings } from '../timeline/timelineUtils';
-import {
-  DESKTOP_RELEASE_URL,
-  clampPersistedNumber,
-  isAssetCardLayout,
-  isExportFormat,
-  isExportSettingsMode,
-  isRenderWorkspaceMode,
-  isTimelineScaleMode,
-  isTimelineWheelMode,
-  isVideoTextScaleMode,
-  readRenderWorkspaceState,
-  type PersistedRenderWorkspaceState,
-  writeRenderWorkspaceState,
-} from './workspaceStorage';
-import { VideoNoticeModal, type RenderNoticeModalState } from './VideoNoticeModal';
+import { createContextMenuSectionBuilder } from './contextMenuSections';
 import {
   mediaIcon as getMediaIcon,
   mediaKind as getMediaKind,
@@ -76,7 +73,6 @@ import {
   segmentText as getSegmentText,
   segmentTitle as getSegmentTitle,
 } from './segmentHelpers';
-import { createContextMenuSectionBuilder } from './contextMenuSections';
 import { getSpeechTagNames, getSpeechTextForNode as buildSpeechTextForNode } from './speechText';
 import { calculateTimelineMetrics } from './timelineMetrics';
 import {
@@ -96,22 +92,26 @@ import { useMediaDurations } from './useMediaDurations';
 import { usePreviewAudio } from './usePreviewAudio';
 import { usePreviewPlayback } from './usePreviewPlayback';
 import { usePreviewRenderer } from './usePreviewRenderer';
-import { useTimelineEditingActions } from './useTimelineEditingActions';
 import { useTimelineDragDrop } from './useTimelineDragDrop';
+import { useTimelineEditingActions } from './useTimelineEditingActions';
 import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
-import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
+import { type RenderNoticeModalState,VideoNoticeModal } from './VideoNoticeModal';
 import {
-  DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
-  isInteractivePreviewBounds,
-  type InteractivePreviewBounds,
-} from '../interactive/interactivePreviewWindow';
-import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
-import {
-  buildInteractiveSegments,
-  type InteractiveSegmentDraft,
-} from '../interactive/interactiveSegments';
+  clampPersistedNumber,
+  DESKTOP_RELEASE_URL,
+  isAssetCardLayout,
+  isExportFormat,
+  isExportSettingsMode,
+  isRenderWorkspaceMode,
+  isTimelineScaleMode,
+  isTimelineWheelMode,
+  isVideoTextScaleMode,
+  type PersistedRenderWorkspaceState,
+  readRenderWorkspaceState,
+  writeRenderWorkspaceState,
+} from './workspaceStorage';
 
 type VideoWorkspaceMode = 'timeline' | 'interactive';
 
@@ -2072,6 +2072,8 @@ export function VideoRenderModal({
                   setTimelinePreviewTime={setTimelinePreviewTime}
                   seekTimelineTime={seekTimelineTime}
                   openContextMenu={openContextMenu}
+                  renderStyle={renderStyle}
+                  updateRenderStyle={updateRenderStyle}
                 />
 
                 {!exportPanelCollapsed && (

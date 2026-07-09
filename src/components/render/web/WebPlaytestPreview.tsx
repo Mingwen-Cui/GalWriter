@@ -32,13 +32,20 @@ import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic'
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
 import { renderCopy } from '../video/shared/renderCopy';
+import { updateRenderObject } from '../video/shared/renderObjects';
 import {
   filterMentionTags,
   getNodeDisplayText,
   getNodeDisplayTitle,
   stripHtml,
 } from '../video/shared/storyNodes';
-import type { RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { RenderEditableObjectKind, RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
+import {
+  snapElementBoxToElementGuides,
+  snapResizeBoxToElementGuides,
+} from './webElementAlignmentGuides';
+import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
@@ -51,11 +58,6 @@ import {
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
-import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
-import {
-  snapElementBoxToElementGuides,
-  snapResizeBoxToElementGuides,
-} from './webElementAlignmentGuides';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -67,7 +69,6 @@ import {
   resizeCursorByHandle,
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 
 type WebPlaytestPreviewProps = {
@@ -182,6 +183,27 @@ export function WebPlaytestPreview({
       onSelectStartMenuElement?.(id);
     },
     [onSelectStartMenuElement],
+  );
+  const selectRenderObject = React.useCallback(
+    (kind: RenderEditableObjectKind) => {
+      _onUpdateRenderStyle('selectedRenderObject', kind);
+    },
+    [_onUpdateRenderStyle],
+  );
+  const moveRenderObject = React.useCallback(
+    (kind: RenderEditableObjectKind, x: number, y: number) => {
+      const nextObjects = updateRenderObject(renderStyle, kind, { x: Math.round(x), y: Math.round(y) });
+      _onUpdateRenderStyle('renderObjects', nextObjects);
+      if (kind === 'dialogBox') {
+        _onUpdateRenderStyle('dialogOffsetX', Math.max(-100, Math.min(100, Math.round(x))));
+        _onUpdateRenderStyle('dialogOffsetY', Math.max(-100, Math.min(100, Math.round(y))));
+      }
+      if (kind === 'nameplate') {
+        _onUpdateRenderStyle('nameplateOffsetX', Math.round(x));
+        _onUpdateRenderStyle('nameplateOffsetY', Math.round(y));
+      }
+    },
+    [_onUpdateRenderStyle, renderStyle],
   );
   React.useEffect(() => {
     if (!editingStartMenuElementId) return;
@@ -496,6 +518,9 @@ export function WebPlaytestPreview({
       items={nameplateItems}
       renderStyle={renderStyle}
       dialogWidth={dialogWidth}
+      previewMode={previewMode}
+      onSelectRenderObject={selectRenderObject}
+      onMoveRenderObject={moveRenderObject}
     />
   );
 
@@ -1569,6 +1594,9 @@ export function WebPlaytestPreview({
           nameplates={nameplates}
           aboveChoices={settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           belowChoices={settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
+          previewMode={previewMode}
+          onSelectRenderObject={selectRenderObject}
+          onMoveRenderObject={moveRenderObject}
           t={t}
           onContinueFromText={continueFromText}
           onRecordCurrentAudio={recordCurrentAudio}

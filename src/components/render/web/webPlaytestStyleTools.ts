@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 
+import { getRenderObjects } from '../video/shared/renderObjects';
 import { webAnimationStyle } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
@@ -63,6 +64,7 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
 };
 
 export const buildTitleStyle = (renderStyle: RenderStyle): CSSProperties => ({
+  ...textObjectStyle(renderStyle, 'title'),
   fontFamily: renderStyle.titleFontFamily,
   color: withAlpha(
     colorInputValue(renderStyle.titleColor),
@@ -78,6 +80,7 @@ export const buildTitleStyle = (renderStyle: RenderStyle): CSSProperties => ({
 });
 
 export const buildBodyStyle = (renderStyle: RenderStyle): CSSProperties => ({
+  ...textObjectStyle(renderStyle, 'body'),
   fontFamily: renderStyle.bodyFontFamily,
   color: withAlpha(
     colorInputValue(renderStyle.bodyColor),
@@ -107,7 +110,35 @@ export const buildDialogueShellStyle = (
         backdropFilter: 'none',
       }),
   borderRadius: renderStyle.dialogRadius,
+  transform: objectTransform(renderStyle, 'dialogBox'),
   maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
   paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
   paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
 });
+
+const objectTransform = (renderStyle: RenderStyle, kind: 'dialogBox' | 'title' | 'body') => {
+  const object = getRenderObjects(renderStyle)[kind];
+  const transforms = [
+    `translate(${object.x}px, ${object.y}px)`,
+    `rotate(${object.rotation}deg)`,
+    `scale(${object.flipX ? -1 : 1}, ${object.flipY ? -1 : 1})`,
+  ].filter(Boolean);
+  return transforms.length ? transforms.join(' ') : undefined;
+};
+
+const textObjectStyle = (renderStyle: RenderStyle, kind: 'title' | 'body'): CSSProperties => {
+  const object = getRenderObjects(renderStyle)[kind];
+  return {
+    display: object.visible ? undefined : 'none',
+    width: object.width ? `${object.width}%` : undefined,
+    minHeight: object.height ? `${object.height}px` : undefined,
+    transform: objectTransform(renderStyle, kind),
+    textDecoration: [
+      object.underline ? 'underline' : '',
+      object.strikethrough ? 'line-through' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    fontWeight: object.fontWeight,
+  };
+};

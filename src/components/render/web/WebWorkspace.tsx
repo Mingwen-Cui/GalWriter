@@ -1,44 +1,44 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
-  Gamepad2,
   Eye,
   EyeOff,
+  Gamepad2,
+  Hand,
   ImagePlus,
   Info,
   LayoutTemplate,
-  Hand,
   MousePointerClick,
   Palette,
   Play,
+  RotateCw,
   Save,
   Settings,
   Sparkles,
-  RotateCw,
   Type,
   Upload,
   Video,
   Volume2,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { createElement, isValidElement, useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
-import { RenderStyleSettingsSection } from '../video/panels/render-style-settings-section';
+import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
 import { StartMenuElementInspector } from './StartMenuElementInspector';
-import { WebMenuMusicPanel } from './WebMenuMusicPanel';
-import { WebPlaytestPreview } from './WebPlaytestPreview';
-import type { WebPreviewSurface } from './WebPlaytestPreview';
 import {
   buildWebExperiencePresets,
   pickPresetSettingsForScope,
   type WebPresetScope,
 } from './webExperiencePresets';
+import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
+import type { WebPreviewSurface } from './WebPlaytestPreview';
+import { WebPlaytestPreview } from './WebPlaytestPreview';
 
 const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 
@@ -1178,11 +1178,11 @@ JSON schema:
           {currentPreviewSurface === 'game' && (
             <>
               <WebPanelTitle icon={Palette} title="文字样式" />
-              <RenderStyleSettingsSection
+              <RenderObjectSettingsSection
                 language={language}
                 renderStyle={webRenderStyle}
                 updateRenderStyle={updateWebRenderStyle}
-                showDescriptions={showSettingDescriptions}
+                surface="web"
               />
             </>
           )}

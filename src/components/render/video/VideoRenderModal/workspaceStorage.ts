@@ -1,4 +1,6 @@
+import type { InteractivePreviewBounds } from '../interactive/interactivePreviewWindow';
 import { clamp } from '../shared/mediaUtils';
+import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type {
   AssetCardLayout,
   ExportFormat,
@@ -11,9 +13,10 @@ import type {
   WebExportSettings,
   WebHistoryState,
 } from '../shared/types';
-import type { InteractivePreviewBounds } from '../interactive/interactivePreviewWindow';
 
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
+  selectedRenderObject: 'dialogBox',
+  renderObjects: buildDefaultRenderObjects(),
   titleVisible: true,
   titleFontSize: 28,
   bodyFontSize: 18,

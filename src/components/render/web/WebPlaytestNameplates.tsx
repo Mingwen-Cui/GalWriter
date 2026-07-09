@@ -1,8 +1,11 @@
+import type React from 'react';
+
 import {
   getNameplateCharacterCenterX,
   getNameplateCssBackground,
 } from '../video/shared/nameplateRenderer';
-import type { RenderStyle } from '../video/shared/types';
+import { getRenderObjects } from '../video/shared/renderObjects';
+import type { RenderEditableObjectKind, RenderStyle } from '../video/shared/types';
 import { colorInputValue, withAlpha } from './webPlaytestStyleTools';
 
 type NameplateItem = ReturnType<
@@ -13,12 +16,18 @@ type WebPlaytestNameplatesProps = {
   items: NameplateItem[];
   renderStyle: RenderStyle;
   dialogWidth: number;
+  previewMode?: 'edit' | 'test';
+  onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
+  onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
 };
 
 export function WebPlaytestNameplates({
   items,
   renderStyle,
   dialogWidth,
+  previewMode = 'test',
+  onSelectRenderObject,
+  onMoveRenderObject,
 }: WebPlaytestNameplatesProps) {
   if (!renderStyle.nameplateVisible || !items.length) return null;
 
@@ -52,6 +61,41 @@ export function WebPlaytestNameplates({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   };
+  const editClass =
+    previewMode === 'edit'
+      ? renderStyle.selectedRenderObject === 'nameplate'
+        ? 'ring-2 ring-indigo-500'
+        : 'outline outline-1 outline-indigo-400/40'
+      : '';
+  const selectNameplate = (event: React.MouseEvent) => {
+    if (previewMode !== 'edit') return;
+    event.stopPropagation();
+    onSelectRenderObject?.('nameplate');
+  };
+  const startNameplateDrag = (event: React.PointerEvent) => {
+    if (previewMode !== 'edit' || !onMoveRenderObject) return;
+    event.stopPropagation();
+    event.preventDefault();
+    onSelectRenderObject?.('nameplate');
+    const object = getRenderObjects(renderStyle).nameplate;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initialX = object.x;
+    const initialY = object.y;
+    const move = (moveEvent: PointerEvent) => {
+      onMoveRenderObject(
+        'nameplate',
+        initialX + moveEvent.clientX - startX,
+        initialY + moveEvent.clientY - startY,
+      );
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  };
 
   if (!renderStyle.nameplateFollowCharacter) {
     if (renderStyle.nameplateInside) {
@@ -65,7 +109,7 @@ export function WebPlaytestNameplates({
           }}
         >
           {items.map((item) => (
-            <div key={item.sourceNodeId} className="font-black" style={baseStyle}>
+            <div key={item.sourceNodeId} className={`font-black ${editClass}`} style={baseStyle} onClick={selectNameplate} onPointerDown={startNameplateDrag}>
               {item.name}
             </div>
           ))}
@@ -81,7 +125,7 @@ export function WebPlaytestNameplates({
         }}
       >
         {items.map((item) => (
-          <div key={item.sourceNodeId} className="font-black" style={baseStyle}>
+          <div key={item.sourceNodeId} className={`font-black ${editClass}`} style={baseStyle} onClick={selectNameplate} onPointerDown={startNameplateDrag}>
             {item.name}
           </div>
         ))}
@@ -106,12 +150,14 @@ export function WebPlaytestNameplates({
           return (
             <div
               key={item.sourceNodeId}
-              className="absolute top-0 font-black"
+              className={`absolute top-0 font-black ${editClass}`}
               style={{
                 ...baseStyle,
                 left: `${localLeft}%`,
                 transform: `translate(calc(-50% + ${renderStyle.nameplateOffsetX ?? 0}px), ${renderStyle.nameplateOffsetY ?? 0}px)`,
               }}
+              onClick={selectNameplate}
+              onPointerDown={startNameplateDrag}
             >
               {item.name}
             </div>
@@ -131,13 +177,15 @@ export function WebPlaytestNameplates({
         return (
           <div
             key={item.sourceNodeId}
-            className="absolute top-0 font-black"
+            className={`absolute top-0 font-black ${editClass}`}
             style={{
               ...baseStyle,
               left: `${localLeft}%`,
               top,
               transform: `translate(calc(-50% + ${renderStyle.nameplateOffsetX ?? 0}px), ${translateY})`,
             }}
+            onClick={selectNameplate}
+            onPointerDown={startNameplateDrag}
           >
             {item.name}
           </div>

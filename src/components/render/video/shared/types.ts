@@ -9,6 +9,10 @@ export type ExportFormat = 'mp4' | 'mov' | 'mkv';
 export type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 export type TextAlign = 'left' | 'center' | 'right';
 export type TypewriterMode = 'character' | 'word' | 'sentence' | 'line';
+export type RenderEditableObjectKind = 'dialogBox' | 'title' | 'body' | 'nameplate';
+export type RenderFillType = 'solid' | 'gradient' | 'image';
+export type RenderStrokePosition = 'inside' | 'center' | 'outside';
+export type RenderShadowType = 'outer' | 'inner';
 export type TimelineScaleMode = 'seconds' | 'frames';
 export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
@@ -36,6 +40,8 @@ export type VideoRenderModalProps = {
 };
 
 export type RenderStyle = {
+  selectedRenderObject?: RenderEditableObjectKind;
+  renderObjects?: RenderEditableObjects;
   titleVisible: boolean;
   titleFontSize: number;
   bodyFontSize: number;
@@ -96,6 +102,96 @@ export type RenderStyle = {
   nameplateImageUrl: string;
   titleAnimation: TextAnimation;
   bodyAnimation: TextAnimation;
+};
+
+export type RenderColorStop = {
+  id: string;
+  color: string;
+  alpha: number;
+  position: number;
+};
+
+export type RenderFillStyle = {
+  enabled: boolean;
+  type: RenderFillType;
+  color: string;
+  alpha: number;
+  gradientAngle: number;
+  gradientStops: RenderColorStop[];
+  imageUrl: string;
+  imageFit: 'fit' | 'max' | 'crop';
+  imageAngle: number;
+  imageAlpha: number;
+  blendMode: string;
+};
+
+export type RenderStrokeStyle = {
+  enabled: boolean;
+  type: RenderFillType;
+  color: string;
+  alpha: number;
+  width: number;
+  position: RenderStrokePosition;
+  gradientAngle: number;
+  gradientStops: RenderColorStop[];
+  imageUrl: string;
+  dashed: boolean;
+  lineCap: 'butt' | 'round' | 'square';
+  lineJoin: 'miter' | 'round' | 'bevel';
+};
+
+export type RenderShadowStyle = {
+  enabled: boolean;
+  type: RenderShadowType;
+  x: number;
+  y: number;
+  blur: number;
+  spread: number;
+  color: string;
+  alpha: number;
+};
+
+export type RenderObjectAnimationStyle = {
+  animation: TextAnimation;
+  durationMs: number;
+  typewriterMode: TypewriterMode;
+};
+
+export type RenderEditableObject = {
+  visible: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius: number;
+  rotation: number;
+  flipX: boolean;
+  flipY: boolean;
+  horizontalAlign: TextAlign;
+  verticalAlign: 'top' | 'center' | 'bottom';
+  fill: RenderFillStyle;
+  stroke: RenderStrokeStyle;
+  shadow: RenderShadowStyle;
+  animation: RenderObjectAnimationStyle;
+};
+
+export type RenderEditableTextObject = RenderEditableObject & {
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  underline: boolean;
+  strikethrough: boolean;
+  letterSpacing: number;
+  lineHeight: number;
+  textAlign: TextAlign;
+  textVerticalAlign: 'top' | 'center' | 'bottom';
+};
+
+export type RenderEditableObjects = {
+  dialogBox: RenderEditableObject;
+  title: RenderEditableTextObject;
+  body: RenderEditableTextObject;
+  nameplate: RenderEditableTextObject;
 };
 
 export type WebMenuElement = {

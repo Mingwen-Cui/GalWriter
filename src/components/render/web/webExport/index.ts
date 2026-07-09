@@ -2,6 +2,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
+import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
 import { makeIndexHtml } from './webExportHtml';
@@ -186,6 +187,8 @@ const WEB_EXPORT_ICONS: Record<string, string> = {
 };
 
 const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
+  selectedRenderObject: 'dialogBox',
+  renderObjects: buildDefaultRenderObjects(),
   titleVisible: true,
   titleFontSize: 28,
   bodyFontSize: 18,

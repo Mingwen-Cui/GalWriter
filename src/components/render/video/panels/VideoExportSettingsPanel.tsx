@@ -1,4 +1,5 @@
-﻿import {
+﻿import type { LucideIcon } from 'lucide-react';
+import {
   ALargeSmall,
   Baseline,
   BetweenHorizontalStart,
@@ -13,6 +14,7 @@
   FolderOpen,
   Gauge,
   ImagePlus,
+  Info,
   Loader2,
   Mic,
   Monitor,
@@ -23,7 +25,6 @@
   Palette,
   PanelLeftRightDashed,
   PencilLine,
-  Info,
   Radius,
   RectangleHorizontal,
   RectangleVertical,
@@ -34,10 +35,10 @@
   Type,
   Video,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
+import type { Language } from '../../../../lib/i18n';
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import {
   EXPORT_FORMAT_OPTIONS,
@@ -46,7 +47,6 @@ import {
   TEXT_ANIMATION_OPTIONS,
 } from '../shared/constants';
 import { renderCopy } from '../shared/renderCopy';
-import { RenderStyleSettingsSection } from './render-style-settings-section';
 import type {
   ExportFormat,
   ExportSettingsMode,
@@ -57,7 +57,7 @@ import type {
   TypewriterMode,
   VideoTextScaleMode,
 } from '../shared/types';
-import type { Language } from '../../../../lib/i18n';
+import { RenderObjectSettingsSection } from './render-object-settings-section';
 
 type VideoExportSettingsPanelProps = {
   language: Language;
@@ -919,13 +919,11 @@ export function VideoExportSettingsPanel({
                   />
                 </div>
               </div>
-              <RenderStyleSettingsSection
+              <RenderObjectSettingsSection
                 language={language}
                 renderStyle={renderStyle}
                 updateRenderStyle={updateRenderStyle}
-                resolutionWidth={resolutionWidth}
-                resolutionHeight={resolutionHeight}
-                showDescriptions={showSettingDescriptions}
+                surface="video"
               />
             </div>
 

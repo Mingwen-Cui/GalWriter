@@ -2,11 +2,11 @@ import type { Node as FlowNode } from '@xyflow/react';
 import { Pause, Play } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import type { Language } from '../../../../lib/i18n';
 import { RangeControl } from '../controls/RenderControls';
 import { renderCopy } from '../shared/renderCopy';
-import type { RenderStatus } from '../shared/types';
+import type { RenderEditableObjectKind, RenderStatus, RenderStyle } from '../shared/types';
 import { formatSeconds } from '../timeline/timelineUtils';
-import type { Language } from '../../../../lib/i18n';
 
 type VideoPreviewPanelProps = {
   language: Language;
@@ -35,6 +35,8 @@ type VideoPreviewPanelProps = {
     event: React.MouseEvent<HTMLElement>,
     target: { kind: 'preview'; nodeId?: string },
   ) => void;
+  renderStyle: RenderStyle;
+  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
 };
 
 export function VideoPreviewPanel({
@@ -61,6 +63,8 @@ export function VideoPreviewPanel({
   setTimelinePreviewTime,
   seekTimelineTime,
   openContextMenu,
+  renderStyle,
+  updateRenderStyle,
 }: VideoPreviewPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -162,6 +166,29 @@ export function VideoPreviewPanel({
             >
               <div className="absolute inset-0 bg-black">
                 <canvas ref={canvasRef} className="block h-full w-full bg-black" />
+              </div>
+              <div className="pointer-events-none absolute left-2 top-2 z-10 flex gap-1 rounded-lg bg-black/45 p-1 text-[10px] font-bold text-white backdrop-blur">
+                {(
+                  [
+                    ['dialogBox', 'Box'],
+                    ['title', 'Title'],
+                    ['body', 'Body'],
+                    ['nameplate', 'Name'],
+                  ] as Array<[RenderEditableObjectKind, string]>
+                ).map(([kind, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => updateRenderStyle('selectedRenderObject', kind)}
+                    className={`pointer-events-auto h-6 rounded px-2 ${
+                      renderStyle.selectedRenderObject === kind
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-white/15 text-white/80 hover:bg-white/25'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 

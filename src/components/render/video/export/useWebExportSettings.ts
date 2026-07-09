@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/types';
 
 const DEFAULT_WEB_SETTINGS: WebExportSettings = {
@@ -45,6 +46,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
 };
 
 const DEFAULT_WEB_RENDER_STYLE: RenderStyle = {
+  selectedRenderObject: 'dialogBox',
+  renderObjects: buildDefaultRenderObjects(),
   titleVisible: true,
   titleFontSize: 28,
   bodyFontSize: 18,

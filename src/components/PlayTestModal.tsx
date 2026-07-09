@@ -1,4 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { LucideIcon } from 'lucide-react';
 import {
   ChevronRight,
   Eye,
@@ -20,13 +21,9 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { AudioPlaylistModal } from './AudioPlaylistModal';
-import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
-import type { RenderStyle } from './render/video/shared/types';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -36,14 +33,10 @@ import type {
 } from '../domain/project';
 import { Language, translations } from '../lib/i18n';
 import {
-  clampCharacterLayer,
-  getCharacterEnterDelay,
-  getCharacterStagePosition,
-  getPresentationExitDuration,
-  getPresentationTransform,
-  getSceneExitDelay,
-  normalizeStoryPresentation,
-} from '../lib/presentation';
+  getInlineSwitchAction,
+  resolveCharacterImageUrl,
+  resolveSceneMedia,
+} from '../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
   inlineActionAnimation,
@@ -53,11 +46,19 @@ import {
   latestPersistentInlineAction,
 } from '../lib/inlinePresentationPlayback';
 import {
-  getInlineSwitchAction,
-  resolveCharacterImageUrl,
-  resolveSceneMedia,
-} from '../lib/inlineAssetSwitch';
+  clampCharacterLayer,
+  getCharacterEnterDelay,
+  getCharacterStagePosition,
+  getPresentationExitDuration,
+  getPresentationTransform,
+  getSceneExitDelay,
+  normalizeStoryPresentation,
+} from '../lib/presentation';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
+import { AudioPlaylistModal } from './AudioPlaylistModal';
+import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
+import { getRenderObjects } from './render/video/shared/renderObjects';
+import type { RenderStyle } from './render/video/shared/types';
 import {
   PRESENTATION_STAGE_HEIGHT,
   PRESENTATION_STAGE_WIDTH,
@@ -487,7 +488,13 @@ export function PlayTestModal({
     };
   };
 
+  const renderObjects = getRenderObjects(renderStyle);
+  const titleObject = renderObjects.title;
+  const bodyObject = renderObjects.body;
+  const dialogObject = renderObjects.dialogBox;
+
   const titleStyle: React.CSSProperties = {
+    display: titleObject.visible ? undefined : 'none',
     fontFamily: renderStyle.titleFontFamily,
     color: withAlpha(
       colorInputValue(renderStyle.titleColor),
@@ -499,9 +506,13 @@ export function PlayTestModal({
     lineHeight: renderStyle.titleLineHeight,
     textAlign: renderStyle.titleAlign,
     overflowWrap: 'anywhere',
+    width: `${titleObject.width}%`,
+    minHeight: `${titleObject.height}px`,
+    transform: `translate(${titleObject.x}px, ${titleObject.y}px) rotate(${titleObject.rotation}deg) scale(${titleObject.flipX ? -1 : 1}, ${titleObject.flipY ? -1 : 1})`,
   };
 
   const bodyStyle: React.CSSProperties = {
+    display: bodyObject.visible ? undefined : 'none',
     fontFamily: renderStyle.bodyFontFamily,
     color: withAlpha(
       colorInputValue(renderStyle.bodyColor),
@@ -513,6 +524,9 @@ export function PlayTestModal({
     lineHeight: renderStyle.bodyLineHeight,
     textAlign: renderStyle.bodyAlign,
     overflowWrap: 'anywhere',
+    width: `${bodyObject.width}%`,
+    minHeight: `${bodyObject.height}px`,
+    transform: `translate(${bodyObject.x}px, ${bodyObject.y}px) rotate(${bodyObject.rotation}deg) scale(${bodyObject.flipX ? -1 : 1}, ${bodyObject.flipY ? -1 : 1})`,
   };
 
   const dialogueShellStyle: React.CSSProperties = {
@@ -529,6 +543,7 @@ export function PlayTestModal({
     borderRadius: renderStyle.dialogRadius,
     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
     paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    transform: `rotate(${dialogObject.rotation}deg) scale(${dialogObject.flipX ? -1 : 1}, ${dialogObject.flipY ? -1 : 1})`,
   };
   const dialogueFrameStyle: React.CSSProperties = {
     width:
@@ -548,6 +563,17 @@ export function PlayTestModal({
         ? `calc(4% - ${Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.28}%)`
         : undefined,
     transform: layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
+  };
+  const renderObjectSelectionClass = (kind: keyof typeof renderObjects) =>
+    showSettings && renderStyle.selectedRenderObject === kind
+      ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent'
+      : showSettings
+        ? 'outline outline-1 outline-indigo-400/30'
+        : '';
+  const selectRenderObject = (event: React.MouseEvent, kind: keyof typeof renderObjects) => {
+    if (!showSettings) return;
+    event.stopPropagation();
+    updateRenderStyle('selectedRenderObject', kind);
   };
   const dialogueOffsetX = Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0));
   const dialogueCenter = 50 + dialogueOffsetX * 0.5;
@@ -1817,11 +1843,11 @@ export function PlayTestModal({
           }
         />
         <div className={`rounded-xl border p-2 ${panelTone}`}>
-          <RenderStyleSettingsSection
+          <RenderObjectSettingsSection
             language={language}
             renderStyle={renderStyle}
             updateRenderStyle={updateRenderStyle}
-            showDescriptions
+            surface="playtest"
           />
         </div>
       </div>
@@ -2268,8 +2294,14 @@ export function PlayTestModal({
                   {/* 透明半透明对话框 */}
                   <div
                     ref={immersiveDialogueRef}
-                    onClick={handleTextContainerClick}
-                    className="pointer-events-auto relative w-full overflow-y-auto rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500"
+                    onClick={(event) => {
+                      if (showSettings) {
+                        selectRenderObject(event, 'dialogBox');
+                        return;
+                      }
+                      handleTextContainerClick();
+                    }}
+                    className={`pointer-events-auto relative w-full overflow-y-auto rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
                     style={dialogueShellStyle}
                   >
                     {currentNode?.data.audioUrl && (
@@ -2285,14 +2317,19 @@ export function PlayTestModal({
                     )}
 
                     {renderStyle.titleVisible && currentTitle && (
-                      <div className="mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" style={titleStyle}>
+                      <div
+                        className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
+                        style={titleStyle}
+                        onClick={(event) => selectRenderObject(event, 'title')}
+                      >
                         {currentTitle}
                       </div>
                     )}
 
                     <div
-                      className="whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1"
+                      className={`whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1 ${renderObjectSelectionClass('body')}`}
                       style={bodyStyle}
+                      onClick={(event) => selectRenderObject(event, 'body')}
                     >
                       <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                     </div>
@@ -2462,7 +2499,13 @@ export function PlayTestModal({
 
               {/* 2. Text Area */}
               <div
-                onClick={handleTextContainerClick}
+                onClick={(event) => {
+                  if (showSettings) {
+                    selectRenderObject(event, 'dialogBox');
+                    return;
+                  }
+                  handleTextContainerClick();
+                }}
                 className={`${
                   !hasMedia
                     ? 'flex-1'
@@ -2481,7 +2524,7 @@ export function PlayTestModal({
                         ? 'z-20 blur-[5px] opacity-80'
                         : 'z-20'
                     : 'z-20'
-                }`}
+                } ${renderObjectSelectionClass('dialogBox')}`}
                 style={{
                   ...(renderStyle.dialogVisible
                     ? dialogueBackgroundStyle()
@@ -2511,11 +2554,19 @@ export function PlayTestModal({
                   />
                 )}
                 {renderStyle.titleVisible && currentTitle && (
-                  <div className="mb-2 drop-shadow-sm" style={titleStyle}>
+                  <div
+                    className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
+                    style={titleStyle}
+                    onClick={(event) => selectRenderObject(event, 'title')}
+                  >
                     {currentTitle}
                   </div>
                 )}
-                <div className="whitespace-pre-wrap drop-shadow-sm" style={bodyStyle}>
+                <div
+                  className={`whitespace-pre-wrap drop-shadow-sm ${renderObjectSelectionClass('body')}`}
+                  style={bodyStyle}
+                  onClick={(event) => selectRenderObject(event, 'body')}
+                >
                   <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                 </div>
 
