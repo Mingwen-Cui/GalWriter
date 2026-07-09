@@ -36,6 +36,17 @@ const shapeClass: Record<WebEditableResizeHandle, string> = {
   sw: 'h-4 w-4 rounded-full',
 };
 
+const cursorByHandle: Record<WebEditableResizeHandle, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+};
+
 export function WebEditableElementFrame({
   visible,
   ringClassName = 'ring-2 ring-indigo-500',
@@ -59,7 +70,7 @@ export function WebEditableElementFrame({
         role="button"
         tabIndex={-1}
         className="pointer-events-auto absolute -left-10 top-1/2 z-40 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-        style={{ cursor: 'alias' }}
+        style={{ cursor: 'grab' }}
         onPointerDown={onRotatePointerDown}
         onClick={(event) => event.stopPropagation()}
         aria-label="Rotate"
@@ -82,6 +93,7 @@ export function WebEditableElementFrame({
           role="button"
           tabIndex={-1}
           className={`pointer-events-auto absolute z-40 border border-indigo-200 bg-white shadow ${positionClass[handle]} ${shapeClass[handle]}`}
+          style={{ cursor: cursorByHandle[handle] }}
           onPointerDown={(event) => onResizePointerDown(event, handle)}
           onClick={(event) => event.stopPropagation()}
           aria-label="Resize"

@@ -6,6 +6,11 @@ import {
 } from '../video/shared/nameplateRenderer';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import type { RenderEditableObjectKind, RenderStyle } from '../video/shared/types';
+import {
+  collectPixelGuideBoxes,
+  type PixelGuideLine,
+  snapPixelBoxToGuides,
+} from './webPixelAlignmentGuides';
 import { colorInputValue, withAlpha } from './webPlaytestStyleTools';
 
 type NameplateItem = ReturnType<
@@ -19,6 +24,7 @@ type WebPlaytestNameplatesProps = {
   previewMode?: 'edit' | 'test';
   onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
   onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
+  onGuideLinesChange?: (lines: PixelGuideLine[]) => void;
 };
 
 export function WebPlaytestNameplates({
@@ -28,6 +34,7 @@ export function WebPlaytestNameplates({
   previewMode = 'test',
   onSelectRenderObject,
   onMoveRenderObject,
+  onGuideLinesChange,
 }: WebPlaytestNameplatesProps) {
   if (!renderStyle.nameplateVisible || !items.length) return null;
 
@@ -76,20 +83,45 @@ export function WebPlaytestNameplates({
     if (previewMode !== 'edit' || !onMoveRenderObject) return;
     event.stopPropagation();
     event.preventDefault();
+    document.body.style.cursor = 'grabbing';
     onSelectRenderObject?.('nameplate');
     const object = getRenderObjects(renderStyle).nameplate;
+    const container = event.currentTarget.closest<HTMLElement>('[data-dialogue-box]');
+    const containerRect = container?.getBoundingClientRect();
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const targetStartX = containerRect ? targetRect.left - containerRect.left : 0;
+    const targetStartY = containerRect ? targetRect.top - containerRect.top : 0;
+    const guideBoxes = container ? collectPixelGuideBoxes(container, 'nameplate') : [];
     const startX = event.clientX;
     const startY = event.clientY;
     const initialX = object.x;
     const initialY = object.y;
     const move = (moveEvent: PointerEvent) => {
+      let nextX = initialX + moveEvent.clientX - startX;
+      let nextY = initialY + moveEvent.clientY - startY;
+      if (containerRect && guideBoxes.length > 0) {
+        const snapped = snapPixelBoxToGuides({
+          x: targetStartX + moveEvent.clientX - startX,
+          y: targetStartY + moveEvent.clientY - startY,
+          width: targetRect.width,
+          height: targetRect.height,
+          boxes: guideBoxes,
+        });
+        nextX = initialX + snapped.x - targetStartX;
+        nextY = initialY + snapped.y - targetStartY;
+        onGuideLinesChange?.(snapped.lines);
+      } else {
+        onGuideLinesChange?.([]);
+      }
       onMoveRenderObject(
         'nameplate',
-        initialX + moveEvent.clientX - startX,
-        initialY + moveEvent.clientY - startY,
+        nextX,
+        nextY,
       );
     };
     const end = () => {
+      document.body.style.cursor = '';
+      onGuideLinesChange?.([]);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };
@@ -109,7 +141,14 @@ export function WebPlaytestNameplates({
           }}
         >
           {items.map((item) => (
-            <div key={item.sourceNodeId} className={`font-black ${editClass}`} style={baseStyle} onClick={selectNameplate} onPointerDown={startNameplateDrag}>
+            <div
+              key={item.sourceNodeId}
+              className={`pointer-events-auto cursor-grab font-black ${editClass}`}
+              data-render-object="nameplate"
+              style={baseStyle}
+              onClick={selectNameplate}
+              onPointerDown={startNameplateDrag}
+            >
               {item.name}
             </div>
           ))}
@@ -125,7 +164,14 @@ export function WebPlaytestNameplates({
         }}
       >
         {items.map((item) => (
-          <div key={item.sourceNodeId} className={`font-black ${editClass}`} style={baseStyle} onClick={selectNameplate} onPointerDown={startNameplateDrag}>
+          <div
+            key={item.sourceNodeId}
+            className={`pointer-events-auto cursor-grab font-black ${editClass}`}
+            data-render-object="nameplate"
+            style={baseStyle}
+            onClick={selectNameplate}
+            onPointerDown={startNameplateDrag}
+          >
             {item.name}
           </div>
         ))}
@@ -150,7 +196,8 @@ export function WebPlaytestNameplates({
           return (
             <div
               key={item.sourceNodeId}
-              className={`absolute top-0 font-black ${editClass}`}
+              className={`pointer-events-auto absolute top-0 cursor-grab font-black ${editClass}`}
+              data-render-object="nameplate"
               style={{
                 ...baseStyle,
                 left: `${localLeft}%`,
@@ -177,7 +224,8 @@ export function WebPlaytestNameplates({
         return (
           <div
             key={item.sourceNodeId}
-            className={`absolute top-0 font-black ${editClass}`}
+            className={`pointer-events-auto absolute top-0 cursor-grab font-black ${editClass}`}
+            data-render-object="nameplate"
             style={{
               ...baseStyle,
               left: `${localLeft}%`,

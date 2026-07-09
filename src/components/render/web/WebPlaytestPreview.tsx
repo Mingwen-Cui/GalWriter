@@ -482,7 +482,7 @@ export function WebPlaytestPreview({
     [currentNode, nodes],
   );
 
-  const nameplates = (
+  const renderNameplates = (onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void) => (
     <WebPlaytestNameplates
       items={nameplateItems}
       renderStyle={renderStyle}
@@ -490,6 +490,7 @@ export function WebPlaytestPreview({
       previewMode={previewMode}
       onSelectRenderObject={selectRenderObject}
       onMoveRenderObject={moveRenderObject}
+      onGuideLinesChange={onGuideLinesChange}
     />
   );
 
@@ -1750,7 +1751,7 @@ export function WebPlaytestPreview({
           bodyStyle={bodyStyle}
           dialogueShellStyle={dialogueShellStyle}
           hideCenteredTitle={hideCenteredTitle}
-          nameplates={nameplates}
+          nameplates={renderNameplates}
           aboveChoices={settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           belowChoices={settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
           previewMode={previewMode}

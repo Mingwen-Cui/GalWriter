@@ -9,75 +9,21 @@ import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from './WebEditableElementFrame';
+import {
+  collectPixelGuideBoxes,
+  type PixelGuideLine,
+  snapPixelBoxToGuides,
+} from './webPixelAlignmentGuides';
 
-type PixelGuideLine = {
-  axis: 'x' | 'y';
-  value: number;
-};
-
-type PixelGuideBox = {
-  id: RenderEditableObjectKind | 'dialogueBounds';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-const getPixelGuideValues = (box: PixelGuideBox, axis: 'x' | 'y') => {
-  const start = axis === 'x' ? box.x : box.y;
-  const size = axis === 'x' ? box.width : box.height;
-  return [start, start + size / 2, start + size];
-};
-
-const findClosestPixelGuide = (value: number, guides: number[], tolerance = 4) => {
-  let closest: number | null = null;
-  let closestDelta = tolerance;
-  guides.forEach((guide) => {
-    const delta = Math.abs(value - guide);
-    if (delta <= closestDelta) {
-      closest = guide;
-      closestDelta = delta;
-    }
-  });
-  return closest;
-};
-
-const snapPixelBoxToGuides = ({
-  x,
-  y,
-  width,
-  height,
-  boxes,
-}: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  boxes: PixelGuideBox[];
-}) => {
-  const snapAxis = (start: number, size: number, axis: 'x' | 'y') => {
-    const guides = boxes.flatMap((box) => getPixelGuideValues(box, axis));
-    const candidates = [start, start + size / 2, start + size]
-      .map((value, index) => {
-        const line = findClosestPixelGuide(value, guides);
-        if (line === null) return null;
-        const offset = index === 0 ? 0 : index === 1 ? size / 2 : size;
-        return { start: line - offset, line, delta: Math.abs(value - line) };
-      })
-      .filter((candidate): candidate is { start: number; line: number; delta: number } =>
-        Boolean(candidate),
-      );
-    return candidates.reduce(
-      (best, candidate) => (candidate.delta < best.delta ? candidate : best),
-      { start, line: null as number | null, delta: 4 },
-    );
-  };
-  const snappedX = snapAxis(x, width, 'x');
-  const snappedY = snapAxis(y, height, 'y');
-  const lines: PixelGuideLine[] = [];
-  if (snappedX.line !== null) lines.push({ axis: 'x', value: snappedX.line });
-  if (snappedY.line !== null) lines.push({ axis: 'y', value: snappedY.line });
-  return { x: snappedX.start, y: snappedY.start, lines };
+const resizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
 };
 
 type WebPlaytestDialoguePanelProps = {
@@ -94,7 +40,7 @@ type WebPlaytestDialoguePanelProps = {
   bodyStyle: React.CSSProperties;
   dialogueShellStyle: React.CSSProperties;
   hideCenteredTitle: boolean;
-  nameplates: ReactNode;
+  nameplates: ReactNode | ((onGuideLinesChange: (lines: PixelGuideLine[]) => void) => ReactNode);
   aboveChoices: ReactNode;
   belowChoices: ReactNode;
   previewMode?: 'edit' | 'test';
@@ -150,24 +96,15 @@ export function WebPlaytestDialoguePanel({
     if (!editMode || !onMoveRenderObject) return;
     event.stopPropagation();
     event.preventDefault();
+    document.body.style.cursor = 'grabbing';
     onSelectRenderObject?.(kind);
     const object = getRenderObjects(renderStyle)[kind];
-    const dialogueRect = dialogueBoxRef.current?.getBoundingClientRect();
-    const currentObjects = getRenderObjects(renderStyle);
-    const guideBoxes: PixelGuideBox[] = dialogueRect
-      ? [
-          { id: 'dialogueBounds', x: 0, y: 0, width: dialogueRect.width, height: dialogueRect.height },
-          ...(['title', 'body'] as RenderEditableObjectKind[])
-            .filter((guideKind) => guideKind !== kind && currentObjects[guideKind]?.visible)
-            .map((guideKind) => ({
-              id: guideKind,
-              x: currentObjects[guideKind].x,
-              y: currentObjects[guideKind].y,
-              width: (currentObjects[guideKind].width / 100) * dialogueRect.width,
-              height: currentObjects[guideKind].height,
-            })),
-        ]
-      : [];
+    const container = dialogueBoxRef.current;
+    const containerRect = container?.getBoundingClientRect();
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const targetStartX = containerRect ? targetRect.left - containerRect.left : 0;
+    const targetStartY = containerRect ? targetRect.top - containerRect.top : 0;
+    const guideBoxes = container ? collectPixelGuideBoxes(container, kind) : [];
     const startX = event.clientX;
     const startY = event.clientY;
     const initialX = object.x;
@@ -175,16 +112,16 @@ export function WebPlaytestDialoguePanel({
     const move = (moveEvent: PointerEvent) => {
       let nextX = initialX + moveEvent.clientX - startX;
       let nextY = initialY + moveEvent.clientY - startY;
-      if (dialogueRect && guideBoxes.length > 0 && kind !== 'dialogBox') {
+      if (containerRect && guideBoxes.length > 0) {
         const snapped = snapPixelBoxToGuides({
-          x: nextX,
-          y: nextY,
-          width: (object.width / 100) * dialogueRect.width,
-          height: object.height,
+          x: targetStartX + moveEvent.clientX - startX,
+          y: targetStartY + moveEvent.clientY - startY,
+          width: targetRect.width,
+          height: targetRect.height,
           boxes: guideBoxes,
         });
-        nextX = snapped.x;
-        nextY = snapped.y;
+        nextX = initialX + snapped.x - targetStartX;
+        nextY = initialY + snapped.y - targetStartY;
         setActiveGuideLines(snapped.lines);
       } else {
         setActiveGuideLines([]);
@@ -193,6 +130,7 @@ export function WebPlaytestDialoguePanel({
     };
     const end = () => {
       setActiveGuideLines([]);
+      document.body.style.cursor = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };
@@ -222,14 +160,8 @@ export function WebPlaytestDialoguePanel({
             ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
             : `${renderStyle.dialogWidth}%`,
         maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
-        left:
-          settings.layoutMode === 'immersive'
-            ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
-            : undefined,
-        bottom:
-          settings.layoutMode === 'immersive'
-            ? `calc(4% - ${Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.28}%)`
-            : undefined,
+        left: settings.layoutMode === 'immersive' ? '50%' : undefined,
+        bottom: settings.layoutMode === 'immersive' ? '4%' : undefined,
         transform: settings.layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
         justifySelf: settings.layoutMode === 'classic' ? 'center' : undefined,
       }}
@@ -240,8 +172,10 @@ export function WebPlaytestDialoguePanel({
           settings.layoutMode === 'immersive'
             ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
-        } ${selectionClass('dialogBox')}`}
+        } ${editMode ? 'cursor-grab' : ''} ${selectionClass('dialogBox')}`}
         style={dialogueShellStyle}
+        data-dialogue-box="true"
+        data-render-object="dialogBox"
         onClick={(event) => selectObject(event, 'dialogBox')}
         onPointerDown={(event) => startDrag(event, 'dialogBox')}
       >
@@ -261,12 +195,13 @@ export function WebPlaytestDialoguePanel({
           </div>
         )}
         {selectedFrame('dialogBox')}
-        {nameplates}
+        {typeof nameplates === 'function' ? nameplates(setActiveGuideLines) : nameplates}
         {aboveChoices}
         {(objects.title.visible || editMode) && !hideCenteredTitle && (
           <h2
             key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
-            className={`relative mb-2 font-black ${selectionClass('title')}`}
+            className={`relative mb-2 font-black ${editMode ? 'cursor-grab' : ''} ${selectionClass('title')}`}
+            data-render-object="title"
             style={{
               ...titleStyle,
               opacity: objects.title.visible ? titleStyle.opacity : 0.34,
@@ -284,7 +219,8 @@ export function WebPlaytestDialoguePanel({
             settings.layoutMode === 'classic' && settings.interactionMode === 'typewriter'
               ? 'relative'
               : ''
-          } ${selectionClass('body')}`}
+          } ${editMode ? 'cursor-grab' : ''} ${selectionClass('body')}`}
+          data-render-object="body"
           style={{
             ...bodyStyle,
             opacity: objects.body.visible ? bodyStyle.opacity : 0.34,
@@ -350,6 +286,7 @@ function RenderObjectFrame({
   const beginResize = (event: React.PointerEvent<HTMLElement>, handle: WebEditableResizeHandle) => {
     event.preventDefault();
     event.stopPropagation();
+    document.body.style.cursor = resizeCursorByHandle[handle];
     const startX = event.clientX;
     const startY = event.clientY;
     const initial = object;
@@ -386,6 +323,7 @@ function RenderObjectFrame({
       });
     };
     const end = () => {
+      document.body.style.cursor = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };
@@ -395,6 +333,7 @@ function RenderObjectFrame({
   const beginRotate = (event: React.PointerEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    document.body.style.cursor = 'grabbing';
     const rect = event.currentTarget.parentElement?.getBoundingClientRect();
     if (!rect) return;
     const centerX = rect.left + rect.width / 2;
@@ -406,6 +345,7 @@ function RenderObjectFrame({
       onUpdate(kind, { rotation: Math.round(initialRotation + angle - startAngle) });
     };
     const end = () => {
+      document.body.style.cursor = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };

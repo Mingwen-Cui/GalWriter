@@ -30,6 +30,17 @@ export type PlayedAudio = {
   url: string;
 };
 
+const floatingResizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  e: 'ew-resize',
+  w: 'ew-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+};
+
 export function ChoiceButton({
   label,
   choiceColor,
@@ -374,6 +385,12 @@ function ToolbarElement({
     event.preventDefault();
     event.stopPropagation();
     onSelect?.(element.id);
+    document.body.style.cursor =
+      type === 'rotate'
+        ? 'grabbing'
+        : type === 'resize' && handle
+          ? floatingResizeCursorByHandle[handle]
+          : 'grabbing';
     const parent = event.currentTarget.closest('[data-toolbar-editor="true"]')?.getBoundingClientRect();
     const rect = parent || event.currentTarget.parentElement?.getBoundingClientRect();
     if (!rect) return;
@@ -447,6 +464,7 @@ function ToolbarElement({
     };
     const end = () => {
       onGuideLinesChange?.([]);
+      document.body.style.cursor = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };
@@ -481,6 +499,7 @@ function ToolbarElement({
         fontSize: element.fontSize || undefined,
         letterSpacing: element.letterSpacing,
         lineHeight: element.lineHeight,
+        cursor: editable ? 'grab' : undefined,
       }}
       disabled={!editable && disabled}
       onPointerDown={(event) => beginDrag(event, 'move')}
