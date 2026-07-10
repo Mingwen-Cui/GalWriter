@@ -34,7 +34,8 @@ type WebPreviewMenuPagesProps = {
   archiveOpen: boolean;
   settingsOpen: boolean;
   backgroundClass: string;
-  backgroundStyle?: CSSProperties;
+  archiveBackgroundStyle?: CSSProperties;
+  settingsBackgroundStyle?: CSSProperties;
   boundsMinX: number;
   boundsMinY: number;
   boundsMaxX: number;
@@ -51,7 +52,10 @@ type WebPreviewMenuPagesProps = {
   onSelectElement?: (id: string | null) => void;
   onUpdateArchiveElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
-  onUpdateSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
+  onUpdateSettings: <K extends keyof WebExportSettings>(
+    key: K,
+    value: WebExportSettings[K],
+  ) => void;
 };
 
 export function WebPreviewMenuPages({
@@ -62,7 +66,8 @@ export function WebPreviewMenuPages({
   archiveOpen,
   settingsOpen,
   backgroundClass,
-  backgroundStyle,
+  archiveBackgroundStyle,
+  settingsBackgroundStyle,
   boundsMinX,
   boundsMinY,
   boundsMaxX,
@@ -128,7 +133,11 @@ export function WebPreviewMenuPages({
       y: Number(Math.max(boundsMinY, Math.min(boundsMaxY - height, element.y)).toFixed(2)),
     };
   };
-  const updatePageElement = (page: 'archive' | 'settings', id: string, patch: Partial<WebMenuElement>) => {
+  const updatePageElement = (
+    page: 'archive' | 'settings',
+    id: string,
+    patch: Partial<WebMenuElement>,
+  ) => {
     if (page === 'archive') onUpdateArchiveElement(id, patch);
     else onUpdateSettingsElement(id, patch);
   };
@@ -143,7 +152,9 @@ export function WebPreviewMenuPages({
   ) => {
     if (previewMode !== 'edit') return;
     if (event.button === 2) return;
-    const rect = (page === 'archive' ? archiveRootRef.current : settingsRootRef.current)?.getBoundingClientRect();
+    const rect = (
+      page === 'archive' ? archiveRootRef.current : settingsRootRef.current
+    )?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
@@ -151,7 +162,8 @@ export function WebPreviewMenuPages({
     setSelectedElementIds([element.id]);
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
-    const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+    const startAngle =
+      Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
     elementDragRef.current = {
       page,
       id: element.id,
@@ -166,10 +178,17 @@ export function WebPreviewMenuPages({
       rect,
     };
     document.body.style.cursor =
-      type === 'rotate' ? 'alias' : type === 'resize' && resizeHandle ? resizeCursorByHandle[resizeHandle] : 'grabbing';
+      type === 'rotate'
+        ? 'alias'
+        : type === 'resize' && resizeHandle
+          ? resizeCursorByHandle[resizeHandle]
+          : 'grabbing';
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
-  const beginMarquee = (page: 'archive' | 'settings', event: React.PointerEvent<HTMLDivElement>) => {
+  const beginMarquee = (
+    page: 'archive' | 'settings',
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
     if (previewMode !== 'edit' || event.button !== 2) return;
     const root = page === 'archive' ? archiveRootRef.current : settingsRootRef.current;
     const rect = root?.getBoundingClientRect();
@@ -245,7 +264,8 @@ export function WebPreviewMenuPages({
       const centerX = drag.centerX ?? drag.rect.left;
       const centerY = drag.centerY ?? drag.rect.top;
       const startAngle = drag.startAngle ?? 0;
-      const currentAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+      const currentAngle =
+        Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
       next.rotation = Number(((drag.initial.rotation || 0) + currentAngle - startAngle).toFixed(1));
       setActiveGuideLines([]);
     } else if (drag.type === 'move') {
@@ -319,7 +339,7 @@ export function WebPreviewMenuPages({
         <div
           ref={archiveRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={backgroundStyle}
+          style={archiveBackgroundStyle}
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
@@ -330,7 +350,10 @@ export function WebPreviewMenuPages({
         >
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
-          <MarqueeLayer box={marqueeRef.current?.page === 'archive' ? marqueeBox : null} visible={previewMode === 'edit'} />
+          <MarqueeLayer
+            box={marqueeRef.current?.page === 'archive' ? marqueeBox : null}
+            visible={previewMode === 'edit'}
+          />
           <MenuPageElementLayer
             page="archive"
             elements={archiveElements}
@@ -353,7 +376,7 @@ export function WebPreviewMenuPages({
         <div
           ref={settingsRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={backgroundStyle}
+          style={settingsBackgroundStyle}
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
@@ -364,7 +387,10 @@ export function WebPreviewMenuPages({
         >
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
-          <MarqueeLayer box={marqueeRef.current?.page === 'settings' ? marqueeBox : null} visible={previewMode === 'edit'} />
+          <MarqueeLayer
+            box={marqueeRef.current?.page === 'settings' ? marqueeBox : null}
+            visible={previewMode === 'edit'}
+          />
           <MenuPageElementLayer
             page="settings"
             elements={settingsElements}
@@ -382,9 +408,11 @@ export function WebPreviewMenuPages({
               if (role === 'controls') onToggleControls();
             }}
             renderSuffix={(element) => {
-              if (element.role === 'auto') return settings.autoAdvance ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
+              if (element.role === 'auto')
+                return settings.autoAdvance ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
               if (element.role === 'speed') return `${settings.typewriterSpeed}ms`;
-              if (element.role === 'controls') return previewControlsHidden ? t('关闭', 'オフ', 'Off') : t('开启', 'オン', 'On');
+              if (element.role === 'controls')
+                return previewControlsHidden ? t('关闭', 'オフ', 'Off') : t('开启', 'オン', 'On');
               return '';
             }}
           />
@@ -441,7 +469,8 @@ function MenuPageElementLayer({
       {elements
         .filter((element) => editable || element.visible !== false)
         .map((element) => {
-          const selected = selectedElementId === element.id || selectedElementIds.includes(element.id);
+          const selected =
+            selectedElementId === element.id || selectedElementIds.includes(element.id);
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -454,6 +483,7 @@ function MenuPageElementLayer({
           };
           const contentStyle: CSSProperties = {
             fontSize: element.fontSize,
+            fontWeight: element.fontWeight,
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
             borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12),
           };
@@ -471,7 +501,8 @@ function MenuPageElementLayer({
                   )
                 : element.backgroundType === 'image' && element.backgroundImageUrl
                   ? `linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.38)),url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
-                  : element.backgroundColor || (element.primary ? choiceColor : 'rgba(255,255,255,0.10)');
+                  : element.backgroundColor ||
+                    (element.primary ? choiceColor : 'rgba(255,255,255,0.10)');
 
             return (
               <button
@@ -542,13 +573,12 @@ function MenuPageElementLayer({
                   if (editable && event.button !== 2) onSelectElement?.(element.id);
                 }}
               >
-                <span className="block h-full w-full overflow-hidden" style={{ borderRadius: element.borderRadius ?? 12 }}>
+                <span
+                  className="block h-full w-full overflow-hidden"
+                  style={{ borderRadius: element.borderRadius ?? 12 }}
+                >
                   {element.imageUrl ? (
-                    <img
-                      src={element.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={element.imageUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="grid h-full w-full place-items-center rounded-xl border border-white/16 bg-white/10 text-xs font-black text-white/60">
                       Image

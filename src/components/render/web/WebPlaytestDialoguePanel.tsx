@@ -4,11 +4,13 @@ import { useState } from 'react';
 
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
-import type { RenderEditableObject, RenderEditableObjectKind, RenderStyle, WebExportSettings } from '../video/shared/types';
-import {
-  WebEditableElementFrame,
-  type WebEditableResizeHandle,
-} from './WebEditableElementFrame';
+import type {
+  RenderEditableObject,
+  RenderEditableObjectKind,
+  RenderStyle,
+  WebExportSettings,
+} from '../video/shared/types';
+import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
 import {
   collectPixelGuideBoxes,
   type PixelGuideLine,
@@ -46,7 +48,10 @@ type WebPlaytestDialoguePanelProps = {
   previewMode?: 'edit' | 'test';
   onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
   onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
-  onUpdateRenderObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
+  onUpdateRenderObject?: (
+    kind: RenderEditableObjectKind,
+    patch: Partial<RenderEditableObject>,
+  ) => void;
   t: (zh: string, ja: string, en: string) => string;
   onContinueFromText: () => void;
   onRecordCurrentAudio: () => void;
@@ -140,11 +145,7 @@ export function WebPlaytestDialoguePanel({
   const objects = getRenderObjects(renderStyle);
   const selectedFrame = (kind: RenderEditableObjectKind) =>
     editMode && renderStyle.selectedRenderObject === kind && onUpdateRenderObject ? (
-      <RenderObjectFrame
-        kind={kind}
-        object={objects[kind]}
-        onUpdate={onUpdateRenderObject}
-      />
+      <RenderObjectFrame kind={kind} object={objects[kind]} onUpdate={onUpdateRenderObject} />
     ) : null;
 
   return (
@@ -159,6 +160,10 @@ export function WebPlaytestDialoguePanel({
           settings.layoutMode === 'immersive'
             ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
             : `${renderStyle.dialogWidth}%`,
+        height:
+          settings.layoutMode === 'immersive'
+            ? `min(${renderStyle.dialogHeight}%, calc(100% - 96px))`
+            : undefined,
         maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
         left: settings.layoutMode === 'immersive' ? '50%' : undefined,
         bottom: settings.layoutMode === 'immersive' ? '4%' : undefined,
@@ -168,7 +173,7 @@ export function WebPlaytestDialoguePanel({
     >
       <div
         ref={dialogueBoxRef}
-        className={`pointer-events-auto relative w-full border-t border-white/10 py-4 ${
+        className={`pointer-events-auto relative h-full w-full border-t border-white/10 py-4 ${
           settings.layoutMode === 'immersive'
             ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
@@ -290,30 +295,43 @@ function RenderObjectFrame({
     const startX = event.clientX;
     const startY = event.clientY;
     const initial = object;
+    const target = event.currentTarget.closest<HTMLElement>('[data-render-object]');
+    const targetRect = target?.getBoundingClientRect();
+    const widthUnitPerPx =
+      targetRect && targetRect.width > 0 ? initial.width / targetRect.width : 1;
+    const heightUnitPerPx =
+      kind === 'dialogBox' && targetRect && targetRect.height > 0
+        ? initial.height / targetRect.height
+        : 1;
+    const minWidth = kind === 'dialogBox' ? 35 : 8;
+    const minHeight = kind === 'dialogBox' ? 16 : 8;
     const move = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
+      const dxPx = moveEvent.clientX - startX;
+      const dyPx = moveEvent.clientY - startY;
+      const widthDelta = dxPx * widthUnitPerPx;
+      const heightDelta = dyPx * heightUnitPerPx;
       let nextX = initial.x;
       let nextY = initial.y;
       let nextWidth = initial.width;
       let nextHeight = initial.height;
-      if (handle.includes('e')) nextWidth = initial.width + dx;
-      if (handle.includes('s')) nextHeight = initial.height + dy;
+      if (handle.includes('e')) nextWidth = initial.width + widthDelta;
+      if (handle.includes('s')) nextHeight = initial.height + heightDelta;
       if (handle.includes('w')) {
-        nextX = initial.x + dx;
-        nextWidth = initial.width - dx;
+        nextX = initial.x + dxPx;
+        nextWidth = initial.width - widthDelta;
       }
       if (handle.includes('n')) {
-        nextY = initial.y + dy;
-        nextHeight = initial.height - dy;
+        nextY = initial.y + dyPx;
+        nextHeight = initial.height - heightDelta;
       }
-      if (nextWidth < 8) {
-        if (handle.includes('w')) nextX = initial.x + initial.width - 8;
-        nextWidth = 8;
+      if (nextWidth < minWidth) {
+        if (handle.includes('w')) nextX = initial.x + (initial.width - minWidth) / widthUnitPerPx;
+        nextWidth = minWidth;
       }
-      if (nextHeight < 8) {
-        if (handle.includes('n')) nextY = initial.y + initial.height - 8;
-        nextHeight = 8;
+      if (nextHeight < minHeight) {
+        if (handle.includes('n'))
+          nextY = initial.y + (initial.height - minHeight) / heightUnitPerPx;
+        nextHeight = minHeight;
       }
       onUpdate(kind, {
         x: Math.round(nextX),
@@ -338,10 +356,12 @@ function RenderObjectFrame({
     if (!rect) return;
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+    const startAngle =
+      Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
     const initialRotation = object.rotation || 0;
     const move = (moveEvent: PointerEvent) => {
-      const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
+      const angle =
+        Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
       onUpdate(kind, { rotation: Math.round(initialRotation + angle - startAngle) });
     };
     const end = () => {

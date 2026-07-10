@@ -324,7 +324,13 @@ export const makeIndexHtml = (
     .nameplate {
       position: absolute;
       top: var(--nameplate-top, 0);
-      max-width: min(44%, 220px);
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--nameplate-width, auto);
+      height: var(--nameplate-height, auto);
+      max-width: none;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -338,7 +344,7 @@ export const makeIndexHtml = (
       line-height: 1;
       box-shadow: 0 10px 24px rgba(0,0,0,0.24);
       text-shadow: 0 1px 8px rgba(0,0,0,0.32);
-      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%));
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%)) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
     }
     .nameplate-layer.inside .nameplate {
       background: transparent;
@@ -353,7 +359,7 @@ export const makeIndexHtml = (
       width: min(var(--dialog-width, 86%), 100%);
       display: block;
       border-top: 1px solid var(--dialog-border-color, rgba(255,255,255,0.14));
-      height: auto;
+      height: min(var(--dialog-height, 34vh), 420px);
       max-height: min(var(--dialog-height, 34vh), 420px);
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
@@ -361,6 +367,7 @@ export const makeIndexHtml = (
       box-shadow: var(--dialog-shadow, 0 -14px 36px rgba(0,0,0,0.18));
       backdrop-filter: var(--dialog-backdrop-filter, none);
       overflow: auto;
+      transform: var(--dialog-object-transform, none);
     }
     .app.immersive .dialogue {
       position: absolute;
@@ -369,9 +376,10 @@ export const makeIndexHtml = (
       z-index: 4;
       margin: 0;
       width: min(var(--dialog-width, 86%), calc(100% - 24px));
+      height: min(var(--dialog-height, 34%), calc(100% - 96px));
       max-height: min(var(--dialog-height, 34%), calc(100% - 96px));
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
-      transform: translateX(-50%);
+      transform: translateX(-50%) var(--dialog-object-transform, translate(0, 0) rotate(0deg) scale(1, 1));
       border: 1px solid var(--dialog-border-color, rgba(255,255,255,0.12));
       border-radius: var(--dialog-radius, 12px);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
@@ -384,21 +392,27 @@ export const makeIndexHtml = (
       font-size: var(--title-size, 18px);
       font-family: var(--title-font-family, inherit);
       font-weight: 900;
+      width: var(--title-width, auto);
+      height: var(--title-height, auto);
       line-height: var(--title-line-height, 1.18);
       letter-spacing: var(--title-letter-spacing, 0px);
       text-align: var(--title-align, left);
       -webkit-text-stroke: var(--title-stroke, 0 transparent);
       overflow-wrap: anywhere;
+      transform: var(--title-transform, none);
     }
     .text {
       color: var(--body-color, #e5e7eb);
       font-family: var(--body-font-family, inherit);
+      width: var(--body-width, auto);
+      height: var(--body-height, auto);
       line-height: var(--body-line-height, 1.55);
       font-size: var(--body-size, 16px);
       letter-spacing: var(--body-letter-spacing, 0px);
       text-align: var(--body-align, left);
       -webkit-text-stroke: var(--body-stroke, 0 transparent);
       overflow-wrap: anywhere;
+      transform: var(--body-transform, none);
     }
     .text.typewriter-reserved { position: relative; }
     .typewriter-placeholder {
@@ -938,6 +952,24 @@ export const makeIndexHtml = (
     settings.startMenuBackgroundGradientEnd = String(settings.startMenuBackgroundGradientEnd || "#0891b2");
     settings.startMenuBackgroundGradientAngle = Number.isFinite(Number(settings.startMenuBackgroundGradientAngle)) ? Number(settings.startMenuBackgroundGradientAngle) : 135;
     settings.startMenuBackgroundImageUrl = String(settings.startMenuBackgroundImageUrl || "");
+    settings.archiveBackgroundType = ["solid", "gradient", "image"].includes(settings.archiveBackgroundType) ? settings.archiveBackgroundType : settings.startMenuBackgroundType;
+    settings.archiveBackgroundColor = String(settings.archiveBackgroundColor || settings.startMenuBackgroundColor);
+    settings.archiveBackgroundGradientStart = String(settings.archiveBackgroundGradientStart || settings.startMenuBackgroundGradientStart);
+    settings.archiveBackgroundGradientEnd = String(settings.archiveBackgroundGradientEnd || settings.startMenuBackgroundGradientEnd);
+    settings.archiveBackgroundGradientAngle = Number.isFinite(Number(settings.archiveBackgroundGradientAngle)) ? Number(settings.archiveBackgroundGradientAngle) : settings.startMenuBackgroundGradientAngle;
+    settings.archiveBackgroundImageUrl = String(settings.archiveBackgroundImageUrl || settings.startMenuBackgroundImageUrl || "");
+    settings.settingsBackgroundType = ["solid", "gradient", "image"].includes(settings.settingsBackgroundType) ? settings.settingsBackgroundType : settings.startMenuBackgroundType;
+    settings.settingsBackgroundColor = String(settings.settingsBackgroundColor || settings.startMenuBackgroundColor);
+    settings.settingsBackgroundGradientStart = String(settings.settingsBackgroundGradientStart || settings.startMenuBackgroundGradientStart);
+    settings.settingsBackgroundGradientEnd = String(settings.settingsBackgroundGradientEnd || settings.startMenuBackgroundGradientEnd);
+    settings.settingsBackgroundGradientAngle = Number.isFinite(Number(settings.settingsBackgroundGradientAngle)) ? Number(settings.settingsBackgroundGradientAngle) : settings.startMenuBackgroundGradientAngle;
+    settings.settingsBackgroundImageUrl = String(settings.settingsBackgroundImageUrl || settings.startMenuBackgroundImageUrl || "");
+    settings.dialogueBackgroundType = ["solid", "gradient", "image"].includes(settings.dialogueBackgroundType) ? settings.dialogueBackgroundType : settings.startMenuBackgroundType;
+    settings.dialogueBackgroundColor = String(settings.dialogueBackgroundColor || settings.startMenuBackgroundColor);
+    settings.dialogueBackgroundGradientStart = String(settings.dialogueBackgroundGradientStart || settings.startMenuBackgroundGradientStart);
+    settings.dialogueBackgroundGradientEnd = String(settings.dialogueBackgroundGradientEnd || settings.startMenuBackgroundGradientEnd);
+    settings.dialogueBackgroundGradientAngle = Number.isFinite(Number(settings.dialogueBackgroundGradientAngle)) ? Number(settings.dialogueBackgroundGradientAngle) : settings.startMenuBackgroundGradientAngle;
+    settings.dialogueBackgroundImageUrl = String(settings.dialogueBackgroundImageUrl || settings.startMenuBackgroundImageUrl || "");
     settings.startMenuBackgroundMusicUrl = String(settings.startMenuBackgroundMusicUrl || "");
     settings.startMenuMusicVolume = clamp(settings.startMenuMusicVolume, 0, 100, 70);
     settings.startMenuMusicFadeIn = clamp(settings.startMenuMusicFadeIn, 0, 10, 0);
@@ -1020,6 +1052,7 @@ export const makeIndexHtml = (
     }
     function applyCustomTextStyle(target, element) {
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
+      if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
       target.style.color = styleColor(element.textColor, element.textColorAlpha, "#ffffff");
       if (Number(element.textStrokeWidth) > 0) {
@@ -1035,6 +1068,7 @@ export const makeIndexHtml = (
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
+      if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
       target.style.color = styleColor(element.textColor, element.textColorAlpha, fallbackColor || "#ffffff");
       if (Number(element.textStrokeWidth) > 0) {
@@ -1081,45 +1115,72 @@ export const makeIndexHtml = (
       }
       return withAlpha(style.nameplateColor || "#4f46e5", (Number(style.nameplateColorAlpha ?? 86) || 86) / 100);
     }
-    document.documentElement.style.setProperty("--title-size", Math.max(12, Number(style.titleFontSize) || 18) + "px");
-    document.documentElement.style.setProperty("--body-size", Math.max(12, Number(style.bodyFontSize) || 18) + "px");
+    const renderObjects = style.renderObjects || {};
+    const dialogObject = renderObjects.dialogBox || {};
+    const titleObject = renderObjects.title || {};
+    const bodyObject = renderObjects.body || {};
+    const nameplateObject = renderObjects.nameplate || {};
+    function objectTransform(object) {
+      const x = Number(object.x) || 0;
+      const y = Number(object.y) || 0;
+      const rotation = Number(object.rotation) || 0;
+      const flipX = object.flipX ? -1 : 1;
+      const flipY = object.flipY ? -1 : 1;
+      return "translate(" + x + "px, " + y + "px) rotate(" + rotation + "deg) scale(" + flipX + ", " + flipY + ")";
+    }
+    document.documentElement.style.setProperty("--title-size", Math.max(12, Number(titleObject.fontSize ?? style.titleFontSize) || 18) + "px");
+    document.documentElement.style.setProperty("--body-size", Math.max(12, Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--title-color", styleColor(style.titleColor, style.titleColorAlpha ?? 100, "#f8fafc"));
     document.documentElement.style.setProperty("--body-color", styleColor(style.bodyColor, style.bodyColorAlpha ?? 100, "#e5e7eb"));
-    document.documentElement.style.setProperty("--title-font-family", style.titleFontFamily || "inherit");
-    document.documentElement.style.setProperty("--body-font-family", style.bodyFontFamily || "inherit");
-    document.documentElement.style.setProperty("--title-line-height", String(Number(style.titleLineHeight) || 1.18));
-    document.documentElement.style.setProperty("--body-line-height", String(Number(style.bodyLineHeight) || 1.55));
-    document.documentElement.style.setProperty("--title-letter-spacing", px(style.titleLetterSpacing, 0));
-    document.documentElement.style.setProperty("--body-letter-spacing", px(style.bodyLetterSpacing, 0));
-    document.documentElement.style.setProperty("--title-align", style.titleAlign || "left");
-    document.documentElement.style.setProperty("--body-align", style.bodyAlign || "left");
+    document.documentElement.style.setProperty("--title-font-family", titleObject.fontFamily || style.titleFontFamily || "inherit");
+    document.documentElement.style.setProperty("--body-font-family", bodyObject.fontFamily || style.bodyFontFamily || "inherit");
+    document.documentElement.style.setProperty("--title-line-height", String(Number(titleObject.lineHeight ?? style.titleLineHeight) || 1.18));
+    document.documentElement.style.setProperty("--body-line-height", String(Number(bodyObject.lineHeight ?? style.bodyLineHeight) || 1.55));
+    document.documentElement.style.setProperty("--title-letter-spacing", px(titleObject.letterSpacing ?? style.titleLetterSpacing, 0));
+    document.documentElement.style.setProperty("--body-letter-spacing", px(bodyObject.letterSpacing ?? style.bodyLetterSpacing, 0));
+    document.documentElement.style.setProperty("--title-align", titleObject.textAlign || style.titleAlign || "left");
+    document.documentElement.style.setProperty("--body-align", bodyObject.textAlign || style.bodyAlign || "left");
+    document.documentElement.style.setProperty("--title-width", percent(clamp(titleObject.width, 8, 100, 100), 100));
+    document.documentElement.style.setProperty("--body-width", percent(clamp(bodyObject.width, 8, 100, 100), 100));
+    document.documentElement.style.setProperty("--title-height", px(clamp(titleObject.height, 8, 320, 24), 24));
+    document.documentElement.style.setProperty("--body-height", px(clamp(bodyObject.height, 8, 420, 64), 64));
+    document.documentElement.style.setProperty("--title-transform", objectTransform(titleObject));
+    document.documentElement.style.setProperty("--body-transform", objectTransform(bodyObject));
     document.documentElement.style.setProperty("--title-stroke", (Number(style.titleStrokeWidth) || 0) + "px " + colorInputValue(style.titleStrokeColor, "#000000"));
     document.documentElement.style.setProperty("--body-stroke", (Number(style.bodyStrokeWidth) || 0) + "px " + colorInputValue(style.bodyStrokeColor, "#000000"));
     document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : "rgba(255,255,255,0.14)");
     document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : "0 24px 80px rgba(0,0,0,0.30)");
     document.documentElement.style.setProperty("--dialog-backdrop-filter", style.dialogVisible === false ? "none" : "blur(18px)");
-    document.documentElement.style.setProperty("--dialog-width", percent(clamp(style.dialogWidth, 35, 100, 86), 86));
-    document.documentElement.style.setProperty("--dialog-height", percent(clamp(style.dialogHeight, 16, 75, 34), 34));
-    document.documentElement.style.setProperty("--dialog-radius", px(style.dialogRadius, 24));
+    document.documentElement.style.setProperty("--dialog-width", percent(clamp(dialogObject.width ?? style.dialogWidth, 35, 100, 86), 86));
+    document.documentElement.style.setProperty("--dialog-height", percent(clamp(dialogObject.height ?? style.dialogHeight, 16, 75, 34), 34));
+    document.documentElement.style.setProperty("--dialog-radius", px(dialogObject.radius ?? style.dialogRadius, 24));
     document.documentElement.style.setProperty("--dialog-padding-x", percent(clamp(style.dialogTextPaddingX, 2, 24, 9), 9));
-    document.documentElement.style.setProperty("--dialog-left", percent(50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5, 50));
-    document.documentElement.style.setProperty("--dialog-bottom", "calc(4% - " + (clamp(style.dialogOffsetY, -100, 100, 0) * 0.28) + "%)");
+    document.documentElement.style.setProperty("--dialog-left", "50%");
+    document.documentElement.style.setProperty("--dialog-bottom", "4%");
+    document.documentElement.style.setProperty("--dialog-object-transform", objectTransform({
+      ...dialogObject,
+      x: dialogObject.x ?? style.dialogOffsetX,
+      y: dialogObject.y ?? style.dialogOffsetY,
+    }));
     document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : dialogueBackground());
-    const nameplateFontSize = Math.max(10, Number(style.nameplateFontSize) || 18);
-    const nameplateScale = clamp(style.nameplateScale, 55, 180, 100) / 100;
+    const nameplateFontSize = Math.max(10, Number(nameplateObject.fontSize ?? style.nameplateFontSize) || 18);
+    const nameplateScale = clamp(nameplateObject.width ?? style.nameplateScale, 55, 320, 100) / 100;
     document.documentElement.style.setProperty("--nameplate-font-size", nameplateFontSize + "px");
-    document.documentElement.style.setProperty("--nameplate-font-family", style.nameplateFontFamily || style.titleFontFamily || "inherit");
+    document.documentElement.style.setProperty("--nameplate-font-family", nameplateObject.fontFamily || style.nameplateFontFamily || style.titleFontFamily || "inherit");
+    document.documentElement.style.setProperty("--nameplate-width", px(clamp(nameplateObject.width ?? style.nameplateScale, 55, 520, 100), 100));
+    document.documentElement.style.setProperty("--nameplate-height", px(clamp(nameplateObject.height, 8, 240, 42), 42));
     document.documentElement.style.setProperty("--nameplate-padding-x", Math.round(nameplateFontSize * 1.15 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-padding-y", Math.round(nameplateFontSize * 0.42 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-row-height", Math.ceil(nameplateFontSize + Math.round(nameplateFontSize * 0.42 * nameplateScale) * 2 + Math.max(8, nameplateFontSize * 0.45)) + "px");
     document.documentElement.style.setProperty("--nameplate-text-gap", px(style.nameplateTextGap, 8));
-    document.documentElement.style.setProperty("--nameplate-radius", px(style.nameplateRadius, 14));
+    document.documentElement.style.setProperty("--nameplate-radius", px(nameplateObject.radius ?? style.nameplateRadius, 14));
     document.documentElement.style.setProperty("--nameplate-color", styleColor(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100, "#ffffff"));
     document.documentElement.style.setProperty("--nameplate-background", nameplateBackground());
-    document.documentElement.style.setProperty("--nameplate-offset-x", px(style.nameplateOffsetX, 0));
-    document.documentElement.style.setProperty("--nameplate-offset-y", px(style.nameplateOffsetY, 0));
+    document.documentElement.style.setProperty("--nameplate-offset-x", px(nameplateObject.x ?? style.nameplateOffsetX, 0));
+    document.documentElement.style.setProperty("--nameplate-offset-y", px(nameplateObject.y ?? style.nameplateOffsetY, 0));
     document.documentElement.style.setProperty("--nameplate-top", style.nameplateInside ? "8px" : "0");
-    document.documentElement.style.setProperty("--nameplate-translate-y", style.nameplateInside ? px(style.nameplateOffsetY, 0) : "calc(-100% - 8px + " + px(style.nameplateOffsetY, 0) + ")");
+    document.documentElement.style.setProperty("--nameplate-object-transform", "rotate(" + (Number(nameplateObject.rotation) || 0) + "deg) scale(" + (nameplateObject.flipX ? -1 : 1) + ", " + (nameplateObject.flipY ? -1 : 1) + ")");
+    document.documentElement.style.setProperty("--nameplate-translate-y", style.nameplateInside ? px(nameplateObject.y ?? style.nameplateOffsetY, 0) : "calc(-100% - 8px + " + px(nameplateObject.y ?? style.nameplateOffsetY, 0) + ")");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
@@ -1156,6 +1217,7 @@ export const makeIndexHtml = (
     const startPanel = document.querySelector(".start-panel");
     const startLayer = document.getElementById("startLayer");
     const startMenuAudio = document.getElementById("startMenuAudio");
+    const settingsPanel = document.querySelector(".settings-panel");
     const saveSlotButton = document.getElementById("saveSlotButton");
     const newGameButton = document.getElementById("newGameButton");
     const settingsButton = document.getElementById("settingsButton");
@@ -1180,15 +1242,25 @@ export const makeIndexHtml = (
     startScreen.classList.add("buttons-" + settings.startMenuButtonPosition.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase()));
     startScreen.classList.add("button-size-" + settings.startMenuButtonSize);
     startScreen.classList.toggle("has-custom-elements", settings.startMenuElements.length > 0);
-    if (settings.startMenuBackgroundType === "image" && settings.startMenuBackgroundImageUrl) {
-      startScreen.style.backgroundImage = 'linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("' + settings.startMenuBackgroundImageUrl.replace(/"/g, '\\"') + '")';
-      startScreen.style.backgroundPosition = "center";
-      startScreen.style.backgroundSize = "cover";
-    } else if (settings.startMenuBackgroundType === "gradient") {
-      startScreen.style.background = linearGradientFromStops(settings.startMenuBackgroundGradientAngle, normalizeGradientStops(settings.startMenuBackgroundGradientStops, settings.startMenuBackgroundGradientStart, settings.startMenuBackgroundGradientEnd, "#0f172a", "#0891b2"));
-    } else if (settings.startMenuBackgroundType === "solid") {
-      startScreen.style.background = settings.startMenuBackgroundColor;
+    function applySurfaceBackground(target, prefix) {
+      if (!target) return;
+      const type = settings[prefix + "Type"];
+      const imageUrl = String(settings[prefix + "ImageUrl"] || "");
+      target.style.background = "";
+      target.style.backgroundImage = "";
+      if (type === "image" && imageUrl) {
+        target.style.backgroundImage = 'linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("' + imageUrl.replace(/"/g, '\\"') + '")';
+        target.style.backgroundPosition = "center";
+        target.style.backgroundSize = "cover";
+      } else if (type === "gradient") {
+        target.style.background = linearGradientFromStops(settings[prefix + "GradientAngle"], normalizeGradientStops(settings[prefix + "GradientStops"], settings[prefix + "GradientStart"], settings[prefix + "GradientEnd"], "#0f172a", "#0891b2"));
+      } else if (type === "solid") {
+        target.style.background = settings[prefix + "Color"];
+      }
     }
+    applySurfaceBackground(startScreen, "startMenuBackground");
+    applySurfaceBackground(settingsPanel, "settingsBackground");
+    applySurfaceBackground(document.querySelector(".app"), "dialogueBackground");
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
     settingsTitle.textContent = labels.settings;
     settingAutoLabel.textContent = labels.autoPlay;
@@ -1357,6 +1429,7 @@ export const makeIndexHtml = (
           if (element.borderColor) button.style.borderColor = element.borderColor;
           if (Number(element.borderWidth) >= 0) button.style.borderWidth = Number(element.borderWidth) + "px";
           if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
+          if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
           button.style.borderRadius = px(element.borderRadius, 12);
           if (element.blendMode) button.style.mixBlendMode = element.blendMode;
           if (action?.onClick) button.addEventListener("click", action.onClick);

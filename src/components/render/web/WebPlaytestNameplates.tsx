@@ -5,7 +5,12 @@ import {
   getNameplateCssBackground,
 } from '../video/shared/nameplateRenderer';
 import { getRenderObjects } from '../video/shared/renderObjects';
-import type { RenderEditableObjectKind, RenderStyle } from '../video/shared/types';
+import type {
+  RenderEditableObject,
+  RenderEditableObjectKind,
+  RenderStyle,
+} from '../video/shared/types';
+import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
 import {
   collectPixelGuideBoxes,
   type PixelGuideLine,
@@ -24,6 +29,10 @@ type WebPlaytestNameplatesProps = {
   previewMode?: 'edit' | 'test';
   onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
   onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
+  onUpdateRenderObject?: (
+    kind: RenderEditableObjectKind,
+    patch: Partial<RenderEditableObject>,
+  ) => void;
   onGuideLinesChange?: (lines: PixelGuideLine[]) => void;
 };
 
@@ -34,10 +43,12 @@ export function WebPlaytestNameplates({
   previewMode = 'test',
   onSelectRenderObject,
   onMoveRenderObject,
+  onUpdateRenderObject,
   onGuideLinesChange,
 }: WebPlaytestNameplatesProps) {
   if (!renderStyle.nameplateVisible || !items.length) return null;
 
+  const nameplateObject = getRenderObjects(renderStyle).nameplate;
   const fontSize = Math.max(10, renderStyle.nameplateFontSize ?? 18);
   const scale = Math.max(0.5, Math.min(2, (renderStyle.nameplateScale ?? 100) / 100));
   const paddingX = Math.round(fontSize * 1.15 * scale);
@@ -64,7 +75,14 @@ export function WebPlaytestNameplates({
       ? '0 1px 10px rgba(0, 0, 0, 0.42)'
       : '0 1px 8px rgba(0, 0, 0, 0.32)',
     whiteSpace: 'nowrap',
-    maxWidth: 'min(44%, 220px)',
+    boxSizing: 'border-box',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: nameplateObject.width ? `${Math.max(55, nameplateObject.width)}px` : undefined,
+    height: nameplateObject.height ? `${Math.max(8, nameplateObject.height)}px` : undefined,
+    minHeight: nameplateObject.height ? `${Math.max(8, nameplateObject.height)}px` : undefined,
+    maxWidth: 'none',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   };
@@ -113,11 +131,7 @@ export function WebPlaytestNameplates({
       } else {
         onGuideLinesChange?.([]);
       }
-      onMoveRenderObject(
-        'nameplate',
-        nextX,
-        nextY,
-      );
+      onMoveRenderObject('nameplate', nextX, nextY);
     };
     const end = () => {
       document.body.style.cursor = '';
@@ -128,6 +142,82 @@ export function WebPlaytestNameplates({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', end);
   };
+  const startNameplateResize = (
+    event: React.PointerEvent<HTMLElement>,
+    handle: WebEditableResizeHandle,
+  ) => {
+    if (previewMode !== 'edit' || !onUpdateRenderObject) return;
+    event.preventDefault();
+    event.stopPropagation();
+    document.body.style.cursor =
+      handle === 'n' || handle === 's'
+        ? 'ns-resize'
+        : handle === 'e' || handle === 'w'
+          ? 'ew-resize'
+          : handle === 'ne' || handle === 'sw'
+            ? 'nesw-resize'
+            : 'nwse-resize';
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = getRenderObjects(renderStyle).nameplate;
+    const target = event.currentTarget.closest<HTMLElement>('[data-render-object="nameplate"]');
+    const targetRect = target?.getBoundingClientRect();
+    const widthUnitPerPx =
+      targetRect && targetRect.width > 0 ? initial.width / targetRect.width : 1;
+    const move = (moveEvent: PointerEvent) => {
+      const dx = (moveEvent.clientX - startX) * widthUnitPerPx;
+      const dy = moveEvent.clientY - startY;
+      let nextX = initial.x;
+      let nextY = initial.y;
+      let nextWidth = initial.width;
+      let nextHeight = initial.height;
+      if (handle.includes('e')) nextWidth = initial.width + dx;
+      if (handle.includes('s')) nextHeight = initial.height + dy;
+      if (handle.includes('w')) {
+        nextX = initial.x + moveEvent.clientX - startX;
+        nextWidth = initial.width - dx;
+      }
+      if (handle.includes('n')) {
+        nextY = initial.y + dy;
+        nextHeight = initial.height - dy;
+      }
+      if (nextWidth < 55) {
+        if (handle.includes('w')) nextX = initial.x + (initial.width - 55) / widthUnitPerPx;
+        nextWidth = 55;
+      }
+      if (nextHeight < 8) {
+        if (handle.includes('n')) nextY = initial.y + initial.height - 8;
+        nextHeight = 8;
+      }
+      onUpdateRenderObject('nameplate', {
+        x: Math.round(nextX),
+        y: Math.round(nextY),
+        width: Math.round(nextWidth),
+        height: Math.round(nextHeight),
+      });
+    };
+    const end = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  };
+  const renderSelectedFrame = () =>
+    previewMode === 'edit' &&
+    renderStyle.selectedRenderObject === 'nameplate' &&
+    onUpdateRenderObject ? (
+      <WebEditableElementFrame
+        visible={nameplateObject.visible}
+        onRotatePointerDown={(event) => event.stopPropagation()}
+        onToggleVisible={(event) => {
+          event.stopPropagation();
+          onUpdateRenderObject('nameplate', { visible: !nameplateObject.visible });
+        }}
+        onResizePointerDown={startNameplateResize}
+      />
+    ) : null;
 
   if (!renderStyle.nameplateFollowCharacter) {
     if (renderStyle.nameplateInside) {
@@ -143,13 +233,14 @@ export function WebPlaytestNameplates({
           {items.map((item) => (
             <div
               key={item.sourceNodeId}
-              className={`pointer-events-auto cursor-grab font-black ${editClass}`}
+              className={`pointer-events-auto relative cursor-grab font-black ${editClass}`}
               data-render-object="nameplate"
               style={baseStyle}
               onClick={selectNameplate}
               onPointerDown={startNameplateDrag}
             >
               {item.name}
+              {renderSelectedFrame()}
             </div>
           ))}
         </div>
@@ -166,13 +257,14 @@ export function WebPlaytestNameplates({
         {items.map((item) => (
           <div
             key={item.sourceNodeId}
-            className={`pointer-events-auto cursor-grab font-black ${editClass}`}
+            className={`pointer-events-auto relative cursor-grab font-black ${editClass}`}
             data-render-object="nameplate"
             style={baseStyle}
             onClick={selectNameplate}
             onPointerDown={startNameplateDrag}
           >
             {item.name}
+            {renderSelectedFrame()}
           </div>
         ))}
       </div>
@@ -207,6 +299,7 @@ export function WebPlaytestNameplates({
               onPointerDown={startNameplateDrag}
             >
               {item.name}
+              {renderSelectedFrame()}
             </div>
           );
         })}
@@ -236,6 +329,7 @@ export function WebPlaytestNameplates({
             onPointerDown={startNameplateDrag}
           >
             {item.name}
+            {renderSelectedFrame()}
           </div>
         );
       })}

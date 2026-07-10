@@ -98,23 +98,27 @@ export const buildBodyStyle = (renderStyle: RenderStyle): CSSProperties => ({
 export const buildDialogueShellStyle = (
   renderStyle: RenderStyle,
   layoutMode: WebExportSettings['layoutMode'],
-): CSSProperties => ({
-  ...(renderStyle.dialogVisible
-    ? buildDialogueBackgroundStyle(renderStyle)
-    : {
-        background: 'transparent',
-        backgroundColor: 'transparent',
-        backgroundImage: 'none',
-        borderColor: 'transparent',
-        boxShadow: 'none',
-        backdropFilter: 'none',
-      }),
-  borderRadius: renderStyle.dialogRadius,
-  transform: objectTransform(renderStyle, 'dialogBox'),
-  maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
-  paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-  paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-});
+): CSSProperties => {
+  const object = getRenderObjects(renderStyle).dialogBox;
+  return {
+    ...(object.visible
+      ? buildDialogueBackgroundStyle(renderStyle)
+      : {
+          background: 'transparent',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none',
+          borderColor: 'transparent',
+          boxShadow: 'none',
+          backdropFilter: 'none',
+        }),
+    borderRadius: object.radius,
+    transform: objectTransform(renderStyle, 'dialogBox'),
+    height: layoutMode === 'immersive' ? '100%' : `min(${object.height}vh, 420px)`,
+    maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : `min(${object.height}vh, 420px)`,
+    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+  };
+};
 
 const objectTransform = (renderStyle: RenderStyle, kind: 'dialogBox' | 'title' | 'body') => {
   const object = getRenderObjects(renderStyle)[kind];
@@ -130,7 +134,10 @@ const textObjectStyle = (renderStyle: RenderStyle, kind: 'title' | 'body'): CSSP
   const object = getRenderObjects(renderStyle)[kind];
   return {
     display: object.visible ? undefined : 'none',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
     width: object.width ? `${object.width}%` : undefined,
+    height: object.height ? `${object.height}px` : undefined,
     minHeight: object.height ? `${object.height}px` : undefined,
     transform: objectTransform(renderStyle, kind),
     textDecoration: [

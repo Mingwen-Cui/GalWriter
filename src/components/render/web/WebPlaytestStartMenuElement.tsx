@@ -107,6 +107,7 @@ export function WebPlaytestStartMenuElement({
     ...textAlignStyle(element.textAlign),
     fontFamily: element.fontFamily,
     fontSize: element.fontSize,
+    fontWeight: element.fontWeight,
     color: textColorWithAlpha(element.textColor, element.textColorAlpha),
     WebkitTextStroke:
       (element.textStrokeWidth ?? 0) > 0
@@ -261,6 +262,7 @@ export function WebPlaytestStartMenuElement({
             alignItems: 'center',
             ...textAlignStyle(element.textAlign || 'center'),
             fontFamily: element.fontFamily,
+            fontWeight: element.fontWeight,
             WebkitTextStroke:
               (element.textStrokeWidth ?? 0) > 0
                 ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`

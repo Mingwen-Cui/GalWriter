@@ -1,5 +1,4 @@
-import { ChevronDown, Image as ImageIcon, Palette } from 'lucide-react';
-import type React from 'react';
+import { Palette } from 'lucide-react';
 import { useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -11,11 +10,13 @@ import {
 import { renderObjectText } from '../video/objectInspector/i18n';
 import type { WebExportSettings } from '../video/shared/types';
 import { normalizeGradientStops } from './webGradientStops';
+import { FillTabs, FloatingPopover, InspectorGroup as Group } from './webStyleInspectorControls';
 
 type StartMenuBackgroundInspectorProps = {
   settings: WebExportSettings;
   language: Language;
   showDescriptions: boolean;
+  surface?: 'start' | 'archive' | 'settings' | 'game';
   updateWebSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -23,6 +24,7 @@ type StartMenuBackgroundInspectorProps = {
 };
 
 type BackgroundType = WebExportSettings['startMenuBackgroundType'];
+type BackgroundSurface = NonNullable<StartMenuBackgroundInspectorProps['surface']>;
 
 const BLANK_BACKGROUND_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9' viewBox='0 0 16 9'%3E%3Crect width='16' height='9' fill='white'/%3E%3C/svg%3E";
@@ -31,70 +33,57 @@ export function StartMenuBackgroundInspector({
   settings,
   language,
   showDescriptions,
+  surface = 'start',
   updateWebSettings,
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
   const [openEditor, setOpenEditor] = useState<BackgroundType | null>(null);
-  const [open, setOpen] = useState(true);
+  const background = getSurfaceBackground(settings, surface);
   const gradientStops = normalizeGradientStops(
-    settings.startMenuBackgroundGradientStops,
-    settings.startMenuBackgroundGradientStart,
-    settings.startMenuBackgroundGradientEnd,
+    background.gradientStops,
+    background.gradientStart,
+    background.gradientEnd,
     '#0f172a',
     '#0891b2',
   );
 
   const setBackgroundType = (value: BackgroundType) => {
-    updateWebSettings('startMenuBackgroundType', value);
-    if (value === 'image' && !settings.startMenuBackgroundImageUrl) {
-      updateWebSettings('startMenuBackgroundImageUrl', BLANK_BACKGROUND_IMAGE);
+    updateBackgroundSetting(updateWebSettings, surface, 'type', value);
+    if (value === 'image' && !background.imageUrl) {
+      updateBackgroundSetting(updateWebSettings, surface, 'imageUrl', BLANK_BACKGROUND_IMAGE);
     }
   };
 
   return (
-    <div className="relative rounded-[22px] bg-sky-50/80 p-3 text-slate-900">
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        <div
-          className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-sky-100 px-3 text-sm font-bold text-slate-900"
-          title={text.group.fill}
-          aria-label={text.group.fill}
-        >
-          <Palette className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 truncate">{text.group.fill}</span>
-        </div>
+    <Group
+      title={text.group.fill}
+      icon={<Palette className="h-3.5 w-3.5 shrink-0" />}
+      tone="fill"
+      secondary={
         <FillTabs
-          value={settings.startMenuBackgroundType}
-          text={text}
+          value={background.type}
+          labels={text.option}
           onChange={(type) => {
             setBackgroundType(type);
             setOpenEditor(openEditor === type ? null : type);
           }}
         />
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="grid h-10 w-11 place-items-center rounded-xl bg-sky-100 text-slate-900"
-          title={text.group.fill}
-          aria-label={text.group.fill}
-          aria-expanded={open}
-        >
-          <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-      <div className={open ? 'mt-3' : 'hidden'}>
-        {showDescriptions && (
-          <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
-        )}
-        <BackgroundPreview settings={settings} />
-      </div>
+      }
+    >
+      {showDescriptions && (
+        <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
+      )}
+      <BackgroundPreview settings={settings} surface={surface} />
       {openEditor === 'solid' && (
         <FloatingPopover>
           <SolidColorPopover
             tone="fill"
             text={text.popover}
-            color={settings.startMenuBackgroundColor}
+            color={background.color}
             alpha={100}
-            onColorChange={(value) => updateWebSettings('startMenuBackgroundColor', value)}
+            onColorChange={(value) =>
+              updateBackgroundSetting(updateWebSettings, surface, 'color', value)
+            }
             onAlphaChange={() => undefined}
           />
         </FloatingPopover>
@@ -104,16 +93,20 @@ export function StartMenuBackgroundInspector({
           <GradientPopover
             tone="fill"
             text={text.popover}
-            angle={settings.startMenuBackgroundGradientAngle}
+            angle={background.gradientAngle}
             stops={gradientStops}
-            onAngleChange={(value) => updateWebSettings('startMenuBackgroundGradientAngle', value)}
+            onAngleChange={(value) =>
+              updateBackgroundSetting(updateWebSettings, surface, 'gradientAngle', value)
+            }
             onStopsChange={(stops) => {
               const sorted = [...stops].sort((a, b) => a.position - b.position);
               const start = sorted[0];
               const end = sorted[sorted.length - 1];
-              updateWebSettings('startMenuBackgroundGradientStops', sorted);
-              if (start) updateWebSettings('startMenuBackgroundGradientStart', start.color);
-              if (end) updateWebSettings('startMenuBackgroundGradientEnd', end.color);
+              updateBackgroundSetting(updateWebSettings, surface, 'gradientStops', sorted);
+              if (start)
+                updateBackgroundSetting(updateWebSettings, surface, 'gradientStart', start.color);
+              if (end)
+                updateBackgroundSetting(updateWebSettings, surface, 'gradientEnd', end.color);
             }}
           />
         </FloatingPopover>
@@ -124,69 +117,37 @@ export function StartMenuBackgroundInspector({
             tone="fill"
             text={text.popover}
             value={{
-              imageUrl: settings.startMenuBackgroundImageUrl,
+              imageUrl: background.imageUrl,
               imageFit: 'crop',
               imageAngle: 0,
               imageAlpha: 100,
             }}
             onChange={(updates) => {
               if (updates.imageUrl !== undefined) {
-                updateWebSettings('startMenuBackgroundImageUrl', updates.imageUrl);
+                updateBackgroundSetting(updateWebSettings, surface, 'imageUrl', updates.imageUrl);
               }
             }}
           />
         </FloatingPopover>
       )}
-    </div>
+    </Group>
   );
 }
 
-function FloatingPopover({ children }: { children: React.ReactNode }) {
-  return <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-[80]">{children}</div>;
-}
-
-function FillTabs({
-  value,
-  text,
-  onChange,
+function BackgroundPreview({
+  settings,
+  surface = 'start',
 }: {
-  value: BackgroundType;
-  text: ReturnType<typeof renderObjectText>;
-  onChange: (value: BackgroundType) => void;
+  settings: WebExportSettings;
+  surface?: BackgroundSurface;
 }) {
-  const options: Array<{ type: BackgroundType; label: string; icon: React.ReactNode }> = [
-    { type: 'solid', label: text.option.solid, icon: <Palette className="h-3.5 w-3.5" /> },
-    { type: 'gradient', label: text.option.gradient, icon: <GradientIcon /> },
-    { type: 'image', label: text.option.image, icon: <ImageIcon className="h-3.5 w-3.5" /> },
-  ];
-  return (
-    <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
-      {options.map(({ type, label, icon }) => (
-        <button
-          key={type}
-          type="button"
-          onClick={() => onChange(type)}
-          className={`flex h-10 min-w-0 items-center justify-center px-2 text-xs font-bold ${
-            value === type ? 'bg-indigo-600 text-white' : 'text-slate-700'
-          }`}
-          title={label}
-          aria-label={label}
-          aria-pressed={value === type}
-        >
-          {icon}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function BackgroundPreview({ settings }: { settings: WebExportSettings }) {
+  const backgroundSettings = getSurfaceBackground(settings, surface);
   const background =
-    settings.startMenuBackgroundType === 'gradient'
-      ? `linear-gradient(${settings.startMenuBackgroundGradientAngle}deg, ${settings.startMenuBackgroundGradientStart}, ${settings.startMenuBackgroundGradientEnd})`
-      : settings.startMenuBackgroundType === 'image'
-        ? `center / cover url("${settings.startMenuBackgroundImageUrl}")`
-        : settings.startMenuBackgroundColor;
+    backgroundSettings.type === 'gradient'
+      ? `linear-gradient(${backgroundSettings.gradientAngle}deg, ${backgroundSettings.gradientStart}, ${backgroundSettings.gradientEnd})`
+      : backgroundSettings.type === 'image'
+        ? `center / cover url("${backgroundSettings.imageUrl}")`
+        : backgroundSettings.color;
   return (
     <div className="h-10 rounded-xl border border-white/60 bg-white p-1">
       <div className="h-full rounded-lg" style={{ background }} />
@@ -194,12 +155,82 @@ function BackgroundPreview({ settings }: { settings: WebExportSettings }) {
   );
 }
 
-function GradientIcon() {
-  return (
-    <span
-      className="block h-3.5 w-3.5 rounded-full border border-current/30"
-      style={{ background: 'linear-gradient(135deg, currentColor 0%, transparent 100%)' }}
-      aria-hidden="true"
-    />
-  );
+export function getSurfaceBackground(settings: WebExportSettings, surface: BackgroundSurface) {
+  const prefix =
+    surface === 'archive'
+      ? 'archiveBackground'
+      : surface === 'settings'
+        ? 'settingsBackground'
+        : surface === 'game'
+          ? 'dialogueBackground'
+          : 'startMenuBackground';
+  const read = <T,>(suffix: string, fallback: T) =>
+    ((settings as unknown as Record<string, T | undefined>)[`${prefix}${suffix}`] ?? fallback) as T;
+  return {
+    type: read<BackgroundType>('Type', settings.startMenuBackgroundType),
+    color: read<string>('Color', settings.startMenuBackgroundColor),
+    gradientStart: read<string>('GradientStart', settings.startMenuBackgroundGradientStart),
+    gradientEnd: read<string>('GradientEnd', settings.startMenuBackgroundGradientEnd),
+    gradientAngle: read<number>('GradientAngle', settings.startMenuBackgroundGradientAngle),
+    gradientStops: read<WebExportSettings['startMenuBackgroundGradientStops']>(
+      'GradientStops',
+      settings.startMenuBackgroundGradientStops,
+    ),
+    imageUrl: read<string>('ImageUrl', settings.startMenuBackgroundImageUrl),
+  };
+}
+
+function updateBackgroundSetting(
+  updateWebSettings: StartMenuBackgroundInspectorProps['updateWebSettings'],
+  surface: BackgroundSurface,
+  field:
+    | 'type'
+    | 'color'
+    | 'gradientStart'
+    | 'gradientEnd'
+    | 'gradientAngle'
+    | 'gradientStops'
+    | 'imageUrl',
+  value: BackgroundType | string | number | WebExportSettings['startMenuBackgroundGradientStops'],
+) {
+  const keyMap = {
+    start: {
+      type: 'startMenuBackgroundType',
+      color: 'startMenuBackgroundColor',
+      gradientStart: 'startMenuBackgroundGradientStart',
+      gradientEnd: 'startMenuBackgroundGradientEnd',
+      gradientAngle: 'startMenuBackgroundGradientAngle',
+      gradientStops: 'startMenuBackgroundGradientStops',
+      imageUrl: 'startMenuBackgroundImageUrl',
+    },
+    archive: {
+      type: 'archiveBackgroundType',
+      color: 'archiveBackgroundColor',
+      gradientStart: 'archiveBackgroundGradientStart',
+      gradientEnd: 'archiveBackgroundGradientEnd',
+      gradientAngle: 'archiveBackgroundGradientAngle',
+      gradientStops: 'archiveBackgroundGradientStops',
+      imageUrl: 'archiveBackgroundImageUrl',
+    },
+    settings: {
+      type: 'settingsBackgroundType',
+      color: 'settingsBackgroundColor',
+      gradientStart: 'settingsBackgroundGradientStart',
+      gradientEnd: 'settingsBackgroundGradientEnd',
+      gradientAngle: 'settingsBackgroundGradientAngle',
+      gradientStops: 'settingsBackgroundGradientStops',
+      imageUrl: 'settingsBackgroundImageUrl',
+    },
+    game: {
+      type: 'dialogueBackgroundType',
+      color: 'dialogueBackgroundColor',
+      gradientStart: 'dialogueBackgroundGradientStart',
+      gradientEnd: 'dialogueBackgroundGradientEnd',
+      gradientAngle: 'dialogueBackgroundGradientAngle',
+      gradientStops: 'dialogueBackgroundGradientStops',
+      imageUrl: 'dialogueBackgroundImageUrl',
+    },
+  } satisfies Record<BackgroundSurface, Record<typeof field, keyof WebExportSettings>>;
+  const key = keyMap[surface][field];
+  updateWebSettings(key, value as WebExportSettings[typeof key]);
 }

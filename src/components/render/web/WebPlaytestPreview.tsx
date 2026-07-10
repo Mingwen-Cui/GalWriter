@@ -40,7 +40,11 @@ import {
   getNodeDisplayTitle,
   stripHtml,
 } from '../video/shared/storyNodes';
-import type { RenderEditableObjectKind, RenderStyle, WebExportSettings } from '../video/shared/types';
+import type {
+  RenderEditableObjectKind,
+  RenderStyle,
+  WebExportSettings,
+} from '../video/shared/types';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
@@ -71,6 +75,7 @@ import {
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
+import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -200,19 +205,24 @@ export function WebPlaytestPreview({
     (id: string | null) => {
       setLocalSelectedStartMenuElementId(id);
       setSelectedStartMenuElementIds(id ? [id] : []);
+      if (id) _onUpdateRenderStyle('selectedRenderObject', undefined);
       onSelectStartMenuElement?.(id);
     },
-    [onSelectStartMenuElement],
+    [_onUpdateRenderStyle, onSelectStartMenuElement],
   );
   const selectRenderObject = React.useCallback(
     (kind: RenderEditableObjectKind) => {
+      setSelectedStartMenuElementId(null);
       _onUpdateRenderStyle('selectedRenderObject', kind);
     },
-    [_onUpdateRenderStyle],
+    [_onUpdateRenderStyle, setSelectedStartMenuElementId],
   );
   const moveRenderObject = React.useCallback(
     (kind: RenderEditableObjectKind, x: number, y: number) => {
-      const nextObjects = updateRenderObject(renderStyle, kind, { x: Math.round(x), y: Math.round(y) });
+      const nextObjects = updateRenderObject(renderStyle, kind, {
+        x: Math.round(x),
+        y: Math.round(y),
+      });
       _onUpdateRenderStyle('renderObjects', nextObjects);
       if (kind === 'dialogBox') {
         _onUpdateRenderStyle('dialogOffsetX', Math.max(-100, Math.min(100, Math.round(x))));
@@ -236,20 +246,29 @@ export function WebPlaytestPreview({
         if (typeof patch.y === 'number') {
           _onUpdateRenderStyle('dialogOffsetY', Math.max(-100, Math.min(100, Math.round(patch.y))));
         }
-        if (typeof patch.width === 'number') _onUpdateRenderStyle('dialogWidth', Math.round(patch.width));
-        if (typeof patch.height === 'number') _onUpdateRenderStyle('dialogHeight', Math.round(patch.height));
-        if (typeof patch.radius === 'number') _onUpdateRenderStyle('dialogRadius', Math.round(patch.radius));
-        if (typeof patch.visible === 'boolean') _onUpdateRenderStyle('dialogVisible', patch.visible);
+        if (typeof patch.width === 'number')
+          _onUpdateRenderStyle('dialogWidth', Math.round(patch.width));
+        if (typeof patch.height === 'number')
+          _onUpdateRenderStyle('dialogHeight', Math.round(patch.height));
+        if (typeof patch.radius === 'number')
+          _onUpdateRenderStyle('dialogRadius', Math.round(patch.radius));
+        if (typeof patch.visible === 'boolean')
+          _onUpdateRenderStyle('dialogVisible', patch.visible);
       }
       if (kind === 'title' && typeof patch.visible === 'boolean') {
         _onUpdateRenderStyle('titleVisible', patch.visible);
       }
       if (kind === 'nameplate') {
-        if (typeof patch.x === 'number') _onUpdateRenderStyle('nameplateOffsetX', Math.round(patch.x));
-        if (typeof patch.y === 'number') _onUpdateRenderStyle('nameplateOffsetY', Math.round(patch.y));
-        if (typeof patch.width === 'number') _onUpdateRenderStyle('nameplateScale', Math.round(patch.width));
-        if (typeof patch.radius === 'number') _onUpdateRenderStyle('nameplateRadius', Math.round(patch.radius));
-        if (typeof patch.visible === 'boolean') _onUpdateRenderStyle('nameplateVisible', patch.visible);
+        if (typeof patch.x === 'number')
+          _onUpdateRenderStyle('nameplateOffsetX', Math.round(patch.x));
+        if (typeof patch.y === 'number')
+          _onUpdateRenderStyle('nameplateOffsetY', Math.round(patch.y));
+        if (typeof patch.width === 'number')
+          _onUpdateRenderStyle('nameplateScale', Math.round(patch.width));
+        if (typeof patch.radius === 'number')
+          _onUpdateRenderStyle('nameplateRadius', Math.round(patch.radius));
+        if (typeof patch.visible === 'boolean')
+          _onUpdateRenderStyle('nameplateVisible', patch.visible);
       }
     },
     [_onUpdateRenderStyle, renderStyle],
@@ -355,7 +374,6 @@ export function WebPlaytestPreview({
   const bodyStyle = buildBodyStyle(renderStyle);
   const dialogueShellStyle = buildDialogueShellStyle(renderStyle, settings.layoutMode);
   const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
-
 
   React.useEffect(() => {
     setPresentationExiting(false);
@@ -509,6 +527,7 @@ export function WebPlaytestPreview({
       previewMode={previewMode}
       onSelectRenderObject={selectRenderObject}
       onMoveRenderObject={moveRenderObject}
+      onUpdateRenderObject={patchRenderObject}
       onGuideLinesChange={onGuideLinesChange}
     />
   );
@@ -1334,29 +1353,37 @@ export function WebPlaytestPreview({
     setActiveStartMenuGuideLines([]);
     document.body.style.cursor = '';
   };
-  const startMenuBackgroundStyle: React.CSSProperties | undefined =
-    settings.startMenuBackgroundType === 'image' && settings.startMenuBackgroundImageUrl
+  const buildSurfaceBackgroundStyle = (
+    surface: 'start' | 'archive' | 'settings' | 'game',
+  ): React.CSSProperties | undefined => {
+    const background = getSurfaceBackground(settings, surface);
+    return background.type === 'image' && background.imageUrl
       ? {
-          backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${settings.startMenuBackgroundImageUrl.replace(/"/g, '\\"')}")`,
+          backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
           backgroundPosition: 'center',
           backgroundSize: 'cover',
         }
-      : settings.startMenuBackgroundType === 'gradient'
+      : background.type === 'gradient'
         ? {
             background: linearGradientFromStops(
-              settings.startMenuBackgroundGradientAngle,
+              background.gradientAngle,
               normalizeGradientStops(
-                settings.startMenuBackgroundGradientStops,
-                settings.startMenuBackgroundGradientStart,
-                settings.startMenuBackgroundGradientEnd,
+                background.gradientStops,
+                background.gradientStart,
+                background.gradientEnd,
                 '#0f172a',
                 '#0891b2',
               ),
             ),
           }
-        : settings.startMenuBackgroundType === 'solid'
-          ? { background: settings.startMenuBackgroundColor }
+        : background.type === 'solid'
+          ? { background: background.color }
           : undefined;
+  };
+  const startMenuBackgroundStyle = buildSurfaceBackgroundStyle('start');
+  const archiveBackgroundStyle = buildSurfaceBackgroundStyle('archive');
+  const settingsBackgroundStyle = buildSurfaceBackgroundStyle('settings');
+  const dialogueBackgroundStyle = buildSurfaceBackgroundStyle('game');
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !previewStartMenuOpen) return null;
@@ -1477,7 +1504,8 @@ export function WebPlaytestPreview({
           archiveOpen={previewArchiveOpen}
           settingsOpen={previewStartSettingsOpen}
           backgroundClass={startMenuBackgroundClass}
-          backgroundStyle={startMenuBackgroundStyle}
+          archiveBackgroundStyle={archiveBackgroundStyle}
+          settingsBackgroundStyle={settingsBackgroundStyle}
           boundsMinX={boundsMinX}
           boundsMinY={boundsMinY}
           boundsMaxX={boundsMaxX}
@@ -1601,68 +1629,68 @@ export function WebPlaytestPreview({
 
     return (
       <>
-      <PreviewFloatingElementLayer
-        elements={toolbarLayerElements}
-        guideElements={floatingGuideElements}
-        selectedElementId={selectedStartMenuElementId}
-        previewMode={previewMode}
-        onSelectElement={(id) => {
-          if (id && !settings.previewToolbarElements?.length) {
-            onUpdateSettings('previewToolbarElements', defaultToolbarElements);
+        <PreviewFloatingElementLayer
+          elements={toolbarLayerElements}
+          guideElements={floatingGuideElements}
+          selectedElementId={selectedStartMenuElementId}
+          previewMode={previewMode}
+          onSelectElement={(id) => {
+            if (id && !settings.previewToolbarElements?.length) {
+              onUpdateSettings('previewToolbarElements', defaultToolbarElements);
+            }
+            setSelectedStartMenuElementId(id);
+            onSelectStartMenuElement?.(id);
+          }}
+          onUpdateElement={updateToolbarElement}
+          getIcon={(element) =>
+            element.role === 'audio' ? (
+              <ListMusic className="h-3.5 w-3.5" />
+            ) : element.role === 'fullscreen' ? (
+              isPreviewFullscreen ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )
+            ) : element.role === 'return' ? (
+              <RotateCcw className="h-3.5 w-3.5" />
+            ) : element.role === 'controlsToggle' ? (
+              previewControlsHidden ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )
+            ) : (
+              <House className="h-3.5 w-3.5" />
+            )
           }
-          setSelectedStartMenuElementId(id);
-          onSelectStartMenuElement?.(id);
-        }}
-        onUpdateElement={updateToolbarElement}
-        getIcon={(element) =>
-          element.role === 'audio' ? (
-            <ListMusic className="h-3.5 w-3.5" />
-          ) : element.role === 'fullscreen' ? (
-            isPreviewFullscreen ? (
-              <Minimize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Maximize2 className="h-3.5 w-3.5" />
+          isActive={(element) => element.role === 'audio' && showAudioPlaylist}
+          isDisabled={(element) => element.role === 'return' && history.length === 0}
+          onAction={(element) => {
+            if (element.role === 'audio') setShowAudioPlaylist((visible) => !visible);
+            if (element.role === 'fullscreen') void togglePreviewFullscreen();
+            if (element.role === 'return') back();
+            if (element.role === 'mainMenu') returnToStartMenu();
+            if (element.role === 'controlsToggle') setPreviewControlsHidden((prev) => !prev);
+          }}
+        />
+        <PreviewFloatingElementLayer
+          elements={dialogueOverlayElements}
+          guideElements={floatingGuideElements}
+          selectedElementId={selectedStartMenuElementId}
+          previewMode={previewMode}
+          onSelectElement={(id) => {
+            setSelectedStartMenuElementId(id);
+            onSelectStartMenuElement?.(id);
+          }}
+          onUpdateElement={(id, patch) =>
+            onUpdateSettings(
+              'dialogueOverlayElements',
+              (settings.dialogueOverlayElements || []).map((element) =>
+                element.id === id ? { ...element, ...patch } : element,
+              ),
             )
-          ) : element.role === 'return' ? (
-            <RotateCcw className="h-3.5 w-3.5" />
-          ) : element.role === 'controlsToggle' ? (
-            previewControlsHidden ? (
-              <Eye className="h-3.5 w-3.5" />
-            ) : (
-              <EyeOff className="h-3.5 w-3.5" />
-            )
-          ) : (
-            <House className="h-3.5 w-3.5" />
-          )
-        }
-        isActive={(element) => element.role === 'audio' && showAudioPlaylist}
-        isDisabled={(element) => element.role === 'return' && history.length === 0}
-        onAction={(element) => {
-          if (element.role === 'audio') setShowAudioPlaylist((visible) => !visible);
-          if (element.role === 'fullscreen') void togglePreviewFullscreen();
-          if (element.role === 'return') back();
-          if (element.role === 'mainMenu') returnToStartMenu();
-          if (element.role === 'controlsToggle') setPreviewControlsHidden((prev) => !prev);
-        }}
-      />
-      <PreviewFloatingElementLayer
-        elements={dialogueOverlayElements}
-        guideElements={floatingGuideElements}
-        selectedElementId={selectedStartMenuElementId}
-        previewMode={previewMode}
-        onSelectElement={(id) => {
-          setSelectedStartMenuElementId(id);
-          onSelectStartMenuElement?.(id);
-        }}
-        onUpdateElement={(id, patch) =>
-          onUpdateSettings(
-            'dialogueOverlayElements',
-            (settings.dialogueOverlayElements || []).map((element) =>
-              element.id === id ? { ...element, ...patch } : element,
-            ),
-          )
-        }
-      />
+          }
+        />
       </>
     );
   };
@@ -1797,6 +1825,7 @@ export function WebPlaytestPreview({
     <div
       ref={previewRootRef}
       className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
+      style={dialogueBackgroundStyle}
     >
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
@@ -1830,7 +1859,11 @@ export function WebPlaytestPreview({
                 : 'rounded-t-lg border-x border-t border-white/10 bg-slate-950'
             }`}
             onClick={() => {
-              if (previewMode === 'edit') return;
+              if (previewMode === 'edit') {
+                setSelectedStartMenuElementId(null);
+                _onUpdateRenderStyle('selectedRenderObject', undefined);
+                return;
+              }
               continueFromText();
             }}
           >

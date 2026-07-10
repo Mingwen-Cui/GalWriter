@@ -7,6 +7,7 @@ type RenderObjectSettingsSectionProps = {
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   surface?: 'video' | 'web' | 'playtest';
+  showDescriptions?: boolean;
 };
 
 export function RenderObjectSettingsSection({
@@ -14,6 +15,7 @@ export function RenderObjectSettingsSection({
   renderStyle,
   updateRenderStyle,
   surface = 'web',
+  showDescriptions = false,
 }: RenderObjectSettingsSectionProps) {
   return (
     <RenderObjectInspector
@@ -21,6 +23,7 @@ export function RenderObjectSettingsSection({
       renderStyle={renderStyle}
       updateRenderStyle={updateRenderStyle}
       surface={surface}
+      showDescriptions={showDescriptions}
     />
   );
 }

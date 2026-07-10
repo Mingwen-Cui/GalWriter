@@ -1,23 +1,37 @@
 import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
+  Baseline,
+  Blend,
   Box,
-  Eye,
-  EyeOff,
-  Image,
+  CaseSensitive,
+  ChevronDown,
   Minus,
+  MoveHorizontal,
+  MoveVertical,
   PaintBucket,
   Palette,
+  Radius,
   RotateCw,
+  Ruler,
   Sparkles,
+  Strikethrough,
   Type,
+  Underline,
 } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import { DragSizeControl } from '../controls/RenderControls';
+import {
+  AlignButtons,
+  ControlRow,
+  FillTabs,
+  FloatingPopover,
+  HeaderSelect,
+  InspectorGroup,
+  NumberField,
+  PositionAlignButtons,
+  VisibilityButton,
+} from '../../web/webStyleInspectorControls';
 import { getRenderObjects, isTextRenderObject, updateRenderObject } from '../shared/renderObjects';
 import type {
   RenderEditableObject,
@@ -25,7 +39,6 @@ import type {
   RenderEditableTextObject,
   RenderFillStyle,
   RenderStyle,
-  TextAlign,
   TextAnimation,
   TypewriterMode,
 } from '../shared/types';
@@ -44,32 +57,26 @@ const fonts = [
   { label: 'Serif', value: 'Georgia, "Times New Roman", serif' },
 ];
 
-const groupTone = {
-  position: 'bg-emerald-50',
-  text: 'bg-green-50',
-  fill: 'bg-sky-50',
-  stroke: 'bg-indigo-50',
-  shadow: 'bg-fuchsia-50',
-  animation: 'bg-pink-50',
-  extra: 'bg-slate-50',
-};
-
 export function RenderObjectInspector({
   language,
   renderStyle,
   updateRenderStyle,
   surface = 'web',
+  showDescriptions = false,
 }: {
   language: Language;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   surface?: Surface;
+  showDescriptions?: boolean;
 }) {
   const text = renderObjectText(language);
   const objects = getRenderObjects(renderStyle);
   const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
   const selected = objects[selectedKind];
-  const textObject = isTextRenderObject(selectedKind) ? (selected as RenderEditableTextObject) : null;
+  const textObject = isTextRenderObject(selectedKind)
+    ? (selected as RenderEditableTextObject)
+    : null;
   const [popover, setPopover] = useState<Popover>(null);
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
@@ -98,7 +105,9 @@ export function RenderObjectInspector({
             type="button"
             onClick={() => setSelectedKind(kind)}
             className={`h-9 rounded-lg px-2 text-left font-bold transition-colors ${
-              selectedKind === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              selectedKind === kind
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             {text.object[kind]}
@@ -106,26 +115,94 @@ export function RenderObjectInspector({
         ))}
       </div>
 
-      <InspectorGroup title={text.group.position} icon={<Box className="h-3.5 w-3.5" />} className={groupTone.position}>
-        <div className="grid grid-cols-2 gap-2">
-          <ToggleButton
-            active={selected.visible}
+      <InspectorGroup
+        title={text.group.position}
+        icon={<Box className="h-3.5 w-3.5" />}
+        tone="position"
+        secondary={
+          <VisibilityButton
+            visible={selected.visible}
             label={text.field.visible}
             onClick={() => setObject({ visible: !selected.visible })}
-            activeIcon={<Eye className="h-3.5 w-3.5" />}
-            inactiveIcon={<EyeOff className="h-3.5 w-3.5" />}
           />
-          <NumberField label={text.field.radius} value={selected.radius} min={0} max={200} onChange={(value) => setObject({ radius: value })} />
-          <NumberField label={text.field.x} value={selected.x} min={-200} max={200} onChange={(value) => setObject({ x: value })} />
-          <NumberField label={text.field.y} value={selected.y} min={-200} max={200} onChange={(value) => setObject({ y: value })} />
-          <NumberField label={text.field.width} value={selected.width} min={0} max={200} onChange={(value) => setObject({ width: value })} />
-          <NumberField label={text.field.height} value={selected.height} min={0} max={200} onChange={(value) => setObject({ height: value })} />
-          <NumberField label={text.field.rotation} value={selected.rotation} min={-180} max={180} onChange={(value) => setObject({ rotation: value })} />
-          <div className="grid grid-cols-2 gap-2">
-            <ToggleButton active={selected.flipX} label={text.field.flipX} onClick={() => setObject({ flipX: !selected.flipX })} compact />
-            <ToggleButton active={selected.flipY} label={text.field.flipY} onClick={() => setObject({ flipY: !selected.flipY })} compact />
-          </div>
-        </div>
+        }
+      >
+        <ControlRow>
+          <NumberField
+            icon={<MoveHorizontal className="h-4 w-4" />}
+            label={text.field.x}
+            description={showDescriptions ? text.field.x : undefined}
+            value={selected.x}
+            min={-200}
+            max={200}
+            onChange={(value) => setObject({ x: value })}
+          />
+          <NumberField
+            icon={<MoveVertical className="h-4 w-4" />}
+            label={text.field.y}
+            description={showDescriptions ? text.field.y : undefined}
+            value={selected.y}
+            min={-200}
+            max={200}
+            onChange={(value) => setObject({ y: value })}
+          />
+        </ControlRow>
+        <ControlRow className="mt-2">
+          <NumberField
+            icon={<Ruler className="h-4 w-4" />}
+            label={text.field.width}
+            description={showDescriptions ? text.field.width : undefined}
+            value={selected.width}
+            min={0}
+            max={200}
+            onChange={(value) => setObject({ width: value })}
+          />
+          <NumberField
+            icon={<Box className="h-4 w-4" />}
+            label={text.field.height}
+            description={showDescriptions ? text.field.height : undefined}
+            value={selected.height}
+            min={0}
+            max={200}
+            onChange={(value) => setObject({ height: value })}
+          />
+        </ControlRow>
+        <ControlRow className="mt-2">
+          <NumberField
+            icon={<RotateCw className="h-4 w-4" />}
+            label={text.field.rotation}
+            description={showDescriptions ? text.field.rotation : undefined}
+            value={selected.rotation}
+            min={-180}
+            max={180}
+            onChange={(value) => setObject({ rotation: value })}
+          />
+          <NumberField
+            icon={<Radius className="h-4 w-4" />}
+            label={text.field.radius}
+            description={showDescriptions ? text.field.radius : undefined}
+            value={selected.radius}
+            min={0}
+            max={200}
+            onChange={(value) => setObject({ radius: value })}
+          />
+        </ControlRow>
+        <ControlRow className="mt-2">
+          <ToggleButton
+            active={selected.flipX}
+            label={text.field.flipX}
+            onClick={() => setObject({ flipX: !selected.flipX })}
+            activeIcon={<MoveHorizontal className="h-4 w-4" />}
+            inactiveIcon={<MoveHorizontal className="h-4 w-4" />}
+          />
+          <ToggleButton
+            active={selected.flipY}
+            label={text.field.flipY}
+            onClick={() => setObject({ flipY: !selected.flipY })}
+            activeIcon={<MoveVertical className="h-4 w-4" />}
+            inactiveIcon={<MoveVertical className="h-4 w-4" />}
+          />
+        </ControlRow>
         <PositionAlignButtons
           className="mt-2"
           onAlign={(axis, value) => {
@@ -153,87 +230,302 @@ export function RenderObjectInspector({
       </InspectorGroup>
 
       {textObject && (
-        <InspectorGroup title={text.group.text} icon={<Type className="h-3.5 w-3.5" />} className={groupTone.text}>
-          <div className="grid grid-cols-2 gap-2">
-            <SelectField label={text.field.font} value={textObject.fontFamily} options={fonts} onChange={(value) => setObject({ fontFamily: value })} />
-            <ToggleButton active={textObject.underline} label={text.field.underline} onClick={() => setObject({ underline: !textObject.underline })} compact />
-            <NumberField label={text.field.fontSize} value={textObject.fontSize} min={8} max={160} onChange={(value) => setObject({ fontSize: value })} />
-            <NumberField label={text.field.fontWeight} value={textObject.fontWeight} min={100} max={900} step={100} onChange={(value) => setObject({ fontWeight: value })} />
-            <NumberField label={text.field.letterSpacing} value={textObject.letterSpacing} min={-10} max={60} step={0.5} onChange={(value) => setObject({ letterSpacing: value })} />
-            <NumberField label={text.field.lineHeight} value={textObject.lineHeight} min={0.6} max={3} step={0.05} onChange={(value) => setObject({ lineHeight: value })} />
-          </div>
-          <AlignButtons value={textObject.textAlign} onChange={(value) => setObject({ textAlign: value, horizontalAlign: value })} />
+        <InspectorGroup
+          title={text.group.text}
+          icon={<Type className="h-3.5 w-3.5" />}
+          tone="text"
+          secondary={
+            <HeaderSelect
+              icon={<Type className="h-4 w-4" />}
+              label={text.field.font}
+              value={textObject.fontFamily}
+              options={fonts}
+              onChange={(value) => setObject({ fontFamily: value })}
+            />
+          }
+        >
+          <ControlRow>
+            <NumberField
+              icon={<CaseSensitive className="h-4 w-4" />}
+              label={text.field.fontSize}
+              description={showDescriptions ? text.field.fontSize : undefined}
+              value={textObject.fontSize}
+              min={8}
+              max={160}
+              onChange={(value) => setObject({ fontSize: value })}
+            />
+            <NumberField
+              icon={<Baseline className="h-4 w-4" />}
+              label={text.field.fontWeight}
+              description={showDescriptions ? text.field.fontWeight : undefined}
+              value={textObject.fontWeight}
+              min={100}
+              max={900}
+              step={100}
+              onChange={(value) => setObject({ fontWeight: value })}
+            />
+          </ControlRow>
+          <ControlRow className="mt-2">
+            <NumberField
+              icon={<MoveHorizontal className="h-4 w-4" />}
+              label={text.field.letterSpacing}
+              description={showDescriptions ? text.field.letterSpacing : undefined}
+              value={textObject.letterSpacing}
+              min={-10}
+              max={60}
+              step={0.5}
+              onChange={(value) => setObject({ letterSpacing: value })}
+            />
+            <NumberField
+              icon={<MoveVertical className="h-4 w-4" />}
+              label={text.field.lineHeight}
+              description={showDescriptions ? text.field.lineHeight : undefined}
+              value={textObject.lineHeight}
+              min={0.6}
+              max={3}
+              step={0.05}
+              onChange={(value) => setObject({ lineHeight: value })}
+            />
+          </ControlRow>
+          <ControlRow className="mt-2">
+            <AlignButtons
+              value={textObject.textAlign}
+              onChange={(value) => setObject({ textAlign: value, horizontalAlign: value })}
+            />
+            <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white">
+              <ToggleButton
+                active={textObject.underline}
+                label={text.field.underline}
+                onClick={() => setObject({ underline: !textObject.underline })}
+                activeIcon={<Underline className="h-4 w-4" />}
+                inactiveIcon={<Underline className="h-4 w-4" />}
+                iconOnly
+              />
+              <ToggleButton
+                active={textObject.strikethrough}
+                label={text.field.strikethrough}
+                onClick={() => setObject({ strikethrough: !textObject.strikethrough })}
+                activeIcon={<Strikethrough className="h-4 w-4" />}
+                inactiveIcon={<Strikethrough className="h-4 w-4" />}
+                iconOnly
+              />
+            </div>
+          </ControlRow>
         </InspectorGroup>
       )}
 
-      <InspectorGroup title={text.group.fill} icon={<PaintBucket className="h-3.5 w-3.5" />} className={groupTone.fill}>
-        <TypeTabs
-          value={selected.fill.type}
-          text={text}
-          onChange={(type) => {
-            setFill({ type });
-            setPopover({ group: 'fill', type });
-          }}
-        />
+      <InspectorGroup
+        title={text.group.fill}
+        icon={<PaintBucket className="h-3.5 w-3.5" />}
+        tone="fill"
+        secondary={
+          <FillTabs
+            value={selected.fill.type}
+            labels={text.option}
+            onChange={(type) => {
+              setFill({ type });
+              setPopover({ group: 'fill', type });
+            }}
+          />
+        }
+      >
         {popover?.group === 'fill' && selected.fill.type === 'solid' && (
           <FloatingPopover>
-            <SolidColorPopover tone="fill" text={text.popover} color={selected.fill.color} alpha={selected.fill.alpha} onColorChange={(color) => setFill({ color })} onAlphaChange={(alpha) => setFill({ alpha })} />
+            <SolidColorPopover
+              tone="fill"
+              text={text.popover}
+              color={selected.fill.color}
+              alpha={selected.fill.alpha}
+              onColorChange={(color) => setFill({ color })}
+              onAlphaChange={(alpha) => setFill({ alpha })}
+            />
           </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'gradient' && (
           <FloatingPopover>
-            <GradientPopover tone="fill" text={text.popover} angle={selected.fill.gradientAngle} stops={selected.fill.gradientStops} onAngleChange={(gradientAngle) => setFill({ gradientAngle })} onStopsChange={(gradientStops) => setFill({ gradientStops })} />
+            <GradientPopover
+              tone="fill"
+              text={text.popover}
+              angle={selected.fill.gradientAngle}
+              stops={selected.fill.gradientStops}
+              onAngleChange={(gradientAngle) => setFill({ gradientAngle })}
+              onStopsChange={(gradientStops) => setFill({ gradientStops })}
+            />
           </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'image' && (
           <FloatingPopover>
-            <ImageFillPopover tone="fill" text={text.popover} value={selected.fill} onChange={setFill} />
+            <ImageFillPopover
+              tone="fill"
+              text={text.popover}
+              value={selected.fill}
+              onChange={setFill}
+            />
           </FloatingPopover>
         )}
       </InspectorGroup>
 
-      <InspectorGroup title={text.group.stroke} icon={<Minus className="h-3.5 w-3.5" />} className={groupTone.stroke}>
+      <InspectorGroup
+        title={text.group.stroke}
+        icon={<Minus className="h-3.5 w-3.5" />}
+        tone="stroke"
+        secondary={
+          <ToggleButton
+            active={selected.stroke.enabled}
+            label={text.group.stroke}
+            onClick={() =>
+              setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })
+            }
+            activeIcon={<Minus className="h-4 w-4" />}
+            inactiveIcon={<Minus className="h-4 w-4" />}
+          />
+        }
+      >
         <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
         <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
-          <div className="grid grid-cols-2 gap-2">
-            <ToggleButton active={selected.stroke.enabled} label={text.group.stroke} onClick={() => setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })} compact />
-            <NumberField label={text.field.strokeWidth} value={selected.stroke.width} min={0} max={40} onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })} />
-          </div>
-          <button type="button" onClick={() => setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })} className="mt-2 h-9 w-full rounded-lg bg-white text-xs font-bold">
-            {text.field.color}
-          </button>
+          <ControlRow>
+            <NumberField
+              icon={<Ruler className="h-4 w-4" />}
+              label={text.field.strokeWidth}
+              description={showDescriptions ? text.field.strokeWidth : undefined}
+              value={selected.stroke.width}
+              min={0}
+              max={40}
+              onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })
+              }
+              className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-bold"
+            >
+              <Palette className="h-4 w-4" />
+              {text.field.color}
+            </button>
+          </ControlRow>
           {popover?.group === 'stroke' && (
             <FloatingPopover>
-              <SolidColorPopover tone="stroke" text={text.popover} color={selected.stroke.color} alpha={selected.stroke.alpha} onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })} onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })} />
+              <SolidColorPopover
+                tone="stroke"
+                text={text.popover}
+                color={selected.stroke.color}
+                alpha={selected.stroke.alpha}
+                onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
+                onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+              />
             </FloatingPopover>
           )}
         </div>
       </InspectorGroup>
 
-      <InspectorGroup title={text.group.shadow} icon={<Palette className="h-3.5 w-3.5" />} className={groupTone.shadow}>
+      <InspectorGroup
+        title={text.group.shadow}
+        icon={<Palette className="h-3.5 w-3.5" />}
+        tone="shadow"
+        secondary={
+          <ToggleButton
+            active={selected.shadow.enabled}
+            label={text.group.shadow}
+            onClick={() =>
+              setObject({ shadow: { ...selected.shadow, enabled: !selected.shadow.enabled } })
+            }
+            activeIcon={<Palette className="h-4 w-4" />}
+            inactiveIcon={<Palette className="h-4 w-4" />}
+          />
+        }
+      >
         <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
-        <div className={`grid grid-cols-2 gap-2 ${advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}`}>
-          <ToggleButton active={selected.shadow.enabled} label={text.group.shadow} onClick={() => setObject({ shadow: { ...selected.shadow, enabled: !selected.shadow.enabled } })} compact />
-          <NumberField label={text.field.blur} value={selected.shadow.blur} min={0} max={120} onChange={(blur) => setObject({ shadow: { ...selected.shadow, blur } })} />
-          <NumberField label={text.field.x} value={selected.shadow.x} min={-120} max={120} onChange={(x) => setObject({ shadow: { ...selected.shadow, x } })} />
-          <NumberField label={text.field.y} value={selected.shadow.y} min={-120} max={120} onChange={(y) => setObject({ shadow: { ...selected.shadow, y } })} />
+        <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
+          <ControlRow>
+            <NumberField
+              icon={<Blend className="h-4 w-4" />}
+              label={text.field.blur}
+              description={showDescriptions ? text.field.blur : undefined}
+              value={selected.shadow.blur}
+              min={0}
+              max={120}
+              onChange={(blur) => setObject({ shadow: { ...selected.shadow, blur } })}
+            />
+            <NumberField
+              icon={<MoveHorizontal className="h-4 w-4" />}
+              label={text.field.x}
+              description={showDescriptions ? text.field.x : undefined}
+              value={selected.shadow.x}
+              min={-120}
+              max={120}
+              onChange={(x) => setObject({ shadow: { ...selected.shadow, x } })}
+            />
+          </ControlRow>
+          <ControlRow className="mt-2">
+            <NumberField
+              icon={<MoveVertical className="h-4 w-4" />}
+              label={text.field.y}
+              description={showDescriptions ? text.field.y : undefined}
+              value={selected.shadow.y}
+              min={-120}
+              max={120}
+              onChange={(y) => setObject({ shadow: { ...selected.shadow, y } })}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setPopover(popover?.group === 'shadow' ? null : { group: 'shadow', type: 'solid' })
+              }
+              className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-bold"
+            >
+              <Palette className="h-4 w-4" />
+              {text.field.color}
+            </button>
+          </ControlRow>
+          {popover?.group === 'shadow' && (
+            <FloatingPopover>
+              <SolidColorPopover
+                tone="shadow"
+                text={text.popover}
+                color={selected.shadow.color}
+                alpha={selected.shadow.alpha}
+                onColorChange={(color) => setObject({ shadow: { ...selected.shadow, color } })}
+                onAlphaChange={(alpha) => setObject({ shadow: { ...selected.shadow, alpha } })}
+              />
+            </FloatingPopover>
+          )}
         </div>
       </InspectorGroup>
 
-      <InspectorGroup title={text.group.animation} icon={<Sparkles className="h-3.5 w-3.5" />} className={groupTone.animation}>
-        <SelectField
-          label={text.group.animation}
-          value={selected.animation.animation}
-          options={[
-            { value: 'none', label: text.option.none },
-            { value: 'fade', label: text.option.fade },
-            { value: 'slideUp', label: text.option.slideUp },
-            { value: 'typewriter', label: text.option.typewriter },
-          ]}
-          onChange={(value) => setObject({ animation: { ...selected.animation, animation: value as TextAnimation } })}
-        />
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <NumberField label={text.field.duration} value={selected.animation.durationMs} min={0} max={10000} step={50} onChange={(durationMs) => setObject({ animation: { ...selected.animation, durationMs } })} />
+      <InspectorGroup
+        title={text.group.animation}
+        icon={<Sparkles className="h-3.5 w-3.5" />}
+        tone="animation"
+        secondary={
+          <SelectField
+            label={text.group.animation}
+            value={selected.animation.animation}
+            options={[
+              { value: 'none', label: text.option.none },
+              { value: 'fade', label: text.option.fade },
+              { value: 'slideUp', label: text.option.slideUp },
+              { value: 'typewriter', label: text.option.typewriter },
+            ]}
+            onChange={(value) =>
+              setObject({ animation: { ...selected.animation, animation: value as TextAnimation } })
+            }
+          />
+        }
+      >
+        <ControlRow>
+          <NumberField
+            icon={<RotateCw className="h-4 w-4" />}
+            label={text.field.duration}
+            description={showDescriptions ? text.field.duration : undefined}
+            value={selected.animation.durationMs}
+            min={0}
+            max={10000}
+            step={50}
+            onChange={(durationMs) =>
+              setObject({ animation: { ...selected.animation, durationMs } })
+            }
+          />
           <SelectField
             label={text.field.typewriter}
             value={selected.animation.typewriterMode}
@@ -242,18 +534,50 @@ export function RenderObjectInspector({
               { value: 'sentence', label: text.option.sentence },
               { value: 'line', label: text.option.line },
             ]}
-            onChange={(value) => setObject({ animation: { ...selected.animation, typewriterMode: value as TypewriterMode } })}
+            onChange={(value) =>
+              setObject({
+                animation: { ...selected.animation, typewriterMode: value as TypewriterMode },
+              })
+            }
           />
-        </div>
+        </ControlRow>
       </InspectorGroup>
 
       {selectedKind === 'nameplate' && (
-        <InspectorGroup title={text.group.extra} icon={<RotateCw className="h-3.5 w-3.5" />} className={groupTone.extra}>
-          <div className="grid grid-cols-2 gap-2">
-            <ToggleButton active={renderStyle.nameplateInside} label={text.field.insideDialog} onClick={() => updateRenderStyle('nameplateInside', !renderStyle.nameplateInside)} compact />
-            <ToggleButton active={renderStyle.nameplateFollowCharacter} label={text.field.followCharacter} onClick={() => updateRenderStyle('nameplateFollowCharacter', !renderStyle.nameplateFollowCharacter)} compact />
-            <NumberField label={text.field.textGap} value={renderStyle.nameplateTextGap ?? 8} min={-60} max={80} onChange={(value) => updateRenderStyle('nameplateTextGap', value)} />
-          </div>
+        <InspectorGroup
+          title={text.group.extra}
+          icon={<RotateCw className="h-3.5 w-3.5" />}
+          tone="extra"
+          secondary={
+            <ToggleButton
+              active={renderStyle.nameplateInside}
+              label={text.field.insideDialog}
+              onClick={() => updateRenderStyle('nameplateInside', !renderStyle.nameplateInside)}
+              activeIcon={<Box className="h-4 w-4" />}
+              inactiveIcon={<Box className="h-4 w-4" />}
+            />
+          }
+        >
+          <ControlRow>
+            <ToggleButton
+              active={renderStyle.nameplateFollowCharacter}
+              label={text.field.followCharacter}
+              onClick={() =>
+                updateRenderStyle('nameplateFollowCharacter', !renderStyle.nameplateFollowCharacter)
+              }
+              activeIcon={<MoveHorizontal className="h-4 w-4" />}
+              inactiveIcon={<MoveHorizontal className="h-4 w-4" />}
+            />
+            <NumberField
+              icon={<MoveVertical className="h-4 w-4" />}
+              label={text.field.textGap}
+              description={showDescriptions ? text.field.textGap : undefined}
+              value={renderStyle.nameplateTextGap ?? 8}
+              min={-60}
+              max={80}
+              onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+            />
+          </ControlRow>
         </InspectorGroup>
       )}
     </div>
@@ -287,13 +611,28 @@ function syncLegacyFields(
     updateRenderStyle(`${prefix}FontSize` as keyof RenderStyle, textObject.fontSize as never);
     updateRenderStyle(`${prefix}Color` as keyof RenderStyle, textObject.fill.color as never);
     updateRenderStyle(`${prefix}ColorAlpha` as keyof RenderStyle, textObject.fill.alpha as never);
-    updateRenderStyle(`${prefix}StrokeColor` as keyof RenderStyle, textObject.stroke.color as never);
-    updateRenderStyle(`${prefix}StrokeWidth` as keyof RenderStyle, textObject.stroke.width as never);
+    updateRenderStyle(
+      `${prefix}StrokeColor` as keyof RenderStyle,
+      textObject.stroke.color as never,
+    );
+    updateRenderStyle(
+      `${prefix}StrokeWidth` as keyof RenderStyle,
+      textObject.stroke.width as never,
+    );
     updateRenderStyle(`${prefix}Align` as keyof RenderStyle, textObject.textAlign as never);
-    updateRenderStyle(`${prefix}LetterSpacing` as keyof RenderStyle, textObject.letterSpacing as never);
+    updateRenderStyle(
+      `${prefix}LetterSpacing` as keyof RenderStyle,
+      textObject.letterSpacing as never,
+    );
     updateRenderStyle(`${prefix}LineHeight` as keyof RenderStyle, textObject.lineHeight as never);
-    updateRenderStyle(`${prefix}Animation` as keyof RenderStyle, textObject.animation.animation as never);
-    updateRenderStyle(`${prefix}TypewriterMode` as keyof RenderStyle, textObject.animation.typewriterMode as never);
+    updateRenderStyle(
+      `${prefix}Animation` as keyof RenderStyle,
+      textObject.animation.animation as never,
+    );
+    updateRenderStyle(
+      `${prefix}TypewriterMode` as keyof RenderStyle,
+      textObject.animation.typewriterMode as never,
+    );
   }
   if (kind === 'nameplate') {
     const textObject = object as RenderEditableTextObject;
@@ -315,32 +654,32 @@ function syncLegacyFields(
   }
 }
 
-function InspectorGroup({ title, icon, className, children }: { title: string; icon: React.ReactNode; className: string; children: React.ReactNode }) {
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+}) {
   return (
-    <section className={`relative rounded-xl p-3 ${className}`}>
-      <div className="mb-2 flex items-center gap-2 text-xs font-black">
-        {icon}
-        {title}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) {
-  return (
-    <div className="grid h-9 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-white px-2">
-      <span className="text-xs font-bold text-slate-600">{label}</span>
-      <DragSizeControl label={label} value={value} min={min} max={max} step={step} unit="" onChange={onChange} />
-    </div>
-  );
-}
-
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ label: string; value: string }>; onChange: (value: string) => void }) {
-  return (
-    <label className="grid h-9 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-white px-2">
-      <span className="text-xs font-bold text-slate-600">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 bg-transparent text-right text-xs outline-none">
+    <label
+      className="relative grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center rounded-xl bg-white px-3 text-sm font-normal text-slate-900"
+      title={label}
+    >
+      <span className="min-w-0 truncate">
+        {options.find((option) => option.value === value)?.label || value}
+      </span>
+      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+      <select
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(event.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -351,109 +690,41 @@ function SelectField({ label, value, options, onChange }: { label: string; value
   );
 }
 
-function ToggleButton({ active, label, onClick, activeIcon, inactiveIcon, compact = false }: { active: boolean; label: string; onClick: () => void; activeIcon?: React.ReactNode; inactiveIcon?: React.ReactNode; compact?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} className={`flex h-9 items-center ${compact ? 'justify-center' : 'justify-start'} gap-2 rounded-lg px-2 text-xs font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>
-      {active ? activeIcon : inactiveIcon}
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function AlignButtons({ value, onChange }: { value: TextAlign; onChange: (value: TextAlign) => void }) {
-  return (
-    <div className="mt-2 grid grid-cols-3 overflow-hidden rounded-lg bg-white">
-      {[
-        ['left', <AlignLeft className="h-4 w-4" />],
-        ['center', <AlignCenter className="h-4 w-4" />],
-        ['right', <AlignRight className="h-4 w-4" />],
-      ].map(([align, icon]) => (
-        <button key={align as string} type="button" onClick={() => onChange(align as TextAlign)} className={`grid h-9 place-items-center ${value === align ? 'bg-indigo-600 text-white' : 'text-slate-700'}`}>
-          {icon as React.ReactNode}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function PositionAlignButtons({
-  className = '',
-  onAlign,
+function ToggleButton({
+  active,
+  label,
+  onClick,
+  activeIcon,
+  inactiveIcon,
+  iconOnly = false,
 }: {
-  className?: string;
-  onAlign: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  activeIcon?: React.ReactNode;
+  inactiveIcon?: React.ReactNode;
+  iconOnly?: boolean;
 }) {
-  const items: Array<{
-    key: string;
-    axis: 'x' | 'y';
-    value: 'start' | 'center' | 'end';
-    icon: React.ReactNode;
-  }> = [
-    { key: 'left', axis: 'x', value: 'start', icon: <AlignLeft className="h-4 w-4" /> },
-    { key: 'center-x', axis: 'x', value: 'center', icon: <AlignCenter className="h-4 w-4" /> },
-    { key: 'right', axis: 'x', value: 'end', icon: <AlignRight className="h-4 w-4" /> },
-    { key: 'top', axis: 'y', value: 'start', icon: <VerticalAlignIcon value="start" /> },
-    { key: 'center-y', axis: 'y', value: 'center', icon: <VerticalAlignIcon value="center" /> },
-    { key: 'bottom', axis: 'y', value: 'end', icon: <VerticalAlignIcon value="end" /> },
-  ];
   return (
-    <div className={`grid grid-cols-6 overflow-hidden rounded-lg bg-white ${className}`}>
-      {items.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onAlign(item.axis, item.value)}
-          className="grid h-9 place-items-center text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-        >
-          {item.icon}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function VerticalAlignIcon({ value }: { value: 'start' | 'center' | 'end' }) {
-  return (
-    <span className="relative block h-4 w-4">
-      <span className="absolute left-0 right-0 top-0 h-0.5 rounded bg-current" />
-      <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded bg-current" />
-      <span
-        className={`absolute left-1/2 h-2.5 w-0.5 -translate-x-1/2 rounded bg-current ${
-          value === 'start'
-            ? 'top-0.5'
-            : value === 'center'
-              ? 'top-1/2 -translate-y-1/2'
-              : 'bottom-0.5'
-        }`}
-      />
-    </span>
-  );
-}
-
-function TypeTabs({ value, text, onChange }: { value: RenderFillStyle['type']; text: ReturnType<typeof renderObjectText>; onChange: (value: RenderFillStyle['type']) => void }) {
-  return (
-    <div className="mb-2 grid grid-cols-3 overflow-hidden rounded-lg bg-white">
-      {[
-        ['solid', text.option.solid, <Palette className="h-3.5 w-3.5" />],
-        ['gradient', text.option.gradient, <Box className="h-3.5 w-3.5" />],
-        ['image', text.option.image, <Image className="h-3.5 w-3.5" />],
-      ].map(([type, label, icon]) => (
-        <button key={type as string} type="button" onClick={() => onChange(type as RenderFillStyle['type'])} className={`flex h-9 items-center justify-center gap-1 text-xs font-bold ${value === type ? 'bg-indigo-600 text-white' : 'text-slate-700'}`}>
-          {icon as React.ReactNode}
-          {label as string}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FloatingPopover({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-[80]">{children}</div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-10 min-w-0 items-center justify-center gap-2 px-3 text-sm font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+    >
+      {active ? activeIcon : inactiveIcon}
+      {!iconOnly && <span className="min-w-0 truncate">{label}</span>}
+    </button>
   );
 }
 
 function DisabledNotice({ show, label }: { show: boolean; label: string }) {
   if (!show) return null;
-  return <div className="mb-2 rounded-lg bg-white/75 px-2 py-1 text-[11px] font-bold text-slate-500">{label}</div>;
+  return (
+    <div className="mb-2 rounded-lg bg-white/75 px-2 py-1 text-[11px] font-bold text-slate-500">
+      {label}
+    </div>
+  );
 }

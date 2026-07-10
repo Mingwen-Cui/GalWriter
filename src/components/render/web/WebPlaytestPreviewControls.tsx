@@ -14,10 +14,7 @@ import { useRef, useState } from 'react';
 
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
-import {
-  WebEditableElementFrame,
-  type WebEditableResizeHandle,
-} from './WebEditableElementFrame';
+import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
@@ -189,7 +186,11 @@ export function PreviewToolbar({
                 element.role === 'audio' ? (
                   <ListMusic className="h-3.5 w-3.5" />
                 ) : element.role === 'fullscreen' ? (
-                  isPreviewFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />
+                  isPreviewFullscreen ? (
+                    <Minimize2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  )
                 ) : element.role === 'return' ? (
                   <RotateCcw className="h-3.5 w-3.5" />
                 ) : (
@@ -245,7 +246,9 @@ export function PreviewToolbar({
           ) : (
             <Maximize2 className="h-3.5 w-3.5" />
           )}
-          <span>{isPreviewFullscreen ? t('退出', '終了', 'Exit') : t('最大化', '最大化', 'Max')}</span>
+          <span>
+            {isPreviewFullscreen ? t('退出', '終了', 'Exit') : t('最大化', '最大化', 'Max')}
+          </span>
         </button>
         <button
           type="button"
@@ -477,7 +480,11 @@ function ToolbarElement({
   onAction: () => void;
 }) {
   const editable = previewMode === 'edit';
-  const beginDrag = (event: React.PointerEvent<HTMLElement>, type: 'move' | 'resize' | 'rotate', handle?: WebEditableResizeHandle) => {
+  const beginDrag = (
+    event: React.PointerEvent<HTMLElement>,
+    type: 'move' | 'resize' | 'rotate',
+    handle?: WebEditableResizeHandle,
+  ) => {
     if (!editable || !onUpdate) return;
     if (event.button === 2) return;
     event.preventDefault();
@@ -489,7 +496,9 @@ function ToolbarElement({
         : type === 'resize' && handle
           ? floatingResizeCursorByHandle[handle]
           : 'grabbing';
-    const parent = event.currentTarget.closest('[data-toolbar-editor="true"]')?.getBoundingClientRect();
+    const parent = event.currentTarget
+      .closest('[data-toolbar-editor="true"]')
+      ?.getBoundingClientRect();
     const rect = parent || event.currentTarget.parentElement?.getBoundingClientRect();
     if (!rect) return;
     const startX = event.clientX;
@@ -497,10 +506,12 @@ function ToolbarElement({
     const initial = element;
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
-    const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+    const startAngle =
+      Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
     const move = (moveEvent: PointerEvent) => {
       if (type === 'rotate') {
-        const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
+        const angle =
+          Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
         onGuideLinesChange?.([]);
         onUpdate(element.id, { rotation: Math.round(initial.rotation + angle - startAngle) });
         return;
@@ -558,7 +569,12 @@ function ToolbarElement({
       height = Math.max(3, Math.min(100, height));
       x = Math.max(0, Math.min(100 - width, x));
       y = Math.max(0, Math.min(100 - height, y));
-      onUpdate(element.id, { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)), width: Number(width.toFixed(2)), height: Number(height.toFixed(2)) });
+      onUpdate(element.id, {
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+        width: Number(width.toFixed(2)),
+        height: Number(height.toFixed(2)),
+      });
     };
     const end = () => {
       onGuideLinesChange?.([]);
@@ -595,6 +611,7 @@ function ToolbarElement({
         color: element.textColor || undefined,
         fontFamily: element.fontFamily || undefined,
         fontSize: element.fontSize || undefined,
+        fontWeight: element.fontWeight,
         letterSpacing: element.letterSpacing,
         lineHeight: element.lineHeight,
         cursor: editable ? 'grab' : undefined,

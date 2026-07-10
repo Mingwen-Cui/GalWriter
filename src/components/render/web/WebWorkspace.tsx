@@ -287,7 +287,10 @@ export function WebWorkspace({
       : activeElementSettingsKey === 'settingsPageElements'
         ? settingsPageElements
         : activeElementSettingsKey === 'previewToolbarElements'
-          ? [...(webSettings.previewToolbarElements || []), ...(webSettings.dialogueOverlayElements || [])]
+          ? [
+              ...(webSettings.previewToolbarElements || []),
+              ...(webSettings.dialogueOverlayElements || []),
+            ]
           : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
@@ -370,6 +373,7 @@ export function WebWorkspace({
         scale: 1,
         rotation: 0,
         fontSize: 18,
+        fontWeight: 500,
         textColor: '#ffffff',
         borderRadius: 0,
       },
@@ -415,6 +419,7 @@ export function WebWorkspace({
         scale: 1,
         rotation: 0,
         fontSize: 20,
+        fontWeight: 500,
         textColor: '#ffffff',
         borderRadius: 0,
       },
@@ -908,6 +913,7 @@ JSON schema:
                           settings={webSettings}
                           language={language}
                           showDescriptions={showSettingDescriptions}
+                          surface="start"
                           updateWebSettings={updateWebSettings}
                         />
                       )}
@@ -1054,6 +1060,17 @@ JSON schema:
                 </div>
               )}
               <WebPanelTitle icon={Settings} title="网页参数" />
+              {!selectedStartMenuElement && (
+                <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+                  <StartMenuBackgroundInspector
+                    settings={webSettings}
+                    language={language}
+                    showDescriptions={showSettingDescriptions}
+                    surface="settings"
+                    updateWebSettings={updateWebSettings}
+                  />
+                </div>
+              )}
               <div className="space-y-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
                 <div className="grid grid-cols-3 gap-2">
                   <WebSettingCard
@@ -1198,6 +1215,17 @@ JSON schema:
                   />
                 </div>
               )}
+              {!selectedStartMenuElement && (
+                <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+                  <StartMenuBackgroundInspector
+                    settings={webSettings}
+                    language={language}
+                    showDescriptions={showSettingDescriptions}
+                    surface="archive"
+                    updateWebSettings={updateWebSettings}
+                  />
+                </div>
+              )}
               <div className="space-y-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
                 <WebSettingCard
                   icon={Save}
@@ -1259,13 +1287,24 @@ JSON schema:
                     }
                   />
                 </div>
-              ) : (
+              ) : webRenderStyle.selectedRenderObject ? (
                 <RenderObjectSettingsSection
                   language={language}
                   renderStyle={webRenderStyle}
                   updateRenderStyle={updateWebRenderStyle}
                   surface="web"
+                  showDescriptions={showSettingDescriptions}
                 />
+              ) : (
+                <div className="space-y-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
+                  <StartMenuBackgroundInspector
+                    settings={webSettings}
+                    language={language}
+                    showDescriptions={showSettingDescriptions}
+                    surface="game"
+                    updateWebSettings={updateWebSettings}
+                  />
+                </div>
               )}
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-indigo-500/5 p-2">
                 <IconToolButton

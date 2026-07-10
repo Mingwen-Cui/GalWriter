@@ -151,7 +151,7 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
     objectBase({
       visible: true,
       width: 34,
-      height: 12,
+      height: 42,
       radius: 14,
       fill: fill('solid', '#4f46e5', 86, defaultStops('#6366f1', '#ec4899')),
     }),
@@ -213,8 +213,18 @@ export const getRenderObjects = (style: RenderStyle): RenderEditableObjects => {
       lineHeight: style.titleLineHeight,
       textAlign: style.titleAlign,
       horizontalAlign: style.titleAlign,
-      fill: fill('solid', style.titleColor, style.titleColorAlpha ?? 100, defaultStops(style.titleColor, style.titleColor)),
-      stroke: { ...defaults.title.stroke, enabled: style.titleStrokeWidth > 0, color: style.titleStrokeColor, width: style.titleStrokeWidth },
+      fill: fill(
+        'solid',
+        style.titleColor,
+        style.titleColorAlpha ?? 100,
+        defaultStops(style.titleColor, style.titleColor),
+      ),
+      stroke: {
+        ...defaults.title.stroke,
+        enabled: style.titleStrokeWidth > 0,
+        color: style.titleStrokeColor,
+        width: style.titleStrokeWidth,
+      },
       animation: animation(style.titleAnimation, style.titleTypewriterMode),
     },
     body: {
@@ -226,8 +236,18 @@ export const getRenderObjects = (style: RenderStyle): RenderEditableObjects => {
       lineHeight: style.bodyLineHeight,
       textAlign: style.bodyAlign,
       horizontalAlign: style.bodyAlign,
-      fill: fill('solid', style.bodyColor, style.bodyColorAlpha ?? 100, defaultStops(style.bodyColor, style.bodyColor)),
-      stroke: { ...defaults.body.stroke, enabled: style.bodyStrokeWidth > 0, color: style.bodyStrokeColor, width: style.bodyStrokeWidth },
+      fill: fill(
+        'solid',
+        style.bodyColor,
+        style.bodyColorAlpha ?? 100,
+        defaultStops(style.bodyColor, style.bodyColor),
+      ),
+      stroke: {
+        ...defaults.body.stroke,
+        enabled: style.bodyStrokeWidth > 0,
+        color: style.bodyStrokeColor,
+        width: style.bodyStrokeWidth,
+      },
       animation: animation(style.bodyAnimation, style.bodyTypewriterMode),
     },
     nameplate: {

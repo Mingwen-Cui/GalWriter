@@ -311,6 +311,27 @@ export async function buildInteractiveWebZipBlob(
     startMenuBackgroundGradientAngle: options.settings?.startMenuBackgroundGradientAngle ?? 135,
     startMenuBackgroundGradientStops: options.settings?.startMenuBackgroundGradientStops,
     startMenuBackgroundImageUrl: options.settings?.startMenuBackgroundImageUrl || '',
+    archiveBackgroundType: options.settings?.archiveBackgroundType,
+    archiveBackgroundColor: options.settings?.archiveBackgroundColor,
+    archiveBackgroundGradientStart: options.settings?.archiveBackgroundGradientStart,
+    archiveBackgroundGradientEnd: options.settings?.archiveBackgroundGradientEnd,
+    archiveBackgroundGradientAngle: options.settings?.archiveBackgroundGradientAngle,
+    archiveBackgroundGradientStops: options.settings?.archiveBackgroundGradientStops,
+    archiveBackgroundImageUrl: options.settings?.archiveBackgroundImageUrl || '',
+    settingsBackgroundType: options.settings?.settingsBackgroundType,
+    settingsBackgroundColor: options.settings?.settingsBackgroundColor,
+    settingsBackgroundGradientStart: options.settings?.settingsBackgroundGradientStart,
+    settingsBackgroundGradientEnd: options.settings?.settingsBackgroundGradientEnd,
+    settingsBackgroundGradientAngle: options.settings?.settingsBackgroundGradientAngle,
+    settingsBackgroundGradientStops: options.settings?.settingsBackgroundGradientStops,
+    settingsBackgroundImageUrl: options.settings?.settingsBackgroundImageUrl || '',
+    dialogueBackgroundType: options.settings?.dialogueBackgroundType,
+    dialogueBackgroundColor: options.settings?.dialogueBackgroundColor,
+    dialogueBackgroundGradientStart: options.settings?.dialogueBackgroundGradientStart,
+    dialogueBackgroundGradientEnd: options.settings?.dialogueBackgroundGradientEnd,
+    dialogueBackgroundGradientAngle: options.settings?.dialogueBackgroundGradientAngle,
+    dialogueBackgroundGradientStops: options.settings?.dialogueBackgroundGradientStops,
+    dialogueBackgroundImageUrl: options.settings?.dialogueBackgroundImageUrl || '',
     startMenuBackgroundMusicUrl: options.settings?.startMenuBackgroundMusicUrl || '',
     startMenuMusicVolume: options.settings?.startMenuMusicVolume ?? 70,
     startMenuMusicFadeIn: options.settings?.startMenuMusicFadeIn ?? 0,
@@ -349,6 +370,24 @@ export async function buildInteractiveWebZipBlob(
     `${title}-start-background`,
     assetMap,
   );
+  settings.archiveBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.archiveBackgroundImageUrl,
+    `${title}-archive-background`,
+    assetMap,
+  );
+  settings.settingsBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.settingsBackgroundImageUrl,
+    `${title}-settings-background`,
+    assetMap,
+  );
+  settings.dialogueBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.dialogueBackgroundImageUrl,
+    `${title}-dialogue-background`,
+    assetMap,
+  );
   settings.startMenuBackgroundMusicUrl = await addAudioAsset(
     zip,
     settings.startMenuBackgroundMusicUrl,
@@ -376,8 +415,14 @@ export async function buildInteractiveWebZipBlob(
   settings.startMenuElements = await packMenuElements(settings.startMenuElements, 'start');
   settings.archivePageElements = await packMenuElements(settings.archivePageElements, 'archive');
   settings.settingsPageElements = await packMenuElements(settings.settingsPageElements, 'settings');
-  settings.previewToolbarElements = await packMenuElements(settings.previewToolbarElements, 'toolbar');
-  settings.dialogueOverlayElements = await packMenuElements(settings.dialogueOverlayElements, 'dialogue');
+  settings.previewToolbarElements = await packMenuElements(
+    settings.previewToolbarElements,
+    'toolbar',
+  );
+  settings.dialogueOverlayElements = await packMenuElements(
+    settings.dialogueOverlayElements,
+    'dialogue',
+  );
 
   const webNodes: WebExportNode[] = [];
   for (const node of nodes.filter(

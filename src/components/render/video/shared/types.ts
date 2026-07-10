@@ -226,6 +226,7 @@ export type WebMenuElement = {
   disabled?: boolean;
   fontSize?: number;
   fontFamily?: string;
+  fontWeight?: number;
   textColor?: string;
   textColorAlpha?: number;
   textStrokeColor?: string;
@@ -265,6 +266,42 @@ export type WebExportSettings = {
     position: number;
   }>;
   startMenuBackgroundImageUrl: string;
+  archiveBackgroundType?: 'solid' | 'gradient' | 'image';
+  archiveBackgroundColor?: string;
+  archiveBackgroundGradientStart?: string;
+  archiveBackgroundGradientEnd?: string;
+  archiveBackgroundGradientAngle?: number;
+  archiveBackgroundGradientStops?: Array<{
+    id: string;
+    color: string;
+    alpha: number;
+    position: number;
+  }>;
+  archiveBackgroundImageUrl?: string;
+  settingsBackgroundType?: 'solid' | 'gradient' | 'image';
+  settingsBackgroundColor?: string;
+  settingsBackgroundGradientStart?: string;
+  settingsBackgroundGradientEnd?: string;
+  settingsBackgroundGradientAngle?: number;
+  settingsBackgroundGradientStops?: Array<{
+    id: string;
+    color: string;
+    alpha: number;
+    position: number;
+  }>;
+  settingsBackgroundImageUrl?: string;
+  dialogueBackgroundType?: 'solid' | 'gradient' | 'image';
+  dialogueBackgroundColor?: string;
+  dialogueBackgroundGradientStart?: string;
+  dialogueBackgroundGradientEnd?: string;
+  dialogueBackgroundGradientAngle?: number;
+  dialogueBackgroundGradientStops?: Array<{
+    id: string;
+    color: string;
+    alpha: number;
+    position: number;
+  }>;
+  dialogueBackgroundImageUrl?: string;
   startMenuBackgroundMusicUrl: string;
   startMenuMusicVolume: number;
   startMenuMusicFadeIn: number;
