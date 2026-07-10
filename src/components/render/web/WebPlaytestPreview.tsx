@@ -33,7 +33,7 @@ import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic'
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
 import { renderCopy } from '../video/shared/renderCopy';
-import { updateRenderObject } from '../video/shared/renderObjects';
+import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
 import {
   filterMentionTags,
   getNodeDisplayText,
@@ -224,14 +224,6 @@ export function WebPlaytestPreview({
         y: Math.round(y),
       });
       _onUpdateRenderStyle('renderObjects', nextObjects);
-      if (kind === 'dialogBox') {
-        _onUpdateRenderStyle('dialogOffsetX', Math.max(-100, Math.min(100, Math.round(x))));
-        _onUpdateRenderStyle('dialogOffsetY', Math.max(-100, Math.min(100, Math.round(y))));
-      }
-      if (kind === 'nameplate') {
-        _onUpdateRenderStyle('nameplateOffsetX', Math.round(x));
-        _onUpdateRenderStyle('nameplateOffsetY', Math.round(y));
-      }
     },
     [_onUpdateRenderStyle, renderStyle],
   );
@@ -239,37 +231,6 @@ export function WebPlaytestPreview({
     (kind: RenderEditableObjectKind, patch: Parameters<typeof updateRenderObject>[2]) => {
       const nextObjects = updateRenderObject(renderStyle, kind, patch);
       _onUpdateRenderStyle('renderObjects', nextObjects);
-      if (kind === 'dialogBox') {
-        if (typeof patch.x === 'number') {
-          _onUpdateRenderStyle('dialogOffsetX', Math.max(-100, Math.min(100, Math.round(patch.x))));
-        }
-        if (typeof patch.y === 'number') {
-          _onUpdateRenderStyle('dialogOffsetY', Math.max(-100, Math.min(100, Math.round(patch.y))));
-        }
-        if (typeof patch.width === 'number')
-          _onUpdateRenderStyle('dialogWidth', Math.round(patch.width));
-        if (typeof patch.height === 'number')
-          _onUpdateRenderStyle('dialogHeight', Math.round(patch.height));
-        if (typeof patch.radius === 'number')
-          _onUpdateRenderStyle('dialogRadius', Math.round(patch.radius));
-        if (typeof patch.visible === 'boolean')
-          _onUpdateRenderStyle('dialogVisible', patch.visible);
-      }
-      if (kind === 'title' && typeof patch.visible === 'boolean') {
-        _onUpdateRenderStyle('titleVisible', patch.visible);
-      }
-      if (kind === 'nameplate') {
-        if (typeof patch.x === 'number')
-          _onUpdateRenderStyle('nameplateOffsetX', Math.round(patch.x));
-        if (typeof patch.y === 'number')
-          _onUpdateRenderStyle('nameplateOffsetY', Math.round(patch.y));
-        if (typeof patch.width === 'number')
-          _onUpdateRenderStyle('nameplateScale', Math.round(patch.width));
-        if (typeof patch.radius === 'number')
-          _onUpdateRenderStyle('nameplateRadius', Math.round(patch.radius));
-        if (typeof patch.visible === 'boolean')
-          _onUpdateRenderStyle('nameplateVisible', patch.visible);
-      }
     },
     [_onUpdateRenderStyle, renderStyle],
   );
@@ -373,7 +334,8 @@ export function WebPlaytestPreview({
   const titleStyle = buildTitleStyle(renderStyle);
   const bodyStyle = buildBodyStyle(renderStyle);
   const dialogueShellStyle = buildDialogueShellStyle(renderStyle, settings.layoutMode);
-  const dialogWidth = Math.max(0, Math.min(100, renderStyle.dialogWidth || 86));
+  const renderObjects = getRenderObjects(renderStyle);
+  const dialogWidth = Math.max(0, Math.min(100, renderObjects.dialogBox.width || 86));
 
   React.useEffect(() => {
     setPresentationExiting(false);

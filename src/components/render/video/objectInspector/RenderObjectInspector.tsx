@@ -86,7 +86,11 @@ export function RenderObjectInspector({
   const setObject = (updates: Partial<RenderEditableObject | RenderEditableTextObject>) => {
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
-    syncLegacyFields(selectedKind, nextObjects[selectedKind], updateRenderStyle);
+    const geometryKeys = ['x', 'y', 'width', 'height'] as const;
+    const isGeometryUpdate = geometryKeys.some((key) => key in updates);
+    if (surface === 'video' || !isGeometryUpdate) {
+      syncLegacyFields(selectedKind, nextObjects[selectedKind], updateRenderStyle);
+    }
   };
 
   const setFill = (updates: Partial<RenderFillStyle>) => {

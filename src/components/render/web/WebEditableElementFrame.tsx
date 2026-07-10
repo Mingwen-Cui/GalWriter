@@ -4,14 +4,14 @@ import type React from 'react';
 export type WebEditableResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 export const webEditableResizeHandles: WebEditableResizeHandle[] = [
-  'nw',
   'n',
-  'ne',
-  'e',
-  'se',
   's',
-  'sw',
+  'e',
   'w',
+  'nw',
+  'ne',
+  'se',
+  'sw',
 ];
 
 const positionClass: Record<WebEditableResizeHandle, string> = {
@@ -26,14 +26,25 @@ const positionClass: Record<WebEditableResizeHandle, string> = {
 };
 
 const shapeClass: Record<WebEditableResizeHandle, string> = {
-  n: 'h-5 w-16 rounded-full opacity-0',
-  s: 'h-5 w-16 rounded-full opacity-0',
-  e: 'h-16 w-5 rounded-full opacity-0',
-  w: 'h-16 w-5 rounded-full opacity-0',
-  ne: 'h-4 w-4 rounded-full',
-  nw: 'h-4 w-4 rounded-full',
-  se: 'h-4 w-4 rounded-full',
-  sw: 'h-4 w-4 rounded-full',
+  n: 'h-5 w-full',
+  s: 'h-5 w-full',
+  e: 'h-full w-5',
+  w: 'h-full w-5',
+  ne: 'h-5 w-5',
+  nw: 'h-5 w-5',
+  se: 'h-5 w-5',
+  sw: 'h-5 w-5',
+};
+
+const visibleHandleClass: Record<WebEditableResizeHandle, string> = {
+  n: 'bg-transparent',
+  s: 'bg-transparent',
+  e: 'bg-transparent',
+  w: 'bg-transparent',
+  ne: 'border border-indigo-200 bg-white shadow',
+  nw: 'border border-indigo-200 bg-white shadow',
+  se: 'border border-indigo-200 bg-white shadow',
+  sw: 'border border-indigo-200 bg-white shadow',
 };
 
 const cursorByHandle: Record<WebEditableResizeHandle, string> = {
@@ -92,11 +103,11 @@ export function WebEditableElementFrame({
           key={handle}
           role="button"
           tabIndex={-1}
-          className={`pointer-events-auto absolute z-40 border border-indigo-200 bg-white shadow ${positionClass[handle]} ${shapeClass[handle]}`}
+          className={`pointer-events-auto absolute z-40 ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
           style={{ cursor: cursorByHandle[handle] }}
           onPointerDown={(event) => onResizePointerDown(event, handle)}
           onClick={(event) => event.stopPropagation()}
-          aria-label="Resize"
+          aria-label="Resize border"
         />
       ))}
     </>

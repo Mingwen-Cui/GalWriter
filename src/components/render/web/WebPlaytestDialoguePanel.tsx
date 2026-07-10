@@ -143,6 +143,7 @@ export function WebPlaytestDialoguePanel({
     window.addEventListener('pointerup', end);
   };
   const objects = getRenderObjects(renderStyle);
+  const dialogObject = objects.dialogBox;
   const selectedFrame = (kind: RenderEditableObjectKind) =>
     editMode && renderStyle.selectedRenderObject === kind && onUpdateRenderObject ? (
       <RenderObjectFrame kind={kind} object={objects[kind]} onUpdate={onUpdateRenderObject} />
@@ -158,11 +159,11 @@ export function WebPlaytestDialoguePanel({
       style={{
         width:
           settings.layoutMode === 'immersive'
-            ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
-            : `${renderStyle.dialogWidth}%`,
+            ? `min(${dialogObject.width}%, calc(100% - 24px))`
+            : `${dialogObject.width}%`,
         height:
           settings.layoutMode === 'immersive'
-            ? `min(${renderStyle.dialogHeight}%, calc(100% - 96px))`
+            ? `min(${dialogObject.height}%, calc(100% - 96px))`
             : undefined,
         maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
         left: settings.layoutMode === 'immersive' ? '50%' : undefined,

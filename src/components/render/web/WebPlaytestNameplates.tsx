@@ -46,9 +46,11 @@ export function WebPlaytestNameplates({
   onUpdateRenderObject,
   onGuideLinesChange,
 }: WebPlaytestNameplatesProps) {
-  if (!renderStyle.nameplateVisible || !items.length) return null;
+  const objects = getRenderObjects(renderStyle);
+  const nameplateObject = objects.nameplate;
+  if (!nameplateObject.visible || !items.length) return null;
 
-  const nameplateObject = getRenderObjects(renderStyle).nameplate;
+  const dialogObject = objects.dialogBox;
   const fontSize = Math.max(10, renderStyle.nameplateFontSize ?? 18);
   const scale = Math.max(0.5, Math.min(2, (renderStyle.nameplateScale ?? 100) / 100));
   const paddingX = Math.round(fontSize * 1.15 * scale);
@@ -272,7 +274,7 @@ export function WebPlaytestNameplates({
   }
 
   const dialogueLeft =
-    50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5 - dialogWidth / 2;
+    50 + Math.max(-100, Math.min(100, dialogObject.x ?? 0)) * 0.5 - dialogWidth / 2;
   if (renderStyle.nameplateInside) {
     return (
       <div
