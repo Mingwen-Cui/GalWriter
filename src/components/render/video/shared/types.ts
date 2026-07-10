@@ -229,6 +229,7 @@ export type WebMenuElement = {
   fontWeight?: number;
   textColor?: string;
   textColorAlpha?: number;
+  textVisible?: boolean;
   textStrokeColor?: string;
   textStrokeWidth?: number;
   textAlign?: TextAlign;

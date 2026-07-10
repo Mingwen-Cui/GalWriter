@@ -194,6 +194,7 @@ export function StartMenuElementInspector({
           title={text.group.text}
           icon={<Type className="h-3.5 w-3.5" />}
           tone="text"
+          onTitleClick={() => onUpdate({ textVisible: element.textVisible === false })}
           secondary={
             <HeaderSelect
               icon={<Type className="h-4 w-4" />}
@@ -246,6 +247,12 @@ export function StartMenuElementInspector({
               step={0.05}
               onChange={(lineHeight) => onUpdate({ lineHeight })}
             />
+          </ControlRow>
+          <ControlRow className="mt-2">
+            <AlignButtons
+              value={element.textAlign || (element.kind === 'button' ? 'center' : 'left')}
+              onChange={(textAlign) => onUpdate({ textAlign })}
+            />
             <button
               type="button"
               onClick={() =>
@@ -258,13 +265,6 @@ export function StartMenuElementInspector({
               <Palette className="h-4 w-4" />
               {showDescriptions && <span className="min-w-0 truncate">{text.field.color}</span>}
             </button>
-          </ControlRow>
-          <ControlRow className="mt-2">
-            <AlignButtons
-              value={element.textAlign || (element.kind === 'button' ? 'center' : 'left')}
-              onChange={(textAlign) => onUpdate({ textAlign })}
-            />
-            <div aria-hidden="true" />
           </ControlRow>
           {popover?.group === 'text' && (
             <FloatingPopover>

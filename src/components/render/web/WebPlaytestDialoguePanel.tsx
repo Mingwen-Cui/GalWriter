@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
@@ -42,7 +42,12 @@ type WebPlaytestDialoguePanelProps = {
   bodyStyle: React.CSSProperties;
   dialogueShellStyle: React.CSSProperties;
   hideCenteredTitle: boolean;
-  nameplates: ReactNode | ((onGuideLinesChange: (lines: PixelGuideLine[]) => void) => ReactNode);
+  nameplates:
+    | ReactNode
+    | ((
+        onGuideLinesChange: (lines: PixelGuideLine[]) => void,
+        selectedRenderObjectKinds: RenderEditableObjectKind[],
+      ) => ReactNode);
   aboveChoices: ReactNode;
   belowChoices: ReactNode;
   previewMode?: 'edit' | 'test';
@@ -86,24 +91,59 @@ export function WebPlaytestDialoguePanel({
 }: WebPlaytestDialoguePanelProps) {
   const editMode = previewMode === 'edit';
   const [activeGuideLines, setActiveGuideLines] = useState<PixelGuideLine[]>([]);
+  const [selectedRenderObjectKinds, setSelectedRenderObjectKinds] = useState<
+    RenderEditableObjectKind[]
+  >([]);
+  const marqueeRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    rect: DOMRect;
+  } | null>(null);
+  const marqueeBoxRef = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  useEffect(() => {
+    setSelectedRenderObjectKinds(
+      renderStyle.selectedRenderObject ? [renderStyle.selectedRenderObject] : [],
+    );
+  }, [renderStyle.selectedRenderObject]);
   const selectionClass = (kind: RenderEditableObjectKind) =>
-    editMode && renderStyle.selectedRenderObject === kind
+    editMode &&
+    (renderStyle.selectedRenderObject === kind || selectedRenderObjectKinds.includes(kind))
       ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent'
-      : editMode
-        ? 'outline outline-1 outline-indigo-400/35'
-        : '';
+      : '';
   const selectObject = (event: React.MouseEvent, kind: RenderEditableObjectKind) => {
     if (!editMode) return;
     event.stopPropagation();
+    setSelectedRenderObjectKinds([kind]);
     onSelectRenderObject?.(kind);
   };
   const startDrag = (event: React.PointerEvent, kind: RenderEditableObjectKind) => {
+    if (event.button === 2) return;
     if (!editMode || !onMoveRenderObject) return;
     event.stopPropagation();
     event.preventDefault();
     document.body.style.cursor = 'grabbing';
+    const groupKinds =
+      selectedRenderObjectKinds.length > 1 && selectedRenderObjectKinds.includes(kind)
+        ? selectedRenderObjectKinds
+        : [kind];
+    setSelectedRenderObjectKinds(groupKinds);
     onSelectRenderObject?.(kind);
-    const object = getRenderObjects(renderStyle)[kind];
+    const renderObjects = getRenderObjects(renderStyle);
+    const object = renderObjects[kind];
+    const initialObjects = new Map(
+      groupKinds.map((groupKind) => [groupKind, renderObjects[groupKind]]),
+    );
     const container = dialogueBoxRef.current;
     const containerRect = container?.getBoundingClientRect();
     const targetRect = event.currentTarget.getBoundingClientRect();
@@ -131,7 +171,17 @@ export function WebPlaytestDialoguePanel({
       } else {
         setActiveGuideLines([]);
       }
-      onMoveRenderObject(kind, nextX, nextY);
+      if (groupKinds.length > 1) {
+        const groupDx = nextX - initialX;
+        const groupDy = nextY - initialY;
+        groupKinds.forEach((groupKind) => {
+          const initialObject = initialObjects.get(groupKind);
+          if (!initialObject) return;
+          onMoveRenderObject(groupKind, initialObject.x + groupDx, initialObject.y + groupDy);
+        });
+      } else {
+        onMoveRenderObject(kind, nextX, nextY);
+      }
     };
     const end = () => {
       setActiveGuideLines([]);
@@ -142,10 +192,87 @@ export function WebPlaytestDialoguePanel({
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', end);
   };
+  const beginMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!editMode || event.button !== 2) return false;
+    const rect = dialogueBoxRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    marqueeRef.current = { startClientX: event.clientX, startClientY: event.clientY, rect };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const nextBox = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      width: 0,
+      height: 0,
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+    return true;
+  };
+  const updateMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = marqueeRef.current;
+    if (!marquee) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = marquee.startClientX - marquee.rect.left;
+    const startY = marquee.startClientY - marquee.rect.top;
+    const currentX = event.clientX - marquee.rect.left;
+    const currentY = event.clientY - marquee.rect.top;
+    const left = Math.max(0, Math.min(startX, currentX));
+    const top = Math.max(0, Math.min(startY, currentY));
+    const right = Math.min(marquee.rect.width, Math.max(startX, currentX));
+    const bottom = Math.min(marquee.rect.height, Math.max(startY, currentY));
+    const nextBox = {
+      x: left,
+      y: top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+  };
+  const finishMarquee = (event?: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = marqueeRef.current;
+    const box = marqueeBoxRef.current;
+    const container = dialogueBoxRef.current;
+    if (!marquee || !box || !container) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    const selectedKinds: RenderEditableObjectKind[] = [];
+    Array.from(container.querySelectorAll<HTMLElement>('[data-render-object]')).forEach(
+      (element) => {
+        const kind = element.dataset.renderObject as RenderEditableObjectKind | undefined;
+        if (!kind || kind === 'dialogBox') return;
+        const rect = element.getBoundingClientRect();
+        const elementBox = {
+          x: rect.left - marquee.rect.left,
+          y: rect.top - marquee.rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+        const intersects =
+          elementBox.x < box.x + box.width &&
+          elementBox.x + elementBox.width > box.x &&
+          elementBox.y < box.y + box.height &&
+          elementBox.y + elementBox.height > box.y;
+        if (intersects) selectedKinds.push(kind);
+      },
+    );
+    const uniqueKinds = Array.from(new Set(selectedKinds));
+    marqueeRef.current = null;
+    marqueeBoxRef.current = null;
+    setMarqueeBox(null);
+    setSelectedRenderObjectKinds(uniqueKinds);
+    const activeKind = uniqueKinds[uniqueKinds.length - 1];
+    if (activeKind) onSelectRenderObject?.(activeKind);
+  };
   const objects = getRenderObjects(renderStyle);
   const dialogObject = objects.dialogBox;
   const selectedFrame = (kind: RenderEditableObjectKind) =>
-    editMode && renderStyle.selectedRenderObject === kind && onUpdateRenderObject ? (
+    editMode &&
+    (renderStyle.selectedRenderObject === kind || selectedRenderObjectKinds.includes(kind)) &&
+    onUpdateRenderObject ? (
       <RenderObjectFrame kind={kind} object={objects[kind]} onUpdate={onUpdateRenderObject} />
     ) : null;
 
@@ -183,7 +310,16 @@ export function WebPlaytestDialoguePanel({
         data-dialogue-box="true"
         data-render-object="dialogBox"
         onClick={(event) => selectObject(event, 'dialogBox')}
-        onPointerDown={(event) => startDrag(event, 'dialogBox')}
+        onPointerDown={(event) => {
+          if (beginMarquee(event)) return;
+          startDrag(event, 'dialogBox');
+        }}
+        onPointerMove={updateMarquee}
+        onPointerUp={finishMarquee}
+        onPointerCancel={finishMarquee}
+        onContextMenu={(event) => {
+          if (editMode) event.preventDefault();
+        }}
       >
         {editMode && activeGuideLines.length > 0 && (
           <div className="pointer-events-none absolute inset-0 z-[80]">
@@ -201,15 +337,30 @@ export function WebPlaytestDialoguePanel({
           </div>
         )}
         {selectedFrame('dialogBox')}
-        {typeof nameplates === 'function' ? nameplates(setActiveGuideLines) : nameplates}
+        {editMode && marqueeBox && (
+          <div
+            className="pointer-events-none absolute z-[250] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+            style={{
+              left: marqueeBox.x,
+              top: marqueeBox.y,
+              width: marqueeBox.width,
+              height: marqueeBox.height,
+            }}
+          />
+        )}
+        {typeof nameplates === 'function'
+          ? nameplates(setActiveGuideLines, selectedRenderObjectKinds)
+          : nameplates}
         {aboveChoices}
         {(objects.title.visible || editMode) && !hideCenteredTitle && (
           <h2
             key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
-            className={`relative mb-2 font-black ${editMode ? 'cursor-grab' : ''} ${selectionClass('title')}`}
+            className={`relative z-20 mb-2 font-black ${editMode ? 'cursor-grab' : ''} ${selectionClass('title')}`}
             data-render-object="title"
             style={{
               ...titleStyle,
+              display: editMode ? undefined : titleStyle.display,
+              overflow: editMode ? 'visible' : titleStyle.overflow,
               opacity: objects.title.visible ? titleStyle.opacity : 0.34,
             }}
             onClick={(event) => selectObject(event, 'title')}
@@ -225,10 +376,12 @@ export function WebPlaytestDialoguePanel({
             settings.layoutMode === 'classic' && settings.interactionMode === 'typewriter'
               ? 'relative'
               : ''
-          } ${editMode ? 'cursor-grab' : ''} ${selectionClass('body')}`}
+          } z-20 ${editMode ? 'cursor-grab' : ''} ${selectionClass('body')}`}
           data-render-object="body"
           style={{
             ...bodyStyle,
+            display: editMode ? undefined : bodyStyle.display,
+            overflow: editMode ? 'visible' : bodyStyle.overflow,
             opacity: objects.body.visible ? bodyStyle.opacity : 0.34,
           }}
           onClick={(event) => {

@@ -1,22 +1,14 @@
-import { Eye, EyeOff, RotateCw, Trash2 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
+import { WebEditableElementFrame } from './WebEditableElementFrame';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import type {
   StartMenuAction,
   StartMenuElement,
   StartMenuResizeHandle,
 } from './webPlaytestStartMenuTools';
-import {
-  getResizeHandleStyle,
-  protectedStartMenuElementRoles,
-  readStartMenuImageFile,
-  resizeHandlePositionClass,
-  resizeHandleShapeClass,
-} from './webPlaytestStartMenuTools';
-
-const resizeHandles: StartMenuResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+import { protectedStartMenuElementRoles, readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
   const safeColor = color || '#ffffff';
@@ -125,6 +117,7 @@ export function WebPlaytestStartMenuElement({
     if (!hasCustomStartMenuElements) onEnsureStartMenuElements();
     onSelectElement(element.id);
   };
+  const visibleText = element.textVisible === false ? '' : element.text;
 
   const content = (
     <span
@@ -155,9 +148,9 @@ export function WebPlaytestStartMenuElement({
       }}
       className={`outline-none ${
         previewMode === 'edit' && editingStartMenuElementId !== element.id ? 'cursor-text' : ''
-      } ${!element.text && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
+      } ${!visibleText && element.textVisible !== false && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
     >
-      {element.text ||
+      {visibleText ||
         (previewMode === 'edit' && editingStartMenuElementId !== element.id
           ? t('双击编辑', '編集', 'Edit')
           : '')}
@@ -292,61 +285,23 @@ export function WebPlaytestStartMenuElement({
         </div>
       )}
       {previewMode === 'edit' && selected && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-0 ring-2 ring-sky-300"
-            style={{
-              borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12),
-            }}
-          />
-          <button
-            type="button"
-            className="absolute -right-8 -top-3 grid h-6 w-6 place-items-center rounded-full bg-sky-500 text-white shadow"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onUpdateElement(element.id, { visible: !element.visible });
-            }}
-            title={element.visible ? t('隐藏', '非表示', 'Hide') : t('显示', '表示', 'Show')}
-          >
-            {element.visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-          {canDeleteElement && (
-            <button
-              type="button"
-              className="absolute -right-8 top-5 grid h-6 w-6 place-items-center rounded-full bg-rose-500 text-white shadow"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onDeleteElement?.(element.id);
-              }}
-              title={t('删除', '削除', 'Delete')}
-              aria-label={t('删除', '削除', 'Delete')}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <button
-            type="button"
-            className="absolute -left-8 -top-3 grid h-6 w-6 cursor-alias place-items-center rounded-full bg-white text-slate-900 shadow"
-            style={{ cursor: 'alias' }}
-            onPointerDown={(event) => onBeginDrag(event, element, 'rotate')}
-            title={t('旋转', '回転', 'Rotate')}
-          >
-            <RotateCw className="h-3.5 w-3.5" />
-          </button>
-          {resizeHandles.map((handle) => (
-            <button
-              key={handle}
-              type="button"
-              className={`absolute border border-sky-200 bg-white shadow ${resizeHandlePositionClass[handle]} ${resizeHandleShapeClass[handle]}`}
-              style={getResizeHandleStyle(handle)}
-              onPointerDown={(event) => onBeginDrag(event, element, 'resize', handle)}
-              title={t('调整大小', 'リサイズ', 'Resize')}
-              aria-label={t('调整大小', 'リサイズ', 'Resize')}
-            />
-          ))}
-        </>
+        <WebEditableElementFrame
+          visible={element.visible}
+          onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}
+          onToggleVisible={(event) => {
+            event.stopPropagation();
+            onUpdateElement(element.id, { visible: !element.visible });
+          }}
+          onDelete={
+            canDeleteElement
+              ? (event) => {
+                  event.stopPropagation();
+                  onDeleteElement?.(element.id);
+                }
+              : undefined
+          }
+          onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
+        />
       )}
     </div>
   );

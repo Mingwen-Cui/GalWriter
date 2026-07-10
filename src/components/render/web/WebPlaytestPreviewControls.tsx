@@ -198,8 +198,18 @@ export function PreviewToolbar({
                 )
               }
               guideElements={toolbarElements}
+              allElements={toolbarElements}
+              selectedElementIds={[]}
               onSelect={onSelectToolbarElement}
+              onSelectOnly={onSelectToolbarElement}
               onUpdate={onUpdateToolbarElement}
+              onUpdateElements={(elements) => {
+                elements.forEach((item) => {
+                  const original = toolbarElements.find((element) => element.id === item.id);
+                  if (!original) return;
+                  onUpdateToolbarElement?.(item.id, item);
+                });
+              }}
               onAction={() => {
                 if (element.role === 'audio') onToggleAudioPlaylist();
                 if (element.role === 'fullscreen') onToggleFullscreen();
@@ -295,6 +305,7 @@ export function PreviewFloatingElementLayer({
   className = '',
   onSelectElement,
   onUpdateElement,
+  onUpdateElements,
   getIcon,
   isActive,
   isDisabled,
@@ -307,6 +318,7 @@ export function PreviewFloatingElementLayer({
   className?: string;
   onSelectElement?: (id: string | null) => void;
   onUpdateElement?: (id: string, patch: Partial<WebMenuElement>) => void;
+  onUpdateElements?: (elements: WebMenuElement[]) => void;
   getIcon?: (element: WebMenuElement) => ReactNode;
   isActive?: (element: WebMenuElement) => boolean;
   isDisabled?: (element: WebMenuElement) => boolean;
@@ -332,12 +344,19 @@ export function PreviewFloatingElementLayer({
     height: number;
   } | null>(null);
   const snapGuideElements = guideElements || elements;
-  const beginMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (previewMode !== 'edit' || event.button !== 2) return;
+  const handleLayerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (previewMode !== 'edit' || event.currentTarget !== event.target) return;
+    if (event.button === 0) {
+      setSelectedElementIds([]);
+      onSelectElement?.(null);
+      return;
+    }
+    if (event.button !== 2) return;
     const rect = event.currentTarget.getBoundingClientRect();
     event.preventDefault();
     event.stopPropagation();
     marqueeRef.current = { startClientX: event.clientX, startClientY: event.clientY, rect };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     const nextBox = {
       x: ((event.clientX - rect.left) / rect.width) * 100,
       y: ((event.clientY - rect.top) / rect.height) * 100,
@@ -392,17 +411,25 @@ export function PreviewFloatingElementLayer({
   };
 
   return (
-    <div
-      data-toolbar-editor="true"
-      className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
-      onPointerDown={beginMarquee}
-      onPointerMove={updateMarquee}
-      onPointerUp={finishMarquee}
-      onPointerCancel={finishMarquee}
-      onContextMenu={(event) => {
-        if (previewMode === 'edit') event.preventDefault();
-      }}
-    >
+    <>
+      <div
+        className={`absolute inset-0 z-[15] ${
+          previewMode === 'edit' && elements.length > 0
+            ? 'pointer-events-auto'
+            : 'pointer-events-none'
+        } ${className}`}
+        onPointerDown={handleLayerPointerDown}
+        onPointerMove={updateMarquee}
+        onPointerUp={finishMarquee}
+        onPointerCancel={finishMarquee}
+        onContextMenu={(event) => {
+          if (previewMode === 'edit') event.preventDefault();
+        }}
+      />
+      <div
+        data-toolbar-editor="true"
+        className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
+      >
       {previewMode === 'edit' && activeGuideLines.length > 0 && (
         <div className="pointer-events-none absolute inset-0 z-30">
           {activeGuideLines.map((line, index) => (
@@ -441,16 +468,21 @@ export function PreviewFloatingElementLayer({
             active={Boolean(isActive?.(element))}
             icon={getIcon?.(element)}
             guideElements={snapGuideElements}
+            allElements={elements}
+            selectedElementIds={selectedElementIds}
             onSelect={(id) => {
               setSelectedElementIds(id ? [id] : []);
               onSelectElement?.(id);
             }}
+            onSelectOnly={(id) => onSelectElement?.(id)}
             onUpdate={onUpdateElement}
+            onUpdateElements={onUpdateElements}
             onGuideLinesChange={setActiveGuideLines}
             onAction={() => onAction?.(element)}
           />
         ))}
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -462,8 +494,12 @@ function ToolbarElement({
   active,
   icon,
   guideElements,
+  allElements,
+  selectedElementIds,
   onSelect,
+  onSelectOnly,
   onUpdate,
+  onUpdateElements,
   onGuideLinesChange,
   onAction,
 }: {
@@ -474,12 +510,22 @@ function ToolbarElement({
   active: boolean;
   icon: ReactNode;
   guideElements: WebMenuElement[];
+  allElements: WebMenuElement[];
+  selectedElementIds: string[];
   onSelect?: (id: string | null) => void;
+  onSelectOnly?: (id: string | null) => void;
   onUpdate?: (id: string, patch: Partial<WebMenuElement>) => void;
+  onUpdateElements?: (elements: WebMenuElement[]) => void;
   onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void;
   onAction: () => void;
 }) {
   const editable = previewMode === 'edit';
+  const justifyContent =
+    element.textAlign === 'left'
+      ? 'flex-start'
+      : element.textAlign === 'right'
+        ? 'flex-end'
+        : 'center';
   const beginDrag = (
     event: React.PointerEvent<HTMLElement>,
     type: 'move' | 'resize' | 'rotate',
@@ -489,7 +535,12 @@ function ToolbarElement({
     if (event.button === 2) return;
     event.preventDefault();
     event.stopPropagation();
-    onSelect?.(element.id);
+    const shouldMoveGroup =
+      type === 'move' && selectedElementIds.length > 1 && selectedElementIds.includes(element.id);
+    const groupIds = shouldMoveGroup ? selectedElementIds : [element.id];
+    const groupInitial = allElements.filter((item) => groupIds.includes(item.id));
+    if (shouldMoveGroup) onSelectOnly?.(element.id);
+    else onSelect?.(element.id);
     document.body.style.cursor =
       type === 'rotate'
         ? 'grabbing'
@@ -537,6 +588,30 @@ function ToolbarElement({
         x = snapped.x;
         y = snapped.y;
         onGuideLinesChange?.(snapped.lines);
+        if (shouldMoveGroup && onUpdateElements && groupInitial.length > 1) {
+          const rawGroupDx = x - initial.x;
+          const rawGroupDy = y - initial.y;
+          const groupLeft = Math.min(...groupInitial.map((item) => item.x));
+          const groupTop = Math.min(...groupInitial.map((item) => item.y));
+          const groupRight = Math.max(...groupInitial.map((item) => item.x + item.width));
+          const groupBottom = Math.max(...groupInitial.map((item) => item.y + item.height));
+          const groupDx = Math.max(-groupLeft, Math.min(100 - groupRight, rawGroupDx));
+          const groupDy = Math.max(-groupTop, Math.min(100 - groupBottom, rawGroupDy));
+          const movingIds = new Set(groupIds);
+          const initialById = new Map(groupInitial.map((item) => [item.id, item]));
+          onUpdateElements(
+            allElements.map((item) =>
+              movingIds.has(item.id) && initialById.has(item.id)
+                ? {
+                    ...item,
+                    x: Number((initialById.get(item.id)!.x + groupDx).toFixed(2)),
+                    y: Number((initialById.get(item.id)!.y + groupDy).toFixed(2)),
+                  }
+                : item,
+            ),
+          );
+          return;
+        }
       } else {
         const resizeHandle = handle || 'se';
         if (resizeHandle.includes('e')) width = initial.width + dx;
@@ -628,10 +703,14 @@ function ToolbarElement({
       }}
     >
       <span
-        className={`flex h-full w-full items-center justify-center gap-1.5 overflow-hidden ${
+        className={`flex h-full w-full items-center gap-1.5 overflow-hidden ${
           element.kind === 'button' ? 'px-2' : ''
         }`}
-        style={{ borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8) }}
+        style={{
+          borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8),
+          justifyContent,
+          textAlign: element.textAlign || 'center',
+        }}
       >
         {element.kind === 'image' ? (
           element.imageUrl ? (
@@ -644,7 +723,9 @@ function ToolbarElement({
         ) : (
           <>
             {icon}
-            <span className="whitespace-pre-line">{element.text}</span>
+            {element.textVisible !== false && (
+              <span className="whitespace-pre-line">{element.text}</span>
+            )}
           </>
         )}
       </span>

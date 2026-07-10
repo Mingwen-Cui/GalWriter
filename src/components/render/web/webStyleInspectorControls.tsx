@@ -65,12 +65,14 @@ export function InspectorGroup({
   icon,
   tone,
   secondary,
+  onTitleClick,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   tone: InspectorTone;
   secondary: React.ReactNode;
+  onTitleClick?: () => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -79,14 +81,27 @@ export function InspectorGroup({
   return (
     <section className={`relative rounded-[22px] p-3 ${classes.section}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        <div
-          className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-sm font-bold text-slate-900 ${classes.header}`}
-          title={title}
-          aria-label={title}
-        >
-          <span className="shrink-0">{icon}</span>
-          <span className="min-w-0 truncate">{title}</span>
-        </div>
+        {onTitleClick ? (
+          <button
+            type="button"
+            onClick={onTitleClick}
+            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-slate-900 ${classes.header}`}
+            title={title}
+            aria-label={title}
+          >
+            <span className="shrink-0">{icon}</span>
+            <span className="min-w-0 truncate">{title}</span>
+          </button>
+        ) : (
+          <div
+            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-sm font-bold text-slate-900 ${classes.header}`}
+            title={title}
+            aria-label={title}
+          >
+            <span className="shrink-0">{icon}</span>
+            <span className="min-w-0 truncate">{title}</span>
+          </div>
+        )}
         <div className="min-w-0">{secondary}</div>
         <button
           type="button"
@@ -263,25 +278,27 @@ export function AlignButtons({
   value: TextAlign;
   onChange: (value: TextAlign) => void;
 }) {
+  const items: Array<{ value: TextAlign; label: string; icon: React.ReactNode }> = [
+    { value: 'left', label: 'Left align', icon: <AlignLeft className="h-4 w-4" /> },
+    { value: 'center', label: 'Center align', icon: <AlignCenter className="h-4 w-4" /> },
+    { value: 'right', label: 'Right align', icon: <AlignRight className="h-4 w-4" /> },
+  ];
+  const safeValue = items.some((item) => item.value === value) ? value : 'left';
   return (
     <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
-      {[
-        ['left', <AlignLeft className="h-4 w-4" />],
-        ['center', <AlignCenter className="h-4 w-4" />],
-        ['right', <AlignRight className="h-4 w-4" />],
-      ].map(([align, icon]) => (
+      {items.map((item) => (
         <button
-          key={align as string}
+          key={item.value}
           type="button"
-          onClick={() => onChange(align as TextAlign)}
+          onClick={() => onChange(item.value)}
           className={`grid h-10 min-w-0 place-items-center ${
-            value === align ? 'bg-indigo-600 text-white' : 'text-slate-700'
+            safeValue === item.value ? 'bg-indigo-600 text-white' : 'text-slate-700'
           }`}
-          title={align as string}
-          aria-label={align as string}
-          aria-pressed={value === align}
+          title={item.label}
+          aria-label={item.label}
+          aria-pressed={safeValue === item.value}
         >
-          {icon as React.ReactNode}
+          {item.icon}
         </button>
       ))}
     </div>

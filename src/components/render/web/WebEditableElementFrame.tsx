@@ -1,4 +1,4 @@
-import { Eye, EyeOff, RotateCw } from 'lucide-react';
+import { Eye, EyeOff, RotateCw, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 export type WebEditableResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -62,12 +62,14 @@ export function WebEditableElementFrame({
   visible,
   ringClassName = 'ring-2 ring-indigo-500',
   onToggleVisible,
+  onDelete,
   onRotatePointerDown,
   onResizePointerDown,
 }: {
   visible: boolean;
   ringClassName?: string;
   onToggleVisible: (event: React.MouseEvent<HTMLElement>) => void;
+  onDelete?: (event: React.MouseEvent<HTMLElement>) => void;
   onRotatePointerDown: (event: React.PointerEvent<HTMLElement>) => void;
   onResizePointerDown: (
     event: React.PointerEvent<HTMLElement>,
@@ -76,11 +78,11 @@ export function WebEditableElementFrame({
 }) {
   return (
     <>
-      <span className={`pointer-events-none absolute inset-0 z-30 ${ringClassName}`} />
+      <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
       <span
         role="button"
         tabIndex={-1}
-        className="pointer-events-auto absolute -left-10 top-1/2 z-40 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
+        className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
         style={{ cursor: 'grab' }}
         onPointerDown={onRotatePointerDown}
         onClick={(event) => event.stopPropagation()}
@@ -91,19 +93,31 @@ export function WebEditableElementFrame({
       <span
         role="button"
         tabIndex={-1}
-        className="pointer-events-auto absolute -right-10 top-1/2 z-40 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
+        className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onToggleVisible}
         aria-label={visible ? 'Hide' : 'Show'}
       >
         {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </span>
+      {onDelete && (
+        <span
+          role="button"
+          tabIndex={-1}
+          className="pointer-events-auto absolute -right-10 top-[calc(50%+40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-rose-500 text-white shadow-lg"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onDelete}
+          aria-label="Delete"
+        >
+          <Trash2 className="h-4 w-4" />
+        </span>
+      )}
       {webEditableResizeHandles.map((handle) => (
         <span
           key={handle}
           role="button"
           tabIndex={-1}
-          className={`pointer-events-auto absolute z-40 ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
+          className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
           style={{ cursor: cursorByHandle[handle] }}
           onPointerDown={(event) => onResizePointerDown(event, handle)}
           onClick={(event) => event.stopPropagation()}

@@ -1051,6 +1051,7 @@ export const makeIndexHtml = (
       return withAlpha(color || fallback, Number.isFinite(numericAlpha) ? numericAlpha / 100 : 1);
     }
     function applyCustomTextStyle(target, element) {
+      if (element.textVisible === false) target.textContent = "";
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
@@ -1067,6 +1068,7 @@ export const makeIndexHtml = (
       target.style.borderRadius = px(element.borderRadius, 0);
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
+      if (element.textVisible === false) target.textContent = "";
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;

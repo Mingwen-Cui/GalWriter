@@ -166,6 +166,8 @@ export function WebPlaytestPreview({
     startClientX: number;
     startClientY: number;
     initial: StartMenuElement;
+    groupInitial?: StartMenuElement[];
+    groupIds?: string[];
     rect: DOMRect;
     centerX?: number;
     centerY?: number;
@@ -481,7 +483,10 @@ export function WebPlaytestPreview({
     [currentNode, nodes],
   );
 
-  const renderNameplates = (onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void) => (
+  const renderNameplates = (
+    onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void,
+    selectedRenderObjectKinds?: RenderEditableObjectKind[],
+  ) => (
     <WebPlaytestNameplates
       items={nameplateItems}
       renderStyle={renderStyle}
@@ -491,6 +496,7 @@ export function WebPlaytestPreview({
       onMoveRenderObject={moveRenderObject}
       onUpdateRenderObject={patchRenderObject}
       onGuideLinesChange={onGuideLinesChange}
+      selectedRenderObjectKinds={selectedRenderObjectKinds}
     />
   );
 
@@ -1118,8 +1124,23 @@ export function WebPlaytestPreview({
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
+    const source =
+      settings.startMenuElements && settings.startMenuElements.length > 0
+        ? settings.startMenuElements
+        : defaultStartMenuElements;
     if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
-    setSelectedStartMenuElementId(element.id);
+    const shouldMoveGroup =
+      type === 'move' &&
+      selectedStartMenuElementIds.length > 1 &&
+      selectedStartMenuElementIds.includes(element.id);
+    const groupIds = shouldMoveGroup ? selectedStartMenuElementIds : [element.id];
+    const groupInitial = source.filter((item) => groupIds.includes(item.id));
+    if (shouldMoveGroup) {
+      setLocalSelectedStartMenuElementId(element.id);
+      onSelectStartMenuElement?.(element.id);
+    } else {
+      setSelectedStartMenuElementId(element.id);
+    }
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     startMenuEditDragRef.current = {
@@ -1128,6 +1149,8 @@ export function WebPlaytestPreview({
       startClientX: event.clientX,
       startClientY: event.clientY,
       initial: element,
+      groupInitial,
+      groupIds,
       rect,
       resizeHandle,
       centerX,
@@ -1221,6 +1244,8 @@ export function WebPlaytestPreview({
     const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
     const bounds = startMenuPlacementBounds;
     if (drag.type === 'move') {
+      const groupInitial =
+        drag.groupInitial && drag.groupInitial.length > 0 ? drag.groupInitial : [drag.initial];
       const snapped = snapElementBoxToElementGuides({
         x: drag.initial.x + dx,
         y: drag.initial.y + dy,
@@ -1231,10 +1256,33 @@ export function WebPlaytestPreview({
         movingId: drag.id,
       });
       setActiveStartMenuGuideLines(snapped.lines);
-      updateStartMenuElement(drag.id, {
-        x: Math.max(bounds.minX, Math.min(bounds.maxX - drag.initial.width, snapped.x)),
-        y: Math.max(bounds.minY, Math.min(bounds.maxY - drag.initial.height, snapped.y)),
-      });
+      const rawGroupDx = snapped.x - drag.initial.x;
+      const rawGroupDy = snapped.y - drag.initial.y;
+      const groupLeft = Math.min(...groupInitial.map((item) => item.x));
+      const groupTop = Math.min(...groupInitial.map((item) => item.y));
+      const groupRight = Math.max(...groupInitial.map((item) => item.x + item.width));
+      const groupBottom = Math.max(...groupInitial.map((item) => item.y + item.height));
+      const groupDx = Math.max(
+        bounds.minX - groupLeft,
+        Math.min(bounds.maxX - groupRight, rawGroupDx),
+      );
+      const groupDy = Math.max(
+        bounds.minY - groupTop,
+        Math.min(bounds.maxY - groupBottom, rawGroupDy),
+      );
+      const movingIds = new Set(drag.groupIds || [drag.id]);
+      const initialById = new Map(groupInitial.map((item) => [item.id, item]));
+      commitStartMenuElements(
+        startMenuElements.map((item) =>
+          movingIds.has(item.id) && initialById.has(item.id)
+            ? {
+                ...item,
+                x: initialById.get(item.id)!.x + groupDx,
+                y: initialById.get(item.id)!.y + groupDy,
+              }
+            : item,
+        ),
+      );
     } else if (drag.type === 'resize') {
       const handle = drag.resizeHandle || 'se';
       let nextX = drag.initial.x;
@@ -1495,6 +1543,9 @@ export function WebPlaytestPreview({
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
             );
           }}
+          onUpdateArchiveElements={(elements) => {
+            onUpdateSettings('archivePageElements', elements);
+          }}
           onUpdateSettingsElement={(id, patch) => {
             const source = settings.settingsPageElements?.length
               ? settings.settingsPageElements
@@ -1503,6 +1554,9 @@ export function WebPlaytestPreview({
               'settingsPageElements',
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
             );
+          }}
+          onUpdateSettingsElements={(elements) => {
+            onUpdateSettings('settingsPageElements', elements);
           }}
           onUpdateSettings={onUpdateSettings}
         />
@@ -1604,6 +1658,13 @@ export function WebPlaytestPreview({
             onSelectStartMenuElement?.(id);
           }}
           onUpdateElement={updateToolbarElement}
+          onUpdateElements={(elements) => {
+            const nextById = new Map(elements.map((element) => [element.id, element]));
+            onUpdateSettings(
+              'previewToolbarElements',
+              toolbarElements.map((element) => nextById.get(element.id) || element),
+            );
+          }}
           getIcon={(element) =>
             element.role === 'audio' ? (
               <ListMusic className="h-3.5 w-3.5" />
@@ -1652,6 +1713,9 @@ export function WebPlaytestPreview({
               ),
             )
           }
+          onUpdateElements={(elements) => {
+            onUpdateSettings('dialogueOverlayElements', elements);
+          }}
         />
       </>
     );

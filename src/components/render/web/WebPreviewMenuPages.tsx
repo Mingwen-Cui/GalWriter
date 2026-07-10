@@ -52,6 +52,8 @@ type WebPreviewMenuPagesProps = {
   onSelectElement?: (id: string | null) => void;
   onUpdateArchiveElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
+  onUpdateArchiveElements: (elements: WebMenuElement[]) => void;
+  onUpdateSettingsElements: (elements: WebMenuElement[]) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -84,6 +86,8 @@ export function WebPreviewMenuPages({
   onSelectElement,
   onUpdateArchiveElement,
   onUpdateSettingsElement,
+  onUpdateArchiveElements,
+  onUpdateSettingsElements,
   onUpdateSettings,
 }: WebPreviewMenuPagesProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
@@ -120,6 +124,8 @@ export function WebPreviewMenuPages({
     centerY?: number;
     startAngle?: number;
     initial: WebMenuElement;
+    groupInitial?: WebMenuElement[];
+    groupIds?: string[];
     rect: DOMRect;
   } | null>(null);
   const constrainElement = (element: WebMenuElement) => {
@@ -141,6 +147,10 @@ export function WebPreviewMenuPages({
     if (page === 'archive') onUpdateArchiveElement(id, patch);
     else onUpdateSettingsElement(id, patch);
   };
+  const updatePageElements = (page: 'archive' | 'settings', elements: WebMenuElement[]) => {
+    if (page === 'archive') onUpdateArchiveElements(elements);
+    else onUpdateSettingsElements(elements);
+  };
   const getPageElements = (page: 'archive' | 'settings') =>
     page === 'archive' ? archiveElements : settingsElements;
   const beginElementDrag = (
@@ -159,7 +169,12 @@ export function WebPreviewMenuPages({
     event.preventDefault();
     event.stopPropagation();
     onSelectElement?.(element.id);
-    setSelectedElementIds([element.id]);
+    const shouldMoveGroup =
+      type === 'move' && selectedElementIds.length > 1 && selectedElementIds.includes(element.id);
+    const groupIds = shouldMoveGroup ? selectedElementIds : [element.id];
+    const pageElements = getPageElements(page);
+    const groupInitial = pageElements.filter((item) => groupIds.includes(item.id));
+    if (!shouldMoveGroup) setSelectedElementIds([element.id]);
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     const startAngle =
@@ -175,6 +190,8 @@ export function WebPreviewMenuPages({
       centerY,
       startAngle,
       initial: element,
+      groupInitial,
+      groupIds,
       rect,
     };
     document.body.style.cursor =
@@ -283,6 +300,33 @@ export function WebPreviewMenuPages({
       next.x = snapped.x;
       next.y = snapped.y;
       setActiveGuideLines(snapped.lines);
+      const groupInitial =
+        drag.groupInitial && drag.groupInitial.length > 0 ? drag.groupInitial : [drag.initial];
+      if (groupInitial.length > 1) {
+        const rawGroupDx = next.x - drag.initial.x;
+        const rawGroupDy = next.y - drag.initial.y;
+        const groupLeft = Math.min(...groupInitial.map((item) => item.x));
+        const groupTop = Math.min(...groupInitial.map((item) => item.y));
+        const groupRight = Math.max(...groupInitial.map((item) => item.x + item.width));
+        const groupBottom = Math.max(...groupInitial.map((item) => item.y + item.height));
+        const groupDx = Math.max(boundsMinX - groupLeft, Math.min(boundsMaxX - groupRight, rawGroupDx));
+        const groupDy = Math.max(boundsMinY - groupTop, Math.min(boundsMaxY - groupBottom, rawGroupDy));
+        const movingIds = new Set(drag.groupIds || [drag.id]);
+        const initialById = new Map(groupInitial.map((item) => [item.id, item]));
+        updatePageElements(
+          drag.page,
+          getPageElements(drag.page).map((item) =>
+            movingIds.has(item.id) && initialById.has(item.id)
+              ? constrainElement({
+                  ...item,
+                  x: initialById.get(item.id)!.x + groupDx,
+                  y: initialById.get(item.id)!.y + groupDy,
+                })
+              : item,
+          ),
+        );
+        return;
+      }
     } else {
       const handle = drag.resizeHandle || 'se';
       if (handle.includes('e')) next.width = drag.initial.width + dx;
@@ -487,6 +531,12 @@ function MenuPageElementLayer({
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
             borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12),
           };
+          const justifyContent =
+            element.textAlign === 'left'
+              ? 'flex-start'
+              : element.textAlign === 'right'
+                ? 'flex-end'
+                : 'center';
 
           if (element.kind === 'button') {
             const background =
@@ -540,10 +590,16 @@ function MenuPageElementLayer({
                 }}
               >
                 <span
-                  className="flex h-full w-full items-center justify-between gap-2 overflow-hidden px-4"
-                  style={{ borderRadius: element.borderRadius ?? 12 }}
+                  className="flex h-full w-full items-center gap-2 overflow-hidden px-4"
+                  style={{
+                    borderRadius: element.borderRadius ?? 12,
+                    justifyContent: suffix ? 'space-between' : justifyContent,
+                    textAlign: element.textAlign || 'center',
+                  }}
                 >
-                  <span className="whitespace-pre-line">{element.text}</span>
+                  {element.textVisible !== false && (
+                    <span className="whitespace-pre-line">{element.text}</span>
+                  )}
                   {suffix && <span className="text-xs opacity-70">{suffix}</span>}
                 </span>
                 {selected && (
@@ -601,8 +657,13 @@ function MenuPageElementLayer({
             <button
               key={element.id}
               type="button"
-              className="pointer-events-auto absolute flex items-center border-0 bg-transparent p-0 text-left font-black"
-              style={{ ...commonStyle, ...contentStyle }}
+              className="pointer-events-auto absolute flex items-center border-0 bg-transparent p-0 font-black"
+              style={{
+                ...commonStyle,
+                ...contentStyle,
+                justifyContent,
+                textAlign: element.textAlign || 'left',
+              }}
               onPointerDown={(event) => {
                 if (editable) onBeginElementDrag(page, event, element, 'move');
               }}
@@ -617,7 +678,9 @@ function MenuPageElementLayer({
                 if (next !== null) onUpdateElement(element.id, { text: next });
               }}
             >
-              <span className="whitespace-pre-line">{element.text}</span>
+              {element.textVisible !== false && (
+                <span className="whitespace-pre-line">{element.text}</span>
+              )}
               {selected && (
                 <SelectedElementFrame
                   page={page}

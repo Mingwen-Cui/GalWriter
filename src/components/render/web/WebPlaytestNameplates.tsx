@@ -34,6 +34,7 @@ type WebPlaytestNameplatesProps = {
     patch: Partial<RenderEditableObject>,
   ) => void;
   onGuideLinesChange?: (lines: PixelGuideLine[]) => void;
+  selectedRenderObjectKinds?: RenderEditableObjectKind[];
 };
 
 export function WebPlaytestNameplates({
@@ -45,6 +46,7 @@ export function WebPlaytestNameplates({
   onMoveRenderObject,
   onUpdateRenderObject,
   onGuideLinesChange,
+  selectedRenderObjectKinds,
 }: WebPlaytestNameplatesProps) {
   const objects = getRenderObjects(renderStyle);
   const nameplateObject = objects.nameplate;
@@ -89,10 +91,10 @@ export function WebPlaytestNameplates({
     textOverflow: 'ellipsis',
   };
   const editClass =
-    previewMode === 'edit'
-      ? renderStyle.selectedRenderObject === 'nameplate'
-        ? 'ring-2 ring-indigo-500'
-        : 'outline outline-1 outline-indigo-400/40'
+    previewMode === 'edit' &&
+    (selectedRenderObjectKinds?.includes('nameplate') ||
+      renderStyle.selectedRenderObject === 'nameplate')
+      ? 'ring-2 ring-indigo-500'
       : '';
   const selectNameplate = (event: React.MouseEvent) => {
     if (previewMode !== 'edit') return;
@@ -208,7 +210,8 @@ export function WebPlaytestNameplates({
   };
   const renderSelectedFrame = () =>
     previewMode === 'edit' &&
-    renderStyle.selectedRenderObject === 'nameplate' &&
+    (selectedRenderObjectKinds?.includes('nameplate') ||
+      renderStyle.selectedRenderObject === 'nameplate') &&
     onUpdateRenderObject ? (
       <WebEditableElementFrame
         visible={nameplateObject.visible}
