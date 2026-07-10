@@ -9,6 +9,8 @@ export type DragSizeControlProps = {
   max: number;
   step: number;
   unit?: string;
+  className?: string;
+  editingClassName?: string;
   onChange: (value: number) => void;
 };
 
@@ -26,6 +28,8 @@ export function DragSizeControl({
   max,
   step,
   unit = 'px',
+  className = '',
+  editingClassName = '',
   onChange,
 }: DragSizeControlProps) {
   const [editing, setEditing] = useState(false);
@@ -65,7 +69,7 @@ export function DragSizeControl({
             setEditing(false);
           }
         }}
-        className="w-full rounded-lg border-0 bg-[var(--vr-surface-soft)] px-3 py-2 text-right text-sm font-normal tabular-nums text-[var(--vr-text)] outline-none ring-1 ring-[var(--vr-accent)]"
+        className={`w-full border-0 bg-[var(--vr-surface-soft)] text-right text-sm font-normal tabular-nums text-[var(--vr-text)] outline-none ring-1 ring-[var(--vr-accent)] ${className || 'rounded-lg px-3 py-2'} ${editingClassName}`}
       />
     );
   }
@@ -91,7 +95,7 @@ export function DragSizeControl({
         event.currentTarget.releasePointerCapture(event.pointerId);
         if (!drag?.moved) setEditing(true);
       }}
-      className="group flex w-full cursor-ew-resize select-none items-center justify-end rounded-lg border-0 bg-[var(--vr-surface-soft)] px-3 py-2 text-right text-sm font-normal text-[var(--vr-text)] transition-colors hover:bg-[var(--vr-accent-soft)]"
+      className={`group flex w-full cursor-ew-resize select-none items-center justify-end border-0 bg-[var(--vr-surface-soft)] text-right text-sm font-normal text-[var(--vr-text)] transition-colors hover:bg-[var(--vr-accent-soft)] ${className || 'rounded-lg px-3 py-2'}`}
       title={label}
     >
       <span className="font-normal tabular-nums">

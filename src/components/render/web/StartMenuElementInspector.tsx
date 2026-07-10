@@ -654,7 +654,7 @@ function NumberField({
         <div className="px-1 text-[10px] leading-4 text-slate-500">{description}</div>
       )}
       <div
-        className="grid h-10 grid-cols-[34px_minmax(0,1fr)] items-center rounded-xl bg-white"
+        className="grid h-10 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-xl bg-white"
         title={label}
       >
         <span className="flex h-full items-center justify-center text-slate-600" aria-hidden="true">
@@ -668,6 +668,8 @@ function NumberField({
           step={step}
           unit=""
           onChange={onChange}
+          className="h-full rounded-l-none rounded-r-xl px-3 py-0"
+          editingClassName="ring-inset"
         />
       </div>
     </div>
@@ -710,71 +712,79 @@ function PositionAlignButtons({
   className?: string;
   onAlign: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
 }) {
-  const items: Array<{
+  const horizontalItems: Array<{
     key: string;
-    label: string;
-    axis: 'x' | 'y';
     value: 'start' | 'center' | 'end';
     icon: React.ReactNode;
   }> = [
     {
       key: 'left',
-      label: 'Align left',
-      axis: 'x',
       value: 'start',
       icon: <AlignHorizontalJustifyStart className="h-5 w-5" />,
     },
     {
       key: 'center-x',
-      label: 'Align horizontal center',
-      axis: 'x',
       value: 'center',
       icon: <AlignHorizontalJustifyCenter className="h-5 w-5" />,
     },
     {
       key: 'right',
-      label: 'Align right',
-      axis: 'x',
       value: 'end',
       icon: <AlignHorizontalJustifyEnd className="h-5 w-5" />,
     },
+  ];
+
+  const verticalItems: Array<{
+    key: string;
+    value: 'start' | 'center' | 'end';
+    icon: React.ReactNode;
+  }> = [
     {
       key: 'top',
-      label: 'Align top',
-      axis: 'y',
       value: 'start',
       icon: <AlignVerticalJustifyStart className="h-5 w-5" />,
     },
     {
       key: 'center-y',
-      label: 'Align vertical center',
-      axis: 'y',
       value: 'center',
       icon: <AlignVerticalJustifyCenter className="h-5 w-5" />,
     },
     {
       key: 'bottom',
-      label: 'Align bottom',
-      axis: 'y',
       value: 'end',
       icon: <AlignVerticalJustifyEnd className="h-5 w-5" />,
     },
   ];
 
   return (
-    <div className={`grid grid-cols-6 gap-2 rounded-xl bg-white/50 ${className}`}>
-      {items.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onAlign(item.axis, item.value)}
-          className="grid h-10 min-w-0 place-items-center rounded-xl bg-white text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-          title={item.label}
-          aria-label={item.label}
-        >
-          {item.icon}
-        </button>
-      ))}
+    <div className={`${className}`}>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+        <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
+          {horizontalItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onAlign('x', item.value)}
+              className="grid h-10 min-w-0 place-items-center text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              {item.icon}
+            </button>
+          ))}
+        </div>
+        <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
+          {verticalItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onAlign('y', item.value)}
+              className="grid h-10 min-w-0 place-items-center text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              {item.icon}
+            </button>
+          ))}
+        </div>
+        <div aria-hidden="true" />
+      </div>
     </div>
   );
 }
