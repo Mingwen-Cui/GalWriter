@@ -166,11 +166,29 @@ export function WebPlaytestPreview({
     centerY?: number;
     startAngle?: number;
   } | null>(null);
+  const startMenuMarqueeRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    rect: DOMRect;
+  } | null>(null);
+  const startMenuMarqueeBoxRef = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const imagePreloadRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [localSelectedStartMenuElementId, setLocalSelectedStartMenuElementId] = useState<
     string | null
   >(null);
   const [editingStartMenuElementId, setEditingStartMenuElementId] = useState<string | null>(null);
+  const [selectedStartMenuElementIds, setSelectedStartMenuElementIds] = useState<string[]>([]);
+  const [startMenuMarqueeBox, setStartMenuMarqueeBox] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [activeStartMenuGuideLines, setActiveStartMenuGuideLines] = useState<
     WebAlignmentGuideLine[]
   >([]);
@@ -181,6 +199,7 @@ export function WebPlaytestPreview({
   const setSelectedStartMenuElementId = React.useCallback(
     (id: string | null) => {
       setLocalSelectedStartMenuElementId(id);
+      setSelectedStartMenuElementIds(id ? [id] : []);
       onSelectStartMenuElement?.(id);
     },
     [onSelectStartMenuElement],
@@ -1113,6 +1132,7 @@ export function WebPlaytestPreview({
     resizeHandle?: StartMenuResizeHandle,
   ) => {
     if (previewMode !== 'edit') return;
+    if (event.button === 2) return;
     const rect = startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
@@ -1141,7 +1161,79 @@ export function WebPlaytestPreview({
           : 'grabbing';
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
+  const beginStartMenuMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (previewMode !== 'edit' || event.button !== 2) return;
+    const rect = startMenuEditorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
+    startMenuMarqueeRef.current = {
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      rect,
+    };
+    const nextBox = {
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+      width: 0,
+      height: 0,
+    };
+    startMenuMarqueeBoxRef.current = nextBox;
+    setStartMenuMarqueeBox(nextBox);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const updateStartMenuMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = startMenuMarqueeRef.current;
+    if (!marquee) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = ((marquee.startClientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const startY = ((marquee.startClientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const currentX = ((event.clientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const currentY = ((event.clientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const left = Math.max(0, Math.min(startX, currentX));
+    const top = Math.max(0, Math.min(startY, currentY));
+    const right = Math.min(100, Math.max(startX, currentX));
+    const bottom = Math.min(100, Math.max(startY, currentY));
+    const nextBox = {
+      x: left,
+      y: top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+    startMenuMarqueeBoxRef.current = nextBox;
+    setStartMenuMarqueeBox(nextBox);
+  };
+  const finishStartMenuMarquee = (event?: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = startMenuMarqueeRef.current;
+    const box = startMenuMarqueeBoxRef.current;
+    if (!marquee || !box) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    const selectedIds = testStartMenuElements
+      .filter((element) => {
+        if (!element.visible && previewMode !== 'edit') return false;
+        return (
+          element.x < box.x + box.width &&
+          element.x + element.width > box.x &&
+          element.y < box.y + box.height &&
+          element.y + element.height > box.y
+        );
+      })
+      .map((element) => element.id);
+    startMenuMarqueeRef.current = null;
+    startMenuMarqueeBoxRef.current = null;
+    setStartMenuMarqueeBox(null);
+    setSelectedStartMenuElementIds(selectedIds);
+    const activeId = selectedIds[selectedIds.length - 1] || null;
+    setLocalSelectedStartMenuElementId(activeId);
+    onSelectStartMenuElement?.(activeId);
+  };
   const handleStartMenuEditPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (startMenuMarqueeRef.current) {
+      updateStartMenuMarquee(event);
+      return;
+    }
     const drag = startMenuEditDragRef.current;
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
@@ -1234,6 +1326,10 @@ export function WebPlaytestPreview({
     }
   };
   const stopStartMenuEditDrag = () => {
+    if (startMenuMarqueeRef.current) {
+      finishStartMenuMarquee();
+      return;
+    }
     startMenuEditDragRef.current = null;
     setActiveStartMenuGuideLines([]);
     document.body.style.cursor = '';
@@ -1306,6 +1402,10 @@ export function WebPlaytestPreview({
           onPointerMove={handleStartMenuEditPointerMove}
           onPointerUp={stopStartMenuEditDrag}
           onPointerCancel={stopStartMenuEditDrag}
+          onPointerDown={beginStartMenuMarquee}
+          onContextMenu={(event) => {
+            if (previewMode === 'edit') event.preventDefault();
+          }}
           onClick={(event) => {
             if (previewMode === 'edit') {
               event.stopPropagation();
@@ -1328,12 +1428,26 @@ export function WebPlaytestPreview({
               ))}
             </div>
           )}
+          {previewMode === 'edit' && startMenuMarqueeBox && (
+            <div
+              className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+              style={{
+                left: `${startMenuMarqueeBox.x}%`,
+                top: `${startMenuMarqueeBox.y}%`,
+                width: `${startMenuMarqueeBox.width}%`,
+                height: `${startMenuMarqueeBox.height}%`,
+              }}
+            />
+          )}
 
           {testStartMenuElements.map((element) => (
             <WebPlaytestStartMenuElement
               key={element.id}
               element={element}
-              selected={selectedStartMenuElementId === element.id}
+              selected={
+                selectedStartMenuElementId === element.id ||
+                selectedStartMenuElementIds.includes(element.id)
+              }
               action={
                 element.kind === 'button' && element.role
                   ? startMenuActionMap.get(element.role) || null

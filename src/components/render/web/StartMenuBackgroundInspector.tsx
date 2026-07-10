@@ -1,4 +1,4 @@
-import { Palette } from 'lucide-react';
+import { ChevronDown, Image as ImageIcon, Palette } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 
@@ -35,6 +35,7 @@ export function StartMenuBackgroundInspector({
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
   const [openEditor, setOpenEditor] = useState<BackgroundType | null>(null);
+  const [open, setOpen] = useState(true);
   const gradientStops = normalizeGradientStops(
     settings.startMenuBackgroundGradientStops,
     settings.startMenuBackgroundGradientStart,
@@ -51,35 +52,40 @@ export function StartMenuBackgroundInspector({
   };
 
   return (
-    <div className="relative grid gap-2 rounded-xl bg-sky-50 p-3 text-slate-900">
-      {showDescriptions && (
-        <div className="px-1 text-[10px] font-bold text-slate-500">
-          {text.group.fill}
+    <div className="relative rounded-[22px] bg-sky-50/80 p-3 text-slate-900">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+        <div
+          className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-sky-100 px-3 text-sm font-bold text-slate-900"
+          title={text.group.fill}
+          aria-label={text.group.fill}
+        >
+          <Palette className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{text.group.fill}</span>
         </div>
-      )}
-      <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-white">
-        {(['solid', 'gradient', 'image'] as BackgroundType[]).map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => {
-              setBackgroundType(type);
-              setOpenEditor(openEditor === type ? null : type);
-            }}
-            className={`flex h-9 items-center justify-center gap-1 text-xs font-bold ${
-              settings.startMenuBackgroundType === type
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-700'
-            }`}
-          >
-            <Palette className="h-3.5 w-3.5" />
-            {type === 'solid'
-              ? text.option.solid
-              : type === 'gradient'
-                ? text.option.gradient
-                : text.option.image}
-          </button>
-        ))}
+        <FillTabs
+          value={settings.startMenuBackgroundType}
+          text={text}
+          onChange={(type) => {
+            setBackgroundType(type);
+            setOpenEditor(openEditor === type ? null : type);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          className="grid h-10 w-11 place-items-center rounded-xl bg-sky-100 text-slate-900"
+          title={text.group.fill}
+          aria-label={text.group.fill}
+          aria-expanded={open}
+        >
+          <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      <div className={open ? 'mt-3' : 'hidden'}>
+        {showDescriptions && (
+          <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
+        )}
+        <BackgroundPreview settings={settings} />
       </div>
       {openEditor === 'solid' && (
         <FloatingPopover>
@@ -137,4 +143,63 @@ export function StartMenuBackgroundInspector({
 
 function FloatingPopover({ children }: { children: React.ReactNode }) {
   return <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-[80]">{children}</div>;
+}
+
+function FillTabs({
+  value,
+  text,
+  onChange,
+}: {
+  value: BackgroundType;
+  text: ReturnType<typeof renderObjectText>;
+  onChange: (value: BackgroundType) => void;
+}) {
+  const options: Array<{ type: BackgroundType; label: string; icon: React.ReactNode }> = [
+    { type: 'solid', label: text.option.solid, icon: <Palette className="h-3.5 w-3.5" /> },
+    { type: 'gradient', label: text.option.gradient, icon: <GradientIcon /> },
+    { type: 'image', label: text.option.image, icon: <ImageIcon className="h-3.5 w-3.5" /> },
+  ];
+  return (
+    <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
+      {options.map(({ type, label, icon }) => (
+        <button
+          key={type}
+          type="button"
+          onClick={() => onChange(type)}
+          className={`flex h-10 min-w-0 items-center justify-center px-2 text-xs font-bold ${
+            value === type ? 'bg-indigo-600 text-white' : 'text-slate-700'
+          }`}
+          title={label}
+          aria-label={label}
+          aria-pressed={value === type}
+        >
+          {icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BackgroundPreview({ settings }: { settings: WebExportSettings }) {
+  const background =
+    settings.startMenuBackgroundType === 'gradient'
+      ? `linear-gradient(${settings.startMenuBackgroundGradientAngle}deg, ${settings.startMenuBackgroundGradientStart}, ${settings.startMenuBackgroundGradientEnd})`
+      : settings.startMenuBackgroundType === 'image'
+        ? `center / cover url("${settings.startMenuBackgroundImageUrl}")`
+        : settings.startMenuBackgroundColor;
+  return (
+    <div className="h-10 rounded-xl border border-white/60 bg-white p-1">
+      <div className="h-full rounded-lg" style={{ background }} />
+    </div>
+  );
+}
+
+function GradientIcon() {
+  return (
+    <span
+      className="block h-3.5 w-3.5 rounded-full border border-current/30"
+      style={{ background: 'linear-gradient(135deg, currentColor 0%, transparent 100%)' }}
+      aria-hidden="true"
+    />
+  );
 }

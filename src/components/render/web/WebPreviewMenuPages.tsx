@@ -85,6 +85,25 @@ export function WebPreviewMenuPages({
   const archiveRootRef = useRef<HTMLDivElement>(null);
   const settingsRootRef = useRef<HTMLDivElement>(null);
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const marqueeRef = useRef<{
+    page: 'archive' | 'settings';
+    startClientX: number;
+    startClientY: number;
+    rect: DOMRect;
+  } | null>(null);
+  const marqueeBoxRef = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const elementDragRef = useRef<{
     page: 'archive' | 'settings';
     id: string;
@@ -123,11 +142,13 @@ export function WebPreviewMenuPages({
     resizeHandle?: PlacementResizeHandle,
   ) => {
     if (previewMode !== 'edit') return;
+    if (event.button === 2) return;
     const rect = (page === 'archive' ? archiveRootRef.current : settingsRootRef.current)?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
     onSelectElement?.(element.id);
+    setSelectedElementIds([element.id]);
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
@@ -148,7 +169,72 @@ export function WebPreviewMenuPages({
       type === 'rotate' ? 'alias' : type === 'resize' && resizeHandle ? resizeCursorByHandle[resizeHandle] : 'grabbing';
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
+  const beginMarquee = (page: 'archive' | 'settings', event: React.PointerEvent<HTMLDivElement>) => {
+    if (previewMode !== 'edit' || event.button !== 2) return;
+    const root = page === 'archive' ? archiveRootRef.current : settingsRootRef.current;
+    const rect = root?.getBoundingClientRect();
+    if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
+    marqueeRef.current = { page, startClientX: event.clientX, startClientY: event.clientY, rect };
+    const nextBox = {
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+      width: 0,
+      height: 0,
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+  };
+  const updateMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = marqueeRef.current;
+    if (!marquee) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = ((marquee.startClientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const startY = ((marquee.startClientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const currentX = ((event.clientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const currentY = ((event.clientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const left = Math.max(0, Math.min(startX, currentX));
+    const top = Math.max(0, Math.min(startY, currentY));
+    const right = Math.min(100, Math.max(startX, currentX));
+    const bottom = Math.min(100, Math.max(startY, currentY));
+    const nextBox = {
+      x: left,
+      y: top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+  };
+  const finishMarquee = (event?: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = marqueeRef.current;
+    const box = marqueeBoxRef.current;
+    if (!marquee || !box) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    const nextIds = getPageElements(marquee.page)
+      .filter((element) => previewMode === 'edit' || element.visible !== false)
+      .filter(
+        (element) =>
+          element.x < box.x + box.width &&
+          element.x + element.width > box.x &&
+          element.y < box.y + box.height &&
+          element.y + element.height > box.y,
+      )
+      .map((element) => element.id);
+    marqueeRef.current = null;
+    marqueeBoxRef.current = null;
+    setMarqueeBox(null);
+    setSelectedElementIds(nextIds);
+    onSelectElement?.(nextIds[nextIds.length - 1] || null);
+  };
   const handleElementPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (marqueeRef.current) {
+      updateMarquee(event);
+      return;
+    }
     const drag = elementDragRef.current;
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
@@ -218,6 +304,10 @@ export function WebPreviewMenuPages({
     updatePageElement(drag.page, drag.id, next);
   };
   const endElementDrag = () => {
+    if (marqueeRef.current) {
+      finishMarquee();
+      return;
+    }
     if (!elementDragRef.current) return;
     elementDragRef.current = null;
     setActiveGuideLines([]);
@@ -233,13 +323,19 @@ export function WebPreviewMenuPages({
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
+          onPointerDown={(event) => beginMarquee('archive', event)}
+          onContextMenu={(event) => {
+            if (previewMode === 'edit') event.preventDefault();
+          }}
         >
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
+          <MarqueeLayer box={marqueeRef.current?.page === 'archive' ? marqueeBox : null} visible={previewMode === 'edit'} />
           <MenuPageElementLayer
             page="archive"
             elements={archiveElements}
             selectedElementId={selectedStartMenuElementId}
+            selectedElementIds={selectedElementIds}
             previewMode={previewMode}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
@@ -261,13 +357,19 @@ export function WebPreviewMenuPages({
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
+          onPointerDown={(event) => beginMarquee('settings', event)}
+          onContextMenu={(event) => {
+            if (previewMode === 'edit') event.preventDefault();
+          }}
         >
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
+          <MarqueeLayer box={marqueeRef.current?.page === 'settings' ? marqueeBox : null} visible={previewMode === 'edit'} />
           <MenuPageElementLayer
             page="settings"
             elements={settingsElements}
             selectedElementId={selectedStartMenuElementId}
+            selectedElementIds={selectedElementIds}
             previewMode={previewMode}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
@@ -296,6 +398,7 @@ type MenuPageElementLayerProps = {
   page: 'archive' | 'settings';
   elements: WebMenuElement[];
   selectedElementId?: string | null;
+  selectedElementIds?: string[];
   previewMode: 'edit' | 'test';
   choiceColor: string;
   choiceTextColor: string;
@@ -316,6 +419,7 @@ function MenuPageElementLayer({
   page,
   elements,
   selectedElementId,
+  selectedElementIds = [],
   previewMode,
   choiceColor,
   choiceTextColor,
@@ -337,7 +441,7 @@ function MenuPageElementLayer({
       {elements
         .filter((element) => editable || element.visible !== false)
         .map((element) => {
-          const selected = selectedElementId === element.id;
+          const selected = selectedElementId === element.id || selectedElementIds.includes(element.id);
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -391,6 +495,7 @@ function MenuPageElementLayer({
                 onClick={(event) => {
                   event.stopPropagation();
                   if (editable) {
+                    if (event.button === 2) return;
                     onSelectElement?.(element.id);
                     return;
                   }
@@ -434,7 +539,7 @@ function MenuPageElementLayer({
                 }}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (editable) onSelectElement?.(element.id);
+                  if (editable && event.button !== 2) onSelectElement?.(element.id);
                 }}
               >
                 <span className="block h-full w-full overflow-hidden" style={{ borderRadius: element.borderRadius ?? 12 }}>
@@ -473,7 +578,7 @@ function MenuPageElementLayer({
               }}
               onClick={(event) => {
                 event.stopPropagation();
-                if (editable) onSelectElement?.(element.id);
+                if (editable && event.button !== 2) onSelectElement?.(element.id);
               }}
               onDoubleClick={(event) => {
                 if (!editable) return;
@@ -552,5 +657,26 @@ function AlignmentGuideLayer({
         />
       ))}
     </div>
+  );
+}
+
+function MarqueeLayer({
+  box,
+  visible,
+}: {
+  box: { x: number; y: number; width: number; height: number } | null;
+  visible: boolean;
+}) {
+  if (!visible || !box) return null;
+  return (
+    <div
+      className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+      style={{
+        left: `${box.x}%`,
+        top: `${box.y}%`,
+        width: `${box.width}%`,
+        height: `${box.height}%`,
+      }}
+    />
   );
 }

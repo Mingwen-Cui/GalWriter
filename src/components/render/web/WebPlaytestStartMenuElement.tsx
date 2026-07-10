@@ -175,6 +175,7 @@ export function WebPlaytestStartMenuElement({
   return (
     <div
       className={`absolute origin-center pointer-events-auto ${previewMode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      data-selectable-element-id={element.id}
       style={{
         ...elementStyle,
         zIndex: selected ? 40 : 20,

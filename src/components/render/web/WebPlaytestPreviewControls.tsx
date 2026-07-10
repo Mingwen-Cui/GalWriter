@@ -10,7 +10,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
@@ -310,12 +310,95 @@ export function PreviewFloatingElementLayer({
   onAction?: (element: WebMenuElement) => void;
 }) {
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const marqueeRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    rect: DOMRect;
+  } | null>(null);
+  const marqueeBoxRef = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const snapGuideElements = guideElements || elements;
+  const beginMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (previewMode !== 'edit' || event.button !== 2) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    event.preventDefault();
+    event.stopPropagation();
+    marqueeRef.current = { startClientX: event.clientX, startClientY: event.clientY, rect };
+    const nextBox = {
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+      width: 0,
+      height: 0,
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+  };
+  const updateMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const marquee = marqueeRef.current;
+    if (!marquee) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = ((marquee.startClientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const startY = ((marquee.startClientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const currentX = ((event.clientX - marquee.rect.left) / marquee.rect.width) * 100;
+    const currentY = ((event.clientY - marquee.rect.top) / marquee.rect.height) * 100;
+    const left = Math.max(0, Math.min(startX, currentX));
+    const top = Math.max(0, Math.min(startY, currentY));
+    const right = Math.min(100, Math.max(startX, currentX));
+    const bottom = Math.min(100, Math.max(startY, currentY));
+    const nextBox = {
+      x: left,
+      y: top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+    marqueeBoxRef.current = nextBox;
+    setMarqueeBox(nextBox);
+  };
+  const finishMarquee = (event?: React.PointerEvent<HTMLDivElement>) => {
+    const box = marqueeBoxRef.current;
+    if (!marqueeRef.current || !box) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    const nextIds = elements
+      .filter((element) => previewMode === 'edit' || element.visible !== false)
+      .filter(
+        (element) =>
+          element.x < box.x + box.width &&
+          element.x + element.width > box.x &&
+          element.y < box.y + box.height &&
+          element.y + element.height > box.y,
+      )
+      .map((element) => element.id);
+    marqueeRef.current = null;
+    marqueeBoxRef.current = null;
+    setMarqueeBox(null);
+    setSelectedElementIds(nextIds);
+    onSelectElement?.(nextIds[nextIds.length - 1] || null);
+  };
 
   return (
     <div
       data-toolbar-editor="true"
       className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
+      onPointerDown={beginMarquee}
+      onPointerMove={updateMarquee}
+      onPointerUp={finishMarquee}
+      onPointerCancel={finishMarquee}
+      onContextMenu={(event) => {
+        if (previewMode === 'edit') event.preventDefault();
+      }}
     >
       {previewMode === 'edit' && activeGuideLines.length > 0 && (
         <div className="pointer-events-none absolute inset-0 z-30">
@@ -332,19 +415,33 @@ export function PreviewFloatingElementLayer({
           ))}
         </div>
       )}
+      {previewMode === 'edit' && marqueeBox && (
+        <div
+          className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+          style={{
+            left: `${marqueeBox.x}%`,
+            top: `${marqueeBox.y}%`,
+            width: `${marqueeBox.width}%`,
+            height: `${marqueeBox.height}%`,
+          }}
+        />
+      )}
       {elements
         .filter((element) => previewMode === 'edit' || element.visible !== false)
         .map((element) => (
           <ToolbarElement
             key={element.id}
             element={element}
-            selected={selectedElementId === element.id}
+            selected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
             previewMode={previewMode}
             disabled={Boolean(isDisabled?.(element))}
             active={Boolean(isActive?.(element))}
             icon={getIcon?.(element)}
             guideElements={snapGuideElements}
-            onSelect={onSelectElement}
+            onSelect={(id) => {
+              setSelectedElementIds(id ? [id] : []);
+              onSelectElement?.(id);
+            }}
             onUpdate={onUpdateElement}
             onGuideLinesChange={setActiveGuideLines}
             onAction={() => onAction?.(element)}
@@ -382,6 +479,7 @@ function ToolbarElement({
   const editable = previewMode === 'edit';
   const beginDrag = (event: React.PointerEvent<HTMLElement>, type: 'move' | 'resize' | 'rotate', handle?: WebEditableResizeHandle) => {
     if (!editable || !onUpdate) return;
+    if (event.button === 2) return;
     event.preventDefault();
     event.stopPropagation();
     onSelect?.(element.id);

@@ -126,6 +126,30 @@ export function RenderObjectInspector({
             <ToggleButton active={selected.flipY} label={text.field.flipY} onClick={() => setObject({ flipY: !selected.flipY })} compact />
           </div>
         </div>
+        <PositionAlignButtons
+          className="mt-2"
+          onAlign={(axis, value) => {
+            if (axis === 'x') {
+              setObject({
+                x:
+                  value === 'start'
+                    ? 0
+                    : value === 'center'
+                      ? (100 - selected.width) / 2
+                      : 100 - selected.width,
+              });
+            } else {
+              setObject({
+                y:
+                  value === 'start'
+                    ? 0
+                    : value === 'center'
+                      ? (100 - selected.height) / 2
+                      : 100 - selected.height,
+              });
+            }
+          }}
+        />
       </InspectorGroup>
 
       {textObject && (
@@ -349,6 +373,60 @@ function AlignButtons({ value, onChange }: { value: TextAlign; onChange: (value:
         </button>
       ))}
     </div>
+  );
+}
+
+function PositionAlignButtons({
+  className = '',
+  onAlign,
+}: {
+  className?: string;
+  onAlign: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
+}) {
+  const items: Array<{
+    key: string;
+    axis: 'x' | 'y';
+    value: 'start' | 'center' | 'end';
+    icon: React.ReactNode;
+  }> = [
+    { key: 'left', axis: 'x', value: 'start', icon: <AlignLeft className="h-4 w-4" /> },
+    { key: 'center-x', axis: 'x', value: 'center', icon: <AlignCenter className="h-4 w-4" /> },
+    { key: 'right', axis: 'x', value: 'end', icon: <AlignRight className="h-4 w-4" /> },
+    { key: 'top', axis: 'y', value: 'start', icon: <VerticalAlignIcon value="start" /> },
+    { key: 'center-y', axis: 'y', value: 'center', icon: <VerticalAlignIcon value="center" /> },
+    { key: 'bottom', axis: 'y', value: 'end', icon: <VerticalAlignIcon value="end" /> },
+  ];
+  return (
+    <div className={`grid grid-cols-6 overflow-hidden rounded-lg bg-white ${className}`}>
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onAlign(item.axis, item.value)}
+          className="grid h-9 place-items-center text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+        >
+          {item.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function VerticalAlignIcon({ value }: { value: 'start' | 'center' | 'end' }) {
+  return (
+    <span className="relative block h-4 w-4">
+      <span className="absolute left-0 right-0 top-0 h-0.5 rounded bg-current" />
+      <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded bg-current" />
+      <span
+        className={`absolute left-1/2 h-2.5 w-0.5 -translate-x-1/2 rounded bg-current ${
+          value === 'start'
+            ? 'top-0.5'
+            : value === 'center'
+              ? 'top-1/2 -translate-y-1/2'
+              : 'bottom-0.5'
+        }`}
+      />
+    </span>
   );
 }
 
