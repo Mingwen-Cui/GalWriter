@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { useRef } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
@@ -13,7 +14,7 @@ import type {
   StartMenuElement,
   StartMenuResizeHandle,
 } from './webPlaytestStartMenuTools';
-import { protectedStartMenuElementRoles, readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
   return webColorWithAlpha(color, alpha, '#ffffff');
@@ -90,6 +91,7 @@ export function WebPlaytestStartMenuElement({
   onDeleteElement,
   onBeginDrag,
 }: WebPlaytestStartMenuElementProps) {
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   if (!element.visible && previewMode !== 'edit') return null;
 
   const elementBackground =
@@ -123,7 +125,9 @@ export function WebPlaytestStartMenuElement({
     fontWeight: element.fontWeight,
     color: textColorWithAlpha(element.textColor, element.textColorAlpha),
     WebkitTextStroke:
-      element.strokeEnabled !== false && (element.textStrokeWidth ?? 0) > 0
+      element.textStrokeTarget !== 'box' &&
+      element.strokeEnabled !== false &&
+      (element.textStrokeWidth ?? 0) > 0
         ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
         : undefined,
     letterSpacing: Number.isFinite(Number(element.letterSpacing))
@@ -131,6 +135,7 @@ export function WebPlaytestStartMenuElement({
       : undefined,
     lineHeight: element.lineHeight,
     ...radiusStyle(element, 0),
+    ...(element.textStrokeTarget === 'box' ? webElementBoxStyle(element) : {}),
     whiteSpace: 'pre-wrap',
   };
 
@@ -139,6 +144,13 @@ export function WebPlaytestStartMenuElement({
     onSelectElement(element.id);
   };
   const visibleText = element.textVisible === false ? '' : element.text;
+  const openImagePicker = (event: React.MouseEvent<HTMLElement>) => {
+    if (previewMode !== 'edit') return;
+    event.preventDefault();
+    event.stopPropagation();
+    ensureAndSelect();
+    imageInputRef.current?.click();
+  };
 
   const content = (
     <span
@@ -169,6 +181,10 @@ export function WebPlaytestStartMenuElement({
       }}
       className={`outline-none ${
         previewMode === 'edit' && editingStartMenuElementId !== element.id ? 'cursor-text' : ''
+      } ${
+        previewMode === 'edit' && editingStartMenuElementId === element.id
+          ? 'opacity-50 caret-white'
+          : ''
       } ${!visibleText && element.textVisible !== false && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
     >
       {visibleText ||
@@ -185,7 +201,6 @@ export function WebPlaytestStartMenuElement({
     ensureAndSelect();
     onSetEditingElement(element.id);
   };
-  const canDeleteElement = !element.role || !protectedStartMenuElementRoles.has(element.role);
   const functionLabel =
     element.role === 'save'
       ? t('打开存档页', 'セーブ画面', 'Open saves')
@@ -222,26 +237,42 @@ export function WebPlaytestStartMenuElement({
       )}
       {element.kind === 'image' ? (
         element.imageUrl ? (
-          <img
-            src={element.imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            style={{
-              ...radiusStyle(element, 12),
-              ...webElementBoxStyle(element),
-              mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
-            }}
-            draggable={false}
-          />
+          <>
+            <img
+              src={element.imageUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                ...radiusStyle(element, 12),
+                ...webElementBoxStyle(element),
+                mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
+              }}
+              draggable={false}
+              onDoubleClick={openImagePicker}
+            />
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) readStartMenuImageFile(file, (imageUrl) => onUpdateElement(element.id, { imageUrl }));
+                event.currentTarget.value = '';
+              }}
+            />
+          </>
         ) : (
           <label
             className="grid h-full w-full cursor-pointer place-items-center border border-dashed border-white/35 bg-white/10 px-2 text-center text-[11px] font-black text-white/60"
             style={radiusStyle(element, 12)}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
+            onDoubleClick={openImagePicker}
           >
             {t('选择图片', '画像 URL', 'Image')}
             <input
+              ref={imageInputRef}
               type="file"
               accept="image/*"
               className="hidden"
@@ -316,14 +347,10 @@ export function WebPlaytestStartMenuElement({
             event.stopPropagation();
             onUpdateElement(element.id, { visible: !element.visible });
           }}
-          onDelete={
-            canDeleteElement
-              ? (event) => {
-                  event.stopPropagation();
-                  onDeleteElement?.(element.id);
-                }
-              : undefined
-          }
+          onDelete={(event) => {
+            event.stopPropagation();
+            onDeleteElement?.(element.id);
+          }}
           onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
         />
       )}

@@ -1096,7 +1096,10 @@ export const makeIndexHtml = (
             target.style.outline = width + "px solid " + color;
             target.style.outlineOffset = "0";
           } else {
-            target.style.border = width + "px solid " + color;
+            target.style.border = "0";
+            const halfWidth = width / 2;
+            shadows.push("inset 0 0 0 " + halfWidth + "px " + color);
+            shadows.push("0 0 0 " + halfWidth + "px " + color);
           }
         }
       }
@@ -1118,7 +1121,7 @@ export const makeIndexHtml = (
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
       target.style.color = styleColor(element.textColor, element.textColorAlpha, "#ffffff");
-      if (element.strokeEnabled !== false && Number(element.textStrokeWidth) > 0) {
+      if (element.textStrokeTarget !== "box" && element.strokeEnabled !== false && Number(element.textStrokeWidth) > 0) {
         target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
       }
       const shadow = customShadow(element, "text");
@@ -1130,6 +1133,7 @@ export const makeIndexHtml = (
         target.style.justifyContent = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start";
       }
       applyElementRadius(target, element, 0);
+      if (element.textStrokeTarget === "box") applyCustomBoxEffects(target, element);
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
       if (element.textVisible === false) target.textContent = "";

@@ -17,6 +17,7 @@ import {
   webElementShadowStyle,
 } from './webElementStyle';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -563,6 +564,7 @@ function MenuPageElementLayer({
             ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 12),
             WebkitTextStroke:
               element.kind === 'text' &&
+              element.textStrokeTarget !== 'box' &&
               element.strokeEnabled !== false &&
               (element.textStrokeWidth ?? 0) > 0
                 ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
@@ -615,17 +617,16 @@ function MenuPageElementLayer({
                 onClick={(event) => {
                   event.stopPropagation();
                   if (editable) {
+                    if (event.detail > 1) {
+                      const next = window.prompt('', element.text);
+                      if (next !== null) onUpdateElement(element.id, { text: next });
+                      return;
+                    }
                     if (event.button === 2) return;
                     onSelectElement?.(element.id);
                     return;
                   }
                   onAction(element);
-                }}
-                onDoubleClick={(event) => {
-                  if (!editable) return;
-                  event.stopPropagation();
-                  const next = window.prompt('', element.text);
-                  if (next !== null) onUpdateElement(element.id, { text: next });
                 }}
               >
                 <span
@@ -667,7 +668,12 @@ function MenuPageElementLayer({
                 }}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (editable && event.button !== 2) onSelectElement?.(element.id);
+                  if (!editable || event.button === 2) return;
+                  if (event.detail > 1) {
+                    event.currentTarget.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+                    return;
+                  }
+                  onSelectElement?.(element.id);
                 }}
               >
                 <span
@@ -684,6 +690,16 @@ function MenuPageElementLayer({
                       Image
                     </span>
                   )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      if (file) readStartMenuImageFile(file, (imageUrl) => onUpdateElement(element.id, { imageUrl }));
+                      event.currentTarget.value = '';
+                    }}
+                  />
                 </span>
                 {selected && (
                   <SelectedElementFrame
@@ -708,19 +724,20 @@ function MenuPageElementLayer({
                 justifyContent,
                 textAlign: element.textAlign || 'left',
                 ...webElementShadowStyle(element, 'text'),
+                ...(element.textStrokeTarget === 'box' ? webElementBoxStyle(element) : {}),
               }}
               onPointerDown={(event) => {
                 if (editable) onBeginElementDrag(page, event, element, 'move');
               }}
               onClick={(event) => {
                 event.stopPropagation();
-                if (editable && event.button !== 2) onSelectElement?.(element.id);
-              }}
-              onDoubleClick={(event) => {
-                if (!editable) return;
-                event.stopPropagation();
-                const next = window.prompt('', element.text);
-                if (next !== null) onUpdateElement(element.id, { text: next });
+                if (!editable || event.button === 2) return;
+                if (event.detail > 1) {
+                  const next = window.prompt('', element.text);
+                  if (next !== null) onUpdateElement(element.id, { text: next });
+                  return;
+                }
+                onSelectElement?.(element.id);
               }}
             >
               {element.textVisible !== false && (

@@ -66,14 +66,12 @@ const webElementBorderParts = (element: WebMenuElement) => {
         shadow: '',
       };
     }
+    const halfWidth = width / 2;
     return {
       style: {
-        borderColor: borderPaint,
-        borderWidth: width,
-        borderStyle: 'solid',
-        boxSizing: 'border-box',
+        border: 0,
       } as CSSProperties,
-      shadow: '',
+      shadow: `inset 0 0 0 ${halfWidth}px ${borderPaint}, 0 0 0 ${halfWidth}px ${borderPaint}`,
     };
   }
 

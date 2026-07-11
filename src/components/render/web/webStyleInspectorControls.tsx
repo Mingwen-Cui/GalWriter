@@ -429,6 +429,16 @@ export function GradientIcon() {
   );
 }
 
-export function FloatingPopover({ children }: { children: React.ReactNode }) {
-  return <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-[90]">{children}</div>;
+export function FloatingPopover({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`absolute left-3 right-3 top-[calc(100%-4px)] z-[90] ${className}`}>
+      {children}
+    </div>
+  );
 }

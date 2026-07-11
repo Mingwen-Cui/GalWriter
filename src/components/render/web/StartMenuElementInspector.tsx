@@ -3,6 +3,7 @@
   Blend,
   Box,
   CaseSensitive,
+  Check,
   Image as ImageIcon,
   Layers,
   Link2,
@@ -22,6 +23,7 @@ import type React from 'react';
 import { useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import { DragSizeControl } from '../video/controls/RenderControls';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
@@ -43,8 +45,10 @@ type InspectorProps = {
   element: WebMenuElement;
   language: Language;
   surface?: 'start' | 'archive' | 'settings' | 'game';
+  selectedElementIds?: string[];
   showDescriptions: boolean;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
+  onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
 };
 
 type Popover = null | {
@@ -149,16 +153,28 @@ const alphaColor = (color: string | undefined, alpha: number | undefined, fallba
   return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
 };
 
+const hexColor = (color: string | undefined, fallback = '#000000') => {
+  const source = String(color || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(source)) return source.toLowerCase();
+  const rgb = source.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (!rgb) return fallback;
+  const channels = rgb.slice(1, 4).map((channel) => Math.max(0, Math.min(255, Number(channel))));
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+};
+
 export function StartMenuElementInspector({
   element,
   language,
   surface = 'start',
+  selectedElementIds = [],
   showDescriptions,
   onUpdate,
+  onAlignSelected,
 }: InspectorProps) {
   const text = renderObjectText(language);
   const [popover, setPopover] = useState<Popover>(null);
   const [radiusPopoverOpen, setRadiusPopoverOpen] = useState(false);
+  const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
   const backgroundType = element.backgroundType || 'solid';
   const gradientStops = normalizeGradientStops(
     element.backgroundGradientStops,
@@ -167,7 +183,8 @@ export function StartMenuElementInspector({
   );
   const hasTextControls = element.kind !== 'image';
   const hasFillControls = element.kind !== 'text';
-  const strokeIsText = element.kind === 'text';
+  const textStrokeTarget = element.textStrokeTarget || 'text';
+  const strokeIsText = element.kind === 'text' && textStrokeTarget === 'text';
   const strokeColor = strokeIsText
     ? element.textStrokeColor || '#000000'
     : element.borderColor || '#ffffff';
@@ -440,6 +457,10 @@ export function StartMenuElementInspector({
         <PositionAlignButtons
           className="mt-2"
           onAlign={(axis, value) => {
+            if (selectedElementIds.length > 1 && onAlignSelected) {
+              onAlignSelected(axis, value);
+              return;
+            }
             if (axis === 'x') {
               onUpdate({
                 x:
@@ -651,50 +672,78 @@ export function StartMenuElementInspector({
           }
         >
           <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            {backgroundType === 'solid' && (
-              <InlineColorControl
-                label={text.popover.solidTitle}
-                color={element.backgroundColor || '#0ea5e9'}
-                alpha={100}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(backgroundColor) =>
-                  onUpdate({ backgroundColor, backgroundType: 'solid' })
-                }
-              />
-            )}
-            {backgroundType === 'gradient' && (
-              <InlineGradientControl
-                label={text.popover.gradientTitle}
-                angle={element.backgroundGradientAngle ?? 135}
-                stops={gradientStops}
-                onOpen={() => setPopover({ group: 'fill', type: 'gradient' })}
-              />
-            )}
-            {backgroundType === 'image' && (
-              <InlineImageControl
-                label={element.backgroundImageUrl ? text.popover.replace : text.popover.upload}
-                imageUrl={element.backgroundImageUrl || ''}
-                onImageChange={(backgroundImageUrl) =>
-                  onUpdate({ backgroundImageUrl, backgroundType: 'image' })
-                }
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => setPopover({ group: 'fill', type: backgroundType })}
-              className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-sky-100 hover:text-slate-950"
-              title={text.field.color}
-              aria-label={text.field.color}
-            >
-              {backgroundType === 'image' ? (
-                <ImageIcon className="h-4 w-4" />
-              ) : backgroundType === 'gradient' ? (
-                <GradientIcon />
-              ) : (
-                <Palette className="h-4 w-4" />
+            <div className="min-w-0">
+              {backgroundType === 'solid' && (
+                <InlineColorControl
+                  label={text.popover.solidTitle}
+                  color={element.backgroundColor || '#0ea5e9'}
+                  alpha={100}
+                  alphaLabel={text.field.opacity}
+                  hexLabel={text.popover.hex}
+                  onColorChange={(backgroundColor) =>
+                    onUpdate({ backgroundColor, backgroundType: 'solid' })
+                  }
+                  onAlphaChange={(opacity) => onUpdate({ opacity })}
+                  onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
+                />
               )}
-            </button>
+              {backgroundType === 'gradient' && (
+                <InlineGradientControl
+                  label={text.popover.gradientTitle}
+                  stops={gradientStops}
+                  onOpen={() => setPopover({ group: 'fill', type: 'gradient' })}
+                  onAlphaChange={(alpha) =>
+                    onUpdate({
+                      backgroundGradientStops: gradientStops.map((stop) => ({ ...stop, alpha })),
+                    })
+                  }
+                />
+              )}
+              {backgroundType === 'image' && (
+                <InlineImageControl
+                  label={element.backgroundImageUrl ? text.popover.replace : text.popover.upload}
+                  imageUrl={element.backgroundImageUrl || ''}
+                  onImageChange={(backgroundImageUrl) =>
+                    onUpdate({ backgroundImageUrl, backgroundType: 'image' })
+                  }
+                />
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setFillBlendMenuOpen((open) => !open)}
+                className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-sky-100 hover:text-slate-950"
+                title={text.field.blendMode}
+                aria-label={text.field.blendMode}
+                aria-expanded={fillBlendMenuOpen}
+              >
+                <Blend className="h-4 w-4" />
+              </button>
+              {fillBlendMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-sky-100 bg-white py-1 shadow-xl shadow-slate-950/15">
+                  {BLEND_OPTIONS.map((blendMode) => {
+                    const selected = (element.blendMode || 'normal') === blendMode;
+                    return (
+                      <button
+                        key={blendMode}
+                        type="button"
+                        onClick={() => {
+                          onUpdate({ blendMode });
+                          setFillBlendMenuOpen(false);
+                        }}
+                        className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs font-medium transition-colors ${
+                          selected ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{blendMode}</span>
+                        {selected && <Check className="h-4 w-4" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           {popover?.group === 'fill' && backgroundType === 'solid' && (
             <FloatingPopover>
@@ -702,16 +751,16 @@ export function StartMenuElementInspector({
                 tone="fill"
                 text={text.popover}
                 color={element.backgroundColor || '#0ea5e9'}
-                alpha={100}
+                alpha={element.opacity ?? 100}
                 onColorChange={(backgroundColor) =>
                   onUpdate({ backgroundColor, backgroundType: 'solid' })
                 }
-                onAlphaChange={() => undefined}
+                onAlphaChange={(opacity) => onUpdate({ opacity })}
               />
             </FloatingPopover>
           )}
           {popover?.group === 'fill' && backgroundType === 'gradient' && (
-            <OutsideDismissPopover onClose={() => setPopover(null)}>
+            <FloatingPopover className="left-0 right-auto w-[min(480px,calc(100vw-2.5rem))]">
               <GradientEditorPopover
                 language={language}
                 angle={element.backgroundGradientAngle ?? 135}
@@ -731,7 +780,7 @@ export function StartMenuElementInspector({
                   });
                 }}
               />
-            </OutsideDismissPopover>
+            </FloatingPopover>
           )}
           {popover?.group === 'fill' && backgroundType === 'image' && (
             <FloatingPopover>
@@ -752,16 +801,6 @@ export function StartMenuElementInspector({
               />
             </FloatingPopover>
           )}
-          <ControlRow className="mt-2">
-            <HeaderSelect
-              icon={<Blend className="h-4 w-4" />}
-              label={text.field.blendMode}
-              value={element.blendMode || 'normal'}
-              options={BLEND_OPTIONS.map((value) => ({ label: value, value }))}
-              onChange={(blendMode) => onUpdate({ blendMode })}
-            />
-            <div aria-hidden="true" />
-          </ControlRow>
         </Group>
       )}
 
@@ -871,8 +910,23 @@ export function StartMenuElementInspector({
               onUpdate(strokeIsText ? { textStrokeWidth: value } : { borderWidth: value })
             }
           />
-          {strokeIsText ? (
-            <div aria-hidden="true" />
+          {element.kind === 'text' ? (
+            <TwoSegmentControl
+              value={textStrokeTarget}
+              options={[
+                {
+                  value: 'text',
+                  label: language === 'zh' ? '文字描边' : language === 'ja' ? '文字縁取り' : 'Text stroke',
+                  icon: <Type className="h-4 w-4" />,
+                },
+                {
+                  value: 'box',
+                  label: language === 'zh' ? '文字框描边' : language === 'ja' ? '文字枠線' : 'Text frame',
+                  icon: <Box className="h-4 w-4" />,
+                },
+              ]}
+              onChange={(textStrokeTarget) => onUpdate({ textStrokeTarget: textStrokeTarget as 'text' | 'box' })}
+            />
           ) : (
             <SegmentedIconControl
               value={strokePosition}
@@ -886,40 +940,32 @@ export function StartMenuElementInspector({
           )}
         </ControlRow>
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          {strokeType === 'gradient' && !strokeIsText ? (
-            <InlineGradientControl
-              label={text.popover.gradientTitle}
-              angle={element.borderGradientAngle ?? 135}
-              stops={borderGradientStops}
-              onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
-            />
-          ) : (
-            <InlineColorControl
-              label={text.field.color}
-              color={strokeColor}
-              alpha={100}
-              alphaLabel={text.field.opacity}
-              hexLabel={text.popover.hex}
-              onColorChange={(value) =>
-                onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
-              }
-            />
-          )}
-          <button
-            type="button"
-            onClick={() =>
-              setPopover(
-                popover?.group === 'stroke'
-                  ? null
-                  : { group: 'stroke', type: strokeType === 'gradient' ? 'gradient' : 'solid' },
-              )
-            }
-            className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-indigo-100 hover:text-slate-950"
-            title={text.field.color}
-            aria-label={text.field.color}
-          >
-            {strokeType === 'gradient' && !strokeIsText ? <GradientIcon /> : <Palette className="h-4 w-4" />}
-          </button>
+          <div className="min-w-0">
+            {strokeType === 'gradient' && !strokeIsText ? (
+              <InlineGradientControl
+                label={text.popover.gradientTitle}
+                stops={borderGradientStops}
+                onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
+                onAlphaChange={(alpha) =>
+                  onUpdate({ borderGradientStops: borderGradientStops.map((stop) => ({ ...stop, alpha })) })
+                }
+              />
+            ) : (
+              <InlineColorControl
+                label={text.field.color}
+                color={strokeColor}
+                alpha={100}
+                alphaLabel={text.field.opacity}
+                hexLabel={text.popover.hex}
+                onColorChange={(value) =>
+                  onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
+                }
+                onAlphaChange={(opacity) => onUpdate({ opacity })}
+                onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
+              />
+            )}
+          </div>
+          <div className="h-10 w-11" aria-hidden="true" />
         </div>
         {popover?.group === 'stroke' && popover.type === 'solid' && (
           <FloatingPopover>
@@ -927,16 +973,16 @@ export function StartMenuElementInspector({
               tone="stroke"
               text={text.popover}
               color={strokeColor}
-              alpha={100}
+              alpha={element.opacity ?? 100}
               onColorChange={(value) =>
                 onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
               }
-              onAlphaChange={() => undefined}
+              onAlphaChange={(opacity) => onUpdate({ opacity })}
             />
           </FloatingPopover>
         )}
         {popover?.group === 'stroke' && popover.type === 'gradient' && !strokeIsText && (
-          <OutsideDismissPopover onClose={() => setPopover(null)}>
+          <FloatingPopover className="left-0 right-auto w-[min(480px,calc(100vw-2.5rem))]">
             <GradientEditorPopover
               language={language}
               angle={element.borderGradientAngle ?? 135}
@@ -956,7 +1002,7 @@ export function StartMenuElementInspector({
                 });
               }}
             />
-          </OutsideDismissPopover>
+          </FloatingPopover>
         )}
       </Group>
 
@@ -1029,26 +1075,19 @@ export function StartMenuElementInspector({
           />
         </ControlRow>
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          <InlineColorControl
-            label={text.field.color}
-            color={element.shadowColor || '#000000'}
-            alpha={element.shadowOpacity ?? 0}
-            alphaLabel={text.field.opacity}
-            hexLabel={text.popover.hex}
-            onColorChange={(shadowColor) => onUpdate({ shadowColor })}
-            onAlphaChange={(shadowOpacity) => onUpdate({ shadowOpacity })}
-          />
-          <button
-            type="button"
-            onClick={() =>
-              setPopover(popover?.group === 'shadow' ? null : { group: 'shadow', type: 'solid' })
-            }
-            className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-fuchsia-100 hover:text-slate-950"
-            title={text.field.color}
-            aria-label={text.field.color}
-          >
-            <Palette className="h-4 w-4" />
-          </button>
+          <div className="min-w-0">
+            <InlineColorControl
+              label={text.field.color}
+              color={element.shadowColor || '#000000'}
+              alpha={element.shadowOpacity ?? 0}
+              alphaLabel={text.field.opacity}
+              hexLabel={text.popover.hex}
+              onColorChange={(shadowColor) => onUpdate({ shadowColor })}
+              onAlphaChange={(shadowOpacity) => onUpdate({ shadowOpacity })}
+              onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
+            />
+          </div>
+          <div className="h-10 w-11" aria-hidden="true" />
         </div>
         {popover?.group === 'shadow' && (
           <FloatingPopover>
@@ -1194,6 +1233,7 @@ function InlineColorControl({
   hexLabel,
   onColorChange,
   onAlphaChange,
+  onOpen,
 }: {
   label: string;
   color: string;
@@ -1202,6 +1242,7 @@ function InlineColorControl({
   hexLabel: string;
   onColorChange: (value: string) => void;
   onAlphaChange?: (value: number) => void;
+  onOpen?: () => void;
 }) {
   const safeColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#000000';
   const safeAlpha = clampPercent(alpha);
@@ -1210,77 +1251,94 @@ function InlineColorControl({
       className="grid h-10 min-w-0 grid-cols-[44px_minmax(0,1fr)_72px] overflow-hidden rounded-xl bg-white"
       title={label}
     >
-      <label className="relative block h-full cursor-pointer" aria-label={label}>
+      <button
+        type="button"
+        className="relative block h-full cursor-pointer"
+        onClick={onOpen}
+        aria-label={label}
+      >
         <span className="absolute inset-0" style={{ backgroundColor: safeColor }} />
-        <input
-          type="color"
-          value={safeColor}
-          onChange={(event) => onColorChange(event.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        />
-      </label>
+      </button>
       <input
         value={color}
         aria-label={hexLabel}
         onChange={(event) => onColorChange(event.target.value)}
         className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium text-slate-950 outline-none"
       />
-      <label
+      <div
         className={`grid h-full grid-cols-[minmax(0,1fr)_18px] items-center border-l border-slate-100 bg-white px-2 ${
           onAlphaChange ? 'text-slate-950' : 'text-slate-400'
         }`}
         aria-label={alphaLabel}
       >
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={safeAlpha}
-          readOnly={!onAlphaChange}
-          onChange={(event) =>
-            onAlphaChange?.(clampPercent(Number(event.target.value) || 0))
-          }
-          className="h-full min-w-0 border-0 bg-transparent text-center text-sm font-medium outline-none"
-        />
+        {onAlphaChange ? (
+          <DragSizeControl
+            label={alphaLabel}
+            value={safeAlpha}
+            min={0}
+            max={100}
+            step={1}
+            unit=""
+            onChange={onAlphaChange}
+            className="h-full rounded-none bg-white px-0 text-center"
+          />
+        ) : (
+          <span className="text-center text-sm font-medium tabular-nums">{safeAlpha}</span>
+        )}
         <span className="text-sm text-slate-400">%</span>
-      </label>
+      </div>
     </div>
   );
 }
 
 function InlineGradientControl({
   label,
-  angle,
   stops,
   onOpen,
+  onAlphaChange,
 }: {
   label: string;
-  angle: number;
   stops: RenderColorStop[];
   onOpen: () => void;
+  onAlphaChange: (value: number) => void;
 }) {
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
   const previewStops = orderedStops
     .map((stop) => `${alphaColor(stop.color, stop.alpha, '#ffffff')} ${stop.position}%`)
     .join(', ');
+  const alpha = Math.round(
+    orderedStops.reduce((total, stop) => total + stop.alpha, 0) / Math.max(orderedStops.length, 1),
+  );
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="grid h-10 min-w-0 grid-cols-[56px_minmax(0,1fr)_64px] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
-      title={label}
-      aria-label={label}
-    >
-      <span
-        className="h-full"
-        style={{ background: `linear-gradient(90deg, ${previewStops})` }}
-        aria-hidden="true"
-      />
-      <span className="min-w-0 truncate px-3 leading-10">{label}</span>
-      <span className="border-l border-slate-100 text-center leading-10 text-slate-500">
-        {Math.round(angle)}deg
-      </span>
-    </button>
+    <div className="grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_72px] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)] text-left"
+        title={label}
+        aria-label={label}
+      >
+        <span
+          className="h-full"
+          style={{ background: `linear-gradient(90deg, ${previewStops})` }}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 truncate px-3 leading-10">{label}</span>
+      </button>
+      <div className="grid grid-cols-[minmax(0,1fr)_18px] items-center border-l border-slate-100 px-2">
+        <DragSizeControl
+          label="Opacity"
+          value={alpha}
+          min={0}
+          max={100}
+          step={1}
+          unit=""
+          onChange={onAlphaChange}
+          className="h-full rounded-none bg-white px-0 text-center"
+        />
+        <span className="text-sm text-slate-400">%</span>
+      </div>
+    </div>
   );
 }
 
@@ -1529,12 +1587,34 @@ function GradientEditorPopover({
   const updateStop = (id: string, updates: Partial<RenderColorStop>) => {
     commitStops(orderedStops.map((stop) => (stop.id === id ? { ...stop, ...updates } : stop)));
   };
-  const addStopAt = (position: number) => {
+  const mixHexColors = (left: string, right: string) => {
+    const leftHex = hexColor(left, '#ffffff').slice(1);
+    const rightHex = hexColor(right, '#ffffff').slice(1);
+    const channels = [0, 2, 4].map((index) =>
+      Math.round((Number.parseInt(leftHex.slice(index, index + 2), 16) + Number.parseInt(rightHex.slice(index, index + 2), 16)) / 2),
+    );
+    return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+  };
+  const addStopAt = (requestedPosition?: number) => {
+    const largestGap = orderedStops.reduce(
+      (current, stop, index) => {
+        const next = orderedStops[index + 1];
+        if (!next) return current;
+        const gap = next.position - stop.position;
+        return gap > current.gap ? { gap, left: stop, right: next } : current;
+      },
+      { gap: -1, left: orderedStops[0], right: orderedStops[1] },
+    );
+    const position = clampPercent(
+      requestedPosition ?? (largestGap.left.position + largestGap.right.position) / 2,
+    );
+    const left = [...orderedStops].reverse().find((stop) => stop.position <= position) || orderedStops[0];
+    const right = orderedStops.find((stop) => stop.position >= position) || orderedStops.at(-1) || left;
     const newStop = {
       id: `stop-${Date.now().toString(36)}`,
-      color: activeStop?.color || orderedStops.at(-1)?.color || '#ffffff',
-      alpha: activeStop?.alpha ?? 100,
-      position: clampPercent(position),
+      color: mixHexColors(left?.color || '#ffffff', right?.color || '#ffffff'),
+      alpha: Math.round(((left?.alpha ?? 100) + (right?.alpha ?? 100)) / 2),
+      position,
     };
     setActiveStopId(newStop.id);
     commitStops([...orderedStops, newStop]);
@@ -1548,40 +1628,47 @@ function GradientEditorPopover({
 
   return (
     <div className="rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
-      <div className="grid grid-cols-[42px_minmax(0,1fr)_58px] items-center gap-2">
-        <div className="text-[11px] font-black text-sky-900/70">{copy.angle}</div>
-        <input
-          type="range"
-          min={0}
-          max={360}
-          value={angle}
-          onChange={(event) => onAngleChange(Number(event.target.value))}
-        />
-        <input
-          type="number"
-          min={0}
-          max={360}
-          value={angle}
-          onChange={(event) => onAngleChange(Number(event.target.value) || 0)}
-          className="h-9 rounded-lg border border-white/70 bg-white px-1 text-center text-xs font-bold outline-none"
-        />
-      </div>
-      <div className="mt-2 grid grid-cols-5 gap-1.5">
-        {[0, 45, 90, 135, 180].map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => onAngleChange(value)}
-            className={`h-8 rounded-lg text-[11px] font-black ${
-              angle === value ? 'bg-sky-600 text-white' : 'bg-white text-sky-900'
-            }`}
-          >
-            {value}掳
-          </button>
-        ))}
+      <div className="grid grid-cols-[180px_44px_44px] gap-2">
+        <div className="grid h-9 grid-cols-[46px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white">
+          <span className="px-2 text-[11px] font-black text-sky-900/70">{copy.angle}</span>
+          <DragSizeControl
+            label={copy.angle}
+            value={angle}
+            min={0}
+            max={360}
+            step={1}
+            unit="°"
+            onChange={onAngleChange}
+            className="h-full rounded-none bg-white px-2 text-center"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            commitStops(
+              orderedStops
+                .map((stop) => ({ ...stop, position: 100 - stop.position }))
+                .reverse(),
+            )
+          }
+          className="grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+          title={copy.reverse}
+          aria-label={copy.reverse}
+        >
+          <RotateCw className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => addStopAt()}
+          className="grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+          title={copy.addStop}
+          aria-label={copy.addStop}
+        >
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
       <div
-        className="relative mt-4 h-12 rounded-xl border border-white/80 shadow-inner"
+        className="relative mt-3 h-12 rounded-xl border border-white/80 shadow-inner"
         style={{ background: trackPreview }}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
@@ -1604,106 +1691,63 @@ function GradientEditorPopover({
           />
         ))}
       </div>
-      {activeStop && (
-        <div className="mt-3 grid gap-2">
-          <div className="grid grid-cols-[44px_minmax(0,1fr)_38px] items-center gap-2">
-          <input
-            type="color"
-            title={copy.color}
-            value={activeStop.color}
-            onChange={(event) => updateStop(activeStop.id, { color: event.target.value })}
-          />
-          <input
-            value={activeStop.color}
-            onChange={(event) => updateStop(activeStop.id, { color: event.target.value })}
-            className="h-9 min-w-0 rounded-lg border border-white/70 bg-white px-2 text-xs outline-none"
-          />
-          <button
-            type="button"
-            disabled={orderedStops.length <= 2}
-            onClick={() => removeStop(activeStop.id)}
-            className="grid h-9 place-items-center rounded-lg bg-white text-rose-600 disabled:opacity-35"
-            title={copy.deleteStop}
-            aria-label={copy.deleteStop}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          </div>
-          <div className="grid grid-cols-[42px_minmax(0,1fr)_58px] items-center gap-2">
-            <div className="text-[11px] font-black text-sky-900/70">{copy.position}</div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={activeStop.position}
-              onChange={(event) =>
-                updateStop(activeStop.id, {
-                  position: clampPercent(Number(event.target.value) || 0),
-                })
-              }
-            />
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={activeStop.position}
-              onChange={(event) =>
-                updateStop(activeStop.id, {
-                  position: clampPercent(Number(event.target.value) || 0),
-                })
-              }
-              className="h-8 rounded-lg border border-white/70 bg-white px-1 text-center text-xs outline-none"
-            />
-          </div>
-        </div>
-      )}
-      {activeStop && (
-        <div className="mt-2 grid grid-cols-[42px_minmax(0,1fr)_58px] items-center gap-2">
-          <div className="text-[11px] font-black text-sky-900/70">{copy.opacity}</div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={activeStop.alpha}
-            onChange={(event) =>
-              updateStop(activeStop.id, { alpha: clampPercent(Number(event.target.value) || 0) })
-            }
-          />
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={activeStop.alpha}
-            onChange={(event) =>
-              updateStop(activeStop.id, { alpha: clampPercent(Number(event.target.value) || 0) })
-            }
-            className="h-8 rounded-lg border border-white/70 bg-white px-1 text-center text-xs outline-none"
-          />
-        </div>
-      )}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => addStopAt(50)}
-          className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-white text-xs font-black"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {copy.addStop}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            commitStops(
-              orderedStops
-                .map((stop) => ({ ...stop, position: 100 - stop.position }))
-                .reverse(),
-            )
-          }
-          className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-white text-xs font-black"
-        >
-          <RotateCw className="h-3.5 w-3.5" />
-          {copy.reverse}
-        </button>
+      <div className="mt-3 grid gap-2">
+        {orderedStops.map((stop) => {
+          const color = hexColor(stop.color, '#ffffff');
+          return (
+            <div key={stop.id} className="grid h-10 grid-cols-[54px_180px_64px_44px] items-center gap-2">
+              <DragSizeControl
+                label={copy.position}
+                value={stop.position}
+                min={0}
+                max={100}
+                step={1}
+                unit="%"
+                onChange={(position) => updateStop(stop.id, { position })}
+                className="h-10 rounded-xl bg-white px-2 text-center"
+              />
+              <div className="grid h-10 min-w-0 grid-cols-[48px_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/70 bg-white">
+              <input
+                type="color"
+                title={copy.color}
+                value={color}
+                onChange={(event) => updateStop(stop.id, { color: event.target.value.toLowerCase() })}
+                onFocus={() => setActiveStopId(stop.id)}
+                className="h-10 w-10 self-center justify-self-center cursor-pointer rounded-lg border-0 bg-white p-0"
+              />
+              <input
+                value={color}
+                onChange={(event) => {
+                  const next = event.target.value.trim();
+                  if (/^#[0-9a-f]{6}$/i.test(next)) updateStop(stop.id, { color: next.toLowerCase() });
+                }}
+                onFocus={() => setActiveStopId(stop.id)}
+                className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium outline-none"
+              />
+              </div>
+              <DragSizeControl
+                label={copy.opacity}
+                value={stop.alpha}
+                min={0}
+                max={100}
+                step={1}
+                unit="%"
+                onChange={(alpha) => updateStop(stop.id, { alpha })}
+                className="h-10 rounded-xl bg-white px-2 text-center"
+              />
+              <button
+                type="button"
+                disabled={orderedStops.length <= 2}
+                onClick={() => removeStop(stop.id)}
+                className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 disabled:opacity-35"
+                title={copy.deleteStop}
+                aria-label={copy.deleteStop}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

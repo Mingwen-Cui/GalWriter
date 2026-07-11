@@ -92,6 +92,7 @@ type WebPlaytestPreviewProps = {
   selectedStartMenuElementId?: string | null;
   onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
+  onSelectStartMenuElements?: (ids: string[]) => void;
   onDeleteStartMenuElement?: (id: string) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
@@ -116,6 +117,7 @@ export function WebPlaytestPreview({
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
   onSurfaceChange,
   onSelectStartMenuElement,
+  onSelectStartMenuElements,
   onDeleteStartMenuElement,
   onUpdateSettings,
   onUpdateRenderStyle: _onUpdateRenderStyle,
@@ -1271,6 +1273,7 @@ export function WebPlaytestPreview({
     const activeId = selectedIds[selectedIds.length - 1] || null;
     setLocalSelectedStartMenuElementId(activeId);
     onSelectStartMenuElement?.(activeId);
+    onSelectStartMenuElements?.(selectedIds);
   };
   const handleStartMenuEditPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (startMenuMarqueeRef.current) {

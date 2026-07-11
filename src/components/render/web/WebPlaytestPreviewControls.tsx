@@ -25,6 +25,7 @@ import {
   webElementBoxStyle,
   webElementShadowStyle,
 } from './webElementStyle';
+import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 export type PlayedAudio = {
   nodeId: string;
@@ -48,6 +49,7 @@ const toolbarRoleLabels: Partial<Record<NonNullable<WebMenuElement['role']>, str
   fullscreen: '最大化',
   return: '返回',
   mainMenu: '主界面',
+  controlsToggle: '显示/隐藏控制栏',
 };
 
 const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
@@ -552,6 +554,22 @@ function ToolbarElement({
   const editable = previewMode === 'edit';
   const [editingText, setEditingText] = useState(false);
   const textEditorRef = useRef<HTMLSpanElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const beginTextEditing = () => {
+    if (!editable || element.kind === 'image') return;
+    onSelect?.(element.id);
+    setEditingText(true);
+    window.requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+  };
   const justifyContent =
     element.textAlign === 'left'
       ? 'flex-start'
@@ -716,13 +734,16 @@ function ToolbarElement({
           element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
             ? element.backgroundColor
             : undefined,
-        ...(element.kind !== 'text' ? webElementBoxStyle(element) : {}),
+        ...(element.kind !== 'text' || element.textStrokeTarget === 'box'
+          ? webElementBoxStyle(element)
+          : {}),
         color: element.textColor || undefined,
         fontFamily: element.fontFamily || undefined,
         fontSize: element.fontSize || undefined,
         fontWeight: element.fontWeight,
         WebkitTextStroke:
           element.kind === 'text' &&
+          element.textStrokeTarget !== 'box' &&
           element.strokeEnabled !== false &&
           (element.textStrokeWidth ?? 0) > 0
             ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
@@ -737,27 +758,15 @@ function ToolbarElement({
       onClick={(event) => {
         event.stopPropagation();
         if (editable) {
+          if (event.detail > 1) {
+            if (element.kind === 'image') imageInputRef.current?.click();
+            else beginTextEditing();
+            return;
+          }
           onSelect?.(element.id);
           return;
         }
         if (!disabled) onAction();
-      }}
-      onDoubleClick={(event) => {
-        if (!editable || element.kind !== 'button') return;
-        event.preventDefault();
-        event.stopPropagation();
-        onSelect?.(element.id);
-        setEditingText(true);
-        window.requestAnimationFrame(() => {
-          const editor = textEditorRef.current;
-          if (!editor) return;
-          editor.focus();
-          const range = document.createRange();
-          range.selectNodeContents(editor);
-          const selection = window.getSelection();
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-        });
       }}
     >
       {editable && element.kind === 'button' && element.role && toolbarRoleLabels[element.role] && (
@@ -794,9 +803,7 @@ function ToolbarElement({
                 className={`min-w-0 whitespace-pre-line outline-none ${
                   editable && !editingText ? 'cursor-text' : ''
                 } ${
-                  editable && editingText
-                    ? 'rounded bg-white/14 px-1 ring-1 ring-white/35'
-                    : ''
+                  editable && editingText ? 'opacity-50 caret-white' : ''
                 }`}
                 onPointerDown={(event) => {
                   if (editingText) event.stopPropagation();
@@ -818,6 +825,19 @@ function ToolbarElement({
               </span>
             )}
           </>
+        )}
+        {element.kind === 'image' && (
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) readStartMenuImageFile(file, (imageUrl) => onUpdate?.(element.id, { imageUrl }));
+              event.currentTarget.value = '';
+            }}
+          />
         )}
       </span>
       {selected && editable && onUpdate && (

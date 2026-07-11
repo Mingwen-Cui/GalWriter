@@ -234,6 +234,7 @@ export type WebMenuElement = {
   textVisible?: boolean;
   textStrokeColor?: string;
   textStrokeWidth?: number;
+  textStrokeTarget?: 'text' | 'box';
   fillEnabled?: boolean;
   strokeEnabled?: boolean;
   shadowEnabled?: boolean;

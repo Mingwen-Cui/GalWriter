@@ -15,7 +15,6 @@ import {
   Save,
   Settings,
   Sparkles,
-  Trash2,
   Type,
   Upload,
   Video,
@@ -41,7 +40,6 @@ import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPa
 import type { WebPreviewSurface } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 
-const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
 const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
@@ -233,6 +231,7 @@ export function WebWorkspace({
   );
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
+  const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const defaultArchivePageElements = buildArchivePageElements(
     language,
     webChoiceColor,
@@ -351,51 +350,56 @@ export function WebWorkspace({
     );
   };
   const deleteStartMenuElement = (id: string) => {
-    const element = webSettings.startMenuElements?.find((item) => item.id === id);
-    if (element?.role && protectedStartMenuElementRoles.has(element.role)) return;
-
     updateWebSettings(
       'startMenuElements',
       (webSettings.startMenuElements || []).filter((element) => element.id !== id),
     );
     setSelectedStartMenuElementId(null);
   };
-  const canDeleteSelectedPageElement = Boolean(
-    selectedStartMenuElement &&
-      !(
-        currentPreviewSurface === 'start' &&
-        selectedStartMenuElement.role &&
-        protectedStartMenuElementRoles.has(selectedStartMenuElement.role)
-      ),
-  );
-  const deleteSelectedPageElement = () => {
-    if (!selectedStartMenuElement || !canDeleteSelectedPageElement) return;
-    const id = selectedStartMenuElement.id;
-    if (currentPreviewSurface === 'game') {
-      const toolbar = webSettings.previewToolbarElements || [];
-      const dialogue = webSettings.dialogueOverlayElements || [];
-      if (toolbar.some((element) => element.id === id)) {
-        updateWebSettings(
-          'previewToolbarElements',
-          toolbar.filter((element) => element.id !== id),
-        );
-      } else {
-        updateWebSettings(
-          'dialogueOverlayElements',
-          dialogue.filter((element) => element.id !== id),
-        );
-      }
-    } else {
-      updateWebSettings(
-        activeElementSettingsKey,
-        activePageElements.filter((element) => element.id !== id),
-      );
-    }
-    setSelectedStartMenuElementId(null);
-  };
   const updateSelectedPageElement = (patch: Partial<WebMenuElement>) => {
     if (!selectedStartMenuElement) return;
     updateActivePageElement(selectedStartMenuElement.id, patch);
+  };
+  const alignSelectedPageElements = (
+    axis: 'x' | 'y',
+    value: 'start' | 'center' | 'end',
+  ) => {
+    const selectedIds = selectedPreviewElementIds;
+    if (selectedIds.length < 2) return;
+    const selectedIdSet = new Set(selectedIds);
+    const patchAlignment = (element: WebMenuElement): Partial<WebMenuElement> => {
+      if (axis === 'x') {
+        return {
+          x:
+            value === 'start'
+              ? 0
+              : value === 'center'
+                ? (100 - element.width) / 2
+                : 100 - element.width,
+        };
+      }
+      return {
+        y:
+          value === 'start'
+            ? 0
+            : value === 'center'
+              ? (100 - element.height) / 2
+              : 100 - element.height,
+      };
+    };
+    const applyAlignment = (elements: WebMenuElement[]) =>
+      elements.map((element) =>
+        selectedIdSet.has(element.id) ? { ...element, ...patchAlignment(element) } : element,
+      );
+
+    if (currentPreviewSurface === 'game') {
+      const toolbar = webSettings.previewToolbarElements || [];
+      const dialogue = webSettings.dialogueOverlayElements || [];
+      updateWebSettings('previewToolbarElements', applyAlignment(toolbar));
+      updateWebSettings('dialogueOverlayElements', applyAlignment(dialogue));
+      return;
+    }
+    updateWebSettings(activeElementSettingsKey, applyAlignment(activePageElements));
   };
   const surfaceMeta = {
     start: { icon: LayoutTemplate, title: t('菜单设计', 'メニュー設計', 'Menu design'), backgroundSurface: 'start' as const },
@@ -431,8 +435,10 @@ export function WebWorkspace({
           element={selectedStartMenuElement}
           language={language}
           surface={currentPreviewSurface}
+          selectedElementIds={selectedPreviewElementIds}
           showDescriptions={showSettingDescriptions}
           onUpdate={updateSelectedPageElement}
+          onAlignSelected={alignSelectedPageElements}
         />
       ) : currentPreviewSurface === 'game' && webRenderStyle.selectedRenderObject ? (
         <RenderObjectSettingsSection
@@ -995,12 +1001,6 @@ JSON schema:
                   onClick={() => setShowMenuMusicSettings((current) => !current)}
                   active={showMenuMusicSettings}
                 />
-                <IconToolButton
-                  icon={Trash2}
-                  label={t('删除选中元素', '選択要素を削除', 'Delete selected')}
-                  onClick={deleteSelectedPageElement}
-                  disabled={!canDeleteSelectedPageElement}
-                />
               </>
             )}
             <button
@@ -1037,7 +1037,11 @@ JSON schema:
             }
             selectedStartMenuElementId={selectedStartMenuElementId}
             onSurfaceChange={setCurrentPreviewSurface}
-            onSelectStartMenuElement={setSelectedStartMenuElementId}
+            onSelectStartMenuElement={(id) => {
+              setSelectedStartMenuElementId(id);
+              setSelectedPreviewElementIds(id ? [id] : []);
+            }}
+            onSelectStartMenuElements={setSelectedPreviewElementIds}
             onDeleteStartMenuElement={deleteStartMenuElement}
             onUpdateSettings={updateWebSettings}
             onUpdateRenderStyle={updateWebRenderStyle}
