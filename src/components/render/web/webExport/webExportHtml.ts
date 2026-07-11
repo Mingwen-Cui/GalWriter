@@ -1051,6 +1051,7 @@ export const makeIndexHtml = (
       return withAlpha(color || fallback, Number.isFinite(numericAlpha) ? numericAlpha / 100 : 1);
     }
     function customShadow(element, target) {
+      if (element.shadowEnabled === false) return "";
       const opacity = clamp(element.shadowOpacity, 0, 100, 0);
       if (opacity <= 0) return "";
       const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
@@ -1059,6 +1060,7 @@ export const makeIndexHtml = (
       return x + "px " + y + "px " + blur + "px " + styleColor(element.shadowColor, opacity, "#000000");
     }
     function customBoxShadow(element) {
+      if (element.shadowEnabled === false) return "";
       const opacity = clamp(element.shadowOpacity, 0, 100, 0);
       if (opacity <= 0) return "";
       const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
@@ -1073,7 +1075,7 @@ export const makeIndexHtml = (
       return linearGradientFromStops(Number(element.borderGradientAngle) || 135, normalizeGradientStops(element.borderGradientStops, element.borderGradientStart || element.borderColor || "#ffffff", element.borderGradientEnd || "#4f46e5"));
     }
     function applyCustomBoxEffects(target, element) {
-      const width = Math.max(0, Number(element.borderWidth) || 0);
+      const width = element.strokeEnabled === false ? 0 : Math.max(0, Number(element.borderWidth) || 0);
       const shadows = [];
       target.style.border = "";
       target.style.borderImage = "";
@@ -1116,7 +1118,7 @@ export const makeIndexHtml = (
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
       target.style.color = styleColor(element.textColor, element.textColorAlpha, "#ffffff");
-      if (Number(element.textStrokeWidth) > 0) {
+      if (element.strokeEnabled !== false && Number(element.textStrokeWidth) > 0) {
         target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
       }
       const shadow = customShadow(element, "text");
@@ -1448,6 +1450,26 @@ export const makeIndexHtml = (
           primary: false,
           onClick: openSettingsPanel,
         },
+        link: {
+          label: "Open link",
+          disabled: !/^(https?:|mailto:|tel:)/i.test(String(element.linkUrl || "").trim()),
+          primary: false,
+          onClick: () => {
+            const url = String(element.linkUrl || "").trim();
+            if (!/^(https?:|mailto:|tel:)/i.test(url)) return;
+            window.open(url, element.linkTarget === "_self" ? "_self" : "_blank", "noopener,noreferrer");
+          },
+        },
+        volume: {
+          label: "Volume",
+          disabled: false,
+          primary: false,
+          onClick: () => {
+            const nextVolume = clamp(element.actionValue, 0, 100, 70);
+            settings.startMenuMusicVolume = nextVolume;
+            startMenuAudio.volume = nextVolume / 100;
+          },
+        },
       };
       settings.startMenuElements.forEach((element) => {
         if (!element || element.visible === false) return;
@@ -1477,7 +1499,9 @@ export const makeIndexHtml = (
           button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
           button.textContent = element.text || action?.label || "";
           button.disabled = Boolean(element.disabled || action?.disabled);
-          if (element.backgroundType === "image" && element.backgroundImageUrl) {
+          if (element.fillEnabled === false) {
+            button.style.background = "transparent";
+          } else if (element.backgroundType === "image" && element.backgroundImageUrl) {
             button.style.background = "center / cover url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
           } else if (element.backgroundType === "gradient") {
             button.style.background = linearGradientFromStops(Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));

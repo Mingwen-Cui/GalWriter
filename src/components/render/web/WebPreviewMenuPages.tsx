@@ -70,8 +70,10 @@ type WebPreviewMenuPagesProps = {
   previewControlsHidden: boolean;
   onCloseArchive: () => void;
   onCloseSettings: () => void;
+  onOpenSettings: () => void;
   onNewGame: () => void;
   onToggleControls: () => void;
+  onButtonFunction: (element: WebMenuElement) => boolean;
   onSelectElement?: (id: string | null) => void;
   onUpdateArchiveElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
@@ -104,8 +106,10 @@ export function WebPreviewMenuPages({
   previewControlsHidden,
   onCloseArchive,
   onCloseSettings,
+  onOpenSettings,
   onNewGame,
   onToggleControls,
+  onButtonFunction,
   onSelectElement,
   onUpdateArchiveElement,
   onUpdateSettingsElement,
@@ -432,9 +436,11 @@ export function WebPreviewMenuPages({
             onSelectElement={onSelectElement}
             onUpdateElement={onUpdateArchiveElement}
             onBeginElementDrag={beginElementDrag}
-            onAction={(role) => {
-              if (role === 'back') onCloseArchive();
-              if (role === 'new') onNewGame();
+            onAction={(element) => {
+              if (onButtonFunction(element)) return;
+              if (element.role === 'back') onCloseArchive();
+              if (element.role === 'new') onNewGame();
+              if (element.role === 'settings') onOpenSettings();
             }}
           />
         </div>
@@ -469,10 +475,11 @@ export function WebPreviewMenuPages({
             onSelectElement={onSelectElement}
             onUpdateElement={onUpdateSettingsElement}
             onBeginElementDrag={beginElementDrag}
-            onAction={(role) => {
-              if (role === 'back') onCloseSettings();
-              if (role === 'auto') onUpdateSettings('autoAdvance', !settings.autoAdvance);
-              if (role === 'controls') onToggleControls();
+            onAction={(element) => {
+              if (onButtonFunction(element)) return;
+              if (element.role === 'back') onCloseSettings();
+              if (element.role === 'auto') onUpdateSettings('autoAdvance', !settings.autoAdvance);
+              if (element.role === 'controls') onToggleControls();
             }}
             renderSuffix={(element) => {
               if (element.role === 'auto')
@@ -506,7 +513,7 @@ type MenuPageElementLayerProps = {
     type: 'move' | 'resize' | 'rotate',
     resizeHandle?: PlacementResizeHandle,
   ) => void;
-  onAction: (role: WebMenuElement['role']) => void;
+  onAction: (element: WebMenuElement) => void;
   renderSuffix?: (element: WebMenuElement) => string;
 };
 
@@ -555,7 +562,9 @@ function MenuPageElementLayer({
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
             ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 12),
             WebkitTextStroke:
-              element.kind === 'text' && (element.textStrokeWidth ?? 0) > 0
+              element.kind === 'text' &&
+              element.strokeEnabled !== false &&
+              (element.textStrokeWidth ?? 0) > 0
                 ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
                 : undefined,
           };
@@ -568,7 +577,9 @@ function MenuPageElementLayer({
 
           if (element.kind === 'button') {
             const background =
-              element.backgroundType === 'gradient'
+              element.fillEnabled === false
+                ? undefined
+                : element.backgroundType === 'gradient'
                 ? linearGradientFromStops(
                     element.backgroundGradientAngle ?? 135,
                     normalizeGradientStops(
@@ -608,7 +619,7 @@ function MenuPageElementLayer({
                     onSelectElement?.(element.id);
                     return;
                   }
-                  onAction(element.role);
+                  onAction(element);
                 }}
                 onDoubleClick={(event) => {
                   if (!editable) return;

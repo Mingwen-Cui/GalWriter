@@ -93,7 +93,9 @@ export function WebPlaytestStartMenuElement({
   if (!element.visible && previewMode !== 'edit') return null;
 
   const elementBackground =
-    element.backgroundType === 'image' && element.backgroundImageUrl
+    element.fillEnabled === false
+      ? undefined
+      : element.backgroundType === 'image' && element.backgroundImageUrl
       ? `center / cover url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
       : element.backgroundType === 'gradient'
         ? linearGradientFromStops(
@@ -121,7 +123,7 @@ export function WebPlaytestStartMenuElement({
     fontWeight: element.fontWeight,
     color: textColorWithAlpha(element.textColor, element.textColorAlpha),
     WebkitTextStroke:
-      (element.textStrokeWidth ?? 0) > 0
+      element.strokeEnabled !== false && (element.textStrokeWidth ?? 0) > 0
         ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
         : undefined,
     letterSpacing: Number.isFinite(Number(element.letterSpacing))

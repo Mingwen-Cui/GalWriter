@@ -713,7 +713,7 @@ function ToolbarElement({
         ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
         zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
         background:
-          element.kind === 'button' && element.backgroundColor
+          element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
             ? element.backgroundColor
             : undefined,
         ...(element.kind !== 'text' ? webElementBoxStyle(element) : {}),
@@ -722,7 +722,9 @@ function ToolbarElement({
         fontSize: element.fontSize || undefined,
         fontWeight: element.fontWeight,
         WebkitTextStroke:
-          element.kind === 'text' && (element.textStrokeWidth ?? 0) > 0
+          element.kind === 'text' &&
+          element.strokeEnabled !== false &&
+          (element.textStrokeWidth ?? 0) > 0
             ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
             : undefined,
         letterSpacing: element.letterSpacing,

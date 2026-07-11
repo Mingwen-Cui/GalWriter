@@ -213,7 +213,9 @@ export type WebMenuElement = {
     | 'fullscreen'
     | 'return'
     | 'mainMenu'
-    | 'controlsToggle';
+    | 'controlsToggle'
+    | 'link'
+    | 'volume';
   text: string;
   visible: boolean;
   x: number;
@@ -232,6 +234,9 @@ export type WebMenuElement = {
   textVisible?: boolean;
   textStrokeColor?: string;
   textStrokeWidth?: number;
+  fillEnabled?: boolean;
+  strokeEnabled?: boolean;
+  shadowEnabled?: boolean;
   textAlign?: TextAlign;
   letterSpacing?: number;
   lineHeight?: number;
@@ -265,6 +270,9 @@ export type WebMenuElement = {
   opacity?: number;
   blendMode?: string;
   imageUrl?: string;
+  linkUrl?: string;
+  linkTarget?: '_blank' | '_self';
+  actionValue?: number;
 };
 
 export type WebExportSettings = {

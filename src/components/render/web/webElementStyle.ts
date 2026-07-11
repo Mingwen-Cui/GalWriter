@@ -23,6 +23,7 @@ export const webElementShadowStyle = (
   element: WebMenuElement,
   target: 'box' | 'text',
 ): CSSProperties => {
+  if (element.shadowEnabled === false) return {};
   const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
   if (opacity <= 0) return {};
   const x = element.shadowOffsetX ?? 0;
@@ -39,6 +40,7 @@ export const webElementShadowStyle = (
 };
 
 const webElementBorderParts = (element: WebMenuElement) => {
+  if (element.strokeEnabled === false) return { style: {} as CSSProperties, shadow: '' };
   const width = Math.max(0, Number(element.borderWidth ?? 0) || 0);
   if (width <= 0) return { style: {} as CSSProperties, shadow: '' };
   const position = element.borderPosition || 'center';

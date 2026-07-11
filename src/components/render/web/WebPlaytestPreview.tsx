@@ -44,6 +44,7 @@ import type {
   RenderEditableObjectKind,
   RenderStyle,
   WebExportSettings,
+  WebMenuElement,
 } from '../video/shared/types';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
@@ -842,6 +843,30 @@ export function WebPlaytestPreview({
     }
   };
 
+  const openExternalLink = (element: WebMenuElement) => {
+    const url = element.linkUrl?.trim();
+    if (!url || !/^(https?:|mailto:|tel:)/i.test(url)) return;
+    window.open(url, element.linkTarget || '_blank', 'noopener,noreferrer');
+  };
+  const applySharedButtonFunction = (element: WebMenuElement) => {
+    if (element.role === 'link') {
+      openExternalLink(element);
+      return true;
+    }
+    if (element.role === 'volume') {
+      onUpdateSettings('startMenuMusicVolume', Math.max(0, Math.min(100, element.actionValue ?? 70)));
+      return true;
+    }
+    if (element.role === 'speed') {
+      const speeds = [25, 50, 75, 100, 150, 200];
+      const current = settings.typewriterSpeed;
+      const next = speeds.find((speed) => speed > current) || speeds[0];
+      onUpdateSettings('typewriterSpeed', next);
+      return true;
+    }
+    return false;
+  };
+
   const startMenuButtonPositionClass =
     settings.startMenuButtonPosition === 'bottomLeft'
       ? 'items-end justify-items-start text-left'
@@ -914,6 +939,20 @@ export function WebPlaytestPreview({
       : null,
   ].filter((action): action is StartMenuAction => Boolean(action));
   const startMenuActionMap = new Map(startMenuActions.map((action) => [action.key, action]));
+  const getStartMenuElementAction = (element: StartMenuElement): StartMenuAction | null => {
+    const existing = element.role ? startMenuActionMap.get(element.role) : null;
+    if (existing) return existing;
+    if (element.role === 'link' || element.role === 'volume') {
+      return {
+        key: element.role,
+        label: element.text || (element.role === 'link' ? t('超链接', 'リンク', 'Link') : t('音量', '音量', 'Volume')),
+        disabled: element.role === 'link' && !element.linkUrl,
+        primary: false,
+        onClick: () => applySharedButtonFunction(element),
+      };
+    }
+    return null;
+  };
   const defaultStartMenuElements = React.useMemo<StartMenuElement[]>(
     () =>
       buildDefaultStartMenuElements({
@@ -1486,9 +1525,7 @@ export function WebPlaytestPreview({
                 selectedStartMenuElementIds.includes(element.id)
               }
               action={
-                element.kind === 'button' && element.role
-                  ? startMenuActionMap.get(element.role) || null
-                  : null
+                element.kind === 'button' ? getStartMenuElementAction(element) : null
               }
               previewMode={previewMode}
               editingStartMenuElementId={editingStartMenuElementId}
@@ -1527,12 +1564,17 @@ export function WebPlaytestPreview({
           previewControlsHidden={previewControlsHidden}
           onCloseArchive={() => setPreviewArchiveOpen(false)}
           onCloseSettings={() => setPreviewStartSettingsOpen(false)}
+          onOpenSettings={() => {
+            setPreviewArchiveOpen(false);
+            setPreviewStartSettingsOpen(true);
+          }}
           onNewGame={() => {
             reset();
             setPreviewArchiveOpen(false);
             setPreviewStartMenuOpen(false);
           }}
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
+          onButtonFunction={(element) => applySharedButtonFunction(element)}
           onSelectElement={setSelectedStartMenuElementId}
           onUpdateArchiveElement={(id, patch) => {
             const source = settings.archivePageElements?.length
@@ -1689,6 +1731,7 @@ export function WebPlaytestPreview({
           isActive={(element) => element.role === 'audio' && showAudioPlaylist}
           isDisabled={(element) => element.role === 'return' && history.length === 0}
           onAction={(element) => {
+            if (applySharedButtonFunction(element)) return;
             if (element.role === 'audio') setShowAudioPlaylist((visible) => !visible);
             if (element.role === 'fullscreen') void togglePreviewFullscreen();
             if (element.role === 'return') back();

@@ -396,6 +396,7 @@ export function WebWorkspace({
         <StartMenuElementInspector
           element={selectedStartMenuElement}
           language={language}
+          surface={currentPreviewSurface}
           showDescriptions={showSettingDescriptions}
           onUpdate={updateSelectedPageElement}
         />
@@ -576,6 +577,41 @@ export function WebWorkspace({
         borderRadius: 12,
       },
     ]);
+    setSelectedStartMenuElementId(id);
+  };
+  const addCurrentSurfaceButton = () => {
+    const id = `${currentPreviewSurface}-button-${Date.now()}`;
+    const button: WebMenuElement = {
+      id,
+      kind: 'button',
+      role: 'custom',
+      text: t('按钮', 'ボタン', 'Button'),
+      visible: true,
+      x: 38,
+      y: 48,
+      width: 24,
+      height: 8,
+      scale: 1,
+      rotation: 0,
+      fontSize: 16,
+      fontWeight: 700,
+      textColor: '#ffffff',
+      backgroundType: 'solid',
+      backgroundColor: '#4f46e5',
+      borderRadius: 12,
+    };
+    if (currentPreviewSurface === 'start') {
+      updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), button]);
+    } else if (currentPreviewSurface === 'game') {
+      updateWebSettings('previewToolbarElements', [
+        ...(webSettings.previewToolbarElements || []),
+        { ...button, x: 76, y: 12, width: 14, height: 5.6, fontSize: 12 },
+      ]);
+    } else {
+      const key = currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+      const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
+      updateWebSettings(key, [...source, button]);
+    }
     setSelectedStartMenuElementId(id);
   };
   const generateStartMenuDesignWithAI = async () => {
@@ -988,7 +1024,7 @@ JSON schema:
         </div>
 
         <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
-          {startMenuPreviewMode === 'edit' && webSettings.showStartMenu && (
+          {startMenuPreviewMode === 'edit' && (
             <div className="sticky -top-4 z-30 -mx-4 -mt-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface)]/95 px-4 py-3 backdrop-blur-xl">
               <WebSettingCard>
                 <WebSegmentedGroup
@@ -1009,7 +1045,7 @@ JSON schema:
                 />
               </WebSettingCard>
               <WebSettingCard>
-                <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
+                <div className="grid grid-cols-4 gap-2 rounded-xl bg-indigo-500/5 p-2">
                   <IconToolButton
                     icon={Type}
                     label={t('添加文字', 'テキスト追加', 'Add text')}
@@ -1019,6 +1055,11 @@ JSON schema:
                     icon={ImagePlus}
                     label={t('添加图片', '画像追加', 'Add image')}
                     onClick={addCurrentSurfaceImage}
+                  />
+                  <IconToolButton
+                    icon={MousePointerClick}
+                    label={t('添加按钮', 'ボタン追加', 'Add button')}
+                    onClick={addCurrentSurfaceButton}
                   />
                   <IconToolButton
                     icon={Volume2}
