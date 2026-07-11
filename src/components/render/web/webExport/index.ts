@@ -299,6 +299,11 @@ export async function buildInteractiveWebZipBlob(
     assetMap,
   );
   const settings: WebExportSettings = {
+    canvasWidth: options.settings?.canvasWidth ?? 1920,
+    canvasHeight: options.settings?.canvasHeight ?? 1080,
+    canvasRatioWidth: options.settings?.canvasRatioWidth ?? 16,
+    canvasRatioHeight: options.settings?.canvasRatioHeight ?? 9,
+    canvasRatioLocked: options.settings?.canvasRatioLocked !== false,
     layoutMode: options.settings?.layoutMode || 'immersive',
     choicesPosition: options.settings?.choicesPosition || 'center',
     showStartMenu: options.settings?.showStartMenu ?? true,

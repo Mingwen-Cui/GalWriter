@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import {
+  canvasPatchFromWebSettings,
+  useSharedCanvasSettings,
+} from '../../canvas/canvasSettings';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/types';
 
 const DEFAULT_WEB_SETTINGS: WebExportSettings = {
+  canvasWidth: 1920,
+  canvasHeight: 1080,
+  canvasRatioWidth: 16,
+  canvasRatioHeight: 9,
+  canvasRatioLocked: true,
   layoutMode: 'immersive',
   choicesPosition: 'center',
   showStartMenu: true,
@@ -131,8 +140,10 @@ type InitialWebExportState = {
 export const useWebExportSettings = (
   defaultProjectName: string,
   isLocked: boolean,
+  workspaceKey: string,
   initial?: InitialWebExportState,
 ) => {
+  const sharedCanvas = useSharedCanvasSettings(workspaceKey, canvasPatchFromWebSettings(initial?.settings || {}));
   const [webProjectName, setWebProjectName] = useState(
     () => initial?.projectName || defaultProjectName,
   );
@@ -143,7 +154,11 @@ export const useWebExportSettings = (
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() => ({
     ...DEFAULT_WEB_SETTINGS,
     ...initial?.settings,
+    ...sharedCanvas.settings,
   }));
+  useEffect(() => {
+    setWebSettings((previous) => ({ ...previous, ...sharedCanvas.settings }));
+  }, [sharedCanvas.settings]);
   const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
     ...DEFAULT_WEB_RENDER_STYLE,
     ...initial?.renderStyle,
@@ -199,6 +214,8 @@ export const useWebExportSettings = (
     if (webSettings[key] === value) return;
     pushWebHistory();
     setWebSettings((prev) => ({ ...prev, [key]: value }));
+    const sharedPatch = canvasPatchFromWebSettings({ [key]: value } as Partial<WebExportSettings>);
+    if (Object.keys(sharedPatch).length) sharedCanvas.update(sharedPatch);
   };
 
   const updateWebSettingsBulk = (patch: Partial<WebExportSettings>) => {
@@ -209,6 +226,8 @@ export const useWebExportSettings = (
     if (entries.every(([key, value]) => webSettings[key] === value)) return;
     pushWebHistory();
     setWebSettings((prev) => ({ ...prev, ...patch }));
+    const sharedPatch = canvasPatchFromWebSettings(patch);
+    if (Object.keys(sharedPatch).length) sharedCanvas.update(sharedPatch);
   };
 
   const updateWebChoiceColor = (value: string) => {

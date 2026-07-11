@@ -8,6 +8,8 @@ type VirtualPresentationStageProps = {
   className?: string;
   style?: React.CSSProperties;
   fit?: 'contain' | 'cover' | 'width';
+  width?: number;
+  height?: number;
 };
 
 export function VirtualPresentationStage({
@@ -15,6 +17,8 @@ export function VirtualPresentationStage({
   className = '',
   style,
   fit = 'contain',
+  width: stageBaseWidth = PRESENTATION_STAGE_WIDTH,
+  height: stageBaseHeight = PRESENTATION_STAGE_HEIGHT,
 }: VirtualPresentationStageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState({ scale: 0, left: 0, top: 0 });
@@ -26,16 +30,16 @@ export function VirtualPresentationStage({
     const updateLayout = () => {
       const width = container.clientWidth;
       const height = container.clientHeight;
-      const scaleByWidth = width / PRESENTATION_STAGE_WIDTH;
-      const scaleByHeight = height / PRESENTATION_STAGE_HEIGHT;
+      const scaleByWidth = width / Math.max(1, stageBaseWidth);
+      const scaleByHeight = height / Math.max(1, stageBaseHeight);
       const scale =
         fit === 'width'
           ? scaleByWidth
           : fit === 'cover'
             ? Math.max(scaleByWidth, scaleByHeight)
             : Math.min(scaleByWidth, scaleByHeight);
-      const stageWidth = PRESENTATION_STAGE_WIDTH * scale;
-      const stageHeight = PRESENTATION_STAGE_HEIGHT * scale;
+      const stageWidth = stageBaseWidth * scale;
+      const stageHeight = stageBaseHeight * scale;
       setLayout({
         scale,
         left: (width - stageWidth) / 2,
@@ -47,15 +51,15 @@ export function VirtualPresentationStage({
     const observer = new ResizeObserver(updateLayout);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [fit]);
+  }, [fit, stageBaseHeight, stageBaseWidth]);
 
   return (
     <div ref={containerRef} className={`relative overflow-hidden ${className}`} style={style}>
       <div
         className="absolute overflow-hidden"
         style={{
-          width: PRESENTATION_STAGE_WIDTH,
-          height: PRESENTATION_STAGE_HEIGHT,
+          width: stageBaseWidth,
+          height: stageBaseHeight,
           left: layout.left,
           top: layout.top,
           opacity: layout.scale > 0 ? 1 : 0,

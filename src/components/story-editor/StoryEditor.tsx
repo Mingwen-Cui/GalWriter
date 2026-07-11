@@ -84,6 +84,7 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
+import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import {
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
@@ -309,6 +310,16 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     playTestHideSceneTags,
     setPlayTestHideSceneTags,
   } = usePlaytestSettings();
+  const canvasWorkspaceKey = currentProjectId || currentProjectFilePath || 'draft';
+  const sharedCanvas = useSharedCanvasSettings(canvasWorkspaceKey, {
+    layoutMode: playTestLayoutMode,
+    choicesPosition: playTestChoicesPosition,
+    skipSingleChoicePopup: playTestSkipSingleChoicePopup,
+    autoAdvance: playTestAutoAdvance,
+    videoAutoPlay: playTestVideoAutoPlay,
+    hideCharacterTags: playTestHideCharacterTags,
+    hideSceneTags: playTestHideSceneTags,
+  });
   const { sharedRenderStyle, setSharedRenderStyle, updateSharedRenderStyle } =
     useSharedRenderStyle();
 
@@ -3310,32 +3321,34 @@ ${layoutConfig.label}
             setIsDarkMode={setPlayTestDarkMode}
             choicesColumns={playTestChoicesColumns}
             setChoicesColumns={setPlayTestChoicesColumns}
-            videoAutoPlay={playTestVideoAutoPlay}
-            setVideoAutoPlay={setPlayTestVideoAutoPlay}
-            layoutMode={playTestLayoutMode}
-            setLayoutMode={setPlayTestLayoutMode}
+            videoAutoPlay={sharedCanvas.settings.videoAutoPlay}
+            setVideoAutoPlay={(videoAutoPlay) => sharedCanvas.update({ videoAutoPlay })}
+            layoutMode={sharedCanvas.settings.layoutMode}
+            setLayoutMode={(layoutMode) => sharedCanvas.update({ layoutMode })}
             interactionMode={playTestInteractionMode}
             setInteractionMode={setPlayTestInteractionMode}
             typewriterSpeed={playTestTypewriterSpeed}
             setTypewriterSpeed={setPlayTestTypewriterSpeed}
             choiceDelay={playTestChoiceDelay}
             setChoiceDelay={setPlayTestChoiceDelay}
-            choicesPosition={playTestChoicesPosition}
-            setChoicesPosition={setPlayTestChoicesPosition}
+            choicesPosition={sharedCanvas.settings.choicesPosition}
+            setChoicesPosition={(choicesPosition) => sharedCanvas.update({ choicesPosition })}
             blurBackground={playTestBlurBackground}
             setBlurBackground={setPlayTestBlurBackground}
             blurText={playTestBlurText}
             setBlurText={setPlayTestBlurText}
-            skipSingleChoicePopup={playTestSkipSingleChoicePopup}
-            setSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
-            autoAdvance={playTestAutoAdvance}
-            setAutoAdvance={setPlayTestAutoAdvance}
+            skipSingleChoicePopup={sharedCanvas.settings.skipSingleChoicePopup}
+            setSkipSingleChoicePopup={(skipSingleChoicePopup) => sharedCanvas.update({ skipSingleChoicePopup })}
+            autoAdvance={sharedCanvas.settings.autoAdvance}
+            setAutoAdvance={(autoAdvance) => sharedCanvas.update({ autoAdvance })}
             autoAdvanceDelay={playTestAutoAdvanceDelay}
             setAutoAdvanceDelay={setPlayTestAutoAdvanceDelay}
-            hideCharacterTags={playTestHideCharacterTags}
-            setHideCharacterTags={setPlayTestHideCharacterTags}
-            hideSceneTags={playTestHideSceneTags}
-            setHideSceneTags={setPlayTestHideSceneTags}
+            hideCharacterTags={sharedCanvas.settings.hideCharacterTags}
+            setHideCharacterTags={(hideCharacterTags) => sharedCanvas.update({ hideCharacterTags })}
+            hideSceneTags={sharedCanvas.settings.hideSceneTags}
+            setHideSceneTags={(hideSceneTags) => sharedCanvas.update({ hideSceneTags })}
+            canvasSettings={sharedCanvas.settings}
+            onCanvasSettingsChange={sharedCanvas.update}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
             isMobile={isMobile}
@@ -3352,7 +3365,7 @@ ${layoutConfig.label}
             onClose={() => setShowVideoRender(false)}
             onUpdateNodeData={handleUpdateNode}
             language={language}
-            workspaceKey={currentProjectId || currentProjectFilePath || 'draft'}
+            workspaceKey={canvasWorkspaceKey}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
             callAIForTextResult={callAIForTextResult}

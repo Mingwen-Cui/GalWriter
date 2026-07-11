@@ -56,14 +56,12 @@ import {
 } from '../lib/presentation';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
+import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
+import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
 import type { RenderStyle } from './render/video/shared/types';
-import {
-  PRESENTATION_STAGE_HEIGHT,
-  PRESENTATION_STAGE_WIDTH,
-  VirtualPresentationStage,
-} from './VirtualPresentationStage';
+import { VirtualPresentationStage } from './VirtualPresentationStage';
 
 type PlayedAudio = {
   nodeId: string;
@@ -198,6 +196,8 @@ interface PlayTestProps {
   setHideCharacterTags: (val: boolean) => void;
   hideSceneTags: boolean;
   setHideSceneTags: (val: boolean) => void;
+  canvasSettings: SharedCanvasSettings;
+  onCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   isMobile?: boolean;
@@ -241,6 +241,8 @@ export function PlayTestModal({
   setHideCharacterTags,
   hideSceneTags,
   setHideSceneTags,
+  canvasSettings,
+  onCanvasSettingsChange,
   renderStyle,
   updateRenderStyle,
   isMobile = false,
@@ -1566,14 +1568,14 @@ export function PlayTestModal({
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
-  const presentationStageAspect = PRESENTATION_STAGE_WIDTH / PRESENTATION_STAGE_HEIGHT;
+  const presentationStageAspect = canvasSettings.canvasWidth / canvasSettings.canvasHeight;
   const classicMediaContainerStyle: React.CSSProperties | undefined = mobileClassicLayout
     ? undefined
     : { containerType: 'size' };
   const classicMediaFrameStyle: React.CSSProperties | undefined = mobileClassicLayout
     ? undefined
     : {
-        aspectRatio: `${PRESENTATION_STAGE_WIDTH} / ${PRESENTATION_STAGE_HEIGHT}`,
+        aspectRatio: `${canvasSettings.canvasWidth} / ${canvasSettings.canvasHeight}`,
         height: `min(100%, calc(100cqw / ${presentationStageAspect}))`,
         width: `min(100%, calc(100cqh * ${presentationStageAspect}))`,
       };
@@ -1656,6 +1658,12 @@ export function PlayTestModal({
                 ? 'テスト設定'
                 : 'Playtest Settings'
           }
+        />
+
+        <CanvasSettingsSection
+          language={language}
+          value={canvasSettings}
+          onChange={onCanvasSettingsChange}
         />
 
         <div className={`rounded-xl border p-2 ${panelTone}`}>
@@ -2425,6 +2433,8 @@ export function PlayTestModal({
                     <VirtualPresentationStage
                       fit={mobileClassicLayout ? 'width' : 'cover'}
                       className="h-full w-full"
+                      width={canvasSettings.canvasWidth}
+                      height={canvasSettings.canvasHeight}
                     >
                       <div className="absolute inset-0 overflow-hidden">
                         {sceneImageUrl && (

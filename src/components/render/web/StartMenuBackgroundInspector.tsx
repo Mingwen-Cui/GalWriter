@@ -2,6 +2,8 @@ import { Palette } from 'lucide-react';
 import { useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
+import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
 import {
   GradientPopover,
   ImageFillPopover,
@@ -55,7 +57,20 @@ export function StartMenuBackgroundInspector({
   };
 
   return (
-    <Group
+    <div className="space-y-3">
+      <CanvasSettingsSection
+        language={language}
+        value={normalizeSharedCanvasSettings(settings)}
+        onChange={(patch) => {
+          Object.entries(patch).forEach(([key, value]) =>
+            updateWebSettings(
+              key as keyof WebExportSettings,
+              value as WebExportSettings[keyof WebExportSettings],
+            ),
+          );
+        }}
+      />
+      <Group
       title={text.group.fill}
       icon={<Palette className="h-3.5 w-3.5 shrink-0" />}
       tone="fill"
@@ -130,7 +145,8 @@ export function StartMenuBackgroundInspector({
           />
         </FloatingPopover>
       )}
-    </Group>
+      </Group>
+    </div>
   );
 }
 

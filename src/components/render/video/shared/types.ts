@@ -302,6 +302,11 @@ export type WebMenuElement = {
 };
 
 export type WebExportSettings = {
+  canvasWidth: number;
+  canvasHeight: number;
+  canvasRatioWidth: number;
+  canvasRatioHeight: number;
+  canvasRatioLocked: boolean;
   layoutMode: 'classic' | 'immersive';
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   showStartMenu: boolean;

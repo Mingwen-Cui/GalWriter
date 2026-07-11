@@ -155,7 +155,7 @@ export function VideoRenderModal({
     updateWebSettingsBulk,
     updateWebChoiceColor,
     updateWebChoiceTextColor,
-  } = useWebExportSettings(defaultWebProjectName, status === 'rendering', {
+  } = useWebExportSettings(defaultWebProjectName, status === 'rendering', workspaceKey, {
     projectName: persistedWorkspace?.webProjectName,
     choiceColor: persistedWorkspace?.webChoiceColor,
     choiceTextColor: persistedWorkspace?.webChoiceTextColor,

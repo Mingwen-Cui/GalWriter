@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import { createElement, isValidElement, useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
@@ -1021,7 +1022,12 @@ JSON schema:
           </div>
         </div>
         <div className="min-h-0 flex-1 p-4 xl:p-5">
-          <WebPlaytestPreview
+          <VirtualPresentationStage
+            className="h-full w-full"
+            width={webSettings.canvasWidth}
+            height={webSettings.canvasHeight}
+          >
+            <WebPlaytestPreview
             key={previewRefreshKey}
             nodes={nodes}
             edges={edges}
@@ -1048,7 +1054,8 @@ JSON schema:
             onDeleteStartMenuElement={deleteStartMenuElement}
             onUpdateSettings={updateWebSettings}
             onUpdateRenderStyle={updateWebRenderStyle}
-          />
+            />
+          </VirtualPresentationStage>
         </div>
       </section>
 
