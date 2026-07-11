@@ -15,6 +15,7 @@ import {
   Save,
   Settings,
   Sparkles,
+  Trash2,
   Type,
   Upload,
   Video,
@@ -357,6 +358,39 @@ export function WebWorkspace({
       'startMenuElements',
       (webSettings.startMenuElements || []).filter((element) => element.id !== id),
     );
+    setSelectedStartMenuElementId(null);
+  };
+  const canDeleteSelectedPageElement = Boolean(
+    selectedStartMenuElement &&
+      !(
+        currentPreviewSurface === 'start' &&
+        selectedStartMenuElement.role &&
+        protectedStartMenuElementRoles.has(selectedStartMenuElement.role)
+      ),
+  );
+  const deleteSelectedPageElement = () => {
+    if (!selectedStartMenuElement || !canDeleteSelectedPageElement) return;
+    const id = selectedStartMenuElement.id;
+    if (currentPreviewSurface === 'game') {
+      const toolbar = webSettings.previewToolbarElements || [];
+      const dialogue = webSettings.dialogueOverlayElements || [];
+      if (toolbar.some((element) => element.id === id)) {
+        updateWebSettings(
+          'previewToolbarElements',
+          toolbar.filter((element) => element.id !== id),
+        );
+      } else {
+        updateWebSettings(
+          'dialogueOverlayElements',
+          dialogue.filter((element) => element.id !== id),
+        );
+      }
+    } else {
+      updateWebSettings(
+        activeElementSettingsKey,
+        activePageElements.filter((element) => element.id !== id),
+      );
+    }
     setSelectedStartMenuElementId(null);
   };
   const updateSelectedPageElement = (patch: Partial<WebMenuElement>) => {
@@ -938,6 +972,37 @@ JSON schema:
             <span className="truncate">测试预览窗口</span>
           </div>
           <div className="flex min-w-0 items-center gap-2">
+            {startMenuPreviewMode === 'edit' && (
+              <>
+                <IconToolButton
+                  icon={Type}
+                  label={t('添加文字', 'テキスト追加', 'Add text')}
+                  onClick={addCurrentSurfaceText}
+                />
+                <IconToolButton
+                  icon={ImagePlus}
+                  label={t('添加图片', '画像追加', 'Add image')}
+                  onClick={addCurrentSurfaceImage}
+                />
+                <IconToolButton
+                  icon={MousePointerClick}
+                  label={t('添加按钮', 'ボタン追加', 'Add button')}
+                  onClick={addCurrentSurfaceButton}
+                />
+                <IconToolButton
+                  icon={Volume2}
+                  label={t('音乐', '音楽', 'Music')}
+                  onClick={() => setShowMenuMusicSettings((current) => !current)}
+                  active={showMenuMusicSettings}
+                />
+                <IconToolButton
+                  icon={Trash2}
+                  label={t('删除选中元素', '選択要素を削除', 'Delete selected')}
+                  onClick={deleteSelectedPageElement}
+                  disabled={!canDeleteSelectedPageElement}
+                />
+              </>
+            )}
             <button
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}
@@ -1044,40 +1109,15 @@ JSON schema:
                   }}
                 />
               </WebSettingCard>
-              <WebSettingCard>
-                <div className="grid grid-cols-4 gap-2 rounded-xl bg-indigo-500/5 p-2">
-                  <IconToolButton
-                    icon={Type}
-                    label={t('添加文字', 'テキスト追加', 'Add text')}
-                    onClick={addCurrentSurfaceText}
+              {showMenuMusicSettings && (
+                <WebSettingCard>
+                  <WebMenuMusicPanel
+                    language={language}
+                    settings={webSettings}
+                    updateWebSettings={updateWebSettings}
                   />
-                  <IconToolButton
-                    icon={ImagePlus}
-                    label={t('添加图片', '画像追加', 'Add image')}
-                    onClick={addCurrentSurfaceImage}
-                  />
-                  <IconToolButton
-                    icon={MousePointerClick}
-                    label={t('添加按钮', 'ボタン追加', 'Add button')}
-                    onClick={addCurrentSurfaceButton}
-                  />
-                  <IconToolButton
-                    icon={Volume2}
-                    label={t('音乐', '音楽', 'Music')}
-                    onClick={() => setShowMenuMusicSettings((current) => !current)}
-                    active={showMenuMusicSettings}
-                  />
-                </div>
-                {showMenuMusicSettings && (
-                  <div className="mt-2">
-                    <WebMenuMusicPanel
-                      language={language}
-                      settings={webSettings}
-                      updateWebSettings={updateWebSettings}
-                    />
-                  </div>
-                )}
-              </WebSettingCard>
+                </WebSettingCard>
+              )}
             </div>
           )}
           {currentPreviewSurface === 'start' && webSettings.showStartMenu && (

@@ -186,6 +186,18 @@ export function WebPlaytestStartMenuElement({
     onSetEditingElement(element.id);
   };
   const canDeleteElement = !element.role || !protectedStartMenuElementRoles.has(element.role);
+  const functionLabel =
+    element.role === 'save'
+      ? t('打开存档页', 'セーブ画面', 'Open saves')
+      : element.role === 'new'
+        ? t('新游戏', '新規ゲーム', 'New game')
+        : element.role === 'settings'
+          ? t('打开设置页', '設定画面', 'Open settings')
+          : element.role === 'link'
+            ? t('打开超链接', 'リンクを開く', 'Open link')
+            : element.role === 'volume'
+              ? t('设置音量', '音量を設定', 'Set volume')
+              : t('无功能', '機能なし', 'No action');
 
   return (
     <div
@@ -205,7 +217,7 @@ export function WebPlaytestStartMenuElement({
     >
       {previewMode === 'edit' && element.kind === 'button' && (
         <div className="pointer-events-none absolute left-0 top-0 z-10 max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
-          {action?.label || element.id}
+          {functionLabel}
         </div>
       )}
       {element.kind === 'image' ? (

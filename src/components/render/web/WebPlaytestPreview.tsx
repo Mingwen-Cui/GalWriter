@@ -1463,11 +1463,7 @@ export function WebPlaytestPreview({
         )}
         <div
           ref={startMenuEditorRef}
-          className={`absolute overflow-hidden ${startMenuPanelSurfaceClass} ${
-            previewMode === 'edit' && selectedStartMenuElementId === null
-              ? 'pointer-events-none'
-              : ''
-          }`}
+          className={`absolute overflow-hidden ${startMenuPanelSurfaceClass}`}
           style={{
             left: 0,
             top: 0,
