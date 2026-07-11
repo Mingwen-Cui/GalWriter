@@ -1052,24 +1052,32 @@ export const makeIndexHtml = (
     }
     function customShadow(element, target) {
       if (element.shadowEnabled === false) return "";
-      const opacity = clamp(element.shadowOpacity, 0, 100, 0);
-      if (opacity <= 0) return "";
-      const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
-      const y = Number.isFinite(Number(element.shadowOffsetY)) ? Number(element.shadowOffsetY) : (target === "text" ? 2 : 8);
-      const blur = Number.isFinite(Number(element.shadowBlur)) ? Number(element.shadowBlur) : 18;
-      return x + "px " + y + "px " + blur + "px " + styleColor(element.shadowColor, opacity, "#000000");
+      const shadows = Array.isArray(element.shadows) && element.shadows.length
+        ? element.shadows.slice(0, 6)
+        : [{ color: element.shadowColor, opacity: element.shadowOpacity, blur: element.shadowBlur, offsetX: element.shadowOffsetX, offsetY: element.shadowOffsetY }];
+      return shadows.filter(function(shadow) { return shadow && shadow.enabled !== false && clamp(shadow.opacity, 0, 100, 0) > 0; }).map(function(shadow) {
+        const opacity = clamp(shadow.opacity, 0, 100, 0);
+        const x = Number.isFinite(Number(shadow.offsetX)) ? Number(shadow.offsetX) : 0;
+        const y = Number.isFinite(Number(shadow.offsetY)) ? Number(shadow.offsetY) : (target === "text" ? 2 : 8);
+        const blur = Number.isFinite(Number(shadow.blur)) ? Number(shadow.blur) : 18;
+        return x + "px " + y + "px " + blur + "px " + styleColor(shadow.color, opacity, "#000000");
+      }).join(", ");
     }
     function customBoxShadow(element) {
       if (element.shadowEnabled === false) return "";
-      const opacity = clamp(element.shadowOpacity, 0, 100, 0);
-      if (opacity <= 0) return "";
-      const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
-      const y = Number.isFinite(Number(element.shadowOffsetY)) ? Number(element.shadowOffsetY) : 8;
-      const blur = Number.isFinite(Number(element.shadowBlur)) ? Number(element.shadowBlur) : 18;
-      const color = styleColor(element.shadowColor, opacity, "#000000");
-      if (element.shadowType === "inner") return "inset " + x + "px " + y + "px " + blur + "px " + color;
-      if (element.shadowType === "innerBlur") return "inset 0 0 " + blur + "px " + color;
-      return x + "px " + y + "px " + blur + "px " + color;
+      const shadows = Array.isArray(element.shadows) && element.shadows.length
+        ? element.shadows.slice(0, 6)
+        : [{ type: element.shadowType, color: element.shadowColor, opacity: element.shadowOpacity, blur: element.shadowBlur, offsetX: element.shadowOffsetX, offsetY: element.shadowOffsetY }];
+      return shadows.filter(function(shadow) { return shadow && shadow.enabled !== false && clamp(shadow.opacity, 0, 100, 0) > 0; }).map(function(shadow) {
+        const opacity = clamp(shadow.opacity, 0, 100, 0);
+        const x = Number.isFinite(Number(shadow.offsetX)) ? Number(shadow.offsetX) : 0;
+        const y = Number.isFinite(Number(shadow.offsetY)) ? Number(shadow.offsetY) : 8;
+        const blur = Number.isFinite(Number(shadow.blur)) ? Number(shadow.blur) : 18;
+        const color = styleColor(shadow.color, opacity, "#000000");
+        if (shadow.type === "inner") return "inset " + x + "px " + y + "px " + blur + "px " + color;
+        if (shadow.type === "innerBlur") return "inset 0 0 " + blur + "px " + color;
+        return x + "px " + y + "px " + blur + "px " + color;
+      }).join(", ");
     }
     function borderGradient(element) {
       return linearGradientFromStops(Number(element.borderGradientAngle) || 135, normalizeGradientStops(element.borderGradientStops, element.borderGradientStart || element.borderColor || "#ffffff", element.borderGradientEnd || "#4f46e5"));
@@ -1115,12 +1123,24 @@ export const makeIndexHtml = (
       target.style.borderBottomRightRadius = (Number.isFinite(Number(element.borderBottomRightRadius)) ? Number(element.borderBottomRightRadius) : base) + "px";
       target.style.borderBottomLeftRadius = (Number.isFinite(Number(element.borderBottomLeftRadius)) ? Number(element.borderBottomLeftRadius) : base) + "px";
     }
+    function applyTextPaint(target, element, fallbackColor) {
+      if (element.textColorType === "gradient") {
+        target.style.color = "transparent";
+        target.style.backgroundImage = linearGradientFromStops(Number(element.textGradientAngle) || 90, normalizeGradientStops(element.textGradientStops, element.textGradientStart || element.textColor || "#ffffff", element.textGradientEnd || "#0ea5e9"));
+        target.style.backgroundClip = "text";
+        target.style.webkitBackgroundClip = "text";
+        target.style.webkitTextFillColor = "transparent";
+      } else {
+        target.style.color = styleColor(element.textColor, element.textColorAlpha, fallbackColor || "#ffffff");
+      }
+      if (element.textBlendMode) target.style.mixBlendMode = element.textBlendMode;
+    }
     function applyCustomTextStyle(target, element) {
       if (element.textVisible === false) target.textContent = "";
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
-      target.style.color = styleColor(element.textColor, element.textColorAlpha, "#ffffff");
+      applyTextPaint(target, element, "#ffffff");
       if (element.textStrokeTarget !== "box" && element.strokeEnabled !== false && Number(element.textStrokeWidth) > 0) {
         target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
       }
@@ -1503,7 +1523,8 @@ export const makeIndexHtml = (
           const button = document.createElement("button");
           button.type = "button";
           button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
-          button.textContent = element.text || action?.label || "";
+          const buttonLabel = element.text || action?.label || "";
+          button.textContent = "";
           button.disabled = Boolean(element.disabled || action?.disabled);
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
@@ -1523,6 +1544,12 @@ export const makeIndexHtml = (
           if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
           applyElementRadius(button, element, 12);
           if (element.blendMode) button.style.mixBlendMode = element.blendMode;
+          if (element.textVisible !== false) {
+            const label = document.createElement("span");
+            label.textContent = buttonLabel;
+            applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
+            button.appendChild(label);
+          }
           if (action?.onClick) button.addEventListener("click", action.onClick);
           wrapper.appendChild(button);
         } else {

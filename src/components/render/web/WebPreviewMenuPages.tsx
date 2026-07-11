@@ -15,6 +15,7 @@ import {
   webColorWithAlpha,
   webElementBoxStyle,
   webElementShadowStyle,
+  webElementTextPaintStyle,
 } from './webElementStyle';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
@@ -645,7 +646,7 @@ function MenuPageElementLayer({
                   }}
                 >
                   {element.textVisible !== false && (
-                    <span className="whitespace-pre-line">{element.text}</span>
+                    <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>{element.text}</span>
                   )}
                   {suffix && <span className="text-xs opacity-70">{suffix}</span>}
                 </span>
@@ -748,7 +749,7 @@ function MenuPageElementLayer({
               }}
             >
               {element.textVisible !== false && (
-                <span className="whitespace-pre-line">{element.text}</span>
+                <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>{element.text}</span>
               )}
               {selected && (
                 <SelectedElementFrame

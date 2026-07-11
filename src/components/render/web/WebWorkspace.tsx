@@ -1504,7 +1504,7 @@ function WebSurfaceInspectorPanel({
   return (
     <div className="space-y-2">
       <WebPanelTitle icon={icon} title={title} />
-      <div className="space-y-3 rounded-xl border border-white/10 bg-[var(--vr-surface)]/90 p-3 shadow-xl shadow-black/5 backdrop-blur-xl">
+      <div className="space-y-3">
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="min-w-0 text-[11px] font-black text-[var(--vr-text)]">
@@ -1512,7 +1512,7 @@ function WebSurfaceInspectorPanel({
             </div>
             <div className="h-px flex-1 bg-[var(--vr-border)]" />
           </div>
-          <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]/70 p-2">
+          <div className="rounded-lg bg-[var(--vr-surface-soft)]/70 p-2">
             {children}
           </div>
         </div>

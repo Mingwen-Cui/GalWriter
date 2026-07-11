@@ -231,6 +231,12 @@ export type WebMenuElement = {
   fontWeight?: number;
   textColor?: string;
   textColorAlpha?: number;
+  textColorType?: 'solid' | 'gradient';
+  textGradientStart?: string;
+  textGradientEnd?: string;
+  textGradientAngle?: number;
+  textGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
+  textBlendMode?: string;
   textVisible?: boolean;
   textStrokeColor?: string;
   textStrokeWidth?: number;
@@ -267,6 +273,16 @@ export type WebMenuElement = {
   shadowBlur?: number;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
+  shadows?: Array<{
+    id: string;
+    type: 'outer' | 'inner' | 'innerBlur';
+    color: string;
+    opacity: number;
+    blur: number;
+    offsetX: number;
+    offsetY: number;
+    enabled?: boolean;
+  }>;
   zIndex?: number;
   opacity?: number;
   blendMode?: string;

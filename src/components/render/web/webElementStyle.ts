@@ -24,19 +24,50 @@ export const webElementShadowStyle = (
   target: 'box' | 'text',
 ): CSSProperties => {
   if (element.shadowEnabled === false) return {};
-  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
-  if (opacity <= 0) return {};
-  const x = element.shadowOffsetX ?? 0;
-  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
-  const blur = element.shadowBlur ?? 18;
-  const color = webColorWithAlpha(element.shadowColor, opacity, '#000000');
-  if (target === 'text') {
-    return { textShadow: `${x}px ${y}px ${blur}px ${color}` };
+  const shadows = element.shadows?.length
+    ? element.shadows
+    : [{
+        id: 'legacy',
+        type: element.shadowType || 'outer',
+        color: element.shadowColor || '#000000',
+        opacity: element.shadowOpacity ?? 0,
+        blur: element.shadowBlur ?? 18,
+        offsetX: element.shadowOffsetX ?? 0,
+        offsetY: element.shadowOffsetY ?? (target === 'text' ? 2 : 8),
+      }];
+  const values = shadows
+    .filter((shadow) => shadow.enabled !== false && shadow.opacity > 0)
+    .map((shadow) => {
+      const color = webColorWithAlpha(shadow.color, shadow.opacity, '#000000');
+      if (target === 'text') return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
+      if (shadow.type === 'inner') return `inset ${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
+      if (shadow.type === 'innerBlur') return `inset 0 0 ${shadow.blur}px ${color}`;
+      return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
+    });
+  if (!values.length) return {};
+  return target === 'text' ? { textShadow: values.join(', ') } : { boxShadow: values.join(', ') };
+};
+
+export const webElementTextPaintStyle = (element: WebMenuElement): CSSProperties => {
+  if (element.textColorType !== 'gradient') {
+    return {
+      color: webColorWithAlpha(element.textColor, element.textColorAlpha, '#ffffff'),
+      mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
+    };
   }
-  const type = element.shadowType || 'outer';
-  if (type === 'inner') return { boxShadow: `inset ${x}px ${y}px ${blur}px ${color}` };
-  if (type === 'innerBlur') return { boxShadow: `inset 0 0 ${blur}px ${color}` };
-  return { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+  const stops = normalizeGradientStops(
+    element.textGradientStops,
+    element.textGradientStart || element.textColor || '#ffffff',
+    element.textGradientEnd || '#0ea5e9',
+  );
+  return {
+    color: 'transparent',
+    backgroundImage: linearGradientFromStops(element.textGradientAngle ?? 90, stops),
+    backgroundClip: 'text',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
+  };
 };
 
 const webElementBorderParts = (element: WebMenuElement) => {

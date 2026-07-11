@@ -8,6 +8,7 @@ import {
   webColorWithAlpha,
   webElementBoxStyle,
   webElementShadowStyle,
+  webElementTextPaintStyle,
 } from './webElementStyle';
 import type {
   StartMenuAction,
@@ -190,6 +191,7 @@ export function WebPlaytestStartMenuElement({
           ? 'opacity-50 caret-white'
           : ''
       } ${!visibleText && element.textVisible !== false && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
+      style={webElementTextPaintStyle(element)}
     >
       {visibleText ||
         (previewMode === 'edit' && editingStartMenuElementId !== element.id

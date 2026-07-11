@@ -1,13 +1,7 @@
 import {
   AlignCenter,
-  AlignHorizontalJustifyCenter,
-  AlignHorizontalJustifyEnd,
-  AlignHorizontalJustifyStart,
   AlignLeft,
   AlignRight,
-  AlignVerticalJustifyCenter,
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
   ChevronDown,
   Eye,
   EyeOff,
@@ -316,6 +310,27 @@ export function AlignButtons({
   );
 }
 
+function PositionAlignIcon({ axis, value }: { axis: 'x' | 'y'; value: 'start' | 'center' | 'end' }) {
+  const guide = value === 'start' ? 4 : value === 'center' ? 12 : 20;
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {axis === 'x' ? (
+        <>
+          <path d={`M${guide} 3v18`} opacity="0.78" />
+          <rect x={value === 'start' ? 7 : value === 'center' ? 8 : 9} y="7" width="8" height="10" rx="2" />
+          <path d={value === 'start' ? 'M4 12h3' : value === 'center' ? 'M8 12h8' : 'M17 12h3'} opacity="0.55" />
+        </>
+      ) : (
+        <>
+          <path d={`M3 ${guide}h18`} opacity="0.78" />
+          <rect x="7" y={value === 'start' ? 7 : value === 'center' ? 8 : 9} width="10" height="8" rx="2" />
+          <path d={value === 'start' ? 'M12 4v3' : value === 'center' ? 'M12 8v8' : 'M12 17v3'} opacity="0.55" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function PositionAlignButtons({
   className = '',
   onAlign,
@@ -328,13 +343,13 @@ export function PositionAlignButtons({
     value: 'start' | 'center' | 'end';
     icon: React.ReactNode;
   }> = [
-    { key: 'left', value: 'start', icon: <AlignHorizontalJustifyStart className="h-5 w-5" /> },
+    { key: 'left', value: 'start', icon: <PositionAlignIcon axis="x" value="start" /> },
     {
       key: 'center-x',
       value: 'center',
-      icon: <AlignHorizontalJustifyCenter className="h-5 w-5" />,
+      icon: <PositionAlignIcon axis="x" value="center" />,
     },
-    { key: 'right', value: 'end', icon: <AlignHorizontalJustifyEnd className="h-5 w-5" /> },
+    { key: 'right', value: 'end', icon: <PositionAlignIcon axis="x" value="end" /> },
   ];
 
   const verticalItems: Array<{
@@ -342,9 +357,9 @@ export function PositionAlignButtons({
     value: 'start' | 'center' | 'end';
     icon: React.ReactNode;
   }> = [
-    { key: 'top', value: 'start', icon: <AlignVerticalJustifyStart className="h-5 w-5" /> },
-    { key: 'center-y', value: 'center', icon: <AlignVerticalJustifyCenter className="h-5 w-5" /> },
-    { key: 'bottom', value: 'end', icon: <AlignVerticalJustifyEnd className="h-5 w-5" /> },
+    { key: 'top', value: 'start', icon: <PositionAlignIcon axis="y" value="start" /> },
+    { key: 'center-y', value: 'center', icon: <PositionAlignIcon axis="y" value="center" /> },
+    { key: 'bottom', value: 'end', icon: <PositionAlignIcon axis="y" value="end" /> },
   ];
 
   return (

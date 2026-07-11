@@ -55,6 +55,7 @@ type InspectorProps = {
 type Popover = null | {
   group: 'text' | 'fill' | 'stroke' | 'shadow' | 'image';
   type: RenderFillType;
+  shadowIndex?: number;
 };
 
 type InspectorHistoryKey = 'fill' | 'stroke' | 'shadow';
@@ -176,6 +177,7 @@ export function StartMenuElementInspector({
   const [popover, setPopover] = useState<Popover>(null);
   const [radiusPopoverOpen, setRadiusPopoverOpen] = useState(false);
   const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
+  const [textBlendMenuOpen, setTextBlendMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!popover) return;
@@ -188,6 +190,12 @@ export function StartMenuElementInspector({
     return () => document.removeEventListener('pointerdown', dismissPopover);
   }, [popover]);
   const backgroundType = element.backgroundType || 'solid';
+  const textColorType = element.textColorType || 'solid';
+  const textGradientStops = normalizeGradientStops(
+    element.textGradientStops,
+    element.textGradientStart || element.textColor || '#ffffff',
+    element.textGradientEnd || '#0ea5e9',
+  );
   const gradientStops = normalizeGradientStops(
     element.backgroundGradientStops,
     element.backgroundGradientStart || '#0ea5e9',
@@ -209,6 +217,52 @@ export function StartMenuElementInspector({
   );
   const strokePosition = element.borderPosition || 'center';
   const shadowType = element.shadowType || 'outer';
+  const shadows = element.shadows?.length
+    ? element.shadows.slice(0, 6)
+    : [{
+        id: 'shadow-1',
+        type: shadowType,
+        color: element.shadowColor || '#000000',
+        opacity: element.shadowOpacity ?? 0,
+        blur: element.shadowBlur ?? 18,
+        offsetX: element.shadowOffsetX ?? 0,
+        offsetY: element.shadowOffsetY ?? (element.kind === 'text' ? 2 : 8),
+      }];
+  const updateShadow = (index: number, patch: Partial<(typeof shadows)[number]>) => {
+    const next = shadows.map((shadow, shadowIndex) => shadowIndex === index ? { ...shadow, ...patch } : shadow);
+    const first = next[0];
+    onUpdate({
+      shadows: next,
+      ...(index === 0 && first ? {
+        shadowType: first.type,
+        shadowColor: first.color,
+        shadowOpacity: first.opacity,
+        shadowBlur: first.blur,
+        shadowOffsetX: first.offsetX,
+        shadowOffsetY: first.offsetY,
+      } : {}),
+    });
+  };
+  const addShadow = () => {
+    if (shadows.length >= 6) return;
+    onUpdate({
+      shadows: [...shadows, {
+        id: `shadow-${Date.now().toString(36)}`,
+        type: 'outer',
+        color: '#000000',
+        opacity: 35,
+        blur: 18,
+        offsetX: 0,
+        offsetY: element.kind === 'text' ? 2 : 8,
+      }],
+      shadowEnabled: true,
+    });
+  };
+  const removeShadow = (index: number) => {
+    if (index === 0) return;
+    onUpdate({ shadows: shadows.filter((_, shadowIndex) => shadowIndex !== index) });
+    setPopover(null);
+  };
   const functionCopy = buttonFunctionCopy(language);
   const buttonFunctionOptions = BUTTON_FUNCTIONS_BY_SURFACE[surface].map((role) => ({
     label: functionCopy[role],
@@ -282,7 +336,7 @@ export function StartMenuElementInspector({
       (!element.backgroundColor || element.backgroundColor === 'transparent')
     );
   const strokeHasValue = strokeWidth > 0;
-  const shadowHasValue = (element.shadowOpacity ?? 0) > 0;
+  const shadowHasValue = shadows.some((shadow) => shadow.opacity > 0);
   const fillEnabled = element.fillEnabled ?? fillHasValue;
   const strokeEnabled = element.strokeEnabled ?? strokeHasValue;
   const shadowEnabled = element.shadowEnabled ?? shadowHasValue;
@@ -353,9 +407,14 @@ export function StartMenuElementInspector({
       shadowBlur: element.shadowBlur,
       shadowOffsetX: element.shadowOffsetX,
       shadowOffsetY: element.shadowOffsetY,
+      shadows: element.shadows,
     });
+    const nextShadows = shadowHasValue
+      ? shadows
+      : shadows.map((shadow, index) => index === 0 ? { ...shadow, opacity: 35 } : shadow);
     onUpdate({
       shadowEnabled: !shadowEnabled,
+      shadows: nextShadows,
       ...(shadowHasValue
         ? {}
         : {
@@ -367,7 +426,7 @@ export function StartMenuElementInspector({
             shadowOffsetY: element.shadowOffsetY ?? (element.kind === 'text' ? 2 : 8),
           }),
     });
-    setPopover({ group: 'shadow', type: 'solid' });
+    setPopover({ group: 'shadow', type: 'solid', shadowIndex: 0 });
   };
 
   return (
@@ -563,20 +622,61 @@ export function StartMenuElementInspector({
               value={element.textAlign || (element.kind === 'button' ? 'center' : 'left')}
               onChange={(textAlign) => onUpdate({ textAlign })}
             />
+            <TwoSegmentControl
+              value={textColorType}
+              options={[
+                { value: 'solid', label: inspectorCopy.solid, icon: <Palette className="h-4 w-4" /> },
+                { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
+              ]}
+              onChange={(type) => {
+                onUpdate({ textColorType: type });
+                setPopover({ group: 'text', type });
+              }}
+            />
+          </ControlRow>
+          <div className="relative mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+            {textColorType === 'solid' ? (
+              <InlineColorControl
+                label={text.popover.solidTitle}
+                color={element.textColor || '#ffffff'}
+                alpha={element.textColorAlpha ?? 100}
+                alphaLabel={text.field.opacity}
+                hexLabel={text.popover.hex}
+                onColorChange={(textColor) => onUpdate({ textColor })}
+                onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
+                onOpen={() => setPopover({ group: 'text', type: 'solid' })}
+              />
+            ) : (
+              <InlineGradientControl
+                label={text.popover.gradientTitle}
+                stops={textGradientStops}
+                onOpen={() => setPopover({ group: 'text', type: 'gradient' })}
+                onAlphaChange={(alpha) =>
+                  onUpdate({ textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })) })
+                }
+              />
+            )}
             <button
               type="button"
-              onClick={() =>
-                setPopover(popover?.group === 'text' ? null : { group: 'text', type: 'solid' })
-              }
-              className="flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-xs font-bold"
-              title={text.field.color}
-              aria-label={text.field.color}
+              onClick={() => setTextBlendMenuOpen((open) => !open)}
+              className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-violet-100"
+              title={text.field.blendMode}
+              aria-label={text.field.blendMode}
             >
-              <Palette className="h-4 w-4" />
-              {showDescriptions && <span className="min-w-0 truncate">{text.field.color}</span>}
+              <Blend className="h-4 w-4" />
             </button>
-          </ControlRow>
-          {popover?.group === 'text' && (
+            {textBlendMenuOpen && (
+              <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-violet-100 bg-white py-1 shadow-xl">
+                {BLEND_OPTIONS.map((blendMode) => (
+                  <button key={blendMode} type="button" onClick={() => { onUpdate({ textBlendMode: blendMode }); setTextBlendMenuOpen(false); }} className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs ${element.textBlendMode === blendMode || (!element.textBlendMode && blendMode === 'normal') ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+                    <span>{blendMode}</span>
+                    {(element.textBlendMode === blendMode || (!element.textBlendMode && blendMode === 'normal')) && <Check className="h-4 w-4" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {popover?.group === 'text' && popover.type === 'solid' && (
             <FloatingPopover>
               <SolidColorPopover
                 tone="fill"
@@ -587,6 +687,25 @@ export function StartMenuElementInspector({
                 onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
               />
             </FloatingPopover>
+          )}
+          {popover?.group === 'text' && popover.type === 'gradient' && (
+            <PortaledGradientPopover>
+              <GradientEditorPopover
+                language={language}
+                angle={element.textGradientAngle ?? 90}
+                stops={textGradientStops}
+                onAngleChange={(textGradientAngle) => onUpdate({ textGradientAngle, textColorType: 'gradient' })}
+                onStopsChange={(stops) => {
+                  const sorted = [...stops].sort((a, b) => a.position - b.position);
+                  onUpdate({
+                    textColorType: 'gradient',
+                    textGradientStops: sorted,
+                    textGradientStart: sorted[0]?.color || '#ffffff',
+                    textGradientEnd: sorted.at(-1)?.color || '#0ea5e9',
+                  });
+                }}
+              />
+            </PortaledGradientPopover>
           )}
         </Group>
       )}
@@ -1018,102 +1137,66 @@ export function StartMenuElementInspector({
         )}
       </Group>
 
-      <Group
-        title={text.group.shadow}
-        icon={<Blend className="h-3.5 w-3.5" />}
-        tone="shadow"
-        onTitleClick={toggleShadow}
-        titleActive={shadowEnabled}
-        expandLabel={inspectorCopy.expand}
-        collapseLabel={inspectorCopy.collapse}
-        secondary={
-          element.kind === 'text' ? (
-            <HeaderAction
-              icon={<Palette className="h-4 w-4" />}
-              label={text.field.color}
-              onClick={() =>
-                setPopover(popover?.group === 'shadow' ? null : { group: 'shadow', type: 'solid' })
-              }
-            />
-          ) : (
-            <SegmentedIconControl
-              value={shadowType}
-              options={[
-                { value: 'outer', label: inspectorCopy.outerShadow, icon: <ShadowModeIcon mode="outer" /> },
-                { value: 'inner', label: inspectorCopy.innerShadow, icon: <ShadowModeIcon mode="inner" /> },
-                { value: 'innerBlur', label: inspectorCopy.innerBlur, icon: <ShadowModeIcon mode="innerBlur" /> },
-              ]}
-              onChange={(shadowType) => onUpdate({ shadowType })}
-            />
-          )
-        }
-      >
-        <ControlRow>
-          <NumberField
-            icon={<Blend className="h-4 w-4" />}
-            label={text.field.opacity}
-            description={showDescriptions ? text.field.opacity : undefined}
-            value={element.shadowOpacity ?? 0}
-            min={0}
-            max={100}
-            onChange={(shadowOpacity) => onUpdate({ shadowOpacity })}
-          />
-          <NumberField
-            icon={<Radius className="h-4 w-4" />}
-            label={text.field.blur}
-            description={showDescriptions ? text.field.blur : undefined}
-            value={element.shadowBlur ?? 18}
-            min={0}
-            max={80}
-            onChange={(shadowBlur) => onUpdate({ shadowBlur })}
-          />
-        </ControlRow>
-        <ControlRow className="mt-2">
-          <NumberField
-            icon={<MoveHorizontal className="h-4 w-4" />}
-            label={text.field.x}
-            value={element.shadowOffsetX ?? 0}
-            min={-80}
-            max={80}
-            onChange={(shadowOffsetX) => onUpdate({ shadowOffsetX })}
-          />
-          <NumberField
-            icon={<MoveVertical className="h-4 w-4" />}
-            label={text.field.y}
-            value={element.shadowOffsetY ?? (element.kind === 'text' ? 2 : 8)}
-            min={-80}
-            max={80}
-            onChange={(shadowOffsetY) => onUpdate({ shadowOffsetY })}
-          />
-        </ControlRow>
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          <div className="min-w-0">
-            <InlineColorControl
-              label={text.field.color}
-              color={element.shadowColor || '#000000'}
-              alpha={element.shadowOpacity ?? 0}
-              alphaLabel={text.field.opacity}
-              hexLabel={text.popover.hex}
-              onColorChange={(shadowColor) => onUpdate({ shadowColor })}
-              onAlphaChange={(shadowOpacity) => onUpdate({ shadowOpacity })}
-              onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
-            />
-          </div>
-          <div className="h-10 w-11" aria-hidden="true" />
-        </div>
-        {popover?.group === 'shadow' && (
-          <FloatingPopover>
-            <SolidColorPopover
-              tone="shadow"
-              text={text.popover}
-              color={element.shadowColor || '#000000'}
-              alpha={element.shadowOpacity ?? 0}
-              onColorChange={(shadowColor) => onUpdate({ shadowColor })}
-              onAlphaChange={(shadowOpacity) => onUpdate({ shadowOpacity })}
-            />
-          </FloatingPopover>
-        )}
-      </Group>
+      {shadows.map((shadow, index) => {
+        const numberLabel = language === 'zh'
+          ? ['', '二', '三', '四', '五', '六'][index] || String(index + 1)
+          : ` ${index + 1}`;
+        const title = index === 0 ? text.group.shadow : `${text.group.shadow}${numberLabel}`;
+        return (
+          <Group
+            key={shadow.id}
+            title={title}
+            icon={<Blend className="h-3.5 w-3.5" />}
+            tone="shadow"
+            onTitleClick={index === 0 ? toggleShadow : undefined}
+            titleActive={shadowEnabled}
+            expandLabel={inspectorCopy.expand}
+            collapseLabel={inspectorCopy.collapse}
+            secondary={
+              <SegmentedIconControl
+                value={shadow.type}
+                options={[
+                  { value: 'outer', label: inspectorCopy.outerShadow, icon: <ShadowModeIcon mode="outer" /> },
+                  { value: 'inner', label: inspectorCopy.innerShadow, icon: <ShadowModeIcon mode="inner" /> },
+                  { value: 'innerBlur', label: inspectorCopy.innerBlur, icon: <ShadowModeIcon mode="innerBlur" /> },
+                ]}
+                onChange={(type) => updateShadow(index, { type })}
+              />
+            }
+          >
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.opacity} value={shadow.opacity} min={0} max={100} onChange={(opacity) => updateShadow(index, { opacity })} />
+              <NumberField icon={<Radius className="h-4 w-4" />} label={text.field.blur} value={shadow.blur} min={0} max={80} onChange={(blur) => updateShadow(index, { blur })} />
+              <button type="button" onClick={addShadow} disabled={shadows.length >= 6} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-fuchsia-100 disabled:opacity-35" title="Add shadow" aria-label="Add shadow"><Plus className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+              <NumberField icon={<MoveHorizontal className="h-4 w-4" />} label={text.field.x} value={shadow.offsetX} min={-80} max={80} onChange={(offsetX) => updateShadow(index, { offsetX })} />
+              <NumberField icon={<MoveVertical className="h-4 w-4" />} label={text.field.y} value={shadow.offsetY} min={-80} max={80} onChange={(offsetY) => updateShadow(index, { offsetY })} />
+              {index > 0 ? (
+                <button type="button" onClick={() => removeShadow(index)} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 transition-colors hover:bg-rose-50" title="Remove shadow" aria-label="Remove shadow"><span className="text-xl leading-none">−</span></button>
+              ) : <div className="h-10 w-11" aria-hidden="true" />}
+            </div>
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+              <InlineColorControl
+                label={text.field.color}
+                color={shadow.color}
+                alpha={shadow.opacity}
+                alphaLabel={text.field.opacity}
+                hexLabel={text.popover.hex}
+                onColorChange={(color) => updateShadow(index, { color })}
+                onAlphaChange={(opacity) => updateShadow(index, { opacity })}
+                onOpen={() => setPopover({ group: 'shadow', type: 'solid', shadowIndex: index })}
+              />
+              <div className="h-10 w-11" aria-hidden="true" />
+            </div>
+            {popover?.group === 'shadow' && popover.shadowIndex === index && (
+              <FloatingPopover>
+                <SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.opacity} onColorChange={(color) => updateShadow(index, { color })} onAlphaChange={(opacity) => updateShadow(index, { opacity })} />
+              </FloatingPopover>
+            )}
+          </Group>
+        );
+      })}
 
     </div>
   );
@@ -1223,14 +1306,25 @@ function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
       strokeWidth="2"
       aria-hidden="true"
     >
-      <rect x="7" y="7" width="10" height="10" rx="2" />
-      {mode === 'outer' && <path d="M17 17h2v2M19 15v4h-4" />}
-      {mode === 'inner' && <path d="M10 10h4M10 14h4" />}
+      {mode === 'outer' && (
+        <>
+          <rect x="4" y="4" width="11" height="11" rx="2.5" fill="currentColor" fillOpacity="0.16" />
+          <path d="M8 18h8a2 2 0 0 0 2-2V8" strokeWidth="3" opacity="0.72" />
+          <path d="M17 17l2 2" opacity="0.55" />
+        </>
+      )}
+      {mode === 'inner' && (
+        <>
+          <rect x="4" y="4" width="16" height="16" rx="3" />
+          <path d="M8 8h8v8H8z" opacity="0.55" />
+          <path d="M6.5 6.5l2 2M17.5 6.5l-2 2M6.5 17.5l2-2M17.5 17.5l-2-2" />
+        </>
+      )}
       {mode === 'innerBlur' && (
         <>
-          <path d="M9 12h6" opacity="0.55" />
-          <path d="M12 9v6" opacity="0.55" />
-          <circle cx="12" cy="12" r="6" strokeDasharray="2 3" />
+          <rect x="4" y="4" width="16" height="16" rx="3" />
+          <rect x="7" y="7" width="10" height="10" rx="3" strokeDasharray="1.5 2.5" opacity="0.7" />
+          <circle cx="12" cy="12" r="2.25" opacity="0.9" />
         </>
       )}
     </svg>
