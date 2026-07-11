@@ -26,6 +26,47 @@ const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
   se: 'nwse-resize',
 };
 
+const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
+  const safeColor = color || '#000000';
+  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
+  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return safeColor;
+  const hex = match[1];
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+};
+
+const elementShadowStyle = (
+  element: WebMenuElement,
+  target: 'box' | 'text',
+): CSSProperties => {
+  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
+  if (opacity <= 0) return {};
+  const x = element.shadowOffsetX ?? 0;
+  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
+  const blur = element.shadowBlur ?? 18;
+  const color = colorWithAlpha(element.shadowColor || '#000000', opacity);
+  return target === 'text'
+    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
+    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+};
+
+const elementRadiusStyle = (
+  element: WebMenuElement,
+  fallback: number,
+): CSSProperties => {
+  const base = element.borderRadius ?? fallback;
+  return {
+    borderRadius: base,
+    borderTopLeftRadius: element.borderTopLeftRadius ?? base,
+    borderTopRightRadius: element.borderTopRightRadius ?? base,
+    borderBottomRightRadius: element.borderBottomRightRadius ?? base,
+    borderBottomLeftRadius: element.borderBottomLeftRadius ?? base,
+  };
+};
+
 type WebPreviewMenuPagesProps = {
   language: Language;
   settings: WebExportSettings;
@@ -524,12 +565,17 @@ function MenuPageElementLayer({
             transform: `rotate(${element.rotation || 0}deg) scale(${element.scale || 1})`,
             transformOrigin: 'center',
             opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
+            zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
           };
           const contentStyle: CSSProperties = {
             fontSize: element.fontSize,
             fontWeight: element.fontWeight,
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
-            borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 12),
+            ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 12),
+            WebkitTextStroke:
+              element.kind === 'text' && (element.textStrokeWidth ?? 0) > 0
+                ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
+                : undefined,
           };
           const justifyContent =
             element.textAlign === 'left'
@@ -568,6 +614,10 @@ function MenuPageElementLayer({
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   borderColor: element.borderColor || 'rgba(255,255,255,0.16)',
+                  borderWidth: element.borderWidth ?? 1,
+                  borderStyle: 'solid',
+                  boxSizing: 'border-box',
+                  ...elementShadowStyle(element, 'box'),
                 }}
                 disabled={!editable && element.disabled}
                 onPointerDown={(event) => {
@@ -592,7 +642,7 @@ function MenuPageElementLayer({
                 <span
                   className="flex h-full w-full items-center gap-2 overflow-hidden px-4"
                   style={{
-                    borderRadius: element.borderRadius ?? 12,
+                    ...elementRadiusStyle(element, 12),
                     justifyContent: suffix ? 'space-between' : justifyContent,
                     textAlign: element.textAlign || 'center',
                   }}
@@ -620,7 +670,10 @@ function MenuPageElementLayer({
                 key={element.id}
                 type="button"
                 className="pointer-events-auto absolute border-0 bg-transparent p-0"
-                style={commonStyle}
+                style={{
+                  ...commonStyle,
+                  ...elementShadowStyle(element, 'box'),
+                }}
                 onPointerDown={(event) => {
                   if (editable) onBeginElementDrag(page, event, element, 'move');
                 }}
@@ -631,7 +684,14 @@ function MenuPageElementLayer({
               >
                 <span
                   className="block h-full w-full overflow-hidden"
-                  style={{ borderRadius: element.borderRadius ?? 12 }}
+                  style={{
+                    ...elementRadiusStyle(element, 12),
+                    border:
+                      (element.borderWidth ?? 0) > 0
+                        ? `${element.borderWidth}px solid ${element.borderColor || '#ffffff'}`
+                        : undefined,
+                    boxSizing: 'border-box',
+                  }}
                 >
                   {element.imageUrl ? (
                     <img src={element.imageUrl} alt="" className="h-full w-full object-cover" />
@@ -663,6 +723,7 @@ function MenuPageElementLayer({
                 ...contentStyle,
                 justifyContent,
                 textAlign: element.textAlign || 'left',
+                ...elementShadowStyle(element, 'text'),
               }}
               onPointerDown={(event) => {
                 if (editable) onBeginElementDrag(page, event, element, 'move');

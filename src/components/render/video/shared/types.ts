@@ -245,6 +245,16 @@ export type WebMenuElement = {
   borderColor?: string;
   borderWidth?: number;
   borderRadius?: number;
+  borderTopLeftRadius?: number;
+  borderTopRightRadius?: number;
+  borderBottomRightRadius?: number;
+  borderBottomLeftRadius?: number;
+  shadowColor?: string;
+  shadowOpacity?: number;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  zIndex?: number;
   opacity?: number;
   blendMode?: string;
   imageUrl?: string;

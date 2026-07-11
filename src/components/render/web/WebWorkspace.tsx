@@ -364,10 +364,10 @@ export function WebWorkspace({
     updateActivePageElement(selectedStartMenuElement.id, patch);
   };
   const surfaceMeta = {
-    start: { icon: LayoutTemplate, title: 'Menu design', backgroundSurface: 'start' as const },
-    archive: { icon: Save, title: 'Save design', backgroundSurface: 'archive' as const },
-    settings: { icon: Settings, title: 'Settings design', backgroundSurface: 'settings' as const },
-    game: { icon: Palette, title: 'Dialog design', backgroundSurface: 'game' as const },
+    start: { icon: LayoutTemplate, title: t('菜单设计', 'メニュー設計', 'Menu design'), backgroundSurface: 'start' as const },
+    archive: { icon: Save, title: t('存档页设计', 'セーブ画面設計', 'Save design'), backgroundSurface: 'archive' as const },
+    settings: { icon: Settings, title: t('设置页设计', '設定画面設計', 'Settings design'), backgroundSurface: 'settings' as const },
+    game: { icon: Palette, title: t('对话设计', 'ダイアログ設計', 'Dialog design'), backgroundSurface: 'game' as const },
   } satisfies Record<
     WebPreviewSurface,
     {
@@ -379,13 +379,13 @@ export function WebWorkspace({
   const currentSurfaceMeta = surfaceMeta[currentPreviewSurface];
   const selectedInspectorTitle = selectedStartMenuElement
     ? selectedStartMenuElement.kind === 'button'
-      ? 'Button style'
+      ? t('按钮样式', 'ボタンスタイル', 'Button style')
       : selectedStartMenuElement.kind === 'image'
-        ? 'Image style'
-        : 'Text style'
+        ? t('图片样式', '画像スタイル', 'Image style')
+        : t('文字样式', 'テキストスタイル', 'Text style')
     : currentPreviewSurface === 'game' && webRenderStyle.selectedRenderObject
-      ? 'Dialog object'
-      : 'Background style';
+      ? t('对话对象', 'ダイアログ要素', 'Dialog object')
+      : t('背景样式', '背景スタイル', 'Background style');
   const surfaceInspector = (
     <WebSurfaceInspectorPanel
       title={currentSurfaceMeta.title}
@@ -945,13 +945,21 @@ JSON schema:
           {currentPreviewSurface === 'start' && webSettings.showStartMenu && (
             <>
               {surfaceInspector}
-              <WebAuxiliaryPanel title="Assets">
+              <WebAuxiliaryPanel title={t('素材', '素材', 'Assets')}>
                 <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
-                  <IconToolButton icon={Type} label="Add text" onClick={addStartMenuText} />
-                  <IconToolButton icon={ImagePlus} label="Add image" onClick={addStartMenuImage} />
+                  <IconToolButton
+                    icon={Type}
+                    label={t('添加文字', 'テキスト追加', 'Add text')}
+                    onClick={addStartMenuText}
+                  />
+                  <IconToolButton
+                    icon={ImagePlus}
+                    label={t('添加图片', '画像追加', 'Add image')}
+                    onClick={addStartMenuImage}
+                  />
                   <IconToolButton
                     icon={Volume2}
-                    label="Music"
+                    label={t('音乐', '音楽', 'Music')}
                     onClick={() => setShowMenuMusicSettings((current) => !current)}
                   />
                 </div>
@@ -1123,28 +1131,28 @@ JSON schema:
           {currentPreviewSurface === 'archive' && (
             <>
               {surfaceInspector}
-              <WebAuxiliaryPanel title="Save page">
+              <WebAuxiliaryPanel title={t('存档页', 'セーブ画面', 'Save page')}>
                 <WebSettingCard icon={Save}>
                   <WebPillToggleGroup
                     value={webSettings.startMenuShowSave ? 'show' : 'hide'}
                     options={[
-                      { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
-                      { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                      { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
+                      { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
                     ]}
                     onChange={(value) => updateWebSettings('startMenuShowSave', value === 'show')}
                   />
                 </WebSettingCard>
                 <div className="grid gap-2 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2">
                   <div className="px-1 text-[10px] font-black text-[var(--vr-text-muted)]">
-                    Save card
+                    {t('存档卡片', 'セーブカード', 'Save card')}
                   </div>
                   <ColorField
-                    label="Button"
+                    label={t('按钮', 'ボタン', 'Button')}
                     value={webChoiceColor}
                     onChange={updateWebChoiceColor}
                   />
                   <ColorField
-                    label="Text"
+                    label={t('文字', 'テキスト', 'Text')}
                     value={webChoiceTextColor}
                     onChange={updateWebChoiceTextColor}
                   />
@@ -1157,10 +1165,14 @@ JSON schema:
             <>
               {surfaceInspector}
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-indigo-500/5 p-2">
-                <IconToolButton icon={Type} label="Add text" onClick={addDialogueOverlayText} />
+                <IconToolButton
+                  icon={Type}
+                  label={t('添加文字', 'テキスト追加', 'Add text')}
+                  onClick={addDialogueOverlayText}
+                />
                 <IconToolButton
                   icon={ImagePlus}
-                  label="Add image"
+                  label={t('添加图片', '画像追加', 'Add image')}
                   onClick={addDialogueOverlayImage}
                 />
               </div>

@@ -30,6 +30,39 @@ const textAlignStyle = (
   return { justifyContent: 'flex-start', textAlign: 'left' };
 };
 
+const shadowStyle = (element: StartMenuElement, target: 'box' | 'text'): CSSProperties => {
+  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
+  if (opacity <= 0) return {};
+  const x = element.shadowOffsetX ?? 0;
+  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
+  const blur = element.shadowBlur ?? 18;
+  const color = textColorWithAlpha(element.shadowColor || '#000000', opacity);
+  return target === 'text'
+    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
+    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+};
+
+const radiusStyle = (
+  element: StartMenuElement,
+  fallback: number,
+): Pick<
+  CSSProperties,
+  | 'borderRadius'
+  | 'borderTopLeftRadius'
+  | 'borderTopRightRadius'
+  | 'borderBottomRightRadius'
+  | 'borderBottomLeftRadius'
+> => {
+  const base = element.borderRadius ?? fallback;
+  return {
+    borderRadius: base,
+    borderTopLeftRadius: element.borderTopLeftRadius ?? base,
+    borderTopRightRadius: element.borderTopRightRadius ?? base,
+    borderBottomRightRadius: element.borderBottomRightRadius ?? base,
+    borderBottomLeftRadius: element.borderBottomLeftRadius ?? base,
+  };
+};
+
 type WebPlaytestStartMenuElementProps = {
   element: StartMenuElement;
   selected: boolean;
@@ -97,6 +130,7 @@ export function WebPlaytestStartMenuElement({
   };
   const textElementStyle: CSSProperties = {
     ...textAlignStyle(element.textAlign),
+    ...shadowStyle(element, 'text'),
     fontFamily: element.fontFamily,
     fontSize: element.fontSize,
     fontWeight: element.fontWeight,
@@ -109,7 +143,7 @@ export function WebPlaytestStartMenuElement({
       ? `${element.letterSpacing}px`
       : undefined,
     lineHeight: element.lineHeight,
-    borderRadius: element.borderRadius ?? 0,
+    ...radiusStyle(element, 0),
     whiteSpace: 'pre-wrap',
   };
 
@@ -172,7 +206,7 @@ export function WebPlaytestStartMenuElement({
       data-selectable-element-id={element.id}
       style={{
         ...elementStyle,
-        zIndex: selected ? 40 : 20,
+        zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
       }}
       onPointerDown={(event) => onBeginDrag(event, element, 'move')}
       onClick={(event) => {
@@ -194,12 +228,13 @@ export function WebPlaytestStartMenuElement({
             alt=""
             className="h-full w-full object-cover"
             style={{
-              borderRadius: element.borderRadius ?? 12,
+              ...radiusStyle(element, 12),
               border:
                 (element.borderWidth ?? 0) > 0
                   ? `${element.borderWidth}px solid ${element.borderColor || '#ffffff'}`
                   : undefined,
               boxSizing: 'border-box',
+              ...shadowStyle(element, 'box'),
               mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
             }}
             draggable={false}
@@ -207,7 +242,7 @@ export function WebPlaytestStartMenuElement({
         ) : (
           <label
             className="grid h-full w-full cursor-pointer place-items-center border border-dashed border-white/35 bg-white/10 px-2 text-center text-[11px] font-black text-white/60"
-            style={{ borderRadius: element.borderRadius ?? 12 }}
+            style={radiusStyle(element, 12)}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
@@ -256,10 +291,6 @@ export function WebPlaytestStartMenuElement({
             ...textAlignStyle(element.textAlign || 'center'),
             fontFamily: element.fontFamily,
             fontWeight: element.fontWeight,
-            WebkitTextStroke:
-              (element.textStrokeWidth ?? 0) > 0
-                ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
-                : undefined,
             letterSpacing: Number.isFinite(Number(element.letterSpacing))
               ? `${element.letterSpacing}px`
               : undefined,
@@ -267,8 +298,11 @@ export function WebPlaytestStartMenuElement({
             whiteSpace: 'pre-wrap',
             borderColor: element.borderColor,
             borderWidth: element.borderWidth,
+            borderStyle: 'solid',
+            boxSizing: 'border-box',
             fontSize: element.fontSize,
-            borderRadius: element.borderRadius ?? 12,
+            ...radiusStyle(element, 12),
+            ...shadowStyle(element, 'box'),
             mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
           }}
         >

@@ -1050,6 +1050,22 @@ export const makeIndexHtml = (
       const numericAlpha = Number(alpha);
       return withAlpha(color || fallback, Number.isFinite(numericAlpha) ? numericAlpha / 100 : 1);
     }
+    function customShadow(element, target) {
+      const opacity = clamp(element.shadowOpacity, 0, 100, 0);
+      if (opacity <= 0) return "";
+      const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
+      const y = Number.isFinite(Number(element.shadowOffsetY)) ? Number(element.shadowOffsetY) : (target === "text" ? 2 : 8);
+      const blur = Number.isFinite(Number(element.shadowBlur)) ? Number(element.shadowBlur) : 18;
+      return x + "px " + y + "px " + blur + "px " + styleColor(element.shadowColor, opacity, "#000000");
+    }
+    function applyElementRadius(target, element, fallback) {
+      const base = Number.isFinite(Number(element.borderRadius)) ? Number(element.borderRadius) : fallback;
+      target.style.borderRadius = base + "px";
+      target.style.borderTopLeftRadius = (Number.isFinite(Number(element.borderTopLeftRadius)) ? Number(element.borderTopLeftRadius) : base) + "px";
+      target.style.borderTopRightRadius = (Number.isFinite(Number(element.borderTopRightRadius)) ? Number(element.borderTopRightRadius) : base) + "px";
+      target.style.borderBottomRightRadius = (Number.isFinite(Number(element.borderBottomRightRadius)) ? Number(element.borderBottomRightRadius) : base) + "px";
+      target.style.borderBottomLeftRadius = (Number.isFinite(Number(element.borderBottomLeftRadius)) ? Number(element.borderBottomLeftRadius) : base) + "px";
+    }
     function applyCustomTextStyle(target, element) {
       if (element.textVisible === false) target.textContent = "";
       if (Number.isFinite(Number(element.fontSize))) target.style.fontSize = Number(element.fontSize) + "px";
@@ -1059,13 +1075,15 @@ export const makeIndexHtml = (
       if (Number(element.textStrokeWidth) > 0) {
         target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
       }
+      const shadow = customShadow(element, "text");
+      if (shadow) target.style.textShadow = shadow;
       if (Number.isFinite(Number(element.letterSpacing))) target.style.letterSpacing = Number(element.letterSpacing) + "px";
       if (Number.isFinite(Number(element.lineHeight))) target.style.lineHeight = String(Number(element.lineHeight));
       if (element.textAlign) {
         target.style.textAlign = element.textAlign;
         target.style.justifyContent = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start";
       }
-      target.style.borderRadius = px(element.borderRadius, 0);
+      applyElementRadius(target, element, 0);
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
       if (element.textVisible === false) target.textContent = "";
@@ -1073,9 +1091,6 @@ export const makeIndexHtml = (
       if (Number.isFinite(Number(element.fontWeight))) target.style.fontWeight = String(Number(element.fontWeight));
       if (element.fontFamily) target.style.fontFamily = element.fontFamily;
       target.style.color = styleColor(element.textColor, element.textColorAlpha, fallbackColor || "#ffffff");
-      if (Number(element.textStrokeWidth) > 0) {
-        target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
-      }
       if (Number.isFinite(Number(element.letterSpacing))) target.style.letterSpacing = Number(element.letterSpacing) + "px";
       if (Number.isFinite(Number(element.lineHeight))) target.style.lineHeight = String(Number(element.lineHeight));
       target.style.display = "flex";
@@ -1400,17 +1415,20 @@ export const makeIndexHtml = (
         wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
         wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
         wrapper.style.opacity = String(Math.max(0, Math.min(100, Number(element.opacity ?? 100))) / 100);
+        wrapper.style.zIndex = String(20 + (Number(element.zIndex) || 0));
         if (element.kind === "image") {
           if (!element.imageUrl) return;
           const image = document.createElement("img");
           image.className = "start-element-image";
           image.src = element.imageUrl;
           image.alt = "";
-          image.style.borderRadius = px(element.borderRadius, 12);
+          applyElementRadius(image, element, 12);
           if (Number(element.borderWidth) > 0) {
             image.style.border = Number(element.borderWidth) + "px solid " + (element.borderColor || "#ffffff");
             image.style.boxSizing = "border-box";
           }
+          const imageShadow = customShadow(element, "box");
+          if (imageShadow) image.style.boxShadow = imageShadow;
           if (element.blendMode) image.style.mixBlendMode = element.blendMode;
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
@@ -1430,9 +1448,13 @@ export const makeIndexHtml = (
           applyCustomButtonTextStyle(button, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
           if (element.borderColor) button.style.borderColor = element.borderColor;
           if (Number(element.borderWidth) >= 0) button.style.borderWidth = Number(element.borderWidth) + "px";
+          button.style.borderStyle = "solid";
+          button.style.boxSizing = "border-box";
+          const buttonShadow = customShadow(element, "box");
+          if (buttonShadow) button.style.boxShadow = buttonShadow;
           if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
           if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
-          button.style.borderRadius = px(element.borderRadius, 12);
+          applyElementRadius(button, element, 12);
           if (element.blendMode) button.style.mixBlendMode = element.blendMode;
           if (action?.onClick) button.addEventListener("click", action.onClick);
           wrapper.appendChild(button);

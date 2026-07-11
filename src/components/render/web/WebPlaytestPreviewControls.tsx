@@ -38,6 +38,54 @@ const floatingResizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
   se: 'nwse-resize',
 };
 
+const toolbarRoleLabels: Partial<Record<NonNullable<WebMenuElement['role']>, string>> = {
+  audio: '音频',
+  fullscreen: '最大化',
+  return: '返回',
+  mainMenu: '主界面',
+};
+
+const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
+  const safeColor = color || '#000000';
+  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
+  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return safeColor;
+  const hex = match[1];
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+};
+
+const elementShadowStyle = (
+  element: WebMenuElement,
+  target: 'box' | 'text',
+): React.CSSProperties => {
+  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
+  if (opacity <= 0) return {};
+  const x = element.shadowOffsetX ?? 0;
+  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
+  const blur = element.shadowBlur ?? 18;
+  const color = colorWithAlpha(element.shadowColor || '#000000', opacity);
+  return target === 'text'
+    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
+    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+};
+
+const elementRadiusStyle = (
+  element: WebMenuElement,
+  fallback: number,
+): React.CSSProperties => {
+  const base = element.borderRadius ?? fallback;
+  return {
+    borderRadius: base,
+    borderTopLeftRadius: element.borderTopLeftRadius ?? base,
+    borderTopRightRadius: element.borderTopRightRadius ?? base,
+    borderBottomRightRadius: element.borderBottomRightRadius ?? base,
+    borderBottomLeftRadius: element.borderBottomLeftRadius ?? base,
+  };
+};
+
 export function ChoiceButton({
   label,
   choiceColor,
@@ -520,6 +568,8 @@ function ToolbarElement({
   onAction: () => void;
 }) {
   const editable = previewMode === 'edit';
+  const [editingText, setEditingText] = useState(false);
+  const textEditorRef = useRef<HTMLSpanElement | null>(null);
   const justifyContent =
     element.textAlign === 'left'
       ? 'flex-start'
@@ -678,17 +728,29 @@ function ToolbarElement({
         height: `${element.height}%`,
         transform: `rotate(${element.rotation || 0}deg)`,
         opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
-        borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8),
+        ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
+        zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
         background:
           element.kind === 'button' && element.backgroundColor
             ? element.backgroundColor
             : undefined,
+        borderColor: element.kind !== 'text' ? element.borderColor : undefined,
+        borderWidth: element.kind !== 'text' ? (element.borderWidth ?? 0) : undefined,
+        borderStyle: element.kind !== 'text' ? 'solid' : undefined,
+        boxSizing: 'border-box',
         color: element.textColor || undefined,
         fontFamily: element.fontFamily || undefined,
         fontSize: element.fontSize || undefined,
         fontWeight: element.fontWeight,
+        WebkitTextStroke:
+          element.kind === 'text' && (element.textStrokeWidth ?? 0) > 0
+            ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
+            : undefined,
         letterSpacing: element.letterSpacing,
         lineHeight: element.lineHeight,
+        ...(element.kind === 'text'
+          ? elementShadowStyle(element, 'text')
+          : elementShadowStyle(element, 'box')),
         cursor: editable ? 'grab' : undefined,
       }}
       disabled={!editable && disabled}
@@ -701,13 +763,35 @@ function ToolbarElement({
         }
         if (!disabled) onAction();
       }}
+      onDoubleClick={(event) => {
+        if (!editable || element.kind !== 'button') return;
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect?.(element.id);
+        setEditingText(true);
+        window.requestAnimationFrame(() => {
+          const editor = textEditorRef.current;
+          if (!editor) return;
+          editor.focus();
+          const range = document.createRange();
+          range.selectNodeContents(editor);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        });
+      }}
     >
+      {editable && element.kind === 'button' && element.role && toolbarRoleLabels[element.role] && (
+        <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+          {toolbarRoleLabels[element.role]}
+        </span>
+      )}
       <span
         className={`flex h-full w-full items-center gap-1.5 overflow-hidden ${
           element.kind === 'button' ? 'px-2' : ''
         }`}
         style={{
-          borderRadius: element.borderRadius ?? (element.kind === 'text' ? 0 : 8),
+          ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
           justifyContent,
           textAlign: element.textAlign || 'center',
         }}
@@ -724,7 +808,35 @@ function ToolbarElement({
           <>
             {icon}
             {element.textVisible !== false && (
-              <span className="whitespace-pre-line">{element.text}</span>
+              <span
+                ref={textEditorRef}
+                contentEditable={editable && editingText}
+                suppressContentEditableWarning
+                className={`min-w-0 whitespace-pre-line outline-none ${
+                  editable && !editingText ? 'cursor-text' : ''
+                } ${
+                  editable && editingText
+                    ? 'rounded bg-white/14 px-1 ring-1 ring-white/35'
+                    : ''
+                }`}
+                onPointerDown={(event) => {
+                  if (editingText) event.stopPropagation();
+                }}
+                onBlur={(event) => {
+                  if (!editingText) return;
+                  onUpdate?.(element.id, { text: event.currentTarget.textContent || '' });
+                  setEditingText(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' || (event.key === 'Enter' && !event.shiftKey)) {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                }}
+              >
+                {element.text ||
+                  (editable && !editingText && element.kind === 'button' ? '双击编辑' : '')}
+              </span>
             )}
           </>
         )}

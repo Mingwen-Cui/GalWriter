@@ -66,6 +66,10 @@ export function InspectorGroup({
   tone,
   secondary,
   onTitleClick,
+  titleActive = true,
+  titlePressed,
+  expandLabel = 'Expand',
+  collapseLabel = 'Collapse',
   children,
 }: {
   title: string;
@@ -73,6 +77,10 @@ export function InspectorGroup({
   tone: InspectorTone;
   secondary: React.ReactNode;
   onTitleClick?: () => void;
+  titleActive?: boolean;
+  titlePressed?: boolean;
+  expandLabel?: string;
+  collapseLabel?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -85,9 +93,12 @@ export function InspectorGroup({
           <button
             type="button"
             onClick={onTitleClick}
-            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold text-slate-900 ${classes.header}`}
+            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold transition-colors ${
+              titleActive ? `text-slate-900 ${classes.header}` : 'bg-white/60 text-slate-400'
+            }`}
             title={title}
             aria-label={title}
+            aria-pressed={titlePressed ?? titleActive}
           >
             <span className="shrink-0">{icon}</span>
             <span className="min-w-0 truncate">{title}</span>
@@ -107,8 +118,8 @@ export function InspectorGroup({
           type="button"
           onClick={() => setOpen((current) => !current)}
           className={`grid h-10 w-11 place-items-center rounded-xl ${classes.toggle}`}
-          title={open ? 'Collapse' : 'Expand'}
-          aria-label={open ? 'Collapse' : 'Expand'}
+          title={open ? collapseLabel : expandLabel}
+          aria-label={open ? collapseLabel : expandLabel}
           aria-expanded={open}
         >
           <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
