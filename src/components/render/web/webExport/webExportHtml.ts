@@ -1058,6 +1058,50 @@ export const makeIndexHtml = (
       const blur = Number.isFinite(Number(element.shadowBlur)) ? Number(element.shadowBlur) : 18;
       return x + "px " + y + "px " + blur + "px " + styleColor(element.shadowColor, opacity, "#000000");
     }
+    function customBoxShadow(element) {
+      const opacity = clamp(element.shadowOpacity, 0, 100, 0);
+      if (opacity <= 0) return "";
+      const x = Number.isFinite(Number(element.shadowOffsetX)) ? Number(element.shadowOffsetX) : 0;
+      const y = Number.isFinite(Number(element.shadowOffsetY)) ? Number(element.shadowOffsetY) : 8;
+      const blur = Number.isFinite(Number(element.shadowBlur)) ? Number(element.shadowBlur) : 18;
+      const color = styleColor(element.shadowColor, opacity, "#000000");
+      if (element.shadowType === "inner") return "inset " + x + "px " + y + "px " + blur + "px " + color;
+      if (element.shadowType === "innerBlur") return "inset 0 0 " + blur + "px " + color;
+      return x + "px " + y + "px " + blur + "px " + color;
+    }
+    function borderGradient(element) {
+      return linearGradientFromStops(Number(element.borderGradientAngle) || 135, normalizeGradientStops(element.borderGradientStops, element.borderGradientStart || element.borderColor || "#ffffff", element.borderGradientEnd || "#4f46e5"));
+    }
+    function applyCustomBoxEffects(target, element) {
+      const width = Math.max(0, Number(element.borderWidth) || 0);
+      const shadows = [];
+      target.style.border = "";
+      target.style.borderImage = "";
+      target.style.outline = "";
+      target.style.outlineOffset = "";
+      target.style.boxSizing = "border-box";
+      if (width > 0) {
+        if (element.borderType === "gradient") {
+          target.style.border = width + "px solid transparent";
+          target.style.borderImage = borderGradient(element) + " 1";
+        } else {
+          const color = element.borderColor || "#ffffff";
+          if (element.borderPosition === "inside") {
+            target.style.border = "0";
+            shadows.push("inset 0 0 0 " + width + "px " + color);
+          } else if (element.borderPosition === "outside") {
+            target.style.border = "0";
+            target.style.outline = width + "px solid " + color;
+            target.style.outlineOffset = "0";
+          } else {
+            target.style.border = width + "px solid " + color;
+          }
+        }
+      }
+      const shadow = customBoxShadow(element);
+      if (shadow) shadows.push(shadow);
+      target.style.boxShadow = shadows.join(", ");
+    }
     function applyElementRadius(target, element, fallback) {
       const base = Number.isFinite(Number(element.borderRadius)) ? Number(element.borderRadius) : fallback;
       target.style.borderRadius = base + "px";
@@ -1423,12 +1467,7 @@ export const makeIndexHtml = (
           image.src = element.imageUrl;
           image.alt = "";
           applyElementRadius(image, element, 12);
-          if (Number(element.borderWidth) > 0) {
-            image.style.border = Number(element.borderWidth) + "px solid " + (element.borderColor || "#ffffff");
-            image.style.boxSizing = "border-box";
-          }
-          const imageShadow = customShadow(element, "box");
-          if (imageShadow) image.style.boxShadow = imageShadow;
+          applyCustomBoxEffects(image, element);
           if (element.blendMode) image.style.mixBlendMode = element.blendMode;
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
@@ -1446,12 +1485,7 @@ export const makeIndexHtml = (
             button.style.background = element.backgroundColor;
           }
           applyCustomButtonTextStyle(button, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
-          if (element.borderColor) button.style.borderColor = element.borderColor;
-          if (Number(element.borderWidth) >= 0) button.style.borderWidth = Number(element.borderWidth) + "px";
-          button.style.borderStyle = "solid";
-          button.style.boxSizing = "border-box";
-          const buttonShadow = customShadow(element, "box");
-          if (buttonShadow) button.style.boxShadow = buttonShadow;
+          applyCustomBoxEffects(button, element);
           if (Number.isFinite(Number(element.fontSize))) button.style.fontSize = Number(element.fontSize) + "px";
           if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
           applyElementRadius(button, element, 12);

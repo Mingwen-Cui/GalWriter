@@ -20,6 +20,11 @@ import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
+import {
+  webColorWithAlpha,
+  webElementBoxStyle,
+  webElementShadowStyle,
+} from './webElementStyle';
 
 export type PlayedAudio = {
   nodeId: string;
@@ -46,30 +51,7 @@ const toolbarRoleLabels: Partial<Record<NonNullable<WebMenuElement['role']>, str
 };
 
 const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
-  const safeColor = color || '#000000';
-  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
-  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
-  if (!match) return safeColor;
-  const hex = match[1];
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
-};
-
-const elementShadowStyle = (
-  element: WebMenuElement,
-  target: 'box' | 'text',
-): React.CSSProperties => {
-  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
-  if (opacity <= 0) return {};
-  const x = element.shadowOffsetX ?? 0;
-  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
-  const blur = element.shadowBlur ?? 18;
-  const color = colorWithAlpha(element.shadowColor || '#000000', opacity);
-  return target === 'text'
-    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
-    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+  return webColorWithAlpha(color, alpha, '#000000');
 };
 
 const elementRadiusStyle = (
@@ -734,10 +716,7 @@ function ToolbarElement({
           element.kind === 'button' && element.backgroundColor
             ? element.backgroundColor
             : undefined,
-        borderColor: element.kind !== 'text' ? element.borderColor : undefined,
-        borderWidth: element.kind !== 'text' ? (element.borderWidth ?? 0) : undefined,
-        borderStyle: element.kind !== 'text' ? 'solid' : undefined,
-        boxSizing: 'border-box',
+        ...(element.kind !== 'text' ? webElementBoxStyle(element) : {}),
         color: element.textColor || undefined,
         fontFamily: element.fontFamily || undefined,
         fontSize: element.fontSize || undefined,
@@ -748,9 +727,7 @@ function ToolbarElement({
             : undefined,
         letterSpacing: element.letterSpacing,
         lineHeight: element.lineHeight,
-        ...(element.kind === 'text'
-          ? elementShadowStyle(element, 'text')
-          : elementShadowStyle(element, 'box')),
+        ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
         cursor: editable ? 'grab' : undefined,
       }}
       disabled={!editable && disabled}

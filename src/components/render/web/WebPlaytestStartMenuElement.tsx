@@ -3,6 +3,11 @@ import type { CSSProperties } from 'react';
 import type { WebExportSettings } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import {
+  webColorWithAlpha,
+  webElementBoxStyle,
+  webElementShadowStyle,
+} from './webElementStyle';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -11,15 +16,7 @@ import type {
 import { protectedStartMenuElementRoles, readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
-  const safeColor = color || '#ffffff';
-  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
-  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
-  if (!match) return safeColor;
-  const hex = match[1];
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+  return webColorWithAlpha(color, alpha, '#ffffff');
 };
 
 const textAlignStyle = (
@@ -28,18 +25,6 @@ const textAlignStyle = (
   if (align === 'center') return { justifyContent: 'center', textAlign: 'center' };
   if (align === 'right') return { justifyContent: 'flex-end', textAlign: 'right' };
   return { justifyContent: 'flex-start', textAlign: 'left' };
-};
-
-const shadowStyle = (element: StartMenuElement, target: 'box' | 'text'): CSSProperties => {
-  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
-  if (opacity <= 0) return {};
-  const x = element.shadowOffsetX ?? 0;
-  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
-  const blur = element.shadowBlur ?? 18;
-  const color = textColorWithAlpha(element.shadowColor || '#000000', opacity);
-  return target === 'text'
-    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
-    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
 };
 
 const radiusStyle = (
@@ -130,7 +115,7 @@ export function WebPlaytestStartMenuElement({
   };
   const textElementStyle: CSSProperties = {
     ...textAlignStyle(element.textAlign),
-    ...shadowStyle(element, 'text'),
+    ...webElementShadowStyle(element, 'text'),
     fontFamily: element.fontFamily,
     fontSize: element.fontSize,
     fontWeight: element.fontWeight,
@@ -229,12 +214,7 @@ export function WebPlaytestStartMenuElement({
             className="h-full w-full object-cover"
             style={{
               ...radiusStyle(element, 12),
-              border:
-                (element.borderWidth ?? 0) > 0
-                  ? `${element.borderWidth}px solid ${element.borderColor || '#ffffff'}`
-                  : undefined,
-              boxSizing: 'border-box',
-              ...shadowStyle(element, 'box'),
+              ...webElementBoxStyle(element),
               mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
             }}
             draggable={false}
@@ -296,13 +276,9 @@ export function WebPlaytestStartMenuElement({
               : undefined,
             lineHeight: element.lineHeight,
             whiteSpace: 'pre-wrap',
-            borderColor: element.borderColor,
-            borderWidth: element.borderWidth,
-            borderStyle: 'solid',
-            boxSizing: 'border-box',
             fontSize: element.fontSize,
             ...radiusStyle(element, 12),
-            ...shadowStyle(element, 'box'),
+            ...webElementBoxStyle(element),
             mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
           }}
         >

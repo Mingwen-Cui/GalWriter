@@ -242,7 +242,13 @@ export type WebMenuElement = {
   backgroundGradientAngle?: number;
   backgroundGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   backgroundImageUrl?: string;
+  borderType?: 'solid' | 'gradient';
   borderColor?: string;
+  borderGradientStart?: string;
+  borderGradientEnd?: string;
+  borderGradientAngle?: number;
+  borderGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
+  borderPosition?: 'inside' | 'center' | 'outside';
   borderWidth?: number;
   borderRadius?: number;
   borderTopLeftRadius?: number;
@@ -250,6 +256,7 @@ export type WebMenuElement = {
   borderBottomRightRadius?: number;
   borderBottomLeftRadius?: number;
   shadowColor?: string;
+  shadowType?: 'outer' | 'inner' | 'innerBlur';
   shadowOpacity?: number;
   shadowBlur?: number;
   shadowOffsetX?: number;

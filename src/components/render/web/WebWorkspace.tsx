@@ -510,6 +510,74 @@ export function WebWorkspace({
     ]);
     setSelectedStartMenuElementId(id);
   };
+  const addCurrentSurfaceText = () => {
+    if (currentPreviewSurface === 'start') {
+      addStartMenuText();
+      return;
+    }
+    if (currentPreviewSurface === 'game') {
+      addDialogueOverlayText();
+      return;
+    }
+    const id = `${currentPreviewSurface}-text-${Date.now()}`;
+    const key =
+      currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+    const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
+    updateWebSettings(key, [
+      ...source,
+      {
+        id,
+        kind: 'text',
+        role: 'custom',
+        text: '',
+        visible: true,
+        x: 18,
+        y: 24,
+        width: 26,
+        height: 7,
+        scale: 1,
+        rotation: 0,
+        fontSize: 18,
+        fontWeight: 600,
+        textColor: '#ffffff',
+        borderRadius: 0,
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
+  const addCurrentSurfaceImage = () => {
+    if (currentPreviewSurface === 'start') {
+      addStartMenuImage();
+      return;
+    }
+    if (currentPreviewSurface === 'game') {
+      addDialogueOverlayImage();
+      return;
+    }
+    const id = `${currentPreviewSurface}-image-${Date.now()}`;
+    const key =
+      currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+    const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
+    updateWebSettings(key, [
+      ...source,
+      {
+        id,
+        kind: 'image',
+        role: 'custom',
+        text: '',
+        visible: true,
+        x: 58,
+        y: 24,
+        width: 18,
+        height: 18,
+        scale: 1,
+        rotation: 0,
+        imageUrl: '',
+        borderRadius: 12,
+      },
+    ]);
+    setSelectedStartMenuElementId(id);
+  };
   const generateStartMenuDesignWithAI = async () => {
     if (!callAIForTextResult || aiStartMenuDesigning) return;
     setAiStartMenuDesigning(true);
@@ -940,38 +1008,40 @@ JSON schema:
                   }}
                 />
               </WebSettingCard>
-            </div>
-          )}
-          {currentPreviewSurface === 'start' && webSettings.showStartMenu && (
-            <>
-              {surfaceInspector}
-              <WebAuxiliaryPanel title={t('素材', '素材', 'Assets')}>
+              <WebSettingCard>
                 <div className="grid grid-cols-3 gap-2 rounded-xl bg-indigo-500/5 p-2">
                   <IconToolButton
                     icon={Type}
                     label={t('添加文字', 'テキスト追加', 'Add text')}
-                    onClick={addStartMenuText}
+                    onClick={addCurrentSurfaceText}
                   />
                   <IconToolButton
                     icon={ImagePlus}
                     label={t('添加图片', '画像追加', 'Add image')}
-                    onClick={addStartMenuImage}
+                    onClick={addCurrentSurfaceImage}
                   />
                   <IconToolButton
                     icon={Volume2}
                     label={t('音乐', '音楽', 'Music')}
                     onClick={() => setShowMenuMusicSettings((current) => !current)}
+                    active={showMenuMusicSettings}
                   />
                 </div>
                 {showMenuMusicSettings && (
-                  <WebMenuMusicPanel
-                    language={language}
-                    settings={webSettings}
-                    updateWebSettings={updateWebSettings}
-                  />
+                  <div className="mt-2">
+                    <WebMenuMusicPanel
+                      language={language}
+                      settings={webSettings}
+                      updateWebSettings={updateWebSettings}
+                    />
+                  </div>
                 )}
-              </WebAuxiliaryPanel>
-
+              </WebSettingCard>
+            </div>
+          )}
+          {currentPreviewSurface === 'start' && webSettings.showStartMenu && (
+            <>
+              {surfaceInspector}
               <WebAuxiliaryPanel title="Preset">
                 <div className="grid gap-2 rounded-xl bg-indigo-500/5 p-2">
                   <IconToolButton
@@ -1164,18 +1234,6 @@ JSON schema:
           {currentPreviewSurface === 'game' && (
             <>
               {surfaceInspector}
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-indigo-500/5 p-2">
-                <IconToolButton
-                  icon={Type}
-                  label={t('添加文字', 'テキスト追加', 'Add text')}
-                  onClick={addDialogueOverlayText}
-                />
-                <IconToolButton
-                  icon={ImagePlus}
-                  label={t('添加图片', '画像追加', 'Add image')}
-                  onClick={addDialogueOverlayImage}
-                />
-              </div>
             </>
           )}
 
@@ -1212,12 +1270,14 @@ function IconToolButton({
   icon: Icon,
   label,
   onClick,
+  active = false,
   disabled = false,
   iconClassName = '',
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  active?: boolean;
   disabled?: boolean;
   iconClassName?: string;
 }) {
@@ -1226,9 +1286,14 @@ function IconToolButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-9 min-w-0 items-center justify-start gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] px-2 text-left text-[11px] font-normal text-[var(--vr-text-soft)] transition-colors hover:border-indigo-500/25 hover:bg-white/5 hover:text-[var(--vr-text)] disabled:cursor-not-allowed disabled:opacity-50"
+      className={`flex h-9 min-w-0 items-center justify-start gap-1 rounded-lg border px-2 text-left text-[11px] font-normal transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        active
+          ? 'border-indigo-500/35 bg-indigo-500/10 text-[var(--vr-text)]'
+          : 'border-transparent bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-indigo-500/25 hover:bg-white/5 hover:text-[var(--vr-text)]'
+      }`}
       title={label}
       aria-label={label}
+      aria-pressed={active}
     >
       <Icon className={`h-3.5 w-3.5 shrink-0 ${iconClassName}`} />
       <span className="min-w-0 truncate">{label}</span>

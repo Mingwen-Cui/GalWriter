@@ -11,6 +11,11 @@ import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
+import {
+  webColorWithAlpha,
+  webElementBoxStyle,
+  webElementShadowStyle,
+} from './webElementStyle';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -27,30 +32,7 @@ const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
 };
 
 const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
-  const safeColor = color || '#000000';
-  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
-  const match = safeColor.match(/^#([0-9a-f]{6})$/i);
-  if (!match) return safeColor;
-  const hex = match[1];
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
-};
-
-const elementShadowStyle = (
-  element: WebMenuElement,
-  target: 'box' | 'text',
-): CSSProperties => {
-  const opacity = Math.max(0, Math.min(100, element.shadowOpacity ?? 0));
-  if (opacity <= 0) return {};
-  const x = element.shadowOffsetX ?? 0;
-  const y = element.shadowOffsetY ?? (target === 'text' ? 2 : 8);
-  const blur = element.shadowBlur ?? 18;
-  const color = colorWithAlpha(element.shadowColor || '#000000', opacity);
-  return target === 'text'
-    ? { textShadow: `${x}px ${y}px ${blur}px ${color}` }
-    : { boxShadow: `${x}px ${y}px ${blur}px ${color}` };
+  return webColorWithAlpha(color, alpha, '#000000');
 };
 
 const elementRadiusStyle = (
@@ -613,11 +595,7 @@ function MenuPageElementLayer({
                   background,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  borderColor: element.borderColor || 'rgba(255,255,255,0.16)',
-                  borderWidth: element.borderWidth ?? 1,
-                  borderStyle: 'solid',
-                  boxSizing: 'border-box',
-                  ...elementShadowStyle(element, 'box'),
+                  ...webElementBoxStyle(element),
                 }}
                 disabled={!editable && element.disabled}
                 onPointerDown={(event) => {
@@ -672,7 +650,6 @@ function MenuPageElementLayer({
                 className="pointer-events-auto absolute border-0 bg-transparent p-0"
                 style={{
                   ...commonStyle,
-                  ...elementShadowStyle(element, 'box'),
                 }}
                 onPointerDown={(event) => {
                   if (editable) onBeginElementDrag(page, event, element, 'move');
@@ -686,11 +663,7 @@ function MenuPageElementLayer({
                   className="block h-full w-full overflow-hidden"
                   style={{
                     ...elementRadiusStyle(element, 12),
-                    border:
-                      (element.borderWidth ?? 0) > 0
-                        ? `${element.borderWidth}px solid ${element.borderColor || '#ffffff'}`
-                        : undefined,
-                    boxSizing: 'border-box',
+                    ...webElementBoxStyle(element),
                   }}
                 >
                   {element.imageUrl ? (
@@ -723,7 +696,7 @@ function MenuPageElementLayer({
                 ...contentStyle,
                 justifyContent,
                 textAlign: element.textAlign || 'left',
-                ...elementShadowStyle(element, 'text'),
+                ...webElementShadowStyle(element, 'text'),
               }}
               onPointerDown={(event) => {
                 if (editable) onBeginElementDrag(page, event, element, 'move');
