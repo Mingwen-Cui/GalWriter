@@ -20,7 +20,8 @@
   Volume2,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
@@ -175,6 +176,17 @@ export function StartMenuElementInspector({
   const [popover, setPopover] = useState<Popover>(null);
   const [radiusPopoverOpen, setRadiusPopoverOpen] = useState(false);
   const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!popover) return;
+    const dismissPopover = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-web-style-popover]')) return;
+      setPopover(null);
+    };
+    document.addEventListener('pointerdown', dismissPopover);
+    return () => document.removeEventListener('pointerdown', dismissPopover);
+  }, [popover]);
   const backgroundType = element.backgroundType || 'solid';
   const gradientStops = normalizeGradientStops(
     element.backgroundGradientStops,
@@ -760,7 +772,7 @@ export function StartMenuElementInspector({
             </FloatingPopover>
           )}
           {popover?.group === 'fill' && backgroundType === 'gradient' && (
-            <FloatingPopover className="left-0 right-auto w-[min(480px,calc(100vw-2.5rem))]">
+            <PortaledGradientPopover>
               <GradientEditorPopover
                 language={language}
                 angle={element.backgroundGradientAngle ?? 135}
@@ -780,7 +792,7 @@ export function StartMenuElementInspector({
                   });
                 }}
               />
-            </FloatingPopover>
+            </PortaledGradientPopover>
           )}
           {popover?.group === 'fill' && backgroundType === 'image' && (
             <FloatingPopover>
@@ -982,7 +994,7 @@ export function StartMenuElementInspector({
           </FloatingPopover>
         )}
         {popover?.group === 'stroke' && popover.type === 'gradient' && !strokeIsText && (
-          <FloatingPopover className="left-0 right-auto w-[min(480px,calc(100vw-2.5rem))]">
+          <PortaledGradientPopover>
             <GradientEditorPopover
               language={language}
               angle={element.borderGradientAngle ?? 135}
@@ -1002,7 +1014,7 @@ export function StartMenuElementInspector({
                 });
               }}
             />
-          </FloatingPopover>
+          </PortaledGradientPopover>
         )}
       </Group>
 
@@ -1531,6 +1543,55 @@ function OutsideDismissPopover({
   );
 }
 
+function PortaledGradientPopover({ children }: { children: React.ReactNode }) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ left: number; top: number; width: number } | null>(null);
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const viewportGap = 16;
+    const width = Math.min(390, Math.max(320, window.innerWidth - viewportGap * 2));
+    setPosition({
+      left: Math.max(viewportGap, Math.min(rect.right - width, window.innerWidth - width - viewportGap)),
+      top: rect.top,
+      width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    updatePosition();
+  }, [updatePosition]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [updatePosition]);
+
+  return (
+    <>
+      <div ref={anchorRef} className="absolute inset-x-0 top-[calc(100%-4px)] h-0" aria-hidden="true" />
+      {position &&
+        createPortal(
+          <div
+            className="fixed z-[10050]"
+            data-web-style-popover
+            style={{ left: position.left, top: position.top, width: position.width }}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function GradientEditorPopover({
   language,
   angle,
@@ -1628,8 +1689,9 @@ function GradientEditorPopover({
 
   return (
     <div className="rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
-      <div className="grid grid-cols-[180px_44px_44px] gap-2">
-        <div className="grid h-9 grid-cols-[46px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white">
+      <div className="ml-auto w-[366px] max-w-full">
+      <div className="grid grid-cols-[72px_minmax(0,1fr)_44px_44px] gap-2">
+        <div className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white">
           <span className="px-2 text-[11px] font-black text-sky-900/70">{copy.angle}</span>
           <DragSizeControl
             label={copy.angle}
@@ -1642,6 +1704,15 @@ function GradientEditorPopover({
             className="h-full rounded-none bg-white px-2 text-center"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => addStopAt()}
+          className="col-start-3 grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+          title={copy.addStop}
+          aria-label={copy.addStop}
+        >
+          <Plus className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() =>
@@ -1657,19 +1728,15 @@ function GradientEditorPopover({
         >
           <RotateCw className="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          onClick={() => addStopAt()}
-          className="grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
-          title={copy.addStop}
-          aria-label={copy.addStop}
-        >
-          <Plus className="h-5 w-5" />
-        </button>
       </div>
       <div
-        className="relative mt-3 h-12 rounded-xl border border-white/80 shadow-inner"
-        style={{ background: trackPreview }}
+        className="relative mt-3 h-12 w-full rounded-xl border border-white/80 shadow-inner"
+        style={{
+          backgroundImage: `${trackPreview}, linear-gradient(45deg, #dbeafe 25%, transparent 25%), linear-gradient(-45deg, #dbeafe 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #dbeafe 75%), linear-gradient(-45deg, transparent 75%, #dbeafe 75%)`,
+          backgroundPosition: '0 0, 0 0, 0 6px, 6px -6px, -6px 0',
+          backgroundSize: 'auto, 12px 12px, 12px 12px, 12px 12px, 12px 12px',
+          backgroundColor: '#ffffff',
+        }}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           addStopAt(((event.clientX - rect.left) / rect.width) * 100);
@@ -1748,6 +1815,7 @@ function GradientEditorPopover({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

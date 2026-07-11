@@ -115,7 +115,11 @@ export function WebPlaytestStartMenuElement({
     width: `${element.width}%`,
     height: `${element.height}%`,
     transform: `rotate(${element.rotation}deg) scale(${element.scale})`,
-    opacity: element.visible ? Math.max(0, Math.min(100, element.opacity ?? 100)) / 100 : 0.34,
+    opacity: element.visible
+      ? element.backgroundType === 'gradient'
+        ? 1
+        : Math.max(0, Math.min(100, element.opacity ?? 100)) / 100
+      : 0.34,
   };
   const textElementStyle: CSSProperties = {
     ...textAlignStyle(element.textAlign),
@@ -304,9 +308,14 @@ export function WebPlaytestStartMenuElement({
             element.primary
               ? 'border-white/24 text-white shadow-lg shadow-black/15'
               : 'border-white/16 bg-white/10 text-white'
-          } ${settings.startMenuTemplate === 'minimal' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
+          } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
-            background: elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
+            background:
+              element.backgroundType === 'gradient'
+                ? undefined
+                : elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
+            backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
+            backgroundColor: element.backgroundType === 'gradient' ? 'transparent' : undefined,
             color: textColorWithAlpha(
               element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
               element.textColorAlpha,

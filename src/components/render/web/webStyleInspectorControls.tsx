@@ -437,7 +437,10 @@ export function FloatingPopover({
   className?: string;
 }) {
   return (
-    <div className={`absolute left-3 right-3 top-[calc(100%-4px)] z-[90] ${className}`}>
+    <div
+      className={`absolute left-3 right-3 top-[calc(100%-4px)] z-[90] ${className}`}
+      data-web-style-popover
+    >
       {children}
     </div>
   );

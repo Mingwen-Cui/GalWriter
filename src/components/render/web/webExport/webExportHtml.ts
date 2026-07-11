@@ -1484,7 +1484,9 @@ export const makeIndexHtml = (
         wrapper.style.width = Math.max(1, Number(element.width || 10)) + "%";
         wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
         wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
-        wrapper.style.opacity = String(Math.max(0, Math.min(100, Number(element.opacity ?? 100))) / 100);
+        wrapper.style.opacity = element.backgroundType === "gradient"
+          ? "1"
+          : String(Math.max(0, Math.min(100, Number(element.opacity ?? 100))) / 100);
         wrapper.style.zIndex = String(20 + (Number(element.zIndex) || 0));
         if (element.kind === "image") {
           if (!element.imageUrl) return;
@@ -1509,6 +1511,9 @@ export const makeIndexHtml = (
             button.style.background = "center / cover url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
           } else if (element.backgroundType === "gradient") {
             button.style.background = linearGradientFromStops(Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
+            button.style.backgroundColor = "transparent";
+            button.style.backdropFilter = "none";
+            button.style.webkitBackdropFilter = "none";
           } else if (element.backgroundColor) {
             button.style.background = element.backgroundColor;
           }

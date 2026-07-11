@@ -554,7 +554,12 @@ function MenuPageElementLayer({
             height: `${element.height}%`,
             transform: `rotate(${element.rotation || 0}deg) scale(${element.scale || 1})`,
             transformOrigin: 'center',
-            opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
+            opacity:
+              element.visible === false
+                ? 0.34
+                : element.backgroundType === 'gradient'
+                  ? 1
+                  : (element.opacity ?? 100) / 100,
             zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
           };
           const contentStyle: CSSProperties = {
@@ -605,7 +610,9 @@ function MenuPageElementLayer({
                 style={{
                   ...commonStyle,
                   ...contentStyle,
-                  background,
+                  background: element.backgroundType === 'gradient' ? undefined : background,
+                  backgroundImage: element.backgroundType === 'gradient' ? background : undefined,
+                  backgroundColor: element.backgroundType === 'gradient' ? 'transparent' : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   ...webElementBoxStyle(element),
