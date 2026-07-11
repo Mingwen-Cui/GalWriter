@@ -90,6 +90,7 @@ type WebPlaytestPreviewProps = {
   previewMode?: 'edit' | 'test';
   requestedSurface?: WebPreviewSurface;
   selectedStartMenuElementId?: string | null;
+  imageCropEditingElementId?: string | null;
   onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
   onSelectStartMenuElements?: (ids: string[]) => void;
@@ -115,6 +116,7 @@ export function WebPlaytestPreview({
   previewMode = 'test',
   requestedSurface,
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
+  imageCropEditingElementId = null,
   onSurfaceChange,
   onSelectStartMenuElement,
   onSelectStartMenuElements,
@@ -1523,6 +1525,7 @@ export function WebPlaytestPreview({
                 selectedStartMenuElementId === element.id ||
                 selectedStartMenuElementIds.includes(element.id)
               }
+              imageCropEditing={imageCropEditingElementId === element.id}
               action={
                 element.kind === 'button' ? getStartMenuElementAction(element) : null
               }

@@ -84,6 +84,12 @@ export const renderObjectInspectorEn = {
     removeStop: 'Delete',
     reverse: 'Reverse',
     hex: 'HEX',
+    fit: 'Fit',
+    max: 'Fill area',
+    crop: 'Free crop',
+    rotation: 'Rotation',
+    opacity: 'Image opacity',
+    resetCrop: 'Reset crop',
   },
   disabled: {
     videoOnly: 'Not available for video export yet',

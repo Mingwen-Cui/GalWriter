@@ -50,6 +50,7 @@ type InspectorProps = {
   showDescriptions: boolean;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
+  onImageCropEditingChange?: (elementId: string | null) => void;
 };
 
 type Popover = null | {
@@ -172,6 +173,7 @@ export function StartMenuElementInspector({
   showDescriptions,
   onUpdate,
   onAlignSelected,
+  onImageCropEditingChange,
 }: InspectorProps) {
   const text = renderObjectText(language);
   const [popover, setPopover] = useState<Popover>(null);
@@ -190,6 +192,15 @@ export function StartMenuElementInspector({
     return () => document.removeEventListener('pointerdown', dismissPopover);
   }, [popover]);
   const backgroundType = element.backgroundType || 'solid';
+  const imageCropEditing =
+    popover?.group === 'fill' &&
+    backgroundType === 'image' &&
+    (element.backgroundImageFit || 'crop') === 'crop' &&
+    Boolean(element.backgroundImageUrl);
+  useEffect(() => {
+    onImageCropEditingChange?.(imageCropEditing ? element.id : null);
+    return () => onImageCropEditingChange?.(null);
+  }, [element.id, imageCropEditing, onImageCropEditingChange]);
   const textColorType = element.textColorType || 'solid';
   const textGradientStops = normalizeGradientStops(
     element.textGradientStops,
@@ -733,13 +744,6 @@ export function StartMenuElementInspector({
             />
           }
         >
-          <p className="px-1 text-[11px] leading-5 text-slate-500">
-            {language === 'zh'
-              ? '选择点击后的行为；外观仍由下方样式分区控制。'
-              : language === 'ja'
-                ? 'クリック時の動作を選択します。見た目は下のスタイルで設定できます。'
-                : 'Choose what happens on click. Appearance remains editable below.'}
-          </p>
           {buttonFunction === 'link' && (
             <div className="mt-2 space-y-2">
               <label className="block space-y-1 px-1 text-[10px] font-bold text-slate-500">
@@ -834,9 +838,8 @@ export function StartMenuElementInspector({
                 <InlineImageControl
                   label={element.backgroundImageUrl ? text.popover.replace : text.popover.upload}
                   imageUrl={element.backgroundImageUrl || ''}
-                  onImageChange={(backgroundImageUrl) =>
-                    onUpdate({ backgroundImageUrl, backgroundType: 'image' })
-                  }
+                  onImageChange={() => {}}
+                  onOpen={() => setPopover({ group: 'fill', type: 'image' })}
                 />
               )}
             </div>
@@ -920,14 +923,24 @@ export function StartMenuElementInspector({
                 text={text.popover}
                 value={{
                   imageUrl: element.backgroundImageUrl || '',
-                  imageFit: 'crop',
-                  imageAngle: 0,
-                  imageAlpha: 100,
+                  imageFit: element.backgroundImageFit || 'crop',
+                  imageAngle: element.backgroundImageRotation ?? 0,
+                  imageAlpha: element.backgroundImageAlpha ?? 100,
+                  imageScale: element.backgroundImageScale ?? 100,
+                  imageOffsetX: element.backgroundImageOffsetX ?? 0,
+                  imageOffsetY: element.backgroundImageOffsetY ?? 0,
                 }}
                 onChange={(updates) => {
-                  if (updates.imageUrl !== undefined) {
-                    onUpdate({ backgroundImageUrl: updates.imageUrl, backgroundType: 'image' });
-                  }
+                  onUpdate({
+                    backgroundType: 'image',
+                    ...(updates.imageUrl !== undefined ? { backgroundImageUrl: updates.imageUrl } : {}),
+                    ...(updates.imageFit !== undefined ? { backgroundImageFit: updates.imageFit } : {}),
+                    ...(updates.imageAlpha !== undefined ? { backgroundImageAlpha: updates.imageAlpha } : {}),
+                    ...(updates.imageAngle !== undefined ? { backgroundImageRotation: updates.imageAngle } : {}),
+                    ...(updates.imageScale !== undefined ? { backgroundImageScale: updates.imageScale } : {}),
+                    ...(updates.imageOffsetX !== undefined ? { backgroundImageOffsetX: updates.imageOffsetX } : {}),
+                    ...(updates.imageOffsetY !== undefined ? { backgroundImageOffsetY: updates.imageOffsetY } : {}),
+                  });
                 }}
               />
             </FloatingPopover>
@@ -990,6 +1003,8 @@ export function StartMenuElementInspector({
                     ...(updates.imageAlpha !== undefined ? { opacity: updates.imageAlpha } : {}),
                   })
                 }
+                supportsFit={false}
+                supportsCrop={false}
               />
             </FloatingPopover>
           )}
@@ -1452,11 +1467,21 @@ function InlineImageControl({
   label,
   imageUrl,
   onImageChange,
+  onOpen,
 }: {
   label: string;
   imageUrl: string;
   onImageChange: (value: string) => void;
+  onOpen?: () => void;
 }) {
+  if (onOpen) {
+    return (
+      <button type="button" onClick={onOpen} className="grid h-10 w-full min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950" title={label}>
+        <span className="h-full bg-slate-100 bg-cover bg-center" style={imageUrl ? { backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` } : undefined} aria-hidden="true">{!imageUrl && <span className="grid h-full place-items-center text-slate-500"><ImageIcon className="h-4 w-4" /></span>}</span>
+        <span className="min-w-0 truncate px-3 leading-10">{label}</span>
+      </button>
+    );
+  }
   return (
     <label
       className="grid h-10 min-w-0 cursor-pointer grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-sm font-medium text-slate-950"

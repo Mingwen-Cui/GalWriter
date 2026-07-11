@@ -84,6 +84,12 @@ export const renderObjectInspectorJa = {
     removeStop: '削除',
     reverse: '反転',
     hex: 'HEX',
+    fit: '全体を表示',
+    max: '領域を埋める',
+    crop: '自由トリミング',
+    rotation: '回転角度',
+    opacity: '画像の不透明度',
+    resetCrop: 'トリミングをリセット',
   },
   disabled: {
     videoOnly: '動画書き出しでは未対応',

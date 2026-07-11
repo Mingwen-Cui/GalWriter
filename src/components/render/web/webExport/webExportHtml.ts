@@ -1529,7 +1529,21 @@ export const makeIndexHtml = (
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
           } else if (element.backgroundType === "image" && element.backgroundImageUrl) {
-            button.style.background = "center / cover url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
+            button.style.background = "transparent";
+            button.style.position = "relative";
+            button.style.overflow = "hidden";
+            const fillImage = document.createElement("span");
+            fillImage.style.position = "absolute";
+            fillImage.style.inset = "0";
+            fillImage.style.pointerEvents = "none";
+            fillImage.style.backgroundImage = "url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
+            fillImage.style.backgroundRepeat = "no-repeat";
+            fillImage.style.backgroundSize = element.backgroundImageFit === "fit" ? "contain" : element.backgroundImageFit === "max" ? "cover" : String(Number(element.backgroundImageScale) || 100) + "%";
+            fillImage.style.backgroundPosition = "calc(50% + " + (Number(element.backgroundImageOffsetX) || 0) + "px) calc(50% + " + (Number(element.backgroundImageOffsetY) || 0) + "px)";
+            fillImage.style.transform = "rotate(" + (Number(element.backgroundImageRotation) || 0) + "deg)";
+            fillImage.style.transformOrigin = "center";
+            fillImage.style.opacity = String(clamp(element.backgroundImageAlpha, 0, 100, 100) / 100);
+            button.appendChild(fillImage);
           } else if (element.backgroundType === "gradient") {
             button.style.background = linearGradientFromStops(Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
             button.style.backgroundColor = "transparent";
@@ -1547,6 +1561,8 @@ export const makeIndexHtml = (
           if (element.textVisible !== false) {
             const label = document.createElement("span");
             label.textContent = buttonLabel;
+            label.style.position = "relative";
+            label.style.zIndex = "1";
             applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
             button.appendChild(label);
           }

@@ -122,6 +122,9 @@ export type RenderFillStyle = {
   imageFit: 'fit' | 'max' | 'crop';
   imageAngle: number;
   imageAlpha: number;
+  imageScale?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
   blendMode: string;
 };
 
@@ -254,6 +257,12 @@ export type WebMenuElement = {
   backgroundGradientAngle?: number;
   backgroundGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   backgroundImageUrl?: string;
+  backgroundImageFit?: 'fit' | 'max' | 'crop';
+  backgroundImageAlpha?: number;
+  backgroundImageRotation?: number;
+  backgroundImageScale?: number;
+  backgroundImageOffsetX?: number;
+  backgroundImageOffsetY?: number;
   borderType?: 'solid' | 'gradient';
   borderColor?: string;
   borderGradientStart?: string;

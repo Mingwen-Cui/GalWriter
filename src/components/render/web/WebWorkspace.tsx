@@ -232,6 +232,7 @@ export function WebWorkspace({
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
+  const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
   const defaultArchivePageElements = buildArchivePageElements(
     language,
     webChoiceColor,
@@ -439,6 +440,7 @@ export function WebWorkspace({
           showDescriptions={showSettingDescriptions}
           onUpdate={updateSelectedPageElement}
           onAlignSelected={alignSelectedPageElements}
+          onImageCropEditingChange={setImageCropEditingElementId}
         />
       ) : currentPreviewSurface === 'game' && webRenderStyle.selectedRenderObject ? (
         <RenderObjectSettingsSection
@@ -1036,6 +1038,7 @@ JSON schema:
                 : undefined
             }
             selectedStartMenuElementId={selectedStartMenuElementId}
+            imageCropEditingElementId={imageCropEditingElementId}
             onSurfaceChange={setCurrentPreviewSurface}
             onSelectStartMenuElement={(id) => {
               setSelectedStartMenuElementId(id);

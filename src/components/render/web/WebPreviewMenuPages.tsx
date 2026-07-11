@@ -597,7 +597,7 @@ function MenuPageElementLayer({
                     ),
                   )
                 : element.backgroundType === 'image' && element.backgroundImageUrl
-                  ? `linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.38)),url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`
+                  ? undefined
                   : element.backgroundColor ||
                     (element.primary ? choiceColor : 'rgba(255,255,255,0.10)');
 
@@ -637,8 +637,11 @@ function MenuPageElementLayer({
                   onAction(element);
                 }}
               >
+                {element.backgroundType === 'image' && element.backgroundImageUrl && (
+                  <span className="pointer-events-none absolute inset-0 bg-no-repeat" style={{ backgroundImage: `url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`, backgroundSize: element.backgroundImageFit === 'fit' ? 'contain' : element.backgroundImageFit === 'max' ? 'cover' : `${element.backgroundImageScale ?? 100}%`, backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`, opacity: Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100, transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`, transformOrigin: 'center' }} />
+                )}
                 <span
-                  className="flex h-full w-full items-center gap-2 overflow-hidden px-4"
+                  className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
                   style={{
                     ...elementRadiusStyle(element, 12),
                     justifyContent: suffix ? 'space-between' : justifyContent,

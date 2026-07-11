@@ -84,6 +84,12 @@ export const renderObjectInspectorZh = {
     removeStop: '删除',
     reverse: '反转',
     hex: 'HEX',
+    fit: '适合大小',
+    max: '填满区域',
+    crop: '自由裁剪',
+    rotation: '旋转角度',
+    opacity: '图片透明度',
+    resetCrop: '重置裁剪',
   },
   disabled: {
     videoOnly: '视频导出暂不支持',
