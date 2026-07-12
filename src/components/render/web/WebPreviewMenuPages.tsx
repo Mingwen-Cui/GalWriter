@@ -17,7 +17,7 @@ import {
   webElementShadowStyle,
   webElementTextPaintStyle,
 } from './webElementStyle';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -588,7 +588,8 @@ function MenuPageElementLayer({
               element.fillEnabled === false
                 ? undefined
                 : element.backgroundType === 'gradient'
-                ? linearGradientFromStops(
+                ? gradientFromStops(
+                    element.backgroundGradientShape,
                     element.backgroundGradientAngle ?? 135,
                     normalizeGradientStops(
                       element.backgroundGradientStops,

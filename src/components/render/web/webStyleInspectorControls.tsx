@@ -502,7 +502,7 @@ export function FloatingPopover({
     <>
       <div ref={anchorRef} className="absolute inset-x-0 top-0 h-0" aria-hidden="true" />
       {position && createPortal(
-        <div ref={panelRef} className={`fixed z-[10050] w-[min(390px,calc(100vw-24px))] ${className}`} style={position} data-web-style-popover>
+        <div ref={panelRef} className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`} style={position} data-web-style-popover>
           <div
             className="flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
             title="Drag"

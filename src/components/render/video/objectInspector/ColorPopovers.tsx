@@ -134,10 +134,10 @@ export function SolidColorPopover({
   };
   const eyeDropperSupported = typeof window !== 'undefined' && 'EyeDropper' in window;
   return (
-    <div className={`rounded-[22px] border p-3 shadow-xl ${toneClass[tone]}`}>
+    <div className={`rounded-[22px] border p-2.5 shadow-xl ${toneClass[tone]}`}>
       <div
         ref={saturationRef}
-        className="relative h-56 touch-none overflow-hidden rounded-[18px] bg-red-500 shadow-inner"
+        className="relative h-44 touch-none overflow-hidden rounded-2xl bg-red-500 shadow-inner"
         style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -155,12 +155,12 @@ export function SolidColorPopover({
         <span className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
         <span className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
         <span
-          className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-[4px] border-white shadow-[0_1px_5px_#00000080]"
+          className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_1px_5px_#00000080]"
           style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }}
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-[48px_minmax(0,1fr)] items-center gap-3">
+      <div className="mt-2.5 grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5">
         <button
           type="button"
           disabled={!eyeDropperSupported}
@@ -174,27 +174,27 @@ export function SolidColorPopover({
               // The user cancelled the system eyedropper.
             }
           }}
-          className="grid h-12 w-12 place-items-center rounded-xl bg-white text-slate-950 disabled:cursor-not-allowed disabled:opacity-35"
+          className="grid h-10 w-10 place-items-center rounded-xl bg-white text-slate-950 disabled:cursor-not-allowed disabled:opacity-35"
           title="Eyedropper"
           aria-label="Eyedropper"
         >
           <Pipette className="h-5 w-5" />
         </button>
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div
             ref={hueRef}
-            className="relative h-7 touch-none rounded-full"
+            className="relative h-5 touch-none rounded-full"
             style={{ background: 'linear-gradient(90deg,#ff0000 0%,#ffff00 16.67%,#00ff00 33.33%,#00ffff 50%,#0000ff 66.67%,#ff00ff 83.33%,#ff0000 100%)' }}
             onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); updateHue(event.clientX); }}
             onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updateHue(event.clientX); }}
             onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
             aria-label="Hue"
           >
-            <span className="pointer-events-none absolute left-0 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${hsv.h / 360 * 100}%`, backgroundColor: `hsl(${hsv.h} 100% 50%)` }} />
+            <span className="pointer-events-none absolute left-0 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-[4px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${hsv.h / 360 * 100}%`, backgroundColor: `hsl(${hsv.h} 100% 50%)` }} />
           </div>
           <div
             ref={opacityRef}
-            className="relative h-7 touch-none rounded-full"
+            className="relative h-5 touch-none rounded-full"
             style={{
               backgroundColor: '#ffffff',
               backgroundImage: `linear-gradient(90deg,transparent,${parsed.hex}),linear-gradient(45deg,#d1d5db 25%,transparent 25%),linear-gradient(-45deg,#d1d5db 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d1d5db 75%),linear-gradient(-45deg,transparent 75%,#d1d5db 75%)`,
@@ -206,12 +206,12 @@ export function SolidColorPopover({
             onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
             aria-label={text.opacity}
           >
-            <span className="pointer-events-none absolute top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${alpha}%`, backgroundColor: displayValue }} />
+            <span className="pointer-events-none absolute top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-[4px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${alpha}%`, backgroundColor: displayValue }} />
           </div>
         </div>
       </div>
 
-      <div className="relative mt-3 grid h-12 grid-cols-[92px_minmax(0,1fr)_88px] rounded-xl bg-white text-slate-950">
+      <div className="relative mt-2.5 grid h-10 grid-cols-[78px_minmax(0,1fr)_76px] rounded-xl bg-white text-slate-950">
         <button type="button" onClick={() => setFormatOpen((open) => !open)} className="flex items-center justify-center gap-2 rounded-l-xl border-r border-slate-100 text-sm font-medium" title={format} aria-expanded={formatOpen}>
           {format} <ChevronDown className={`h-4 w-4 transition-transform ${formatOpen ? 'rotate-180' : ''}`} />
         </button>

@@ -1,5 +1,5 @@
 import { Palette } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
@@ -18,6 +18,7 @@ import {
   PortaledGradientPopover,
 } from './StartMenuElementInspector';
 import { normalizeGradientStops } from './webGradientStops';
+import { gradientFromStops } from './webGradientStops';
 import { FillTabs, FloatingPopover, InspectorGroup as Group } from './webStyleInspectorControls';
 
 type StartMenuBackgroundInspectorProps = {
@@ -29,6 +30,7 @@ type StartMenuBackgroundInspectorProps = {
     key: K,
     value: WebExportSettings[K],
   ) => void;
+  onGradientEditingChange?: (surface: BackgroundSurface | null) => void;
 };
 
 type BackgroundType = WebExportSettings['startMenuBackgroundType'];
@@ -43,6 +45,7 @@ export function StartMenuBackgroundInspector({
   showDescriptions,
   surface = 'start',
   updateWebSettings,
+  onGradientEditingChange,
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
   const [openEditor, setOpenEditor] = useState<BackgroundType | null>(null);
@@ -54,6 +57,10 @@ export function StartMenuBackgroundInspector({
     '#0f172a',
     '#0891b2',
   );
+  useEffect(() => {
+    onGradientEditingChange?.(openEditor === 'gradient' ? surface : null);
+    return () => onGradientEditingChange?.(null);
+  }, [onGradientEditingChange, openEditor, surface]);
 
   const setBackgroundType = (value: BackgroundType) => {
     updateBackgroundSetting(updateWebSettings, surface, 'type', value);
@@ -168,9 +175,13 @@ export function StartMenuBackgroundInspector({
           <GradientEditorPopover
             language={language}
             angle={background.gradientAngle}
+            shape={background.gradientShape}
             stops={gradientStops}
             onAngleChange={(value) =>
               updateBackgroundSetting(updateWebSettings, surface, 'gradientAngle', value)
+            }
+            onShapeChange={(value) =>
+              updateBackgroundSetting(updateWebSettings, surface, 'gradientShape', value)
             }
             onStopsChange={(stops) => {
               const sorted = [...stops].sort((a, b) => a.position - b.position);
@@ -219,7 +230,15 @@ function BackgroundPreview({
   const backgroundSettings = getSurfaceBackground(settings, surface);
   const background =
     backgroundSettings.type === 'gradient'
-      ? `linear-gradient(${backgroundSettings.gradientAngle}deg, ${backgroundSettings.gradientStart}, ${backgroundSettings.gradientEnd})`
+      ? gradientFromStops(
+          backgroundSettings.gradientShape,
+          backgroundSettings.gradientAngle,
+          normalizeGradientStops(
+            backgroundSettings.gradientStops,
+            backgroundSettings.gradientStart,
+            backgroundSettings.gradientEnd,
+          ),
+        )
       : backgroundSettings.type === 'image'
         ? `center / cover url("${backgroundSettings.imageUrl}")`
         : backgroundSettings.color;
@@ -247,6 +266,7 @@ export function getSurfaceBackground(settings: WebExportSettings, surface: Backg
     gradientStart: read<string>('GradientStart', settings.startMenuBackgroundGradientStart),
     gradientEnd: read<string>('GradientEnd', settings.startMenuBackgroundGradientEnd),
     gradientAngle: read<number>('GradientAngle', settings.startMenuBackgroundGradientAngle),
+    gradientShape: read<'linear' | 'radial' | 'diamond'>('GradientShape', settings.startMenuBackgroundGradientShape || 'linear'),
     gradientStops: read<WebExportSettings['startMenuBackgroundGradientStops']>(
       'GradientStops',
       settings.startMenuBackgroundGradientStops,
@@ -264,6 +284,7 @@ function updateBackgroundSetting(
     | 'gradientStart'
     | 'gradientEnd'
     | 'gradientAngle'
+    | 'gradientShape'
     | 'gradientStops'
     | 'imageUrl',
   value: BackgroundType | string | number | WebExportSettings['startMenuBackgroundGradientStops'],
@@ -275,6 +296,7 @@ function updateBackgroundSetting(
       gradientStart: 'startMenuBackgroundGradientStart',
       gradientEnd: 'startMenuBackgroundGradientEnd',
       gradientAngle: 'startMenuBackgroundGradientAngle',
+      gradientShape: 'startMenuBackgroundGradientShape',
       gradientStops: 'startMenuBackgroundGradientStops',
       imageUrl: 'startMenuBackgroundImageUrl',
     },
@@ -284,6 +306,7 @@ function updateBackgroundSetting(
       gradientStart: 'archiveBackgroundGradientStart',
       gradientEnd: 'archiveBackgroundGradientEnd',
       gradientAngle: 'archiveBackgroundGradientAngle',
+      gradientShape: 'archiveBackgroundGradientShape',
       gradientStops: 'archiveBackgroundGradientStops',
       imageUrl: 'archiveBackgroundImageUrl',
     },
@@ -293,6 +316,7 @@ function updateBackgroundSetting(
       gradientStart: 'settingsBackgroundGradientStart',
       gradientEnd: 'settingsBackgroundGradientEnd',
       gradientAngle: 'settingsBackgroundGradientAngle',
+      gradientShape: 'settingsBackgroundGradientShape',
       gradientStops: 'settingsBackgroundGradientStops',
       imageUrl: 'settingsBackgroundImageUrl',
     },
@@ -302,6 +326,7 @@ function updateBackgroundSetting(
       gradientStart: 'dialogueBackgroundGradientStart',
       gradientEnd: 'dialogueBackgroundGradientEnd',
       gradientAngle: 'dialogueBackgroundGradientAngle',
+      gradientShape: 'dialogueBackgroundGradientShape',
       gradientStops: 'dialogueBackgroundGradientStops',
       imageUrl: 'dialogueBackgroundImageUrl',
     },

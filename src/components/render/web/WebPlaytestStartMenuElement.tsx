@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import {
   webColorWithAlpha,
   webElementBoxStyle,
@@ -106,7 +106,8 @@ export function WebPlaytestStartMenuElement({
       : element.backgroundType === 'image' && element.backgroundImageUrl
       ? undefined
       : element.backgroundType === 'gradient'
-        ? linearGradientFromStops(
+        ? gradientFromStops(
+            element.backgroundGradientShape,
             element.backgroundGradientAngle ?? 135,
             normalizeGradientStops(
               element.backgroundGradientStops,

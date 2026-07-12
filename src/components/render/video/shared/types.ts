@@ -255,6 +255,7 @@ export type WebMenuElement = {
   backgroundGradientStart?: string;
   backgroundGradientEnd?: string;
   backgroundGradientAngle?: number;
+  backgroundGradientShape?: 'linear' | 'radial' | 'diamond';
   backgroundGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   backgroundImageUrl?: string;
   backgroundImageFit?: 'fit' | 'max' | 'crop';
@@ -316,6 +317,11 @@ export type WebExportSettings = {
   startMenuBackgroundGradientStart: string;
   startMenuBackgroundGradientEnd: string;
   startMenuBackgroundGradientAngle: number;
+  startMenuBackgroundGradientShape?: 'linear' | 'radial' | 'diamond';
+  startMenuBackgroundGradientStartX?: number;
+  startMenuBackgroundGradientStartY?: number;
+  startMenuBackgroundGradientEndX?: number;
+  startMenuBackgroundGradientEndY?: number;
   startMenuBackgroundGradientStops?: Array<{
     id: string;
     color: string;
@@ -328,6 +334,7 @@ export type WebExportSettings = {
   archiveBackgroundGradientStart?: string;
   archiveBackgroundGradientEnd?: string;
   archiveBackgroundGradientAngle?: number;
+  archiveBackgroundGradientShape?: 'linear' | 'radial' | 'diamond';
   archiveBackgroundGradientStops?: Array<{
     id: string;
     color: string;
@@ -340,6 +347,7 @@ export type WebExportSettings = {
   settingsBackgroundGradientStart?: string;
   settingsBackgroundGradientEnd?: string;
   settingsBackgroundGradientAngle?: number;
+  settingsBackgroundGradientShape?: 'linear' | 'radial' | 'diamond';
   settingsBackgroundGradientStops?: Array<{
     id: string;
     color: string;
@@ -352,6 +360,7 @@ export type WebExportSettings = {
   dialogueBackgroundGradientStart?: string;
   dialogueBackgroundGradientEnd?: string;
   dialogueBackgroundGradientAngle?: number;
+  dialogueBackgroundGradientShape?: 'linear' | 'radial' | 'diamond';
   dialogueBackgroundGradientStops?: Array<{
     id: string;
     color: string;

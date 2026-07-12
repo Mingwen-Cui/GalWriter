@@ -203,6 +203,21 @@ export const makeIndexHtml = (
     function linearGradientFromStops(angle, stops) {
       return "linear-gradient(" + angle + "deg, " + gradientStopsCss(stops) + ")";
     }
+    function gradientFromStops(shape, angle, stops, geometry) {
+      let renderedStops = stops;
+      if (shape !== "radial" && geometry && [geometry.startX, geometry.startY, geometry.endX, geometry.endY].every(Number.isFinite)) {
+        const sx = geometry.startX / 100, sy = geometry.startY / 100, ex = geometry.endX / 100, ey = geometry.endY / 100;
+        const dx = ex - sx, dy = ey - sy;
+        const projections = [[0,0],[1,0],[0,1],[1,1]].map(function(point) { return point[0] * dx + point[1] * dy; });
+        const min = Math.min.apply(Math, projections), max = Math.max.apply(Math, projections), span = Math.max(.0001, max - min);
+        const start = (sx * dx + sy * dy - min) / span * 100, end = (ex * dx + ey * dy - min) / span * 100;
+        renderedStops = stops.map(function(stop) { return Object.assign({}, stop, { position: start + (end - start) * stop.position / 100 }); });
+      }
+      const cssStops = gradientStopsCss(renderedStops);
+      if (shape === "radial") return "radial-gradient(circle at center, " + cssStops + ")";
+      if (shape === "diamond") return "conic-gradient(from " + angle + "deg at center, " + cssStops + ")";
+      return "linear-gradient(" + angle + "deg, " + cssStops + ")";
+    }
     function px(value, fallback) {
       const number = Number(value);
       return (Number.isFinite(number) ? number : fallback) + "px";
@@ -510,7 +525,7 @@ export const makeIndexHtml = (
         target.style.backgroundPosition = "center";
         target.style.backgroundSize = "cover";
       } else if (type === "gradient") {
-        target.style.background = linearGradientFromStops(settings[prefix + "GradientAngle"], normalizeGradientStops(settings[prefix + "GradientStops"], settings[prefix + "GradientStart"], settings[prefix + "GradientEnd"], "#0f172a", "#0891b2"));
+        target.style.background = gradientFromStops(settings[prefix + "GradientShape"], settings[prefix + "GradientAngle"], normalizeGradientStops(settings[prefix + "GradientStops"], settings[prefix + "GradientStart"], settings[prefix + "GradientEnd"], "#0f172a", "#0891b2"), { startX: settings[prefix + "GradientStartX"], startY: settings[prefix + "GradientStartY"], endX: settings[prefix + "GradientEndX"], endY: settings[prefix + "GradientEndY"] });
       } else if (type === "solid") {
         target.style.background = settings[prefix + "Color"];
       }
@@ -715,7 +730,7 @@ export const makeIndexHtml = (
             fillImage.style.opacity = String(clamp(element.backgroundImageAlpha, 0, 100, 100) / 100);
             button.appendChild(fillImage);
           } else if (element.backgroundType === "gradient") {
-            button.style.background = linearGradientFromStops(Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
+            button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
             button.style.backgroundColor = "transparent";
             button.style.backdropFilter = "none";
             button.style.webkitBackdropFilter = "none";

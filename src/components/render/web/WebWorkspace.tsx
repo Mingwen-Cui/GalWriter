@@ -234,6 +234,7 @@ export function WebWorkspace({
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
+  const [gradientEditingSurface, setGradientEditingSurface] = useState<WebPreviewSurface | null>(null);
   useEffect(() => {
     if (webSettings.showStartMenu) return;
     setEditPreviewSurface('game');
@@ -465,6 +466,7 @@ export function WebWorkspace({
           showDescriptions={showSettingDescriptions}
           surface={currentSurfaceMeta.backgroundSurface}
           updateWebSettings={updateWebSettings}
+          onGradientEditingChange={setGradientEditingSurface}
         />
       )}
     </WebSurfaceInspectorPanel>
@@ -1052,6 +1054,7 @@ JSON schema:
             }
             selectedStartMenuElementId={selectedStartMenuElementId}
             imageCropEditingElementId={imageCropEditingElementId}
+            gradientEditingSurface={gradientEditingSurface}
             onSurfaceChange={setCurrentPreviewSurface}
             onSelectStartMenuElement={(id) => {
               setSelectedStartMenuElementId(id);

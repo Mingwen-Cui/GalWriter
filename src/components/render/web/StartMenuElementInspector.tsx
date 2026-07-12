@@ -4,6 +4,9 @@
   Box,
   CaseSensitive,
   Check,
+  ChevronDown,
+  Circle,
+  Diamond,
   Image as ImageIcon,
   Layers,
   Link2,
@@ -898,9 +901,13 @@ export function StartMenuElementInspector({
               <GradientEditorPopover
                 language={language}
                 angle={element.backgroundGradientAngle ?? 135}
+                shape={element.backgroundGradientShape || 'linear'}
                 stops={gradientStops}
                 onAngleChange={(backgroundGradientAngle) =>
                   onUpdate({ backgroundGradientAngle, backgroundType: 'gradient' })
+                }
+                onShapeChange={(backgroundGradientShape) =>
+                  onUpdate({ backgroundGradientShape, backgroundType: 'gradient' })
                 }
                 onStopsChange={(stops) => {
                   const sorted = [...stops].sort((a, b) => a.position - b.position);
@@ -1675,14 +1682,18 @@ export function GradientEditorPopover({
   language,
   angle,
   stops,
+  shape = 'linear',
   onAngleChange,
   onStopsChange,
+  onShapeChange,
 }: {
   language: Language;
   angle: number;
   stops: RenderColorStop[];
+  shape?: GradientShape;
   onAngleChange: (value: number) => void;
   onStopsChange: (value: RenderColorStop[]) => void;
+  onShapeChange?: (value: GradientShape) => void;
 }) {
   const copy =
     language === 'zh'
@@ -1694,6 +1705,7 @@ export function GradientEditorPopover({
           addStop: '添加色标',
           reverse: '反转',
           deleteStop: '删除色标',
+          shape: '渐变类型', linear: '线性', radial: '圆形', diamond: '菱形',
         }
       : language === 'ja'
         ? {
@@ -1704,6 +1716,7 @@ export function GradientEditorPopover({
             addStop: '色を追加',
             reverse: '反転',
             deleteStop: '色を削除',
+            shape: 'グラデーション', linear: '線形', radial: '円形', diamond: '菱形',
           }
         : {
             angle: 'Angle',
@@ -1713,6 +1726,7 @@ export function GradientEditorPopover({
             addStop: 'Add stop',
             reverse: 'Reverse',
             deleteStop: 'Delete stop',
+            shape: 'Gradient type', linear: 'Linear', radial: 'Radial', diamond: 'Diamond',
           };
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
   const [activeStopId, setActiveStopId] = useState(orderedStops[0]?.id || '');
@@ -1720,7 +1734,11 @@ export function GradientEditorPopover({
   const previewStops = orderedStops
     .map((stop) => `${alphaColor(stop.color, stop.alpha, '#ffffff')} ${stop.position}%`)
     .join(', ');
-  const trackPreview = `linear-gradient(90deg, ${previewStops})`;
+  const trackPreview = shape === 'radial'
+    ? `radial-gradient(circle at center, ${previewStops})`
+    : shape === 'diamond'
+      ? `conic-gradient(from 45deg at center, ${previewStops})`
+      : `linear-gradient(90deg, ${previewStops})`;
   const commitStops = (nextStops: RenderColorStop[]) => {
     onStopsChange([...nextStops].sort((a, b) => a.position - b.position));
   };
@@ -1769,7 +1787,17 @@ export function GradientEditorPopover({
   return (
     <div className="rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
       <div className="ml-auto w-[366px] max-w-full">
-      <div className="grid grid-cols-[72px_minmax(0,1fr)_44px_44px] gap-2">
+      <div className="grid grid-cols-[112px_minmax(0,1fr)_40px_40px] gap-2">
+        <label className="relative flex h-9 min-w-0 items-center gap-2 rounded-lg bg-white px-2 text-xs font-bold text-sky-950" title={copy.shape}>
+          {shape === 'radial' ? <Circle className="h-4 w-4 shrink-0" /> : shape === 'diamond' ? <Diamond className="h-4 w-4 shrink-0" /> : <MoveHorizontal className="h-4 w-4 shrink-0" />}
+          <span className="min-w-0 flex-1 truncate">{copy[shape]}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
+          <select value={shape} onChange={(event) => onShapeChange?.(event.target.value as GradientShape)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={copy.shape}>
+            <option value="linear">{copy.linear}</option>
+            <option value="radial">{copy.radial}</option>
+            <option value="diamond">{copy.diamond}</option>
+          </select>
+        </label>
         <div className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white">
           <span className="px-2 text-[11px] font-black text-sky-900/70">{copy.angle}</span>
           <DragSizeControl
@@ -1785,15 +1813,6 @@ export function GradientEditorPopover({
         </div>
         <button
           type="button"
-          onClick={() => addStopAt()}
-          className="col-start-3 grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
-          title={copy.addStop}
-          aria-label={copy.addStop}
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-        <button
-          type="button"
           onClick={() =>
             commitStops(
               orderedStops
@@ -1801,11 +1820,20 @@ export function GradientEditorPopover({
                 .reverse(),
             )
           }
-          className="grid h-9 w-11 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+          className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
           title={copy.reverse}
           aria-label={copy.reverse}
         >
           <RotateCw className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => addStopAt()}
+          className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+          title={copy.addStop}
+          aria-label={copy.addStop}
+        >
+          <Plus className="h-5 w-5" />
         </button>
       </div>
       <div
@@ -1841,7 +1869,7 @@ export function GradientEditorPopover({
         {orderedStops.map((stop) => {
           const color = hexColor(stop.color, '#ffffff');
           return (
-            <div key={stop.id} className="grid h-10 grid-cols-[54px_180px_64px_44px] items-center gap-2">
+            <div key={stop.id} className="grid h-10 grid-cols-[58px_minmax(0,1fr)_64px_40px] items-center gap-2">
               <DragSizeControl
                 label={copy.position}
                 value={stop.position}
@@ -1862,10 +1890,13 @@ export function GradientEditorPopover({
                 className="h-10 w-10 self-center justify-self-center cursor-pointer rounded-lg border-0 bg-white p-0"
               />
               <input
-                value={color}
+                value={toHex8(color, stop.alpha)}
                 onChange={(event) => {
                   const next = event.target.value.trim();
-                  if (/^#[0-9a-f]{6}$/i.test(next)) updateStop(stop.id, { color: next.toLowerCase() });
+                  if (/^#[0-9a-f]{6,8}$/i.test(next)) {
+                    const parsed = parseColorValue(next);
+                    updateStop(stop.id, { color: parsed.hex, alpha: parsed.alpha });
+                  }
                 }}
                 onFocus={() => setActiveStopId(stop.id)}
                 className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium outline-none"
@@ -1885,7 +1916,7 @@ export function GradientEditorPopover({
                 type="button"
                 disabled={orderedStops.length <= 2}
                 onClick={() => removeStop(stop.id)}
-                className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 disabled:opacity-35"
+                className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600 disabled:opacity-35"
                 title={copy.deleteStop}
                 aria-label={copy.deleteStop}
               >
@@ -1899,3 +1930,5 @@ export function GradientEditorPopover({
     </div>
   );
 }
+
+export type GradientShape = 'linear' | 'radial' | 'diamond';

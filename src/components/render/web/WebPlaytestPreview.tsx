@@ -51,7 +51,7 @@ import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
-import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
@@ -91,6 +91,7 @@ type WebPlaytestPreviewProps = {
   requestedSurface?: WebPreviewSurface;
   selectedStartMenuElementId?: string | null;
   imageCropEditingElementId?: string | null;
+  gradientEditingSurface?: WebPreviewSurface | null;
   onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
   onSelectStartMenuElements?: (ids: string[]) => void;
@@ -117,6 +118,7 @@ export function WebPlaytestPreview({
   requestedSurface,
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
   imageCropEditingElementId = null,
+  gradientEditingSurface = null,
   onSurfaceChange,
   onSelectStartMenuElement,
   onSelectStartMenuElements,
@@ -1419,7 +1421,8 @@ export function WebPlaytestPreview({
         }
       : background.type === 'gradient'
         ? {
-            background: linearGradientFromStops(
+            background: gradientFromStops(
+              background.gradientShape,
               background.gradientAngle,
               normalizeGradientStops(
                 background.gradientStops,
@@ -1428,6 +1431,12 @@ export function WebPlaytestPreview({
                 '#0f172a',
                 '#0891b2',
               ),
+              surface === 'start' ? {
+                startX: settings.startMenuBackgroundGradientStartX,
+                startY: settings.startMenuBackgroundGradientStartY,
+                endX: settings.startMenuBackgroundGradientEndX,
+                endY: settings.startMenuBackgroundGradientEndY,
+              } : undefined,
             ),
           }
         : background.type === 'solid'
@@ -1457,6 +1466,23 @@ export function WebPlaytestPreview({
           if (previewMode === 'edit') setSelectedStartMenuElementId(null);
         }}
       >
+        {previewMode === 'edit' && gradientEditingSurface === 'start' && (
+          <GradientCanvasControl
+            shape={getSurfaceBackground(settings, 'start').gradientShape}
+            angle={getSurfaceBackground(settings, 'start').gradientAngle}
+            startX={settings.startMenuBackgroundGradientStartX}
+            startY={settings.startMenuBackgroundGradientStartY}
+            endX={settings.startMenuBackgroundGradientEndX}
+            endY={settings.startMenuBackgroundGradientEndY}
+            onGeometryChange={(geometry) => {
+              onUpdateSettings('startMenuBackgroundGradientStartX', geometry.startX);
+              onUpdateSettings('startMenuBackgroundGradientStartY', geometry.startY);
+              onUpdateSettings('startMenuBackgroundGradientEndX', geometry.endX);
+              onUpdateSettings('startMenuBackgroundGradientEndY', geometry.endY);
+              onUpdateSettings('startMenuBackgroundGradientAngle', geometry.angle);
+            }}
+          />
+        )}
         {settings.startMenuBackgroundMusicUrl && (
           <audio
             ref={startMenuAudioRef}
@@ -1983,6 +2009,52 @@ export function WebPlaytestPreview({
         />
       </div>
       {renderStartMenuPreview()}
+    </div>
+  );
+}
+
+function GradientCanvasControl({ shape, angle, startX, startY, endX, endY, onGeometryChange }: { shape: 'linear' | 'radial' | 'diamond'; angle: number; startX?: number; startY?: number; endX?: number; endY?: number; onGeometryChange: (geometry: { startX: number; startY: number; endX: number; endY: number; angle: number }) => void }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const radians = angle * Math.PI / 180;
+  const safeStartX = startX ?? 50 - Math.sin(radians) * 25;
+  const safeStartY = startY ?? 50 + Math.cos(radians) * 25;
+  const safeEndX = endX ?? 50 + Math.sin(radians) * 25;
+  const safeEndY = endY ?? 50 - Math.cos(radians) * 25;
+  const updatePoint = (point: 'start' | 'end', clientX: number, clientY: number) => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
+    const y = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100));
+    const nextStartX = point === 'start' ? x : safeStartX;
+    const nextStartY = point === 'start' ? y : safeStartY;
+    const nextEndX = point === 'end' ? x : safeEndX;
+    const nextEndY = point === 'end' ? y : safeEndY;
+    const nextAngle = Math.round((Math.atan2(nextEndY - nextStartY, nextEndX - nextStartX) * 180 / Math.PI + 90 + 360) % 360);
+    onGeometryChange({ startX: nextStartX, startY: nextStartY, endX: nextEndX, endY: nextEndY, angle: nextAngle });
+  };
+  return (
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[240]" data-gradient-canvas-control>
+      <div className="absolute inset-0">
+        {shape === 'radial' ? (
+          <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-white/90 shadow-[0_0_0_1px_#00000055]">
+            <span className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
+            <span className="absolute right-[-7px] top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
+          </div>
+        ) : (
+          <>
+            <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+              <line x1={`${safeStartX}%`} y1={`${safeStartY}%`} x2={`${safeEndX}%`} y2={`${safeEndY}%`} stroke="rgba(0,0,0,.45)" strokeWidth="4" />
+              <line x1={`${safeStartX}%`} y1={`${safeStartY}%`} x2={`${safeEndX}%`} y2={`${safeEndY}%`} stroke="white" strokeWidth="2" />
+            </svg>
+            {shape === 'diamond' && <span className="absolute h-32 w-32 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-dashed border-white/85" style={{ left: `${(safeStartX + safeEndX) / 2}%`, top: `${(safeStartY + safeEndY) / 2}%` }} />}
+            {(['start', 'end'] as const).map((point) => {
+              const x = point === 'start' ? safeStartX : safeEndX;
+              const y = point === 'start' ? safeStartY : safeEndY;
+              return <button key={point} type="button" className={`pointer-events-auto absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-[3px] border-white shadow-lg ${point === 'start' ? 'bg-sky-500' : 'bg-indigo-600'}`} style={{ left: `${x}%`, top: `${y}%` }} aria-label={`Gradient ${point}`} onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); updatePoint(point, event.clientX, event.clientY); }} onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updatePoint(point, event.clientX, event.clientY); }} onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} />;
+            })}
+          </>
+        )}
+      </div>
     </div>
   );
 }
