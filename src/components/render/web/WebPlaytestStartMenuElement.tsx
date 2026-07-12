@@ -54,6 +54,7 @@ const radiusStyle = (
 type WebPlaytestStartMenuElementProps = {
   element: StartMenuElement;
   selected: boolean;
+  gradientEditing?: 'text' | 'fill' | 'stroke' | null;
   imageCropEditing?: boolean;
   action: StartMenuAction | null;
   previewMode: 'edit' | 'test';
@@ -79,6 +80,7 @@ type WebPlaytestStartMenuElementProps = {
 export function WebPlaytestStartMenuElement({
   element,
   selected,
+  gradientEditing = null,
   imageCropEditing = false,
   action,
   previewMode,
@@ -387,7 +389,7 @@ export function WebPlaytestStartMenuElement({
               }}
             />
           )}
-          {previewMode === 'edit' && selected && element.backgroundType === 'gradient' && (
+          {previewMode === 'edit' && selected && gradientEditing === 'fill' && element.backgroundType === 'gradient' && (
             <GradientCanvasControl
               shape={element.backgroundGradientShape || 'linear'}
               angle={element.backgroundGradientAngle ?? 135}
@@ -415,6 +417,16 @@ export function WebPlaytestStartMenuElement({
         >
           {content}
         </div>
+      )}
+      {previewMode === 'edit' && selected && gradientEditing === 'text' && element.kind === 'text' && element.textColorType === 'gradient' && (
+        <GradientCanvasControl
+          shape="linear"
+          angle={element.textGradientAngle ?? 90}
+          onGeometryChange={(geometry) => onUpdateElement(element.id, {
+            textGradientAngle: geometry.angle,
+            textColorType: 'gradient',
+          })}
+        />
       )}
       {imageCropEditing && element.kind === 'button' && element.backgroundImageUrl && (
         <div className="pointer-events-none absolute inset-0 z-[40] overflow-visible">

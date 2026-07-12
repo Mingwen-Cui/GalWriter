@@ -54,6 +54,7 @@ type InspectorProps = {
   onUpdate: (patch: Partial<WebMenuElement>) => void;
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   onImageCropEditingChange?: (elementId: string | null) => void;
+  onGradientEditingChange?: (group: 'text' | 'fill' | 'stroke' | null) => void;
 };
 
 type Popover = null | {
@@ -177,6 +178,7 @@ export function StartMenuElementInspector({
   onUpdate,
   onAlignSelected,
   onImageCropEditingChange,
+  onGradientEditingChange,
 }: InspectorProps) {
   const text = renderObjectText(language);
   const [popover, setPopover] = useState<Popover>(null);
@@ -204,6 +206,13 @@ export function StartMenuElementInspector({
     onImageCropEditingChange?.(imageCropEditing ? element.id : null);
     return () => onImageCropEditingChange?.(null);
   }, [element.id, imageCropEditing, onImageCropEditingChange]);
+  useEffect(() => {
+    const group = popover?.type === 'gradient' && (popover.group === 'text' || popover.group === 'fill' || popover.group === 'stroke')
+      ? popover.group
+      : null;
+    onGradientEditingChange?.(group);
+    return () => onGradientEditingChange?.(null);
+  }, [onGradientEditingChange, popover]);
   const textColorType = element.textColorType || 'solid';
   const textGradientStops = normalizeGradientStops(
     element.textGradientStops,

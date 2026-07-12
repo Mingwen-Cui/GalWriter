@@ -73,6 +73,7 @@ type WebPreviewMenuPagesProps = {
   choiceTextColor: string;
   previewControlsHidden: boolean;
   gradientEditingSurface?: 'archive' | 'settings' | null;
+  gradientEditingElement?: { id: string; group: 'text' | 'fill' | 'stroke' } | null;
   onCloseArchive: () => void;
   onCloseSettings: () => void;
   onOpenSettings: () => void;
@@ -110,6 +111,7 @@ export function WebPreviewMenuPages({
   choiceTextColor,
   previewControlsHidden,
   gradientEditingSurface = null,
+  gradientEditingElement = null,
   onCloseArchive,
   onCloseSettings,
   onOpenSettings,
@@ -442,6 +444,7 @@ export function WebPreviewMenuPages({
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
+            gradientEditingElement={gradientEditingElement}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
             onSelectElement={onSelectElement}
@@ -486,6 +489,7 @@ export function WebPreviewMenuPages({
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
+            gradientEditingElement={gradientEditingElement}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
             onSelectElement={onSelectElement}
@@ -518,6 +522,7 @@ type MenuPageElementLayerProps = {
   selectedElementId?: string | null;
   selectedElementIds?: string[];
   previewMode: 'edit' | 'test';
+  gradientEditingElement?: { id: string; group: 'text' | 'fill' | 'stroke' } | null;
   choiceColor: string;
   choiceTextColor: string;
   onSelectElement?: (id: string | null) => void;
@@ -539,6 +544,7 @@ function MenuPageElementLayer({
   selectedElementId,
   selectedElementIds = [],
   previewMode,
+  gradientEditingElement = null,
   choiceColor,
   choiceTextColor,
   onSelectElement,
@@ -682,7 +688,7 @@ function MenuPageElementLayer({
                     onBeginElementDrag={onBeginElementDrag}
                   />
                 )}
-                {editable && selected && element.backgroundType === 'gradient' && (
+                {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'fill' && element.backgroundType === 'gradient' && (
                   <GradientCanvasControl
                     shape={element.backgroundGradientShape || 'linear'}
                     angle={element.backgroundGradientAngle ?? 135}
@@ -796,6 +802,16 @@ function MenuPageElementLayer({
                   element={element}
                   onUpdateElement={onUpdateElement}
                   onBeginElementDrag={onBeginElementDrag}
+                />
+              )}
+              {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'text' && element.textColorType === 'gradient' && (
+                <GradientCanvasControl
+                  shape="linear"
+                  angle={element.textGradientAngle ?? 90}
+                  onGeometryChange={(geometry) => onUpdateElement(element.id, {
+                    textGradientAngle: geometry.angle,
+                    textColorType: 'gradient',
+                  })}
                 />
               )}
             </button>

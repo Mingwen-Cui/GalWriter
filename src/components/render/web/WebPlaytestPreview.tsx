@@ -95,6 +95,7 @@ type WebPlaytestPreviewProps = {
   selectedStartMenuElementId?: string | null;
   imageCropEditingElementId?: string | null;
   gradientEditingSurface?: WebPreviewSurface | null;
+  gradientEditingElement?: { id: string; group: 'text' | 'fill' | 'stroke' } | null;
   onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
   onSelectStartMenuElements?: (ids: string[]) => void;
@@ -124,6 +125,7 @@ export function WebPlaytestPreview({
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
   imageCropEditingElementId = null,
   gradientEditingSurface = null,
+  gradientEditingElement = null,
   onSurfaceChange,
   onSelectStartMenuElement,
   onSelectStartMenuElements,
@@ -1490,6 +1492,9 @@ export function WebPlaytestPreview({
                 selectedStartMenuElementId === element.id ||
                 selectedStartMenuElementIds.includes(element.id)
               }
+              gradientEditing={
+                gradientEditingElement?.id === element.id ? gradientEditingElement.group : null
+              }
               imageCropEditing={imageCropEditingElementId === element.id}
               action={element.kind === 'button' ? getStartMenuElementAction(element) : null}
               previewMode={previewMode}
@@ -1532,6 +1537,7 @@ export function WebPlaytestPreview({
               ? gradientEditingSurface
               : null
           }
+          gradientEditingElement={gradientEditingElement}
           onCloseArchive={() => setPreviewArchiveOpen(false)}
           onCloseSettings={() => setPreviewStartSettingsOpen(false)}
           onOpenSettings={() => {
@@ -1729,6 +1735,16 @@ export function WebPlaytestPreview({
           onUpdateElements={(elements) => {
             onUpdateSettings('dialogueOverlayElements', elements);
           }}
+          onDoubleClickButton={(target) =>
+            onUpdateSettings(
+              'dialogueOverlayElements',
+              (settings.dialogueOverlayElements || []).map((element) =>
+                element.kind === 'button' && element.id !== target.id
+                  ? { ...element, visible: false }
+                  : element,
+              ),
+            )
+          }
         />
       </>
     );
@@ -2121,14 +2137,17 @@ function GradientCanvasControl({
                   aria-label={`Gradient ${point}`}
                   onPointerDown={(event) => {
                     if (event.button !== 0) return;
+                    event.stopPropagation();
                     event.currentTarget.setPointerCapture(event.pointerId);
                     updatePoint(point, event.clientX, event.clientY);
                   }}
                   onPointerMove={(event) => {
-                    if (event.currentTarget.hasPointerCapture(event.pointerId))
-                      updatePoint(point, event.clientX, event.clientY);
+                    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+                    event.stopPropagation();
+                    updatePoint(point, event.clientX, event.clientY);
                   }}
                   onPointerUp={(event) => {
+                    event.stopPropagation();
                     if (event.currentTarget.hasPointerCapture(event.pointerId))
                       event.currentTarget.releasePointerCapture(event.pointerId);
                   }}

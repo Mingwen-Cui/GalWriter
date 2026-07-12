@@ -342,6 +342,7 @@ export function PreviewFloatingElementLayer({
   isActive,
   isDisabled,
   onAction,
+  onDoubleClickButton,
 }: {
   elements: WebMenuElement[];
   guideElements?: WebMenuElement[];
@@ -355,6 +356,7 @@ export function PreviewFloatingElementLayer({
   isActive?: (element: WebMenuElement) => boolean;
   isDisabled?: (element: WebMenuElement) => boolean;
   onAction?: (element: WebMenuElement) => void;
+  onDoubleClickButton?: (element: WebMenuElement) => void;
 }) {
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
@@ -511,6 +513,7 @@ export function PreviewFloatingElementLayer({
             onUpdateElements={onUpdateElements}
             onGuideLinesChange={setActiveGuideLines}
             onAction={() => onAction?.(element)}
+            onDoubleClickButton={onDoubleClickButton ? () => onDoubleClickButton(element) : undefined}
           />
         ))}
       </div>
@@ -534,6 +537,7 @@ function ToolbarElement({
   onUpdateElements,
   onGuideLinesChange,
   onAction,
+  onDoubleClickButton,
 }: {
   element: WebMenuElement;
   selected: boolean;
@@ -550,6 +554,7 @@ function ToolbarElement({
   onUpdateElements?: (elements: WebMenuElement[]) => void;
   onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void;
   onAction: () => void;
+  onDoubleClickButton?: () => void;
 }) {
   const editable = previewMode === 'edit';
   // Editing overlays include their own buttons (rotate, visibility, resize).
@@ -762,6 +767,7 @@ function ToolbarElement({
         if (editable) {
           if (event.detail > 1) {
             if (element.kind === 'image') imageInputRef.current?.click();
+            else if (element.kind === 'button' && onDoubleClickButton) onDoubleClickButton();
             else beginTextEditing();
             return;
           }

@@ -288,6 +288,10 @@ export function WebWorkspace({
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
+  const [gradientEditingElement, setGradientEditingElement] = useState<{
+    id: string;
+    group: 'text' | 'fill' | 'stroke';
+  } | null>(null);
   useEffect(() => {
     if (selectedStartMenuElementId) setDesignPanelMode('background');
   }, [selectedStartMenuElementId]);
@@ -514,6 +518,9 @@ export function WebWorkspace({
           onUpdate={updateSelectedPageElement}
           onAlignSelected={alignSelectedPageElements}
           onImageCropEditingChange={setImageCropEditingElementId}
+          onGradientEditingChange={(group) =>
+            setGradientEditingElement(group ? { id: selectedStartMenuElement.id, group } : null)
+          }
         />
       ) : currentPreviewSurface === 'game' &&
         (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (
@@ -1122,6 +1129,7 @@ JSON schema:
               selectedStartMenuElementId={selectedStartMenuElementId}
               imageCropEditingElementId={imageCropEditingElementId}
               gradientEditingSurface={gradientEditingSurface}
+              gradientEditingElement={gradientEditingElement}
               onSurfaceChange={setCurrentPreviewSurface}
               onSelectStartMenuElement={(id) => {
                 setSelectedStartMenuElementId(id);
