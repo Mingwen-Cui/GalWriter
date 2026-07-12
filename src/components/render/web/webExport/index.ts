@@ -307,6 +307,8 @@ export async function buildInteractiveWebZipBlob(
     layoutMode: options.settings?.layoutMode || 'immersive',
     sceneFit: options.settings?.sceneFit || 'cover',
     sceneScale: options.settings?.sceneScale ?? 100,
+    sceneScaleX: options.settings?.sceneScaleX ?? options.settings?.sceneScale ?? 100,
+    sceneScaleY: options.settings?.sceneScaleY ?? options.settings?.sceneScale ?? 100,
     sceneOffsetX: options.settings?.sceneOffsetX ?? 0,
     sceneOffsetY: options.settings?.sceneOffsetY ?? 0,
     sceneBackgroundVisible: options.settings?.sceneBackgroundVisible !== false,

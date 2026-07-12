@@ -236,12 +236,17 @@ export const drawPresentationVisuals = async ({
     } catch { /* Keep the selected fallback color. */ }
   }
 
-  const presentationScale = (scene?.scale || 1) * ((canvasSettings?.sceneScale || 100) / 100);
+  const presentationScaleX = (scene?.scale || 1) * ((canvasSettings?.sceneScaleX || canvasSettings?.sceneScale || 100) / 100);
+  const presentationScaleY = (scene?.scale || 1) * ((canvasSettings?.sceneScaleY || canvasSettings?.sceneScale || 100) / 100);
   const characterEnterDelay = getCharacterEnterDelay(presentation);
   const sceneExitDuration = getPresentationMotionDuration(scene?.exit);
   ctx.save();
+  ctx.translate(
+    (width * (canvasSettings?.sceneOffsetX || 0)) / 200,
+    (height * (canvasSettings?.sceneOffsetY || 0)) / 200,
+  );
   ctx.translate(width / 2, height / 2);
-  ctx.scale(presentationScale, presentationScale);
+  ctx.scale(presentationScaleX, presentationScaleY);
   ctx.translate(-width / 2, -height / 2);
 
   if (background) {
@@ -274,8 +279,8 @@ export const drawPresentationVisuals = async ({
       width,
       height,
       canvasSettings?.sceneFit || scene?.cropMode || 'cover',
-      (scene?.offsetX || 0) + (canvasSettings?.sceneOffsetX || 0),
-      (scene?.offsetY || 0) + (canvasSettings?.sceneOffsetY || 0),
+      scene?.offsetX || 0,
+      scene?.offsetY || 0,
     );
     ctx.restore();
   }

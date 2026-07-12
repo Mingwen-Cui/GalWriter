@@ -19,6 +19,7 @@ import {
   getPresentationTransform,
 } from '../../../lib/presentation';
 import type { WebExportSettings } from '../video/shared/types';
+import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
 
 type PresentedCharacter = {
   config: CharacterPresentation;
@@ -61,6 +62,11 @@ export function WebPlaytestMediaLayers({
 }: WebPlaytestMediaLayersProps) {
   return (
     <div className="absolute inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        data-split-visual-group={settings.layoutMode === 'classic' ? 'true' : undefined}
+        style={settings.layoutMode === 'classic' ? getSceneGroupStyle(settings) : undefined}
+      >
       {currentImageUrl ? (
         <img
           key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
@@ -141,6 +147,7 @@ export function WebPlaytestMediaLayers({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

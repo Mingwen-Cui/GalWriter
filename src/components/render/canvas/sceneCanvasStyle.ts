@@ -19,8 +19,11 @@ export const mergeSceneMediaStyle = (
 ): CSSProperties => ({
   ...base,
   objectFit: settings.sceneFit === 'stretch' ? 'fill' : settings.sceneFit,
-  objectPosition: `${50 + settings.sceneOffsetX / 2}% ${50 + settings.sceneOffsetY / 2}%`,
-  transform: [base.transform === 'none' ? '' : base.transform, `scale(${settings.sceneScale / 100})`]
-    .filter(Boolean)
-    .join(' ') || 'none',
+  objectPosition: '50% 50%',
+  transform: base.transform,
+});
+
+export const getSceneGroupStyle = (settings: SharedCanvasSettings): CSSProperties => ({
+  transform: `translate(${settings.sceneOffsetX / 2}%, ${settings.sceneOffsetY / 2}%) scale(${settings.sceneScaleX / 100}, ${settings.sceneScaleY / 100})`,
+  transformOrigin: 'center center',
 });

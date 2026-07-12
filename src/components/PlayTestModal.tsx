@@ -58,7 +58,7 @@ import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
 import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
-import { getSceneBackgroundStyle, mergeSceneMediaStyle } from './render/canvas/sceneCanvasStyle';
+import { getSceneBackgroundStyle, getSceneGroupStyle, mergeSceneMediaStyle } from './render/canvas/sceneCanvasStyle';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
 import type { RenderStyle } from './render/video/shared/types';
@@ -2444,6 +2444,7 @@ export function PlayTestModal({
                       height={canvasSettings.canvasHeight}
                     >
                       <div className="absolute inset-0 overflow-hidden">
+                        <div className="absolute inset-0" style={getSceneGroupStyle(canvasSettings)}>
                         {sceneImageUrl && (
                           <img
                             src={sceneImageUrl}
@@ -2484,6 +2485,7 @@ export function PlayTestModal({
                           />
                         )}
                         {renderPresentedCharacters()}
+                        </div>
                       </div>
                     </VirtualPresentationStage>
                   </div>

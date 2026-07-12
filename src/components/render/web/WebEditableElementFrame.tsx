@@ -65,6 +65,7 @@ export function WebEditableElementFrame({
   onDelete,
   onRotatePointerDown,
   onResizePointerDown,
+  showAuxiliaryControls = true,
 }: {
   visible: boolean;
   ringClassName?: string;
@@ -75,11 +76,12 @@ export function WebEditableElementFrame({
     event: React.PointerEvent<HTMLElement>,
     handle: WebEditableResizeHandle,
   ) => void;
+  showAuxiliaryControls?: boolean;
 }) {
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      <button
+      {showAuxiliaryControls && <button
         type="button"
         tabIndex={-1}
         className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
@@ -89,8 +91,8 @@ export function WebEditableElementFrame({
         aria-label="Rotate"
       >
         <RotateCw className="h-4 w-4" />
-      </button>
-      <button
+      </button>}
+      {showAuxiliaryControls && <button
         type="button"
         tabIndex={-1}
         className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
@@ -100,7 +102,7 @@ export function WebEditableElementFrame({
         aria-label={visible ? 'Hide' : 'Show'}
       >
         {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-      </button>
+      </button>}
       {onDelete && (
         <button
           type="button"

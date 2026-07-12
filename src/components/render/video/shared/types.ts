@@ -311,6 +311,8 @@ export type WebExportSettings = {
   layoutMode: 'classic' | 'immersive';
   sceneFit: 'cover' | 'contain' | 'stretch';
   sceneScale: number;
+  sceneScaleX: number;
+  sceneScaleY: number;
   sceneOffsetX: number;
   sceneOffsetY: number;
   sceneBackgroundVisible: boolean;

@@ -16,6 +16,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   layoutMode: 'immersive',
   sceneFit: 'cover',
   sceneScale: 100,
+  sceneScaleX: 100,
+  sceneScaleY: 100,
   sceneOffsetX: 0,
   sceneOffsetY: 0,
   sceneBackgroundVisible: true,

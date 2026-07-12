@@ -115,6 +115,8 @@ export const makeIndexHtml = (
     settings.layoutMode = settings.layoutMode || "immersive";
     settings.sceneFit = ["cover", "contain", "stretch"].includes(settings.sceneFit) ? settings.sceneFit : "cover";
     settings.sceneScale = Math.min(400, Math.max(25, Number(settings.sceneScale) || 100));
+    settings.sceneScaleX = Math.min(400, Math.max(25, Number(settings.sceneScaleX) || settings.sceneScale));
+    settings.sceneScaleY = Math.min(400, Math.max(25, Number(settings.sceneScaleY) || settings.sceneScale));
     settings.sceneOffsetX = Math.min(100, Math.max(-100, Number(settings.sceneOffsetX) || 0));
     settings.sceneOffsetY = Math.min(100, Math.max(-100, Number(settings.sceneOffsetY) || 0));
     settings.sceneBackgroundVisible = settings.sceneBackgroundVisible !== false;
@@ -1614,9 +1616,10 @@ export const makeIndexHtml = (
       const immersive = settings.layoutMode === 'immersive';
       const sharedSceneFit = settings.sceneFit === 'stretch' ? 'fill' : settings.sceneFit;
       const finalCrop = immersive ? 'contain' : sharedSceneFit;
-      const finalOffsetX = immersive ? 0 : sceneOffsetX + settings.sceneOffsetX / 2;
-      const finalOffsetY = immersive ? 0 : sceneOffsetY + settings.sceneOffsetY / 2;
-      const finalSceneScale = sceneScale * (immersive ? 1 : settings.sceneScale / 100);
+      const finalOffsetX = immersive ? 0 : sceneOffsetX;
+      const finalOffsetY = immersive ? 0 : sceneOffsetY;
+      const finalSceneScaleX = sceneScale * (immersive ? 1 : settings.sceneScaleX / 100);
+      const finalSceneScaleY = sceneScale * (immersive ? 1 : settings.sceneScaleY / 100);
       
       const initSceneOpacity = (hasSceneEnter && sceneEnter.type === 'fade') ? 0 : 1;
       const initSceneTransform = hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : 'none';
@@ -1695,7 +1698,7 @@ export const makeIndexHtml = (
       }
       stageEl.innerHTML =
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' +
-          '<div class="presentation-scale" style="transform: scale(' + finalSceneScale + ')">' +
+          '<div class="presentation-scale" style="transform: translate(' + (immersive ? 0 : settings.sceneOffsetX / 2) + '%, ' + (immersive ? 0 : settings.sceneOffsetY / 2) + '%) scale(' + finalSceneScaleX + ', ' + finalSceneScaleY + ')">' +
             media + charactersHtml +
           '</div>' +
         '</div>' +

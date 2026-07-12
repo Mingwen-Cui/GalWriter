@@ -12,6 +12,8 @@ export type SharedCanvasSettings = Pick<
   | 'layoutMode'
   | 'sceneFit'
   | 'sceneScale'
+  | 'sceneScaleX'
+  | 'sceneScaleY'
   | 'sceneOffsetX'
   | 'sceneOffsetY'
   | 'sceneBackgroundVisible'
@@ -38,6 +40,8 @@ export const DEFAULT_SHARED_CANVAS_SETTINGS: SharedCanvasSettings = {
   layoutMode: 'immersive',
   sceneFit: 'cover',
   sceneScale: 100,
+  sceneScaleX: 100,
+  sceneScaleY: 100,
   sceneOffsetX: 0,
   sceneOffsetY: 0,
   sceneBackgroundVisible: true,
@@ -81,6 +85,8 @@ export function normalizeSharedCanvasSettings(
         ? value.sceneFit
         : 'cover',
     sceneScale: clampInteger(value?.sceneScale, 100, 25, 400),
+    sceneScaleX: clampInteger(value?.sceneScaleX ?? value?.sceneScale, 100, 25, 400),
+    sceneScaleY: clampInteger(value?.sceneScaleY ?? value?.sceneScale, 100, 25, 400),
     sceneOffsetX: clampInteger(value?.sceneOffsetX, 0, -100, 100),
     sceneOffsetY: clampInteger(value?.sceneOffsetY, 0, -100, 100),
     sceneBackgroundVisible: value?.sceneBackgroundVisible !== false,
@@ -167,6 +173,8 @@ export function canvasPatchFromWebSettings(
     'layoutMode',
     'sceneFit',
     'sceneScale',
+    'sceneScaleX',
+    'sceneScaleY',
     'sceneOffsetX',
     'sceneOffsetY',
     'sceneBackgroundVisible',

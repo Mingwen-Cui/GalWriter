@@ -2093,7 +2093,7 @@ export function WebPlaytestPreview({
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}
         />
       </div>
-      {previewMode === 'edit' && settings.layoutMode === 'classic' && onSelectCanvasObject && (
+      {previewMode === 'edit' && settings.layoutMode === 'classic' && !previewStartMenuOpen && !previewArchiveOpen && !previewStartSettingsOpen && onSelectCanvasObject && (
         <WebSplitLayoutEditor
           rootRef={previewRootRef}
           selection={(selectedCanvasObject || renderStyle.selectedRenderObject || 'scene') as SplitEditorSelection}

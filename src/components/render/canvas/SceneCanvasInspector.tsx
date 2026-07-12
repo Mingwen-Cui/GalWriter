@@ -15,7 +15,7 @@ export function SceneCanvasInspector({ language, value, onChange, mode = 'positi
   const uploadRef = useRef<HTMLInputElement>(null);
   const t = (zh: string, ja: string, en: string) =>
     language === 'zh' ? zh : language === 'ja' ? ja : en;
-  const reset = () => onChange({ sceneFit: 'cover', sceneScale: 100, sceneOffsetX: 0, sceneOffsetY: 0 });
+  const reset = () => onChange({ sceneFit: 'cover', sceneScale: 100, sceneScaleX: 100, sceneScaleY: 100, sceneOffsetX: 0, sceneOffsetY: 0 });
 
   return (
     <div className="space-y-3 text-xs text-slate-900 dark:text-[var(--vr-text)]">
@@ -36,9 +36,8 @@ export function SceneCanvasInspector({ language, value, onChange, mode = 'positi
         <div className="mt-3 grid grid-cols-2 gap-2">
           <SceneNumber icon={MoveHorizontal} label="X" value={value.sceneOffsetX} min={-100} max={100} onChange={(sceneOffsetX) => onChange({ sceneOffsetX })} />
           <SceneNumber icon={MoveVertical} label="Y" value={value.sceneOffsetY} min={-100} max={100} onChange={(sceneOffsetY) => onChange({ sceneOffsetY })} />
-          <div className="col-span-2">
-            <SceneNumber icon={Scaling} label={t('缩放', '拡大縮小', 'Scale')} value={value.sceneScale} min={25} max={400} suffix="%" onChange={(sceneScale) => onChange({ sceneScale })} />
-          </div>
+          <SceneNumber icon={Scaling} label={t('水平缩放', '水平拡大縮小', 'Scale X')} value={value.sceneScaleX} min={25} max={400} suffix="%" onChange={(sceneScaleX) => onChange({ sceneScaleX, sceneScale: Math.round((sceneScaleX + value.sceneScaleY) / 2) })} />
+          <SceneNumber icon={Scaling} label={t('垂直缩放', '垂直拡大縮小', 'Scale Y')} value={value.sceneScaleY} min={25} max={400} suffix="%" onChange={(sceneScaleY) => onChange({ sceneScaleY, sceneScale: Math.round((value.sceneScaleX + sceneScaleY) / 2) })} />
         </div>
       </section>}
 
