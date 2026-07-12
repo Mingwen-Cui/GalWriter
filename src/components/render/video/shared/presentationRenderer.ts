@@ -20,6 +20,7 @@ import {
 } from '../../../../lib/inlineAssetSwitch';
 import { latestPersistentInlineAction } from '../../../../lib/inlinePresentationPlayback';
 import { clamp, loadCachedImage } from './mediaUtils';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
 
@@ -166,6 +167,7 @@ export const drawPresentationVisuals = async ({
   activeInlineActionElapsed = 0,
   completedSwitchActions = [],
   completedInlineActions = [],
+  canvasSettings,
 }: {
   ctx: CanvasRenderingContext2D;
   node: FlowNode;
@@ -179,6 +181,7 @@ export const drawPresentationVisuals = async ({
   activeInlineActionElapsed?: number;
   completedSwitchActions?: InlinePresentationAction[];
   completedInlineActions?: InlinePresentationAction[];
+  canvasSettings?: SharedCanvasSettings;
 }) => {
   const presentation = normalizeStoryPresentation(
     node.data?.presentation as StoryPresentation | undefined,
@@ -214,10 +217,26 @@ export const drawPresentationVisuals = async ({
     }
   }
 
-  ctx.fillStyle = '#111827';
+  if (canvasSettings?.sceneBackgroundVisible && canvasSettings.sceneBackgroundType === 'gradient') {
+    const angle = (canvasSettings.sceneBackgroundGradientAngle * Math.PI) / 180;
+    const dx = Math.cos(angle) * width / 2;
+    const dy = Math.sin(angle) * height / 2;
+    const gradient = ctx.createLinearGradient(width / 2 - dx, height / 2 - dy, width / 2 + dx, height / 2 + dy);
+    gradient.addColorStop(0, canvasSettings.sceneBackgroundGradientStart);
+    gradient.addColorStop(1, canvasSettings.sceneBackgroundGradientEnd);
+    ctx.fillStyle = gradient;
+  } else {
+    ctx.fillStyle = canvasSettings?.sceneBackgroundVisible ? canvasSettings.sceneBackgroundColor : '#111827';
+  }
   ctx.fillRect(0, 0, width, height);
+  if (canvasSettings?.sceneBackgroundVisible && canvasSettings.sceneBackgroundType === 'image' && canvasSettings.sceneBackgroundImageUrl) {
+    try {
+      const backgroundImage = await loadCachedImage(canvasSettings.sceneBackgroundImageUrl);
+      drawFitted(ctx, backgroundImage, backgroundImage.naturalWidth || width, backgroundImage.naturalHeight || height, width, height, 'cover');
+    } catch { /* Keep the selected fallback color. */ }
+  }
 
-  const presentationScale = scene?.scale || 1;
+  const presentationScale = (scene?.scale || 1) * ((canvasSettings?.sceneScale || 100) / 100);
   const characterEnterDelay = getCharacterEnterDelay(presentation);
   const sceneExitDuration = getPresentationMotionDuration(scene?.exit);
   ctx.save();
@@ -254,9 +273,9 @@ export const drawPresentationVisuals = async ({
       background.height || height,
       width,
       height,
-      scene?.cropMode || 'cover',
-      scene?.offsetX || 0,
-      scene?.offsetY || 0,
+      canvasSettings?.sceneFit || scene?.cropMode || 'cover',
+      (scene?.offsetX || 0) + (canvasSettings?.sceneOffsetX || 0),
+      (scene?.offsetY || 0) + (canvasSettings?.sceneOffsetY || 0),
     );
     ctx.restore();
   }

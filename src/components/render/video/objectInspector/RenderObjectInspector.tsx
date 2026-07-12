@@ -63,12 +63,14 @@ export function RenderObjectInspector({
   updateRenderStyle,
   surface = 'web',
   showDescriptions = false,
+  hideObjectSelector = false,
 }: {
   language: Language;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   surface?: Surface;
   showDescriptions?: boolean;
+  hideObjectSelector?: boolean;
 }) {
   const text = renderObjectText(language);
   const objects = getRenderObjects(renderStyle);
@@ -102,7 +104,7 @@ export function RenderObjectInspector({
 
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
-      <div className="grid grid-cols-2 gap-2">
+      {!hideObjectSelector && <div className="grid grid-cols-2 gap-2">
         {objectKinds.map((kind) => (
           <button
             key={kind}
@@ -117,7 +119,7 @@ export function RenderObjectInspector({
             {text.object[kind]}
           </button>
         ))}
-      </div>
+      </div>}
 
       <InspectorGroup
         title={text.group.position}

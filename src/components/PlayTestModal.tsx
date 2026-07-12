@@ -58,6 +58,7 @@ import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
 import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
+import { getSceneBackgroundStyle, mergeSceneMediaStyle } from './render/canvas/sceneCanvasStyle';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
 import type { RenderStyle } from './render/video/shared/types';
@@ -1545,7 +1546,7 @@ export function PlayTestModal({
     presentation.scene?.cropMode === 'stretch'
         ? 'fill'
         : 'cover';
-  const sceneStyle: React.CSSProperties = {
+  const baseSceneStyle: React.CSSProperties = {
     objectFit: sceneObjectFit,
     objectPosition: '50% 50%',
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
@@ -1568,6 +1569,9 @@ export function PlayTestModal({
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
+  const sceneStyle = layoutMode === 'classic'
+    ? mergeSceneMediaStyle(baseSceneStyle, canvasSettings)
+    : baseSceneStyle;
   const presentationStageAspect = canvasSettings.canvasWidth / canvasSettings.canvasHeight;
   const classicMediaContainerStyle: React.CSSProperties | undefined = mobileClassicLayout
     ? undefined
@@ -1856,6 +1860,8 @@ export function PlayTestModal({
             renderStyle={renderStyle}
             updateRenderStyle={updateRenderStyle}
             surface="playtest"
+            canvasSettings={canvasSettings}
+            onCanvasSettingsChange={onCanvasSettingsChange}
           />
         </div>
       </div>
@@ -2403,8 +2409,9 @@ export function PlayTestModal({
                     mobileClassicLayout
                       ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
                       : 'flex-1 min-h-0 p-2 md:p-4'
-                  } flex items-center justify-center relative group overflow-hidden ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
-                  style={classicMediaContainerStyle}
+                  } flex items-center justify-center relative group overflow-hidden ${showSettings && !renderStyle.selectedRenderObject ? 'ring-2 ring-inset ring-indigo-500' : ''} ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
+                  style={{ ...classicMediaContainerStyle, ...getSceneBackgroundStyle(canvasSettings) }}
+                  onClick={() => { if (showSettings) updateRenderStyle('selectedRenderObject', undefined); }}
                 >
                   {/* Ambient Background Layer */}
                   <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">

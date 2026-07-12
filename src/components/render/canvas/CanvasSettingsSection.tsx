@@ -22,9 +22,10 @@ type Props = {
   language: Language;
   value: SharedCanvasSettings;
   onChange: (patch: Partial<SharedCanvasSettings>) => void;
+  variant?: 'web' | 'video';
 };
 
-export function CanvasSettingsSection({ language, value, onChange }: Props) {
+export function CanvasSettingsSection({ language, value, onChange, variant: _variant = 'web' }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const text = getCanvasText(language);
   const updateResolution = (field: 'canvasWidth' | 'canvasHeight', next: number) => {

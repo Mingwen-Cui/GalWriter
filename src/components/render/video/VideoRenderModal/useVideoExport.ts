@@ -3,6 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { buildAudioBuffer } from '../audio/audioTrack';
 import { saveRenderedVideo } from '../export/tauriRenderAdapter';
@@ -51,6 +52,7 @@ export const useVideoExport = ({
   animationLeadSeconds,
   hideCharacterTags,
   hideSceneTags,
+  canvasSettings,
   drawFrame,
   getNodeRenderDuration,
   getSegmentAudioSources,
@@ -79,6 +81,7 @@ export const useVideoExport = ({
   animationLeadSeconds: number;
   hideCharacterTags: boolean;
   hideSceneTags: boolean;
+  canvasSettings: SharedCanvasSettings;
   drawFrame: DrawFrame;
   getNodeRenderDuration: (node: FlowNode) => Promise<number>;
   getSegmentAudioSources: (node: FlowNode) => { kind: string; url: string }[];
@@ -95,6 +98,8 @@ export const useVideoExport = ({
     fileName?: string;
     frameRate?: number;
     exportFormat?: ExportFormat;
+    speed?: number;
+    videoBitrate?: number;
     nodes?: FlowNode[];
     audioSegments?: TimelineSegmentMetric[];
     outputDir?: string;
@@ -103,6 +108,8 @@ export const useVideoExport = ({
   }) => {
     const resolvedFrameRate = options?.frameRate ?? frameRate;
     const resolvedFormat = options?.exportFormat ?? exportFormat;
+    const resolvedSpeed = options?.speed ?? speed;
+    const resolvedVideoBitrate = options?.videoBitrate ?? DEFAULT_VIDEO_BITRATE;
     const renderNodes = options?.nodes ?? selectedNodes;
     const renderAudioSegments = options?.audioSegments ?? activeAudioSegments;
     const resolvedOutputDir = options?.outputDir ?? outputDir;
@@ -205,7 +212,7 @@ export const useVideoExport = ({
         }
         regionCursor += duration;
       });
-      const audioBuffer = await buildAudioBuffer(audioSegments, speed, totalDuration);
+      const audioBuffer = await buildAudioBuffer(audioSegments, resolvedSpeed, totalDuration);
       throwIfCancelled();
 
       const videoCache = new Map<string, HTMLVideoElement>();
@@ -236,7 +243,7 @@ export const useVideoExport = ({
           node,
           nodeIndex,
           nodeDuration,
-          localTime: (timestamp - nodeStartTimes[nodeIndex]) * speed,
+          localTime: (timestamp - nodeStartTimes[nodeIndex]) * resolvedSpeed,
         };
       };
       const loadFrameMedia = async (node: FlowNode, localTime: number) => {
@@ -265,7 +272,7 @@ export const useVideoExport = ({
           resolution.height,
           await loadFrameMedia(node, localTime),
           localTime,
-          nodeDuration * speed,
+          nodeDuration * resolvedSpeed,
         );
         reportNode(node, nodeIndex);
       };
@@ -284,10 +291,11 @@ export const useVideoExport = ({
           isZh,
           media: await loadFrameMedia(node, localTime),
           elapsed: localTime,
-          duration: nodeDuration * speed,
+          duration: nodeDuration * resolvedSpeed,
           nodes,
           hideCharacterTags,
           hideSceneTags,
+          canvasSettings,
         });
         reportNode(node, nodeIndex);
       };
@@ -317,7 +325,7 @@ export const useVideoExport = ({
           format: resolvedFormat,
           bytes: Array.from(bytes),
           outputDir: resolvedOutputDir,
-          videoBitrate: DEFAULT_VIDEO_BITRATE,
+          videoBitrate: String(resolvedVideoBitrate),
         });
         setSavedPath(result.path);
       } else {

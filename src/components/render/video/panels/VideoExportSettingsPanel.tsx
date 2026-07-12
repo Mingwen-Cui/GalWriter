@@ -39,6 +39,8 @@ import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { CanvasSettingsSection } from '../../canvas/CanvasSettingsSection';
+import { normalizeSharedCanvasSettings, type SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import {
   EXPORT_FORMAT_OPTIONS,
@@ -110,6 +112,8 @@ type VideoExportSettingsPanelProps = {
   setHideCharacterTags: (value: boolean) => void;
   hideSceneTags: boolean;
   setHideSceneTags: (value: boolean) => void;
+  canvasSettings: SharedCanvasSettings;
+  onCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
 };
 
 const FONT_OPTIONS = [
@@ -134,6 +138,13 @@ const FONT_OPTIONS = [
     value: 'Georgia, "Times New Roman", serif',
   },
 ];
+
+function greatestCommonDivisor(left: number, right: number) {
+  let a = Math.max(1, Math.round(Math.abs(left)));
+  let b = Math.max(1, Math.round(Math.abs(right)));
+  while (b) [a, b] = [b, a % b];
+  return Math.max(1, a);
+}
 
 export function VideoExportSettingsPanel({
   language,
@@ -186,8 +197,20 @@ export function VideoExportSettingsPanel({
   setHideCharacterTags,
   hideSceneTags,
   setHideSceneTags,
+  canvasSettings,
+  onCanvasSettingsChange,
 }: VideoExportSettingsPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const initialRatioDivisor = greatestCommonDivisor(resolutionWidth, resolutionHeight);
+  const [canvasRatioWidth, setCanvasRatioWidth] = useState(() => Math.max(1, Math.round(resolutionWidth / initialRatioDivisor)));
+  const [canvasRatioHeight, setCanvasRatioHeight] = useState(() => Math.max(1, Math.round(resolutionHeight / initialRatioDivisor)));
+  const [canvasRatioLocked, setCanvasRatioLocked] = useState(true);
+  const [videoCanvasOptions, setVideoCanvasOptions] = useState(() => normalizeSharedCanvasSettings({
+    canvasWidth: resolutionWidth,
+    canvasHeight: resolutionHeight,
+    hideCharacterTags,
+    hideSceneTags,
+  }));
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
@@ -740,189 +763,43 @@ export function VideoExportSettingsPanel({
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
           <div className="flex flex-col gap-4">
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('视频参数', '動画', 'Video')}
-              </div>
-              <div className="space-y-2 rounded-xl border border-slate-300/40 bg-slate-200/40 p-2 dark:border-white/10 dark:bg-white/5">
-                <div className="grid grid-cols-3 gap-2">
-                  {iconSelect(
-                    Monitor,
-                    'resolution-template',
-                    String(resolutionIndex),
-                    (value) => {
-                      const nextIndex = Number(value);
-                      setResolutionIndex(nextIndex);
-                      const preset = RESOLUTION_OPTIONS[nextIndex];
-                      if (preset) {
-                        setResolutionWidth(preset.width);
-                        setResolutionHeight(preset.height);
-                      }
-                    },
-                    [
-                      ...RESOLUTION_OPTIONS.map((option, index) => ({
-                        value: String(index),
-                        label: option.label,
-                      })),
-                    ],
-                    t(
-                      '\u5206\u8fa8\u7387\u6a21\u677f',
-                      '\u89e3\u50cf\u5ea6\u30c6\u30f3\u30d7\u30ec\u30fc\u30c8',
-                      'Resolution template',
-                    ),
-                    t('分辨率', '解像度', 'Resolution'),
-                  )}
-                  {iconNumber(
-                    RectangleHorizontal,
-                    <DragSizeControl
-                      label={t(
-                        '\u5de6\u53f3\u62d6\u52a8\u8c03\u6574\u89c6\u9891\u5bbd\u5ea6',
-                        '\u5de6\u53f3\u306b\u30c9\u30e9\u30c3\u30b0\u3057\u3066\u52d5\u753b\u5e45\u3092\u8abf\u6574',
-                        'Drag horizontally to adjust video width',
-                      )}
-                      value={resolutionWidth}
-                      min={320}
-                      max={7680}
-                      step={2}
-                      onChange={(value) => {
-                        setResolutionWidth(value);
-                      }}
-                    />,
-                    t('视频宽度', '動画幅', 'Video width'),
-                  )}
-                  {iconNumber(
-                    RectangleVertical,
-                    <DragSizeControl
-                      label={t(
-                        '\u5de6\u53f3\u62d6\u52a8\u8c03\u6574\u89c6\u9891\u9ad8\u5ea6',
-                        '\u5de6\u53f3\u306b\u30c9\u30e9\u30c3\u30b0\u3057\u3066\u52d5\u753b\u9ad8\u3055\u3092\u8abf\u6574',
-                        'Drag horizontally to adjust video height',
-                      )}
-                      value={resolutionHeight}
-                      min={240}
-                      max={4320}
-                      step={2}
-                      onChange={(value) => {
-                        setResolutionHeight(value);
-                      }}
-                    />,
-                    t('视频高度', '動画高さ', 'Video height'),
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {iconSelect(
-                    Film,
-                    'frame-rate',
-                    String(frameRate),
-                    (value) => setFrameRate(Number(value) || 30),
-                    FRAME_RATE_OPTIONS.map((option) => ({
-                      value: String(option),
-                      label: `${option} fps`,
-                    })),
-                    t('\u5e27\u7387', '\u30d5\u30ec\u30fc\u30e0\u30ec\u30fc\u30c8', 'FPS'),
-                    t('选择帧率', 'フレームレートを選択', 'Choose frame rate'),
-                  )}
-                  {iconSelect(
-                    FileVideo,
-                    'export-format',
-                    exportFormat,
-                    (value) => setExportFormat(value as ExportFormat),
-                    EXPORT_FORMAT_OPTIONS.map((option) => ({
-                      value: option.value,
-                      label: option.label,
-                    })),
-                    t('\u683c\u5f0f', '\u5f62\u5f0f', 'Format'),
-                    t('导出格式', '書き出し形式', 'Export format'),
-                  )}
-                  {iconNumber(
-                    Gauge,
-                    <DragSizeControl
-                      label={t(
-                        '\u5de6\u53f3\u62d6\u52a8\u8c03\u6574\u64ad\u653e\u500d\u901f',
-                        '\u5de6\u53f3\u30c9\u30e9\u30c3\u30b0\u3067\u518d\u751f\u901f\u5ea6\u3092\u8abf\u6574',
-                        'Drag to adjust speed',
-                      )}
-                      value={speed}
-                      min={0.25}
-                      max={3}
-                      step={0.25}
-                      unit="x"
-                      onChange={(value) => setSpeed(Math.max(0.25, value || 1))}
-                    />,
-                    t('播放倍速', '再生速度', 'Playback speed'),
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={outputDir}
-                    onChange={(e) => {
-                      setOutputDir(e.target.value);
-                      setOutputDirError('');
-                    }}
-                    placeholder={t('\u4e0b\u8f7d\u76ee\u5f55 \\Downloads', '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9 \\Downloads', '\\Downloads')}
-                    className={`h-9 min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface-soft)] px-3 text-xs text-[var(--vr-text)] outline-none ${outputDirError ? 'border-rose-400/70' : 'border-transparent'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={chooseOutputDir}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                    title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                    aria-label={t('选择保存文件夹', '保存フォルダーを選択', 'Choose save folder')}
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </button>
-                </div>
-                {outputDirError && (
-                  <div className="text-[11px] font-bold text-rose-500 dark:text-rose-400">
-                    {outputDirError}
-                  </div>
-                )}
-              </div>
-            </div>
+            <CanvasSettingsSection
+              language={language}
+              variant="video"
+              value={normalizeSharedCanvasSettings({
+                ...videoCanvasOptions,
+                ...canvasSettings,
+                canvasWidth: resolutionWidth,
+                canvasHeight: resolutionHeight,
+                canvasRatioWidth,
+                canvasRatioHeight,
+                canvasRatioLocked,
+                hideCharacterTags,
+                hideSceneTags,
+              })}
+              onChange={(patch) => {
+                setVideoCanvasOptions((current) => normalizeSharedCanvasSettings({ ...current, ...patch }));
+                onCanvasSettingsChange(patch);
+                if (patch.canvasWidth !== undefined) setResolutionWidth(patch.canvasWidth);
+                if (patch.canvasHeight !== undefined) setResolutionHeight(patch.canvasHeight);
+                if (patch.canvasRatioWidth !== undefined) setCanvasRatioWidth(patch.canvasRatioWidth);
+                if (patch.canvasRatioHeight !== undefined) setCanvasRatioHeight(patch.canvasRatioHeight);
+                if (patch.canvasRatioLocked !== undefined) setCanvasRatioLocked(patch.canvasRatioLocked);
+                if (patch.hideCharacterTags !== undefined) setHideCharacterTags(patch.hideCharacterTags);
+                if (patch.hideSceneTags !== undefined) setHideSceneTags(patch.hideSceneTags);
+              }}
+            />
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
                 {t('文字样式', 'テキストスタイル', 'Text Style')}
               </div>
-              <div className="flex items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-                <div className="shrink-0 px-1 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                  {t(
-                    '\u89c6\u9891\u6587\u5b57\u5c3a\u5ea6',
-                    '\u52d5\u753b\u30c6\u30ad\u30b9\u30c8\u5c3a\u5ea6',
-                    'Video text scale',
-                  )}
-                </div>
-                <div className="min-w-[156px] flex-1">
-                  <ExportPillToggleGroup
-                    value={videoTextScaleMode}
-                    options={[
-                      {
-                        value: 'literal',
-                        label: t(
-                          '\u9075\u5faa\u6570\u503c',
-                          '\u6570\u5024\u3092\u512a\u5148',
-                          'Use px values',
-                        ),
-                      },
-                      {
-                        value: 'webRatio',
-                        label: t(
-                          '\u7f51\u9875\u6bd4\u4f8b',
-                          '\u30a6\u30a7\u30d6\u6bd4\u7387',
-                          'Match web ratio',
-                        ),
-                      },
-                    ]}
-                    onChange={(value) => setVideoTextScaleMode(value as VideoTextScaleMode)}
-                  />
-                </div>
-              </div>
               <RenderObjectSettingsSection
                 language={language}
                 renderStyle={renderStyle}
                 updateRenderStyle={updateRenderStyle}
+                canvasSettings={canvasSettings}
+                onCanvasSettingsChange={onCanvasSettingsChange}
                 surface="video"
               />
             </div>

@@ -31,6 +31,7 @@ import {
 } from '../../../lib/presentation';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
 import { renderCopy } from '../video/shared/renderCopy';
 import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
@@ -1866,7 +1867,7 @@ export function WebPlaytestPreview({
       : presentation.scene?.cropMode
         ? sceneObjectFit
         : 'contain';
-  const sceneStyle: React.CSSProperties = {
+  const baseSceneStyle: React.CSSProperties = {
     objectFit: finalObjectFit as any,
     objectPosition: '50% 50%',
     opacity: sceneAnimationActive && sceneMotion?.type === 'fade' ? 0 : 1,
@@ -1894,6 +1895,9 @@ export function WebPlaytestPreview({
         : `${getSceneExitDelay(presentation)}ms`,
     transitionTimingFunction: 'ease-out',
   };
+  const sceneStyle = settings.layoutMode === 'classic'
+    ? mergeSceneMediaStyle(baseSceneStyle, settings)
+    : baseSceneStyle;
 
   const renderMediaLayers = () => (
     <WebPlaytestMediaLayers
@@ -1922,7 +1926,7 @@ export function WebPlaytestPreview({
     <div
       ref={previewRootRef}
       className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
-      style={dialogueBackgroundStyle}
+      style={settings.layoutMode === 'classic' ? { ...dialogueBackgroundStyle, ...getSceneBackgroundStyle(settings) } : dialogueBackgroundStyle}
     >
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
@@ -1953,7 +1957,7 @@ export function WebPlaytestPreview({
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
               settings.layoutMode === 'immersive'
                 ? 'rounded-none'
-                : 'rounded-t-lg border-x border-t border-white/10 bg-slate-950'
+                : `rounded-t-lg border-x border-t bg-slate-950 ${previewMode === 'edit' && !renderStyle.selectedRenderObject ? 'border-indigo-500 ring-2 ring-inset ring-indigo-500/70' : 'border-white/10'}`
             }`}
             onClick={() => {
               if (previewMode === 'edit') {

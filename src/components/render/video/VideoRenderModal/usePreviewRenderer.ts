@@ -10,6 +10,7 @@ import type {
   VideoTextScaleMode,
 } from '../shared/types';
 import { drawRenderFrame } from '../preview/frameRenderer';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 
 type Resolution = { width: number; height: number };
 type FrameMedia = { source: CanvasImageSource; width: number; height: number };
@@ -34,6 +35,7 @@ export const usePreviewRenderer = ({
   speed,
   status,
   segmentText,
+  canvasSettings,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodes: FlowNode[];
@@ -54,6 +56,7 @@ export const usePreviewRenderer = ({
   speed: number;
   status: RenderStatus;
   segmentText: (node: FlowNode) => string;
+  canvasSettings: SharedCanvasSettings;
 }) => {
   const previewVideoRef = useRef<{ url: string; video: HTMLVideoElement } | null>(null);
   const previewDrawIdRef = useRef(0);
@@ -85,10 +88,12 @@ export const usePreviewRenderer = ({
         nodes,
         hideCharacterTags,
         hideSceneTags,
+        canvasSettings,
       });
     },
     [
       animationLeadSeconds,
+      canvasSettings,
       hideCharacterTags,
       hideSceneTags,
       isZh,

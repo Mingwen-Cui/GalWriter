@@ -22,8 +22,9 @@ type ExportDialogProps = {
   webProjectName: string;
   frameRate: number;
   exportFormat: ExportFormat;
+  speed: number;
   onClose: () => void;
-  onConfirm: (params: { name: string; outputDir: string; frameRate: number; exportFormat: ExportFormat }) => void;
+  onConfirm: (params: { name: string; outputDir: string; frameRate: number; exportFormat: ExportFormat; speed: number; videoBitrate: number }) => void;
   onChooseVideoOutputDir: () => void;
   onChooseWebOutputDir: () => void;
   setVideoOutputDir: (value: string) => void;
@@ -46,6 +47,7 @@ export function ExportDialog({
   webProjectName,
   frameRate: initialFrameRate,
   exportFormat: initialExportFormat,
+  speed: initialSpeed,
   onClose,
   onConfirm,
   onChooseVideoOutputDir,
@@ -61,6 +63,8 @@ export function ExportDialog({
   const [videoFileName, setVideoFileName] = useState(defaultVideoFileName);
   const [selectedFrameRate, setSelectedFrameRate] = useState(initialFrameRate);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>(initialExportFormat);
+  const [selectedSpeed, setSelectedSpeed] = useState(initialSpeed);
+  const [selectedVideoBitrate, setSelectedVideoBitrate] = useState(12_000_000);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const isVideo = workspaceMode === 'video';
@@ -96,7 +100,7 @@ export function ExportDialog({
     const name = isVideo
       ? (videoFileName.trim() || defaultVideoFileName)
       : (webProjectName.trim() || defaultWebProjectName || 'galwriter-web');
-    onConfirm({ name, outputDir: currentOutputDir, frameRate: selectedFrameRate, exportFormat: selectedFormat });
+    onConfirm({ name, outputDir: currentOutputDir, frameRate: selectedFrameRate, exportFormat: selectedFormat, speed: selectedSpeed, videoBitrate: selectedVideoBitrate });
   };
 
   return (
@@ -220,7 +224,30 @@ export function ExportDialog({
             </div>
           )}
 
-          {isDesktopApp && (
+          {isVideo && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="space-y-1.5">
+                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">{t('码率', 'ビットレート', 'Bitrate')}</span>
+                <span className="relative block">
+                  <select value={selectedVideoBitrate} onChange={(event) => setSelectedVideoBitrate(Number(event.target.value))} className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none">
+                    {[8, 12, 20, 35].map((mbps) => <option key={mbps} value={mbps * 1_000_000}>{mbps} Mbps</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--vr-text-muted)]" />
+                </span>
+              </label>
+              <label className="space-y-1.5">
+                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">{t('播放倍速', '再生速度', 'Playback Speed')}</span>
+                <span className="relative block">
+                  <select value={selectedSpeed} onChange={(event) => setSelectedSpeed(Number(event.target.value))} className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none">
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate.toFixed(2)}x</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--vr-text-muted)]" />
+                </span>
+              </label>
+            </div>
+          )}
+
+          {isDesktopApp && isVideo && (
             <div className="space-y-1.5">
               <label
                 htmlFor="export-dialog-output-dir"

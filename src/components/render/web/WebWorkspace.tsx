@@ -25,6 +25,7 @@ import { createElement, isValidElement, useEffect, useMemo, useState } from 'rea
 
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
@@ -431,7 +432,7 @@ export function WebWorkspace({
       : selectedStartMenuElement.kind === 'image'
         ? t('图片样式', '画像スタイル', 'Image style')
         : t('文字样式', 'テキストスタイル', 'Text style')
-    : currentPreviewSurface === 'game' && webRenderStyle.selectedRenderObject
+    : currentPreviewSurface === 'game' && (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic')
       ? t('对话对象', 'ダイアログ要素', 'Dialog object')
       : t('背景样式', '背景スタイル', 'Background style');
   const surfaceInspector = (
@@ -451,13 +452,15 @@ export function WebWorkspace({
           onAlignSelected={alignSelectedPageElements}
           onImageCropEditingChange={setImageCropEditingElementId}
         />
-      ) : currentPreviewSurface === 'game' && webRenderStyle.selectedRenderObject ? (
+      ) : currentPreviewSurface === 'game' && (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (
         <RenderObjectSettingsSection
           language={language}
           renderStyle={webRenderStyle}
           updateRenderStyle={updateWebRenderStyle}
           surface="web"
           showDescriptions={showSettingDescriptions}
+          canvasSettings={normalizeSharedCanvasSettings(webSettings)}
+          onCanvasSettingsChange={updateWebSettingsBulk}
         />
       ) : (
         <StartMenuBackgroundInspector

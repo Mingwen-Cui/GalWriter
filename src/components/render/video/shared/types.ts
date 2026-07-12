@@ -309,6 +309,17 @@ export type WebExportSettings = {
   canvasRatioHeight: number;
   canvasRatioLocked: boolean;
   layoutMode: 'classic' | 'immersive';
+  sceneFit: 'cover' | 'contain' | 'stretch';
+  sceneScale: number;
+  sceneOffsetX: number;
+  sceneOffsetY: number;
+  sceneBackgroundVisible: boolean;
+  sceneBackgroundType: 'solid' | 'gradient' | 'image';
+  sceneBackgroundColor: string;
+  sceneBackgroundGradientStart: string;
+  sceneBackgroundGradientEnd: string;
+  sceneBackgroundGradientAngle: number;
+  sceneBackgroundImageUrl: string;
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   showStartMenu: boolean;
   startMenuTemplate: 'cinematic' | 'minimal' | 'glass';

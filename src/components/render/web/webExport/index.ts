@@ -305,6 +305,17 @@ export async function buildInteractiveWebZipBlob(
     canvasRatioHeight: options.settings?.canvasRatioHeight ?? 9,
     canvasRatioLocked: options.settings?.canvasRatioLocked !== false,
     layoutMode: options.settings?.layoutMode || 'immersive',
+    sceneFit: options.settings?.sceneFit || 'cover',
+    sceneScale: options.settings?.sceneScale ?? 100,
+    sceneOffsetX: options.settings?.sceneOffsetX ?? 0,
+    sceneOffsetY: options.settings?.sceneOffsetY ?? 0,
+    sceneBackgroundVisible: options.settings?.sceneBackgroundVisible !== false,
+    sceneBackgroundType: options.settings?.sceneBackgroundType || 'solid',
+    sceneBackgroundColor: options.settings?.sceneBackgroundColor || '#020617',
+    sceneBackgroundGradientStart: options.settings?.sceneBackgroundGradientStart || '#020617',
+    sceneBackgroundGradientEnd: options.settings?.sceneBackgroundGradientEnd || '#0f172a',
+    sceneBackgroundGradientAngle: options.settings?.sceneBackgroundGradientAngle ?? 135,
+    sceneBackgroundImageUrl: options.settings?.sceneBackgroundImageUrl || '',
     choicesPosition: options.settings?.choicesPosition || 'center',
     showStartMenu: options.settings?.showStartMenu ?? true,
     startMenuTemplate: options.settings?.startMenuTemplate || 'cinematic',
@@ -373,6 +384,12 @@ export async function buildInteractiveWebZipBlob(
     zip,
     settings.startMenuBackgroundImageUrl,
     `${title}-start-background`,
+    assetMap,
+  );
+  settings.sceneBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.sceneBackgroundImageUrl,
+    `${title}-scene-background`,
     assetMap,
   );
   settings.archiveBackgroundImageUrl = await addImageAsset(

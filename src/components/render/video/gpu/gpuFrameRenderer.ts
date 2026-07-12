@@ -17,6 +17,7 @@ import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import {
   type WebGPUContext,
   initWebGPU,
@@ -41,6 +42,7 @@ type GPURenderFrameInput = {
   nodes: import('@xyflow/react').Node[];
   hideCharacterTags: boolean;
   hideSceneTags: boolean;
+  canvasSettings?: SharedCanvasSettings;
 };
 
 const colorWithAlpha = (color: string, alpha: number) => {
@@ -260,6 +262,7 @@ async function createBackgroundCanvas(
   activeInlineActionElapsed = 0,
   completedSwitchActions: import('../../../../domain/project').InlinePresentationAction[] = [],
   completedInlineActions: import('../../../../domain/project').InlinePresentationAction[] = [],
+  canvasSettings?: SharedCanvasSettings,
 ): Promise<OffscreenCanvas> {
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
@@ -277,6 +280,7 @@ async function createBackgroundCanvas(
     activeInlineActionElapsed,
     completedSwitchActions,
     completedInlineActions,
+    canvasSettings,
   });
 
   return canvas;
@@ -298,6 +302,7 @@ export async function drawGPUFrame({
   nodes,
   hideCharacterTags,
   hideSceneTags,
+  canvasSettings,
 }: GPURenderFrameInput): Promise<void> {
   const nodeId = node.id;
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
@@ -329,6 +334,7 @@ export async function drawGPUFrame({
     inlineState.activeActionElapsed,
     inlineState.completedSwitchActions,
     inlineState.completedInlineActions,
+    canvasSettings,
   );
   const bgTexture = importCanvasToTexture(gpu, bgCanvas, width, height);
 

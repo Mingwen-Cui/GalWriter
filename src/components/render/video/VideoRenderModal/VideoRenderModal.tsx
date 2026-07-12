@@ -1691,6 +1691,7 @@ export function VideoRenderModal({
     speed,
     status,
     segmentText: (node) => getSegmentText(node, hideCharacterTags, hideSceneTags),
+    canvasSettings: webSettings,
   });
   const { isCancellingRender, renderVideo, cancelVideoRender } = useVideoExport({
     canvasRef,
@@ -1712,6 +1713,7 @@ export function VideoRenderModal({
     animationLeadSeconds,
     hideCharacterTags,
     hideSceneTags,
+    canvasSettings: webSettings,
     drawFrame,
     getNodeRenderDuration,
     getSegmentAudioSources,
@@ -2074,6 +2076,7 @@ export function VideoRenderModal({
                   openContextMenu={openContextMenu}
                   renderStyle={renderStyle}
                   updateRenderStyle={updateRenderStyle}
+                  canvasSettings={webSettings}
                 />
 
                 {!exportPanelCollapsed && (
@@ -2144,6 +2147,8 @@ export function VideoRenderModal({
                   setHideCharacterTags={setHideCharacterTags}
                   hideSceneTags={hideSceneTags}
                   setHideSceneTags={setHideSceneTags}
+                  canvasSettings={webSettings}
+                  onCanvasSettingsChange={updateWebSettingsBulk}
                 />
               </main>
 
@@ -2284,16 +2289,20 @@ export function VideoRenderModal({
           webProjectName={webProjectName}
           frameRate={frameRate}
           exportFormat={exportFormat}
+          speed={speed}
           onClose={() => setIsExportDialogOpen(false)}
-          onConfirm={({ name, frameRate: chosenFrameRate, exportFormat: chosenFormat }) => {
+          onConfirm={({ name, frameRate: chosenFrameRate, exportFormat: chosenFormat, speed: chosenSpeed, videoBitrate }) => {
             setIsExportDialogOpen(false);
             if (workspaceMode === 'video') {
               setFrameRate(chosenFrameRate);
               setExportFormat(chosenFormat);
+              setSpeed(chosenSpeed);
               renderVideo({
                 fileName: name,
                 frameRate: chosenFrameRate,
                 exportFormat: chosenFormat,
+                speed: chosenSpeed,
+                videoBitrate,
               });
             } else {
               exportWebProject();

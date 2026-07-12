@@ -113,6 +113,17 @@ export const makeIndexHtml = (
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas, { passive: true });
     settings.layoutMode = settings.layoutMode || "immersive";
+    settings.sceneFit = ["cover", "contain", "stretch"].includes(settings.sceneFit) ? settings.sceneFit : "cover";
+    settings.sceneScale = Math.min(400, Math.max(25, Number(settings.sceneScale) || 100));
+    settings.sceneOffsetX = Math.min(100, Math.max(-100, Number(settings.sceneOffsetX) || 0));
+    settings.sceneOffsetY = Math.min(100, Math.max(-100, Number(settings.sceneOffsetY) || 0));
+    settings.sceneBackgroundVisible = settings.sceneBackgroundVisible !== false;
+    settings.sceneBackgroundType = ["solid", "gradient", "image"].includes(settings.sceneBackgroundType) ? settings.sceneBackgroundType : "solid";
+    settings.sceneBackgroundColor = String(settings.sceneBackgroundColor || "#020617");
+    settings.sceneBackgroundGradientStart = String(settings.sceneBackgroundGradientStart || "#020617");
+    settings.sceneBackgroundGradientEnd = String(settings.sceneBackgroundGradientEnd || "#0f172a");
+    settings.sceneBackgroundGradientAngle = Number(settings.sceneBackgroundGradientAngle) || 135;
+    settings.sceneBackgroundImageUrl = String(settings.sceneBackgroundImageUrl || "");
     settings.choicesPosition = settings.choicesPosition || "center";
     settings.showStartMenu = settings.showStartMenu !== false;
     settings.startMenuTemplate = ["cinematic", "minimal", "glass"].includes(settings.startMenuTemplate) ? settings.startMenuTemplate : "cinematic";
@@ -1601,9 +1612,11 @@ export const makeIndexHtml = (
       const sceneOffsetY = data.presentation && data.presentation.scene && data.presentation.scene.offsetY || 0;
       const sceneObjectFit = sceneCrop === 'contain' ? 'contain' : sceneCrop === 'stretch' ? 'fill' : 'cover';
       const immersive = settings.layoutMode === 'immersive';
-      const finalCrop = immersive ? 'contain' : (sceneCrop ? sceneObjectFit : 'contain');
-      const finalOffsetX = immersive ? 0 : sceneOffsetX;
-      const finalOffsetY = immersive ? 0 : sceneOffsetY;
+      const sharedSceneFit = settings.sceneFit === 'stretch' ? 'fill' : settings.sceneFit;
+      const finalCrop = immersive ? 'contain' : sharedSceneFit;
+      const finalOffsetX = immersive ? 0 : sceneOffsetX + settings.sceneOffsetX / 2;
+      const finalOffsetY = immersive ? 0 : sceneOffsetY + settings.sceneOffsetY / 2;
+      const finalSceneScale = sceneScale * (immersive ? 1 : settings.sceneScale / 100);
       
       const initSceneOpacity = (hasSceneEnter && sceneEnter.type === 'fade') ? 0 : 1;
       const initSceneTransform = hasSceneEnter ? getPresentationTransform(sceneEnter.type, false) : 'none';
@@ -1671,9 +1684,18 @@ export const makeIndexHtml = (
       }
 
       backdropEl.style.backgroundImage = image ? 'url("' + image.replace(/"/g, '\\"') + '")' : "";
+      if (!immersive) {
+        stageEl.style.background = !settings.sceneBackgroundVisible
+          ? 'transparent'
+          : settings.sceneBackgroundType === 'image' && settings.sceneBackgroundImageUrl
+            ? 'center / cover no-repeat url("' + settings.sceneBackgroundImageUrl.replace(/"/g, '\\"') + '")'
+            : settings.sceneBackgroundType === 'gradient'
+              ? 'linear-gradient(' + settings.sceneBackgroundGradientAngle + 'deg, ' + settings.sceneBackgroundGradientStart + ', ' + settings.sceneBackgroundGradientEnd + ')'
+              : settings.sceneBackgroundColor;
+      }
       stageEl.innerHTML =
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' +
-          '<div class="presentation-scale" style="transform: scale(' + sceneScale + ')">' +
+          '<div class="presentation-scale" style="transform: scale(' + finalSceneScale + ')">' +
             media + charactersHtml +
           '</div>' +
         '</div>' +

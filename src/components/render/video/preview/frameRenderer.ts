@@ -12,6 +12,7 @@ import {
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 
 type DrawRenderFrameInput = {
@@ -30,6 +31,7 @@ type DrawRenderFrameInput = {
   nodes: import('@xyflow/react').Node[];
   hideCharacterTags: boolean;
   hideSceneTags: boolean;
+  canvasSettings?: SharedCanvasSettings;
 };
 
 const colorWithAlpha = (color: string, alpha: number) => {
@@ -96,6 +98,7 @@ export const drawRenderFrame = async ({
   nodes,
   hideCharacterTags,
   hideSceneTags,
+  canvasSettings,
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const rawBodyHtml = String(node.data?.text || '');
@@ -123,6 +126,7 @@ export const drawRenderFrame = async ({
     activeInlineActionElapsed: inlineState.activeActionElapsed,
     completedSwitchActions: inlineState.completedSwitchActions,
     completedInlineActions: inlineState.completedInlineActions,
+    canvasSettings,
   });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
 

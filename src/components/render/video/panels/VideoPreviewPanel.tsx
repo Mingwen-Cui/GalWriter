@@ -3,6 +3,7 @@ import { Pause, Play } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { RangeControl } from '../controls/RenderControls';
 import { renderCopy } from '../shared/renderCopy';
 import type { RenderEditableObjectKind, RenderStatus, RenderStyle } from '../shared/types';
@@ -37,6 +38,7 @@ type VideoPreviewPanelProps = {
   ) => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
+  canvasSettings: SharedCanvasSettings;
 };
 
 export function VideoPreviewPanel({
@@ -65,6 +67,7 @@ export function VideoPreviewPanel({
   openContextMenu,
   renderStyle,
   updateRenderStyle,
+  canvasSettings,
 }: VideoPreviewPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -152,7 +155,7 @@ export function VideoPreviewPanel({
             }}
           >
             <div
-              className="relative w-full overflow-hidden rounded-t-lg border border-[var(--vr-border-strong)] border-b-0 bg-black"
+              className={`relative w-full overflow-hidden rounded-t-lg border border-b-0 bg-black ${canvasSettings.layoutMode === 'classic' && !renderStyle.selectedRenderObject ? 'border-indigo-500 ring-2 ring-inset ring-indigo-500/70' : 'border-[var(--vr-border-strong)]'}`}
               style={{
                 height: fittedSize ? `${fittedSize.height}px` : '100%',
                 boxShadow: 'var(--vr-shadow)',
@@ -170,18 +173,19 @@ export function VideoPreviewPanel({
               <div className="pointer-events-none absolute left-2 top-2 z-10 flex gap-1 rounded-lg bg-black/45 p-1 text-[10px] font-bold text-white backdrop-blur">
                 {(
                   [
+                    ...(canvasSettings.layoutMode === 'classic' ? [['scene', 'Scene']] : []),
                     ['dialogBox', 'Box'],
                     ['title', 'Title'],
                     ['body', 'Body'],
                     ['nameplate', 'Name'],
-                  ] as Array<[RenderEditableObjectKind, string]>
+                  ] as Array<[RenderEditableObjectKind | 'scene', string]>
                 ).map(([kind, label]) => (
                   <button
                     key={kind}
                     type="button"
-                    onClick={() => updateRenderStyle('selectedRenderObject', kind)}
+                    onClick={() => updateRenderStyle('selectedRenderObject', kind === 'scene' ? undefined : kind)}
                     className={`pointer-events-auto h-6 rounded px-2 ${
-                      renderStyle.selectedRenderObject === kind
+                      (kind === 'scene' ? !renderStyle.selectedRenderObject : renderStyle.selectedRenderObject === kind)
                         ? 'bg-indigo-500 text-white'
                         : 'bg-white/15 text-white/80 hover:bg-white/25'
                     }`}

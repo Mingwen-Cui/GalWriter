@@ -10,6 +10,17 @@ export type SharedCanvasSettings = Pick<
   | 'canvasRatioHeight'
   | 'canvasRatioLocked'
   | 'layoutMode'
+  | 'sceneFit'
+  | 'sceneScale'
+  | 'sceneOffsetX'
+  | 'sceneOffsetY'
+  | 'sceneBackgroundVisible'
+  | 'sceneBackgroundType'
+  | 'sceneBackgroundColor'
+  | 'sceneBackgroundGradientStart'
+  | 'sceneBackgroundGradientEnd'
+  | 'sceneBackgroundGradientAngle'
+  | 'sceneBackgroundImageUrl'
   | 'choicesPosition'
   | 'skipSingleChoicePopup'
   | 'autoAdvance'
@@ -25,6 +36,17 @@ export const DEFAULT_SHARED_CANVAS_SETTINGS: SharedCanvasSettings = {
   canvasRatioHeight: 9,
   canvasRatioLocked: true,
   layoutMode: 'immersive',
+  sceneFit: 'cover',
+  sceneScale: 100,
+  sceneOffsetX: 0,
+  sceneOffsetY: 0,
+  sceneBackgroundVisible: true,
+  sceneBackgroundType: 'solid',
+  sceneBackgroundColor: '#020617',
+  sceneBackgroundGradientStart: '#020617',
+  sceneBackgroundGradientEnd: '#0f172a',
+  sceneBackgroundGradientAngle: 135,
+  sceneBackgroundImageUrl: '',
   choicesPosition: 'center',
   skipSingleChoicePopup: true,
   autoAdvance: false,
@@ -54,6 +76,23 @@ export function normalizeSharedCanvasSettings(
     canvasRatioHeight: clampInteger(value?.canvasRatioHeight, 9, 1, 100),
     canvasRatioLocked: value?.canvasRatioLocked !== false,
     layoutMode: value?.layoutMode === 'classic' ? 'classic' : 'immersive',
+    sceneFit:
+      value?.sceneFit === 'contain' || value?.sceneFit === 'stretch'
+        ? value.sceneFit
+        : 'cover',
+    sceneScale: clampInteger(value?.sceneScale, 100, 25, 400),
+    sceneOffsetX: clampInteger(value?.sceneOffsetX, 0, -100, 100),
+    sceneOffsetY: clampInteger(value?.sceneOffsetY, 0, -100, 100),
+    sceneBackgroundVisible: value?.sceneBackgroundVisible !== false,
+    sceneBackgroundType:
+      value?.sceneBackgroundType === 'gradient' || value?.sceneBackgroundType === 'image'
+        ? value.sceneBackgroundType
+        : 'solid',
+    sceneBackgroundColor: value?.sceneBackgroundColor || '#020617',
+    sceneBackgroundGradientStart: value?.sceneBackgroundGradientStart || '#020617',
+    sceneBackgroundGradientEnd: value?.sceneBackgroundGradientEnd || '#0f172a',
+    sceneBackgroundGradientAngle: clampInteger(value?.sceneBackgroundGradientAngle, 135, 0, 360),
+    sceneBackgroundImageUrl: value?.sceneBackgroundImageUrl || '',
     choicesPosition:
       value?.choicesPosition === 'aboveText' || value?.choicesPosition === 'belowText'
         ? value.choicesPosition
@@ -126,6 +165,17 @@ export function canvasPatchFromWebSettings(
     'canvasRatioHeight',
     'canvasRatioLocked',
     'layoutMode',
+    'sceneFit',
+    'sceneScale',
+    'sceneOffsetX',
+    'sceneOffsetY',
+    'sceneBackgroundVisible',
+    'sceneBackgroundType',
+    'sceneBackgroundColor',
+    'sceneBackgroundGradientStart',
+    'sceneBackgroundGradientEnd',
+    'sceneBackgroundGradientAngle',
+    'sceneBackgroundImageUrl',
     'choicesPosition',
     'skipSingleChoicePopup',
     'autoAdvance',
