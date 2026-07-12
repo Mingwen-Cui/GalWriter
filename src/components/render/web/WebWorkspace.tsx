@@ -231,6 +231,12 @@ export function WebWorkspace({
   const [currentPreviewSurface, setCurrentPreviewSurface] = useState<WebPreviewSurface>(
     webSettings.showStartMenu ? 'start' : 'game',
   );
+  const [dialogueSelection, setDialogueSelection] = useState<'scene' | 'background' | import('../video/shared/types').RenderEditableObjectKind>(
+    webRenderStyle.selectedRenderObject || (webSettings.layoutMode === 'classic' ? 'scene' : 'dialogBox'),
+  );
+  useEffect(() => {
+    if (webRenderStyle.selectedRenderObject) setDialogueSelection(webRenderStyle.selectedRenderObject);
+  }, [webRenderStyle.selectedRenderObject]);
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
@@ -461,6 +467,8 @@ export function WebWorkspace({
           showDescriptions={showSettingDescriptions}
           canvasSettings={normalizeSharedCanvasSettings(webSettings)}
           onCanvasSettingsChange={updateWebSettingsBulk}
+          selection={dialogueSelection}
+          onSelectionChange={setDialogueSelection}
         />
       ) : (
         <StartMenuBackgroundInspector
@@ -1067,6 +1075,8 @@ JSON schema:
             onDeleteStartMenuElement={deleteStartMenuElement}
             onUpdateSettings={updateWebSettings}
             onUpdateRenderStyle={updateWebRenderStyle}
+            selectedCanvasObject={dialogueSelection === 'scene' || dialogueSelection === 'background' ? dialogueSelection : undefined}
+            onSelectCanvasObject={setDialogueSelection}
             />
           </VirtualPresentationStage>
         </div>

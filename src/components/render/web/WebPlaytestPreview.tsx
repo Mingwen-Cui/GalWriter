@@ -57,6 +57,7 @@ import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPa
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
 import { WebPlaytestNameplates } from './WebPlaytestNameplates';
+import { WebSplitLayoutEditor, type SplitEditorSelection } from './WebSplitLayoutEditor';
 import type { PlayedAudio } from './WebPlaytestPreviewControls';
 import {
   ChoiceButtonsGroup,
@@ -102,6 +103,8 @@ type WebPlaytestPreviewProps = {
     value: WebExportSettings[K],
   ) => void;
   onUpdateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
+  selectedCanvasObject?: 'scene' | 'background';
+  onSelectCanvasObject?: (selection: 'scene' | 'background' | RenderEditableObjectKind) => void;
 };
 
 export type WebPreviewSurface = 'start' | 'archive' | 'settings' | 'game';
@@ -126,6 +129,8 @@ export function WebPlaytestPreview({
   onDeleteStartMenuElement,
   onUpdateSettings,
   onUpdateRenderStyle: _onUpdateRenderStyle,
+  selectedCanvasObject,
+  onSelectCanvasObject,
 }: WebPlaytestPreviewProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const playableNodes = useMemo(
@@ -153,6 +158,8 @@ export function WebPlaytestPreview({
   const [playlistAudioUrl, setPlaylistAudioUrl] = useState<string | null>(null);
   const [isPlaylistAudioPlaying, setIsPlaylistAudioPlaying] = useState(false);
   const [currentAudioEnded, setCurrentAudioEnded] = useState(false);
+  const sceneDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const sceneScaleDragRef = useRef<{ x: number; y: number; scale: number; direction: number } | null>(null);
   const [currentVideoEnded, setCurrentVideoEnded] = useState(false);
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
   const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
@@ -224,8 +231,9 @@ export function WebPlaytestPreview({
     (kind: RenderEditableObjectKind) => {
       setSelectedStartMenuElementId(null);
       _onUpdateRenderStyle('selectedRenderObject', kind);
+      onSelectCanvasObject?.(kind);
     },
-    [_onUpdateRenderStyle, setSelectedStartMenuElementId],
+    [_onUpdateRenderStyle, onSelectCanvasObject, setSelectedStartMenuElementId],
   );
   const moveRenderObject = React.useCallback(
     (kind: RenderEditableObjectKind, x: number, y: number) => {
@@ -1927,11 +1935,30 @@ export function WebPlaytestPreview({
       ref={previewRootRef}
       className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
       style={settings.layoutMode === 'classic' ? { ...dialogueBackgroundStyle, ...getSceneBackgroundStyle(settings) } : dialogueBackgroundStyle}
+      onClick={(event) => {
+        if (previewMode === 'edit' && settings.layoutMode === 'classic' && event.target === event.currentTarget) {
+          onSelectCanvasObject?.('background');
+          _onUpdateRenderStyle('selectedRenderObject', undefined);
+        }
+      }}
     >
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
       </style>
+      {previewMode === 'edit' && settings.layoutMode === 'classic' && (
+        <button
+          type="button"
+          className={`absolute left-2 top-2 z-[260] rounded-md border px-2 py-1 text-[10px] font-bold backdrop-blur ${selectedCanvasObject === 'background' ? 'border-indigo-400 bg-indigo-600 text-white' : 'border-white/20 bg-black/45 text-white/75 hover:bg-black/65'}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectCanvasObject?.('background');
+            _onUpdateRenderStyle('selectedRenderObject', undefined);
+          }}
+        >
+          {t('画面外背景', '画面外背景', 'Outer background')}
+        </button>
+      )}
       {currentImageUrl && settings.layoutMode === 'immersive' && (
         <div
           className={`absolute inset-0 bg-cover bg-center opacity-35 scale-105 ${settings.blurBackground ? 'blur-sm' : ''}`}
@@ -1954,15 +1981,37 @@ export function WebPlaytestPreview({
           }
         >
           <div
+            data-split-scene-surface={settings.layoutMode === 'classic' ? 'true' : undefined}
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
               settings.layoutMode === 'immersive'
                 ? 'rounded-none'
-                : `rounded-t-lg border-x border-t bg-slate-950 ${previewMode === 'edit' && !renderStyle.selectedRenderObject ? 'border-indigo-500 ring-2 ring-inset ring-indigo-500/70' : 'border-white/10'}`
+                : `rounded-t-lg border-x border-t bg-slate-950 ${previewMode === 'edit' ? 'cursor-move' : ''} ${previewMode === 'edit' && selectedCanvasObject === 'scene' ? 'border-indigo-500 ring-2 ring-inset ring-indigo-500/70' : 'border-white/10'}`
             }`}
-            onClick={() => {
+            onPointerDown={(event) => {
+              if (previewMode !== 'edit' || settings.layoutMode !== 'classic' || event.button !== 0) return;
+              event.stopPropagation();
+              onSelectCanvasObject?.('scene');
+              _onUpdateRenderStyle('selectedRenderObject', undefined);
+              sceneDragRef.current = { x: event.clientX, y: event.clientY, offsetX: settings.sceneOffsetX, offsetY: settings.sceneOffsetY };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const drag = sceneDragRef.current;
+              if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+              const rect = event.currentTarget.getBoundingClientRect();
+              onUpdateSettings('sceneOffsetX', Math.max(-100, Math.min(100, Math.round(drag.offsetX + (event.clientX - drag.x) / Math.max(1, rect.width) * 200))));
+              onUpdateSettings('sceneOffsetY', Math.max(-100, Math.min(100, Math.round(drag.offsetY + (event.clientY - drag.y) / Math.max(1, rect.height) * 200))));
+            }}
+            onPointerUp={(event) => {
+              sceneDragRef.current = null;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
               if (previewMode === 'edit') {
                 setSelectedStartMenuElementId(null);
                 _onUpdateRenderStyle('selectedRenderObject', undefined);
+                onSelectCanvasObject?.('scene');
                 return;
               }
               continueFromText();
@@ -1974,6 +2023,38 @@ export function WebPlaytestPreview({
               </VirtualPresentationStage>
             ) : (
               renderMediaLayers()
+            )}
+            {previewMode === 'edit' && settings.layoutMode === 'classic' && selectedCanvasObject === 'scene' && (
+              <div className="pointer-events-none absolute inset-0 z-[90] ring-2 ring-inset ring-indigo-500">
+                {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+                  <button
+                    key={corner}
+                    type="button"
+                    aria-label={`Resize scene ${corner}`}
+                    className={`pointer-events-auto absolute h-4 w-4 rounded-sm border border-indigo-200 bg-white shadow ${corner.includes('n') ? 'top-0 -translate-y-1/2' : 'bottom-0 translate-y-1/2'} ${corner.includes('w') ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'}`}
+                    style={{ cursor: corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483647 }}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      sceneScaleDragRef.current = { x: event.clientX, y: event.clientY, scale: settings.sceneScale, direction: corner === 'nw' || corner === 'sw' ? -1 : 1 };
+                      const move = (moveEvent: PointerEvent) => {
+                        const drag = sceneScaleDragRef.current;
+                        if (!drag) return;
+                        const delta = ((moveEvent.clientX - drag.x) + (moveEvent.clientY - drag.y)) * drag.direction / 4;
+                        onUpdateSettings('sceneScale', Math.max(25, Math.min(400, Math.round(drag.scale + delta))));
+                      };
+                      const end = () => {
+                        sceneScaleDragRef.current = null;
+                        window.removeEventListener('pointermove', move);
+                        window.removeEventListener('pointerup', end);
+                      };
+                      window.addEventListener('pointermove', move);
+                      window.addEventListener('pointerup', end);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -2002,7 +2083,7 @@ export function WebPlaytestPreview({
           nameplates={renderNameplates}
           aboveChoices={settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           belowChoices={settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
-          previewMode={previewMode}
+          previewMode={settings.layoutMode === 'classic' && previewMode === 'edit' ? 'test' : previewMode}
           onSelectRenderObject={selectRenderObject}
           onMoveRenderObject={moveRenderObject}
           onUpdateRenderObject={patchRenderObject}
@@ -2012,6 +2093,17 @@ export function WebPlaytestPreview({
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}
         />
       </div>
+      {previewMode === 'edit' && settings.layoutMode === 'classic' && onSelectCanvasObject && (
+        <WebSplitLayoutEditor
+          rootRef={previewRootRef}
+          selection={(selectedCanvasObject || renderStyle.selectedRenderObject || 'scene') as SplitEditorSelection}
+          onSelectionChange={onSelectCanvasObject}
+          canvasSettings={settings}
+          onCanvasSettingsChange={(patch) => Object.entries(patch).forEach(([key, value]) => onUpdateSettings(key as keyof WebExportSettings, value as never))}
+          renderStyle={renderStyle}
+          onRenderStyleChange={_onUpdateRenderStyle}
+        />
+      )}
       {renderStartMenuPreview()}
     </div>
   );

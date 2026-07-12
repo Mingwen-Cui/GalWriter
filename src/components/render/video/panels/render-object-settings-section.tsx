@@ -14,6 +14,8 @@ type RenderObjectSettingsSectionProps = {
   showDescriptions?: boolean;
   canvasSettings?: SharedCanvasSettings;
   onCanvasSettingsChange?: (patch: Partial<SharedCanvasSettings>) => void;
+  selection?: 'scene' | 'background' | RenderEditableObjectKind;
+  onSelectionChange?: (selection: 'scene' | 'background' | RenderEditableObjectKind) => void;
 };
 
 export function RenderObjectSettingsSection({
@@ -24,6 +26,8 @@ export function RenderObjectSettingsSection({
   showDescriptions = false,
   canvasSettings,
   onCanvasSettingsChange,
+  selection,
+  onSelectionChange,
 }: RenderObjectSettingsSectionProps) {
   type ActiveSelection = 'scene' | 'background' | RenderEditableObjectKind;
   const [activeSelection, setActiveSelection] = useState<ActiveSelection>(
@@ -31,41 +35,46 @@ export function RenderObjectSettingsSection({
       ? (renderStyle.selectedRenderObject || 'scene')
       : (renderStyle.selectedRenderObject || 'dialogBox'),
   );
+  const currentSelection = selection || activeSelection;
+  const changeSelection = (next: ActiveSelection) => {
+    setActiveSelection(next);
+    onSelectionChange?.(next);
+  };
   useEffect(() => {
-    if (renderStyle.selectedRenderObject) setActiveSelection(renderStyle.selectedRenderObject);
+    if (renderStyle.selectedRenderObject && !selection) setActiveSelection(renderStyle.selectedRenderObject);
   }, [renderStyle.selectedRenderObject]);
   useEffect(() => {
-    if (canvasSettings?.layoutMode !== 'classic' && (activeSelection === 'scene' || activeSelection === 'background')) {
-      setActiveSelection('dialogBox');
+    if (canvasSettings?.layoutMode !== 'classic' && (currentSelection === 'scene' || currentSelection === 'background')) {
+      changeSelection('dialogBox');
       updateRenderStyle('selectedRenderObject', 'dialogBox');
     }
-  }, [activeSelection, canvasSettings?.layoutMode, updateRenderStyle]);
+  }, [canvasSettings?.layoutMode, currentSelection, updateRenderStyle]);
   const labels = language === 'zh'
     ? { scene: '画面', background: '画面外背景', dialogBox: '对话框背景', title: '标题', body: '正文', nameplate: '人物名牌' }
     : language === 'ja'
       ? { scene: '画面', background: '画面外背景', dialogBox: 'ダイアログ背景', title: 'タイトル', body: '本文', nameplate: 'ネームプレート' }
       : { scene: 'Scene', background: 'Outer background', dialogBox: 'Dialog box', title: 'Title', body: 'Body', nameplate: 'Nameplate' };
   const selectObject = (kind: RenderEditableObjectKind) => {
-    setActiveSelection(kind);
+    changeSelection(kind);
     updateRenderStyle('selectedRenderObject', kind);
   };
   const inspectorStyle: RenderStyle = {
     ...renderStyle,
     selectedRenderObject:
-      activeSelection === 'scene' || activeSelection === 'background'
+      currentSelection === 'scene' || currentSelection === 'background'
         ? undefined
-        : activeSelection,
+        : currentSelection,
   };
   return (
     <div className="space-y-3">
       {canvasSettings?.layoutMode === 'classic' && onCanvasSettingsChange && (
         <div className="grid grid-cols-2 gap-2">
-          {(['scene', 'background'] as const).map((kind) => <button key={kind} type="button" onClick={() => setActiveSelection(kind)} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${activeSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
-          {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map((kind) => <button key={kind} type="button" onClick={() => selectObject(kind)} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${activeSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
+          {(['scene', 'background'] as const).map((kind) => <button key={kind} type="button" aria-pressed={currentSelection === kind} data-render-selection={kind} onPointerDown={(event) => event.stopPropagation()} onClick={() => { changeSelection(kind); updateRenderStyle('selectedRenderObject', undefined); }} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
+          {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map((kind) => <button key={kind} type="button" aria-pressed={currentSelection === kind} data-render-selection={kind} onPointerDown={(event) => event.stopPropagation()} onClick={() => selectObject(kind)} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
         </div>
       )}
-      {(activeSelection === 'scene' || activeSelection === 'background') && canvasSettings && onCanvasSettingsChange ? (
-        <SceneCanvasInspector language={language} value={canvasSettings} onChange={onCanvasSettingsChange} mode={activeSelection === 'scene' ? 'position' : 'background'} />
+      {(currentSelection === 'scene' || currentSelection === 'background') && canvasSettings && onCanvasSettingsChange ? (
+        <SceneCanvasInspector language={language} value={canvasSettings} onChange={onCanvasSettingsChange} mode={currentSelection === 'scene' ? 'position' : 'background'} />
       ) : (
         <RenderObjectInspector language={language} renderStyle={inspectorStyle} updateRenderStyle={updateRenderStyle} surface={surface} showDescriptions={showDescriptions} hideObjectSelector={canvasSettings?.layoutMode === 'classic'} />
       )}

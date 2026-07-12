@@ -79,47 +79,49 @@ export function WebEditableElementFrame({
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      <span
-        role="button"
+      <button
+        type="button"
         tabIndex={-1}
         className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-        style={{ cursor: 'grab' }}
-        onPointerDown={onRotatePointerDown}
+        style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+        onPointerDown={(event) => { event.stopPropagation(); onRotatePointerDown(event); }}
         onClick={(event) => event.stopPropagation()}
         aria-label="Rotate"
       >
         <RotateCw className="h-4 w-4" />
-      </span>
-      <span
-        role="button"
+      </button>
+      <button
+        type="button"
         tabIndex={-1}
         className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
+        style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onToggleVisible}
         aria-label={visible ? 'Hide' : 'Show'}
       >
         {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-      </span>
+      </button>
       {onDelete && (
-        <span
-          role="button"
+        <button
+          type="button"
           tabIndex={-1}
           className="pointer-events-auto absolute -right-10 top-[calc(50%+40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-rose-500 text-white shadow-lg"
+          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onDelete}
           aria-label="Delete"
         >
           <Trash2 className="h-4 w-4" />
-        </span>
+        </button>
       )}
       {webEditableResizeHandles.map((handle) => (
-        <span
+        <button
           key={handle}
-          role="button"
+          type="button"
           tabIndex={-1}
           className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
-          style={{ cursor: cursorByHandle[handle] }}
-          onPointerDown={(event) => onResizePointerDown(event, handle)}
+          style={{ cursor: cursorByHandle[handle], pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483647 }}
+          onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onResizePointerDown(event, handle); }}
           onClick={(event) => event.stopPropagation()}
           aria-label="Resize border"
         />
