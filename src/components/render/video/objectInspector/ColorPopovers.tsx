@@ -1,5 +1,5 @@
-import { Blend, ChevronDown, Image as ImageIcon, Plus, RotateCcw, RotateCw, Trash2, Upload } from 'lucide-react';
-import { useRef } from 'react';
+import { Blend, ChevronDown, Image as ImageIcon, Pipette, Plus, RotateCcw, RotateCw, Trash2, Upload } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { RenderColorStop, RenderFillStyle } from '../shared/types';
 import { parseColorValue, toHex8 } from '../shared/colorValue';
@@ -100,33 +100,207 @@ export function SolidColorPopover({
 }) {
   const parsed = parseColorValue(color);
   const displayValue = toHex8(color, alpha);
+  const hsv = hexToHsv(parsed.hex);
+  const saturationRef = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+  const opacityRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState(displayValue);
+  const [format, setFormat] = useState<ColorFormat>('HEX');
+  const [formatOpen, setFormatOpen] = useState(false);
+  useEffect(() => setDraft(formatColor(parsed.hex, alpha, format)), [alpha, format, parsed.hex]);
   const commitTextColor = (value: string) => {
     const next = parseColorValue(value, displayValue);
     onColorChange(next.hex);
     onAlphaChange(next.alpha);
   };
+  const commitHsv = (hue: number, saturation: number, brightness: number) =>
+    onColorChange(hsvToHex(hue, saturation, brightness));
+  const updateSaturation = (clientX: number, clientY: number) => {
+    const rect = saturationRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const saturation = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const brightness = 1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    commitHsv(hsv.h, saturation, brightness);
+  };
+  const updateHue = (clientX: number) => {
+    const rect = hueRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    commitHsv(Math.max(0, Math.min(359.999, ((clientX - rect.left) / rect.width) * 360)), hsv.s, hsv.v);
+  };
+  const updateOpacity = (clientX: number) => {
+    const rect = opacityRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    onAlphaChange(Math.round(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 100));
+  };
+  const eyeDropperSupported = typeof window !== 'undefined' && 'EyeDropper' in window;
   return (
     <div className={`rounded-[22px] border p-3 shadow-xl ${toneClass[tone]}`}>
-      <div className="mb-3 text-xs font-black">{text.solidTitle}</div>
-      <div className="grid h-10 grid-cols-[44px_minmax(0,1fr)_72px] items-center overflow-hidden rounded-xl bg-white">
-        <input className="h-full w-full cursor-pointer border-0 p-0" type="color" value={parsed.hex} onChange={(event) => onColorChange(event.target.value)} />
-        <input
-          value={displayValue}
-          onChange={(event) => commitTextColor(event.target.value)}
-          className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium text-slate-950 outline-none"
-          aria-label={text.hex}
+      <div
+        ref={saturationRef}
+        className="relative h-56 touch-none overflow-hidden rounded-[18px] bg-red-500 shadow-inner"
+        style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updateSaturation(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) updateSaturation(event.clientX, event.clientY);
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        aria-label={text.solidTitle}
+      >
+        <span className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
+        <span className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+        <span
+          className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-[4px] border-white shadow-[0_1px_5px_#00000080]"
+          style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }}
         />
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={alpha}
-          onChange={(event) => onAlphaChange(Math.max(0, Math.min(100, Number(event.target.value) || 0)))}
-          className="h-full border-0 border-l border-slate-100 bg-white px-1 text-center text-sm outline-none"
-        />
+      </div>
+
+      <div className="mt-3 grid grid-cols-[48px_minmax(0,1fr)] items-center gap-3">
+        <button
+          type="button"
+          disabled={!eyeDropperSupported}
+          onClick={async () => {
+            const EyeDropper = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+            if (!EyeDropper) return;
+            try {
+              const result = await new EyeDropper().open();
+              onColorChange(result.sRGBHex.toLowerCase());
+            } catch {
+              // The user cancelled the system eyedropper.
+            }
+          }}
+          className="grid h-12 w-12 place-items-center rounded-xl bg-white text-slate-950 disabled:cursor-not-allowed disabled:opacity-35"
+          title="Eyedropper"
+          aria-label="Eyedropper"
+        >
+          <Pipette className="h-5 w-5" />
+        </button>
+        <div className="space-y-3">
+          <div
+            ref={hueRef}
+            className="relative h-7 touch-none rounded-full"
+            style={{ background: 'linear-gradient(90deg,#ff0000 0%,#ffff00 16.67%,#00ff00 33.33%,#00ffff 50%,#0000ff 66.67%,#ff00ff 83.33%,#ff0000 100%)' }}
+            onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); updateHue(event.clientX); }}
+            onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updateHue(event.clientX); }}
+            onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+            aria-label="Hue"
+          >
+            <span className="pointer-events-none absolute left-0 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${hsv.h / 360 * 100}%`, backgroundColor: `hsl(${hsv.h} 100% 50%)` }} />
+          </div>
+          <div
+            ref={opacityRef}
+            className="relative h-7 touch-none rounded-full"
+            style={{
+              backgroundColor: '#ffffff',
+              backgroundImage: `linear-gradient(90deg,transparent,${parsed.hex}),linear-gradient(45deg,#d1d5db 25%,transparent 25%),linear-gradient(-45deg,#d1d5db 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d1d5db 75%),linear-gradient(-45deg,transparent 75%,#d1d5db 75%)`,
+              backgroundPosition: '0 0,0 0,0 6px,6px -6px,-6px 0',
+              backgroundSize: 'auto,12px 12px,12px 12px,12px 12px,12px 12px',
+            }}
+            onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); updateOpacity(event.clientX); }}
+            onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updateOpacity(event.clientX); }}
+            onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+            aria-label={text.opacity}
+          >
+            <span className="pointer-events-none absolute top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-white shadow-[0_1px_5px_#00000060]" style={{ left: `${alpha}%`, backgroundColor: displayValue }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mt-3 grid h-12 grid-cols-[92px_minmax(0,1fr)_88px] rounded-xl bg-white text-slate-950">
+        <button type="button" onClick={() => setFormatOpen((open) => !open)} className="flex items-center justify-center gap-2 rounded-l-xl border-r border-slate-100 text-sm font-medium" title={format} aria-expanded={formatOpen}>
+          {format} <ChevronDown className={`h-4 w-4 transition-transform ${formatOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {formatOpen && (
+          <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 w-32 overflow-hidden rounded-2xl bg-slate-950 p-1.5 text-white shadow-2xl">
+            {COLOR_FORMATS.map((item) => (
+              <button key={item} type="button" onClick={() => { setFormat(item); setFormatOpen(false); setDraft(formatColor(parsed.hex, alpha, item)); }} className={`flex h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium ${format === item ? 'bg-white/12' : 'hover:bg-white/8'}`}>
+                <span className="w-4">{format === item ? '✓' : ''}</span>{item}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)]">
+          <span className="h-full" style={{ backgroundColor: displayValue }} aria-hidden="true" />
+          <input
+            value={draft}
+            onChange={(event) => {
+              const next = event.target.value;
+              setDraft(next);
+              if (format === 'HEX' && /^#[0-9a-f]{8}$/i.test(next)) commitTextColor(next);
+              if ((format === 'RGB' || format === 'CSS') && /^rgba?\(/i.test(next)) commitTextColor(next);
+            }}
+            onBlur={() => {
+              commitTextColor(draft);
+              setDraft(formatColor(parsed.hex, alpha, format));
+            }}
+            className="h-full min-w-0 border-0 bg-white px-3 text-base font-medium outline-none"
+            aria-label={text.hex}
+          />
+        </div>
+        <label className="flex h-full items-center justify-center border-l border-slate-100">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={alpha}
+            onChange={(event) => onAlphaChange(Math.max(0, Math.min(100, Number(event.target.value) || 0)))}
+            className="w-12 border-0 bg-transparent text-right text-base outline-none"
+            aria-label={text.opacity}
+          />
+          <span className="ml-1 text-sm text-slate-400">%</span>
+        </label>
       </div>
     </div>
   );
+}
+
+type ColorFormat = 'HEX' | 'RGB' | 'CSS' | 'HSL' | 'HSB';
+const COLOR_FORMATS: ColorFormat[] = ['HEX', 'RGB', 'CSS', 'HSL', 'HSB'];
+
+function formatColor(hex: string, alpha: number, format: ColorFormat) {
+  const source = parseColorValue(hex).hex.slice(1);
+  const red = Number.parseInt(source.slice(0, 2), 16);
+  const green = Number.parseInt(source.slice(2, 4), 16);
+  const blue = Number.parseInt(source.slice(4, 6), 16);
+  if (format === 'HEX') return toHex8(hex, alpha);
+  if (format === 'RGB') return `rgba(${red}, ${green}, ${blue}, ${(alpha / 100).toFixed(2)})`;
+  if (format === 'CSS') return `rgb(${red} ${green} ${blue} / ${alpha}%)`;
+  const hsv = hexToHsv(hex);
+  if (format === 'HSB') return `hsb(${Math.round(hsv.h)}, ${Math.round(hsv.s * 100)}%, ${Math.round(hsv.v * 100)}%, ${alpha}%)`;
+  const lightness = hsv.v * (1 - hsv.s / 2);
+  const hslSaturation = lightness === 0 || lightness === 1 ? 0 : (hsv.v - lightness) / Math.min(lightness, 1 - lightness);
+  return `hsl(${Math.round(hsv.h)} ${Math.round(hslSaturation * 100)}% ${Math.round(lightness * 100)}% / ${alpha}%)`;
+}
+
+function hexToHsv(hex: string) {
+  const source = parseColorValue(hex).hex.slice(1);
+  const red = Number.parseInt(source.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(source.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(source.slice(4, 6), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  let hue = 0;
+  if (delta) {
+    if (max === red) hue = 60 * (((green - blue) / delta) % 6);
+    else if (max === green) hue = 60 * ((blue - red) / delta + 2);
+    else hue = 60 * ((red - green) / delta + 4);
+  }
+  return { h: hue < 0 ? hue + 360 : hue, s: max ? delta / max : 0, v: max };
+}
+
+function hsvToHex(hue: number, saturation: number, brightness: number) {
+  const chroma = brightness * saturation;
+  const sector = hue / 60;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  const [r1, g1, b1] = sector < 1 ? [chroma, x, 0] : sector < 2 ? [x, chroma, 0] : sector < 3 ? [0, chroma, x] : sector < 4 ? [0, x, chroma] : sector < 5 ? [x, 0, chroma] : [chroma, 0, x];
+  const match = brightness - chroma;
+  return `#${[r1, g1, b1].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
 export function GradientPopover({
