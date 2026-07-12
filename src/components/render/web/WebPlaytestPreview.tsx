@@ -1416,6 +1416,16 @@ export function WebPlaytestPreview({
             className="hidden"
           />
         )}
+        {getSurfaceBackground(settings, 'start').type === 'video' && getSurfaceBackground(settings, 'start').videoUrl && (
+          <video
+            src={getSurfaceBackground(settings, 'start').videoUrl}
+            autoPlay
+            playsInline
+            loop={getSurfaceBackground(settings, 'start').videoLoop}
+            muted={getSurfaceBackground(settings, 'start').videoMuted}
+            className={`pointer-events-none absolute inset-0 h-full w-full ${getSurfaceBackground(settings, 'start').videoFit === 'fit' ? 'object-contain' : 'object-cover'}`}
+          />
+        )}
         <div
           ref={startMenuEditorRef}
           className={`absolute overflow-hidden ${startMenuPanelSurfaceClass}`}

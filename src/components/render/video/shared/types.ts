@@ -327,7 +327,7 @@ export type WebExportSettings = {
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   showStartMenu: boolean;
   startMenuTemplate: 'cinematic' | 'minimal' | 'glass';
-  startMenuBackgroundType: 'solid' | 'gradient' | 'image';
+  startMenuBackgroundType: 'solid' | 'gradient' | 'image' | 'video';
   startMenuBackgroundColor: string;
   startMenuBackgroundGradientStart: string;
   startMenuBackgroundGradientEnd: string;
@@ -344,7 +344,11 @@ export type WebExportSettings = {
     position: number;
   }>;
   startMenuBackgroundImageUrl: string;
-  archiveBackgroundType?: 'solid' | 'gradient' | 'image';
+  startMenuBackgroundVideoUrl?: string;
+  startMenuBackgroundVideoLoop?: boolean;
+  startMenuBackgroundVideoMuted?: boolean;
+  startMenuBackgroundVideoFit?: 'crop' | 'fit';
+  archiveBackgroundType?: 'solid' | 'gradient' | 'image' | 'video';
   archiveBackgroundColor?: string;
   archiveBackgroundGradientStart?: string;
   archiveBackgroundGradientEnd?: string;
@@ -357,7 +361,11 @@ export type WebExportSettings = {
     position: number;
   }>;
   archiveBackgroundImageUrl?: string;
-  settingsBackgroundType?: 'solid' | 'gradient' | 'image';
+  archiveBackgroundVideoUrl?: string;
+  archiveBackgroundVideoLoop?: boolean;
+  archiveBackgroundVideoMuted?: boolean;
+  archiveBackgroundVideoFit?: 'crop' | 'fit';
+  settingsBackgroundType?: 'solid' | 'gradient' | 'image' | 'video';
   settingsBackgroundColor?: string;
   settingsBackgroundGradientStart?: string;
   settingsBackgroundGradientEnd?: string;
@@ -370,7 +378,11 @@ export type WebExportSettings = {
     position: number;
   }>;
   settingsBackgroundImageUrl?: string;
-  dialogueBackgroundType?: 'solid' | 'gradient' | 'image';
+  settingsBackgroundVideoUrl?: string;
+  settingsBackgroundVideoLoop?: boolean;
+  settingsBackgroundVideoMuted?: boolean;
+  settingsBackgroundVideoFit?: 'crop' | 'fit';
+  dialogueBackgroundType?: 'solid' | 'gradient' | 'image' | 'video';
   dialogueBackgroundColor?: string;
   dialogueBackgroundGradientStart?: string;
   dialogueBackgroundGradientEnd?: string;
@@ -383,6 +395,10 @@ export type WebExportSettings = {
     position: number;
   }>;
   dialogueBackgroundImageUrl?: string;
+  dialogueBackgroundVideoUrl?: string;
+  dialogueBackgroundVideoLoop?: boolean;
+  dialogueBackgroundVideoMuted?: boolean;
+  dialogueBackgroundVideoFit?: 'crop' | 'fit';
   startMenuBackgroundMusicUrl: string;
   startMenuMusicVolume: number;
   startMenuMusicFadeIn: number;

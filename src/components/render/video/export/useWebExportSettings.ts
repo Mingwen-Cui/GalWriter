@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
-import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
+import { buildDefaultWebExperiencePreset } from '../../web/webExperiencePresets';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/types';
 
@@ -35,6 +35,10 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   startMenuBackgroundGradientEnd: '#0891b2',
   startMenuBackgroundGradientAngle: 135,
   startMenuBackgroundImageUrl: '',
+  startMenuBackgroundVideoUrl: '',
+  startMenuBackgroundVideoLoop: true,
+  startMenuBackgroundVideoMuted: true,
+  startMenuBackgroundVideoFit: 'crop',
   startMenuBackgroundMusicUrl: '',
   startMenuMusicVolume: 70,
   startMenuMusicFadeIn: 0,
@@ -156,7 +160,7 @@ export const useWebExportSettings = (
   workspaceKey: string,
   initial?: InitialWebExportState,
 ) => {
-  const rehearsalTemplate = buildRehearsalTemplate(language, defaultProjectName);
+  const defaultPreset = buildDefaultWebExperiencePreset(language, defaultProjectName);
   const sharedCanvas = useSharedCanvasSettings(
     workspaceKey,
     canvasPatchFromWebSettings(initial?.settings || {}),
@@ -170,7 +174,7 @@ export const useWebExportSettings = (
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() => ({
     ...DEFAULT_WEB_SETTINGS,
-    ...rehearsalTemplate.settings,
+    ...defaultPreset.settings,
     ...initial?.settings,
     ...sharedCanvas.settings,
   }));
@@ -179,7 +183,7 @@ export const useWebExportSettings = (
   }, [sharedCanvas.settings]);
   const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
     ...DEFAULT_WEB_RENDER_STYLE,
-    ...rehearsalTemplate.renderStyle,
+    ...defaultPreset.renderStyle,
     ...initial?.renderStyle,
   }));
   const [webPast, setWebPast] = useState<WebHistoryState[]>(() => initial?.past || []);
