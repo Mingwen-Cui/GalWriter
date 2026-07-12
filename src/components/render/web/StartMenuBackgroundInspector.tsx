@@ -5,12 +5,18 @@ import type { Language } from '../../../lib/i18n';
 import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
 import {
-  GradientPopover,
   ImageFillPopover,
   SolidColorPopover,
 } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
+import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import type { WebExportSettings } from '../video/shared/types';
+import {
+  GradientEditorPopover,
+  InlineColorControl,
+  InlineGradientControl,
+  PortaledGradientPopover,
+} from './StartMenuElementInspector';
 import { normalizeGradientStops } from './webGradientStops';
 import { FillTabs, FloatingPopover, InspectorGroup as Group } from './webStyleInspectorControls';
 
@@ -88,26 +94,79 @@ export function StartMenuBackgroundInspector({
       {showDescriptions && (
         <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
       )}
-      <BackgroundPreview settings={settings} surface={surface} />
+      {background.type === 'solid' && (
+        <InlineColorControl
+          label={text.popover.solidTitle}
+          color={background.color}
+          alpha={parseColorValue(background.color).alpha}
+          alphaLabel={text.field.opacity}
+          hexLabel={text.popover.hex}
+          onColorChange={(value) => {
+            const current = parseColorValue(background.color);
+            updateBackgroundSetting(
+              updateWebSettings,
+              surface,
+              'color',
+              toHex8(value, current.alpha),
+            );
+          }}
+          onAlphaChange={(alpha) =>
+            updateBackgroundSetting(
+              updateWebSettings,
+              surface,
+              'color',
+              toHex8(background.color, alpha),
+            )
+          }
+          onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
+        />
+      )}
+      {background.type === 'gradient' && (
+        <InlineGradientControl
+          label={text.popover.gradientTitle}
+          stops={gradientStops}
+          onOpen={() => setOpenEditor(openEditor === 'gradient' ? null : 'gradient')}
+          onAlphaChange={(alpha) =>
+            updateBackgroundSetting(
+              updateWebSettings,
+              surface,
+              'gradientStops',
+              gradientStops.map((stop) => ({ ...stop, alpha })),
+            )
+          }
+        />
+      )}
+      {background.type === 'image' && <BackgroundPreview settings={settings} surface={surface} />}
       {openEditor === 'solid' && (
-        <FloatingPopover>
+        <FloatingPopover popoverKey="solid">
           <SolidColorPopover
             tone="fill"
             text={text.popover}
-            color={background.color}
-            alpha={100}
+            color={parseColorValue(background.color).hex}
+            alpha={parseColorValue(background.color).alpha}
             onColorChange={(value) =>
-              updateBackgroundSetting(updateWebSettings, surface, 'color', value)
+              updateBackgroundSetting(
+                updateWebSettings,
+                surface,
+                'color',
+                toHex8(value, parseColorValue(background.color).alpha),
+              )
             }
-            onAlphaChange={() => undefined}
+            onAlphaChange={(alpha) =>
+              updateBackgroundSetting(
+                updateWebSettings,
+                surface,
+                'color',
+                toHex8(background.color, alpha),
+              )
+            }
           />
         </FloatingPopover>
       )}
       {openEditor === 'gradient' && (
-        <FloatingPopover>
-          <GradientPopover
-            tone="fill"
-            text={text.popover}
+        <PortaledGradientPopover>
+          <GradientEditorPopover
+            language={language}
             angle={background.gradientAngle}
             stops={gradientStops}
             onAngleChange={(value) =>
@@ -124,10 +183,10 @@ export function StartMenuBackgroundInspector({
                 updateBackgroundSetting(updateWebSettings, surface, 'gradientEnd', end.color);
             }}
           />
-        </FloatingPopover>
+        </PortaledGradientPopover>
       )}
       {openEditor === 'image' && (
-        <FloatingPopover>
+        <FloatingPopover popoverKey="image">
           <ImageFillPopover
             tone="fill"
             text={text.popover}

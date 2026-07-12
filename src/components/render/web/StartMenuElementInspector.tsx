@@ -20,14 +20,14 @@
   Volume2,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
+import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import { normalizeGradientStops } from './webGradientStops';
 import {
   AlignButtons,
@@ -688,7 +688,7 @@ export function StartMenuElementInspector({
             )}
           </div>
           {popover?.group === 'text' && popover.type === 'solid' && (
-            <FloatingPopover>
+            <FloatingPopover popoverKey="solid">
               <SolidColorPopover
                 tone="fill"
                 text={text.popover}
@@ -880,7 +880,7 @@ export function StartMenuElementInspector({
             </div>
           </div>
           {popover?.group === 'fill' && backgroundType === 'solid' && (
-            <FloatingPopover>
+            <FloatingPopover popoverKey="solid">
               <SolidColorPopover
                 tone="fill"
                 text={text.popover}
@@ -917,7 +917,7 @@ export function StartMenuElementInspector({
             </PortaledGradientPopover>
           )}
           {popover?.group === 'fill' && backgroundType === 'image' && (
-            <FloatingPopover>
+            <FloatingPopover popoverKey="image">
               <ImageFillPopover
                 tone="fill"
                 text={text.popover}
@@ -1346,7 +1346,7 @@ function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
   );
 }
 
-function InlineColorControl({
+export function InlineColorControl({
   label,
   color,
   alpha,
@@ -1365,8 +1365,9 @@ function InlineColorControl({
   onAlphaChange?: (value: number) => void;
   onOpen?: () => void;
 }) {
-  const safeColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#000000';
-  const safeAlpha = clampPercent(alpha);
+  const parsed = parseColorValue(color);
+  const safeColor = parsed.hex;
+  const safeAlpha = clampPercent(alpha ?? parsed.alpha);
   return (
     <div
       className="grid h-10 min-w-0 grid-cols-[44px_minmax(0,1fr)_72px] overflow-hidden rounded-xl bg-white"
@@ -1381,9 +1382,13 @@ function InlineColorControl({
         <span className="absolute inset-0" style={{ backgroundColor: safeColor }} />
       </button>
       <input
-        value={color}
+        value={toHex8(color, safeAlpha)}
         aria-label={hexLabel}
-        onChange={(event) => onColorChange(event.target.value)}
+        onChange={(event) => {
+          const next = parseColorValue(event.target.value, toHex8(color, safeAlpha));
+          onColorChange(next.hex);
+          onAlphaChange?.(next.alpha);
+        }}
         className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium text-slate-950 outline-none"
       />
       <div
@@ -1412,7 +1417,7 @@ function InlineColorControl({
   );
 }
 
-function InlineGradientControl({
+export function InlineGradientControl({
   label,
   stops,
   onOpen,
@@ -1662,56 +1667,11 @@ function OutsideDismissPopover({
   );
 }
 
-function PortaledGradientPopover({ children }: { children: React.ReactNode }) {
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ left: number; top: number; width: number } | null>(null);
-
-  const updatePosition = useCallback(() => {
-    const anchor = anchorRef.current;
-    if (!anchor) return;
-
-    const rect = anchor.getBoundingClientRect();
-    const viewportGap = 16;
-    const width = Math.min(390, Math.max(320, window.innerWidth - viewportGap * 2));
-    setPosition({
-      left: Math.max(viewportGap, Math.min(rect.right - width, window.innerWidth - width - viewportGap)),
-      top: rect.top,
-      width,
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    updatePosition();
-  }, [updatePosition]);
-
-  useEffect(() => {
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
-    return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
-    };
-  }, [updatePosition]);
-
-  return (
-    <>
-      <div ref={anchorRef} className="absolute inset-x-0 top-[calc(100%-4px)] h-0" aria-hidden="true" />
-      {position &&
-        createPortal(
-          <div
-            className="fixed z-[10050]"
-            data-web-style-popover
-            style={{ left: position.left, top: position.top, width: position.width }}
-          >
-            {children}
-          </div>,
-          document.body,
-        )}
-    </>
-  );
+export function PortaledGradientPopover({ children }: { children: React.ReactNode }) {
+  return <FloatingPopover popoverKey="gradient">{children}</FloatingPopover>;
 }
 
-function GradientEditorPopover({
+export function GradientEditorPopover({
   language,
   angle,
   stops,

@@ -2,6 +2,7 @@ import { Blend, ChevronDown, Image as ImageIcon, Plus, RotateCcw, RotateCw, Tras
 import { useRef } from 'react';
 
 import type { RenderColorStop, RenderFillStyle } from '../shared/types';
+import { parseColorValue, toHex8 } from '../shared/colorValue';
 
 type PopoverTone = 'fill' | 'stroke' | 'shadow';
 
@@ -97,15 +98,22 @@ export function SolidColorPopover({
   onColorChange: (value: string) => void;
   onAlphaChange: (value: number) => void;
 }) {
+  const parsed = parseColorValue(color);
+  const displayValue = toHex8(color, alpha);
+  const commitTextColor = (value: string) => {
+    const next = parseColorValue(value, displayValue);
+    onColorChange(next.hex);
+    onAlphaChange(next.alpha);
+  };
   return (
-    <div className={`rounded-xl border p-3 shadow-xl ${toneClass[tone]}`}>
+    <div className={`rounded-[22px] border p-3 shadow-xl ${toneClass[tone]}`}>
       <div className="mb-3 text-xs font-black">{text.solidTitle}</div>
-      <div className="grid grid-cols-[44px_minmax(0,1fr)_56px] items-center gap-2">
-        <input type="color" value={color} onChange={(event) => onColorChange(event.target.value)} />
+      <div className="grid h-10 grid-cols-[44px_minmax(0,1fr)_72px] items-center overflow-hidden rounded-xl bg-white">
+        <input className="h-full w-full cursor-pointer border-0 p-0" type="color" value={parsed.hex} onChange={(event) => onColorChange(event.target.value)} />
         <input
-          value={color}
-          onChange={(event) => onColorChange(event.target.value)}
-          className="h-9 min-w-0 rounded-lg border border-white/70 bg-white px-2 text-xs outline-none"
+          value={displayValue}
+          onChange={(event) => commitTextColor(event.target.value)}
+          className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium text-slate-950 outline-none"
           aria-label={text.hex}
         />
         <input
@@ -114,7 +122,7 @@ export function SolidColorPopover({
           max={100}
           value={alpha}
           onChange={(event) => onAlphaChange(Math.max(0, Math.min(100, Number(event.target.value) || 0)))}
-          className="h-9 rounded-lg border border-white/70 bg-white px-1 text-center text-xs outline-none"
+          className="h-full border-0 border-l border-slate-100 bg-white px-1 text-center text-sm outline-none"
         />
       </div>
     </div>

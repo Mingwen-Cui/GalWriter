@@ -933,7 +933,7 @@ export function WebPlaytestPreview({
       ? {
           key: 'settings',
           label: t('设置', '設定', 'Settings'),
-          disabled: false,
+          disabled: !settings.showStartMenu,
           primary: false,
           onClick: () => {
             setPreviewStartSettingsOpen(true);

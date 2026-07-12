@@ -40,8 +40,8 @@ export const buildArchivePageElements = (
       fontSize: 12,
       textColor: '#ffffff',
       backgroundType: 'solid',
-      backgroundColor: 'rgba(255,255,255,0.10)',
-      borderColor: 'rgba(255,255,255,0.14)',
+      backgroundColor: '#ffffff1a',
+      borderColor: '#ffffff24',
       borderRadius: 12,
     },
     {
@@ -59,8 +59,8 @@ export const buildArchivePageElements = (
       fontSize: 14,
       textColor: '#f8fafc',
       backgroundType: 'solid',
-      backgroundColor: 'rgba(255,255,255,0.10)',
-      borderColor: 'rgba(255,255,255,0.16)',
+      backgroundColor: '#ffffff1a',
+      borderColor: '#ffffff29',
       borderRadius: 12,
     },
     {
@@ -80,7 +80,7 @@ export const buildArchivePageElements = (
       textColor: choiceTextColor,
       backgroundType: 'solid',
       backgroundColor: choiceColor,
-      borderColor: 'rgba(255,255,255,0.22)',
+      borderColor: '#ffffff38',
       borderRadius: 12,
     },
   ];
@@ -124,8 +124,8 @@ export const buildSettingsPageElements = (
       fontSize: 12,
       textColor: '#ffffff',
       backgroundType: 'solid',
-      backgroundColor: 'rgba(255,255,255,0.10)',
-      borderColor: 'rgba(255,255,255,0.14)',
+      backgroundColor: '#ffffff1a',
+      borderColor: '#ffffff24',
       borderRadius: 12,
     },
     {
@@ -143,8 +143,8 @@ export const buildSettingsPageElements = (
       fontSize: 14,
       textColor: '#f8fafc',
       backgroundType: 'solid',
-      backgroundColor: 'rgba(255,255,255,0.10)',
-      borderColor: 'rgba(255,255,255,0.12)',
+      backgroundColor: '#ffffff1a',
+      borderColor: '#ffffff1f',
       borderRadius: 12,
     },
     {
@@ -162,8 +162,8 @@ export const buildSettingsPageElements = (
       fontSize: 14,
       textColor: '#f8fafc',
       backgroundType: 'solid',
-      backgroundColor: 'rgba(255,255,255,0.10)',
-      borderColor: 'rgba(255,255,255,0.12)',
+      backgroundColor: '#ffffff1a',
+      borderColor: '#ffffff1f',
       borderRadius: 12,
     },
     {
@@ -183,7 +183,7 @@ export const buildSettingsPageElements = (
       textColor: choiceTextColor,
       backgroundType: 'solid',
       backgroundColor: choiceColor,
-      borderColor: 'rgba(255,255,255,0.22)',
+      borderColor: '#ffffff38',
       borderRadius: 12,
     },
   ];

@@ -54,6 +54,16 @@ export function CanvasSettingsSection({ language, value, onChange }: Props) {
       canvasHeight: Math.min(4320, Math.max(180, Math.round(value.canvasWidth * rounded / Math.max(1, value.canvasRatioWidth)))),
     });
   };
+  const applyCommonRatio = (ratioWidth: number, ratioHeight: number) => {
+    onChange({
+      canvasRatioWidth: ratioWidth,
+      canvasRatioHeight: ratioHeight,
+      canvasHeight: Math.min(
+        4320,
+        Math.max(180, Math.round(value.canvasWidth * ratioHeight / ratioWidth)),
+      ),
+    });
+  };
 
   return (
     <section className="relative rounded-[22px] bg-rose-50 p-3 dark:bg-rose-950/25">
@@ -77,13 +87,22 @@ export function CanvasSettingsSection({ language, value, onChange }: Props) {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)] items-end gap-0">
-              <DragNumber label={text.ratioWidth} value={value.canvasRatioWidth} min={1} max={100} onChange={(next) => updateRatio('canvasRatioWidth', next)} connected="right" />
-              <button type="button" onClick={() => onChange({ canvasRatioLocked: !value.canvasRatioLocked })} className={`grid h-9 w-11 place-items-center border-y transition-colors ${value.canvasRatioLocked ? 'border-[var(--vr-accent)] bg-[var(--vr-accent)] text-white' : 'border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'}`} title={text.lockRatio}>
-                {value.canvasRatioLocked ? <Link className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
-              </button>
-              <DragNumber label={text.ratioHeight} value={value.canvasRatioHeight} min={1} max={100} onChange={(next) => updateRatio('canvasRatioHeight', next)} connected="left" />
-            </div>
+            <CompactRatioControl
+              label={`${text.ratioWidth} / ${text.ratioHeight}`}
+              width={value.canvasRatioWidth}
+              height={value.canvasRatioHeight}
+              locked={value.canvasRatioLocked}
+              lockLabel={text.lockRatio}
+              onWidthChange={(next) => updateRatio('canvasRatioWidth', next)}
+              onHeightChange={(next) => updateRatio('canvasRatioHeight', next)}
+              onToggleLock={() => onChange({ canvasRatioLocked: !value.canvasRatioLocked })}
+            />
+            <CommonRatioSelect
+              language={language}
+              width={value.canvasRatioWidth}
+              height={value.canvasRatioHeight}
+              onChange={applyCommonRatio}
+            />
             <div className="h-9 w-11" aria-hidden="true" />
           </div>
 
@@ -107,6 +126,80 @@ export function CanvasSettingsSection({ language, value, onChange }: Props) {
         </div>
       )}
     </section>
+  );
+}
+
+const COMMON_RATIOS = [
+  [16, 9],
+  [4, 3],
+  [3, 2],
+  [21, 9],
+  [1, 1],
+  [9, 16],
+] as const;
+
+function CompactRatioControl({ label, width, height, locked, lockLabel, onWidthChange, onHeightChange, onToggleLock }: { label: string; width: number; height: number; locked: boolean; lockLabel: string; onWidthChange: (value: number) => void; onHeightChange: (value: number) => void; onToggleLock: () => void }) {
+  return (
+    <div className="space-y-1">
+      <div className="truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="grid h-9 grid-cols-[minmax(0,1fr)_12px_minmax(0,1fr)_36px] items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text)]">
+        <input type="number" min={1} max={100} value={width} onChange={(event) => onWidthChange(Number(event.target.value) || 1)} className="min-w-0 bg-transparent px-2 text-right text-sm tabular-nums outline-none" aria-label={label} />
+        <span className="text-center text-sm text-[var(--vr-text-muted)]">:</span>
+        <input type="number" min={1} max={100} value={height} onChange={(event) => onHeightChange(Number(event.target.value) || 1)} className="min-w-0 bg-transparent px-2 text-left text-sm tabular-nums outline-none" aria-label={label} />
+        <button type="button" onClick={onToggleLock} className={`grid h-9 place-items-center border-l border-[var(--vr-border)] transition-colors ${locked ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-muted)] hover:bg-white/5'}`} title={lockLabel} aria-pressed={locked}>
+          {locked ? <Link className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CommonRatioSelect({ language, width, height, onChange }: { language: Language; width: number; height: number; onChange: (width: number, height: number) => void }) {
+  const label = language === 'zh' ? '常用比例' : language === 'ja' ? '一般的な比率' : 'Common ratios';
+  const current = COMMON_RATIOS.some(([w, h]) => w === width && h === height) ? `${width}:${height}` : '';
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  return (
+    <div ref={rootRef} className="relative space-y-1">
+      <div className="truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-9 w-full items-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] px-3 text-sm text-[var(--vr-text)]" aria-label={label} aria-expanded={open}>
+        <RatioCard width={width} height={height} />
+        <span className="min-w-0 flex-1 truncate text-left">{current || `${width}:${height}`}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--vr-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          {COMMON_RATIOS.map(([ratioWidth, ratioHeight]) => {
+            const selected = ratioWidth === width && ratioHeight === height;
+            return (
+              <button key={`${ratioWidth}:${ratioHeight}`} type="button" onClick={() => { onChange(ratioWidth, ratioHeight); setOpen(false); }} className={`flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors ${selected ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'}`} aria-pressed={selected}>
+                <RatioCard width={ratioWidth} height={ratioHeight} selected={selected} />
+                <span className="font-medium tabular-nums">{ratioWidth}:{ratioHeight}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RatioCard({ width, height, selected = false }: { width: number; height: number; selected?: boolean }) {
+  const landscape = width >= height;
+  const longSide = 22;
+  const shortSide = Math.max(8, Math.round(longSide * Math.min(width, height) / Math.max(width, height)));
+  return (
+    <span className="grid h-6 w-7 shrink-0 place-items-center" aria-hidden="true">
+      <span className={`rounded-[2px] border-[1.5px] ${selected ? 'border-white' : 'border-[var(--vr-text-muted)]'}`} style={{ width: landscape ? longSide : shortSide, height: landscape ? shortSide : longSide }} />
+    </span>
   );
 }
 

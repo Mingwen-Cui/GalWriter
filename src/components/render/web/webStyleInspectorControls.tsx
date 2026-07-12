@@ -5,11 +5,13 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  GripHorizontal,
   Image as ImageIcon,
   Palette,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { DragSizeControl } from '../video/controls/RenderControls';
 import type { RenderFillType, TextAlign } from '../video/shared/types';
@@ -447,16 +449,90 @@ export function GradientIcon() {
 export function FloatingPopover({
   children,
   className = '',
+  popoverKey = 'style',
 }: {
   children: React.ReactNode;
   className?: string;
+  popoverKey?: 'solid' | 'gradient' | 'image' | 'style';
 }) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const storageKey = `galwriter-inspector-popover-position:${popoverKey}`;
+  const clampPosition = useCallback((left: number, top: number) => {
+    const panel = panelRef.current;
+    const width = panel?.offsetWidth || Math.min(390, window.innerWidth - 32);
+    const height = panel?.offsetHeight || 240;
+    const gap = 12;
+    return {
+      left: Math.max(gap, Math.min(left, window.innerWidth - width - gap)),
+      top: Math.max(gap, Math.min(top, window.innerHeight - Math.min(height, window.innerHeight - gap * 2) - gap)),
+    };
+  }, []);
+  const placePanel = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null') as { left?: number; top?: number } | null;
+      if (Number.isFinite(saved?.left) && Number.isFinite(saved?.top)) {
+        setPosition(clampPosition(saved!.left!, saved!.top!));
+        return;
+      }
+    } catch {
+      // Ignore invalid saved coordinates.
+    }
+    const rect = anchor.getBoundingClientRect();
+    const panelWidth = panelRef.current?.offsetWidth || Math.min(390, window.innerWidth - 32);
+    setPosition(clampPosition(rect.left - panelWidth - 12, rect.top));
+  }, [clampPosition, storageKey]);
+  useLayoutEffect(() => placePanel(), [placePanel]);
+  useEffect(() => {
+    const keepVisible = () => setPosition((current) => current ? clampPosition(current.left, current.top) : current);
+    window.addEventListener('resize', keepVisible);
+    return () => window.removeEventListener('resize', keepVisible);
+  }, [clampPosition]);
+  useLayoutEffect(() => {
+    if (!position || !panelRef.current) return;
+    const next = clampPosition(position.left, position.top);
+    if (next.left !== position.left || next.top !== position.top) setPosition(next);
+  }, [children, clampPosition, position]);
+
   return (
-    <div
-      className={`absolute left-3 right-3 top-[calc(100%-4px)] z-[90] ${className}`}
-      data-web-style-popover
-    >
-      {children}
-    </div>
+    <>
+      <div ref={anchorRef} className="absolute inset-x-0 top-0 h-0" aria-hidden="true" />
+      {position && createPortal(
+        <div ref={panelRef} className={`fixed z-[10050] w-[min(390px,calc(100vw-24px))] ${className}`} style={position} data-web-style-popover>
+          <div
+            className="flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+            title="Drag"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: position.left, top: position.top };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const drag = dragRef.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              setPosition(clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y));
+            }}
+            onPointerUp={(event) => {
+              const drag = dragRef.current;
+              if (!drag || drag.pointerId !== event.pointerId) return;
+              dragRef.current = null;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+              const next = clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y);
+              setPosition(next);
+              window.localStorage.setItem(storageKey, JSON.stringify(next));
+            }}
+            onPointerCancel={() => { dragRef.current = null; }}
+          >
+            <GripHorizontal className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div className="[&>div]:rounded-t-none [&>div]:rounded-b-[22px]">{children}</div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

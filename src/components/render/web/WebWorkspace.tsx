@@ -234,6 +234,13 @@ export function WebWorkspace({
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
+  useEffect(() => {
+    if (webSettings.showStartMenu) return;
+    setEditPreviewSurface('game');
+    setCurrentPreviewSurface('game');
+    setSelectedStartMenuElementId(null);
+    setSelectedPreviewElementIds([]);
+  }, [webSettings.showStartMenu]);
   const defaultArchivePageElements = buildArchivePageElements(
     language,
     webChoiceColor,
@@ -715,7 +722,7 @@ export function WebWorkspace({
               textColor: webChoiceTextColor,
               backgroundType: 'solid',
               backgroundColor: webChoiceColor,
-              borderColor: 'rgba(255,255,255,0.24)',
+              borderColor: '#ffffff3d',
               borderRadius: 12,
             },
             {
@@ -735,8 +742,8 @@ export function WebWorkspace({
               fontSize: 14,
               textColor: '#ffffff',
               backgroundType: 'solid',
-              backgroundColor: 'rgba(255,255,255,0.10)',
-              borderColor: 'rgba(255,255,255,0.16)',
+              backgroundColor: '#ffffff1a',
+              borderColor: '#ffffff29',
               borderRadius: 12,
             },
             {
@@ -756,8 +763,8 @@ export function WebWorkspace({
               fontSize: 14,
               textColor: '#ffffff',
               backgroundType: 'solid',
-              backgroundColor: 'rgba(255,255,255,0.10)',
-              borderColor: 'rgba(255,255,255,0.16)',
+              backgroundColor: '#ffffff1a',
+              borderColor: '#ffffff29',
               borderRadius: 12,
             },
           ];
@@ -876,7 +883,7 @@ JSON schema:
                   : element.backgroundType || base.backgroundType,
             backgroundColor: safeColor(
               element.backgroundColor,
-              base.backgroundColor || 'rgba(255,255,255,0.10)',
+              base.backgroundColor || '#ffffff1a',
             ),
             backgroundGradientStart: safeColor(
               element.backgroundGradientStart,
@@ -894,7 +901,7 @@ JSON schema:
             ),
             borderColor: safeColor(
               element.borderColor,
-              base.borderColor || 'rgba(255,255,255,0.18)',
+              base.borderColor || '#ffffff2e',
             ),
             borderRadius: clampNumber(
               element.borderRadius,
@@ -1109,9 +1116,9 @@ JSON schema:
                 <WebSegmentedGroup
                   value={editPreviewSurface}
                   options={[
-                    { value: 'start', label: t('主界面', 'メイン', 'Menu') },
-                    { value: 'archive', label: t('存档', 'セーブ', 'Save') },
-                    { value: 'settings', label: t('设置', '設定', 'Settings') },
+                    { value: 'start', label: t('主界面', 'メイン', 'Menu'), disabled: !webSettings.showStartMenu },
+                    { value: 'archive', label: t('存档', 'セーブ', 'Save'), disabled: !webSettings.showStartMenu },
+                    { value: 'settings', label: t('设置', '設定', 'Settings'), disabled: !webSettings.showStartMenu },
                     { value: 'game', label: t('对话', '会話', 'Dialog') },
                   ]}
                   columns="grid-cols-4"
@@ -1578,6 +1585,7 @@ type SegmentedOption = {
   value: string;
   label: string;
   icon?: ReactNode;
+  disabled?: boolean;
 };
 
 function WebPillToggleGroup({
@@ -1641,8 +1649,11 @@ function WebSegmentedGroup({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
+            disabled={option.disabled}
             className={`web-segment-button flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-1 text-[10px] font-black transition-colors ${
-              active
+              option.disabled
+                ? 'cursor-not-allowed bg-slate-100 text-slate-300 opacity-70 dark:bg-white/5 dark:text-white/25'
+                : active
                 ? 'bg-[var(--vr-accent)] text-white'
                 : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
             }`}

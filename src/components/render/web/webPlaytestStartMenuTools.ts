@@ -146,11 +146,11 @@ export const buildDefaultStartMenuElements = ({
             : 14,
       textColor: action.primary ? choiceTextColor : '#f8fafc',
       backgroundType: 'solid',
-      backgroundColor: action.primary ? choiceColor : 'rgba(255,255,255,0.10)',
+      backgroundColor: action.primary ? choiceColor : '#ffffff1a',
       backgroundGradientStart: choiceColor,
       backgroundGradientEnd: '#0f172a',
       backgroundGradientAngle: 135,
-      borderColor: action.primary ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.16)',
+      borderColor: action.primary ? '#ffffff3d' : '#ffffff29',
       borderRadius: 12,
     });
   });

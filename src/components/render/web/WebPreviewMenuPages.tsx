@@ -599,7 +599,7 @@ function MenuPageElementLayer({
                 : element.backgroundType === 'image' && element.backgroundImageUrl
                   ? undefined
                   : element.backgroundColor ||
-                    (element.primary ? choiceColor : 'rgba(255,255,255,0.10)');
+                    (element.primary ? choiceColor : '#ffffff1a');
 
             return (
               <button
