@@ -134,6 +134,12 @@ export const makeIndexHtml = (
     settings.startMenuBackgroundGradientStart = String(settings.startMenuBackgroundGradientStart || "#0f172a");
     settings.startMenuBackgroundGradientEnd = String(settings.startMenuBackgroundGradientEnd || "#0891b2");
     settings.startMenuBackgroundGradientAngle = Number.isFinite(Number(settings.startMenuBackgroundGradientAngle)) ? Number(settings.startMenuBackgroundGradientAngle) : 135;
+    ["startMenuBackground", "archiveBackground", "settingsBackground", "dialogueBackground"].forEach(function(prefix) {
+      ["GradientStartX", "GradientStartY", "GradientEndX", "GradientEndY"].forEach(function(key) {
+        const value = Number(settings[prefix + key]);
+        settings[prefix + key] = Number.isFinite(value) ? clamp(value, 0, 100, 0) : undefined;
+      });
+    });
     settings.startMenuBackgroundImageUrl = String(settings.startMenuBackgroundImageUrl || "");
     settings.archiveBackgroundType = ["solid", "gradient", "image"].includes(settings.archiveBackgroundType) ? settings.archiveBackgroundType : settings.startMenuBackgroundType;
     settings.archiveBackgroundColor = String(settings.archiveBackgroundColor || settings.startMenuBackgroundColor);
@@ -768,7 +774,7 @@ export const makeIndexHtml = (
             fillImage.style.opacity = String(clamp(element.backgroundImageAlpha, 0, 100, 100) / 100);
             button.appendChild(fillImage);
           } else if (element.backgroundType === "gradient") {
-            button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"));
+            button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"), { startX: element.backgroundGradientStartX, startY: element.backgroundGradientStartY, endX: element.backgroundGradientEndX, endY: element.backgroundGradientEndY });
             button.style.backgroundColor = "transparent";
             button.style.backdropFilter = "none";
             button.style.webkitBackdropFilter = "none";

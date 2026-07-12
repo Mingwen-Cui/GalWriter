@@ -343,24 +343,6 @@ export function StartMenuElementInspector({
             innerShadow: 'Inner',
             innerBlur: 'Inner blur',
           };
-  const quickPresets =
-    element.kind === 'text'
-      ? [
-          { label: language === 'zh' ? '标题' : language === 'ja' ? '見出し' : 'Title', patch: { fontSize: 38, fontWeight: 800, textAlign: 'center' as const, letterSpacing: 1.6, shadowEnabled: true, shadowColor: '#0f172a', shadowOpacity: 40, shadowBlur: 12, shadowOffsetY: 3 } },
-          { label: language === 'zh' ? '正文' : language === 'ja' ? '本文' : 'Body', patch: { fontSize: 18, fontWeight: 500, textAlign: 'left' as const, letterSpacing: 0, lineHeight: 1.6, shadowEnabled: false } },
-          { label: language === 'zh' ? '标签' : language === 'ja' ? 'ラベル' : 'Label', patch: { fontSize: 13, fontWeight: 700, textAlign: 'center' as const, letterSpacing: 1.2, textColor: '#cbd5e1', shadowEnabled: false } },
-        ]
-      : element.kind === 'button'
-        ? [
-            { label: language === 'zh' ? '主按钮' : language === 'ja' ? 'メイン' : 'Primary', patch: { backgroundType: 'gradient' as const, backgroundColor: '#4f46e5', backgroundGradientStart: '#6366f1', backgroundGradientEnd: '#312e81', backgroundGradientAngle: 135, textColor: '#ffffff', borderColor: 'rgba(255,255,255,0.34)', borderRadius: 14, shadowEnabled: true, shadowColor: '#312e81', shadowOpacity: 34, shadowBlur: 16, shadowOffsetY: 6 } },
-            { label: language === 'zh' ? '玻璃' : language === 'ja' ? 'ガラス' : 'Glass', patch: { backgroundType: 'solid' as const, backgroundColor: 'rgba(255,255,255,0.12)', textColor: '#ffffff', borderColor: 'rgba(255,255,255,0.46)', borderRadius: 18, shadowEnabled: false } },
-            { label: language === 'zh' ? '描边' : language === 'ja' ? 'アウトライン' : 'Outline', patch: { backgroundType: 'solid' as const, backgroundColor: 'rgba(15,23,42,0.16)', textColor: '#e0f2fe', borderColor: '#38bdf8', borderWidth: 1.5, borderRadius: 6, shadowEnabled: true, shadowColor: '#0ea5e9', shadowOpacity: 26, shadowBlur: 10, shadowOffsetY: 0 } },
-          ]
-        : [
-            { label: language === 'zh' ? '圆角卡片' : language === 'ja' ? 'カード' : 'Card', patch: { borderRadius: 18, borderColor: 'rgba(255,255,255,0.42)', borderWidth: 1, shadowEnabled: true, shadowColor: '#020617', shadowOpacity: 32, shadowBlur: 18, shadowOffsetY: 8 } },
-            { label: language === 'zh' ? '头像' : language === 'ja' ? 'アバター' : 'Avatar', patch: { borderRadius: 999, borderColor: '#ffffff', borderWidth: 2, shadowEnabled: true, shadowColor: '#0ea5e9', shadowOpacity: 30, shadowBlur: 12, shadowOffsetY: 3 } },
-            { label: language === 'zh' ? '封面' : language === 'ja' ? 'カバー' : 'Cover', patch: { borderRadius: 4, borderColor: 'rgba(255,255,255,0.24)', borderWidth: 1, shadowEnabled: true, shadowColor: '#000000', shadowOpacity: 46, shadowBlur: 24, shadowOffsetY: 10 } },
-          ];
   const fillHasValue =
     element.kind !== 'text' &&
     !(
@@ -463,18 +445,6 @@ export function StartMenuElementInspector({
 
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
-      <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/70 p-1.5">
-        {quickPresets.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            onClick={() => onUpdate(preset.patch)}
-            className="h-8 rounded-lg bg-slate-100 px-2 text-[10px] font-black text-slate-600 transition-colors hover:bg-indigo-100 hover:text-indigo-700"
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
       <Group
         title={text.group.position}
         icon={<Box className="h-3.5 w-3.5" />}
@@ -1871,6 +1841,31 @@ export function GradientEditorPopover({
         >
           <Plus className="h-5 w-5" />
         </button>
+      </div>
+      <div
+        className="relative mt-3 h-12 cursor-crosshair overflow-hidden rounded-xl border border-sky-200 bg-slate-950"
+        style={{ backgroundImage: `linear-gradient(${angle}deg, ${previewStops})` }}
+        title={copy.angle}
+        onPointerDown={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const updateAngle = (clientX: number, clientY: number) => {
+            const x = clientX - rect.left - rect.width / 2;
+            const y = clientY - rect.top - rect.height / 2;
+            onAngleChange(Math.round((Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360));
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updateAngle(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = event.clientX - rect.left - rect.width / 2;
+          const y = event.clientY - rect.top - rect.height / 2;
+          onAngleChange(Math.round((Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360));
+        }}
+      >
+        <span className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/80" />
+        <span className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
       </div>
       <div
         className="relative mt-3 h-12 w-full rounded-xl border border-white/80 shadow-inner"

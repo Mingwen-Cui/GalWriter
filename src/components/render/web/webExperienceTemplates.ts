@@ -252,22 +252,7 @@ export const buildRehearsalToolbarElements = (language: Language): WebMenuElemen
     toolbarButton('toolbar-fullscreen', 'fullscreen', t('最大化', '最大化', 'Max'), 66.4, 9.8),
     toolbarButton('toolbar-return', 'return', t('返回', '戻る', 'Back'), 77.2, 8.4),
     toolbarButton('toolbar-main', 'mainMenu', t('主界面', 'メニュー', 'Menu'), 86.4, 9.6),
-    {
-      ...button(
-        'toolbar-controls-toggle',
-        'controlsToggle',
-        '',
-        92,
-        84,
-        4.4,
-        5.2,
-        '#0ea5e9',
-        '#ffffff',
-      ),
-      fontSize: 12,
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      borderRadius: 999,
-    },
+    toolbarButton('toolbar-controls-toggle', 'controlsToggle', '', 47.8, 8.4),
   ];
 };
 

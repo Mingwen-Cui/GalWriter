@@ -6,6 +6,8 @@ import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
+import { GradientCanvasControl } from './GradientCanvasControl';
+import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
@@ -70,6 +72,7 @@ type WebPreviewMenuPagesProps = {
   choiceColor: string;
   choiceTextColor: string;
   previewControlsHidden: boolean;
+  gradientEditingSurface?: 'archive' | 'settings' | null;
   onCloseArchive: () => void;
   onCloseSettings: () => void;
   onOpenSettings: () => void;
@@ -106,6 +109,7 @@ export function WebPreviewMenuPages({
   choiceColor,
   choiceTextColor,
   previewControlsHidden,
+  gradientEditingSurface = null,
   onCloseArchive,
   onCloseSettings,
   onOpenSettings,
@@ -421,6 +425,11 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
+          {previewMode === 'edit' && gradientEditingSurface === 'archive' && getSurfaceBackground(settings, 'archive').type === 'gradient' && (
+            <GradientCanvasControl shape={getSurfaceBackground(settings, 'archive').gradientShape} angle={getSurfaceBackground(settings, 'archive').gradientAngle} startX={getSurfaceBackground(settings, 'archive').gradientStartX} startY={getSurfaceBackground(settings, 'archive').gradientStartY} endX={getSurfaceBackground(settings, 'archive').gradientEndX} endY={getSurfaceBackground(settings, 'archive').gradientEndY} onGeometryChange={(geometry) => {
+              onUpdateSettings('archiveBackgroundGradientStartX', geometry.startX); onUpdateSettings('archiveBackgroundGradientStartY', geometry.startY); onUpdateSettings('archiveBackgroundGradientEndX', geometry.endX); onUpdateSettings('archiveBackgroundGradientEndY', geometry.endY); onUpdateSettings('archiveBackgroundGradientAngle', geometry.angle);
+            }} />
+          )}
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
@@ -460,6 +469,11 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
+          {previewMode === 'edit' && gradientEditingSurface === 'settings' && getSurfaceBackground(settings, 'settings').type === 'gradient' && (
+            <GradientCanvasControl shape={getSurfaceBackground(settings, 'settings').gradientShape} angle={getSurfaceBackground(settings, 'settings').gradientAngle} startX={getSurfaceBackground(settings, 'settings').gradientStartX} startY={getSurfaceBackground(settings, 'settings').gradientStartY} endX={getSurfaceBackground(settings, 'settings').gradientEndX} endY={getSurfaceBackground(settings, 'settings').gradientEndY} onGeometryChange={(geometry) => {
+              onUpdateSettings('settingsBackgroundGradientStartX', geometry.startX); onUpdateSettings('settingsBackgroundGradientStartY', geometry.startY); onUpdateSettings('settingsBackgroundGradientEndX', geometry.endX); onUpdateSettings('settingsBackgroundGradientEndY', geometry.endY); onUpdateSettings('settingsBackgroundGradientAngle', geometry.angle);
+            }} />
+          )}
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
@@ -596,6 +610,12 @@ function MenuPageElementLayer({
                       element.backgroundGradientStart || choiceColor,
                       element.backgroundGradientEnd || '#0f172a',
                     ),
+                    {
+                      startX: element.backgroundGradientStartX,
+                      startY: element.backgroundGradientStartY,
+                      endX: element.backgroundGradientEndX,
+                      endY: element.backgroundGradientEndY,
+                    },
                   )
                 : element.backgroundType === 'image' && element.backgroundImageUrl
                   ? undefined
@@ -606,7 +626,7 @@ function MenuPageElementLayer({
               <button
                 key={element.id}
                 type="button"
-                className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
+                className={`pointer-events-auto absolute relative overflow-hidden border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
                   editable ? 'cursor-move' : 'active:scale-[0.99]'
                 }`}
                 style={{
@@ -660,6 +680,21 @@ function MenuPageElementLayer({
                     element={element}
                     onUpdateElement={onUpdateElement}
                     onBeginElementDrag={onBeginElementDrag}
+                  />
+                )}
+                {editable && selected && element.backgroundType === 'gradient' && (
+                  <GradientCanvasControl
+                    shape={element.backgroundGradientShape || 'linear'}
+                    angle={element.backgroundGradientAngle ?? 135}
+                    startX={element.backgroundGradientStartX}
+                    startY={element.backgroundGradientStartY}
+                    endX={element.backgroundGradientEndX}
+                    endY={element.backgroundGradientEndY}
+                    onGeometryChange={(geometry) => onUpdateElement(element.id, {
+                      backgroundGradientStartX: geometry.startX, backgroundGradientStartY: geometry.startY,
+                      backgroundGradientEndX: geometry.endX, backgroundGradientEndY: geometry.endY,
+                      backgroundGradientAngle: geometry.angle,
+                    })}
                   />
                 )}
               </button>

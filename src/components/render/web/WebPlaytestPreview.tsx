@@ -1360,7 +1360,12 @@ export function WebPlaytestPreview({
                     endX: settings.startMenuBackgroundGradientEndX,
                     endY: settings.startMenuBackgroundGradientEndY,
                   }
-                : undefined,
+                : {
+                    startX: background.gradientStartX,
+                    startY: background.gradientStartY,
+                    endX: background.gradientEndX,
+                    endY: background.gradientEndY,
+                  },
             ),
           }
         : background.type === 'solid'
@@ -1522,6 +1527,11 @@ export function WebPlaytestPreview({
           choiceColor={choiceColor}
           choiceTextColor={choiceTextColor}
           previewControlsHidden={previewControlsHidden}
+          gradientEditingSurface={
+            gradientEditingSurface === 'archive' || gradientEditingSurface === 'settings'
+              ? gradientEditingSurface
+              : null
+          }
           onCloseArchive={() => setPreviewArchiveOpen(false)}
           onCloseSettings={() => setPreviewStartSettingsOpen(false)}
           onOpenSettings={() => {
@@ -1890,6 +1900,23 @@ export function WebPlaytestPreview({
         >
           {t('画面外背景', '画面外背景', 'Outer background')}
         </button>
+      )}
+      {previewMode === 'edit' && gradientEditingSurface === 'game' && getSurfaceBackground(settings, 'game').type === 'gradient' && (
+        <GradientCanvasControl
+          shape={getSurfaceBackground(settings, 'game').gradientShape}
+          angle={getSurfaceBackground(settings, 'game').gradientAngle}
+          startX={getSurfaceBackground(settings, 'game').gradientStartX}
+          startY={getSurfaceBackground(settings, 'game').gradientStartY}
+          endX={getSurfaceBackground(settings, 'game').gradientEndX}
+          endY={getSurfaceBackground(settings, 'game').gradientEndY}
+          onGeometryChange={(geometry) => {
+            onUpdateSettings('dialogueBackgroundGradientStartX', geometry.startX);
+            onUpdateSettings('dialogueBackgroundGradientStartY', geometry.startY);
+            onUpdateSettings('dialogueBackgroundGradientEndX', geometry.endX);
+            onUpdateSettings('dialogueBackgroundGradientEndY', geometry.endY);
+            onUpdateSettings('dialogueBackgroundGradientAngle', geometry.angle);
+          }}
+        />
       )}
       {currentImageUrl && settings.layoutMode === 'immersive' && (
         <div

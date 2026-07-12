@@ -523,7 +523,12 @@ export function FloatingPopover({
               if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
               const next = clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y);
               setPosition(next);
-              window.localStorage.setItem(storageKey, JSON.stringify(next));
+              try {
+                window.localStorage.setItem(storageKey, JSON.stringify(next));
+              } catch {
+                // Position persistence is optional. Large embedded media can fill
+                // localStorage; dragging the panel must still work in that case.
+              }
             }}
             onPointerCancel={() => { dragRef.current = null; }}
           >

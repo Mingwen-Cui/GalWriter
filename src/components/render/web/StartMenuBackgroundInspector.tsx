@@ -337,6 +337,10 @@ export function getSurfaceBackground(settings: WebExportSettings, surface: Backg
     gradientStart: read<string>('GradientStart', settings.startMenuBackgroundGradientStart),
     gradientEnd: read<string>('GradientEnd', settings.startMenuBackgroundGradientEnd),
     gradientAngle: read<number>('GradientAngle', settings.startMenuBackgroundGradientAngle),
+    gradientStartX: read<number | undefined>('GradientStartX', settings.startMenuBackgroundGradientStartX),
+    gradientStartY: read<number | undefined>('GradientStartY', settings.startMenuBackgroundGradientStartY),
+    gradientEndX: read<number | undefined>('GradientEndX', settings.startMenuBackgroundGradientEndX),
+    gradientEndY: read<number | undefined>('GradientEndY', settings.startMenuBackgroundGradientEndY),
     gradientShape: read<'linear' | 'radial' | 'diamond'>('GradientShape', settings.startMenuBackgroundGradientShape || 'linear'),
     gradientStops: read<WebExportSettings['startMenuBackgroundGradientStops']>(
       'GradientStops',
@@ -359,6 +363,10 @@ function updateBackgroundSetting(
     | 'gradientStart'
     | 'gradientEnd'
     | 'gradientAngle'
+    | 'gradientStartX'
+    | 'gradientStartY'
+    | 'gradientEndX'
+    | 'gradientEndY'
     | 'gradientShape'
     | 'gradientStops'
     | 'imageUrl'
@@ -375,6 +383,7 @@ function updateBackgroundSetting(
       gradientStart: 'startMenuBackgroundGradientStart',
       gradientEnd: 'startMenuBackgroundGradientEnd',
       gradientAngle: 'startMenuBackgroundGradientAngle',
+      gradientStartX: 'startMenuBackgroundGradientStartX', gradientStartY: 'startMenuBackgroundGradientStartY', gradientEndX: 'startMenuBackgroundGradientEndX', gradientEndY: 'startMenuBackgroundGradientEndY',
       gradientShape: 'startMenuBackgroundGradientShape',
       gradientStops: 'startMenuBackgroundGradientStops',
       imageUrl: 'startMenuBackgroundImageUrl',
@@ -386,6 +395,7 @@ function updateBackgroundSetting(
       gradientStart: 'archiveBackgroundGradientStart',
       gradientEnd: 'archiveBackgroundGradientEnd',
       gradientAngle: 'archiveBackgroundGradientAngle',
+      gradientStartX: 'archiveBackgroundGradientStartX', gradientStartY: 'archiveBackgroundGradientStartY', gradientEndX: 'archiveBackgroundGradientEndX', gradientEndY: 'archiveBackgroundGradientEndY',
       gradientShape: 'archiveBackgroundGradientShape',
       gradientStops: 'archiveBackgroundGradientStops',
       imageUrl: 'archiveBackgroundImageUrl',
@@ -397,6 +407,7 @@ function updateBackgroundSetting(
       gradientStart: 'settingsBackgroundGradientStart',
       gradientEnd: 'settingsBackgroundGradientEnd',
       gradientAngle: 'settingsBackgroundGradientAngle',
+      gradientStartX: 'settingsBackgroundGradientStartX', gradientStartY: 'settingsBackgroundGradientStartY', gradientEndX: 'settingsBackgroundGradientEndX', gradientEndY: 'settingsBackgroundGradientEndY',
       gradientShape: 'settingsBackgroundGradientShape',
       gradientStops: 'settingsBackgroundGradientStops',
       imageUrl: 'settingsBackgroundImageUrl',
@@ -408,6 +419,7 @@ function updateBackgroundSetting(
       gradientStart: 'dialogueBackgroundGradientStart',
       gradientEnd: 'dialogueBackgroundGradientEnd',
       gradientAngle: 'dialogueBackgroundGradientAngle',
+      gradientStartX: 'dialogueBackgroundGradientStartX', gradientStartY: 'dialogueBackgroundGradientStartY', gradientEndX: 'dialogueBackgroundGradientEndX', gradientEndY: 'dialogueBackgroundGradientEndY',
       gradientShape: 'dialogueBackgroundGradientShape',
       gradientStops: 'dialogueBackgroundGradientStops',
       imageUrl: 'dialogueBackgroundImageUrl',

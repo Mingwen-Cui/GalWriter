@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
+import { GradientCanvasControl } from './GradientCanvasControl';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import {
   webColorWithAlpha,
@@ -114,6 +115,12 @@ export function WebPlaytestStartMenuElement({
               element.backgroundGradientStart || choiceColor,
               element.backgroundGradientEnd || '#0f172a',
             ),
+            {
+              startX: element.backgroundGradientStartX,
+              startY: element.backgroundGradientStartY,
+              endX: element.backgroundGradientEndX,
+              endY: element.backgroundGradientEndY,
+            },
           )
         : element.backgroundColor;
   const elementStyle: React.CSSProperties = {
@@ -378,6 +385,23 @@ export function WebPlaytestStartMenuElement({
                 transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
                 transformOrigin: 'center',
               }}
+            />
+          )}
+          {previewMode === 'edit' && selected && element.backgroundType === 'gradient' && (
+            <GradientCanvasControl
+              shape={element.backgroundGradientShape || 'linear'}
+              angle={element.backgroundGradientAngle ?? 135}
+              startX={element.backgroundGradientStartX}
+              startY={element.backgroundGradientStartY}
+              endX={element.backgroundGradientEndX}
+              endY={element.backgroundGradientEndY}
+              onGeometryChange={(geometry) => onUpdateElement(element.id, {
+                backgroundGradientStartX: geometry.startX,
+                backgroundGradientStartY: geometry.startY,
+                backgroundGradientEndX: geometry.endX,
+                backgroundGradientEndY: geometry.endY,
+                backgroundGradientAngle: geometry.angle,
+              })}
             />
           )}
           <span className="relative z-[1]">{content}</span>
