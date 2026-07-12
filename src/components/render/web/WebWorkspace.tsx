@@ -26,7 +26,6 @@ import { createElement, isValidElement, useEffect, useMemo, useState } from 'rea
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
-import { DragSizeControl } from '../video/controls/RenderControls';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
@@ -151,7 +150,7 @@ export function WebWorkspace({
   progress,
   error,
   progressValue,
-  savedPath,
+  savedPath: _savedPath,
   updateWebSettings,
   updateWebSettingsBulk,
   updateWebChoiceTextColor,
@@ -415,17 +414,6 @@ export function WebWorkspace({
     updateWebSettings(
       activeElementSettingsKey,
       source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
-    );
-  };
-  const updateStartMenuElement = (
-    id: string,
-    patch: Partial<WebExportSettings['startMenuElements'][number]>,
-  ) => {
-    updateWebSettings(
-      'startMenuElements',
-      (webSettings.startMenuElements || []).map((element) =>
-        element.id === id ? { ...element, ...patch } : element,
-      ),
     );
   };
   const deleteStartMenuElement = (id: string) => {
@@ -1570,35 +1558,6 @@ function ColorField({
   );
 }
 
-function RangeField({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="grid grid-cols-[72px_minmax(0,1fr)_36px] items-center gap-2 text-[10px] font-black text-[var(--vr-text-muted)]">
-      <span className="truncate">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="accent-[var(--vr-accent)]"
-      />
-      <span className="text-right">{value}</span>
-    </label>
-  );
-}
-
 function colorInputValue(value: string, fallback = '#111827') {
   const trimmed = String(value || '').trim();
   if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
@@ -1850,57 +1809,6 @@ function LayoutImmersiveGlyph() {
   );
 }
 
-function VideoPointerGlyph() {
-  return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
-      <Video className="h-2.5 w-2.5" />
-      <MousePointerClick className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5" />
-    </span>
-  );
-}
-
-function ChoicePositionGlyph({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
-      {children}
-    </span>
-  );
-}
-
-function ChoiceTopGlyph() {
-  return (
-    <ChoicePositionGlyph>
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-2 rounded-full bg-current" />
-        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
-      </span>
-    </ChoicePositionGlyph>
-  );
-}
-
-function ChoiceMiddleGlyph() {
-  return (
-    <ChoicePositionGlyph>
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
-        <span className="h-0.5 w-2 rounded-full bg-current" />
-        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
-      </span>
-    </ChoicePositionGlyph>
-  );
-}
-
-function ChoiceBottomGlyph() {
-  return (
-    <ChoicePositionGlyph>
-      <span className="flex h-2.5 w-2.5 flex-col items-center justify-between">
-        <span className="h-0.5 w-1.5 rounded-full bg-current/55" />
-        <span className="h-0.5 w-2 rounded-full bg-current" />
-      </span>
-    </ChoicePositionGlyph>
-  );
-}
-
 function BlurGlyph() {
   return (
     <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
@@ -1915,31 +1823,5 @@ function ClearGlyph() {
     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border border-current/35 bg-current/10">
       <span className="h-2.5 w-2.5 rounded-[3px] border border-current/55" />
     </span>
-  );
-}
-
-function SpeedControl({
-  value,
-  onChange,
-  disabled,
-  label,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <div className={disabled ? 'opacity-45' : ''}>
-      <DragSizeControl
-        label={label}
-        value={value}
-        min={10}
-        max={200}
-        step={5}
-        unit="ms"
-        onChange={onChange}
-      />
-    </div>
   );
 }

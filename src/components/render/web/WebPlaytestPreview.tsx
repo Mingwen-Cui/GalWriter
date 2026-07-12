@@ -79,7 +79,7 @@ import {
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
-import { type SplitEditorSelection,WebSplitLayoutEditor } from './WebSplitLayoutEditor';
+import { type SplitEditorSelection, WebSplitLayoutEditor } from './WebSplitLayoutEditor';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -1902,7 +1902,7 @@ export function WebPlaytestPreview({
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
               settings.layoutMode === 'immersive' ? 'rounded-none' : 'bg-slate-950'
             }`}
-            onClick={(event) => {
+            onClick={() => {
               if (previewMode === 'edit') return;
               continueFromText();
             }}
