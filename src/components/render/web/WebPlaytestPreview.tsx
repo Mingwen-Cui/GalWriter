@@ -47,17 +47,18 @@ import type {
   WebExportSettings,
   WebMenuElement,
 } from '../video/shared/types';
+import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
+import { buildRehearsalToolbarElements } from './webExperienceTemplates';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
 import { WebPlaytestNameplates } from './WebPlaytestNameplates';
-import { WebSplitLayoutEditor, type SplitEditorSelection } from './WebSplitLayoutEditor';
 import type { PlayedAudio } from './WebPlaytestPreviewControls';
 import {
   ChoiceButtonsGroup,
@@ -78,7 +79,7 @@ import {
 } from './webPlaytestStartMenuTools';
 import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
-import { getSurfaceBackground } from './StartMenuBackgroundInspector';
+import { type SplitEditorSelection,WebSplitLayoutEditor } from './WebSplitLayoutEditor';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -158,8 +159,6 @@ export function WebPlaytestPreview({
   const [playlistAudioUrl, setPlaylistAudioUrl] = useState<string | null>(null);
   const [isPlaylistAudioPlaying, setIsPlaylistAudioPlaying] = useState(false);
   const [currentAudioEnded, setCurrentAudioEnded] = useState(false);
-  const sceneDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
-  const sceneScaleDragRef = useRef<{ x: number; y: number; scale: number; direction: number } | null>(null);
   const [currentVideoEnded, setCurrentVideoEnded] = useState(false);
   const [previewControlsHidden, setPreviewControlsHidden] = useState(false);
   const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
@@ -869,7 +868,10 @@ export function WebPlaytestPreview({
       return true;
     }
     if (element.role === 'volume') {
-      onUpdateSettings('startMenuMusicVolume', Math.max(0, Math.min(100, element.actionValue ?? 70)));
+      onUpdateSettings(
+        'startMenuMusicVolume',
+        Math.max(0, Math.min(100, element.actionValue ?? 70)),
+      );
       return true;
     }
     if (element.role === 'speed') {
@@ -960,7 +962,9 @@ export function WebPlaytestPreview({
     if (element.role === 'link' || element.role === 'volume') {
       return {
         key: element.role,
-        label: element.text || (element.role === 'link' ? t('超链接', 'リンク', 'Link') : t('音量', '音量', 'Volume')),
+        label:
+          element.text ||
+          (element.role === 'link' ? t('超链接', 'リンク', 'Link') : t('音量', '音量', 'Volume')),
         disabled: element.role === 'link' && !element.linkUrl,
         primary: false,
         onClick: () => applySharedButtonFunction(element),
@@ -1015,99 +1019,8 @@ export function WebPlaytestPreview({
       ? settings.settingsPageElements
       : defaultSettingsPageElements;
   const defaultToolbarElements = React.useMemo<StartMenuElement[]>(
-    () => [
-      {
-        id: 'toolbar-audio',
-        kind: 'button',
-        role: 'audio',
-        text: t('音频', '音声', 'Audio'),
-        visible: true,
-        x: 59,
-        y: 2.4,
-        width: 8.4,
-        height: 4.8,
-        scale: 1,
-        rotation: 0,
-        fontSize: 12,
-        textColor: '#ffffff',
-        backgroundType: 'solid',
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        borderRadius: 8,
-      },
-      {
-        id: 'toolbar-fullscreen',
-        kind: 'button',
-        role: 'fullscreen',
-        text: t('最大化', '最大化', 'Max'),
-        visible: true,
-        x: 68.2,
-        y: 2.4,
-        width: 9.8,
-        height: 4.8,
-        scale: 1,
-        rotation: 0,
-        fontSize: 12,
-        textColor: '#ffffff',
-        backgroundType: 'solid',
-        backgroundColor: 'rgba(14,165,233,0.22)',
-        borderRadius: 8,
-      },
-      {
-        id: 'toolbar-return',
-        kind: 'button',
-        role: 'return',
-        text: t('返回', '戻る', 'Back'),
-        visible: true,
-        x: 79,
-        y: 2.4,
-        width: 8.4,
-        height: 4.8,
-        scale: 1,
-        rotation: 0,
-        fontSize: 12,
-        textColor: '#ffffff',
-        backgroundType: 'solid',
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        borderRadius: 8,
-      },
-      {
-        id: 'toolbar-main',
-        kind: 'button',
-        role: 'mainMenu',
-        text: t('主界面', 'メニュー', 'Menu'),
-        visible: true,
-        x: 88.2,
-        y: 2.4,
-        width: 9.6,
-        height: 4.8,
-        scale: 1,
-        rotation: 0,
-        fontSize: 12,
-        textColor: '#ffffff',
-        backgroundType: 'solid',
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        borderRadius: 8,
-      },
-      {
-        id: 'toolbar-controls-toggle',
-        kind: 'button',
-        role: 'controlsToggle',
-        text: '',
-        visible: true,
-        x: 92,
-        y: 84,
-        width: 4.4,
-        height: 5.2,
-        scale: 1,
-        rotation: 0,
-        fontSize: 12,
-        textColor: '#ffffff',
-        backgroundType: 'solid',
-        backgroundColor: 'rgba(0,0,0,0.35)',
-        borderRadius: 999,
-      },
-    ],
-    [t],
+    () => buildRehearsalToolbarElements(language),
+    [language],
   );
   const toolbarElements =
     settings.previewToolbarElements && settings.previewToolbarElements.length > 0
@@ -1440,12 +1353,14 @@ export function WebPlaytestPreview({
                 '#0f172a',
                 '#0891b2',
               ),
-              surface === 'start' ? {
-                startX: settings.startMenuBackgroundGradientStartX,
-                startY: settings.startMenuBackgroundGradientStartY,
-                endX: settings.startMenuBackgroundGradientEndX,
-                endY: settings.startMenuBackgroundGradientEndY,
-              } : undefined,
+              surface === 'start'
+                ? {
+                    startX: settings.startMenuBackgroundGradientStartX,
+                    startY: settings.startMenuBackgroundGradientStartY,
+                    endX: settings.startMenuBackgroundGradientEndX,
+                    endY: settings.startMenuBackgroundGradientEndY,
+                  }
+                : undefined,
             ),
           }
         : background.type === 'solid'
@@ -1561,9 +1476,7 @@ export function WebPlaytestPreview({
                 selectedStartMenuElementIds.includes(element.id)
               }
               imageCropEditing={imageCropEditingElementId === element.id}
-              action={
-                element.kind === 'button' ? getStartMenuElementAction(element) : null
-              }
+              action={element.kind === 'button' ? getStartMenuElementAction(element) : null}
               previewMode={previewMode}
               editingStartMenuElementId={editingStartMenuElementId}
               hasCustomStartMenuElements={Boolean(settings.startMenuElements?.length)}
@@ -1903,9 +1816,10 @@ export function WebPlaytestPreview({
         : `${getSceneExitDelay(presentation)}ms`,
     transitionTimingFunction: 'ease-out',
   };
-  const sceneStyle = settings.layoutMode === 'classic'
-    ? mergeSceneMediaStyle(baseSceneStyle, settings)
-    : baseSceneStyle;
+  const sceneStyle =
+    settings.layoutMode === 'classic'
+      ? mergeSceneMediaStyle(baseSceneStyle, settings)
+      : baseSceneStyle;
 
   const renderMediaLayers = () => (
     <WebPlaytestMediaLayers
@@ -1934,9 +1848,17 @@ export function WebPlaytestPreview({
     <div
       ref={previewRootRef}
       className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
-      style={settings.layoutMode === 'classic' ? { ...dialogueBackgroundStyle, ...getSceneBackgroundStyle(settings) } : dialogueBackgroundStyle}
+      style={
+        settings.layoutMode === 'classic'
+          ? { ...dialogueBackgroundStyle, ...getSceneBackgroundStyle(settings) }
+          : dialogueBackgroundStyle
+      }
       onClick={(event) => {
-        if (previewMode === 'edit' && settings.layoutMode === 'classic' && event.target === event.currentTarget) {
+        if (
+          previewMode === 'edit' &&
+          settings.layoutMode === 'classic' &&
+          event.target === event.currentTarget
+        ) {
           onSelectCanvasObject?.('background');
           _onUpdateRenderStyle('selectedRenderObject', undefined);
         }
@@ -1969,51 +1891,19 @@ export function WebPlaytestPreview({
         className={`z-10 ${
           settings.layoutMode === 'immersive'
             ? 'absolute inset-0 bg-transparent'
-            : 'relative grid h-full grid-rows-[48px_minmax(0,1fr)_auto] bg-slate-950/45'
+            : 'relative h-full bg-slate-950/45'
         }`}
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
         {renderFloatingElements()}
-        <div
-          className={
-            settings.layoutMode === 'immersive' ? 'absolute inset-0 p-0' : 'min-h-0 px-4 pt-4'
-          }
-        >
+        <div className="absolute inset-0 min-h-0 p-0">
           <div
-            data-split-scene-surface={settings.layoutMode === 'classic' ? 'true' : undefined}
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
-              settings.layoutMode === 'immersive'
-                ? 'rounded-none'
-                : `rounded-t-lg border-x border-t bg-slate-950 ${previewMode === 'edit' ? 'cursor-move' : ''} ${previewMode === 'edit' && selectedCanvasObject === 'scene' ? 'border-indigo-500 ring-2 ring-inset ring-indigo-500/70' : 'border-white/10'}`
+              settings.layoutMode === 'immersive' ? 'rounded-none' : 'bg-slate-950'
             }`}
-            onPointerDown={(event) => {
-              if (previewMode !== 'edit' || settings.layoutMode !== 'classic' || event.button !== 0) return;
-              event.stopPropagation();
-              onSelectCanvasObject?.('scene');
-              _onUpdateRenderStyle('selectedRenderObject', undefined);
-              sceneDragRef.current = { x: event.clientX, y: event.clientY, offsetX: settings.sceneOffsetX, offsetY: settings.sceneOffsetY };
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              const drag = sceneDragRef.current;
-              if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-              const rect = event.currentTarget.getBoundingClientRect();
-              onUpdateSettings('sceneOffsetX', Math.max(-100, Math.min(100, Math.round(drag.offsetX + (event.clientX - drag.x) / Math.max(1, rect.width) * 200))));
-              onUpdateSettings('sceneOffsetY', Math.max(-100, Math.min(100, Math.round(drag.offsetY + (event.clientY - drag.y) / Math.max(1, rect.height) * 200))));
-            }}
-            onPointerUp={(event) => {
-              sceneDragRef.current = null;
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-            }}
             onClick={(event) => {
-              event.stopPropagation();
-              if (previewMode === 'edit') {
-                setSelectedStartMenuElementId(null);
-                _onUpdateRenderStyle('selectedRenderObject', undefined);
-                onSelectCanvasObject?.('scene');
-                return;
-              }
+              if (previewMode === 'edit') return;
               continueFromText();
             }}
           >
@@ -2023,38 +1913,6 @@ export function WebPlaytestPreview({
               </VirtualPresentationStage>
             ) : (
               renderMediaLayers()
-            )}
-            {previewMode === 'edit' && settings.layoutMode === 'classic' && selectedCanvasObject === 'scene' && (
-              <div className="pointer-events-none absolute inset-0 z-[90] ring-2 ring-inset ring-indigo-500">
-                {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
-                  <button
-                    key={corner}
-                    type="button"
-                    aria-label={`Resize scene ${corner}`}
-                    className={`pointer-events-auto absolute h-4 w-4 rounded-sm border border-indigo-200 bg-white shadow ${corner.includes('n') ? 'top-0 -translate-y-1/2' : 'bottom-0 translate-y-1/2'} ${corner.includes('w') ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'}`}
-                    style={{ cursor: corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483647 }}
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      sceneScaleDragRef.current = { x: event.clientX, y: event.clientY, scale: settings.sceneScale, direction: corner === 'nw' || corner === 'sw' ? -1 : 1 };
-                      const move = (moveEvent: PointerEvent) => {
-                        const drag = sceneScaleDragRef.current;
-                        if (!drag) return;
-                        const delta = ((moveEvent.clientX - drag.x) + (moveEvent.clientY - drag.y)) * drag.direction / 4;
-                        onUpdateSettings('sceneScale', Math.max(25, Math.min(400, Math.round(drag.scale + delta))));
-                      };
-                      const end = () => {
-                        sceneScaleDragRef.current = null;
-                        window.removeEventListener('pointermove', move);
-                        window.removeEventListener('pointerup', end);
-                      };
-                      window.addEventListener('pointermove', move);
-                      window.addEventListener('pointerup', end);
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                ))}
-              </div>
             )}
           </div>
         </div>
@@ -2083,7 +1941,9 @@ export function WebPlaytestPreview({
           nameplates={renderNameplates}
           aboveChoices={settings.choicesPosition === 'aboveText' && renderChoiceButtons('mb-3')}
           belowChoices={settings.choicesPosition === 'belowText' && renderChoiceButtons('mt-3')}
-          previewMode={settings.layoutMode === 'classic' && previewMode === 'edit' ? 'test' : previewMode}
+          previewMode={
+            settings.layoutMode === 'classic' && previewMode === 'edit' ? 'test' : previewMode
+          }
           onSelectRenderObject={selectRenderObject}
           onMoveRenderObject={moveRenderObject}
           onUpdateRenderObject={patchRenderObject}
@@ -2093,25 +1953,60 @@ export function WebPlaytestPreview({
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}
         />
       </div>
-      {previewMode === 'edit' && settings.layoutMode === 'classic' && !previewStartMenuOpen && !previewArchiveOpen && !previewStartSettingsOpen && onSelectCanvasObject && (
-        <WebSplitLayoutEditor
-          rootRef={previewRootRef}
-          selection={(selectedCanvasObject || renderStyle.selectedRenderObject || 'scene') as SplitEditorSelection}
-          onSelectionChange={onSelectCanvasObject}
-          canvasSettings={settings}
-          onCanvasSettingsChange={(patch) => Object.entries(patch).forEach(([key, value]) => onUpdateSettings(key as keyof WebExportSettings, value as never))}
-          renderStyle={renderStyle}
-          onRenderStyleChange={_onUpdateRenderStyle}
-        />
-      )}
+      {previewMode === 'edit' &&
+        settings.layoutMode === 'classic' &&
+        !previewStartMenuOpen &&
+        !previewArchiveOpen &&
+        !previewStartSettingsOpen &&
+        onSelectCanvasObject && (
+          <WebSplitLayoutEditor
+            rootRef={previewRootRef}
+            selection={
+              (selectedCanvasObject ||
+                renderStyle.selectedRenderObject ||
+                'scene') as SplitEditorSelection
+            }
+            onSelectionChange={onSelectCanvasObject}
+            canvasSettings={settings}
+            onCanvasSettingsChange={(patch) =>
+              Object.entries(patch).forEach(([key, value]) =>
+                onUpdateSettings(key as keyof WebExportSettings, value as never),
+              )
+            }
+            renderStyle={renderStyle}
+            onRenderStyleChange={_onUpdateRenderStyle}
+          />
+        )}
       {renderStartMenuPreview()}
     </div>
   );
 }
 
-function GradientCanvasControl({ shape, angle, startX, startY, endX, endY, onGeometryChange }: { shape: 'linear' | 'radial' | 'diamond'; angle: number; startX?: number; startY?: number; endX?: number; endY?: number; onGeometryChange: (geometry: { startX: number; startY: number; endX: number; endY: number; angle: number }) => void }) {
+function GradientCanvasControl({
+  shape,
+  angle,
+  startX,
+  startY,
+  endX,
+  endY,
+  onGeometryChange,
+}: {
+  shape: 'linear' | 'radial' | 'diamond';
+  angle: number;
+  startX?: number;
+  startY?: number;
+  endX?: number;
+  endY?: number;
+  onGeometryChange: (geometry: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    angle: number;
+  }) => void;
+}) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const radians = angle * Math.PI / 180;
+  const radians = (angle * Math.PI) / 180;
   const safeStartX = startX ?? 50 - Math.sin(radians) * 25;
   const safeStartY = startY ?? 50 + Math.cos(radians) * 25;
   const safeEndX = endX ?? 50 + Math.sin(radians) * 25;
@@ -2119,17 +2014,29 @@ function GradientCanvasControl({ shape, angle, startX, startY, endX, endY, onGeo
   const updatePoint = (point: 'start' | 'end', clientX: number, clientY: number) => {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
-    const y = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100));
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
     const nextStartX = point === 'start' ? x : safeStartX;
     const nextStartY = point === 'start' ? y : safeStartY;
     const nextEndX = point === 'end' ? x : safeEndX;
     const nextEndY = point === 'end' ? y : safeEndY;
-    const nextAngle = Math.round((Math.atan2(nextEndY - nextStartY, nextEndX - nextStartX) * 180 / Math.PI + 90 + 360) % 360);
-    onGeometryChange({ startX: nextStartX, startY: nextStartY, endX: nextEndX, endY: nextEndY, angle: nextAngle });
+    const nextAngle = Math.round(
+      ((Math.atan2(nextEndY - nextStartY, nextEndX - nextStartX) * 180) / Math.PI + 90 + 360) % 360,
+    );
+    onGeometryChange({
+      startX: nextStartX,
+      startY: nextStartY,
+      endX: nextEndX,
+      endY: nextEndY,
+      angle: nextAngle,
+    });
   };
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[240]" data-gradient-canvas-control>
+    <div
+      ref={rootRef}
+      className="pointer-events-none absolute inset-0 z-[240]"
+      data-gradient-canvas-control
+    >
       <div className="absolute inset-0">
         {shape === 'radial' ? (
           <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-white/90 shadow-[0_0_0_1px_#00000055]">
@@ -2139,14 +2046,57 @@ function GradientCanvasControl({ shape, angle, startX, startY, endX, endY, onGeo
         ) : (
           <>
             <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-              <line x1={`${safeStartX}%`} y1={`${safeStartY}%`} x2={`${safeEndX}%`} y2={`${safeEndY}%`} stroke="rgba(0,0,0,.45)" strokeWidth="4" />
-              <line x1={`${safeStartX}%`} y1={`${safeStartY}%`} x2={`${safeEndX}%`} y2={`${safeEndY}%`} stroke="white" strokeWidth="2" />
+              <line
+                x1={`${safeStartX}%`}
+                y1={`${safeStartY}%`}
+                x2={`${safeEndX}%`}
+                y2={`${safeEndY}%`}
+                stroke="rgba(0,0,0,.45)"
+                strokeWidth="4"
+              />
+              <line
+                x1={`${safeStartX}%`}
+                y1={`${safeStartY}%`}
+                x2={`${safeEndX}%`}
+                y2={`${safeEndY}%`}
+                stroke="white"
+                strokeWidth="2"
+              />
             </svg>
-            {shape === 'diamond' && <span className="absolute h-32 w-32 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-dashed border-white/85" style={{ left: `${(safeStartX + safeEndX) / 2}%`, top: `${(safeStartY + safeEndY) / 2}%` }} />}
+            {shape === 'diamond' && (
+              <span
+                className="absolute h-32 w-32 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-dashed border-white/85"
+                style={{
+                  left: `${(safeStartX + safeEndX) / 2}%`,
+                  top: `${(safeStartY + safeEndY) / 2}%`,
+                }}
+              />
+            )}
             {(['start', 'end'] as const).map((point) => {
               const x = point === 'start' ? safeStartX : safeEndX;
               const y = point === 'start' ? safeStartY : safeEndY;
-              return <button key={point} type="button" className={`pointer-events-auto absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-[3px] border-white shadow-lg ${point === 'start' ? 'bg-sky-500' : 'bg-indigo-600'}`} style={{ left: `${x}%`, top: `${y}%` }} aria-label={`Gradient ${point}`} onPointerDown={(event) => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); updatePoint(point, event.clientX, event.clientY); }} onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updatePoint(point, event.clientX, event.clientY); }} onPointerUp={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} />;
+              return (
+                <button
+                  key={point}
+                  type="button"
+                  className={`pointer-events-auto absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-[3px] border-white shadow-lg ${point === 'start' ? 'bg-sky-500' : 'bg-indigo-600'}`}
+                  style={{ left: `${x}%`, top: `${y}%` }}
+                  aria-label={`Gradient ${point}`}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    updatePoint(point, event.clientX, event.clientY);
+                  }}
+                  onPointerMove={(event) => {
+                    if (event.currentTarget.hasPointerCapture(event.pointerId))
+                      updatePoint(point, event.clientX, event.clientY);
+                  }}
+                  onPointerUp={(event) => {
+                    if (event.currentTarget.hasPointerCapture(event.pointerId))
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                  }}
+                />
+              );
             })}
           </>
         )}

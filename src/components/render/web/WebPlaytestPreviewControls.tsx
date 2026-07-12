@@ -196,10 +196,10 @@ export function PreviewToolbar({
   return (
     <div
       data-toolbar-editor="true"
-      className={`relative z-[200] flex h-12 items-center justify-between overflow-visible px-3 transition-opacity ${
+      className={`z-[200] flex items-center justify-between overflow-visible transition-opacity ${
         settings.layoutMode === 'immersive'
-          ? 'absolute left-0 right-0 top-0 border-b border-transparent bg-transparent shadow-none backdrop-blur-0'
-          : 'border-b border-white/10 bg-gradient-to-b from-black/70 via-black/38 to-transparent shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-md'
+          ? 'absolute left-0 right-0 top-0 h-12 px-3 border-b border-transparent bg-transparent shadow-none backdrop-blur-0'
+          : 'pointer-events-none absolute left-0 right-0 top-0 h-0 bg-transparent p-0 shadow-none backdrop-blur-0'
       } ${previewControlsHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
     >
       <div className="hidden">

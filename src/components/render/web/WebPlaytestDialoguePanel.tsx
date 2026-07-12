@@ -281,7 +281,7 @@ export function WebPlaytestDialoguePanel({
       className={`${
         settings.layoutMode === 'immersive'
           ? 'pointer-events-none absolute z-20 flex items-end justify-center'
-          : 'relative'
+          : 'pointer-events-none absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 items-end justify-center'
       }`}
       style={{
         width:
@@ -294,7 +294,7 @@ export function WebPlaytestDialoguePanel({
             : undefined,
         maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
         left: settings.layoutMode === 'immersive' ? '50%' : undefined,
-        bottom: settings.layoutMode === 'immersive' ? '4%' : undefined,
+        bottom: settings.layoutMode === 'immersive' ? '4%' : 0,
         transform: settings.layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
         justifySelf: settings.layoutMode === 'classic' ? 'center' : undefined,
       }}

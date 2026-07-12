@@ -37,6 +37,7 @@ import {
   pickPresetSettingsForScope,
   type WebPresetScope,
 } from './webExperiencePresets';
+import { buildRehearsalTemplate } from './webExperienceTemplates';
 import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
@@ -68,6 +69,28 @@ type WebExperienceSnapshot = {
   renderStyle?: Partial<RenderStyle>;
   choiceColor?: string;
   choiceTextColor?: string;
+};
+
+type SavedWebExperienceTemplate = WebExperienceSnapshot & {
+  id: string;
+  name: string;
+  savedAt: number;
+};
+
+const webTemplateLibraryStorageKey = 'galwriter-web-experience-templates:v1';
+
+const readWebTemplateLibrary = (): SavedWebExperienceTemplate[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(webTemplateLibraryStorageKey) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is SavedWebExperienceTemplate =>
+          Boolean(item && typeof item.id === 'string' && typeof item.name === 'string'),
+        )
+      : [];
+  } catch {
+    return [];
+  }
 };
 
 const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
@@ -141,7 +164,8 @@ export function WebWorkspace({
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
   const [showMenuMusicSettings, setShowMenuMusicSettings] = useState(false);
   const [presetScope, setPresetScope] = useState<WebPresetScope>('all');
-  const startMenuDesignStorageKey = 'galwriter-web-start-menu-design:v1';
+  const [savedTemplateLibrary, setSavedTemplateLibrary] = useState(readWebTemplateLibrary);
+  const [selectedSavedTemplateId, setSelectedSavedTemplateId] = useState<string | null>(null);
   const createStartMenuDesignSnapshot = (stripEmbeddedMedia = false) => {
     const stripElementMedia = (element: WebMenuElement): WebMenuElement => ({
       ...element,
@@ -176,17 +200,35 @@ export function WebWorkspace({
   };
   const saveStartMenuDesign = () => {
     if (typeof window === 'undefined') return;
+    const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
+    const name = window
+      .prompt('模板名称', selected?.name || t('我的排练模板', 'マイリハーサル', 'My rehearsal'))
+      ?.trim();
+    if (!name) return;
+    const entry: SavedWebExperienceTemplate = {
+      ...createStartMenuDesignSnapshot(),
+      id: selected?.id || `template-${Date.now()}`,
+      name,
+      savedAt: Date.now(),
+    };
+    const next = [entry, ...savedTemplateLibrary.filter((item) => item.id !== entry.id)].slice(
+      0,
+      24,
+    );
     try {
-      window.localStorage.setItem(
-        startMenuDesignStorageKey,
-        JSON.stringify(createStartMenuDesignSnapshot()),
-      );
+      window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(next));
+      setSavedTemplateLibrary(next);
+      setSelectedSavedTemplateId(entry.id);
     } catch (error) {
       try {
-        window.localStorage.setItem(
-          startMenuDesignStorageKey,
-          JSON.stringify(createStartMenuDesignSnapshot(true)),
-        );
+        const compactEntry = { ...entry, ...createStartMenuDesignSnapshot(true) };
+        const compactNext = [
+          compactEntry,
+          ...savedTemplateLibrary.filter((item) => item.id !== entry.id),
+        ].slice(0, 24);
+        window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(compactNext));
+        setSavedTemplateLibrary(compactNext);
+        setSelectedSavedTemplateId(entry.id);
       } catch {
         console.warn('Could not save start menu design preset:', error);
       }
@@ -195,9 +237,9 @@ export function WebWorkspace({
   const loadStartMenuDesign = () => {
     if (typeof window === 'undefined') return;
     try {
-      const raw = window.localStorage.getItem(startMenuDesignStorageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<WebExportSettings> | WebExperienceSnapshot;
+      const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
+      if (!selected) return;
+      const parsed = selected as Partial<WebExportSettings> | WebExperienceSnapshot;
       const isExperienceSnapshot =
         typeof parsed === 'object' &&
         parsed !== null &&
@@ -231,17 +273,23 @@ export function WebWorkspace({
   const [currentPreviewSurface, setCurrentPreviewSurface] = useState<WebPreviewSurface>(
     webSettings.showStartMenu ? 'start' : 'game',
   );
-  const [dialogueSelection, setDialogueSelection] = useState<'scene' | 'background' | import('../video/shared/types').RenderEditableObjectKind>(
-    webRenderStyle.selectedRenderObject || (webSettings.layoutMode === 'classic' ? 'scene' : 'dialogBox'),
+  const [dialogueSelection, setDialogueSelection] = useState<
+    'scene' | 'background' | import('../video/shared/types').RenderEditableObjectKind
+  >(
+    webRenderStyle.selectedRenderObject ||
+      (webSettings.layoutMode === 'classic' ? 'scene' : 'dialogBox'),
   );
   useEffect(() => {
-    if (webRenderStyle.selectedRenderObject) setDialogueSelection(webRenderStyle.selectedRenderObject);
+    if (webRenderStyle.selectedRenderObject)
+      setDialogueSelection(webRenderStyle.selectedRenderObject);
   }, [webRenderStyle.selectedRenderObject]);
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
-  const [gradientEditingSurface, setGradientEditingSurface] = useState<WebPreviewSurface | null>(null);
+  const [gradientEditingSurface, setGradientEditingSurface] = useState<WebPreviewSurface | null>(
+    null,
+  );
   useEffect(() => {
     if (webSettings.showStartMenu) return;
     setEditPreviewSurface('game');
@@ -330,6 +378,20 @@ export function WebWorkspace({
     setSelectedStartMenuElementId(null);
     setPreviewRefreshKey((key) => key + 1);
   };
+  const applyRehearsalTemplate = () => {
+    const template = buildRehearsalTemplate(
+      language,
+      webProjectName || t('开始', 'スタート', 'Start'),
+    );
+    updateWebSettingsBulk(template.settings);
+    Object.entries(template.renderStyle).forEach(([key, value]) => {
+      updateWebRenderStyle(key as keyof RenderStyle, value as never);
+    });
+    updateWebChoiceColor(template.choiceColor);
+    updateWebChoiceTextColor(template.choiceTextColor);
+    setSelectedStartMenuElementId(null);
+    setPreviewRefreshKey((key) => key + 1);
+  };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
     if (currentPreviewSurface === 'game') {
       const toolbar = webSettings.previewToolbarElements || [];
@@ -377,10 +439,7 @@ export function WebWorkspace({
     if (!selectedStartMenuElement) return;
     updateActivePageElement(selectedStartMenuElement.id, patch);
   };
-  const alignSelectedPageElements = (
-    axis: 'x' | 'y',
-    value: 'start' | 'center' | 'end',
-  ) => {
+  const alignSelectedPageElements = (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => {
     const selectedIds = selectedPreviewElementIds;
     if (selectedIds.length < 2) return;
     const selectedIdSet = new Set(selectedIds);
@@ -419,10 +478,26 @@ export function WebWorkspace({
     updateWebSettings(activeElementSettingsKey, applyAlignment(activePageElements));
   };
   const surfaceMeta = {
-    start: { icon: LayoutTemplate, title: t('菜单设计', 'メニュー設計', 'Menu design'), backgroundSurface: 'start' as const },
-    archive: { icon: Save, title: t('存档页设计', 'セーブ画面設計', 'Save design'), backgroundSurface: 'archive' as const },
-    settings: { icon: Settings, title: t('设置页设计', '設定画面設計', 'Settings design'), backgroundSurface: 'settings' as const },
-    game: { icon: Palette, title: t('对话设计', 'ダイアログ設計', 'Dialog design'), backgroundSurface: 'game' as const },
+    start: {
+      icon: LayoutTemplate,
+      title: t('菜单设计', 'メニュー設計', 'Menu design'),
+      backgroundSurface: 'start' as const,
+    },
+    archive: {
+      icon: Save,
+      title: t('存档页设计', 'セーブ画面設計', 'Save design'),
+      backgroundSurface: 'archive' as const,
+    },
+    settings: {
+      icon: Settings,
+      title: t('设置页设计', '設定画面設計', 'Settings design'),
+      backgroundSurface: 'settings' as const,
+    },
+    game: {
+      icon: Palette,
+      title: t('对话设计', 'ダイアログ設計', 'Dialog design'),
+      backgroundSurface: 'game' as const,
+    },
   } satisfies Record<
     WebPreviewSurface,
     {
@@ -438,7 +513,8 @@ export function WebWorkspace({
       : selectedStartMenuElement.kind === 'image'
         ? t('图片样式', '画像スタイル', 'Image style')
         : t('文字样式', 'テキストスタイル', 'Text style')
-    : currentPreviewSurface === 'game' && (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic')
+    : currentPreviewSurface === 'game' &&
+        (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic')
       ? t('对话对象', 'ダイアログ要素', 'Dialog object')
       : t('背景样式', '背景スタイル', 'Background style');
   const surfaceInspector = (
@@ -458,7 +534,8 @@ export function WebWorkspace({
           onAlignSelected={alignSelectedPageElements}
           onImageCropEditingChange={setImageCropEditingElementId}
         />
-      ) : currentPreviewSurface === 'game' && (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (
+      ) : currentPreviewSurface === 'game' &&
+        (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (
         <RenderObjectSettingsSection
           language={language}
           renderStyle={webRenderStyle}
@@ -671,8 +748,10 @@ export function WebWorkspace({
         { ...button, x: 76, y: 12, width: 14, height: 5.6, fontSize: 12 },
       ]);
     } else {
-      const key = currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
-      const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
+      const key =
+        currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+      const source =
+        currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
       updateWebSettings(key, [...source, button]);
     }
     setSelectedStartMenuElementId(id);
@@ -912,10 +991,7 @@ JSON schema:
               0,
               360,
             ),
-            borderColor: safeColor(
-              element.borderColor,
-              base.borderColor || '#ffffff2e',
-            ),
+            borderColor: safeColor(element.borderColor, base.borderColor || '#ffffff2e'),
             borderRadius: clampNumber(
               element.borderRadius,
               base.borderRadius ?? (kind === 'text' ? 0 : 12),
@@ -1048,35 +1124,39 @@ JSON schema:
             height={webSettings.canvasHeight}
           >
             <WebPlaytestPreview
-            key={previewRefreshKey}
-            nodes={nodes}
-            edges={edges}
-            language={language}
-            renderStyle={webRenderStyle}
-            choiceColor={webChoiceColor}
-            choiceTextColor={webChoiceTextColor}
-            settings={webSettings}
-            projectTitle={webProjectName}
-            previewMode={startMenuPreviewMode}
-            requestedSurface={
-              startMenuPreviewMode === 'edit' && webSettings.showStartMenu
-                ? editPreviewSurface
-                : undefined
-            }
-            selectedStartMenuElementId={selectedStartMenuElementId}
-            imageCropEditingElementId={imageCropEditingElementId}
-            gradientEditingSurface={gradientEditingSurface}
-            onSurfaceChange={setCurrentPreviewSurface}
-            onSelectStartMenuElement={(id) => {
-              setSelectedStartMenuElementId(id);
-              setSelectedPreviewElementIds(id ? [id] : []);
-            }}
-            onSelectStartMenuElements={setSelectedPreviewElementIds}
-            onDeleteStartMenuElement={deleteStartMenuElement}
-            onUpdateSettings={updateWebSettings}
-            onUpdateRenderStyle={updateWebRenderStyle}
-            selectedCanvasObject={dialogueSelection === 'scene' || dialogueSelection === 'background' ? dialogueSelection : undefined}
-            onSelectCanvasObject={setDialogueSelection}
+              key={previewRefreshKey}
+              nodes={nodes}
+              edges={edges}
+              language={language}
+              renderStyle={webRenderStyle}
+              choiceColor={webChoiceColor}
+              choiceTextColor={webChoiceTextColor}
+              settings={webSettings}
+              projectTitle={webProjectName}
+              previewMode={startMenuPreviewMode}
+              requestedSurface={
+                startMenuPreviewMode === 'edit' && webSettings.showStartMenu
+                  ? editPreviewSurface
+                  : undefined
+              }
+              selectedStartMenuElementId={selectedStartMenuElementId}
+              imageCropEditingElementId={imageCropEditingElementId}
+              gradientEditingSurface={gradientEditingSurface}
+              onSurfaceChange={setCurrentPreviewSurface}
+              onSelectStartMenuElement={(id) => {
+                setSelectedStartMenuElementId(id);
+                setSelectedPreviewElementIds(id ? [id] : []);
+              }}
+              onSelectStartMenuElements={setSelectedPreviewElementIds}
+              onDeleteStartMenuElement={deleteStartMenuElement}
+              onUpdateSettings={updateWebSettings}
+              onUpdateRenderStyle={updateWebRenderStyle}
+              selectedCanvasObject={
+                dialogueSelection === 'scene' || dialogueSelection === 'background'
+                  ? dialogueSelection
+                  : undefined
+              }
+              onSelectCanvasObject={setDialogueSelection}
             />
           </VirtualPresentationStage>
         </div>
@@ -1132,9 +1212,21 @@ JSON schema:
                 <WebSegmentedGroup
                   value={editPreviewSurface}
                   options={[
-                    { value: 'start', label: t('主界面', 'メイン', 'Menu'), disabled: !webSettings.showStartMenu },
-                    { value: 'archive', label: t('存档', 'セーブ', 'Save'), disabled: !webSettings.showStartMenu },
-                    { value: 'settings', label: t('设置', '設定', 'Settings'), disabled: !webSettings.showStartMenu },
+                    {
+                      value: 'start',
+                      label: t('主界面', 'メイン', 'Menu'),
+                      disabled: !webSettings.showStartMenu,
+                    },
+                    {
+                      value: 'archive',
+                      label: t('存档', 'セーブ', 'Save'),
+                      disabled: !webSettings.showStartMenu,
+                    },
+                    {
+                      value: 'settings',
+                      label: t('设置', '設定', 'Settings'),
+                      disabled: !webSettings.showStartMenu,
+                    },
                     { value: 'game', label: t('对话', '会話', 'Dialog') },
                   ]}
                   columns="grid-cols-4"
@@ -1168,6 +1260,11 @@ JSON schema:
                     onClick={() => void generateStartMenuDesignWithAI()}
                     disabled={!callAIForTextResult || aiStartMenuDesigning}
                     iconClassName={aiStartMenuDesigning ? 'animate-spin' : ''}
+                  />
+                  <IconToolButton
+                    icon={LayoutTemplate}
+                    label={t('应用排练模板', 'リハーサルを適用', 'Apply rehearsal')}
+                    onClick={applyRehearsalTemplate}
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -1211,13 +1308,38 @@ JSON schema:
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <IconToolButton icon={Save} label="Save preset" onClick={saveStartMenuDesign} />
+                    <IconToolButton
+                      icon={Save}
+                      label={t('保存模板', 'テンプレートを保存', 'Save template')}
+                      onClick={saveStartMenuDesign}
+                    />
                     <IconToolButton
                       icon={Upload}
-                      label="Apply mine"
+                      label={t('应用模板', 'テンプレートを適用', 'Apply template')}
                       onClick={loadStartMenuDesign}
+                      disabled={!selectedSavedTemplateId}
                     />
                   </div>
+                  {savedTemplateLibrary.length > 0 && (
+                    <select
+                      value={selectedSavedTemplateId || ''}
+                      onChange={(event) => setSelectedSavedTemplateId(event.target.value || null)}
+                      className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 text-[11px] font-bold text-[var(--vr-text)]"
+                    >
+                      <option value="">
+                        {t(
+                          '选择已保存模板',
+                          '保存済みテンプレートを選択',
+                          'Choose a saved template',
+                        )}
+                      </option>
+                      {savedTemplateLibrary.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 {aiStartMenuDesignError && (
                   <div className="rounded-md bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-500 dark:text-rose-300">
@@ -1324,8 +1446,16 @@ JSON schema:
                   <WebPillToggleGroup
                     value={webSettings.startMenuShowSave ? 'show' : 'hide'}
                     options={[
-                      { value: 'show', label: t('显示', '表示', 'Show'), icon: <Eye className="h-3.5 w-3.5" /> },
-                      { value: 'hide', label: t('隐藏', '非表示', 'Hide'), icon: <EyeOff className="h-3.5 w-3.5" /> },
+                      {
+                        value: 'show',
+                        label: t('显示', '表示', 'Show'),
+                        icon: <Eye className="h-3.5 w-3.5" />,
+                      },
+                      {
+                        value: 'hide',
+                        label: t('隐藏', '非表示', 'Hide'),
+                        icon: <EyeOff className="h-3.5 w-3.5" />,
+                      },
                     ]}
                     onChange={(value) => updateWebSettings('startMenuShowSave', value === 'show')}
                   />
@@ -1349,11 +1479,7 @@ JSON schema:
             </>
           )}
 
-          {currentPreviewSurface === 'game' && (
-            <>
-              {surfaceInspector}
-            </>
-          )}
+          {currentPreviewSurface === 'game' && <>{surfaceInspector}</>}
 
           {(progress || error) && (
             <div className="space-y-2">
@@ -1545,9 +1671,7 @@ function WebSurfaceInspectorPanel({
             </div>
             <div className="h-px flex-1 bg-[var(--vr-border)]" />
           </div>
-          <div className="rounded-lg bg-[var(--vr-surface-soft)]/70 p-2">
-            {children}
-          </div>
+          <div className="rounded-lg bg-[var(--vr-surface-soft)]/70 p-2">{children}</div>
         </div>
       </div>
     </div>
@@ -1670,8 +1794,8 @@ function WebSegmentedGroup({
               option.disabled
                 ? 'cursor-not-allowed bg-slate-100 text-slate-300 opacity-70 dark:bg-white/5 dark:text-white/25'
                 : active
-                ? 'bg-[var(--vr-accent)] text-white'
-                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+                  ? 'bg-[var(--vr-accent)] text-white'
+                  : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
             }`}
             title={option.label}
             aria-pressed={active}

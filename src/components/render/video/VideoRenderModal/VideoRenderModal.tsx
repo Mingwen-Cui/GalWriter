@@ -97,7 +97,7 @@ import { useTimelineEditingActions } from './useTimelineEditingActions';
 import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
-import { type RenderNoticeModalState,VideoNoticeModal } from './VideoNoticeModal';
+import { type RenderNoticeModalState, VideoNoticeModal } from './VideoNoticeModal';
 import {
   clampPersistedNumber,
   DESKTOP_RELEASE_URL,
@@ -155,7 +155,7 @@ export function VideoRenderModal({
     updateWebSettingsBulk,
     updateWebChoiceColor,
     updateWebChoiceTextColor,
-  } = useWebExportSettings(defaultWebProjectName, status === 'rendering', workspaceKey, {
+  } = useWebExportSettings(defaultWebProjectName, language, status === 'rendering', workspaceKey, {
     projectName: persistedWorkspace?.webProjectName,
     choiceColor: persistedWorkspace?.webChoiceColor,
     choiceTextColor: persistedWorkspace?.webChoiceTextColor,
@@ -2291,7 +2291,13 @@ export function VideoRenderModal({
           exportFormat={exportFormat}
           speed={speed}
           onClose={() => setIsExportDialogOpen(false)}
-          onConfirm={({ name, frameRate: chosenFrameRate, exportFormat: chosenFormat, speed: chosenSpeed, videoBitrate }) => {
+          onConfirm={({
+            name,
+            frameRate: chosenFrameRate,
+            exportFormat: chosenFormat,
+            speed: chosenSpeed,
+            videoBitrate,
+          }) => {
             setIsExportDialogOpen(false);
             if (workspaceMode === 'video') {
               setFrameRate(chosenFrameRate);

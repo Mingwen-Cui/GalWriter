@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import type { WebExportSettings } from '../video/shared/types';
+import { buildRehearsalStartMenuElements } from './webExperienceTemplates';
 
 export type StartMenuElement = WebExportSettings['startMenuElements'][number];
 export type StartMenuResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -66,15 +67,15 @@ export const readStartMenuImageFile = (file: File, onReady: (value: string) => v
 export const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
 
 export const buildDefaultStartMenuElements = ({
-  settings,
+  settings: _settings,
   projectTitle,
   startMenuActions,
   choiceColor,
   choiceTextColor,
-  defaultButtonX,
-  defaultButtonY,
-  defaultButtonWidth,
-  buttonHeight,
+  defaultButtonX: _defaultButtonX,
+  defaultButtonY: _defaultButtonY,
+  defaultButtonWidth: _defaultButtonWidth,
+  buttonHeight: _buttonHeight,
   t,
 }: {
   settings: WebExportSettings;
@@ -88,74 +89,16 @@ export const buildDefaultStartMenuElements = ({
   buttonHeight: number;
   t: (zh: string, ja: string, en: string) => string;
 }): StartMenuElement[] => {
-  const textX = settings.startMenuButtonPosition === 'center' ? 22 : defaultButtonX;
-  const elements: StartMenuElement[] = [
-    {
-      id: 'title',
-      kind: 'text',
-      role: 'title',
-      text: projectTitle || t('开始', 'スタート', 'Start'),
-      visible: true,
-      x: textX,
-      y: settings.startMenuButtonPosition === 'center' ? 30 : 50,
-      width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
-      height: 12,
-      scale: 1,
-      rotation: 0,
-      fontSize: 34,
-      borderRadius: 0,
-    },
-    {
-      id: 'subtitle',
-      kind: 'text',
-      role: 'subtitle',
-      text: t('没有存档', 'セーブなし', 'No save'),
-      visible: true,
-      x: textX,
-      y: settings.startMenuButtonPosition === 'center' ? 43 : 62,
-      width: settings.startMenuButtonPosition === 'center' ? 56 : 42,
-      height: 5,
-      scale: 1,
-      rotation: 0,
-      fontSize: 13,
-      borderRadius: 0,
-    },
-  ];
-
-  startMenuActions.forEach((action, index) => {
-    const horizontal = settings.startMenuButtonLayout === 'horizontal';
-    elements.push({
-      id: action.key,
-      kind: 'button',
-      role: action.key as StartMenuElement['role'],
-      text: action.label,
-      visible: true,
-      x: horizontal ? defaultButtonX + index * (defaultButtonWidth + 2) : defaultButtonX,
-      y: horizontal ? defaultButtonY : defaultButtonY + index * (buttonHeight + 2),
-      width: defaultButtonWidth,
-      height: buttonHeight,
-      scale: 1,
-      rotation: 0,
-      primary: action.primary,
-      disabled: action.disabled,
-      fontSize:
-        settings.startMenuButtonSize === 'large'
-          ? 16
-          : settings.startMenuButtonSize === 'compact'
-            ? 12
-            : 14,
-      textColor: action.primary ? choiceTextColor : '#f8fafc',
-      backgroundType: 'solid',
-      backgroundColor: action.primary ? choiceColor : '#ffffff1a',
-      backgroundGradientStart: choiceColor,
-      backgroundGradientEnd: '#0f172a',
-      backgroundGradientAngle: 135,
-      borderColor: action.primary ? '#ffffff3d' : '#ffffff29',
-      borderRadius: 12,
+  const language = t('zh', 'ja', 'en') as 'zh' | 'ja' | 'en';
+  const actionByRole = new Map(startMenuActions.map((action) => [action.key, action]));
+  return buildRehearsalStartMenuElements(language, projectTitle, choiceColor, choiceTextColor)
+    .filter((element) => element.kind !== 'button' || actionByRole.has(element.role || ''))
+    .map((element) => {
+      const action = actionByRole.get(element.role || '');
+      return action
+        ? { ...element, text: action.label, disabled: action.disabled, primary: action.primary }
+        : element;
     });
-  });
-
-  return elements;
 };
 
 export const getStartMenuPlacementBounds = (settings: WebExportSettings) => {

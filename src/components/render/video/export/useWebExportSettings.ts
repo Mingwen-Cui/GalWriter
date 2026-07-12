@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import {
-  canvasPatchFromWebSettings,
-  useSharedCanvasSettings,
-} from '../../canvas/canvasSettings';
+import type { Language } from '../../../../lib/i18n';
+import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
+import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/types';
 
@@ -152,11 +151,16 @@ type InitialWebExportState = {
 
 export const useWebExportSettings = (
   defaultProjectName: string,
+  language: Language,
   isLocked: boolean,
   workspaceKey: string,
   initial?: InitialWebExportState,
 ) => {
-  const sharedCanvas = useSharedCanvasSettings(workspaceKey, canvasPatchFromWebSettings(initial?.settings || {}));
+  const rehearsalTemplate = buildRehearsalTemplate(language, defaultProjectName);
+  const sharedCanvas = useSharedCanvasSettings(
+    workspaceKey,
+    canvasPatchFromWebSettings(initial?.settings || {}),
+  );
   const [webProjectName, setWebProjectName] = useState(
     () => initial?.projectName || defaultProjectName,
   );
@@ -166,6 +170,7 @@ export const useWebExportSettings = (
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() => ({
     ...DEFAULT_WEB_SETTINGS,
+    ...rehearsalTemplate.settings,
     ...initial?.settings,
     ...sharedCanvas.settings,
   }));
@@ -174,6 +179,7 @@ export const useWebExportSettings = (
   }, [sharedCanvas.settings]);
   const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
     ...DEFAULT_WEB_RENDER_STYLE,
+    ...rehearsalTemplate.renderStyle,
     ...initial?.renderStyle,
   }));
   const [webPast, setWebPast] = useState<WebHistoryState[]>(() => initial?.past || []);
