@@ -1518,7 +1518,7 @@ function WebSurfaceInspectorPanel({ children }: { children: ReactNode }) {
 
 function WebAuxiliaryPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="space-y-2 rounded-xl border border-white/10 bg-[var(--vr-surface)]/90 p-3 shadow-xl shadow-black/5 backdrop-blur-xl">
+    <div className="space-y-2">
       <div className="grid gap-2">{children}</div>
     </div>
   );

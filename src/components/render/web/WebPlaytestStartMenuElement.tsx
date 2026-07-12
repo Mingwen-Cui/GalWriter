@@ -339,7 +339,9 @@ export function WebPlaytestStartMenuElement({
             }
             action?.onClick();
           }}
-          className={`relative h-full w-full overflow-hidden rounded-lg border font-black ${
+          className={`relative h-full w-full rounded-lg border font-black ${
+            previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'
+          } ${
             element.primary
               ? 'border-white/24 text-white shadow-lg shadow-black/15'
               : 'border-white/16 bg-white/10 text-white'

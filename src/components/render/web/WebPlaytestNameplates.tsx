@@ -61,6 +61,10 @@ export function WebPlaytestNameplates({
   const textGap = renderStyle.nameplateTextGap ?? 8;
   const top = 0;
   const translateY = `calc(-100% - 8px + ${renderStyle.nameplateOffsetY ?? 0}px)`;
+  const isNameplateSelected =
+    previewMode === 'edit' &&
+    (selectedRenderObjectKinds?.includes('nameplate') ||
+      renderStyle.selectedRenderObject === 'nameplate');
   const baseStyle: React.CSSProperties = {
     ...(renderStyle.nameplateInside
       ? { background: 'transparent' }
@@ -87,15 +91,10 @@ export function WebPlaytestNameplates({
     height: nameplateObject.height ? `${Math.max(8, nameplateObject.height)}px` : undefined,
     minHeight: nameplateObject.height ? `${Math.max(8, nameplateObject.height)}px` : undefined,
     maxWidth: 'none',
-    overflow: 'hidden',
+    overflow: isNameplateSelected ? 'visible' : 'hidden',
     textOverflow: 'ellipsis',
   };
-  const editClass =
-    previewMode === 'edit' &&
-    (selectedRenderObjectKinds?.includes('nameplate') ||
-      renderStyle.selectedRenderObject === 'nameplate')
-      ? 'ring-2 ring-indigo-500'
-      : '';
+  const editClass = isNameplateSelected ? 'ring-2 ring-indigo-500' : '';
   const selectNameplate = (event: React.MouseEvent) => {
     if (previewMode !== 'edit') return;
     event.stopPropagation();

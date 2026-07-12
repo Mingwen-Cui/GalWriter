@@ -632,7 +632,9 @@ function MenuPageElementLayer({
               <button
                 key={element.id}
                 type="button"
-                className={`pointer-events-auto absolute relative overflow-hidden border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
+                className={`pointer-events-auto absolute relative border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
+                  editable && selected ? 'overflow-visible cursor-move' : 'overflow-hidden'
+                } ${
                   editable ? 'cursor-move' : 'active:scale-[0.99]'
                 }`}
                 style={{
