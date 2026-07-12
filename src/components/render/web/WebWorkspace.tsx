@@ -21,7 +21,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { createElement, isValidElement, useEffect, useMemo, useState } from 'react';
+import { createElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
@@ -371,6 +371,15 @@ export function WebWorkspace({
           : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
+  const handleGradientEditingChange = useCallback(
+    (group: 'text' | 'fill' | 'stroke' | null) => {
+      const next = group && selectedStartMenuElementId ? { id: selectedStartMenuElementId, group } : null;
+      setGradientEditingElement((current) =>
+        current?.id === next?.id && current?.group === next?.group ? current : next,
+      );
+    },
+    [selectedStartMenuElementId],
+  );
   const applyWebExperiencePreset = (presetId: string) => {
     const preset = webExperiencePresets.find((item) => item.id === presetId);
     if (!preset) return;
@@ -518,9 +527,7 @@ export function WebWorkspace({
           onUpdate={updateSelectedPageElement}
           onAlignSelected={alignSelectedPageElements}
           onImageCropEditingChange={setImageCropEditingElementId}
-          onGradientEditingChange={(group) =>
-            setGradientEditingElement(group ? { id: selectedStartMenuElement.id, group } : null)
-          }
+          onGradientEditingChange={handleGradientEditingChange}
         />
       ) : currentPreviewSurface === 'game' &&
         (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (

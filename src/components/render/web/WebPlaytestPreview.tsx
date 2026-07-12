@@ -166,6 +166,16 @@ export function WebPlaytestPreview({
   const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
   const [previewStartSettingsOpen, setPreviewStartSettingsOpen] = useState(false);
   const [previewArchiveOpen, setPreviewArchiveOpen] = useState(false);
+  // The editor's surface picker is controlled by the workspace. Do not let a
+  // transient runtime page state hide that surface while applying a preset.
+  const controlledEditSurface =
+    previewMode === 'edit' && settings.showStartMenu ? requestedSurface : undefined;
+  const isPreviewStartMenuOpen =
+    controlledEditSurface ? controlledEditSurface !== 'game' : previewStartMenuOpen;
+  const isPreviewStartSettingsOpen =
+    controlledEditSurface ? controlledEditSurface === 'settings' : previewStartSettingsOpen;
+  const isPreviewArchiveOpen =
+    controlledEditSurface ? controlledEditSurface === 'archive' : previewArchiveOpen;
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
   const dialogueBoxRef = useRef<HTMLDivElement>(null);
@@ -309,9 +319,9 @@ export function WebPlaytestPreview({
     };
     const targetVolume = Math.max(0, Math.min(1, (settings.startMenuMusicVolume ?? 70) / 100));
     const overlayStopsMusic =
-      (previewArchiveOpen && !settings.startMenuMusicApplyToArchive) ||
-      (previewStartSettingsOpen && !settings.startMenuMusicApplyToSettings);
-    if (previewStartMenuOpen && settings.startMenuBackgroundMusicUrl && !overlayStopsMusic) {
+      (isPreviewArchiveOpen && !settings.startMenuMusicApplyToArchive) ||
+      (isPreviewStartSettingsOpen && !settings.startMenuMusicApplyToSettings);
+    if (isPreviewStartMenuOpen && settings.startMenuBackgroundMusicUrl && !overlayStopsMusic) {
       audio.loop = settings.startMenuMusicLoop !== false;
       audio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
       audio.play().catch(() => undefined);
@@ -320,9 +330,9 @@ export function WebPlaytestPreview({
     }
     fadeAudio(audio.volume, 0, settings.startMenuMusicFadeOut, () => audio.pause());
   }, [
-    previewArchiveOpen,
-    previewStartMenuOpen,
-    previewStartSettingsOpen,
+    isPreviewArchiveOpen,
+    isPreviewStartMenuOpen,
+    isPreviewStartSettingsOpen,
     settings.startMenuBackgroundMusicUrl,
     settings.startMenuMusicApplyToArchive,
     settings.startMenuMusicApplyToSettings,
@@ -379,11 +389,14 @@ export function WebPlaytestPreview({
   }, [root, runtimeNodes]);
 
   React.useEffect(() => {
+    // Edit mode is controlled by requestedSurface below. Resetting these states
+    // here during a preset update briefly exposes the dialogue preview and can
+    // overwrite the editor's current surface selection.
+    if (previewMode !== 'test') return;
+
     setPreviewStartSettingsOpen(false);
     setPreviewArchiveOpen(false);
     setPreviewStartMenuOpen(settings.showStartMenu);
-
-    if (previewMode !== 'test') return;
 
     restartPlaybackSession();
     autoAdvanceHoldNodeRef.current = root?.id || null;
@@ -407,15 +420,15 @@ export function WebPlaytestPreview({
   }, [previewMode, requestedSurface, settings.showStartMenu]);
 
   React.useEffect(() => {
-    const surface: WebPreviewSurface = previewStartMenuOpen
-      ? previewStartSettingsOpen
+    const surface: WebPreviewSurface = isPreviewStartMenuOpen
+      ? isPreviewStartSettingsOpen
         ? 'settings'
-        : previewArchiveOpen
+        : isPreviewArchiveOpen
           ? 'archive'
           : 'start'
       : 'game';
     onSurfaceChange?.(surface);
-  }, [onSurfaceChange, previewArchiveOpen, previewStartMenuOpen, previewStartSettingsOpen]);
+  }, [isPreviewArchiveOpen, isPreviewStartMenuOpen, isPreviewStartSettingsOpen, onSurfaceChange]);
 
   const currentNode =
     currentNodeId && currentNodeId !== 'THE_END'
@@ -1380,7 +1393,7 @@ export function WebPlaytestPreview({
   const dialogueBackgroundStyle = buildSurfaceBackgroundStyle('game');
 
   const renderStartMenuPreview = () => {
-    if (!settings.showStartMenu || !previewStartMenuOpen) return null;
+    if (!settings.showStartMenu || !isPreviewStartMenuOpen) return null;
     const boundsMinX = settings.startMenuPlacementMinX ?? 10;
     const boundsMinY = settings.startMenuPlacementMinY ?? 10;
     const boundsMaxX = settings.startMenuPlacementMaxX ?? 90;
@@ -1518,8 +1531,8 @@ export function WebPlaytestPreview({
           settings={settings}
           previewMode={previewMode}
           selectedStartMenuElementId={selectedStartMenuElementId}
-          archiveOpen={previewArchiveOpen}
-          settingsOpen={previewStartSettingsOpen}
+          archiveOpen={isPreviewArchiveOpen}
+          settingsOpen={isPreviewStartSettingsOpen}
           backgroundClass={startMenuBackgroundClass}
           archiveBackgroundStyle={archiveBackgroundStyle}
           settingsBackgroundStyle={settingsBackgroundStyle}
@@ -1774,7 +1787,9 @@ export function WebPlaytestPreview({
     );
   }
 
-  if (currentNodeId === 'THE_END') {
+  // The start/menu surfaces are an editor overlay and must remain available
+  // even after the story preview reaches its terminal node.
+  if (currentNodeId === 'THE_END' && !isPreviewStartMenuOpen) {
     return (
       <div
         ref={previewRootRef}
@@ -2008,9 +2023,9 @@ export function WebPlaytestPreview({
       </div>
       {previewMode === 'edit' &&
         settings.layoutMode === 'classic' &&
-        !previewStartMenuOpen &&
-        !previewArchiveOpen &&
-        !previewStartSettingsOpen &&
+        !isPreviewStartMenuOpen &&
+        !isPreviewArchiveOpen &&
+        !isPreviewStartSettingsOpen &&
         onSelectCanvasObject && (
           <WebSplitLayoutEditor
             rootRef={previewRootRef}
