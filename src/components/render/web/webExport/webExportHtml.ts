@@ -405,6 +405,26 @@ export const makeIndexHtml = (
     const titleObject = renderObjects.title || {};
     const bodyObject = renderObjects.body || {};
     const nameplateObject = renderObjects.nameplate || {};
+    function objectFill(object, fallback) {
+      const fill = object.fill || {};
+      if (fill.type === "gradient") {
+        const stops = Array.isArray(fill.gradientStops) && fill.gradientStops.length
+          ? fill.gradientStops
+          : [{ color: fill.color || fallback, alpha: fill.alpha == null ? 100 : fill.alpha, position: 0 }, { color: fill.color || fallback, alpha: fill.alpha == null ? 100 : fill.alpha, position: 100 }];
+        return "linear-gradient(" + clamp(fill.gradientAngle, 0, 360, 90) + "deg, " + stops.map(function(stop) { return withAlpha(stop.color || fallback, clamp(stop.alpha, 0, 100, 100) / 100) + " " + clamp(stop.position, 0, 100, 0) + "%"; }).join(", ") + ")";
+      }
+      if (fill.type === "image" && fill.imageUrl) return 'url("' + String(fill.imageUrl).replace(/"/g, '\\"') + '")';
+      return withAlpha(fill.color || fallback, clamp(fill.alpha, 0, 100, 100) / 100);
+    }
+    function objectShadow(object) {
+      const layers = Array.isArray(object.shadows) && object.shadows.length ? object.shadows : (object.shadow ? [object.shadow] : []);
+      return layers.filter(function(shadow) { return shadow && shadow.enabled !== false && clamp(shadow.alpha, 0, 100, 0) > 0; }).map(function(shadow) {
+        const inset = shadow.type === "outer" ? "" : "inset ";
+        const x = shadow.type === "innerBlur" ? 0 : (Number(shadow.x) || 0);
+        const y = shadow.type === "innerBlur" ? 0 : (Number(shadow.y) || 0);
+        return inset + x + "px " + y + "px " + (Number(shadow.blur) || 0) + "px " + (Number(shadow.spread) || 0) + "px " + withAlpha(shadow.color || "#000000", clamp(shadow.alpha, 0, 100, 0) / 100);
+      }).join(", ");
+    }
     function objectTransform(object) {
       const x = Number(object.x) || 0;
       const y = Number(object.y) || 0;
@@ -415,8 +435,12 @@ export const makeIndexHtml = (
     }
     document.documentElement.style.setProperty("--title-size", Math.max(12, Number(titleObject.fontSize ?? style.titleFontSize) || 18) + "px");
     document.documentElement.style.setProperty("--body-size", Math.max(12, Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) + "px");
-    document.documentElement.style.setProperty("--title-color", styleColor(style.titleColor, style.titleColorAlpha ?? 100, "#f8fafc"));
-    document.documentElement.style.setProperty("--body-color", styleColor(style.bodyColor, style.bodyColorAlpha ?? 100, "#e5e7eb"));
+    document.documentElement.style.setProperty("--title-color", objectFill(titleObject, "#f8fafc"));
+    document.documentElement.style.setProperty("--body-color", objectFill(bodyObject, "#e5e7eb"));
+    document.documentElement.style.setProperty("--title-fill", objectFill(titleObject, "#f8fafc"));
+    document.documentElement.style.setProperty("--body-fill", objectFill(bodyObject, "#e5e7eb"));
+    document.documentElement.style.setProperty("--title-shadow", objectShadow(titleObject) || "none");
+    document.documentElement.style.setProperty("--body-shadow", objectShadow(bodyObject) || "none");
     document.documentElement.style.setProperty("--title-font-family", titleObject.fontFamily || style.titleFontFamily || "inherit");
     document.documentElement.style.setProperty("--body-font-family", bodyObject.fontFamily || style.bodyFontFamily || "inherit");
     document.documentElement.style.setProperty("--title-line-height", String(Number(titleObject.lineHeight ?? style.titleLineHeight) || 1.18));
@@ -431,10 +455,11 @@ export const makeIndexHtml = (
     document.documentElement.style.setProperty("--body-height", px(clamp(bodyObject.height, 8, 420, 64), 64));
     document.documentElement.style.setProperty("--title-transform", objectTransform(titleObject));
     document.documentElement.style.setProperty("--body-transform", objectTransform(bodyObject));
-    document.documentElement.style.setProperty("--title-stroke", (Number(style.titleStrokeWidth) || 0) + "px " + colorInputValue(style.titleStrokeColor, "#000000"));
-    document.documentElement.style.setProperty("--body-stroke", (Number(style.bodyStrokeWidth) || 0) + "px " + colorInputValue(style.bodyStrokeColor, "#000000"));
-    document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : "rgba(255,255,255,0.14)");
-    document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : "0 24px 80px rgba(0,0,0,0.30)");
+    document.documentElement.style.setProperty("--title-stroke", titleObject.stroke && titleObject.stroke.enabled ? (Number(titleObject.stroke.width) || 0) + "px " + colorInputValue(titleObject.stroke.color, "#000000") : "0 transparent");
+    document.documentElement.style.setProperty("--body-stroke", bodyObject.stroke && bodyObject.stroke.enabled ? (Number(bodyObject.stroke.width) || 0) + "px " + colorInputValue(bodyObject.stroke.color, "#000000") : "0 transparent");
+    document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : (dialogObject.stroke && dialogObject.stroke.enabled ? withAlpha(dialogObject.stroke.color || "#ffffff", clamp(dialogObject.stroke.alpha, 0, 100, 100) / 100) : "rgba(255,255,255,0.14)"));
+    document.documentElement.style.setProperty("--dialog-border-width", dialogObject.stroke && dialogObject.stroke.enabled ? (Number(dialogObject.stroke.width) || 0) + "px" : "1px");
+    document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : (objectShadow(dialogObject) || "0 24px 80px rgba(0,0,0,0.30)"));
     document.documentElement.style.setProperty("--dialog-backdrop-filter", style.dialogVisible === false ? "none" : "blur(18px)");
     document.documentElement.style.setProperty("--dialog-width", percent(clamp(dialogObject.width ?? style.dialogWidth, 35, 100, 86), 86));
     document.documentElement.style.setProperty("--dialog-height", percent(clamp(dialogObject.height ?? style.dialogHeight, 16, 75, 34), 34));
@@ -447,7 +472,7 @@ export const makeIndexHtml = (
       x: dialogObject.x ?? style.dialogOffsetX,
       y: dialogObject.y ?? style.dialogOffsetY,
     }));
-    document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : dialogueBackground());
+    document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : objectFill(dialogObject, "#111827"));
     const nameplateFontSize = Math.max(10, Number(nameplateObject.fontSize ?? style.nameplateFontSize) || 18);
     const nameplateScale = clamp(nameplateObject.width ?? style.nameplateScale, 55, 320, 100) / 100;
     document.documentElement.style.setProperty("--nameplate-font-size", nameplateFontSize + "px");

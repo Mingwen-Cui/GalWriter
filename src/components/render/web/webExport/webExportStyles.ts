@@ -376,7 +376,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       max-height: min(var(--dialog-height, 34%), calc(100% - 96px));
       padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
       transform: translateX(-50%) var(--dialog-object-transform, translate(0, 0) rotate(0deg) scale(1, 1));
-      border: 1px solid var(--dialog-border-color, rgba(255,255,255,0.12));
+      border: var(--dialog-border-width, 1px) solid var(--dialog-border-color, rgba(255,255,255,0.12));
       border-radius: var(--dialog-radius, 12px);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
       box-shadow: var(--dialog-shadow, 0 24px 80px rgba(0,0,0,0.30));
@@ -384,7 +384,10 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .title {
       margin: 0 0 8px;
-      color: var(--title-color, #f8fafc);
+      color: transparent;
+      background: var(--title-fill, var(--title-color, #f8fafc));
+      -webkit-background-clip: text;
+      background-clip: text;
       font-size: var(--title-size, 18px);
       font-family: var(--title-font-family, inherit);
       font-weight: 900;
@@ -394,11 +397,15 @@ export const WEB_EXPORT_STYLES = String.raw`
       letter-spacing: var(--title-letter-spacing, 0px);
       text-align: var(--title-align, left);
       -webkit-text-stroke: var(--title-stroke, 0 transparent);
+      text-shadow: var(--title-shadow, none);
       overflow-wrap: anywhere;
       transform: var(--title-transform, none);
     }
     .text {
-      color: var(--body-color, #e5e7eb);
+      color: transparent;
+      background: var(--body-fill, var(--body-color, #e5e7eb));
+      -webkit-background-clip: text;
+      background-clip: text;
       font-family: var(--body-font-family, inherit);
       width: var(--body-width, auto);
       height: var(--body-height, auto);
@@ -407,6 +414,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       letter-spacing: var(--body-letter-spacing, 0px);
       text-align: var(--body-align, left);
       -webkit-text-stroke: var(--body-stroke, 0 transparent);
+      text-shadow: var(--body-shadow, none);
       overflow-wrap: anywhere;
       transform: var(--body-transform, none);
     }

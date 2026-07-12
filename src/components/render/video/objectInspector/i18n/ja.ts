@@ -91,6 +91,12 @@ export const renderObjectInspectorJa = {
     opacity: '画像の不透明度',
     resetCrop: 'トリミングをリセット',
   },
+  help: {
+    fill: 'オブジェクトの塗り。', fillSolid: '色と不透明度。', fillGradient: '複数色の塗り。', fillImage: '画像の塗り。',
+    stroke: 'オブジェクトまたは文字の縁取り。', strokeWidth: '縁取りの太さ。', strokeType: '単色またはグラデーション。', strokePosition: '内側、中央、外側。', strokeColor: '縁取りの色。',
+    shadow: '影レイヤー。', shadowType: '外側、内側、柔らかい内側。', shadowOpacity: '影の見え方。', shadowBlur: '縁のぼかし。', shadowX: '水平オフセット。', shadowY: '垂直オフセット。', shadowColor: '影の色。',
+    addShadow: 'レイヤーを追加（最大6層）。', removeShadow: 'このレイヤーを削除。', blendMode: '塗りの混合方法。',
+  },
   disabled: {
     videoOnly: '動画書き出しでは未対応',
   },

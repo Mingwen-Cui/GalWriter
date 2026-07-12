@@ -91,6 +91,12 @@ export const renderObjectInspectorZh = {
     opacity: '图片透明度',
     resetCrop: '重置裁剪',
   },
+  help: {
+    fill: '对象填充。', fillSolid: '颜色与透明度。', fillGradient: '多色填充。', fillImage: '图片填充。',
+    stroke: '对象或文字描边。', strokeWidth: '描边粗细。', strokeType: '纯色或渐变。', strokePosition: '内、中、外位置。', strokeColor: '描边颜色。',
+    shadow: '阴影层。', shadowType: '外、内或柔内。', shadowOpacity: '阴影可见度。', shadowBlur: '边缘柔和度。', shadowX: '水平偏移。', shadowY: '垂直偏移。', shadowColor: '阴影颜色。',
+    addShadow: '添加一层（最多 6 层）。', removeShadow: '移除此层。', blendMode: '填充混合方式。',
+  },
   disabled: {
     videoOnly: '视频导出暂不支持',
   },

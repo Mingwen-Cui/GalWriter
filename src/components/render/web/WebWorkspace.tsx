@@ -264,8 +264,12 @@ export function WebWorkspace({
   };
   const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
     if (typeof window === 'undefined') return true;
-    const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
-    return stored === null ? true : stored === 'true';
+    try {
+      const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
+      return stored === null ? true : stored === 'true';
+    } catch {
+      return true;
+    }
   });
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [startMenuPreviewMode, setStartMenuPreviewMode] = useState<'edit' | 'test'>('edit');
@@ -1050,10 +1054,14 @@ JSON schema:
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      'galwriter-web-export-setting-descriptions',
-      String(showSettingDescriptions),
-    );
+    try {
+      window.localStorage.setItem(
+        'galwriter-web-export-setting-descriptions',
+        String(showSettingDescriptions),
+      );
+    } catch {
+      // Storage can be full because exported assets share this origin. The toggle still works in memory.
+    }
   }, [showSettingDescriptions]);
 
   return (

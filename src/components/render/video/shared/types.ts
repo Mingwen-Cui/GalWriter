@@ -12,7 +12,7 @@ export type TypewriterMode = 'character' | 'word' | 'sentence' | 'line';
 export type RenderEditableObjectKind = 'dialogBox' | 'title' | 'body' | 'nameplate';
 export type RenderFillType = 'solid' | 'gradient' | 'image';
 export type RenderStrokePosition = 'inside' | 'center' | 'outside';
-export type RenderShadowType = 'outer' | 'inner';
+export type RenderShadowType = 'outer' | 'inner' | 'innerBlur';
 export type TimelineScaleMode = 'seconds' | 'frames';
 export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
@@ -175,6 +175,8 @@ export type RenderEditableObject = {
   fill: RenderFillStyle;
   stroke: RenderStrokeStyle;
   shadow: RenderShadowStyle;
+  /** Extra shadow layers.  `shadow` remains the compatibility-first primary layer. */
+  shadows?: RenderShadowStyle[];
   animation: RenderObjectAnimationStyle;
 };
 

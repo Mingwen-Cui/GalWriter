@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { webAnimationStyle } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { RenderEditableObject, RenderFillStyle } from '../video/shared/types';
 
 export const colorInputValue = (value: string, fallback = '#111827') => {
   const trimmed = value.trim();
@@ -24,6 +25,32 @@ export const withAlpha = (hex: string, alpha: number) => {
 
 const textStroke = (width: number, color: string) =>
   width > 0 ? `${width}px ${colorInputValue(color, '#000000')}` : undefined;
+
+const fillPaint = (fill: RenderFillStyle): string => {
+  if (fill.type === 'gradient') {
+    const stops = [...fill.gradientStops]
+      .sort((a, b) => a.position - b.position)
+      .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
+      .join(', ');
+    return `linear-gradient(${fill.gradientAngle}deg, ${stops})`;
+  }
+  if (fill.type === 'image' && fill.imageUrl) return `url("${fill.imageUrl.replace(/"/g, '\\"')}")`;
+  return withAlpha(fill.color, fill.alpha / 100);
+};
+
+const shadowPaint = (object: RenderEditableObject) => {
+  const layers = object.shadows?.length ? object.shadows : [object.shadow];
+  const value = layers
+    .filter((shadow) => shadow.enabled && shadow.alpha > 0)
+    .map((shadow) => {
+      const inset = shadow.type === 'outer' ? '' : 'inset ';
+      const x = shadow.type === 'innerBlur' ? 0 : shadow.x;
+      const y = shadow.type === 'innerBlur' ? 0 : shadow.y;
+      return `${inset}${x}px ${y}px ${shadow.blur}px ${shadow.spread}px ${withAlpha(shadow.color, shadow.alpha / 100)}`;
+    })
+    .join(', ');
+  return value || undefined;
+};
 
 export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSProperties => {
   const gradientStops =
@@ -66,33 +93,27 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
 export const buildTitleStyle = (renderStyle: RenderStyle): CSSProperties => ({
   ...textObjectStyle(renderStyle, 'title'),
   fontFamily: renderStyle.titleFontFamily,
-  color: withAlpha(
-    colorInputValue(renderStyle.titleColor),
-    (renderStyle.titleColorAlpha ?? 100) / 100,
-  ),
-  WebkitTextStroke: textStroke(renderStyle.titleStrokeWidth, renderStyle.titleStrokeColor),
+  color: textColor(renderStyle, 'title'),
   fontSize: renderStyle.titleFontSize,
   letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
   lineHeight: renderStyle.titleLineHeight,
   textAlign: renderStyle.titleAlign,
   overflowWrap: 'anywhere',
   ...webAnimationStyle(renderStyle.titleAnimation),
+  textShadow: shadowPaint(getRenderObjects(renderStyle).title),
 });
 
 export const buildBodyStyle = (renderStyle: RenderStyle): CSSProperties => ({
   ...textObjectStyle(renderStyle, 'body'),
   fontFamily: renderStyle.bodyFontFamily,
-  color: withAlpha(
-    colorInputValue(renderStyle.bodyColor),
-    (renderStyle.bodyColorAlpha ?? 100) / 100,
-  ),
-  WebkitTextStroke: textStroke(renderStyle.bodyStrokeWidth, renderStyle.bodyStrokeColor),
+  color: textColor(renderStyle, 'body'),
   fontSize: renderStyle.bodyFontSize,
   letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
   lineHeight: renderStyle.bodyLineHeight,
   textAlign: renderStyle.bodyAlign,
   overflowWrap: 'anywhere',
   ...webAnimationStyle(renderStyle.bodyAnimation),
+  textShadow: shadowPaint(getRenderObjects(renderStyle).body),
 });
 
 export const buildDialogueShellStyle = (
@@ -102,7 +123,15 @@ export const buildDialogueShellStyle = (
   const object = getRenderObjects(renderStyle).dialogBox;
   return {
     ...(object.visible
-      ? buildDialogueBackgroundStyle(renderStyle)
+      ? {
+          background: fillPaint(object.fill),
+          backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
+          backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
+          border: object.stroke.enabled && object.stroke.type === 'solid'
+            ? `${object.stroke.width}px solid ${withAlpha(object.stroke.color, object.stroke.alpha / 100)}`
+            : undefined,
+          boxShadow: shadowPaint(object),
+        }
       : {
           background: 'transparent',
           backgroundColor: 'transparent',
@@ -147,5 +176,23 @@ const textObjectStyle = (renderStyle: RenderStyle, kind: 'title' | 'body'): CSSP
       .filter(Boolean)
       .join(' '),
     fontWeight: object.fontWeight,
+    ...(object.fill.type === 'gradient' || object.fill.type === 'image'
+      ? {
+          backgroundImage: fillPaint(object.fill),
+          backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
+          backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+        }
+      : {}),
+    ...(object.stroke.enabled && object.stroke.type === 'solid'
+      ? { WebkitTextStroke: textStroke(object.stroke.width, object.stroke.color) }
+      : {}),
   };
+};
+
+const textColor = (renderStyle: RenderStyle, kind: 'title' | 'body') => {
+  const fill = getRenderObjects(renderStyle)[kind].fill;
+  return fill.type === 'solid' ? withAlpha(fill.color, fill.alpha / 100) : 'transparent';
 };

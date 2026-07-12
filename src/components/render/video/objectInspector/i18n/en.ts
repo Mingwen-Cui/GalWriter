@@ -91,6 +91,12 @@ export const renderObjectInspectorEn = {
     opacity: 'Image opacity',
     resetCrop: 'Reset crop',
   },
+  help: {
+    fill: 'Object paint.', fillSolid: 'Color and opacity.', fillGradient: 'Multi-color paint.', fillImage: 'Image paint.',
+    stroke: 'Object or text outline.', strokeWidth: 'Outline thickness.', strokeType: 'Solid or gradient.', strokePosition: 'Inside, center, or outside.', strokeColor: 'Outline color.',
+    shadow: 'Shadow layers.', shadowType: 'Outer, inner, or soft inner.', shadowOpacity: 'Shadow visibility.', shadowBlur: 'Edge softness.', shadowX: 'Horizontal offset.', shadowY: 'Vertical offset.', shadowColor: 'Shadow color.',
+    addShadow: 'Add a layer (up to 6).', removeShadow: 'Remove this layer.', blendMode: 'How paint blends.',
+  },
   disabled: {
     videoOnly: 'Not available for video export yet',
   },
