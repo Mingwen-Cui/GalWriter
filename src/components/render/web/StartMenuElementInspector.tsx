@@ -1730,7 +1730,13 @@ export function GradientEditorPopover({
           };
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
   const [activeStopId, setActiveStopId] = useState(orderedStops[0]?.id || '');
+  const [colorPopoverStopId, setColorPopoverStopId] = useState<string | null>(null);
   const activeStop = orderedStops.find((stop) => stop.id === activeStopId) || orderedStops[0];
+  const colorPopoverStop = orderedStops.find((stop) => stop.id === colorPopoverStopId);
+  const colorText = renderObjectText(language).popover;
+  useEffect(() => {
+    if (colorPopoverStopId && !colorPopoverStop) setColorPopoverStopId(null);
+  }, [colorPopoverStop, colorPopoverStopId]);
   const previewStops = orderedStops
     .map((stop) => `${alphaColor(stop.color, stop.alpha, '#ffffff')} ${stop.position}%`)
     .join(', ');
@@ -1785,7 +1791,7 @@ export function GradientEditorPopover({
   };
 
   return (
-    <div className="rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
+    <div className="relative rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
       <div className="ml-auto w-[366px] max-w-full">
       <div className="grid grid-cols-[112px_minmax(0,1fr)_40px_40px] gap-2">
         <label className="relative flex h-9 min-w-0 items-center gap-2 rounded-lg bg-white px-2 text-xs font-bold text-sky-950" title={copy.shape}>
@@ -1798,8 +1804,8 @@ export function GradientEditorPopover({
             <option value="diamond">{copy.diamond}</option>
           </select>
         </label>
-        <div className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white">
-          <span className="px-2 text-[11px] font-black text-sky-900/70">{copy.angle}</span>
+        <div className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white" title={copy.angle}>
+          <RotateCw className="justify-self-center h-3.5 w-3.5 text-sky-900/70" aria-hidden="true" />
           <DragSizeControl
             label={copy.angle}
             value={angle}
@@ -1808,7 +1814,7 @@ export function GradientEditorPopover({
             step={1}
             unit="°"
             onChange={onAngleChange}
-            className="h-full rounded-none bg-white px-2 text-center"
+            className="h-full rounded-none bg-white px-2 text-center text-xs"
           />
         </div>
         <button
@@ -1878,16 +1884,19 @@ export function GradientEditorPopover({
                 step={1}
                 unit="%"
                 onChange={(position) => updateStop(stop.id, { position })}
-                className="h-10 rounded-xl bg-white px-2 text-center"
+                className="h-10 rounded-xl bg-white px-2 text-center text-xs"
               />
               <div className="grid h-10 min-w-0 grid-cols-[48px_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/70 bg-white">
-              <input
-                type="color"
+              <button
+                type="button"
                 title={copy.color}
-                value={color}
-                onChange={(event) => updateStop(stop.id, { color: event.target.value.toLowerCase() })}
-                onFocus={() => setActiveStopId(stop.id)}
-                className="h-10 w-10 self-center justify-self-center cursor-pointer rounded-lg border-0 bg-white p-0"
+                aria-label={copy.color}
+                onClick={() => {
+                  setActiveStopId(stop.id);
+                  setColorPopoverStopId(stop.id);
+                }}
+                className="m-1 rounded-lg border border-slate-200 shadow-inner"
+                style={{ backgroundColor: color }}
               />
               <input
                 value={toHex8(color, stop.alpha)}
@@ -1899,7 +1908,7 @@ export function GradientEditorPopover({
                   }
                 }}
                 onFocus={() => setActiveStopId(stop.id)}
-                className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium outline-none"
+                className="h-full min-w-0 border-0 bg-white px-3 text-xs font-medium outline-none"
               />
               </div>
               <DragSizeControl
@@ -1910,7 +1919,7 @@ export function GradientEditorPopover({
                 step={1}
                 unit="%"
                 onChange={(alpha) => updateStop(stop.id, { alpha })}
-                className="h-10 rounded-xl bg-white px-2 text-center"
+                className="h-10 rounded-xl bg-white px-2 text-center text-xs"
               />
               <button
                 type="button"
@@ -1927,6 +1936,18 @@ export function GradientEditorPopover({
         })}
       </div>
       </div>
+      {colorPopoverStop && (
+        <div className="absolute left-3 top-[calc(100%+8px)] z-20 w-[min(340px,calc(100vw-24px))]">
+          <SolidColorPopover
+            tone="fill"
+            text={colorText}
+            color={colorPopoverStop.color}
+            alpha={colorPopoverStop.alpha}
+            onColorChange={(color) => updateStop(colorPopoverStop.id, { color })}
+            onAlphaChange={(alpha) => updateStop(colorPopoverStop.id, { alpha })}
+          />
+        </div>
+      )}
     </div>
   );
 }

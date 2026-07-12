@@ -552,6 +552,9 @@ function ToolbarElement({
   onAction: () => void;
 }) {
   const editable = previewMode === 'edit';
+  // Editing overlays include their own buttons (rotate, visibility, resize).
+  // The editable target therefore cannot itself be a <button>.
+  const ElementContainer = editable ? 'div' : 'button';
   const [editingText, setEditingText] = useState(false);
   const textEditorRef = useRef<HTMLSpanElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -712,8 +715,8 @@ function ToolbarElement({
   };
 
   return (
-    <button
-      type="button"
+    <ElementContainer
+      {...(!editable ? { type: 'button', disabled } : {})}
       className={`pointer-events-auto absolute text-xs font-black text-white ${
         element.kind === 'text'
           ? 'bg-transparent shadow-none'
@@ -753,7 +756,6 @@ function ToolbarElement({
         ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
         cursor: editable ? 'grab' : undefined,
       }}
-      disabled={!editable && disabled}
       onPointerDown={(event) => beginDrag(event, 'move')}
       onClick={(event) => {
         event.stopPropagation();
@@ -851,7 +853,7 @@ function ToolbarElement({
           onResizePointerDown={(event, handle) => beginDrag(event, 'resize', handle)}
         />
       )}
-    </button>
+    </ElementContainer>
   );
 }
 

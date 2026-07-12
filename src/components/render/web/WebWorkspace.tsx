@@ -319,6 +319,7 @@ export function WebWorkspace({
   const webExperiencePresets = useMemo(
     () =>
       buildWebExperiencePresets({
+        language,
         title: webProjectName || t('开始', 'スタート', 'Start'),
         subtitle: t('没有存档', 'セーブなし', 'No save'),
         save: t('存档', 'セーブ', 'Save'),
@@ -1051,18 +1052,6 @@ JSON schema:
       setAiStartMenuDesigning(false);
     }
   };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(
-        'galwriter-web-export-setting-descriptions',
-        String(showSettingDescriptions),
-      );
-    } catch {
-      // Storage can be full because exported assets share this origin. The toggle still works in memory.
-    }
-  }, [showSettingDescriptions]);
 
   return (
     <main className="min-h-0 grid grid-cols-[minmax(0,1fr)_minmax(300px,380px)] bg-[var(--vr-bg)]">

@@ -86,7 +86,7 @@ export const buildRehearsalArchivePageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
-  return [
+  const elements: WebMenuElement[] = [
     text('archive-title', 'title', t('存档', 'セーブ', 'Save'), 10, 8, 32, 8, 28),
     button(
       'archive-back',
@@ -127,6 +127,54 @@ export const buildRehearsalArchivePageElements = (
       true,
     ),
   ];
+  return elements.map((element) => {
+    if (element.role === 'title') {
+      return { ...element, x: 18, y: 24, width: 64, height: 12, fontSize: 46 };
+    }
+    if (element.role === 'subtitle') {
+      return { ...element, x: 18, y: 38, width: 64, height: 6, fontSize: 18 };
+    }
+    const gradient =
+      element.role === 'new'
+        ? { start: '#38bdf8', end: '#2563eb', y: 57 }
+        : element.role === 'save'
+          ? { start: '#22d3ee', end: '#0f766e', y: 68 }
+          : element.role === 'settings'
+            ? { start: '#a78bfa', end: '#7c3aed', y: 79 }
+            : null;
+    if (!gradient) return element;
+    return {
+      ...element,
+      text: element.role === 'save' ? t('档案', 'アーカイブ', 'Archive') : element.text,
+      x: 32,
+      y: gradient.y,
+      width: 36,
+      height: 9,
+      fontSize: 18,
+      textColor: '#ffffff',
+      backgroundType: 'gradient' as const,
+      backgroundColor: gradient.start,
+      backgroundGradientStart: gradient.start,
+      backgroundGradientEnd: gradient.end,
+      backgroundGradientAngle: 135,
+      backgroundGradientShape: 'linear' as const,
+      backgroundGradientStops: [
+        { id: `${element.id}-start`, color: gradient.start, alpha: 100, position: 0 },
+        { id: `${element.id}-end`, color: gradient.end, alpha: 100, position: 100 },
+      ],
+      borderColor: 'rgba(255,255,255,0.30)',
+      borderRadius: 14,
+    };
+  }).sort((left, right) => {
+    const order: Record<string, number> = {
+      title: 0,
+      subtitle: 1,
+      new: 2,
+      save: 3,
+      settings: 4,
+    };
+    return (order[left.role || ''] ?? 99) - (order[right.role || ''] ?? 99);
+  });
 };
 
 export const buildRehearsalSettingsPageElements = (

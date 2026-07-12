@@ -92,6 +92,9 @@ export const renderObjectInspectorEn = {
     resetCrop: 'Reset crop',
   },
   help: {
+    visible: 'Show or hide.', x: 'Horizontal position.', y: 'Vertical position.', width: 'Object width.', height: 'Object height.', radius: 'Corner roundness.', rotation: 'Rotation angle.', flipX: 'Mirror horizontally.', flipY: 'Mirror vertically.',
+    font: 'Font family.', fontSize: 'Text size.', fontWeight: 'Text thickness.', letterSpacing: 'Space between letters.', lineHeight: 'Space between lines.', underline: 'Underline text.', strikethrough: 'Strike through text.',
+    duration: 'Animation duration.', typewriter: 'Typing unit.', insideDialog: 'Place inside the dialog.', followCharacter: 'Follow character position.', textGap: 'Gap before body text.',
     fill: 'Object paint.', fillSolid: 'Color and opacity.', fillGradient: 'Multi-color paint.', fillImage: 'Image paint.',
     stroke: 'Object or text outline.', strokeWidth: 'Outline thickness.', strokeType: 'Solid or gradient.', strokePosition: 'Inside, center, or outside.', strokeColor: 'Outline color.',
     shadow: 'Shadow layers.', shadowType: 'Outer, inner, or soft inner.', shadowOpacity: 'Shadow visibility.', shadowBlur: 'Edge softness.', shadowX: 'Horizontal offset.', shadowY: 'Vertical offset.', shadowColor: 'Shadow color.',

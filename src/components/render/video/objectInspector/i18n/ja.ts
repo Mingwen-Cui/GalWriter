@@ -92,6 +92,9 @@ export const renderObjectInspectorJa = {
     resetCrop: 'トリミングをリセット',
   },
   help: {
+    visible: '表示/非表示。', x: '水平位置。', y: '垂直位置。', width: 'オブジェクトの幅。', height: 'オブジェクトの高さ。', radius: '角の丸み。', rotation: '回転角度。', flipX: '左右反転。', flipY: '上下反転。',
+    font: 'フォント。', fontSize: '文字サイズ。', fontWeight: '文字の太さ。', letterSpacing: '字間。', lineHeight: '行間。', underline: '下線を追加。', strikethrough: '取り消し線を追加。',
+    duration: 'アニメーション時間。', typewriter: '入力単位。', insideDialog: '会話枠の内側に配置。', followCharacter: 'キャラクター位置に追従。', textGap: '本文までの間隔。',
     fill: 'オブジェクトの塗り。', fillSolid: '色と不透明度。', fillGradient: '複数色の塗り。', fillImage: '画像の塗り。',
     stroke: 'オブジェクトまたは文字の縁取り。', strokeWidth: '縁取りの太さ。', strokeType: '単色またはグラデーション。', strokePosition: '内側、中央、外側。', strokeColor: '縁取りの色。',
     shadow: '影レイヤー。', shadowType: '外側、内側、柔らかい内側。', shadowOpacity: '影の見え方。', shadowBlur: '縁のぼかし。', shadowX: '水平オフセット。', shadowY: '垂直オフセット。', shadowColor: '影の色。',

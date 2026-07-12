@@ -107,8 +107,24 @@ export function WebSplitLayoutEditor({ rootRef, selection, onSelectionChange, ca
       const initialX = canvasSettings.sceneScaleX;
       const initialY = canvasSettings.sceneScaleY;
       bindWindowDrag((moveEvent) => {
-        const nextX = changesWidth ? clamp(initialX + (moveEvent.clientX - startX) * directionX / 3, 25, 400) : initialX;
-        const nextY = changesHeight ? clamp(initialY + (moveEvent.clientY - startY) * directionY / 3, 25, 400) : initialY;
+        const deltaX = (moveEvent.clientX - startX) * directionX / 3;
+        const deltaY = (moveEvent.clientY - startY) * directionY / 3;
+        const nextX = moveEvent.shiftKey
+          ? (changesWidth ? clamp(initialX + deltaX, 25, 400) : initialX)
+          : (() => {
+              const factor = changesHeight && (!changesWidth || Math.abs(deltaY / Math.max(initialY, 1)) > Math.abs(deltaX / Math.max(initialX, 1)))
+                ? (initialY + deltaY) / Math.max(initialY, 1)
+                : (initialX + deltaX) / Math.max(initialX, 1);
+              return clamp(initialX * factor, 25, 400);
+            })();
+        const nextY = moveEvent.shiftKey
+          ? (changesHeight ? clamp(initialY + deltaY, 25, 400) : initialY)
+          : (() => {
+              const factor = changesHeight && (!changesWidth || Math.abs(deltaY / Math.max(initialY, 1)) > Math.abs(deltaX / Math.max(initialX, 1)))
+                ? (initialY + deltaY) / Math.max(initialY, 1)
+                : (initialX + deltaX) / Math.max(initialX, 1);
+              return clamp(initialY * factor, 25, 400);
+            })();
         onCanvasSettingsChange({ sceneScaleX: nextX, sceneScaleY: nextY, sceneScale: Math.round((nextX + nextY) / 2) });
       });
       return;

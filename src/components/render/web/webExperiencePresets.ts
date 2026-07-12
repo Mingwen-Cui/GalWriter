@@ -1,3 +1,4 @@
+import type { Language } from '../../../lib/i18n';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 
 export type WebPresetScope = 'all' | 'current';
@@ -15,6 +16,7 @@ export type WebExperiencePreset = {
 };
 
 type PresetLabels = {
+  language: Language;
   title: string;
   subtitle: string;
   save: string;
@@ -29,6 +31,31 @@ type PresetLabels = {
   settingsAuto: string;
   settingsSpeed: string;
   settingsControls: string;
+};
+
+type StartCopyTheme = 'night' | 'campus' | 'minimal';
+
+const makePresetLabels = (labels: PresetLabels, theme: StartCopyTheme): PresetLabels => {
+  const copy =
+    labels.language === 'ja'
+      ? {
+          night: ['夜のはじまり', '静寂の向こうへ', '物語を始める', '記録を見る', '環境設定'],
+          campus: ['放課後のページ', '今日の物語をはじめよう', 'はじめる', '思い出を見る', '個人設定'],
+          minimal: ['STORY', '項目を選択してください', 'はじめる', '記録', '設定'],
+        }
+      : labels.language === 'en'
+        ? {
+            night: ['A Quiet Night', 'The story begins beyond the silence.', 'Begin story', 'View archive', 'Preferences'],
+            campus: ['After-school Pages', 'Today\'s story starts here.', 'Start game', 'My archive', 'Personalize'],
+            minimal: ['STORY', 'Choose where to continue.', 'Start', 'Archive', 'Settings'],
+          }
+        : {
+            night: ['静夜未眠', '迷雾之中，故事刚刚开始', '开始新篇', '查看档案', '偏好设置'],
+            campus: ['放学后的故事', '今天的故事，从这里开始', '开始游戏', '我的档案', '个性设置'],
+            minimal: ['故事入口', '请选择一项继续', '开始', '档案', '设置'],
+          };
+  const [title, subtitle, newGame, save, settings] = copy[theme];
+  return { ...labels, title, subtitle, newGame, save, settings };
 };
 
 const textElement = (
@@ -116,119 +143,201 @@ const makeStartElements = (
   choiceTextColor: string,
   variant: 'center' | 'left' | 'quiet',
 ): WebMenuElement[] => {
+  const gradientButton = (
+    config: Parameters<typeof buttonElement>[0],
+    start: string,
+    end: string,
+  ): WebMenuElement => ({
+    ...buttonElement(config),
+    backgroundType: 'gradient',
+    backgroundColor: start,
+    backgroundGradientStart: start,
+    backgroundGradientEnd: end,
+    backgroundGradientAngle: 135,
+    backgroundGradientShape: 'linear',
+    backgroundGradientStops: [
+      { id: `${config.id}-start`, color: start, alpha: 100, position: 0 },
+      { id: `${config.id}-end`, color: end, alpha: 100, position: 100 },
+    ],
+    borderColor: 'rgba(255,255,255,0.34)',
+  });
+
   if (variant === 'left') {
     return [
-      textElement('title', 'title', labels.title, 9, 22, 48, 12, 38),
-      textElement('subtitle', 'subtitle', labels.subtitle, 10, 36, 34, 5, 13, '#dbeafe'),
-      buttonElement({
-        id: 'save',
-        role: 'save',
-        text: labels.save,
-        x: 9,
-        y: 58,
-        width: 28,
-        height: 9,
-        primary: true,
-        disabled: true,
-        textColor: choiceTextColor,
-        backgroundColor: choiceColor,
-      }),
-      buttonElement({
+      {
+        ...textElement('title', 'title', labels.title, 9, 18, 50, 13, 42, '#0f172a'),
+        textAlign: 'left',
+        fontFamily: '"Microsoft YaHei", "Noto Sans SC", sans-serif',
+        fontWeight: 800,
+        letterSpacing: 0.5,
+      },
+      {
+        ...textElement('subtitle', 'subtitle', labels.subtitle, 10, 33, 38, 6, 15, '#155e75'),
+        textAlign: 'left',
+        fontFamily: '"Microsoft YaHei", "Noto Sans SC", sans-serif',
+        fontWeight: 600,
+        letterSpacing: 1.2,
+      },
+      gradientButton({
         id: 'new',
         role: 'new',
         text: labels.newGame,
         x: 9,
-        y: 69,
-        width: 28,
+        y: 55,
+        width: 30,
         height: 9,
-      }),
-      buttonElement({
+        fontSize: 16,
+        textColor: choiceTextColor,
+        borderRadius: 18,
+      }, '#fb923c', '#ea580c'),
+      gradientButton({
+        id: 'save',
+        role: 'save',
+        text: labels.save,
+        x: 9,
+        y: 67,
+        width: 30,
+        height: 9,
+        disabled: true,
+        fontSize: 16,
+        textColor: choiceTextColor,
+        borderRadius: 18,
+      }, '#2dd4bf', '#0f766e'),
+      gradientButton({
         id: 'settings',
         role: 'settings',
         text: labels.settings,
         x: 9,
-        y: 80,
-        width: 28,
+        y: 79,
+        width: 30,
         height: 9,
-      }),
+        fontSize: 16,
+        textColor: choiceTextColor,
+        borderRadius: 18,
+      }, '#38bdf8', '#0284c7'),
     ];
   }
 
   if (variant === 'quiet') {
     return [
-      textElement('title', 'title', labels.title, 29, 27, 42, 10, 30),
-      textElement('subtitle', 'subtitle', labels.subtitle, 35, 39, 30, 5, 12, '#cbd5e1'),
-      buttonElement({
-        id: 'save',
-        role: 'save',
-        text: labels.save,
-        x: 37,
-        y: 61,
-        width: 26,
-        height: 8,
-        primary: true,
-        disabled: true,
-        textColor: choiceTextColor,
-        backgroundColor: choiceColor,
-        borderRadius: 18,
-      }),
-      buttonElement({
+      {
+        ...textElement('title', 'title', labels.title, 28, 28, 44, 10, 34, '#e2e8f0'),
+        textAlign: 'center',
+        fontFamily: 'ui-monospace, "Cascadia Mono", "Noto Sans Mono CJK SC", monospace',
+        fontWeight: 600,
+        letterSpacing: 2.4,
+      },
+      {
+        ...textElement('subtitle', 'subtitle', labels.subtitle, 30, 40, 40, 5, 13, '#94a3b8'),
+        textAlign: 'center',
+        fontFamily: 'ui-monospace, "Cascadia Mono", "Noto Sans Mono CJK SC", monospace',
+        fontWeight: 400,
+        letterSpacing: 1.6,
+      },
+      gradientButton({
         id: 'new',
         role: 'new',
         text: labels.newGame,
-        x: 37,
-        y: 71,
-        width: 26,
-        height: 8,
-        borderRadius: 18,
-      }),
-      buttonElement({
+        x: 31,
+        y: 65,
+        width: 11,
+        height: 7,
+        fontSize: 14,
+        textColor: choiceTextColor,
+        borderRadius: 4,
+      }, '#475569', '#1e293b'),
+      gradientButton({
+        id: 'save',
+        role: 'save',
+        text: labels.save,
+        x: 44.5,
+        y: 65,
+        width: 11,
+        height: 7,
+        disabled: true,
+        fontSize: 14,
+        textColor: choiceTextColor,
+        borderRadius: 4,
+      }, '#64748b', '#334155'),
+      gradientButton({
         id: 'settings',
         role: 'settings',
         text: labels.settings,
-        x: 37,
-        y: 81,
-        width: 26,
-        height: 8,
-        borderRadius: 18,
-      }),
+        x: 58,
+        y: 65,
+        width: 11,
+        height: 7,
+        fontSize: 14,
+        textColor: choiceTextColor,
+        borderRadius: 4,
+      }, '#94a3b8', '#475569'),
     ];
   }
 
   return [
-    textElement('title', 'title', labels.title, 22, 30, 56, 12, 34),
-    textElement('subtitle', 'subtitle', labels.subtitle, 22, 43, 56, 5, 13, '#bae6fd'),
-    buttonElement({
-      id: 'save',
-      role: 'save',
-      text: labels.save,
-      x: 33,
-      y: 61,
-      width: 34,
-      height: 10,
-      primary: true,
-      disabled: true,
-      textColor: choiceTextColor,
-      backgroundColor: choiceColor,
-    }),
-    buttonElement({
+    {
+      ...textElement('title', 'title', labels.title, 18, 20, 64, 13, 46, '#e0e7ff'),
+      textAlign: 'center',
+      fontFamily: 'ui-serif, "Noto Serif SC", "Songti SC", serif',
+      fontWeight: 700,
+      letterSpacing: 2,
+      shadowEnabled: true,
+      shadowColor: '#4f46e5',
+      shadowOpacity: 58,
+      shadowBlur: 20,
+      shadowOffsetX: 0,
+      shadowOffsetY: 4,
+    },
+    {
+      ...textElement('subtitle', 'subtitle', labels.subtitle, 20, 35, 60, 6, 18, '#c4b5fd'),
+      textAlign: 'center',
+      fontFamily: 'ui-serif, "Noto Serif SC", "Songti SC", serif',
+      fontWeight: 500,
+      letterSpacing: 2.8,
+      shadowEnabled: true,
+      shadowColor: '#4f46e5',
+      shadowOpacity: 42,
+      shadowBlur: 10,
+      shadowOffsetX: 0,
+      shadowOffsetY: 2,
+    },
+    gradientButton({
       id: 'new',
       role: 'new',
       text: labels.newGame,
-      x: 33,
-      y: 73,
-      width: 34,
+      x: 30,
+      y: 55,
+      width: 40,
       height: 10,
-    }),
-    buttonElement({
+      fontSize: 18,
+      textColor: choiceTextColor,
+      borderRadius: 12,
+    }, '#6366f1', '#312e81'),
+    gradientButton({
+      id: 'save',
+      role: 'save',
+      text: labels.save,
+      x: 30,
+      y: 68,
+      width: 40,
+      height: 10,
+      disabled: true,
+      fontSize: 18,
+      textColor: choiceTextColor,
+      borderRadius: 12,
+    }, '#0f766e', '#164e63'),
+    gradientButton({
       id: 'settings',
       role: 'settings',
       text: labels.settings,
-      x: 33,
-      y: 85,
-      width: 34,
+      x: 30,
+      y: 81,
+      width: 40,
       height: 10,
-    }),
+      fontSize: 18,
+      textColor: choiceTextColor,
+      borderRadius: 12,
+    }, '#2563eb', '#1e3a8a'),
   ];
 };
 
@@ -334,22 +443,22 @@ export const buildWebExperiencePresets = (labels: PresetLabels): WebExperiencePr
       showStartMenu: true,
       startMenuTemplate: 'cinematic',
       startMenuBackgroundType: 'gradient',
-      startMenuBackgroundGradientStart: '#0f172a',
-      startMenuBackgroundGradientEnd: '#0891b2',
-      startMenuBackgroundGradientAngle: 135,
-      startMenuElements: makeStartElements(labels, '#0ea5e9', '#ffffff', 'center'),
+      startMenuBackgroundGradientStart: '#020617',
+      startMenuBackgroundGradientEnd: '#312e81',
+      startMenuBackgroundGradientAngle: 145,
+      startMenuElements: makeStartElements(makePresetLabels(labels, 'night'), '#0ea5e9', '#ffffff', 'center'),
       archivePageElements: makeArchiveElements(labels, '#0ea5e9', '#ffffff'),
       settingsPageElements: makeSettingsElements(labels, '#0ea5e9', '#ffffff'),
       blurBackground: true,
       skipSingleChoicePopup: true,
     },
     renderStyle: {
-      panelColor: '#111827',
-      panelColorAlpha: 82,
-      dialogRadius: 24,
-      titleColor: '#ffffff',
-      bodyColor: '#f8fafc',
-      nameplateColor: '#0ea5e9',
+      panelColor: '#080b1d',
+      panelColorAlpha: 90,
+      dialogRadius: 10,
+      titleColor: '#e0e7ff',
+      bodyColor: '#e2e8f0',
+      nameplateColor: '#6366f1',
     },
   },
   {
@@ -363,22 +472,22 @@ export const buildWebExperiencePresets = (labels: PresetLabels): WebExperiencePr
       showStartMenu: true,
       startMenuTemplate: 'glass',
       startMenuBackgroundType: 'gradient',
-      startMenuBackgroundGradientStart: '#164e63',
-      startMenuBackgroundGradientEnd: '#5eead4',
-      startMenuBackgroundGradientAngle: 35,
-      startMenuElements: makeStartElements(labels, '#14b8a6', '#ffffff', 'left'),
+      startMenuBackgroundGradientStart: '#e0f2fe',
+      startMenuBackgroundGradientEnd: '#99f6e4',
+      startMenuBackgroundGradientAngle: 160,
+      startMenuElements: makeStartElements(makePresetLabels(labels, 'campus'), '#14b8a6', '#ffffff', 'left'),
       archivePageElements: makeArchiveElements(labels, '#14b8a6', '#ffffff'),
       settingsPageElements: makeSettingsElements(labels, '#14b8a6', '#ffffff'),
       blurBackground: true,
       skipSingleChoicePopup: true,
     },
     renderStyle: {
-      panelColor: '#0f172a',
-      panelColorAlpha: 76,
-      dialogRadius: 22,
-      titleColor: '#ffffff',
-      bodyColor: '#f8fafc',
-      nameplateColor: '#14b8a6',
+      panelColor: '#ecfeff',
+      panelColorAlpha: 92,
+      dialogRadius: 30,
+      titleColor: '#0f172a',
+      bodyColor: '#155e75',
+      nameplateColor: '#0f766e',
     },
   },
   {
@@ -392,20 +501,20 @@ export const buildWebExperiencePresets = (labels: PresetLabels): WebExperiencePr
       showStartMenu: true,
       startMenuTemplate: 'minimal',
       startMenuBackgroundType: 'solid',
-      startMenuBackgroundColor: '#111827',
-      startMenuElements: makeStartElements(labels, '#475569', '#ffffff', 'quiet'),
+      startMenuBackgroundColor: '#0f172a',
+      startMenuElements: makeStartElements(makePresetLabels(labels, 'minimal'), '#475569', '#ffffff', 'quiet'),
       archivePageElements: makeArchiveElements(labels, '#475569', '#ffffff'),
       settingsPageElements: makeSettingsElements(labels, '#475569', '#ffffff'),
       blurBackground: false,
       skipSingleChoicePopup: true,
     },
     renderStyle: {
-      panelColor: '#0f172a',
-      panelColorAlpha: 70,
-      dialogRadius: 16,
-      titleColor: '#ffffff',
-      bodyColor: '#e5e7eb',
-      nameplateColor: '#475569',
+      panelColor: '#111827',
+      panelColorAlpha: 62,
+      dialogRadius: 4,
+      titleColor: '#f8fafc',
+      bodyColor: '#cbd5e1',
+      nameplateColor: '#64748b',
     },
   },
 ];

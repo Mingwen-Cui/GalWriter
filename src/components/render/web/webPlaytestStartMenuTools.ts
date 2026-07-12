@@ -95,9 +95,12 @@ export const buildDefaultStartMenuElements = ({
     .filter((element) => element.kind !== 'button' || actionByRole.has(element.role || ''))
     .map((element) => {
       const action = actionByRole.get(element.role || '');
-      return action
+      const resolved = action
         ? { ...element, text: action.label, disabled: action.disabled, primary: action.primary }
         : element;
+      return resolved.role === 'save'
+        ? { ...resolved, text: t('档案', 'アーカイブ', 'Archive'), primary: false }
+        : resolved;
     });
 };
 

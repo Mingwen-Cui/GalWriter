@@ -93,7 +93,9 @@ export function StartMenuBackgroundInspector({
           labels={text.option}
           onChange={(type) => {
             setBackgroundType(type);
-            setOpenEditor(openEditor === type ? null : type);
+            // A fill type is also its editor entry point.  Keeping it open makes
+            // the selected type behave consistently with the reference control.
+            setOpenEditor(type);
           }}
         />
       }
@@ -101,49 +103,54 @@ export function StartMenuBackgroundInspector({
       {showDescriptions && (
         <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
       )}
-      {background.type === 'solid' && (
-        <InlineColorControl
-          label={text.popover.solidTitle}
-          color={background.color}
-          alpha={parseColorValue(background.color).alpha}
-          alphaLabel={text.field.opacity}
-          hexLabel={text.popover.hex}
-          onColorChange={(value) => {
-            const current = parseColorValue(background.color);
-            updateBackgroundSetting(
-              updateWebSettings,
-              surface,
-              'color',
-              toHex8(value, current.alpha),
-            );
-          }}
-          onAlphaChange={(alpha) =>
-            updateBackgroundSetting(
-              updateWebSettings,
-              surface,
-              'color',
-              toHex8(background.color, alpha),
-            )
-          }
-          onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
-        />
-      )}
-      {background.type === 'gradient' && (
-        <InlineGradientControl
-          label={text.popover.gradientTitle}
-          stops={gradientStops}
-          onOpen={() => setOpenEditor(openEditor === 'gradient' ? null : 'gradient')}
-          onAlphaChange={(alpha) =>
-            updateBackgroundSetting(
-              updateWebSettings,
-              surface,
-              'gradientStops',
-              gradientStops.map((stop) => ({ ...stop, alpha })),
-            )
-          }
-        />
-      )}
-      {background.type === 'image' && <BackgroundPreview settings={settings} surface={surface} />}
+      <div className="grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+        <div className="min-w-0">
+          {background.type === 'solid' && (
+            <InlineColorControl
+              label={text.popover.solidTitle}
+              color={background.color}
+              alpha={parseColorValue(background.color).alpha}
+              alphaLabel={text.field.opacity}
+              hexLabel={text.popover.hex}
+              onColorChange={(value) => {
+                const current = parseColorValue(background.color);
+                updateBackgroundSetting(
+                  updateWebSettings,
+                  surface,
+                  'color',
+                  toHex8(value, current.alpha),
+                );
+              }}
+              onAlphaChange={(alpha) =>
+                updateBackgroundSetting(
+                  updateWebSettings,
+                  surface,
+                  'color',
+                  toHex8(background.color, alpha),
+                )
+              }
+              onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
+            />
+          )}
+          {background.type === 'gradient' && (
+            <InlineGradientControl
+              label={text.popover.gradientTitle}
+              stops={gradientStops}
+              onOpen={() => setOpenEditor(openEditor === 'gradient' ? null : 'gradient')}
+              onAlphaChange={(alpha) =>
+                updateBackgroundSetting(
+                  updateWebSettings,
+                  surface,
+                  'gradientStops',
+                  gradientStops.map((stop) => ({ ...stop, alpha })),
+                )
+              }
+            />
+          )}
+          {background.type === 'image' && <BackgroundPreview settings={settings} surface={surface} />}
+        </div>
+        <div className="h-10 w-11" aria-hidden="true" />
+      </div>
       {openEditor === 'solid' && (
         <FloatingPopover popoverKey="solid">
           <SolidColorPopover

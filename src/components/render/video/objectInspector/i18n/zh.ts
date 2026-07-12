@@ -92,6 +92,9 @@ export const renderObjectInspectorZh = {
     resetCrop: '重置裁剪',
   },
   help: {
+    visible: '显示或隐藏。', x: '水平位置。', y: '垂直位置。', width: '对象宽度。', height: '对象高度。', radius: '圆角程度。', rotation: '旋转角度。', flipX: '水平镜像。', flipY: '垂直镜像。',
+    font: '字体。', fontSize: '文字大小。', fontWeight: '文字粗细。', letterSpacing: '字间距。', lineHeight: '行间距。', underline: '添加下划线。', strikethrough: '添加删除线。',
+    duration: '动画时长。', typewriter: '打字单位。', insideDialog: '置于对话框内部。', followCharacter: '跟随角色位置。', textGap: '与正文的间距。',
     fill: '对象填充。', fillSolid: '颜色与透明度。', fillGradient: '多色填充。', fillImage: '图片填充。',
     stroke: '对象或文字描边。', strokeWidth: '描边粗细。', strokeType: '纯色或渐变。', strokePosition: '内、中、外位置。', strokeColor: '描边颜色。',
     shadow: '阴影层。', shadowType: '外、内或柔内。', shadowOpacity: '阴影可见度。', shadowBlur: '边缘柔和度。', shadowX: '水平偏移。', shadowY: '垂直偏移。', shadowColor: '阴影颜色。',

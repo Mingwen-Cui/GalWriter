@@ -174,11 +174,12 @@ export function RenderObjectInspector({
           />
         }
       >
+        <HelpText show={showDescriptions} text={text.help.visible} />
         <ControlRow>
           <NumberField
             icon={<MoveHorizontal className="h-4 w-4" />}
             label={text.field.x}
-            description={showDescriptions ? text.field.x : undefined}
+            description={showDescriptions ? text.help.x : undefined}
             value={selected.x}
             min={-200}
             max={200}
@@ -187,7 +188,7 @@ export function RenderObjectInspector({
           <NumberField
             icon={<MoveVertical className="h-4 w-4" />}
             label={text.field.y}
-            description={showDescriptions ? text.field.y : undefined}
+            description={showDescriptions ? text.help.y : undefined}
             value={selected.y}
             min={-200}
             max={200}
@@ -198,7 +199,7 @@ export function RenderObjectInspector({
           <NumberField
             icon={<Ruler className="h-4 w-4" />}
             label={text.field.width}
-            description={showDescriptions ? text.field.width : undefined}
+            description={showDescriptions ? text.help.width : undefined}
             value={selected.width}
             min={0}
             max={200}
@@ -207,7 +208,7 @@ export function RenderObjectInspector({
           <NumberField
             icon={<Box className="h-4 w-4" />}
             label={text.field.height}
-            description={showDescriptions ? text.field.height : undefined}
+            description={showDescriptions ? text.help.height : undefined}
             value={selected.height}
             min={0}
             max={200}
@@ -218,7 +219,7 @@ export function RenderObjectInspector({
           <NumberField
             icon={<RotateCw className="h-4 w-4" />}
             label={text.field.rotation}
-            description={showDescriptions ? text.field.rotation : undefined}
+            description={showDescriptions ? text.help.rotation : undefined}
             value={selected.rotation}
             min={-180}
             max={180}
@@ -227,7 +228,7 @@ export function RenderObjectInspector({
           <NumberField
             icon={<Radius className="h-4 w-4" />}
             label={text.field.radius}
-            description={showDescriptions ? text.field.radius : undefined}
+            description={showDescriptions ? text.help.radius : undefined}
             value={selected.radius}
             min={0}
             max={200}
@@ -291,11 +292,12 @@ export function RenderObjectInspector({
             />
           }
         >
+          <HelpText show={showDescriptions} text={text.help.font} />
           <ControlRow>
             <NumberField
               icon={<CaseSensitive className="h-4 w-4" />}
               label={text.field.fontSize}
-              description={showDescriptions ? text.field.fontSize : undefined}
+              description={showDescriptions ? text.help.fontSize : undefined}
               value={textObject.fontSize}
               min={8}
               max={160}
@@ -304,7 +306,7 @@ export function RenderObjectInspector({
             <NumberField
               icon={<Baseline className="h-4 w-4" />}
               label={text.field.fontWeight}
-              description={showDescriptions ? text.field.fontWeight : undefined}
+              description={showDescriptions ? text.help.fontWeight : undefined}
               value={textObject.fontWeight}
               min={100}
               max={900}
@@ -316,7 +318,7 @@ export function RenderObjectInspector({
             <NumberField
               icon={<MoveHorizontal className="h-4 w-4" />}
               label={text.field.letterSpacing}
-              description={showDescriptions ? text.field.letterSpacing : undefined}
+              description={showDescriptions ? text.help.letterSpacing : undefined}
               value={textObject.letterSpacing}
               min={-10}
               max={60}
@@ -326,7 +328,7 @@ export function RenderObjectInspector({
             <NumberField
               icon={<MoveVertical className="h-4 w-4" />}
               label={text.field.lineHeight}
-              description={showDescriptions ? text.field.lineHeight : undefined}
+              description={showDescriptions ? text.help.lineHeight : undefined}
               value={textObject.lineHeight}
               min={0.6}
               max={3}
@@ -619,11 +621,12 @@ export function RenderObjectInspector({
           />
         }
       >
+        <HelpText show={showDescriptions} text={text.help.duration} />
         <ControlRow>
           <NumberField
             icon={<RotateCw className="h-4 w-4" />}
             label={text.field.duration}
-            description={showDescriptions ? text.field.duration : undefined}
+            description={showDescriptions ? text.help.duration : undefined}
             value={selected.animation.durationMs}
             min={0}
             max={10000}
@@ -664,6 +667,7 @@ export function RenderObjectInspector({
             />
           }
         >
+          <HelpText show={showDescriptions} text={`${text.help.insideDialog} ${text.help.followCharacter}`} />
           <ControlRow>
             <ToggleButton
               active={renderStyle.nameplateFollowCharacter}
@@ -677,7 +681,7 @@ export function RenderObjectInspector({
             <NumberField
               icon={<MoveVertical className="h-4 w-4" />}
               label={text.field.textGap}
-              description={showDescriptions ? text.field.textGap : undefined}
+              description={showDescriptions ? text.help.textGap : undefined}
               value={renderStyle.nameplateTextGap ?? 8}
               min={-60}
               max={80}

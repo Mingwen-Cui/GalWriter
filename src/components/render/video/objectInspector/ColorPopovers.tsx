@@ -75,7 +75,7 @@ function ScrubbableNumber({
           if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         }}
         onPointerCancel={() => { dragRef.current = null; }}
-        className="min-w-0 flex-1 cursor-ew-resize bg-transparent text-right text-sm font-bold outline-none"
+        className="min-w-0 flex-1 cursor-ew-resize bg-transparent text-right text-xs font-medium outline-none"
         aria-label={label}
       />
       <span className="text-xs text-slate-400">{suffix}</span>
@@ -137,7 +137,7 @@ export function SolidColorPopover({
     <div className={`rounded-[22px] border p-2.5 shadow-xl ${toneClass[tone]}`}>
       <div
         ref={saturationRef}
-        className="relative h-44 touch-none overflow-hidden rounded-2xl bg-red-500 shadow-inner"
+        className="relative h-32 touch-none overflow-hidden rounded-2xl bg-red-500 shadow-inner"
         style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -212,13 +212,13 @@ export function SolidColorPopover({
       </div>
 
       <div className="relative mt-2.5 grid h-10 grid-cols-[78px_minmax(0,1fr)_76px] rounded-xl bg-white text-slate-950">
-        <button type="button" onClick={() => setFormatOpen((open) => !open)} className="flex items-center justify-center gap-2 rounded-l-xl border-r border-slate-100 text-sm font-medium" title={format} aria-expanded={formatOpen}>
+        <button type="button" onClick={() => setFormatOpen((open) => !open)} className="flex items-center justify-center gap-2 rounded-l-xl border-r border-slate-100 text-xs font-medium" title={format} aria-expanded={formatOpen}>
           {format} <ChevronDown className={`h-4 w-4 transition-transform ${formatOpen ? 'rotate-180' : ''}`} />
         </button>
         {formatOpen && (
           <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 w-32 overflow-hidden rounded-2xl bg-slate-950 p-1.5 text-white shadow-2xl">
             {COLOR_FORMATS.map((item) => (
-              <button key={item} type="button" onClick={() => { setFormat(item); setFormatOpen(false); setDraft(formatColor(parsed.hex, alpha, item)); }} className={`flex h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium ${format === item ? 'bg-white/12' : 'hover:bg-white/8'}`}>
+              <button key={item} type="button" onClick={() => { setFormat(item); setFormatOpen(false); setDraft(formatColor(parsed.hex, alpha, item)); }} className={`flex h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-xs font-medium ${format === item ? 'bg-white/12' : 'hover:bg-white/8'}`}>
                 <span className="w-4">{format === item ? '✓' : ''}</span>{item}
               </button>
             ))}
@@ -238,7 +238,7 @@ export function SolidColorPopover({
               commitTextColor(draft);
               setDraft(formatColor(parsed.hex, alpha, format));
             }}
-            className="h-full min-w-0 border-0 bg-white px-3 text-base font-medium outline-none"
+            className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium outline-none"
             aria-label={text.hex}
           />
         </div>
@@ -249,10 +249,10 @@ export function SolidColorPopover({
             max={100}
             value={alpha}
             onChange={(event) => onAlphaChange(Math.max(0, Math.min(100, Number(event.target.value) || 0)))}
-            className="w-12 border-0 bg-transparent text-right text-base outline-none"
+            className="w-12 border-0 bg-transparent text-right text-sm outline-none"
             aria-label={text.opacity}
           />
-          <span className="ml-1 text-sm text-slate-400">%</span>
+          <span className="ml-1 text-xs text-slate-400">%</span>
         </label>
       </div>
     </div>
@@ -431,7 +431,7 @@ export function ImageFillPopover({
 
   return (
     <div className={`relative rounded-[22px] border p-3 shadow-xl ${toneClass[tone]}`}>
-      <div className={`mb-3 grid gap-2 ${supportsFit || supportsCrop ? 'grid-cols-[minmax(0,1.35fr)_minmax(0,.85fr)_minmax(92px,1.15fr)_40px]' : 'grid-cols-[minmax(0,.85fr)_minmax(112px,1.15fr)]'}`}>
+      <div className={`mb-3 grid gap-2 ${supportsFit || supportsCrop ? 'grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)_minmax(78px,1fr)_36px]' : 'grid-cols-[minmax(0,.8fr)_minmax(96px,1fr)]'}`}>
         {(supportsFit || supportsCrop) && (
           <label className="relative flex h-10 min-w-0 items-center gap-2 rounded-xl bg-white px-3 text-xs font-bold">
             <ImageIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -454,19 +454,19 @@ export function ImageFillPopover({
           <ScrubbableNumber value={value.imageAlpha} min={0} max={100} label={text.opacity} suffix="%" icon={<Blend className="h-4 w-4" />} onChange={(imageAlpha) => onChange({ imageAlpha })} />
         )}
         {(supportsFit || supportsCrop) && (
-          <button type="button" onClick={() => onChange({ imageAngle: 0, imageScale: 100, imageOffsetX: 0, imageOffsetY: 0 })} className="grid h-10 w-10 place-items-center rounded-xl bg-white" title={text.resetCrop} aria-label={text.resetCrop}>
+          <button type="button" onClick={() => onChange({ imageAngle: 0, imageScale: 100, imageOffsetX: 0, imageOffsetY: 0 })} className="grid h-10 w-9 place-items-center rounded-xl bg-white" title={text.resetCrop} aria-label={text.resetCrop}>
             <RotateCcw className="h-4 w-4" />
           </button>
         )}
       </div>
       <label
-        className="group relative grid min-h-44 cursor-pointer place-items-center overflow-hidden rounded-[18px] border border-white/80"
+        className="group relative grid min-h-32 cursor-pointer place-items-center overflow-hidden rounded-[18px] border border-white/80"
         style={{ backgroundColor: '#f8fafc', backgroundImage: 'linear-gradient(45deg,#e5e7eb 25%,transparent 25%),linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e5e7eb 75%),linear-gradient(-45deg,transparent 75%,#e5e7eb 75%)', backgroundSize: '24px 24px', backgroundPosition: '0 0,0 12px,12px -12px,-12px 0' }}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => { event.preventDefault(); handleFile(event.dataTransfer.files?.[0]); }}
       >
         {value.imageUrl && <img src={value.imageUrl} alt="" className="absolute inset-0 h-full w-full object-contain" draggable={false} />}
-        <span className="relative z-10 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-[1.02]">
+        <span className="relative z-10 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-transform group-hover:scale-[1.02]">
           <Upload className="h-4 w-4" aria-hidden="true" />
           {value.imageUrl ? text.replace : text.upload}
         </span>
