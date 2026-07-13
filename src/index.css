@@ -2753,6 +2753,11 @@ input[type='range']::-moz-range-track {
   scrollbar-color: var(--vr-accent) transparent;
 }
 
+/* Keep the web inspector's content width fixed while its scroll range changes. */
+.web-workspace-inspector-scroll {
+  scrollbar-gutter: stable;
+}
+
 .video-render-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;

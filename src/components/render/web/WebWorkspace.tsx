@@ -44,27 +44,57 @@ const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
 const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
 
-function TemplateMiniPreview({ settings, accent }: { settings: Partial<WebExportSettings>; accent: string }) {
-  const backgroundType = settings.startMenuBackgroundType;
-  const background = backgroundType === 'gradient'
-    ? `linear-gradient(${settings.startMenuBackgroundGradientAngle ?? 135}deg, ${settings.startMenuBackgroundGradientStart || '#0f172a'}, ${settings.startMenuBackgroundGradientEnd || accent})`
-    : backgroundType === 'image' && settings.startMenuBackgroundImageUrl
-      ? `url(${settings.startMenuBackgroundImageUrl}) center / cover`
-      : settings.startMenuBackgroundColor || '#172554';
-  const leftAligned = settings.startMenuTemplate === 'glass' || settings.startMenuTemplate === 'minimal';
+function TemplateMiniPreview({ settings, accent, surface }: { settings: Partial<WebExportSettings>; accent: string; surface: WebPreviewSurface }) {
+  const pageBackground = surface === 'archive'
+    ? { type: settings.archiveBackgroundType, color: settings.archiveBackgroundColor, start: settings.archiveBackgroundGradientStart, end: settings.archiveBackgroundGradientEnd, angle: settings.archiveBackgroundGradientAngle, image: settings.archiveBackgroundImageUrl }
+    : surface === 'settings'
+      ? { type: settings.settingsBackgroundType, color: settings.settingsBackgroundColor, start: settings.settingsBackgroundGradientStart, end: settings.settingsBackgroundGradientEnd, angle: settings.settingsBackgroundGradientAngle, image: settings.settingsBackgroundImageUrl }
+      : surface === 'game'
+        ? { type: settings.dialogueBackgroundType, color: settings.dialogueBackgroundColor, start: settings.dialogueBackgroundGradientStart, end: settings.dialogueBackgroundGradientEnd, angle: settings.dialogueBackgroundGradientAngle, image: settings.dialogueBackgroundImageUrl }
+        : { type: settings.startMenuBackgroundType, color: settings.startMenuBackgroundColor, start: settings.startMenuBackgroundGradientStart, end: settings.startMenuBackgroundGradientEnd, angle: settings.startMenuBackgroundGradientAngle, image: settings.startMenuBackgroundImageUrl };
+  const background = pageBackground.type === 'gradient'
+    ? `linear-gradient(${pageBackground.angle ?? 135}deg, ${pageBackground.start || '#0f172a'}, ${pageBackground.end || accent})`
+    : pageBackground.type === 'image' && pageBackground.image
+      ? `url(${pageBackground.image}) center / cover`
+      : pageBackground.color || '#172554';
+  const elements = ((surface === 'archive'
+    ? settings.archivePageElements
+    : surface === 'settings'
+      ? settings.settingsPageElements
+      : surface === 'game'
+        ? settings.dialogueOverlayElements
+        : settings.startMenuElements) || [])
+    .filter((element) => element.visible && element.width > 0 && element.height > 0)
+    .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
   return (
     <span
       className="relative flex h-7 w-11 shrink-0 overflow-hidden rounded-[5px] border border-white/25 shadow-sm"
       style={{ background }}
       aria-hidden="true"
     >
-      <span className={`absolute top-1 flex w-full flex-col gap-[2px] px-1 ${leftAligned ? 'items-start' : 'items-center'}`}>
-        <span className="h-[2px] w-4 rounded-full bg-white/90" />
-        <span className="h-[1.5px] w-3 rounded-full bg-white/55" />
-      </span>
-      <span className={`absolute bottom-1 flex w-full px-1 ${leftAligned ? 'justify-start' : 'justify-center'}`}>
-        <span className="h-[4px] w-4 rounded-[2px] shadow-sm" style={{ backgroundColor: accent }} />
-      </span>
+      {elements.map((element) => {
+        const isText = element.kind === 'text';
+        const fill = isText && !element.fillEnabled
+          ? 'transparent'
+          : element.backgroundColor || (element.primary ? accent : 'rgba(255,255,255,.16)');
+        return <span
+          key={element.id}
+          className="absolute overflow-hidden"
+          style={{
+            left: `${Math.max(0, Math.min(100, element.x))}%`,
+            top: `${Math.max(0, Math.min(100, element.y))}%`,
+            width: `${Math.max(1, Math.min(100, element.width))}%`,
+            height: `${Math.max(1, Math.min(100, element.height))}%`,
+            background: element.kind === 'image' && element.imageUrl ? `url(${element.imageUrl}) center / cover` : fill,
+            border: element.borderWidth && element.borderColor ? `${Math.max(.5, element.borderWidth / 3)}px solid ${element.borderColor}` : undefined,
+            borderRadius: Math.max(1, Math.min(4, (element.borderRadius || 4) / 4)),
+            opacity: element.opacity === undefined ? 1 : element.opacity / 100,
+            transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+          }}
+        >
+          {element.kind !== 'image' && <span className="absolute left-[12%] right-[12%] top-1/2 h-[1px] -translate-y-1/2 rounded-full" style={{ backgroundColor: element.textColor || '#ffffff' }} />}
+        </span>;
+      })}
     </span>
   );
 }
@@ -97,6 +127,8 @@ type SavedWebExperienceTemplate = WebExperienceSnapshot & {
   id: string;
   name: string;
   savedAt: number;
+  scope?: 'current' | 'all';
+  surface?: WebPreviewSurface;
 };
 
 const webTemplateLibraryStorageKey = 'galwriter-web-experience-templates:v1';
@@ -188,48 +220,95 @@ export function WebWorkspace({
   const [selectedSavedTemplateId, setSelectedSavedTemplateId] = useState<string | null>(null);
   const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
+  const [isTemplateEditing, setIsTemplateEditing] = useState(false);
+  const [selectedTemplateEditIds, setSelectedTemplateEditIds] = useState<string[]>([]);
   const [templateNameDraft, setTemplateNameDraft] = useState('');
-  const createStartMenuDesignSnapshot = (stripEmbeddedMedia = false) => {
+  const [templateSaveScope, setTemplateSaveScope] = useState<'current' | 'all'>('current');
+  const createStartMenuDesignSnapshot = (scope: 'current' | 'all' = 'all', stripEmbeddedMedia = false) => {
+    const stripDataUrl = (value?: string) =>
+      stripEmbeddedMedia && value?.startsWith('data:') ? '' : value;
     const stripElementMedia = (element: WebMenuElement): WebMenuElement => ({
       ...element,
-      imageUrl: stripEmbeddedMedia && element.imageUrl?.startsWith('data:') ? '' : element.imageUrl,
-      backgroundImageUrl:
-        stripEmbeddedMedia && element.backgroundImageUrl?.startsWith('data:')
-          ? ''
-          : element.backgroundImageUrl,
+      imageUrl: stripDataUrl(element.imageUrl),
+      backgroundImageUrl: stripDataUrl(element.backgroundImageUrl),
     });
+    const fullSettings = {
+      ...webSettings,
+      startMenuBackgroundImageUrl: stripDataUrl(webSettings.startMenuBackgroundImageUrl) || '',
+      startMenuBackgroundVideoUrl: stripDataUrl(webSettings.startMenuBackgroundVideoUrl),
+      startMenuBackgroundMusicUrl: stripDataUrl(webSettings.startMenuBackgroundMusicUrl) || '',
+      archiveBackgroundImageUrl: stripDataUrl(webSettings.archiveBackgroundImageUrl),
+      archiveBackgroundVideoUrl: stripDataUrl(webSettings.archiveBackgroundVideoUrl),
+      settingsBackgroundImageUrl: stripDataUrl(webSettings.settingsBackgroundImageUrl),
+      settingsBackgroundVideoUrl: stripDataUrl(webSettings.settingsBackgroundVideoUrl),
+      dialogueBackgroundImageUrl: stripDataUrl(webSettings.dialogueBackgroundImageUrl),
+      dialogueBackgroundVideoUrl: stripDataUrl(webSettings.dialogueBackgroundVideoUrl),
+      sceneBackgroundImageUrl: stripDataUrl(webSettings.sceneBackgroundImageUrl) || '',
+      startMenuElements: webSettings.startMenuElements.map(stripElementMedia),
+      archivePageElements: (webSettings.archivePageElements || []).map(stripElementMedia),
+      settingsPageElements: (webSettings.settingsPageElements || []).map(stripElementMedia),
+      previewToolbarElements: (webSettings.previewToolbarElements || []).map(stripElementMedia),
+      dialogueOverlayElements: (webSettings.dialogueOverlayElements || []).map(stripElementMedia),
+    };
+    const surfaceKeys: Record<WebPreviewSurface, Array<keyof WebExportSettings>> = {
+      start: ['showStartMenu', 'startMenuTemplate', 'startMenuBackgroundType', 'startMenuBackgroundColor', 'startMenuBackgroundGradientStart', 'startMenuBackgroundGradientEnd', 'startMenuBackgroundGradientAngle', 'startMenuBackgroundGradientShape', 'startMenuBackgroundGradientStops', 'startMenuBackgroundImageUrl', 'startMenuBackgroundVideoUrl', 'startMenuBackgroundVideoLoop', 'startMenuBackgroundVideoMuted', 'startMenuBackgroundVideoFit', 'startMenuElements', 'startMenuPlacementBoundsLocked', 'startMenuPlacementMinX', 'startMenuPlacementMinY', 'startMenuPlacementMaxX', 'startMenuPlacementMaxY', 'startMenuShowSave', 'startMenuShowNewGame', 'startMenuShowSettings'],
+      archive: ['archiveBackgroundType', 'archiveBackgroundColor', 'archiveBackgroundGradientStart', 'archiveBackgroundGradientEnd', 'archiveBackgroundGradientAngle', 'archiveBackgroundGradientShape', 'archiveBackgroundGradientStops', 'archiveBackgroundImageUrl', 'archiveBackgroundVideoUrl', 'archiveBackgroundVideoLoop', 'archiveBackgroundVideoMuted', 'archiveBackgroundVideoFit', 'archivePageElements', 'startMenuMusicApplyToArchive'],
+      settings: ['settingsBackgroundType', 'settingsBackgroundColor', 'settingsBackgroundGradientStart', 'settingsBackgroundGradientEnd', 'settingsBackgroundGradientAngle', 'settingsBackgroundGradientShape', 'settingsBackgroundGradientStops', 'settingsBackgroundImageUrl', 'settingsBackgroundVideoUrl', 'settingsBackgroundVideoLoop', 'settingsBackgroundVideoMuted', 'settingsBackgroundVideoFit', 'settingsPageElements', 'startMenuMusicApplyToSettings'],
+      game: ['layoutMode', 'sceneFit', 'sceneScale', 'sceneScaleX', 'sceneScaleY', 'sceneOffsetX', 'sceneOffsetY', 'sceneBackgroundVisible', 'sceneBackgroundType', 'sceneBackgroundColor', 'sceneBackgroundGradientStart', 'sceneBackgroundGradientEnd', 'sceneBackgroundGradientAngle', 'sceneBackgroundImageUrl', 'choicesPosition', 'skipSingleChoicePopup', 'autoAdvance', 'videoAutoPlay', 'hideCharacterTags', 'hideSceneTags', 'dialogueBackgroundType', 'dialogueBackgroundColor', 'dialogueBackgroundGradientStart', 'dialogueBackgroundGradientEnd', 'dialogueBackgroundGradientAngle', 'dialogueBackgroundGradientShape', 'dialogueBackgroundGradientStops', 'dialogueBackgroundImageUrl', 'dialogueBackgroundVideoUrl', 'dialogueBackgroundVideoLoop', 'dialogueBackgroundVideoMuted', 'dialogueBackgroundVideoFit', 'previewToolbarElements', 'dialogueOverlayElements'],
+    };
+    const settings = scope === 'all'
+      ? fullSettings
+      : Object.fromEntries(surfaceKeys[currentPreviewSurface].map((key) => [key, fullSettings[key]]));
     return {
       version: 2,
-      settings: {
-        ...webSettings,
-        startMenuBackgroundImageUrl:
-          stripEmbeddedMedia && webSettings.startMenuBackgroundImageUrl.startsWith('data:')
-            ? ''
-            : webSettings.startMenuBackgroundImageUrl,
-        startMenuBackgroundMusicUrl:
-          stripEmbeddedMedia && webSettings.startMenuBackgroundMusicUrl.startsWith('data:')
-            ? ''
-            : webSettings.startMenuBackgroundMusicUrl,
-        startMenuElements: webSettings.startMenuElements.map(stripElementMedia),
-        archivePageElements: (webSettings.archivePageElements || []).map(stripElementMedia),
-        settingsPageElements: (webSettings.settingsPageElements || []).map(stripElementMedia),
-        previewToolbarElements: (webSettings.previewToolbarElements || []).map(stripElementMedia),
-        dialogueOverlayElements: (webSettings.dialogueOverlayElements || []).map(stripElementMedia),
-      },
-      renderStyle: webRenderStyle,
+      settings,
+      renderStyle: scope === 'all' || currentPreviewSurface === 'game' ? webRenderStyle : undefined,
       choiceColor: webChoiceColor,
       choiceTextColor: webChoiceTextColor,
     };
   };
-  const saveStartMenuDesign = (name: string) => {
+  const compactSavedTemplate = (template: SavedWebExperienceTemplate): SavedWebExperienceTemplate => {
+    const settings = template.settings;
+    if (!settings) return template;
+    const clearDataUrl = (value?: string) => value?.startsWith('data:') ? '' : value;
+    const compactElements = (elements?: WebMenuElement[]) => elements?.map((element) => ({
+      ...element,
+      imageUrl: clearDataUrl(element.imageUrl),
+      backgroundImageUrl: clearDataUrl(element.backgroundImageUrl),
+    }));
+    return {
+      ...template,
+      settings: {
+        ...settings,
+        startMenuBackgroundImageUrl: clearDataUrl(settings.startMenuBackgroundImageUrl),
+        startMenuBackgroundVideoUrl: clearDataUrl(settings.startMenuBackgroundVideoUrl),
+        startMenuBackgroundMusicUrl: clearDataUrl(settings.startMenuBackgroundMusicUrl),
+        archiveBackgroundImageUrl: clearDataUrl(settings.archiveBackgroundImageUrl),
+        archiveBackgroundVideoUrl: clearDataUrl(settings.archiveBackgroundVideoUrl),
+        settingsBackgroundImageUrl: clearDataUrl(settings.settingsBackgroundImageUrl),
+        settingsBackgroundVideoUrl: clearDataUrl(settings.settingsBackgroundVideoUrl),
+        dialogueBackgroundImageUrl: clearDataUrl(settings.dialogueBackgroundImageUrl),
+        dialogueBackgroundVideoUrl: clearDataUrl(settings.dialogueBackgroundVideoUrl),
+        sceneBackgroundImageUrl: clearDataUrl(settings.sceneBackgroundImageUrl),
+        startMenuElements: compactElements(settings.startMenuElements),
+        archivePageElements: compactElements(settings.archivePageElements),
+        settingsPageElements: compactElements(settings.settingsPageElements),
+        previewToolbarElements: compactElements(settings.previewToolbarElements),
+        dialogueOverlayElements: compactElements(settings.dialogueOverlayElements),
+      },
+    };
+  };
+  const saveStartMenuDesign = (name: string, scope = templateSaveScope) => {
     if (typeof window === 'undefined') return;
     const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
     if (!name) return;
     const entry: SavedWebExperienceTemplate = {
-      ...createStartMenuDesignSnapshot(),
+      ...createStartMenuDesignSnapshot(scope),
       id: selected?.id || `template-${Date.now()}`,
       name,
       savedAt: Date.now(),
+      scope,
+      surface: scope === 'current' ? currentPreviewSurface : undefined,
     };
     const next = [entry, ...savedTemplateLibrary.filter((item) => item.id !== entry.id)].slice(
       0,
@@ -241,13 +320,24 @@ export function WebWorkspace({
       setSelectedSavedTemplateId(entry.id);
     } catch (error) {
       try {
-        const compactEntry = { ...entry, ...createStartMenuDesignSnapshot(true) };
+        const compactEntry = { ...entry, ...createStartMenuDesignSnapshot(scope, true) };
         const compactNext = [
           compactEntry,
           ...savedTemplateLibrary.filter((item) => item.id !== entry.id),
-        ].slice(0, 24);
-        window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(compactNext));
-        setSavedTemplateLibrary(compactNext);
+        ].map(compactSavedTemplate).slice(0, 24);
+        try {
+          window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(compactNext));
+          setSavedTemplateLibrary(compactNext);
+        } catch {
+          const trimmedNext = compactNext.slice(0, 8);
+          try {
+            window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(trimmedNext));
+            setSavedTemplateLibrary(trimmedNext);
+          } catch {
+            window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify([compactEntry]));
+            setSavedTemplateLibrary([compactEntry]);
+          }
+        }
         setSelectedSavedTemplateId(entry.id);
       } catch {
         console.warn('Could not save start menu design preset:', error);
@@ -279,6 +369,33 @@ export function WebWorkspace({
     const next = savedTemplateLibrary.filter((item) => item.id !== templateId);
     persistTemplateLibrary(next);
     if (selectedSavedTemplateId === templateId) setSelectedSavedTemplateId(null);
+  };
+  const toggleTemplateEditSelection = (templateId: string) => {
+    setSelectedTemplateEditIds((ids) =>
+      ids.includes(templateId) ? ids.filter((id) => id !== templateId) : [...ids, templateId],
+    );
+  };
+  const saveSelectedTemplates = () => {
+    if (selectedTemplateEditIds.length === 0) return;
+    const next = savedTemplateLibrary.map((template) => {
+      if (!selectedTemplateEditIds.includes(template.id)) return template;
+      const scope = template.scope || 'all';
+      return {
+        ...template,
+        ...createStartMenuDesignSnapshot(scope),
+        savedAt: Date.now(),
+        scope,
+        surface: scope === 'current' ? template.surface || currentPreviewSurface : undefined,
+      };
+    });
+    persistTemplateLibrary(next);
+  };
+  const deleteSelectedTemplates = () => {
+    if (selectedTemplateEditIds.length === 0) return;
+    const selected = new Set(selectedTemplateEditIds);
+    persistTemplateLibrary(savedTemplateLibrary.filter((template) => !selected.has(template.id)));
+    if (selectedSavedTemplateId && selected.has(selectedSavedTemplateId)) setSelectedSavedTemplateId(null);
+    setSelectedTemplateEditIds([]);
   };
   const loadStartMenuDesign = (templateId = selectedSavedTemplateId) => {
     if (typeof window === 'undefined') return;
@@ -580,6 +697,7 @@ export function WebWorkspace({
           onGradientEditingChange={handleGradientEditingChange}
         />
       ) : currentPreviewSurface === 'game' &&
+        dialogueSelection !== 'background' &&
         (webRenderStyle.selectedRenderObject || webSettings.layoutMode === 'classic') ? (
         <RenderObjectSettingsSection
           language={language}
@@ -1185,6 +1303,7 @@ JSON schema:
               onSelectStartMenuElement={(id) => {
                 setSelectedStartMenuElementId(id);
                 setSelectedPreviewElementIds(id ? [id] : []);
+                if (id) setDialogueSelection('background');
               }}
               onSelectStartMenuElements={setSelectedPreviewElementIds}
               onDeleteStartMenuElement={deleteStartMenuElement}
@@ -1244,9 +1363,9 @@ JSON schema:
           </div>
         </div>
 
-        <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="video-render-scroll web-workspace-inspector-scroll min-h-0 flex-1 overflow-y-auto p-4">
           {startMenuPreviewMode === 'edit' && (
-            <div className="sticky -top-4 z-30 -mx-4 -mt-4 border-b border-[var(--vr-border)] bg-[var(--vr-surface)]/95 px-4 py-3 backdrop-blur-xl">
+            <div className="sticky -top-4 z-30 -mx-4 -mt-4 bg-transparent px-4 py-3">
               <WebSettingCard>
                 <WebSegmentedGroup
                   value={editPreviewSurface}
@@ -1283,7 +1402,7 @@ JSON schema:
                   className={`absolute ${designPanelSwitcherLayout.pointer} top-[-7px] z-0 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-[var(--vr-surface)]`}
                 />
                 <div className={`relative z-10 flex ${designPanelSwitcherLayout.alignment}`}>
-                  <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-1 shadow-sm">
+                  <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
                     <button
                       type="button"
                       onClick={() => setDesignPanelMode('background')}
@@ -1324,43 +1443,50 @@ JSON schema:
                           <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
                             {preset.name}
                           </span>
-                          <TemplateMiniPreview settings={preset.settings} accent={preset.accent} />
+                          <TemplateMiniPreview settings={preset.settings} accent={preset.accent} surface={currentPreviewSurface} />
                         </span>
                         <span className="line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
                           {preset.description}
                         </span>
                       </button>
                     ))}
-                    {savedTemplateLibrary.map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); }}
-                        className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
-                        title={t('应用此模板', 'このテンプレートを適用', 'Apply this template')}
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">{template.name}</span>
-                          <TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || 'var(--vr-accent)'} />
+                    {savedTemplateLibrary.map((template) => isTemplateEditing ? (
+                      <label key={template.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-colors ${selectedTemplateEditIds.includes(template.id) ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}>
+                        <input type="checkbox" checked={selectedTemplateEditIds.includes(template.id)} onChange={() => toggleTemplateEditSelection(template.id)} className="h-3.5 w-3.5 accent-[var(--vr-accent)]" aria-label={template.name} />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2"><span className="truncate text-[11px] font-black text-[var(--vr-text)]">{template.name}</span><TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || 'var(--vr-accent)'} surface={currentPreviewSurface} /></span>
+                          <span className="block text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">{template.scope === 'current' ? t('当前页面模板', '現在のページ用テンプレート', 'Current-page template') : t('所有页面模板', '全ページ用テンプレート', 'All-pages template')}</span>
                         </span>
-                        <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">{t('已保存的自定义模板', '保存済みのカスタムテンプレート', 'Saved custom template')}</span>
+                      </label>
+                    ) : (
+                      <button key={template.id} type="button" onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); }} className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`} title={t('应用此模板', 'このテンプレートを適用', 'Apply this template')}>
+                        <span className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">{template.name}</span><TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || 'var(--vr-accent)'} surface={currentPreviewSurface} /></span>
+                        <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">{template.scope === 'current' ? t('当前页面模板', '現在のページ用テンプレート', 'Current-page template') : t('所有页面模板', '全ページ用テンプレート', 'All-pages template')}</span>
                       </button>
                     ))}
                   </div>
+                  {isTemplateEditing && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <IconToolButton icon={Save} label={t('保存至所选', '選択へ保存', 'Save to selected')} onClick={saveSelectedTemplates} disabled={selectedTemplateEditIds.length === 0} />
+                      <IconToolButton icon={Trash2} label={t('删除所选', '選択を削除', 'Delete selected')} onClick={deleteSelectedTemplates} disabled={selectedTemplateEditIds.length === 0} />
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <IconToolButton
                       icon={Save}
                       label={t('保存模板', 'テンプレートを保存', 'Save template')}
                       onClick={() => {
-                        const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
-                        setTemplateNameDraft(selected?.name || t('我的模板', 'マイテンプレート', 'My template'));
+                        setSelectedSavedTemplateId(null);
+                        setTemplateNameDraft(t('我的模板', 'マイテンプレート', 'My template'));
+                        setTemplateSaveScope('current');
                         setIsSaveTemplateDialogOpen(true);
                       }}
                     />
                     <IconToolButton
                       icon={Settings}
-                      label={t('编辑模板', 'テンプレートを編集', 'Edit templates')}
-                      onClick={() => setIsTemplateLibraryOpen(true)}
+                      label={isTemplateEditing ? t('完成编辑', '編集を完了', 'Done editing') : t('编辑模板', 'テンプレートを編集', 'Edit templates')}
+                      onClick={() => { setIsTemplateEditing((editing) => !editing); setSelectedTemplateEditIds([]); }}
+                      active={isTemplateEditing}
                     />
                   </div>
                   {false && savedTemplateLibrary.length > 0 && (
@@ -1397,6 +1523,10 @@ JSON schema:
                     <div className="mt-1 text-xs leading-5 text-slate-500">{t('保存后可从模板列表再次应用。', '保存後、テンプレート一覧から再適用できます。', 'Saved templates can be applied again from this list.')}</div>
                     <input value={templateNameDraft} onChange={(event) => setTemplateNameDraft(event.target.value)} autoFocus className="mt-3 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500" />
                     <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className={`flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border text-xs font-bold ${templateSaveScope === 'current' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="template-save-scope" checked={templateSaveScope === 'current'} onChange={() => setTemplateSaveScope('current')} className="accent-indigo-600" />{t('保存当前页面', '現在のページを保存', 'Save current page')}</label>
+                      <label className={`flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border text-xs font-bold ${templateSaveScope === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'}`}><input type="radio" name="template-save-scope" checked={templateSaveScope === 'all'} onChange={() => setTemplateSaveScope('all')} className="accent-indigo-600" />{t('保存所有页面', '全ページを保存', 'Save all pages')}</label>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       <button type="button" onClick={() => setIsSaveTemplateDialogOpen(false)} className="h-10 rounded-xl bg-slate-100 text-xs font-bold text-slate-700">{t('取消', 'キャンセル', 'Cancel')}</button>
                       <button type="button" onClick={() => { const name = templateNameDraft.trim(); if (!name) return; saveStartMenuDesign(name); setIsSaveTemplateDialogOpen(false); }} className="h-10 rounded-xl bg-indigo-600 text-xs font-bold text-white">{t('保存模板', 'テンプレートを保存', 'Save template')}</button>
                     </div>
@@ -1412,7 +1542,7 @@ JSON schema:
                       {savedTemplateLibrary.length ? savedTemplateLibrary.map((template) => (
                         <div key={template.id} className="flex items-center gap-2 rounded-xl bg-slate-50 p-2 text-slate-800">
                           <button type="button" onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); setIsTemplateLibraryOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-bold hover:text-indigo-700" title={t('应用此模板', 'このテンプレートを適用', 'Apply this template')}>
-                            <TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || '#6366f1'} />
+                            <TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || '#6366f1'} surface={currentPreviewSurface} />
                             <span className="min-w-0 truncate">{template.name}</span>
                           </button>
                           <button type="button" onClick={() => duplicateSavedTemplate(template.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-indigo-600" title={t('复制模板', 'テンプレートを複製', 'Duplicate template')} aria-label={t('复制模板', 'テンプレートを複製', 'Duplicate template')}><Copy className="h-3.5 w-3.5" /></button>

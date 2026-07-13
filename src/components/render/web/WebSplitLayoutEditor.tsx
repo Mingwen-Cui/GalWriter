@@ -143,7 +143,6 @@ export function WebSplitLayoutEditor({ rootRef, selection, onSelectionChange, ca
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[500]" data-split-layout-editor>
-      <button type="button" className={`pointer-events-auto absolute left-2 top-2 rounded-md border px-2 py-1 text-[10px] font-bold ${selection === 'background' ? 'border-indigo-300 bg-indigo-600 text-white' : 'border-white/25 bg-black/55 text-white/80'}`} style={{ cursor: 'pointer' }} onClick={(event) => { event.stopPropagation(); select('background'); }}>画面外背景</button>
       {(['scene', ...kinds] as Array<'scene' | RenderEditableObjectKind>).map((kind) => {
         const box = boxes[kind];
         if (!box || box.width <= 0 || box.height <= 0) return null;

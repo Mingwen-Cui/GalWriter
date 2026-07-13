@@ -1905,12 +1905,16 @@ export function WebPlaytestPreview({
           : dialogueBackgroundStyle
       }
       onClick={(event) => {
-        if (
-          previewMode === 'edit' &&
-          settings.layoutMode === 'classic' &&
-          event.target === event.currentTarget
-        ) {
-          onSelectCanvasObject?.('background');
+        if (previewMode === 'edit') {
+          const target = event.target as HTMLElement;
+          if (target.closest('[data-render-object], [data-split-layout-editor]')) return;
+          setSelectedStartMenuElementId(null);
+          onSelectCanvasObject?.(
+            settings.layoutMode === 'classic' &&
+              target.closest('[data-split-visual-group], [data-split-scene-surface]')
+              ? 'scene'
+              : 'background',
+          );
           _onUpdateRenderStyle('selectedRenderObject', undefined);
         }
       }}
@@ -1919,19 +1923,6 @@ export function WebPlaytestPreview({
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
       </style>
-      {previewMode === 'edit' && settings.layoutMode === 'classic' && (
-        <button
-          type="button"
-          className={`absolute left-2 top-2 z-[260] rounded-md border px-2 py-1 text-[10px] font-bold backdrop-blur ${selectedCanvasObject === 'background' ? 'border-indigo-400 bg-indigo-600 text-white' : 'border-white/20 bg-black/45 text-white/75 hover:bg-black/65'}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelectCanvasObject?.('background');
-            _onUpdateRenderStyle('selectedRenderObject', undefined);
-          }}
-        >
-          {t('画面外背景', '画面外背景', 'Outer background')}
-        </button>
-      )}
       {previewMode === 'edit' && gradientEditingSurface === 'game' && getSurfaceBackground(settings, 'game').type === 'gradient' && (
         <GradientCanvasControl
           shape={getSurfaceBackground(settings, 'game').gradientShape}
@@ -2026,6 +2017,7 @@ export function WebPlaytestPreview({
         !isPreviewStartMenuOpen &&
         !isPreviewArchiveOpen &&
         !isPreviewStartSettingsOpen &&
+        !selectedStartMenuElementId &&
         onSelectCanvasObject && (
           <WebSplitLayoutEditor
             rootRef={previewRootRef}
