@@ -360,9 +360,13 @@ export function WebPlaytestPreview({
     lastJumpedNodeRef.current = null;
   }, [clearPlaybackTimers]);
 
-  const titleStyle = buildTitleStyle(renderStyle);
-  const bodyStyle = buildBodyStyle(renderStyle);
-  const dialogueShellStyle = buildDialogueShellStyle(renderStyle, settings.layoutMode);
+  const titleStyle = buildTitleStyle(renderStyle, settings.canvasHeight);
+  const bodyStyle = buildBodyStyle(renderStyle, settings.canvasHeight);
+  const dialogueShellStyle = buildDialogueShellStyle(
+    renderStyle,
+    settings.canvasWidth,
+    settings.canvasHeight,
+  );
   const renderObjects = getRenderObjects(renderStyle);
   const dialogWidth = Math.max(0, Math.min(100, renderObjects.dialogBox.width || 86));
 

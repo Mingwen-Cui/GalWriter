@@ -1,8 +1,12 @@
 import type { CSSProperties } from 'react';
 
 import { getRenderObjects } from '../video/shared/renderObjects';
+import {
+  resolvePresentationDialogueLayout,
+  resolvePresentationTextScale,
+} from '../video/shared/presentationLayout';
 import { webAnimationStyle } from '../video/shared/storyNodes';
-import type { RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { RenderStyle } from '../video/shared/types';
 import type { RenderEditableObject, RenderFillStyle } from '../video/shared/types';
 
 export const colorInputValue = (value: string, fallback = '#111827') => {
@@ -90,37 +94,45 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
   };
 };
 
-export const buildTitleStyle = (renderStyle: RenderStyle): CSSProperties => ({
+export const buildTitleStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
+  const scale = resolvePresentationTextScale(canvasHeight);
+  return {
   ...textObjectStyle(renderStyle, 'title'),
   fontFamily: renderStyle.titleFontFamily,
   color: textColor(renderStyle, 'title'),
-  fontSize: renderStyle.titleFontSize,
-  letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
+  fontSize: Math.max(18, renderStyle.titleFontSize * scale),
+  letterSpacing: `${(renderStyle.titleLetterSpacing ?? 0) * scale}px`,
   lineHeight: renderStyle.titleLineHeight,
   textAlign: renderStyle.titleAlign,
   overflowWrap: 'anywhere',
   ...webAnimationStyle(renderStyle.titleAnimation),
   textShadow: shadowPaint(getRenderObjects(renderStyle).title),
-});
+  };
+};
 
-export const buildBodyStyle = (renderStyle: RenderStyle): CSSProperties => ({
+export const buildBodyStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
+  const scale = resolvePresentationTextScale(canvasHeight);
+  return {
   ...textObjectStyle(renderStyle, 'body'),
   fontFamily: renderStyle.bodyFontFamily,
   color: textColor(renderStyle, 'body'),
-  fontSize: renderStyle.bodyFontSize,
-  letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
+  fontSize: Math.max(16, renderStyle.bodyFontSize * scale),
+  letterSpacing: `${(renderStyle.bodyLetterSpacing ?? 0) * scale}px`,
   lineHeight: renderStyle.bodyLineHeight,
   textAlign: renderStyle.bodyAlign,
   overflowWrap: 'anywhere',
   ...webAnimationStyle(renderStyle.bodyAnimation),
   textShadow: shadowPaint(getRenderObjects(renderStyle).body),
-});
+  };
+};
 
 export const buildDialogueShellStyle = (
   renderStyle: RenderStyle,
-  layoutMode: WebExportSettings['layoutMode'],
+  canvasWidth: number,
+  canvasHeight: number,
 ): CSSProperties => {
   const object = getRenderObjects(renderStyle).dialogBox;
+  const layout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
   return {
     ...(object.visible
       ? {
@@ -141,11 +153,15 @@ export const buildDialogueShellStyle = (
           backdropFilter: 'none',
         }),
     borderRadius: object.radius,
-    transform: objectTransform(renderStyle, 'dialogBox'),
-    height: layoutMode === 'immersive' ? '100%' : `min(${object.height}vh, 420px)`,
-    maxHeight: layoutMode === 'immersive' ? 'calc(100% - 96px)' : `min(${object.height}vh, 420px)`,
-    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    position: 'absolute',
+    boxSizing: 'border-box',
+    left: layout.x,
+    top: layout.y,
+    width: layout.width,
+    height: layout.height,
+    padding: `${layout.paddingY}px ${layout.paddingX}px`,
+    transform: `rotate(${object.rotation}deg) scale(${object.flipX ? -1 : 1}, ${object.flipY ? -1 : 1})`,
+    transformOrigin: 'center',
   };
 };
 

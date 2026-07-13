@@ -1,14 +1,13 @@
 import type { RenderStyle, VideoTextScaleMode } from './types';
 import { getRenderObjects } from './renderObjects';
-
-const WEB_RATIO_REFERENCE_HEIGHT = 720;
+import { resolvePresentationTextScale } from './presentationLayout';
 
 export const resolveVideoTextScale = (
   mode: VideoTextScaleMode,
   resolutionHeight: number,
 ) =>
   mode === 'webRatio'
-    ? Math.max(0.25, Math.min(8, resolutionHeight / WEB_RATIO_REFERENCE_HEIGHT))
+    ? resolvePresentationTextScale(resolutionHeight)
     : 1;
 
 export const getVideoTextRenderStyle = (

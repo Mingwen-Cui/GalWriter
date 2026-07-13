@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { getRenderObjects } from '../video/shared/renderObjects';
+import { resolvePresentationDialogueLayout, resolvePresentationDialogueOffsets } from '../video/shared/presentationLayout';
 import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type {
   RenderEditableObject,
@@ -154,10 +155,26 @@ export function WebPlaytestDialoguePanel({
     const startY = event.clientY;
     const initialX = object.x;
     const initialY = object.y;
+    const dialogueLayout = kind === 'dialogBox'
+      ? resolvePresentationDialogueLayout(settings.canvasWidth, settings.canvasHeight, renderStyle)
+      : null;
+    const canvasScale = dialogueLayout && targetRect.width > 0
+      ? dialogueLayout.width / targetRect.width
+      : 1;
     const move = (moveEvent: PointerEvent) => {
       let nextX = initialX + moveEvent.clientX - startX;
       let nextY = initialY + moveEvent.clientY - startY;
-      if (containerRect && guideBoxes.length > 0) {
+      if (dialogueLayout) {
+        const offsets = resolvePresentationDialogueOffsets(
+          settings.canvasWidth,
+          settings.canvasHeight,
+          renderStyle,
+          dialogueLayout.x + (moveEvent.clientX - startX) * canvasScale,
+          dialogueLayout.y + (moveEvent.clientY - startY) * canvasScale,
+        );
+        nextX = offsets.x;
+        nextY = offsets.y;
+      } else if (containerRect && guideBoxes.length > 0) {
         const snapped = snapPixelBoxToGuides({
           x: targetStartX + moveEvent.clientX - startX,
           y: targetStartY + moveEvent.clientY - startY,
@@ -268,7 +285,6 @@ export function WebPlaytestDialoguePanel({
     if (activeKind) onSelectRenderObject?.(activeKind);
   };
   const objects = getRenderObjects(renderStyle);
-  const dialogObject = objects.dialogBox;
   const selectedFrame = (kind: RenderEditableObjectKind) =>
     editMode &&
     (renderStyle.selectedRenderObject === kind || selectedRenderObjectKinds.includes(kind)) &&
@@ -280,28 +296,14 @@ export function WebPlaytestDialoguePanel({
     <div
       className={`${
         settings.layoutMode === 'immersive'
-          ? 'pointer-events-none absolute z-20 flex items-end justify-center'
-          : 'pointer-events-none absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 items-end justify-center'
+          ? 'pointer-events-none absolute z-20'
+          : 'pointer-events-none absolute z-20'
       }`}
-      style={{
-        width:
-          settings.layoutMode === 'immersive'
-            ? `min(${dialogObject.width}%, calc(100% - 24px))`
-            : `${dialogObject.width}%`,
-        height:
-          settings.layoutMode === 'immersive'
-            ? `min(${dialogObject.height}%, calc(100% - 96px))`
-            : undefined,
-        maxHeight: settings.layoutMode === 'immersive' ? 'calc(100% - 96px)' : undefined,
-        left: settings.layoutMode === 'immersive' ? '50%' : undefined,
-        bottom: settings.layoutMode === 'immersive' ? '4%' : 0,
-        transform: settings.layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
-        justifySelf: settings.layoutMode === 'classic' ? 'center' : undefined,
-      }}
+      style={{ inset: 0 }}
     >
       <div
         ref={dialogueBoxRef}
-        className={`pointer-events-auto relative h-full w-full border-t border-white/10 py-4 ${
+        className={`pointer-events-auto relative border-t border-white/10 ${
           settings.layoutMode === 'immersive'
             ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'

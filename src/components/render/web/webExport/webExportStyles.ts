@@ -349,15 +349,16 @@ export const WEB_EXPORT_STYLES = String.raw`
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-offset-y, 0px));
     }
     .dialogue {
-      position: relative;
+      position: absolute;
+      left: var(--dialog-left, 0px);
+      top: var(--dialog-top, 0px);
       z-index: 3;
-      justify-self: center;
-      width: min(var(--dialog-width, 86%), 100%);
+      box-sizing: border-box;
+      width: var(--dialog-width, 86%);
       display: block;
       border-top: 1px solid var(--dialog-border-color, rgba(255,255,255,0.14));
-      height: min(var(--dialog-height, 34vh), 420px);
-      max-height: min(var(--dialog-height, 34vh), 420px);
-      padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
+      height: var(--dialog-height, 34vh);
+      padding: 20px var(--dialog-padding-x, 9%);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
       border-radius: var(--dialog-radius, 12px);
       box-shadow: var(--dialog-shadow, 0 -14px 36px rgba(0,0,0,0.18));
@@ -368,14 +369,13 @@ export const WEB_EXPORT_STYLES = String.raw`
     .app.immersive .dialogue {
       position: absolute;
       left: var(--dialog-left, 50%);
-      bottom: var(--dialog-bottom, clamp(14px, 3vh, 24px));
+      top: var(--dialog-top, 0px);
       z-index: 4;
       margin: 0;
-      width: min(var(--dialog-width, 86%), calc(100% - 24px));
-      height: min(var(--dialog-height, 34%), calc(100% - 96px));
-      max-height: min(var(--dialog-height, 34%), calc(100% - 96px));
-      padding: clamp(14px, 2.5vw, 20px) var(--dialog-padding-x, 9%);
-      transform: translateX(-50%) var(--dialog-object-transform, translate(0, 0) rotate(0deg) scale(1, 1));
+      width: var(--dialog-width, 86%);
+      height: var(--dialog-height, 34vh);
+      padding: 20px var(--dialog-padding-x, 9%);
+      transform: var(--dialog-object-transform, rotate(0deg) scale(1, 1));
       border: var(--dialog-border-width, 1px) solid var(--dialog-border-color, rgba(255,255,255,0.12));
       border-radius: var(--dialog-radius, 12px);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
@@ -853,14 +853,6 @@ export const WEB_EXPORT_STYLES = String.raw`
       .app.immersive .stage {
         height: 100%;
         max-height: 100%;
-      }
-      .dialogue { padding: 16px; }
-      .app:not(.immersive) .dialogue { padding-left: 56px; padding-right: 56px; }
-      .app.immersive .dialogue {
-        width: min(var(--dialog-width, 86%), calc(100% - 24px));
-        left: var(--dialog-left, 50%);
-        right: auto;
-        transform: translateX(-50%);
       }
     }
 `;

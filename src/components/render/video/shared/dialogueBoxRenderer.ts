@@ -1,6 +1,7 @@
 import { loadCachedImage } from './mediaUtils';
 import { getRenderObjects } from './renderObjects';
 import type { RenderStyle } from './types';
+import { resolvePresentationDialogueLayout } from './presentationLayout';
 
 type DialogueBoxLayoutOptions = {
   contentHeight?: number;
@@ -12,50 +13,7 @@ export const getDialogueBoxLayout = (
   height: number,
   style: RenderStyle,
   options: DialogueBoxLayoutOptions = {},
-) => {
-  const boxWidth = width * Math.min(1, Math.max(0.35, style.dialogWidth / 100));
-  const maxBoxHeight = height * Math.min(0.75, Math.max(0.16, style.dialogHeight / 100));
-  const basePadding = Math.max(20, Math.min(boxWidth, maxBoxHeight) * 0.09);
-  const minDynamicHeight = Math.min(maxBoxHeight, Math.max(64, basePadding * 2.4));
-  const dynamicHeight =
-    Number.isFinite(options.contentHeight) && options.contentHeight !== undefined
-      ? options.contentHeight + basePadding * 2
-      : maxBoxHeight;
-  const boxHeight = Math.min(maxBoxHeight, Math.max(minDynamicHeight, dynamicHeight));
-  const centeredX = (width - boxWidth) / 2;
-  const baseY = height - Math.max(24, height * 0.045) - boxHeight;
-  const offsetX = Math.min(100, Math.max(-100, style.dialogOffsetX ?? 0));
-  const offsetY = Math.min(100, Math.max(-100, style.dialogOffsetY ?? 0));
-  const x = Math.min(width - boxWidth, Math.max(0, centeredX + centeredX * (offsetX / 100)));
-  const y = Math.min(
-    height - boxHeight,
-    Math.max(
-      0,
-      baseY +
-        (offsetY / 100) *
-          (offsetY < 0 ? Math.max(0, baseY) : Math.max(0, height - boxHeight - baseY)),
-    ),
-  );
-  const padding = basePadding;
-  const paddingX = Math.max(
-    12,
-    Math.min(
-      boxWidth * 0.32,
-      boxWidth * Math.min(0.24, Math.max(0.02, (style.dialogTextPaddingX ?? 9) / 100)),
-    ),
-  );
-  const topExtension = Math.max(0, options.topExtension ?? 0);
-  const extendedY = Math.max(0, y - topExtension);
-  return {
-    x,
-    y: extendedY,
-    width: boxWidth,
-    height: boxHeight + (y - extendedY),
-    padding,
-    paddingX,
-    paddingY: padding,
-  };
-};
+) => resolvePresentationDialogueLayout(width, height, style, options);
 
 const roundedRect = (
   ctx: CanvasRenderingContext2D,

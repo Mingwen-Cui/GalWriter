@@ -439,8 +439,29 @@ export const makeIndexHtml = (
       const flipY = object.flipY ? -1 : 1;
       return "translate(" + x + "px, " + y + "px) rotate(" + rotation + "deg) scale(" + flipX + ", " + flipY + ")";
     }
-    document.documentElement.style.setProperty("--title-size", Math.max(12, Number(titleObject.fontSize ?? style.titleFontSize) || 18) + "px");
-    document.documentElement.style.setProperty("--body-size", Math.max(12, Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) + "px");
+    function dialogueLayout() {
+      const canvasWidth = Math.max(1, Number(settings.canvasWidth) || 1920);
+      const canvasHeight = Math.max(1, Number(settings.canvasHeight) || 1080);
+      const dialogWidth = clamp(Number(dialogObject.width ?? style.dialogWidth), 35, 100, 86) / 100;
+      const dialogHeight = clamp(Number(dialogObject.height ?? style.dialogHeight), 16, 75, 34) / 100;
+      const width = canvasWidth * dialogWidth;
+      const height = canvasHeight * dialogHeight;
+      const centeredX = (canvasWidth - width) / 2;
+      const baseY = canvasHeight - Math.max(24, canvasHeight * 0.045) - height;
+      const offsetX = clamp(Number(dialogObject.x ?? style.dialogOffsetX), -100, 100, 0);
+      const offsetY = clamp(Number(dialogObject.y ?? style.dialogOffsetY), -100, 100, 0);
+      return {
+        x: clamp(centeredX + centeredX * offsetX / 100, 0, canvasWidth - width),
+        y: clamp(baseY + offsetY / 100 * (offsetY < 0 ? Math.max(0, baseY) : Math.max(0, canvasHeight - height - baseY)), 0, canvasHeight - height),
+        width: width,
+        height: height,
+        paddingX: clamp(width * clamp(Number(style.dialogTextPaddingX) / 100, 0.02, 0.24, 0.09), 12, width * 0.32),
+      };
+    }
+    const resolvedDialogLayout = dialogueLayout();
+    const presentationTextScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720));
+    document.documentElement.style.setProperty("--title-size", Math.max(18, (Number(titleObject.fontSize ?? style.titleFontSize) || 18) * presentationTextScale) + "px");
+    document.documentElement.style.setProperty("--body-size", Math.max(16, (Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) * presentationTextScale) + "px");
     document.documentElement.style.setProperty("--title-color", objectFill(titleObject, "#f8fafc"));
     document.documentElement.style.setProperty("--body-color", objectFill(bodyObject, "#e5e7eb"));
     document.documentElement.style.setProperty("--title-fill", objectFill(titleObject, "#f8fafc"));
@@ -451,8 +472,8 @@ export const makeIndexHtml = (
     document.documentElement.style.setProperty("--body-font-family", bodyObject.fontFamily || style.bodyFontFamily || "inherit");
     document.documentElement.style.setProperty("--title-line-height", String(Number(titleObject.lineHeight ?? style.titleLineHeight) || 1.18));
     document.documentElement.style.setProperty("--body-line-height", String(Number(bodyObject.lineHeight ?? style.bodyLineHeight) || 1.55));
-    document.documentElement.style.setProperty("--title-letter-spacing", px(titleObject.letterSpacing ?? style.titleLetterSpacing, 0));
-    document.documentElement.style.setProperty("--body-letter-spacing", px(bodyObject.letterSpacing ?? style.bodyLetterSpacing, 0));
+    document.documentElement.style.setProperty("--title-letter-spacing", ((Number(titleObject.letterSpacing ?? style.titleLetterSpacing) || 0) * presentationTextScale) + "px");
+    document.documentElement.style.setProperty("--body-letter-spacing", ((Number(bodyObject.letterSpacing ?? style.bodyLetterSpacing) || 0) * presentationTextScale) + "px");
     document.documentElement.style.setProperty("--title-align", titleObject.textAlign || style.titleAlign || "left");
     document.documentElement.style.setProperty("--body-align", bodyObject.textAlign || style.bodyAlign || "left");
     document.documentElement.style.setProperty("--title-width", percent(clamp(titleObject.width, 8, 100, 100), 100));
@@ -467,17 +488,13 @@ export const makeIndexHtml = (
     document.documentElement.style.setProperty("--dialog-border-width", dialogObject.stroke && dialogObject.stroke.enabled ? (Number(dialogObject.stroke.width) || 0) + "px" : "1px");
     document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : (objectShadow(dialogObject) || "0 24px 80px rgba(0,0,0,0.30)"));
     document.documentElement.style.setProperty("--dialog-backdrop-filter", style.dialogVisible === false ? "none" : "blur(18px)");
-    document.documentElement.style.setProperty("--dialog-width", percent(clamp(dialogObject.width ?? style.dialogWidth, 35, 100, 86), 86));
-    document.documentElement.style.setProperty("--dialog-height", percent(clamp(dialogObject.height ?? style.dialogHeight, 16, 75, 34), 34));
+    document.documentElement.style.setProperty("--dialog-width", resolvedDialogLayout.width + "px");
+    document.documentElement.style.setProperty("--dialog-height", resolvedDialogLayout.height + "px");
     document.documentElement.style.setProperty("--dialog-radius", px(dialogObject.radius ?? style.dialogRadius, 24));
-    document.documentElement.style.setProperty("--dialog-padding-x", percent(clamp(style.dialogTextPaddingX, 2, 24, 9), 9));
-    document.documentElement.style.setProperty("--dialog-left", "50%");
-    document.documentElement.style.setProperty("--dialog-bottom", "4%");
-    document.documentElement.style.setProperty("--dialog-object-transform", objectTransform({
-      ...dialogObject,
-      x: dialogObject.x ?? style.dialogOffsetX,
-      y: dialogObject.y ?? style.dialogOffsetY,
-    }));
+    document.documentElement.style.setProperty("--dialog-padding-x", resolvedDialogLayout.paddingX + "px");
+    document.documentElement.style.setProperty("--dialog-left", resolvedDialogLayout.x + "px");
+    document.documentElement.style.setProperty("--dialog-top", resolvedDialogLayout.y + "px");
+    document.documentElement.style.setProperty("--dialog-object-transform", "rotate(" + (Number(dialogObject.rotation) || 0) + "deg) scale(" + (dialogObject.flipX ? -1 : 1) + ", " + (dialogObject.flipY ? -1 : 1) + ")");
     document.documentElement.style.setProperty("--dialog-background", style.dialogVisible === false ? "transparent" : objectFill(dialogObject, "#111827"));
     const nameplateFontSize = Math.max(10, Number(nameplateObject.fontSize ?? style.nameplateFontSize) || 18);
     const nameplateScale = clamp(nameplateObject.width ?? style.nameplateScale, 55, 320, 100) / 100;
