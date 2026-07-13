@@ -407,6 +407,12 @@ export function StartMenuElementInspector({
       ? {
           fillStyle: '填充样式',
           fillColor: '填充颜色与透明度',
+          horizontalAlign: '水平对齐',
+          verticalAlign: '垂直对齐',
+          textAlign: '文字对齐',
+          textColorStyle: '文字颜色样式',
+          textColor: '文字颜色与透明度',
+          blendMode: '混合模式',
           strokeStyle: '描边样式',
           strokePosition: '描边位置',
           strokeColor: '描边颜色与透明度',
@@ -419,6 +425,12 @@ export function StartMenuElementInspector({
         ? {
             fillStyle: '塗りの種類',
             fillColor: '塗りの色と不透明度',
+            horizontalAlign: '水平揃え',
+            verticalAlign: '垂直揃え',
+            textAlign: '文字揃え',
+            textColorStyle: '文字の色の種類',
+            textColor: '文字の色と不透明度',
+            blendMode: '合成モード',
             strokeStyle: '縁取りの種類',
             strokePosition: '縁取りの位置',
             strokeColor: '縁取りの色と不透明度',
@@ -430,6 +442,12 @@ export function StartMenuElementInspector({
         : {
             fillStyle: 'Fill style',
             fillColor: 'Fill color and opacity',
+            horizontalAlign: 'Horizontal align',
+            verticalAlign: 'Vertical align',
+            textAlign: 'Text align',
+            textColorStyle: 'Text color style',
+            textColor: 'Text color and opacity',
+            blendMode: 'Blend mode',
             strokeStyle: 'Stroke style',
             strokePosition: 'Stroke position',
             strokeColor: 'Stroke color and opacity',
@@ -549,7 +567,6 @@ export function StartMenuElementInspector({
         expandLabel={inspectorCopy.expand}
         collapseLabel={inspectorCopy.collapse}
         showDescriptions={showDescriptions}
-        titleDescription={text.field.visible}
         secondaryDescription={inspectorCopy.zIndex}
         secondary={
           <NumberField
@@ -637,8 +654,11 @@ export function StartMenuElementInspector({
             onChange={(opacity) => onUpdate({ opacity })}
           />
         </ControlRow>
-        <PositionAlignButtons
-          className="mt-2"
+          <PositionAlignButtons
+            className="mt-2"
+            showDescriptions={showDescriptions}
+            horizontalLabel={descriptionCopy.horizontalAlign}
+            verticalLabel={descriptionCopy.verticalAlign}
           onAlign={(axis, value) => {
             if (selectedElementIds.length > 1 && onAlignSelected) {
               onAlignSelected(axis, value);
@@ -677,7 +697,6 @@ export function StartMenuElementInspector({
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
           showDescriptions={showDescriptions}
-          titleDescription={text.field.visible}
           secondaryDescription={text.field.font}
           secondary={
             <HeaderSelect
@@ -733,59 +752,67 @@ export function StartMenuElementInspector({
             />
           </ControlRow>
           <ControlRow className="mt-2">
-            <AlignButtons
-              value={element.textAlign || (element.kind === 'button' ? 'center' : 'left')}
-              onChange={(textAlign) => onUpdate({ textAlign })}
-            />
-            <TwoSegmentControl
-              value={textColorType}
-              options={[
-                {
-                  value: 'solid',
-                  label: inspectorCopy.solid,
-                  icon: <Palette className="h-4 w-4" />,
-                },
-                { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
-              ]}
-              onChange={(type) => {
-                onUpdate({ textColorType: type });
-                setPopover({ group: 'text', type });
-              }}
-            />
+            <SettingDescription show={showDescriptions} label={descriptionCopy.textAlign}>
+              <AlignButtons
+                value={element.textAlign || (element.kind === 'button' ? 'center' : 'left')}
+                onChange={(textAlign) => onUpdate({ textAlign })}
+              />
+            </SettingDescription>
+            <SettingDescription show={showDescriptions} label={descriptionCopy.textColorStyle}>
+              <TwoSegmentControl
+                value={textColorType}
+                options={[
+                  {
+                    value: 'solid',
+                    label: inspectorCopy.solid,
+                    icon: <Palette className="h-4 w-4" />,
+                  },
+                  { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
+                ]}
+                onChange={(type) => {
+                  onUpdate({ textColorType: type });
+                  setPopover({ group: 'text', type });
+                }}
+              />
+            </SettingDescription>
           </ControlRow>
           <div className="relative mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            {textColorType === 'solid' ? (
-              <InlineColorControl
-                label={text.popover.solidTitle}
-                color={element.textColor || '#ffffff'}
-                alpha={element.textColorAlpha ?? 100}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(textColor) => onUpdate({ textColor })}
-                onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
-                onOpen={() => setPopover({ group: 'text', type: 'solid' })}
-              />
-            ) : (
-              <InlineGradientControl
-                label={text.popover.gradientTitle}
-                stops={textGradientStops}
-                onOpen={() => setPopover({ group: 'text', type: 'gradient' })}
-                onAlphaChange={(alpha) =>
-                  onUpdate({
-                    textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })),
-                  })
-                }
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => setTextBlendMenuOpen((open) => !open)}
-              className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-violet-100"
-              title={text.field.blendMode}
-              aria-label={text.field.blendMode}
-            >
-              <Blend className="h-4 w-4" />
-            </button>
+            <SettingDescription className="min-w-0" show={showDescriptions} label={descriptionCopy.textColor}>
+              {textColorType === 'solid' ? (
+                <InlineColorControl
+                  label={text.popover.solidTitle}
+                  color={element.textColor || '#ffffff'}
+                  alpha={element.textColorAlpha ?? 100}
+                  alphaLabel={text.field.opacity}
+                  hexLabel={text.popover.hex}
+                  onColorChange={(textColor) => onUpdate({ textColor })}
+                  onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
+                  onOpen={() => setPopover({ group: 'text', type: 'solid' })}
+                />
+              ) : (
+                <InlineGradientControl
+                  label={text.popover.gradientTitle}
+                  stops={textGradientStops}
+                  onOpen={() => setPopover({ group: 'text', type: 'gradient' })}
+                  onAlphaChange={(alpha) =>
+                    onUpdate({
+                      textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })),
+                    })
+                  }
+                />
+              )}
+            </SettingDescription>
+            <SettingDescription show={showDescriptions} label={descriptionCopy.blendMode}>
+              <button
+                type="button"
+                onClick={() => setTextBlendMenuOpen((open) => !open)}
+                className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-violet-100"
+                title={text.field.blendMode}
+                aria-label={text.field.blendMode}
+              >
+                <Blend className="h-4 w-4" />
+              </button>
+            </SettingDescription>
             {textBlendMenuOpen && (
               <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-violet-100 bg-white py-1 shadow-xl">
                 {BLEND_OPTIONS.map((blendMode) => (

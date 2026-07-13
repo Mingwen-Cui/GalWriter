@@ -78,7 +78,7 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
     <section className={`relative rounded-[22px] bg-rose-50 p-3 dark:bg-rose-950/25 ${showDescriptions ? '' : '[&_.canvas-setting-label]:hidden'}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
         <div>
-          {canvasHeaderDescription(text.title)}
+          {canvasHeaderDescription()}
           <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-rose-100 px-3 text-sm font-bold text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]">
             <CanvasGlyph />
             <span className="truncate">{text.title}</span>

@@ -366,9 +366,15 @@ function PositionAlignIcon({ axis, value }: { axis: 'x' | 'y'; value: 'start' | 
 export function PositionAlignButtons({
   className = '',
   onAlign,
+  showDescriptions = false,
+  horizontalLabel = '',
+  verticalLabel = '',
 }: {
   className?: string;
   onAlign: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
+  showDescriptions?: boolean;
+  horizontalLabel?: string;
+  verticalLabel?: string;
 }) {
   const horizontalItems: Array<{
     key: string;
@@ -396,6 +402,13 @@ export function PositionAlignButtons({
 
   return (
     <div className={className}>
+      {showDescriptions && (
+        <div className="mb-1 grid h-4 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3 px-1 text-[10px] leading-4 text-slate-500">
+          <span className="truncate">{horizontalLabel}</span>
+          <span className="truncate">{verticalLabel}</span>
+          <span aria-hidden="true">{'\u00a0'}</span>
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
         <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
           {horizontalItems.map((item) => (
