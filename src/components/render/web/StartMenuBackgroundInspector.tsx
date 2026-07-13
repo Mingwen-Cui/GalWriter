@@ -87,22 +87,24 @@ export function StartMenuBackgroundInspector({
         }}
       />
       <Group
-      title={text.group.fill}
-      icon={<Palette className="h-3.5 w-3.5 shrink-0" />}
-      tone="fill"
-      secondary={
-        <BackgroundFillTabs
-          value={background.type}
-          labels={text.option}
-          onChange={(type) => {
-            setBackgroundType(type);
-            // A fill type is also its editor entry point.  Keeping it open makes
-            // the selected type behave consistently with the reference control.
-            setOpenEditor(type);
-          }}
-        />
-      }
-    >
+        title={text.group.fill}
+        icon={<Palette className="h-3.5 w-3.5 shrink-0" />}
+        tone="fill"
+        showDescriptions={showDescriptions}
+        secondaryDescription={
+          language === 'zh' ? '填充样式' : language === 'ja' ? '塗りつぶし形式' : 'Fill style'
+        }
+        secondary={
+          <BackgroundFillTabs
+            value={background.type}
+            labels={text.option}
+            onChange={(type) => {
+              setBackgroundType(type);
+              setOpenEditor(type);
+            }}
+          />
+        }
+      >
       {showDescriptions && (
         <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
       )}
@@ -251,6 +253,7 @@ export function StartMenuBackgroundInspector({
           settings={settings}
           surface={surface}
           updateWebSettings={updateWebSettings}
+          showDescriptions={showDescriptions}
         />
       )}
     </div>

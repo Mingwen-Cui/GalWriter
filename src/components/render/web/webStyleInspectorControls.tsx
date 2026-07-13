@@ -67,6 +67,10 @@ export function InspectorGroup({
   titlePressed,
   expandLabel = 'Expand',
   collapseLabel = 'Collapse',
+  showDescriptions = false,
+  titleDescription,
+  secondaryDescription,
+  secondaryHasDescription = false,
   children,
 }: {
   title: string;
@@ -78,49 +82,74 @@ export function InspectorGroup({
   titlePressed?: boolean;
   expandLabel?: string;
   collapseLabel?: string;
+  showDescriptions?: boolean;
+  titleDescription?: string;
+  secondaryDescription?: string;
+  secondaryHasDescription?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
   const classes = inspectorTone[tone];
+  const descriptionSlot = (label?: string) => (
+    <div
+      className="mb-1 h-4 px-1 text-[10px] leading-4 text-slate-500"
+      aria-hidden={label ? undefined : true}
+    >
+      {label || '\u00a0'}
+    </div>
+  );
 
   return (
     <section className={`relative rounded-[22px] p-3 ${classes.section}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        {onTitleClick ? (
+        <div className="min-w-0">
+          {showDescriptions && descriptionSlot(titleDescription)}
+          {onTitleClick ? (
+            <button
+              type="button"
+              onClick={onTitleClick}
+              className={`flex h-10 min-w-0 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-bold transition-colors ${
+                titleActive ? `text-slate-900 ${classes.header}` : 'bg-white/60 text-slate-400'
+              }`}
+              title={title}
+              aria-label={title}
+              aria-pressed={titlePressed ?? titleActive}
+            >
+              <span className="shrink-0">{icon}</span>
+              <span className="min-w-0 truncate">{title}</span>
+            </button>
+          ) : (
+            <div
+              className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-sm font-bold text-slate-900 ${classes.header}`}
+              title={title}
+              aria-label={title}
+            >
+              <span className="shrink-0">{icon}</span>
+              <span className="min-w-0 truncate">{title}</span>
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          {showDescriptions && !secondaryHasDescription && (
+            <div className="mb-1 h-4 px-1 text-[10px] leading-4 text-slate-500">
+              {secondaryDescription || '\u00a0'}
+            </div>
+          )}
+          {secondary}
+        </div>
+        <div>
+          {showDescriptions && descriptionSlot()}
           <button
             type="button"
-            onClick={onTitleClick}
-            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold transition-colors ${
-              titleActive ? `text-slate-900 ${classes.header}` : 'bg-white/60 text-slate-400'
-            }`}
-            title={title}
-            aria-label={title}
-            aria-pressed={titlePressed ?? titleActive}
+            onClick={() => setOpen((current) => !current)}
+            className={`grid h-10 w-11 place-items-center rounded-xl ${classes.toggle}`}
+            title={open ? collapseLabel : expandLabel}
+            aria-label={open ? collapseLabel : expandLabel}
+            aria-expanded={open}
           >
-            <span className="shrink-0">{icon}</span>
-            <span className="min-w-0 truncate">{title}</span>
+            <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
-        ) : (
-          <div
-            className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-sm font-bold text-slate-900 ${classes.header}`}
-            title={title}
-            aria-label={title}
-          >
-            <span className="shrink-0">{icon}</span>
-            <span className="min-w-0 truncate">{title}</span>
-          </div>
-        )}
-        <div className="min-w-0">{secondary}</div>
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className={`grid h-10 w-11 place-items-center rounded-xl ${classes.toggle}`}
-          title={open ? collapseLabel : expandLabel}
-          aria-label={open ? collapseLabel : expandLabel}
-          aria-expanded={open}
-        >
-          <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
+        </div>
       </div>
       {open && <div className="mt-3">{children}</div>}
     </section>

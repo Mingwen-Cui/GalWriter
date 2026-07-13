@@ -10,6 +10,7 @@ type WebMenuMusicPanelProps = {
   settings: WebExportSettings;
   surface: 'start' | 'archive' | 'settings';
   updateWebSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
+  showDescriptions?: boolean;
 };
 
 const readAudioFileAsDataUrl = (file: File, onReady: (value: string) => void) => {
@@ -20,7 +21,7 @@ const readAudioFileAsDataUrl = (file: File, onReady: (value: string) => void) =>
   reader.readAsDataURL(file);
 };
 
-export function WebMenuMusicPanel({ language, settings, surface, updateWebSettings }: WebMenuMusicPanelProps) {
+export function WebMenuMusicPanel({ language, settings, surface, updateWebSettings, showDescriptions = false }: WebMenuMusicPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const hasMusic = Boolean(settings.startMenuBackgroundMusicUrl);
   const [expanded, setExpanded] = useState(true);
@@ -36,16 +37,22 @@ export function WebMenuMusicPanel({ language, settings, surface, updateWebSettin
     if (surface === 'archive') updateWebSettings('startMenuMusicApplyToArchive', enabled);
     if (surface === 'settings') updateWebSettings('startMenuMusicApplyToSettings', enabled);
   };
+  const headerDescription = (label?: string) =>
+    showDescriptions ? (
+      <div className="mb-1 h-4 px-1 text-[10px] leading-4 text-slate-500">{label || '\u00a0'}</div>
+    ) : null;
 
   return (
     <section className="relative rounded-[22px] bg-sky-50 p-3 dark:bg-sky-500/[0.08]">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        <button
-          type="button"
-          disabled={surface === 'start'}
+        <div>
+          {headerDescription(t('启用音乐', '音楽を有効化', 'Enable music'))}
+          <button
+            type="button"
+            disabled={surface === 'start'}
           onClick={() => setPageEnabled(!pageEnabled)}
           aria-pressed={pageEnabled}
-          className={`flex h-10 min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold transition-colors ${
+          className={`flex h-10 w-full min-w-0 items-center gap-2 rounded-xl px-3 text-left text-sm font-bold transition-colors ${
             pageEnabled
               ? 'bg-[var(--vr-accent)] text-white'
               : 'bg-sky-100 text-slate-900 hover:bg-sky-200 dark:bg-sky-400/15 dark:text-sky-50 dark:hover:bg-sky-400/25'
@@ -53,26 +60,33 @@ export function WebMenuMusicPanel({ language, settings, surface, updateWebSettin
         >
           <Music2 className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 truncate">{t('音乐', '音楽', 'Music')}</span>
-        </button>
-        <button
-          type="button"
-          className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-sky-100 px-3 text-left text-sm font-bold text-slate-900 dark:bg-sky-400/15 dark:text-sky-50"
+          </button>
+        </div>
+        <div>
+          {headerDescription(t('音量', '音量', 'Volume'))}
+          <button
+            type="button"
+            className="flex h-10 w-full min-w-0 items-center gap-2 rounded-xl bg-sky-100 px-3 text-left text-sm font-bold text-slate-900 dark:bg-sky-400/15 dark:text-sky-50"
           title={t('音量', '音量', 'Volume')}
           aria-label={t('音量', '音量', 'Volume')}
         >
           <span className="min-w-0 truncate">{t('音量', '音量', 'Volume')}</span>
           <span className="ml-auto shrink-0 tabular-nums text-xs font-medium">{volumeDb} dB</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setExpanded((current) => !current)}
+          </button>
+        </div>
+        <div>
+          {headerDescription()}
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
           className="grid h-10 w-11 place-items-center rounded-xl bg-sky-100 text-slate-900 dark:bg-sky-400/15 dark:text-sky-50"
           title={expanded ? 'Collapse' : 'Expand'}
           aria-label={expanded ? 'Collapse' : 'Expand'}
           aria-expanded={expanded}
         >
           <ChevronDown className={`h-5 w-5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
+          </button>
+        </div>
       </div>
 
       {expanded && (

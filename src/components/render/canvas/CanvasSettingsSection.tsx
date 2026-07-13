@@ -29,6 +29,13 @@ type Props = {
 export function CanvasSettingsSection({ language, value, onChange, variant: _variant = 'web', showDescriptions = true }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const text = getCanvasText(language);
+  const layoutLabel = language === 'zh' ? '布局模式' : language === 'ja' ? 'レイアウト' : 'Layout mode';
+  const canvasHeaderDescription = (label?: string) =>
+    showDescriptions ? (
+      <div className="mb-1 h-4 px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+        {label || '\u00a0'}
+      </div>
+    ) : null;
   const updateResolution = (field: 'canvasWidth' | 'canvasHeight', next: number) => {
     const rounded = Math.round(next);
     if (!value.canvasRatioLocked) return onChange({ [field]: rounded });
@@ -70,14 +77,23 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
   return (
     <section className={`relative rounded-[22px] bg-rose-50 p-3 dark:bg-rose-950/25 ${showDescriptions ? '' : '[&_.canvas-setting-label]:hidden'}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-rose-100 px-3 text-sm font-bold text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]">
-          <CanvasGlyph />
-          <span className="truncate">{text.title}</span>
+        <div>
+          {canvasHeaderDescription(text.title)}
+          <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-rose-100 px-3 text-sm font-bold text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]">
+            <CanvasGlyph />
+            <span className="truncate">{text.title}</span>
+          </div>
         </div>
-        <Segmented value={value.layoutMode} options={[["classic", text.split], ["immersive", text.merged]]} onChange={(layoutMode) => onChange({ layoutMode: layoutMode as SharedCanvasSettings['layoutMode'] })} />
-        <button type="button" onClick={() => setCollapsed((current) => !current)} className="grid h-10 w-11 place-items-center rounded-xl bg-rose-100 text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]" title={collapsed ? text.expand : text.collapse} aria-expanded={!collapsed}>
-          <ChevronDown className={`h-5 w-5 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
-        </button>
+        <div>
+          {canvasHeaderDescription(layoutLabel)}
+          <Segmented value={value.layoutMode} options={[["classic", text.split], ["immersive", text.merged]]} onChange={(layoutMode) => onChange({ layoutMode: layoutMode as SharedCanvasSettings['layoutMode'] })} />
+        </div>
+        <div>
+          {canvasHeaderDescription()}
+          <button type="button" onClick={() => setCollapsed((current) => !current)} className="grid h-10 w-11 place-items-center rounded-xl bg-rose-100 text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]" title={collapsed ? text.expand : text.collapse} aria-expanded={!collapsed}>
+            <ChevronDown className={`h-5 w-5 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+          </button>
+        </div>
       </div>
 
       {!collapsed && (

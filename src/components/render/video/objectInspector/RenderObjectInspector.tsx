@@ -4,11 +4,14 @@ import {
   Box,
   CaseSensitive,
   ChevronDown,
+  Crosshair,
+  Expand,
   Minus,
   MoveHorizontal,
   MoveVertical,
   PaintBucket,
   Palette,
+  Pin,
   Radius,
   RotateCw,
   Ruler,
@@ -82,6 +85,18 @@ export function RenderObjectInspector({
     ? (selected as RenderEditableTextObject)
     : null;
   const videoTextEffects = surface === 'video';
+  const nameplateToggleText =
+    language === 'zh'
+      ? { inside: '在对话框内', outside: '在对话框外', follow: '跟随角色', fixed: '固定位置' }
+      : language === 'ja'
+        ? { inside: '会話枠内', outside: '会話枠外', follow: 'キャラに追従', fixed: '固定位置' }
+        : { inside: 'Inside dialog', outside: 'Outside dialog', follow: 'Follow character', fixed: 'Fixed position' };
+  const shadowModeLabels =
+    language === 'zh'
+      ? { outer: '外阴影', inner: '内阴影', innerBlur: '内部模糊' }
+      : language === 'ja'
+        ? { outer: '外側', inner: '内側', innerBlur: '内ぼかし' }
+        : { outer: 'Outer', inner: 'Inner', innerBlur: 'Inner blur' };
   const [popover, setPopover] = useState<Popover>(null);
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
@@ -220,6 +235,46 @@ export function RenderObjectInspector({
             onChange={(value) => setObject({ height: value })}
           />
         </ControlRow>
+        {selectedKind === 'nameplate' && (
+          <>
+            <HelpText
+              show={showDescriptions}
+              text={text.help.insideDialog + ' ' + text.help.followCharacter}
+            />
+            <ControlRow className="mt-2">
+              <IconChoicePair
+                value={renderStyle.nameplateInside}
+                onChange={(value) => updateRenderStyle('nameplateInside', value)}
+                leftIcon={<Box className="h-4 w-4" />}
+                rightIcon={<Expand className="h-4 w-4" />}
+                leftLabel={nameplateToggleText.inside}
+                rightLabel={nameplateToggleText.outside}
+              />
+              <IconChoicePair
+                value={renderStyle.nameplateFollowCharacter}
+                onChange={(value) => updateRenderStyle('nameplateFollowCharacter', value)}
+                leftIcon={<Crosshair className="h-4 w-4" />}
+                rightIcon={<Pin className="h-4 w-4" />}
+                leftLabel={nameplateToggleText.follow}
+                rightLabel={nameplateToggleText.fixed}
+              />
+            </ControlRow>
+            {renderStyle.nameplateInside && (
+              <ControlRow className="mt-2">
+                <NumberField
+                  icon={<MoveVertical className="h-4 w-4" />}
+                  label={text.field.textGap}
+                  description={showDescriptions ? text.help.textGap : undefined}
+                  value={renderStyle.nameplateTextGap ?? 8}
+                  min={-60}
+                  max={80}
+                  onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+                />
+                <div aria-hidden="true" />
+              </ControlRow>
+            )}
+          </>
+        )}
       </InspectorGroup>
 
       {textObject && (
@@ -515,7 +570,14 @@ export function RenderObjectInspector({
           tone="shadow"
           onTitleClick={index === 0 ? toggleShadow : undefined}
           titleActive={shadow.enabled}
-          secondary={<ShadowModeTabs value={shadow.type} onChange={(type) => setShadowLayer(index, { type })} outerOnly={surface === 'video'} />}
+          secondary={
+            <ShadowModeTabs
+              value={shadow.type}
+              onChange={(type) => setShadowLayer(index, { type })}
+              labels={shadowModeLabels}
+              outerOnly={surface === 'video'}
+            />
+          }
         >
           <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
           <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
@@ -601,44 +663,6 @@ export function RenderObjectInspector({
         </ControlRow>
       </InspectorGroup>
 
-      {selectedKind === 'nameplate' && (
-        <InspectorGroup
-          title={text.group.extra}
-          icon={<RotateCw className="h-3.5 w-3.5" />}
-          tone="extra"
-          secondary={
-            <ToggleButton
-              active={renderStyle.nameplateInside}
-              label={text.field.insideDialog}
-              onClick={() => updateRenderStyle('nameplateInside', !renderStyle.nameplateInside)}
-              activeIcon={<Box className="h-4 w-4" />}
-              inactiveIcon={<Box className="h-4 w-4" />}
-            />
-          }
-        >
-          <HelpText show={showDescriptions} text={`${text.help.insideDialog} ${text.help.followCharacter}`} />
-          <ControlRow>
-            <ToggleButton
-              active={renderStyle.nameplateFollowCharacter}
-              label={text.field.followCharacter}
-              onClick={() =>
-                updateRenderStyle('nameplateFollowCharacter', !renderStyle.nameplateFollowCharacter)
-              }
-              activeIcon={<MoveHorizontal className="h-4 w-4" />}
-              inactiveIcon={<MoveHorizontal className="h-4 w-4" />}
-            />
-            <NumberField
-              icon={<MoveVertical className="h-4 w-4" />}
-              label={text.field.textGap}
-              description={showDescriptions ? text.help.textGap : undefined}
-              value={renderStyle.nameplateTextGap ?? 8}
-              min={-60}
-              max={80}
-              onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
-            />
-          </ControlRow>
-        </InspectorGroup>
-      )}
     </div>
   );
 }
@@ -779,6 +803,51 @@ function ToggleButton({
   );
 }
 
+function IconChoicePair({
+  value,
+  onChange,
+  leftIcon,
+  rightIcon,
+  leftLabel,
+  rightLabel,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  leftIcon: React.ReactNode;
+  rightIcon: React.ReactNode;
+  leftLabel: string;
+  rightLabel: string;
+}) {
+  const optionClass = (active: boolean) =>
+    `grid h-10 place-items-center transition-colors ${
+      active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'
+    }`;
+  return (
+    <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
+      <button
+        type="button"
+        className={optionClass(value)}
+        onClick={() => onChange(true)}
+        title={leftLabel}
+        aria-label={leftLabel}
+        aria-pressed={value}
+      >
+        {leftIcon}
+      </button>
+      <button
+        type="button"
+        className={optionClass(!value)}
+        onClick={() => onChange(false)}
+        title={rightLabel}
+        aria-label={rightLabel}
+        aria-pressed={!value}
+      >
+        {rightIcon}
+      </button>
+    </div>
+  );
+}
+
 function TwoOptionTabs({
   value,
   onChange,
@@ -832,20 +901,22 @@ function ThreeOptionTabs({
 function ShadowModeTabs({
   value,
   onChange,
+  labels,
   outerOnly = false,
 }: {
   value: 'outer' | 'inner' | 'innerBlur';
   onChange: (value: 'outer' | 'inner' | 'innerBlur') => void;
+  labels: Record<'outer' | 'inner' | 'innerBlur', string>;
   outerOnly?: boolean;
 }) {
   if (outerOnly) {
-    return <div className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-[10px] font-bold text-white">澶?</div>;
+    return <div className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-[10px] font-bold text-white">{labels.outer}</div>;
   }
   return (
     <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
       {(['outer', 'inner', 'innerBlur'] as const).map((option) => (
         <button key={option} type="button" onClick={() => onChange(option)} className={`text-[10px] font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-fuchsia-50'}`} title={option}>
-          {option === 'outer' ? '外' : option === 'inner' ? '内' : '柔内'}
+          {labels[option]}
         </button>
       ))}
     </div>

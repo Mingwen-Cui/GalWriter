@@ -548,6 +548,9 @@ export function StartMenuElementInspector({
         titleActive={element.visible !== false}
         expandLabel={inspectorCopy.expand}
         collapseLabel={inspectorCopy.collapse}
+        showDescriptions={showDescriptions}
+        titleDescription={text.field.visible}
+        secondaryDescription={inspectorCopy.zIndex}
         secondary={
           <NumberField
             icon={<Layers className="h-4 w-4" />}
@@ -673,6 +676,9 @@ export function StartMenuElementInspector({
           titleActive={element.textVisible !== false}
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
+          titleDescription={text.field.visible}
+          secondaryDescription={text.field.font}
           secondary={
             <HeaderSelect
               icon={<Type className="h-4 w-4" />}
@@ -845,6 +851,13 @@ export function StartMenuElementInspector({
           tone="position"
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
+          titleDescription={
+            language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
+          }
+          secondaryDescription={
+            language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
+          }
           secondary={
             <HeaderSelect
               icon={<MousePointerClick className="h-4 w-4" />}
@@ -938,6 +951,8 @@ export function StartMenuElementInspector({
           titleActive={fillEnabled}
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
+          secondaryHasDescription
           secondary={
             <SettingDescription show={showDescriptions} label={descriptionCopy.fillStyle}>
               <FillTabs
@@ -1124,6 +1139,7 @@ export function StartMenuElementInspector({
           titleActive={fillEnabled}
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
           secondary={
             <HeaderAction
               icon={<ImageIcon className="h-4 w-4" />}
@@ -1186,6 +1202,8 @@ export function StartMenuElementInspector({
         titleActive={strokeEnabled}
         expandLabel={inspectorCopy.expand}
         collapseLabel={inspectorCopy.collapse}
+        showDescriptions={showDescriptions}
+        secondaryHasDescription
         secondary={
           strokeIsText ? (
             <SettingDescription show={showDescriptions} label={descriptionCopy.strokeColor}>
@@ -1377,6 +1395,8 @@ export function StartMenuElementInspector({
             titleActive={shadowEnabled}
             expandLabel={inspectorCopy.expand}
             collapseLabel={inspectorCopy.collapse}
+            showDescriptions={showDescriptions}
+            secondaryHasDescription
             secondary={
               <SettingDescription show={showDescriptions} label={descriptionCopy.shadowType}>
                 <SegmentedIconControl
