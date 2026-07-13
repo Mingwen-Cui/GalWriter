@@ -133,6 +133,17 @@ type SavedWebExperienceTemplate = WebExperienceSnapshot & {
 
 const webTemplateLibraryStorageKey = 'galwriter-web-experience-templates:v1';
 
+const stripEmbeddedDataUrls = <T,>(value: T): T => {
+  if (typeof value === 'string') return (value.startsWith('data:') ? '' : value) as T;
+  if (Array.isArray(value)) return value.map(stripEmbeddedDataUrls) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, stripEmbeddedDataUrls(item)]),
+    ) as T;
+  }
+  return value;
+};
+
 const readWebTemplateLibrary = (): SavedWebExperienceTemplate[] => {
   if (typeof window === 'undefined') return [];
   try {
@@ -276,7 +287,7 @@ export function WebWorkspace({
       imageUrl: clearDataUrl(element.imageUrl),
       backgroundImageUrl: clearDataUrl(element.backgroundImageUrl),
     }));
-    return {
+    return stripEmbeddedDataUrls({
       ...template,
       settings: {
         ...settings,
@@ -296,7 +307,7 @@ export function WebWorkspace({
         previewToolbarElements: compactElements(settings.previewToolbarElements),
         dialogueOverlayElements: compactElements(settings.dialogueOverlayElements),
       },
-    };
+    });
   };
   const saveStartMenuDesign = (name: string, scope = templateSaveScope) => {
     if (typeof window === 'undefined') return;
@@ -320,7 +331,7 @@ export function WebWorkspace({
       setSelectedSavedTemplateId(entry.id);
     } catch (error) {
       try {
-        const compactEntry = { ...entry, ...createStartMenuDesignSnapshot(scope, true) };
+        const compactEntry = stripEmbeddedDataUrls({ ...entry, ...createStartMenuDesignSnapshot(scope, true) });
         const compactNext = [
           compactEntry,
           ...savedTemplateLibrary.filter((item) => item.id !== entry.id),
@@ -331,9 +342,11 @@ export function WebWorkspace({
         } catch {
           const trimmedNext = compactNext.slice(0, 8);
           try {
+            window.localStorage.removeItem(webTemplateLibraryStorageKey);
             window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(trimmedNext));
             setSavedTemplateLibrary(trimmedNext);
           } catch {
+            window.localStorage.removeItem(webTemplateLibraryStorageKey);
             window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify([compactEntry]));
             setSavedTemplateLibrary([compactEntry]);
           }

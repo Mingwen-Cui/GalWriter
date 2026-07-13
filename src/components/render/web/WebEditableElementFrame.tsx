@@ -81,8 +81,7 @@ export function WebEditableElementFrame({
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      {showAuxiliaryControls && <button
-        type="button"
+      {showAuxiliaryControls && <span
         tabIndex={-1}
         className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
         style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
@@ -91,9 +90,8 @@ export function WebEditableElementFrame({
         aria-label="Rotate"
       >
         <RotateCw className="h-4 w-4" />
-      </button>}
-      {showAuxiliaryControls && <button
-        type="button"
+      </span>}
+      {showAuxiliaryControls && <span
         tabIndex={-1}
         className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
         style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
@@ -102,10 +100,9 @@ export function WebEditableElementFrame({
         aria-label={visible ? 'Hide' : 'Show'}
       >
         {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-      </button>}
+      </span>}
       {onDelete && (
-        <button
-          type="button"
+        <span
           tabIndex={-1}
           className="pointer-events-auto absolute -right-10 top-[calc(50%+40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-rose-500 text-white shadow-lg"
           style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
@@ -114,12 +111,11 @@ export function WebEditableElementFrame({
           aria-label="Delete"
         >
           <Trash2 className="h-4 w-4" />
-        </button>
+        </span>
       )}
       {webEditableResizeHandles.map((handle) => (
-        <button
+        <span
           key={handle}
-          type="button"
           tabIndex={-1}
           className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
           style={{ cursor: cursorByHandle[handle], pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483647 }}
