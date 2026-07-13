@@ -2053,7 +2053,8 @@ export function VideoRenderModal({
                   previewTime={previewTime}
                   previewDuration={previewDuration}
                   timelinePreviewTime={timelinePreviewTime}
-                  timelineNodes={timelineNodes}
+                   timelineNodes={timelineNodes}
+                   storyNodes={nodes}
                   timelineMetrics={timelineMetrics}
                   status={status}
                   speed={speed}
@@ -2063,9 +2064,12 @@ export function VideoRenderModal({
                   seekTimelineTime={seekTimelineTime}
                   openContextMenu={openContextMenu}
                   renderStyle={renderStyle}
-                  updateRenderStyle={updateRenderStyle}
-                  canvasSettings={webSettings}
-                  videoTextScaleMode={videoTextScaleMode}
+                   updateRenderStyle={updateRenderStyle}
+                   canvasSettings={webSettings}
+                   hideCharacterTags={hideCharacterTags}
+                   hideSceneTags={hideSceneTags}
+                   videoTextScaleMode={videoTextScaleMode}
+                   animationLeadSeconds={animationLeadSeconds}
                   canvasSelected={videoCanvasSelected}
                   setCanvasSelected={setVideoCanvasSelected}
                 />

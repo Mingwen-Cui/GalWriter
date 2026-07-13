@@ -1148,23 +1148,12 @@ export function RenderStyleSettingsSection({
             RectangleVertical,
             <button
               type="button"
-              onClick={() =>
-                updateRenderStyle(
-                  'dialogHeightMode',
-                  renderStyle.dialogHeightMode === 'auto' ? 'fixed' : 'auto',
-                )
-              }
-              className={`flex h-9 w-full min-w-0 items-center justify-end rounded-r-lg px-2 text-right text-xs font-normal transition-colors ${
-                renderStyle.dialogHeightMode === 'auto'
-                  ? 'bg-violet-500/15 text-violet-500 hover:bg-violet-500/20'
-                  : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
-              }`}
-              title={t('切换对话框固定高度或随文字自适应', '固定高さと自動高さを切替', 'Switch fixed or auto dialogue height')}
+              disabled
+              className="flex h-9 w-full min-w-0 cursor-default items-center justify-end rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)]"
+              title={t('视频对话框使用固定高度', '動画のダイアログは固定高さです', 'Video dialogue boxes use a fixed height')}
             >
               <span className="min-w-0 truncate">
-                {renderStyle.dialogHeightMode === 'auto'
-                  ? t('自适应', '自動', 'Auto')
-                  : t('固定', '固定', 'Fixed')}
+                {t('固定', '固定', 'Fixed')}
               </span>
             </button>,
             false,

@@ -14,11 +14,12 @@ import {
 } from '../shared/nameplateRenderer';
 import { getRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
-import { wrapText } from '../shared/storyNodes';
+import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderEditableObjectKind, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 import { formatSeconds } from '../timeline/timelineUtils';
 import { WebEditableElementFrame, type WebEditableResizeHandle } from '../../web/WebEditableElementFrame';
+import { animatedTextState } from '../canvas/textAnimation';
 
 type VideoPreviewPanelProps = {
   language: Language;
@@ -30,12 +31,13 @@ type VideoPreviewPanelProps = {
   timelineScaleMode: 'seconds' | 'frames';
   focusedPreviewNode?: FlowNode;
   activePreviewNode?: FlowNode;
-  focusedTimelineMetric?: { start: number };
+  focusedTimelineMetric?: { start: number; duration: number };
   previewPlaying: boolean;
   previewTime: number;
   previewDuration: number;
   timelinePreviewTime: number;
   timelineNodes: FlowNode[];
+  storyNodes: FlowNode[];
   timelineMetrics: { totalDuration: number };
   status: RenderStatus;
   speed: number;
@@ -50,9 +52,71 @@ type VideoPreviewPanelProps = {
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   canvasSettings: SharedCanvasSettings;
+  hideCharacterTags: boolean;
+  hideSceneTags: boolean;
   videoTextScaleMode: VideoTextScaleMode;
+  animationLeadSeconds: number;
   canvasSelected: boolean;
   setCanvasSelected: (selected: boolean) => void;
+};
+
+const getAlignedTextX = (align: CanvasTextAlign, left: number, right: number) => {
+  if (align === 'center') return (left + right) / 2;
+  if (align === 'right' || align === 'end') return right;
+  return left;
+};
+
+const getRenderedTextFrame = ({
+  ctx,
+  lines,
+  align,
+  left,
+  right,
+  firstBaseline,
+  lineHeight,
+  fontSize,
+}: {
+  ctx: CanvasRenderingContext2D;
+  lines: string[];
+  align: CanvasTextAlign;
+  left: number;
+  right: number;
+  firstBaseline: number;
+  lineHeight: number;
+  fontSize: number;
+}) => {
+  const renderLines = lines.filter((line) => line.length > 0);
+  const anchorX = getAlignedTextX(align, left, right);
+  const fallbackAscent = fontSize * 0.82;
+  const fallbackDescent = fontSize * 0.24;
+  const bounds = renderLines.map((line, index) => {
+    const metrics = ctx.measureText(line);
+    const width = metrics.width;
+    const x = align === 'center'
+      ? anchorX - width / 2
+      : align === 'right' || align === 'end'
+        ? anchorX - width
+        : anchorX;
+    const baseline = firstBaseline + index * lineHeight;
+    return {
+      left: x,
+      right: x + width,
+      top: baseline - (metrics.actualBoundingBoxAscent || fallbackAscent),
+      bottom: baseline + (metrics.actualBoundingBoxDescent || fallbackDescent),
+    };
+  });
+
+  if (!bounds.length) {
+    return { x: anchorX, y: firstBaseline - fallbackAscent, width: 24, height: fallbackAscent + fallbackDescent };
+  }
+  const x = Math.min(...bounds.map((bound) => bound.left));
+  const y = Math.min(...bounds.map((bound) => bound.top));
+  return {
+    x,
+    y,
+    width: Math.max(24, Math.max(...bounds.map((bound) => bound.right)) - x),
+    height: Math.max(fontSize, Math.max(...bounds.map((bound) => bound.bottom)) - y),
+  };
 };
 
 export function VideoPreviewPanel({
@@ -71,6 +135,7 @@ export function VideoPreviewPanel({
   previewDuration,
   timelinePreviewTime,
   timelineNodes,
+  storyNodes,
   timelineMetrics,
   status,
   speed,
@@ -82,7 +147,10 @@ export function VideoPreviewPanel({
   renderStyle,
   updateRenderStyle,
   canvasSettings,
+  hideCharacterTags,
+  hideSceneTags,
   videoTextScaleMode,
+  animationLeadSeconds,
   canvasSelected,
   setCanvasSelected,
 }: VideoPreviewPanelProps) {
@@ -135,12 +203,25 @@ export function VideoPreviewPanel({
     updateRenderStyle('renderObjects', updateRenderObject(renderStyle, kind, patch));
   };
 
+  const selectRenderObject = (kind: RenderEditableObjectKind) => {
+    setCanvasSelected(false);
+    if (kind === 'title' && !getRenderObjects(renderStyle).title.visible) {
+      const styleWithVisibleTitle = { ...renderStyle, titleVisible: true };
+      updateRenderStyle('titleVisible', true);
+      updateRenderStyle(
+        'renderObjects',
+        updateRenderObject(styleWithVisibleTitle, 'title', { visible: true }),
+      );
+    }
+    updateRenderStyle('selectedRenderObject', kind);
+  };
+
   const videoRenderStyle = useMemo(
     () => getVideoTextRenderStyle(renderStyle, videoTextScaleMode, resolution.height),
     [renderStyle, resolution.height, videoTextScaleMode],
   );
   const editableFrames = useMemo(() => {
-    const objects = getRenderObjects(renderStyle);
+    const objects = getRenderObjects(videoRenderStyle);
     const baseDialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle);
     const paddingX = baseDialog.paddingX ?? baseDialog.padding;
     const paddingY = baseDialog.paddingY ?? baseDialog.padding;
@@ -152,30 +233,89 @@ export function VideoPreviewPanel({
     const textContext = canvasRef.current?.getContext('2d');
     const measurementContext = textContext || ({ measureText: () => ({ width: 0 }) } as unknown as CanvasRenderingContext2D);
     const currentNode = focusedPreviewNode || activePreviewNode;
-    const titleWidth = contentWidth * Math.max(0.08, objects.title.width / 100);
-    const bodyWidth = contentWidth * Math.max(0.08, objects.body.width / 100);
+    const titleWidth = Math.max(48, contentWidth * Math.min(1, Math.max(0.08, objects.title.width / 100)));
+    const bodyWidth = Math.max(48, contentWidth * Math.min(1, Math.max(0.08, objects.body.width / 100)));
     if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
     const titleLines = objects.title.visible
-      ? wrapText(measurementContext, htmlToSpeechText(String(currentNode?.data?.title || '')) || ' ', titleWidth).slice(0, 2)
+      ? wrapText(
+          measurementContext,
+          htmlToSpeechText(String(currentNode?.data?.title || '')) || (language === 'zh' ? '未命名片段' : 'Untitled segment'),
+          titleWidth,
+        ).slice(0, 2)
       : [];
     if (textContext) textContext.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-    const bodyLines = wrapText(measurementContext, htmlToSpeechText(String(currentNode?.data?.text || '')) || ' ', bodyWidth).slice(0, 7);
-    const textGap = titleLines.length && bodyLines.length ? Math.round(bodySize * 0.6) : 0;
-    const fixedTextHeight = titleLines.length * titleLineHeight + textGap + bodyLines.length * bodyLineHeight;
+    const bodyLines = wrapText(
+      measurementContext,
+      htmlToSpeechText(filterMentionTags(String(currentNode?.data?.text || ''), hideCharacterTags, hideSceneTags)) || ' ',
+      bodyWidth,
+    ).slice(0, 7);
+    const previewElapsed = focusedPreviewNode
+      ? previewTime
+      : Math.max(0, (timelinePreviewTime - (focusedTimelineMetric?.start ?? 0)) * speed);
+    const previewAnimationDuration = focusedPreviewNode
+      ? previewDuration
+      : focusedTimelineMetric
+        ? focusedTimelineMetric.duration * speed
+        : undefined;
+    const titleState = animatedTextState(
+      videoRenderStyle.titleAnimation,
+      titleLines,
+      videoRenderStyle.titleAnimationLeadSeconds ?? animationLeadSeconds,
+      previewElapsed,
+      previewAnimationDuration,
+      false,
+      videoRenderStyle.titleTypewriterMode,
+    );
+    const bodyState = animatedTextState(
+      videoRenderStyle.bodyAnimation,
+      bodyLines,
+      videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+      previewElapsed,
+      previewAnimationDuration,
+      false,
+      videoRenderStyle.bodyTypewriterMode,
+    );
+    const renderedTitleLines = titleState.lines.filter((line) => line.length > 0);
+    const renderedBodyLines = bodyState.lines.filter((line) => line.length > 0);
+    const fullTextGap = titleLines.length && bodyLines.length ? Math.round(bodySize * 0.6) : 0;
+    const renderedTextGap = renderedTitleLines.length && renderedBodyLines.length ? Math.round(bodySize * 0.6) : 0;
+    const fixedTextHeight = titleLines.length * titleLineHeight + fullTextGap + bodyLines.length * bodyLineHeight;
     const textBaselineOffset = Math.round(bodySize * 0.35);
-    const nameplateItems = currentNode ? getNameplateItems(currentNode, timelineNodes) : [];
+    const nameplateItems = currentNode ? getNameplateItems(currentNode, storyNodes) : [];
     const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, measurementContext, videoRenderStyle);
-    const isAutoHeight = videoRenderStyle.dialogHeightMode === 'auto';
+    const textOffsetY = Math.round(
+      (baseDialog.height * Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) / 100,
+    );
     const dialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle, {
-      ...(isAutoHeight
-        ? { contentHeight: fixedTextHeight + textBaselineOffset + nameplateReservedHeight }
-        : {}),
-      topExtension: isAutoHeight ? 0 : nameplateReservedHeight,
+      topExtension: nameplateReservedHeight,
     });
-    const textTop = dialog.y + nameplateReservedHeight + Math.max(paddingY, (dialog.height - nameplateReservedHeight - fixedTextHeight) / 2) + textBaselineOffset;
-    const renderedTitleHeight = Math.max(titleLineHeight, titleLines.length * titleLineHeight);
-    const titleHeight = Math.max(titleLineHeight, renderedTitleHeight + (objects.title.height - 24));
-    const bodyHeight = Math.max(bodyLineHeight, bodyLines.length * bodyLineHeight + (objects.body.height - 64));
+    const textTop = dialog.y + nameplateReservedHeight + Math.max(
+      paddingY,
+      (dialog.height - nameplateReservedHeight - fixedTextHeight) / 2,
+    ) + textBaselineOffset + textOffsetY;
+    const renderedTitleHeight = renderedTitleLines.length * titleLineHeight;
+    if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
+    const titleFrame = getRenderedTextFrame({
+      ctx: measurementContext,
+      lines: renderedTitleLines,
+      align: videoRenderStyle.titleAlign,
+      left: dialog.x + paddingX + objects.title.x,
+      right: dialog.x + paddingX + objects.title.x + titleWidth,
+      firstBaseline: textTop + objects.title.y + titleState.offsetY,
+      lineHeight: titleLineHeight,
+      fontSize: titleSize,
+    });
+    if (textContext) textContext.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
+    const bodyFrame = getRenderedTextFrame({
+      ctx: measurementContext,
+      lines: renderedBodyLines,
+      align: videoRenderStyle.bodyAlign,
+      left: dialog.x + paddingX + objects.body.x,
+      right: dialog.x + paddingX + objects.body.x + bodyWidth,
+      firstBaseline: textTop + renderedTitleHeight + renderedTextGap + objects.body.y + bodyState.offsetY,
+      lineHeight: bodyLineHeight,
+      fontSize: bodySize,
+    });
     const nameplateLayouts = getNameplateLayouts(
       nameplateItems,
       measurementContext,
@@ -193,17 +333,16 @@ export function VideoPreviewPanel({
       : { x: dialog.x, y: dialog.y, width: 0, height: 0 };
     return {
       dialogBox: { x: dialog.x, y: dialog.y, width: dialog.width, height: dialog.height },
-      title: { x: dialog.x + paddingX + objects.title.x, y: textTop + objects.title.y - titleSize, width: titleWidth, height: titleHeight },
-      body: { x: dialog.x + paddingX + objects.body.x, y: textTop + renderedTitleHeight + textGap + objects.body.y - bodySize, width: bodyWidth, height: bodyHeight },
+      title: titleFrame,
+      body: bodyFrame,
       nameplate: nameplateFrame,
     };
-  }, [activePreviewNode, canvasRef, focusedPreviewNode, renderStyle, resolution.height, resolution.width, timelineNodes, videoRenderStyle]);
+  }, [activePreviewNode, animationLeadSeconds, canvasRef, focusedPreviewNode, focusedTimelineMetric?.duration, focusedTimelineMetric?.start, hideCharacterTags, hideSceneTags, language, previewDuration, previewTime, renderStyle, resolution.height, resolution.width, speed, storyNodes, timelinePreviewTime, videoRenderStyle]);
 
   const startMove = (event: React.PointerEvent<HTMLDivElement>, kind: RenderEditableObjectKind) => {
     if (previewObjectSelectionLocked || event.button === 2) return;
     event.preventDefault(); event.stopPropagation();
-    setCanvasSelected(false);
-    updateRenderStyle('selectedRenderObject', kind);
+    selectRenderObject(kind);
     const object = getRenderObjects(renderStyle)[kind];
     const frame = editableFrames[kind];
     const startX = event.clientX; const startY = event.clientY;
@@ -342,8 +481,12 @@ export function VideoPreviewPanel({
               type="button"
               onClick={() => {
                 const selectingCanvas = kind === 'scene';
-                setCanvasSelected(selectingCanvas);
-                updateRenderStyle('selectedRenderObject', selectingCanvas ? undefined : kind);
+                if (selectingCanvas) {
+                  setCanvasSelected(true);
+                  updateRenderStyle('selectedRenderObject', undefined);
+                } else {
+                  selectRenderObject(kind);
+                }
               }}
               className={`h-7 rounded-md px-2.5 text-xs font-bold transition-colors ${(kind === 'scene' ? canvasSelected : !canvasSelected && renderStyle.selectedRenderObject === kind) ? 'bg-[var(--vr-accent)] text-white' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
             >
@@ -426,7 +569,7 @@ export function VideoPreviewPanel({
                     data-render-object={kind}
                     style={{ left: `${frame.x / resolution.width * 100}%`, top: `${frame.y / resolution.height * 100}%`, width: `${frame.width / resolution.width * 100}%`, height: `${frame.height / resolution.height * 100}%` }}
                     onPointerDown={(event) => { event.stopPropagation(); startMove(event, kind); }}
-                    onClick={(event) => { event.stopPropagation(); setCanvasSelected(false); updateRenderStyle('selectedRenderObject', kind); }}
+                    onClick={(event) => { event.stopPropagation(); selectRenderObject(kind); }}
                   >
                     {selected && <WebEditableElementFrame
                       visible

@@ -147,10 +147,6 @@ export const drawRenderFrame = async ({
   );
   const renderTitleLines = visibleLines(titleState.lines);
   const renderBodyLines = visibleLines(bodyState.lines);
-  const visibleTextHeight =
-    renderTitleLines.length * titleLineHeight +
-    (renderTitleLines.length && renderBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
-    renderBodyLines.length * bodyLineHeight;
   const fixedTextHeight =
     titleLines.length * titleLineHeight +
     (titleLines.length && fullBodyLines.length ? Math.round(bodySize * 0.6) : 0) +
@@ -161,7 +157,6 @@ export const drawRenderFrame = async ({
       Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) /
       100,
   );
-  const isAutoHeight = videoRenderStyle.dialogHeightMode === 'auto';
   const nameplateItems = getNameplateItems(node, nodes);
   const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, ctx, videoRenderStyle);
   const dialogLayout = await drawDialogueBox(
@@ -169,12 +164,7 @@ export const drawRenderFrame = async ({
     width,
     height,
     videoRenderStyle,
-    {
-      ...(isAutoHeight
-        ? { contentHeight: visibleTextHeight + textBaselineOffset + nameplateReservedHeight }
-        : {}),
-      topExtension: isAutoHeight ? 0 : nameplateReservedHeight,
-    },
+    { topExtension: nameplateReservedHeight },
   );
   await drawNameplates(ctx, width, dialogLayout, videoRenderStyle, nameplateItems);
   const textLeft = dialogLayout.x + paddingX;
@@ -182,9 +172,7 @@ export const drawRenderFrame = async ({
   let y =
     dialogLayout.y +
     nameplateReservedHeight +
-    (isAutoHeight
-      ? paddingY
-      : Math.max(paddingY, (dialogLayout.height - nameplateReservedHeight - fixedTextHeight) / 2)) +
+    Math.max(paddingY, (dialogLayout.height - nameplateReservedHeight - fixedTextHeight) / 2) +
     textBaselineOffset +
     textOffsetY;
 
