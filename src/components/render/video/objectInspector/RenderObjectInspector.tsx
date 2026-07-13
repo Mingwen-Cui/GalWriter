@@ -31,8 +31,6 @@ import {
   HeaderSelect,
   InspectorGroup,
   NumberField,
-  PositionAlignButtons,
-  VisibilityButton,
 } from '../../web/webStyleInspectorControls';
 import { InlineColorControl, InlineGradientControl } from '../../web/StartMenuElementInspector';
 import { getRenderObjects, isTextRenderObject, updateRenderObject } from '../shared/renderObjects';
@@ -83,6 +81,7 @@ export function RenderObjectInspector({
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
     : null;
+  const videoTextEffects = surface === 'video';
   const [popover, setPopover] = useState<Popover>(null);
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
@@ -142,7 +141,7 @@ export function RenderObjectInspector({
     setObject({ shadow: nextLayers[0], shadows: nextLayers });
   };
 
-  const advancedVideoDisabled = surface === 'video';
+  const advancedVideoDisabled = false;
 
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
@@ -167,15 +166,20 @@ export function RenderObjectInspector({
         title={text.group.position}
         icon={<Box className="h-3.5 w-3.5" />}
         tone="position"
+        onTitleClick={() => setObject({ visible: !selected.visible })}
+        titleActive={selected.visible}
         secondary={
-          <VisibilityButton
-            visible={selected.visible}
-            label={text.field.visible}
-            onClick={() => setObject({ visible: !selected.visible })}
+          <NumberField
+            icon={<Radius className="h-4 w-4" />}
+            label={text.field.radius}
+            description={showDescriptions ? text.help.radius : undefined}
+            value={selected.radius}
+            min={0}
+            max={200}
+            onChange={(value) => setObject({ radius: value })}
           />
         }
       >
-        <HelpText show={showDescriptions} text={text.help.visible} />
         <ControlRow>
           <NumberField
             icon={<MoveHorizontal className="h-4 w-4" />}
@@ -216,66 +220,6 @@ export function RenderObjectInspector({
             onChange={(value) => setObject({ height: value })}
           />
         </ControlRow>
-        <ControlRow className="mt-2">
-          <NumberField
-            icon={<RotateCw className="h-4 w-4" />}
-            label={text.field.rotation}
-            description={showDescriptions ? text.help.rotation : undefined}
-            value={selected.rotation}
-            min={-180}
-            max={180}
-            onChange={(value) => setObject({ rotation: value })}
-          />
-          <NumberField
-            icon={<Radius className="h-4 w-4" />}
-            label={text.field.radius}
-            description={showDescriptions ? text.help.radius : undefined}
-            value={selected.radius}
-            min={0}
-            max={200}
-            onChange={(value) => setObject({ radius: value })}
-          />
-        </ControlRow>
-        <ControlRow className="mt-2">
-          <ToggleButton
-            active={selected.flipX}
-            label={text.field.flipX}
-            onClick={() => setObject({ flipX: !selected.flipX })}
-            activeIcon={<MoveHorizontal className="h-4 w-4" />}
-            inactiveIcon={<MoveHorizontal className="h-4 w-4" />}
-          />
-          <ToggleButton
-            active={selected.flipY}
-            label={text.field.flipY}
-            onClick={() => setObject({ flipY: !selected.flipY })}
-            activeIcon={<MoveVertical className="h-4 w-4" />}
-            inactiveIcon={<MoveVertical className="h-4 w-4" />}
-          />
-        </ControlRow>
-        <PositionAlignButtons
-          className="mt-2"
-          onAlign={(axis, value) => {
-            if (axis === 'x') {
-              setObject({
-                x:
-                  value === 'start'
-                    ? 0
-                    : value === 'center'
-                      ? (100 - selected.width) / 2
-                      : 100 - selected.width,
-              });
-            } else {
-              setObject({
-                y:
-                  value === 'start'
-                    ? 0
-                    : value === 'center'
-                      ? (100 - selected.height) / 2
-                      : 100 - selected.height,
-              });
-            }
-          }}
-        />
       </InspectorGroup>
 
       {textObject && (
@@ -489,24 +433,28 @@ export function RenderObjectInspector({
               {text.field.color}
             </button>
           </ControlRow>
-          <ControlRow className="mt-2">
-            <TwoOptionTabs
-              value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
-              onChange={(type) => {
-                setObject({ stroke: { ...selected.stroke, type } });
-                setPopover({ group: 'stroke', type });
-              }}
-              solidLabel={text.option.solid}
-              gradientLabel={text.option.gradient}
-            />
-            <ThreeOptionTabs
-              value={selected.stroke.position}
-              onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
-            />
-          </ControlRow>
-          <HelpText show={showDescriptions} text={`${text.help.strokeType} ${text.help.strokePosition}`} />
+          {!videoTextEffects && (
+            <>
+              <ControlRow className="mt-2">
+                <TwoOptionTabs
+                  value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
+                  onChange={(type) => {
+                    setObject({ stroke: { ...selected.stroke, type } });
+                    setPopover({ group: 'stroke', type });
+                  }}
+                  solidLabel={text.option.solid}
+                  gradientLabel={text.option.gradient}
+                />
+                <ThreeOptionTabs
+                  value={selected.stroke.position}
+                  onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
+                />
+              </ControlRow>
+              <HelpText show={showDescriptions} text={`${text.help.strokeType} ${text.help.strokePosition}`} />
+            </>
+          )}
           <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            {selected.stroke.type === 'gradient' ? (
+            {selected.stroke.type === 'gradient' && !videoTextEffects ? (
               <InlineGradientControl
                 label={text.popover.gradientTitle}
                 stops={selected.stroke.gradientStops}
@@ -531,7 +479,7 @@ export function RenderObjectInspector({
           </div>
           {popover?.group === 'stroke' && (
             <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-              {selected.stroke.type === 'gradient' ? (
+              {selected.stroke.type === 'gradient' && !videoTextEffects ? (
                 <GradientPopover
                   tone="stroke"
                   text={text.popover}
@@ -567,7 +515,7 @@ export function RenderObjectInspector({
           tone="shadow"
           onTitleClick={index === 0 ? toggleShadow : undefined}
           titleActive={shadow.enabled}
-          secondary={<ShadowModeTabs value={shadow.type} onChange={(type) => setShadowLayer(index, { type })} />}
+          secondary={<ShadowModeTabs value={shadow.type} onChange={(type) => setShadowLayer(index, { type })} outerOnly={surface === 'video'} />}
         >
           <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
           <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
@@ -884,10 +832,15 @@ function ThreeOptionTabs({
 function ShadowModeTabs({
   value,
   onChange,
+  outerOnly = false,
 }: {
   value: 'outer' | 'inner' | 'innerBlur';
   onChange: (value: 'outer' | 'inner' | 'innerBlur') => void;
+  outerOnly?: boolean;
 }) {
+  if (outerOnly) {
+    return <div className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-[10px] font-bold text-white">澶?</div>;
+  }
   return (
     <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
       {(['outer', 'inner', 'innerBlur'] as const).map((option) => (

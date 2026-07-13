@@ -7,7 +7,6 @@ import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegion
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
 import { chooseRenderOutputDir, getDefaultRenderDir } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
-import { isWebGPUSupported } from '../gpu/webgpuRenderer';
 import {
   DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
   type InteractivePreviewBounds,
@@ -264,9 +263,6 @@ export function VideoRenderModal({
   const [videoCanvasSelected, setVideoCanvasSelected] = useState(false);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
-  const [useGpuAcceleration, setUseGpuAcceleration] = useState(() =>
-    Boolean(persistedWorkspace?.useGpuAcceleration),
-  );
   const [hideCharacterTags, setHideCharacterTags] = useState(
     () => persistedWorkspace?.hideCharacterTags ?? true,
   );
@@ -796,7 +792,6 @@ export function VideoRenderModal({
     assetScrollTop: assetScrollInfo.scrollTop,
     selectedAssetIds,
     focusedPreviewId,
-    useGpuAcceleration,
     hideCharacterTags,
     hideSceneTags,
     interactivePreviewBounds,
@@ -1240,7 +1235,6 @@ export function VideoRenderModal({
     timelineExcludedSourceIds,
     timelineFuture,
     keyShotIds,
-    useGpuAcceleration,
     timelinePast,
     timelinePixelsPerSecond,
     timelinePreviewTime,
@@ -1703,18 +1697,11 @@ export function VideoRenderModal({
     language,
     isZh,
     isDesktopApp,
-    useGpuAcceleration,
     resolution,
     frameRate,
     exportFormat,
     outputDir,
     speed,
-    renderStyle,
-    videoTextScaleMode,
-    animationLeadSeconds,
-    hideCharacterTags,
-    hideSceneTags,
-    canvasSettings: webSettings,
     drawFrame,
     getNodeRenderDuration,
     getSegmentAudioSources,
@@ -2144,9 +2131,6 @@ export function VideoRenderModal({
                   error={error}
                   progressValue={progressValue}
                   savedPath={savedPath}
-                  useGpuAcceleration={useGpuAcceleration}
-                  setUseGpuAcceleration={setUseGpuAcceleration}
-                  isWebGPUSupported={isWebGPUSupported()}
                   hideCharacterTags={hideCharacterTags}
                   setHideCharacterTags={setHideCharacterTags}
                   hideSceneTags={hideSceneTags}

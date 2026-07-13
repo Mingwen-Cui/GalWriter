@@ -1407,21 +1407,21 @@ JSON schema:
               {!selectedStartMenuElementId && <div className="relative mt-3 h-10">
                 <span
                   aria-hidden="true"
-                  className={`absolute ${designPanelSwitcherLayout.pointer} top-[-7px] z-0 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-[var(--vr-surface)]`}
+                  className={`absolute ${designPanelSwitcherLayout.pointer} top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white`}
                 />
-                <div className={`relative z-10 flex ${designPanelSwitcherLayout.alignment}`}>
+                <div className={`relative flex ${designPanelSwitcherLayout.alignment}`}>
                   <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
                     <button
                       type="button"
                       onClick={() => setDesignPanelMode('background')}
-                      className={`h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                     >
                       {t('背景样式', '背景スタイル', 'Background')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDesignPanelMode('preset')}
-                      className={`h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                     >
                       {t('预设', 'プリセット', 'Preset')}
                     </button>

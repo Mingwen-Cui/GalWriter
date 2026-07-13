@@ -1,4 +1,5 @@
 import { loadCachedImage } from './mediaUtils';
+import { getRenderObjects } from './renderObjects';
 import type { RenderStyle } from './types';
 
 type DialogueBoxLayoutOptions = {
@@ -100,6 +101,25 @@ export const drawDialogueBox = async (
 ) => {
   const layout = getDialogueBoxLayout(width, height, style, options);
   if (!style.dialogVisible) return layout;
+  const dialogObject = getRenderObjects(style).dialogBox;
+  const shadowLayers = dialogObject.shadows?.length ? dialogObject.shadows : [dialogObject.shadow];
+
+  // Paint outer shadows before clipping the box fill. Each layer is independent so
+  // multi-shadow settings match the inspector and do not accumulate canvas state.
+  for (const shadow of shadowLayers) {
+    if (!shadow.enabled || shadow.type !== 'outer' || shadow.alpha <= 0) continue;
+    ctx.save();
+    roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
+    ctx.shadowColor = colorWithAlpha(shadow.color, shadow.alpha);
+    ctx.shadowBlur = shadow.blur;
+    ctx.shadowOffsetX = shadow.x;
+    ctx.shadowOffsetY = shadow.y;
+    // Canvas only emits a shadow while painting. The nearly transparent source is
+    // immediately covered by the real background fill below.
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+    ctx.fill();
+    ctx.restore();
+  }
 
   ctx.save();
   roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
@@ -166,5 +186,20 @@ export const drawDialogueBox = async (
   }
 
   ctx.restore();
+
+  if (dialogObject.stroke.enabled && dialogObject.stroke.width > 0) {
+    ctx.save();
+    roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
+    ctx.lineJoin = dialogObject.stroke.lineJoin;
+    ctx.lineCap = dialogObject.stroke.lineCap;
+    // Filling the background after an extra-wide stroke leaves the requested
+    // outside outline visible without changing dialogue geometry.
+    ctx.lineWidth = dialogObject.stroke.position === 'outside'
+      ? dialogObject.stroke.width * 2
+      : dialogObject.stroke.width;
+    ctx.strokeStyle = colorWithAlpha(dialogObject.stroke.color, dialogObject.stroke.alpha);
+    ctx.stroke();
+    ctx.restore();
+  }
   return layout;
 };

@@ -133,7 +133,6 @@ export type PersistedRenderWorkspaceState = {
   assetScrollTop?: number;
   selectedAssetIds?: string[];
   focusedPreviewId?: string;
-  useGpuAcceleration?: boolean;
   hideCharacterTags?: boolean;
   hideSceneTags?: boolean;
   interactivePreviewBounds?: InteractivePreviewBounds;

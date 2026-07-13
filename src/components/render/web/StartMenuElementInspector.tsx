@@ -116,28 +116,67 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
 const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> => {
   if (language === 'ja') {
     return {
-      custom: '機能なし', save: 'セーブ画面', new: '新規ゲーム', settings: '設定画面',
-      back: '戻る', slot: 'セーブを読む', auto: '自動再生', speed: '文字速度',
-      controls: '操作表示', audio: '音声リスト', fullscreen: '全画面', return: '一つ戻る',
-      mainMenu: 'メイン画面', controlsToggle: '操作を隠す', link: 'リンクを開く', volume: '音量を設定',
-      title: 'タイトル', subtitle: 'サブタイトル',
+      custom: '機能なし',
+      save: 'セーブ画面',
+      new: '新規ゲーム',
+      settings: '設定画面',
+      back: '戻る',
+      slot: 'セーブを読む',
+      auto: '自動再生',
+      speed: '文字速度',
+      controls: '操作表示',
+      audio: '音声リスト',
+      fullscreen: '全画面',
+      return: '一つ戻る',
+      mainMenu: 'メイン画面',
+      controlsToggle: '操作を隠す',
+      link: 'リンクを開く',
+      volume: '音量を設定',
+      title: 'タイトル',
+      subtitle: 'サブタイトル',
     };
   }
   if (language === 'en') {
     return {
-      custom: 'No action', save: 'Open saves', new: 'New game', settings: 'Open settings',
-      back: 'Back', slot: 'Load save', auto: 'Toggle auto play', speed: 'Text speed',
-      controls: 'Show controls', audio: 'Audio playlist', fullscreen: 'Fullscreen', return: 'Go back',
-      mainMenu: 'Main menu', controlsToggle: 'Toggle controls', link: 'Open link', volume: 'Set volume',
-      title: 'Title', subtitle: 'Subtitle',
+      custom: 'No action',
+      save: 'Open saves',
+      new: 'New game',
+      settings: 'Open settings',
+      back: 'Back',
+      slot: 'Load save',
+      auto: 'Toggle auto play',
+      speed: 'Text speed',
+      controls: 'Show controls',
+      audio: 'Audio playlist',
+      fullscreen: 'Fullscreen',
+      return: 'Go back',
+      mainMenu: 'Main menu',
+      controlsToggle: 'Toggle controls',
+      link: 'Open link',
+      volume: 'Set volume',
+      title: 'Title',
+      subtitle: 'Subtitle',
     };
   }
   return {
-    custom: '无功能', save: '打开存档页', new: '新游戏', settings: '打开设置页',
-    back: '返回', slot: '读取存档', auto: '自动播放开关', speed: '打字速度',
-    controls: '显示控制栏', audio: '音频播放列表', fullscreen: '全屏', return: '返回上一页',
-    mainMenu: '返回主界面', controlsToggle: '显示/隐藏控制栏', link: '打开超链接', volume: '设置音量',
-    title: '标题', subtitle: '副标题',
+    custom: '无功能',
+    save: '打开存档页',
+    new: '新游戏',
+    settings: '打开设置页',
+    back: '返回',
+    slot: '读取存档',
+    auto: '自动播放开关',
+    speed: '打字速度',
+    controls: '显示控制栏',
+    audio: '音频播放列表',
+    fullscreen: '全屏',
+    return: '返回上一页',
+    mainMenu: '返回主界面',
+    controlsToggle: '显示/隐藏控制栏',
+    link: '打开超链接',
+    volume: '设置音量',
+    title: '标题',
+    subtitle: '副标题',
   };
 };
 
@@ -207,9 +246,11 @@ export function StartMenuElementInspector({
     return () => onImageCropEditingChange?.(null);
   }, [element.id, imageCropEditing, onImageCropEditingChange]);
   useEffect(() => {
-    const group = popover?.type === 'gradient' && (popover.group === 'text' || popover.group === 'fill' || popover.group === 'stroke')
-      ? popover.group
-      : null;
+    const group =
+      popover?.type === 'gradient' &&
+      (popover.group === 'text' || popover.group === 'fill' || popover.group === 'stroke')
+        ? popover.group
+        : null;
     onGradientEditingChange?.(group);
     return () => onGradientEditingChange?.(null);
   }, [onGradientEditingChange, popover]);
@@ -242,42 +283,51 @@ export function StartMenuElementInspector({
   const shadowType = element.shadowType || 'outer';
   const shadows = element.shadows?.length
     ? element.shadows.slice(0, 6)
-    : [{
-        id: 'shadow-1',
-        type: shadowType,
-        color: element.shadowColor || '#000000',
-        opacity: element.shadowOpacity ?? 0,
-        blur: element.shadowBlur ?? 18,
-        offsetX: element.shadowOffsetX ?? 0,
-        offsetY: element.shadowOffsetY ?? (element.kind === 'text' ? 2 : 8),
-      }];
+    : [
+        {
+          id: 'shadow-1',
+          type: shadowType,
+          color: element.shadowColor || '#000000',
+          opacity: element.shadowOpacity ?? 0,
+          blur: element.shadowBlur ?? 18,
+          offsetX: element.shadowOffsetX ?? 0,
+          offsetY: element.shadowOffsetY ?? (element.kind === 'text' ? 2 : 8),
+        },
+      ];
   const updateShadow = (index: number, patch: Partial<(typeof shadows)[number]>) => {
-    const next = shadows.map((shadow, shadowIndex) => shadowIndex === index ? { ...shadow, ...patch } : shadow);
+    const next = shadows.map((shadow, shadowIndex) =>
+      shadowIndex === index ? { ...shadow, ...patch } : shadow,
+    );
     const first = next[0];
     onUpdate({
       shadows: next,
-      ...(index === 0 && first ? {
-        shadowType: first.type,
-        shadowColor: first.color,
-        shadowOpacity: first.opacity,
-        shadowBlur: first.blur,
-        shadowOffsetX: first.offsetX,
-        shadowOffsetY: first.offsetY,
-      } : {}),
+      ...(index === 0 && first
+        ? {
+            shadowType: first.type,
+            shadowColor: first.color,
+            shadowOpacity: first.opacity,
+            shadowBlur: first.blur,
+            shadowOffsetX: first.offsetX,
+            shadowOffsetY: first.offsetY,
+          }
+        : {}),
     });
   };
   const addShadow = () => {
     if (shadows.length >= 6) return;
     onUpdate({
-      shadows: [...shadows, {
-        id: `shadow-${Date.now().toString(36)}`,
-        type: 'outer',
-        color: '#000000',
-        opacity: 35,
-        blur: 18,
-        offsetX: 0,
-        offsetY: element.kind === 'text' ? 2 : 8,
-      }],
+      shadows: [
+        ...shadows,
+        {
+          id: `shadow-${Date.now().toString(36)}`,
+          type: 'outer',
+          color: '#000000',
+          opacity: 35,
+          blur: 18,
+          offsetX: 0,
+          offsetY: element.kind === 'text' ? 2 : 8,
+        },
+      ],
       shadowEnabled: true,
     });
   };
@@ -351,6 +401,42 @@ export function StartMenuElementInspector({
             outerShadow: 'Outer',
             innerShadow: 'Inner',
             innerBlur: 'Inner blur',
+          };
+  const descriptionCopy =
+    language === 'zh'
+      ? {
+          fillStyle: '填充样式',
+          fillColor: '填充颜色与透明度',
+          strokeStyle: '描边样式',
+          strokePosition: '描边位置',
+          strokeColor: '描边颜色与透明度',
+          shadowType: '阴影类型',
+          shadowColor: '阴影颜色与透明度',
+          addShadow: '添加阴影',
+          removeShadow: '删除阴影',
+        }
+      : language === 'ja'
+        ? {
+            fillStyle: '塗りの種類',
+            fillColor: '塗りの色と不透明度',
+            strokeStyle: '縁取りの種類',
+            strokePosition: '縁取りの位置',
+            strokeColor: '縁取りの色と不透明度',
+            shadowType: '影の種類',
+            shadowColor: '影の色と不透明度',
+            addShadow: '影を追加',
+            removeShadow: '影を削除',
+          }
+        : {
+            fillStyle: 'Fill style',
+            fillColor: 'Fill color and opacity',
+            strokeStyle: 'Stroke style',
+            strokePosition: 'Stroke position',
+            strokeColor: 'Stroke color and opacity',
+            shadowType: 'Shadow type',
+            shadowColor: 'Shadow color and opacity',
+            addShadow: 'Add shadow',
+            removeShadow: 'Remove shadow',
           };
   const fillHasValue =
     element.kind !== 'text' &&
@@ -434,7 +520,7 @@ export function StartMenuElementInspector({
     });
     const nextShadows = shadowHasValue
       ? shadows
-      : shadows.map((shadow, index) => index === 0 ? { ...shadow, opacity: 35 } : shadow);
+      : shadows.map((shadow, index) => (index === 0 ? { ...shadow, opacity: 35 } : shadow));
     onUpdate({
       shadowEnabled: !shadowEnabled,
       shadows: nextShadows,
@@ -648,7 +734,11 @@ export function StartMenuElementInspector({
             <TwoSegmentControl
               value={textColorType}
               options={[
-                { value: 'solid', label: inspectorCopy.solid, icon: <Palette className="h-4 w-4" /> },
+                {
+                  value: 'solid',
+                  label: inspectorCopy.solid,
+                  icon: <Palette className="h-4 w-4" />,
+                },
                 { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
               ]}
               onChange={(type) => {
@@ -675,7 +765,9 @@ export function StartMenuElementInspector({
                 stops={textGradientStops}
                 onOpen={() => setPopover({ group: 'text', type: 'gradient' })}
                 onAlphaChange={(alpha) =>
-                  onUpdate({ textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })) })
+                  onUpdate({
+                    textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })),
+                  })
                 }
               />
             )}
@@ -691,9 +783,20 @@ export function StartMenuElementInspector({
             {textBlendMenuOpen && (
               <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-violet-100 bg-white py-1 shadow-xl">
                 {BLEND_OPTIONS.map((blendMode) => (
-                  <button key={blendMode} type="button" onClick={() => { onUpdate({ textBlendMode: blendMode }); setTextBlendMenuOpen(false); }} className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs ${element.textBlendMode === blendMode || (!element.textBlendMode && blendMode === 'normal') ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+                  <button
+                    key={blendMode}
+                    type="button"
+                    onClick={() => {
+                      onUpdate({ textBlendMode: blendMode });
+                      setTextBlendMenuOpen(false);
+                    }}
+                    className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs ${element.textBlendMode === blendMode || (!element.textBlendMode && blendMode === 'normal') ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
                     <span>{blendMode}</span>
-                    {(element.textBlendMode === blendMode || (!element.textBlendMode && blendMode === 'normal')) && <Check className="h-4 w-4" />}
+                    {(element.textBlendMode === blendMode ||
+                      (!element.textBlendMode && blendMode === 'normal')) && (
+                      <Check className="h-4 w-4" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -717,7 +820,9 @@ export function StartMenuElementInspector({
                 language={language}
                 angle={element.textGradientAngle ?? 90}
                 stops={textGradientStops}
-                onAngleChange={(textGradientAngle) => onUpdate({ textGradientAngle, textColorType: 'gradient' })}
+                onAngleChange={(textGradientAngle) =>
+                  onUpdate({ textGradientAngle, textColorType: 'gradient' })
+                }
                 onStopsChange={(stops) => {
                   const sorted = [...stops].sort((a, b) => a.position - b.position);
                   onUpdate({
@@ -743,14 +848,18 @@ export function StartMenuElementInspector({
           secondary={
             <HeaderSelect
               icon={<MousePointerClick className="h-4 w-4" />}
-              label={language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'}
+              label={
+                language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
+              }
               value={buttonFunction}
               options={buttonFunctionOptions}
               onChange={(value) => {
                 const role = value as ButtonFunction;
                 onUpdate({
                   role,
-                  ...(element.text.trim() ? {} : { text: buttonFunctionDefaultText(role, language) }),
+                  ...(element.text.trim()
+                    ? {}
+                    : { text: buttonFunctionDefaultText(role, language) }),
                 });
               }}
             />
@@ -759,7 +868,9 @@ export function StartMenuElementInspector({
           {buttonFunction === 'link' && (
             <div className="mt-2 space-y-2">
               <label className="block space-y-1 px-1 text-[10px] font-bold text-slate-500">
-                <span>{language === 'zh' ? '链接地址' : language === 'ja' ? 'リンク先' : 'Link URL'}</span>
+                <span>
+                  {language === 'zh' ? '链接地址' : language === 'ja' ? 'リンク先' : 'Link URL'}
+                </span>
                 <span className="grid h-10 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-xl bg-white text-sm font-normal text-slate-900">
                   <Link2 className="mx-auto h-4 w-4 text-slate-600" />
                   <input
@@ -776,10 +887,24 @@ export function StartMenuElementInspector({
                 label={language === 'zh' ? '打开方式' : language === 'ja' ? '開き方' : 'Open in'}
                 value={element.linkTarget || '_blank'}
                 options={[
-                  { value: '_blank', label: language === 'zh' ? '新标签页' : language === 'ja' ? '新しいタブ' : 'New tab' },
-                  { value: '_self', label: language === 'zh' ? '当前页面' : language === 'ja' ? '現在のページ' : 'Current page' },
+                  {
+                    value: '_blank',
+                    label:
+                      language === 'zh' ? '新标签页' : language === 'ja' ? '新しいタブ' : 'New tab',
+                  },
+                  {
+                    value: '_self',
+                    label:
+                      language === 'zh'
+                        ? '当前页面'
+                        : language === 'ja'
+                          ? '現在のページ'
+                          : 'Current page',
+                  },
                 ]}
-                onChange={(linkTarget) => onUpdate({ linkTarget: linkTarget as '_blank' | '_self' })}
+                onChange={(linkTarget) =>
+                  onUpdate({ linkTarget: linkTarget as '_blank' | '_self' })
+                }
               />
             </div>
           )}
@@ -787,7 +912,13 @@ export function StartMenuElementInspector({
             <div className="mt-2">
               <NumberField
                 icon={<Volume2 className="h-4 w-4" />}
-                label={language === 'zh' ? '菜单音乐音量' : language === 'ja' ? 'メニュー音量' : 'Menu music volume'}
+                label={
+                  language === 'zh'
+                    ? '菜单音乐音量'
+                    : language === 'ja'
+                      ? 'メニュー音量'
+                      : 'Menu music volume'
+                }
                 value={element.actionValue ?? 70}
                 min={0}
                 max={100}
@@ -808,18 +939,24 @@ export function StartMenuElementInspector({
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
           secondary={
-            <FillTabs
-              value={backgroundType}
-              labels={text.option}
-              onChange={(type) => {
-                onUpdate({ backgroundType: type });
-                setPopover({ group: 'fill', type });
-              }}
-            />
+            <SettingDescription show={showDescriptions} label={descriptionCopy.fillStyle}>
+              <FillTabs
+                value={backgroundType}
+                labels={text.option}
+                onChange={(type) => {
+                  onUpdate({ backgroundType: type });
+                  setPopover({ group: 'fill', type });
+                }}
+              />
+            </SettingDescription>
           }
         >
           <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            <div className="min-w-0">
+            <SettingDescription
+              className="min-w-0"
+              show={showDescriptions}
+              label={descriptionCopy.fillColor}
+            >
               {backgroundType === 'solid' && (
                 <InlineColorControl
                   label={text.popover.solidTitle}
@@ -854,7 +991,7 @@ export function StartMenuElementInspector({
                   onOpen={() => setPopover({ group: 'fill', type: 'image' })}
                 />
               )}
-            </div>
+            </SettingDescription>
             <div className="relative">
               <button
                 type="button"
@@ -949,13 +1086,27 @@ export function StartMenuElementInspector({
                 onChange={(updates) => {
                   onUpdate({
                     backgroundType: 'image',
-                    ...(updates.imageUrl !== undefined ? { backgroundImageUrl: updates.imageUrl } : {}),
-                    ...(updates.imageFit !== undefined ? { backgroundImageFit: updates.imageFit } : {}),
-                    ...(updates.imageAlpha !== undefined ? { backgroundImageAlpha: updates.imageAlpha } : {}),
-                    ...(updates.imageAngle !== undefined ? { backgroundImageRotation: updates.imageAngle } : {}),
-                    ...(updates.imageScale !== undefined ? { backgroundImageScale: updates.imageScale } : {}),
-                    ...(updates.imageOffsetX !== undefined ? { backgroundImageOffsetX: updates.imageOffsetX } : {}),
-                    ...(updates.imageOffsetY !== undefined ? { backgroundImageOffsetY: updates.imageOffsetY } : {}),
+                    ...(updates.imageUrl !== undefined
+                      ? { backgroundImageUrl: updates.imageUrl }
+                      : {}),
+                    ...(updates.imageFit !== undefined
+                      ? { backgroundImageFit: updates.imageFit }
+                      : {}),
+                    ...(updates.imageAlpha !== undefined
+                      ? { backgroundImageAlpha: updates.imageAlpha }
+                      : {}),
+                    ...(updates.imageAngle !== undefined
+                      ? { backgroundImageRotation: updates.imageAngle }
+                      : {}),
+                    ...(updates.imageScale !== undefined
+                      ? { backgroundImageScale: updates.imageScale }
+                      : {}),
+                    ...(updates.imageOffsetX !== undefined
+                      ? { backgroundImageOffsetX: updates.imageOffsetX }
+                      : {}),
+                    ...(updates.imageOffsetY !== undefined
+                      ? { backgroundImageOffsetY: updates.imageOffsetY }
+                      : {}),
                   });
                 }}
               />
@@ -1037,25 +1188,35 @@ export function StartMenuElementInspector({
         collapseLabel={inspectorCopy.collapse}
         secondary={
           strokeIsText ? (
-            <HeaderAction
-              icon={<Palette className="h-4 w-4" />}
-              label={text.field.color}
-              onClick={() =>
-                setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })
-              }
-            />
+            <SettingDescription show={showDescriptions} label={descriptionCopy.strokeColor}>
+              <HeaderAction
+                icon={<Palette className="h-4 w-4" />}
+                label={text.field.color}
+                onClick={() =>
+                  setPopover(
+                    popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' },
+                  )
+                }
+              />
+            </SettingDescription>
           ) : (
-            <TwoSegmentControl
-              value={strokeType}
-              options={[
-                { value: 'solid', label: inspectorCopy.solid, icon: <Palette className="h-4 w-4" /> },
-                { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
-              ]}
-              onChange={(value) => {
-                onUpdate({ borderType: value });
-                setPopover({ group: 'stroke', type: value });
-              }}
-            />
+            <SettingDescription show={showDescriptions} label={descriptionCopy.strokeStyle}>
+              <TwoSegmentControl
+                value={strokeType}
+                options={[
+                  {
+                    value: 'solid',
+                    label: inspectorCopy.solid,
+                    icon: <Palette className="h-4 w-4" />,
+                  },
+                  { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
+                ]}
+                onChange={(value) => {
+                  onUpdate({ borderType: value });
+                  setPopover({ group: 'stroke', type: value });
+                }}
+              />
+            </SettingDescription>
           )
         }
       >
@@ -1078,38 +1239,70 @@ export function StartMenuElementInspector({
               options={[
                 {
                   value: 'text',
-                  label: language === 'zh' ? '文字描边' : language === 'ja' ? '文字縁取り' : 'Text stroke',
+                  label:
+                    language === 'zh'
+                      ? '文字描边'
+                      : language === 'ja'
+                        ? '文字縁取り'
+                        : 'Text stroke',
                   icon: <Type className="h-4 w-4" />,
                 },
                 {
                   value: 'box',
-                  label: language === 'zh' ? '文字框描边' : language === 'ja' ? '文字枠線' : 'Text frame',
+                  label:
+                    language === 'zh'
+                      ? '文字框描边'
+                      : language === 'ja'
+                        ? '文字枠線'
+                        : 'Text frame',
                   icon: <Box className="h-4 w-4" />,
                 },
               ]}
-              onChange={(textStrokeTarget) => onUpdate({ textStrokeTarget: textStrokeTarget as 'text' | 'box' })}
+              onChange={(textStrokeTarget) =>
+                onUpdate({ textStrokeTarget: textStrokeTarget as 'text' | 'box' })
+              }
             />
           ) : (
-            <SegmentedIconControl
-              value={strokePosition}
-              options={[
-                { value: 'inside', label: inspectorCopy.inside, icon: <StrokePositionIcon position="inside" /> },
-                { value: 'center', label: inspectorCopy.center, icon: <StrokePositionIcon position="center" /> },
-                { value: 'outside', label: inspectorCopy.outside, icon: <StrokePositionIcon position="outside" /> },
-              ]}
-              onChange={(borderPosition) => onUpdate({ borderPosition })}
-            />
+            <SettingDescription show={showDescriptions} label={descriptionCopy.strokePosition}>
+              <SegmentedIconControl
+                value={strokePosition}
+                options={[
+                  {
+                    value: 'inside',
+                    label: inspectorCopy.inside,
+                    icon: <StrokePositionIcon position="inside" />,
+                  },
+                  {
+                    value: 'center',
+                    label: inspectorCopy.center,
+                    icon: <StrokePositionIcon position="center" />,
+                  },
+                  {
+                    value: 'outside',
+                    label: inspectorCopy.outside,
+                    icon: <StrokePositionIcon position="outside" />,
+                  },
+                ]}
+                onChange={(borderPosition) => onUpdate({ borderPosition })}
+              />
+            </SettingDescription>
           )}
         </ControlRow>
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          <div className="min-w-0">
+          <SettingDescription
+            className="min-w-0"
+            show={showDescriptions}
+            label={descriptionCopy.strokeColor}
+          >
             {strokeType === 'gradient' && !strokeIsText ? (
               <InlineGradientControl
                 label={text.popover.gradientTitle}
                 stops={borderGradientStops}
                 onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
                 onAlphaChange={(alpha) =>
-                  onUpdate({ borderGradientStops: borderGradientStops.map((stop) => ({ ...stop, alpha })) })
+                  onUpdate({
+                    borderGradientStops: borderGradientStops.map((stop) => ({ ...stop, alpha })),
+                  })
                 }
               />
             ) : (
@@ -1126,7 +1319,7 @@ export function StartMenuElementInspector({
                 onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
               />
             )}
-          </div>
+          </SettingDescription>
           <div className="h-10 w-11" aria-hidden="true" />
         </div>
         {popover?.group === 'stroke' && popover.type === 'solid' && (
@@ -1169,9 +1362,10 @@ export function StartMenuElementInspector({
       </Group>
 
       {shadows.map((shadow, index) => {
-        const numberLabel = language === 'zh'
-          ? ['', '二', '三', '四', '五', '六'][index] || String(index + 1)
-          : ` ${index + 1}`;
+        const numberLabel =
+          language === 'zh'
+            ? ['', '二', '三', '四', '五', '六'][index] || String(index + 1)
+            : ` ${index + 1}`;
         const title = index === 0 ? text.group.shadow : `${text.group.shadow}${numberLabel}`;
         return (
           <Group
@@ -1184,51 +1378,128 @@ export function StartMenuElementInspector({
             expandLabel={inspectorCopy.expand}
             collapseLabel={inspectorCopy.collapse}
             secondary={
-              <SegmentedIconControl
-                value={shadow.type}
-                options={[
-                  { value: 'outer', label: inspectorCopy.outerShadow, icon: <ShadowModeIcon mode="outer" /> },
-                  { value: 'inner', label: inspectorCopy.innerShadow, icon: <ShadowModeIcon mode="inner" /> },
-                  { value: 'innerBlur', label: inspectorCopy.innerBlur, icon: <ShadowModeIcon mode="innerBlur" /> },
-                ]}
-                onChange={(type) => updateShadow(index, { type })}
-              />
+              <SettingDescription show={showDescriptions} label={descriptionCopy.shadowType}>
+                <SegmentedIconControl
+                  value={shadow.type}
+                  options={[
+                    {
+                      value: 'outer',
+                      label: inspectorCopy.outerShadow,
+                      icon: <ShadowModeIcon mode="outer" />,
+                    },
+                    {
+                      value: 'inner',
+                      label: inspectorCopy.innerShadow,
+                      icon: <ShadowModeIcon mode="inner" />,
+                    },
+                    {
+                      value: 'innerBlur',
+                      label: inspectorCopy.innerBlur,
+                      icon: <ShadowModeIcon mode="innerBlur" />,
+                    },
+                  ]}
+                  onChange={(type) => updateShadow(index, { type })}
+                />
+              </SettingDescription>
             }
           >
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.opacity} value={shadow.opacity} min={0} max={100} onChange={(opacity) => updateShadow(index, { opacity })} />
-              <NumberField icon={<Radius className="h-4 w-4" />} label={text.field.blur} value={shadow.blur} min={0} max={80} onChange={(blur) => updateShadow(index, { blur })} />
-              <button type="button" onClick={addShadow} disabled={shadows.length >= 6} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-fuchsia-100 disabled:opacity-35" title="Add shadow" aria-label="Add shadow"><Plus className="h-5 w-5" /></button>
+              <NumberField
+                icon={<Blend className="h-4 w-4" />}
+                label={text.field.opacity}
+                description={showDescriptions ? text.field.opacity : undefined}
+                value={shadow.opacity}
+                min={0}
+                max={100}
+                onChange={(opacity) => updateShadow(index, { opacity })}
+              />
+              <NumberField
+                icon={<Radius className="h-4 w-4" />}
+                label={text.field.blur}
+                description={showDescriptions ? text.field.blur : undefined}
+                value={shadow.blur}
+                min={0}
+                max={80}
+                onChange={(blur) => updateShadow(index, { blur })}
+              />
+              <SettingDescription show={showDescriptions} label={descriptionCopy.addShadow}>
+                <button
+                  type="button"
+                  onClick={addShadow}
+                  disabled={shadows.length >= 6}
+                  className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-fuchsia-100 disabled:opacity-35"
+                  title={descriptionCopy.addShadow}
+                  aria-label={descriptionCopy.addShadow}
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </SettingDescription>
             </div>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField icon={<MoveHorizontal className="h-4 w-4" />} label={text.field.x} value={shadow.offsetX} min={-80} max={80} onChange={(offsetX) => updateShadow(index, { offsetX })} />
-              <NumberField icon={<MoveVertical className="h-4 w-4" />} label={text.field.y} value={shadow.offsetY} min={-80} max={80} onChange={(offsetY) => updateShadow(index, { offsetY })} />
+              <NumberField
+                icon={<MoveHorizontal className="h-4 w-4" />}
+                label={text.field.x}
+                description={showDescriptions ? text.field.x : undefined}
+                value={shadow.offsetX}
+                min={-80}
+                max={80}
+                onChange={(offsetX) => updateShadow(index, { offsetX })}
+              />
+              <NumberField
+                icon={<MoveVertical className="h-4 w-4" />}
+                label={text.field.y}
+                description={showDescriptions ? text.field.y : undefined}
+                value={shadow.offsetY}
+                min={-80}
+                max={80}
+                onChange={(offsetY) => updateShadow(index, { offsetY })}
+              />
               {index > 0 ? (
-                <button type="button" onClick={() => removeShadow(index)} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 transition-colors hover:bg-rose-50" title="Remove shadow" aria-label="Remove shadow"><span className="text-xl leading-none">−</span></button>
-              ) : <div className="h-10 w-11" aria-hidden="true" />}
+                <SettingDescription show={showDescriptions} label={descriptionCopy.removeShadow}>
+                  <button
+                    type="button"
+                    onClick={() => removeShadow(index)}
+                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 transition-colors hover:bg-rose-50"
+                    title={descriptionCopy.removeShadow}
+                    aria-label={descriptionCopy.removeShadow}
+                  >
+                    <span className="text-xl leading-none">−</span>
+                  </button>
+                </SettingDescription>
+              ) : (
+                <div className="h-10 w-11" aria-hidden="true" />
+              )}
             </div>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-              <InlineColorControl
-                label={text.field.color}
-                color={shadow.color}
-                alpha={shadow.opacity}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(color) => updateShadow(index, { color })}
-                onAlphaChange={(opacity) => updateShadow(index, { opacity })}
-                onOpen={() => setPopover({ group: 'shadow', type: 'solid', shadowIndex: index })}
-              />
+              <SettingDescription show={showDescriptions} label={descriptionCopy.shadowColor}>
+                <InlineColorControl
+                  label={text.field.color}
+                  color={shadow.color}
+                  alpha={shadow.opacity}
+                  alphaLabel={text.field.opacity}
+                  hexLabel={text.popover.hex}
+                  onColorChange={(color) => updateShadow(index, { color })}
+                  onAlphaChange={(opacity) => updateShadow(index, { opacity })}
+                  onOpen={() => setPopover({ group: 'shadow', type: 'solid', shadowIndex: index })}
+                />
+              </SettingDescription>
               <div className="h-10 w-11" aria-hidden="true" />
             </div>
             {popover?.group === 'shadow' && popover.shadowIndex === index && (
               <FloatingPopover>
-                <SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.opacity} onColorChange={(color) => updateShadow(index, { color })} onAlphaChange={(opacity) => updateShadow(index, { opacity })} />
+                <SolidColorPopover
+                  tone="shadow"
+                  text={text.popover}
+                  color={shadow.color}
+                  alpha={shadow.opacity}
+                  onColorChange={(color) => updateShadow(index, { color })}
+                  onAlphaChange={(opacity) => updateShadow(index, { opacity })}
+                />
               </FloatingPopover>
             )}
           </Group>
         );
       })}
-
     </div>
   );
 }
@@ -1245,7 +1516,9 @@ function TwoSegmentControl<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className={`grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white ${disabled ? 'opacity-45' : ''}`}>
+    <div
+      className={`grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white ${disabled ? 'opacity-45' : ''}`}
+    >
       {options.map((option) => (
         <button
           key={option.value}
@@ -1262,6 +1535,25 @@ function TwoSegmentControl<T extends string>({
           {option.icon}
         </button>
       ))}
+    </div>
+  );
+}
+
+function SettingDescription({
+  show,
+  label,
+  className = '',
+  children,
+}: {
+  show: boolean;
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`space-y-1 ${className}`}>
+      {show && <div className="px-1 text-[10px] leading-4 text-slate-500">{label}</div>}
+      {children}
     </div>
   );
 }
@@ -1339,7 +1631,15 @@ function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
     >
       {mode === 'outer' && (
         <>
-          <rect x="4" y="4" width="11" height="11" rx="2.5" fill="currentColor" fillOpacity="0.16" />
+          <rect
+            x="4"
+            y="4"
+            width="11"
+            height="11"
+            rx="2.5"
+            fill="currentColor"
+            fillOpacity="0.16"
+          />
           <path d="M8 18h8a2 2 0 0 0 2-2V8" strokeWidth="3" opacity="0.72" />
           <path d="M17 17l2 2" opacity="0.55" />
         </>
@@ -1497,8 +1797,25 @@ function InlineImageControl({
 }) {
   if (onOpen) {
     return (
-      <button type="button" onClick={onOpen} className="grid h-10 w-full min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950" title={label}>
-        <span className="h-full bg-slate-100 bg-cover bg-center" style={imageUrl ? { backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` } : undefined} aria-hidden="true">{!imageUrl && <span className="grid h-full place-items-center text-slate-500"><ImageIcon className="h-4 w-4" /></span>}</span>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="grid h-10 w-full min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
+        title={label}
+      >
+        <span
+          className="h-full bg-slate-100 bg-cover bg-center"
+          style={
+            imageUrl ? { backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` } : undefined
+          }
+          aria-hidden="true"
+        >
+          {!imageUrl && (
+            <span className="grid h-full place-items-center text-slate-500">
+              <ImageIcon className="h-4 w-4" />
+            </span>
+          )}
+        </span>
         <span className="min-w-0 truncate px-3 leading-10">{label}</span>
       </button>
     );
@@ -1510,7 +1827,9 @@ function InlineImageControl({
     >
       <span
         className="h-full bg-slate-100 bg-cover bg-center"
-        style={imageUrl ? { backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` } : undefined}
+        style={
+          imageUrl ? { backgroundImage: `url("${imageUrl.replace(/"/g, '\\"')}")` } : undefined
+        }
         aria-hidden="true"
       >
         {!imageUrl && (
@@ -1692,7 +2011,11 @@ export function PortaledGradientPopover({
   onClose?: () => void;
   closeLabel?: string;
 }) {
-  return <FloatingPopover popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>{children}</FloatingPopover>;
+  return (
+    <FloatingPopover popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>
+      {children}
+    </FloatingPopover>
+  );
 }
 
 export function GradientEditorPopover({
@@ -1722,7 +2045,10 @@ export function GradientEditorPopover({
           addStop: '添加色标',
           reverse: '反转',
           deleteStop: '删除色标',
-          shape: '渐变类型', linear: '线性', radial: '圆形', diamond: '菱形',
+          shape: '渐变类型',
+          linear: '线性',
+          radial: '圆形',
+          diamond: '菱形',
         }
       : language === 'ja'
         ? {
@@ -1733,7 +2059,10 @@ export function GradientEditorPopover({
             addStop: '色を追加',
             reverse: '反転',
             deleteStop: '色を削除',
-            shape: 'グラデーション', linear: '線形', radial: '円形', diamond: '菱形',
+            shape: 'グラデーション',
+            linear: '線形',
+            radial: '円形',
+            diamond: '菱形',
           }
         : {
             angle: 'Angle',
@@ -1743,7 +2072,10 @@ export function GradientEditorPopover({
             addStop: 'Add stop',
             reverse: 'Reverse',
             deleteStop: 'Delete stop',
-            shape: 'Gradient type', linear: 'Linear', radial: 'Radial', diamond: 'Diamond',
+            shape: 'Gradient type',
+            linear: 'Linear',
+            radial: 'Radial',
+            diamond: 'Diamond',
           };
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
   const [activeStopId, setActiveStopId] = useState(orderedStops[0]?.id || '');
@@ -1757,11 +2089,12 @@ export function GradientEditorPopover({
   const previewStops = orderedStops
     .map((stop) => `${alphaColor(stop.color, stop.alpha, '#ffffff')} ${stop.position}%`)
     .join(', ');
-  const trackPreview = shape === 'radial'
-    ? `radial-gradient(circle at center, ${previewStops})`
-    : shape === 'diamond'
-      ? `conic-gradient(from 45deg at center, ${previewStops})`
-      : `linear-gradient(90deg, ${previewStops})`;
+  const trackPreview =
+    shape === 'radial'
+      ? `radial-gradient(circle at center, ${previewStops})`
+      : shape === 'diamond'
+        ? `conic-gradient(from 45deg at center, ${previewStops})`
+        : `linear-gradient(90deg, ${previewStops})`;
   const commitStops = (nextStops: RenderColorStop[]) => {
     onStopsChange([...nextStops].sort((a, b) => a.position - b.position));
   };
@@ -1772,7 +2105,11 @@ export function GradientEditorPopover({
     const leftHex = hexColor(left, '#ffffff').slice(1);
     const rightHex = hexColor(right, '#ffffff').slice(1);
     const channels = [0, 2, 4].map((index) =>
-      Math.round((Number.parseInt(leftHex.slice(index, index + 2), 16) + Number.parseInt(rightHex.slice(index, index + 2), 16)) / 2),
+      Math.round(
+        (Number.parseInt(leftHex.slice(index, index + 2), 16) +
+          Number.parseInt(rightHex.slice(index, index + 2), 16)) /
+          2,
+      ),
     );
     return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
   };
@@ -1789,8 +2126,10 @@ export function GradientEditorPopover({
     const position = clampPercent(
       requestedPosition ?? (largestGap.left.position + largestGap.right.position) / 2,
     );
-    const left = [...orderedStops].reverse().find((stop) => stop.position <= position) || orderedStops[0];
-    const right = orderedStops.find((stop) => stop.position >= position) || orderedStops.at(-1) || left;
+    const left =
+      [...orderedStops].reverse().find((stop) => stop.position <= position) || orderedStops[0];
+    const right =
+      orderedStops.find((stop) => stop.position >= position) || orderedStops.at(-1) || left;
     const newStop = {
       id: `stop-${Date.now().toString(36)}`,
       color: mixHexColors(left?.color || '#ffffff', right?.color || '#ffffff'),
@@ -1810,173 +2149,194 @@ export function GradientEditorPopover({
   return (
     <div className="relative rounded-2xl border border-sky-200 bg-sky-50/98 p-3 text-sky-950 shadow-2xl shadow-black/25 backdrop-blur-xl">
       <div className="ml-auto w-[366px] max-w-full">
-      <div className="grid grid-cols-[112px_minmax(0,1fr)_40px_40px] gap-2">
-        <label className="relative flex h-9 min-w-0 items-center gap-2 rounded-lg bg-white px-2 text-xs font-bold text-sky-950" title={copy.shape}>
-          {shape === 'radial' ? <Circle className="h-4 w-4 shrink-0" /> : shape === 'diamond' ? <Diamond className="h-4 w-4 shrink-0" /> : <MoveHorizontal className="h-4 w-4 shrink-0" />}
-          <span className="min-w-0 flex-1 truncate">{copy[shape]}</span>
-          <ChevronDown className="h-4 w-4 shrink-0" />
-          <select value={shape} onChange={(event) => onShapeChange?.(event.target.value as GradientShape)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={copy.shape}>
-            <option value="linear">{copy.linear}</option>
-            <option value="radial">{copy.radial}</option>
-            <option value="diamond">{copy.diamond}</option>
-          </select>
-        </label>
-        <div className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white" title={copy.angle}>
-          <RotateCw className="justify-self-center h-3.5 w-3.5 text-sky-900/70" aria-hidden="true" />
-          <DragSizeControl
-            label={copy.angle}
-            value={angle}
-            min={0}
-            max={360}
-            step={1}
-            unit="°"
-            onChange={onAngleChange}
-            className="h-full rounded-none bg-white px-2 text-center text-xs"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            commitStops(
-              orderedStops
-                .map((stop) => ({ ...stop, position: 100 - stop.position }))
-                .reverse(),
-            )
-          }
-          className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
-          title={copy.reverse}
-          aria-label={copy.reverse}
-        >
-          <RotateCw className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => addStopAt()}
-          className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
-          title={copy.addStop}
-          aria-label={copy.addStop}
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-      </div>
-      <div
-        className="relative mt-3 h-12 cursor-crosshair overflow-hidden rounded-xl border border-sky-200 bg-slate-950"
-        style={{ backgroundImage: `linear-gradient(${angle}deg, ${previewStops})` }}
-        title={copy.angle}
-        onPointerDown={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          const updateAngle = (clientX: number, clientY: number) => {
-            const x = clientX - rect.left - rect.width / 2;
-            const y = clientY - rect.top - rect.height / 2;
-            onAngleChange(Math.round((Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360));
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-          updateAngle(event.clientX, event.clientY);
-        }}
-        onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          const x = event.clientX - rect.left - rect.width / 2;
-          const y = event.clientY - rect.top - rect.height / 2;
-          onAngleChange(Math.round((Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360));
-        }}
-      >
-        <span className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/80" />
-        <span className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
-      </div>
-      <div
-        className="relative mt-3 h-12 w-full rounded-xl border border-white/80 shadow-inner"
-        style={{
-          backgroundImage: `${trackPreview}, linear-gradient(45deg, #dbeafe 25%, transparent 25%), linear-gradient(-45deg, #dbeafe 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #dbeafe 75%), linear-gradient(-45deg, transparent 75%, #dbeafe 75%)`,
-          backgroundPosition: '0 0, 0 0, 0 6px, 6px -6px, -6px 0',
-          backgroundSize: 'auto, 12px 12px, 12px 12px, 12px 12px, 12px 12px',
-          backgroundColor: '#ffffff',
-        }}
-        onClick={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          addStopAt(((event.clientX - rect.left) / rect.width) * 100);
-        }}
-      >
-        {orderedStops.map((stop) => (
+        <div className="grid grid-cols-[112px_minmax(0,1fr)_40px_40px] gap-2">
+          <label
+            className="relative flex h-9 min-w-0 items-center gap-2 rounded-lg bg-white px-2 text-xs font-bold text-sky-950"
+            title={copy.shape}
+          >
+            {shape === 'radial' ? (
+              <Circle className="h-4 w-4 shrink-0" />
+            ) : shape === 'diamond' ? (
+              <Diamond className="h-4 w-4 shrink-0" />
+            ) : (
+              <MoveHorizontal className="h-4 w-4 shrink-0" />
+            )}
+            <span className="min-w-0 flex-1 truncate">{copy[shape]}</span>
+            <ChevronDown className="h-4 w-4 shrink-0" />
+            <select
+              value={shape}
+              onChange={(event) => onShapeChange?.(event.target.value as GradientShape)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+              aria-label={copy.shape}
+            >
+              <option value="linear">{copy.linear}</option>
+              <option value="radial">{copy.radial}</option>
+              <option value="diamond">{copy.diamond}</option>
+            </select>
+          </label>
+          <div
+            className="grid h-9 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-lg border border-white/70 bg-white"
+            title={copy.angle}
+          >
+            <RotateCw
+              className="justify-self-center h-3.5 w-3.5 text-sky-900/70"
+              aria-hidden="true"
+            />
+            <DragSizeControl
+              label={copy.angle}
+              value={angle}
+              min={0}
+              max={360}
+              step={1}
+              unit="°"
+              onChange={onAngleChange}
+              className="h-full rounded-none bg-white px-2 text-center text-xs"
+            />
+          </div>
           <button
-            key={stop.id}
             type="button"
-            className={`absolute top-1/2 h-8 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow ${
-              activeStop?.id === stop.id ? 'border-sky-950 bg-white' : 'border-white bg-sky-950'
-            }`}
-            style={{ left: `${stop.position}%` }}
-            onClick={(event) => {
-              event.stopPropagation();
-              setActiveStopId(stop.id);
-            }}
-            aria-label={`${copy.position} ${stop.position}%`}
-          />
-        ))}
-      </div>
-      <div className="mt-3 grid gap-2">
-        {orderedStops.map((stop) => {
-          const color = hexColor(stop.color, '#ffffff');
-          return (
-            <div key={stop.id} className="grid h-10 grid-cols-[58px_minmax(0,1fr)_64px_40px] items-center gap-2">
-              <DragSizeControl
-                label={copy.position}
-                value={stop.position}
-                min={0}
-                max={100}
-                step={1}
-                unit="%"
-                onChange={(position) => updateStop(stop.id, { position })}
-                className="h-10 rounded-xl bg-white px-2 text-center text-xs"
-              />
-              <div className="grid h-10 min-w-0 grid-cols-[48px_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/70 bg-white">
-              <button
-                type="button"
-                title={copy.color}
-                aria-label={copy.color}
-                onClick={() => {
-                  setActiveStopId(stop.id);
-                  setColorPopoverStopId(stop.id);
-                }}
-                className="m-1 rounded-lg border border-slate-200 shadow-inner"
-                style={{ backgroundColor: color }}
-              />
-              <input
-                value={toHex8(color, stop.alpha)}
-                onChange={(event) => {
-                  const next = event.target.value.trim();
-                  if (/^#[0-9a-f]{6,8}$/i.test(next)) {
-                    const parsed = parseColorValue(next);
-                    updateStop(stop.id, { color: parsed.hex, alpha: parsed.alpha });
-                  }
-                }}
-                onFocus={() => setActiveStopId(stop.id)}
-                className="h-full min-w-0 border-0 bg-white px-3 text-xs font-medium outline-none"
-              />
-              </div>
-              <DragSizeControl
-                label={copy.opacity}
-                value={stop.alpha}
-                min={0}
-                max={100}
-                step={1}
-                unit="%"
-                onChange={(alpha) => updateStop(stop.id, { alpha })}
-                className="h-10 rounded-xl bg-white px-2 text-center text-xs"
-              />
-              <button
-                type="button"
-                disabled={orderedStops.length <= 2}
-                onClick={() => removeStop(stop.id)}
-                className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600 disabled:opacity-35"
-                title={copy.deleteStop}
-                aria-label={copy.deleteStop}
+            onClick={() =>
+              commitStops(
+                orderedStops.map((stop) => ({ ...stop, position: 100 - stop.position })).reverse(),
+              )
+            }
+            className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+            title={copy.reverse}
+            aria-label={copy.reverse}
+          >
+            <RotateCw className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => addStopAt()}
+            className="grid h-9 w-10 place-items-center rounded-lg bg-white text-sky-900 transition-colors hover:bg-sky-100"
+            title={copy.addStop}
+            aria-label={copy.addStop}
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+        <div
+          className="relative mt-3 h-12 cursor-crosshair overflow-hidden rounded-xl border border-sky-200 bg-slate-950"
+          style={{ backgroundImage: `linear-gradient(${angle}deg, ${previewStops})` }}
+          title={copy.angle}
+          onPointerDown={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const updateAngle = (clientX: number, clientY: number) => {
+              const x = clientX - rect.left - rect.width / 2;
+              const y = clientY - rect.top - rect.height / 2;
+              onAngleChange(Math.round(((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360));
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            updateAngle(event.clientX, event.clientY);
+          }}
+          onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left - rect.width / 2;
+            const y = event.clientY - rect.top - rect.height / 2;
+            onAngleChange(Math.round(((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360));
+          }}
+        >
+          <span className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/80" />
+          <span className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
+        </div>
+        <div
+          className="relative mt-3 h-12 w-full rounded-xl border border-white/80 shadow-inner"
+          style={{
+            backgroundImage: `${trackPreview}, linear-gradient(45deg, #dbeafe 25%, transparent 25%), linear-gradient(-45deg, #dbeafe 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #dbeafe 75%), linear-gradient(-45deg, transparent 75%, #dbeafe 75%)`,
+            backgroundPosition: '0 0, 0 0, 0 6px, 6px -6px, -6px 0',
+            backgroundSize: 'auto, 12px 12px, 12px 12px, 12px 12px, 12px 12px',
+            backgroundColor: '#ffffff',
+          }}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            addStopAt(((event.clientX - rect.left) / rect.width) * 100);
+          }}
+        >
+          {orderedStops.map((stop) => (
+            <button
+              key={stop.id}
+              type="button"
+              className={`absolute top-1/2 h-8 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow ${
+                activeStop?.id === stop.id ? 'border-sky-950 bg-white' : 'border-white bg-sky-950'
+              }`}
+              style={{ left: `${stop.position}%` }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setActiveStopId(stop.id);
+              }}
+              aria-label={`${copy.position} ${stop.position}%`}
+            />
+          ))}
+        </div>
+        <div className="mt-3 grid gap-2">
+          {orderedStops.map((stop) => {
+            const color = hexColor(stop.color, '#ffffff');
+            return (
+              <div
+                key={stop.id}
+                className="grid h-10 grid-cols-[58px_minmax(0,1fr)_64px_40px] items-center gap-2"
               >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                <DragSizeControl
+                  label={copy.position}
+                  value={stop.position}
+                  min={0}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  onChange={(position) => updateStop(stop.id, { position })}
+                  className="h-10 rounded-xl bg-white px-2 text-center text-xs"
+                />
+                <div className="grid h-10 min-w-0 grid-cols-[48px_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/70 bg-white">
+                  <button
+                    type="button"
+                    title={copy.color}
+                    aria-label={copy.color}
+                    onClick={() => {
+                      setActiveStopId(stop.id);
+                      setColorPopoverStopId(stop.id);
+                    }}
+                    className="m-1 rounded-lg border border-slate-200 shadow-inner"
+                    style={{ backgroundColor: color }}
+                  />
+                  <input
+                    value={toHex8(color, stop.alpha)}
+                    onChange={(event) => {
+                      const next = event.target.value.trim();
+                      if (/^#[0-9a-f]{6,8}$/i.test(next)) {
+                        const parsed = parseColorValue(next);
+                        updateStop(stop.id, { color: parsed.hex, alpha: parsed.alpha });
+                      }
+                    }}
+                    onFocus={() => setActiveStopId(stop.id)}
+                    className="h-full min-w-0 border-0 bg-white px-3 text-xs font-medium outline-none"
+                  />
+                </div>
+                <DragSizeControl
+                  label={copy.opacity}
+                  value={stop.alpha}
+                  min={0}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  onChange={(alpha) => updateStop(stop.id, { alpha })}
+                  className="h-10 rounded-xl bg-white px-2 text-center text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={orderedStops.length <= 2}
+                  onClick={() => removeStop(stop.id)}
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600 disabled:opacity-35"
+                  title={copy.deleteStop}
+                  aria-label={copy.deleteStop}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
       {colorPopoverStop && (
         <div className="absolute left-3 top-[calc(100%+8px)] z-20 w-[min(340px,calc(100vw-24px))]">

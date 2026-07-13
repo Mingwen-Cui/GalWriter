@@ -3,22 +3,17 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { buildAudioBuffer } from '../audio/audioTrack';
 import { saveRenderedVideo } from '../export/tauriRenderAdapter';
-import { clearGPUTextCache, drawGPUFrame } from '../gpu/gpuFrameRenderer';
-import { destroyWebGPU, initWebGPU, isWebGPUSupported } from '../gpu/webgpuRenderer';
 import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
 import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
 import { renderCopy } from '../shared/renderCopy';
 import type {
   ExportFormat,
   RenderStatus,
-  RenderStyle,
   SegmentRenderInfo,
   TimelineSegmentMetric,
-  VideoTextScaleMode,
 } from '../shared/types';
 
 type DrawFrame = (
@@ -41,18 +36,11 @@ export const useVideoExport = ({
   language,
   isZh,
   isDesktopApp,
-  useGpuAcceleration,
   resolution,
   frameRate,
   exportFormat,
   outputDir,
   speed,
-  renderStyle,
-  videoTextScaleMode,
-  animationLeadSeconds,
-  hideCharacterTags,
-  hideSceneTags,
-  canvasSettings,
   drawFrame,
   getNodeRenderDuration,
   getSegmentAudioSources,
@@ -70,18 +58,11 @@ export const useVideoExport = ({
   language: Language;
   isZh: boolean;
   isDesktopApp: boolean;
-  useGpuAcceleration: boolean;
   resolution: { width: number; height: number };
   frameRate: number;
   exportFormat: ExportFormat;
   outputDir: string;
   speed: number;
-  renderStyle: RenderStyle;
-  videoTextScaleMode: VideoTextScaleMode;
-  animationLeadSeconds: number;
-  hideCharacterTags: boolean;
-  hideSceneTags: boolean;
-  canvasSettings: SharedCanvasSettings;
   drawFrame: DrawFrame;
   getNodeRenderDuration: (node: FlowNode) => Promise<number>;
   getSegmentAudioSources: (node: FlowNode) => { kind: string; url: string }[];
@@ -128,17 +109,7 @@ export const useVideoExport = ({
     setProgressValue(0);
     setProgress(renderCopy(language, '准备渲染 0%', 'レンダリング準備中 0%', 'Preparing render 0%'));
 
-    let gpuContext: Awaited<ReturnType<typeof initWebGPU>> | null = null;
-    if (useGpuAcceleration && isWebGPUSupported()) {
-      try {
-        gpuContext = await initWebGPU(resolution.width, resolution.height);
-        if (gpuContext) setProgress(renderCopy(language, 'GPU 加速已启用', 'GPU アクセラレーションを有効にしました', 'GPU acceleration enabled'));
-      } catch (error) {
-        console.warn('[GPU] Initialization failed; falling back to 2D canvas:', error);
-      }
-    }
-    const useGpu = gpuContext !== null;
-    const canvas = gpuContext?.canvas || canvas2d;
+    const canvas = canvas2d;
     const throwIfCancelled = () => abortController.signal.throwIfAborted();
 
     try {
@@ -276,37 +247,13 @@ export const useVideoExport = ({
         );
         reportNode(node, nodeIndex);
       };
-      const drawFrameGPU = async (_frameIndex: number, timestamp: number) => {
-        throwIfCancelled();
-        if (!gpuContext) return;
-        const { node, nodeIndex, nodeDuration, localTime } = resolveFrame(timestamp);
-        await drawGPUFrame({
-          gpu: gpuContext,
-          node,
-          width: resolution.width,
-          height: resolution.height,
-          renderStyle,
-          videoTextScaleMode,
-          animationLeadSeconds,
-          isZh,
-          media: await loadFrameMedia(node, localTime),
-          elapsed: localTime,
-          duration: nodeDuration * resolvedSpeed,
-          nodes,
-          hideCharacterTags,
-          hideSceneTags,
-          canvasSettings,
-        });
-        reportNode(node, nodeIndex);
-      };
-
       const { renderVideoToBuffer } = await import('../export/browserVideoEncoder');
       const bytes = await renderVideoToBuffer({
         canvas,
         format: resolvedFormat,
         frameRate: resolvedFrameRate,
         totalFrames,
-        drawFrame: useGpu ? drawFrameGPU : drawFrame2D,
+        drawFrame: drawFrame2D,
         audioBuffer: audioBuffer || undefined,
         onProgress: (current, total) => {
           setProgressValue(Math.round((current / total) * 100));
@@ -364,10 +311,6 @@ export const useVideoExport = ({
     } finally {
       if (abortControllerRef.current === abortController) abortControllerRef.current = null;
       setIsCancellingRender(false);
-      if (useGpu) {
-        destroyWebGPU();
-        clearGPUTextCache();
-      }
     }
   };
 

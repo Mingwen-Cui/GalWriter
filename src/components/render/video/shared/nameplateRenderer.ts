@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 
 import type { CharacterNodeData, CharacterPresentation, StoryPresentation } from '../../../../domain/project';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
+import { drawVideoTextLine } from './canvasTextEffects';
 import { loadCachedImage } from './mediaUtils';
+import { getRenderObjects } from './renderObjects';
 import type { RenderStyle } from './types';
 
 export type NameplateItem = {
@@ -98,7 +100,11 @@ export const measureNameplate = (
 ) => {
   const scale = clampValue((style.nameplateScale ?? 100) / 100, 0.5, 2);
   const fontSize = Math.max(10, style.nameplateFontSize ?? 18);
-  const paddingX = Math.round(fontSize * 1.15 * scale);
+  const nameplateObject = getRenderObjects(style).nameplate;
+  const outlinePadding = nameplateObject.stroke.enabled
+    ? Math.ceil(nameplateObject.stroke.width * (nameplateObject.stroke.position === 'outside' ? 1 : 0.5))
+    : 0;
+  const paddingX = Math.round(fontSize * 1.15 * scale) + outlinePadding;
   const paddingY = Math.round(fontSize * 0.42 * scale);
   ctx.font = `800 ${fontSize}px ${style.nameplateFontFamily || style.titleFontFamily}`;
   const width = Math.max(fontSize * 3.2, ctx.measureText(text).width + paddingX * 2);
@@ -246,6 +252,7 @@ export const drawNameplates = async (
 
   for (const layout of layouts) {
     const fontSize = Math.max(10, style.nameplateFontSize ?? 18);
+    const nameplateObject = getRenderObjects(style).nameplate;
     if (!style.nameplateInside) {
       ctx.save();
       roundedRect(
@@ -261,15 +268,14 @@ export const drawNameplates = async (
       ctx.restore();
     }
 
-    ctx.save();
-    ctx.shadowColor = style.nameplateInside ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.35)';
-    ctx.shadowBlur = style.nameplateInside ? 10 : 8;
     ctx.font = `800 ${fontSize}px ${style.nameplateFontFamily || style.titleFontFamily}`;
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = colorWithAlpha(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100);
-    ctx.fillText(layout.item.name, layout.x + layout.width / 2, layout.y + layout.height / 2);
-    ctx.restore();
+    drawVideoTextLine(ctx, layout.item.name, layout.x + layout.width / 2, layout.y + layout.height / 2, {
+      align: 'center',
+      fillColor: colorWithAlpha(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100),
+      letterSpacing: nameplateObject.letterSpacing,
+      object: nameplateObject,
+    });
   }
   return layouts;
 };

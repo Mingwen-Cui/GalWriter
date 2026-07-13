@@ -105,9 +105,6 @@ type VideoExportSettingsPanelProps = {
   error: string;
   progressValue: number;
   savedPath: string;
-  useGpuAcceleration: boolean;
-  setUseGpuAcceleration: (value: boolean) => void;
-  isWebGPUSupported: boolean;
   hideCharacterTags: boolean;
   setHideCharacterTags: (value: boolean) => void;
   hideSceneTags: boolean;
@@ -191,9 +188,6 @@ export function VideoExportSettingsPanel({
   error,
   progressValue,
   savedPath,
-  useGpuAcceleration,
-  setUseGpuAcceleration,
-  isWebGPUSupported,
   hideCharacterTags,
   setHideCharacterTags,
   hideSceneTags,
@@ -806,93 +800,6 @@ export function VideoExportSettingsPanel({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--vr-border)] bg-slate-200/60 p-2 dark:bg-slate-800/60">
-              {/* NOTE: 人物标签单按钮开关 — 点击在显示/隐藏之间切换 */}
-              <ExportSettingCard
-                icon={CharacterTagGlyph}
-                description={
-                  showSettingDescriptions
-                    ? t('隐藏人物标签', '人物タグを隠す', 'Hide character tags')
-                    : undefined
-                }
-              >
-                <ExportToggleButton
-                  active={hideCharacterTags}
-                  title={hideCharacterTags
-                    ? t('人物标签已隐藏', 'キャラクタータグ: 非表示', 'Character tags: hidden')
-                    : t('人物标签显示中', 'キャラクタータグ: 表示', 'Character tags: visible')
-                  }
-                  onClick={() => setHideCharacterTags(!hideCharacterTags)}
-                  icon={hideCharacterTags
-                    ? <EyeOff className="h-3.5 w-3.5" />
-                    : <Eye className="h-3.5 w-3.5" />
-                  }
-                />
-              </ExportSettingCard>
-
-              {/* NOTE: 场景标签单按鈕开关 — 点击在显示/隐藏之间切换 */}
-              <ExportSettingCard
-                icon={SceneTagGlyph}
-                description={
-                  showSettingDescriptions
-                    ? t('隐藏场景标签', 'シーンタグを隠す', 'Hide scene tags')
-                    : undefined
-                }
-              >
-                <ExportToggleButton
-                  active={hideSceneTags}
-                  title={hideSceneTags
-                    ? t('场景标签已隐藏', 'シーンタグ: 非表示', 'Scene tags: hidden')
-                    : t('场景标签显示中', 'シーンタグ: 表示', 'Scene tags: visible')
-                  }
-                  onClick={() => setHideSceneTags(!hideSceneTags)}
-                  icon={hideSceneTags
-                    ? <EyeOff className="h-3.5 w-3.5" />
-                    : <Eye className="h-3.5 w-3.5" />
-                  }
-                />
-              </ExportSettingCard>
-
-              {/* NOTE: 渲染模式单切换按钮 — 点击在 2D Canvas / WebGPU 间切换，active=GPU高亮 */}
-              <ExportSettingCard
-                icon={RenderModeGlyph}
-                description={
-                  showSettingDescriptions
-                    ? t('渲染方式', '描画方式', 'Render mode')
-                    : undefined
-                }
-              >
-                <ExportToggleButton
-                  active={useGpuAcceleration}
-                  label={useGpuAcceleration ? 'WebGPU' : '2D Canvas'}
-                  highlightActive={false}
-                  icon={null}
-                  title={useGpuAcceleration
-                    ? t(
-                      '当前：WebGPU 加速（点击切换到 2D Canvas）',
-                      '現在: WebGPU 加速（クリックで 2D Canvas に切替）',
-                      'Current: WebGPU accelerated (click to switch to 2D Canvas)',
-                    )
-                    : isWebGPUSupported
-                      ? t(
-                        '当前：2D Canvas（点击切换到 WebGPU 加速）',
-                        '現在: 2D Canvas（クリックで WebGPU 加速に切替）',
-                        'Current: 2D Canvas (click to switch to WebGPU)',
-                      )
-                      : t(
-                        '当前浏览器不支持 WebGPU，仅可使用 2D Canvas',
-                        'このブラウザーは WebGPU 非対応、2D Canvas のみ使用可能',
-                        'WebGPU not supported; 2D Canvas only',
-                      )
-                  }
-                  disabled={!isWebGPUSupported}
-                  onClick={() => {
-                    if (!isWebGPUSupported) return;
-                    setUseGpuAcceleration(!useGpuAcceleration);
-                  }}
-                />
-              </ExportSettingCard>
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -1153,64 +1060,5 @@ function ExportPillToggleGroup({
         );
       })}
     </div>
-  );
-}
-
-// NOTE: 人物标签卡片图标 — 小人剪影（圆头 + 肩部弧线）
-function CharacterTagGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-    >
-      <path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" />
-      <circle cx="12" cy="10" r="2" />
-      <path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" />
-    </svg>
-  );
-}
-
-// NOTE: 场景标签卡片图标 — 带天空和地面的风景小帧
-function SceneTagGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.9"
-    >
-      <rect x="4.5" y="5" width="15" height="14" rx="2.5" />
-      <circle cx="9" cy="9.5" r="1.4" />
-      <path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" />
-    </svg>
-  );
-}
-
-// NOTE: 渲染模式卡片图标 — 监视器 + 底部芯片，表达「渲染输出」概念
-function RenderModeGlyph() {
-  return (
-    <span className="relative inline-flex h-3.5 w-3.5 shrink-0 flex-col items-center justify-center gap-0">
-      {/* 监视器外框 */}
-      <span className="relative h-[8px] w-[12px] rounded-[1.5px] border border-current/50 bg-current/10">
-        {/* 屏幕内部扫描线，象征渲染输出 */}
-        <span className="absolute inset-x-[2px] top-[1.5px] h-[1px] bg-current/40 rounded-full" />
-        <span className="absolute inset-x-[2px] top-[3.5px] h-[1px] bg-current/30 rounded-full" />
-        <span className="absolute inset-x-[2px] top-[5px] h-[1px] bg-current/20 rounded-full" />
-      </span>
-      {/* 底座支脚 */}
-      <span className="h-[1.5px] w-[5px] bg-current/40 rounded-full" />
-      {/* 底座底板 */}
-      <span className="h-[1px] w-[7px] bg-current/35 rounded-full" />
-    </span>
   );
 }

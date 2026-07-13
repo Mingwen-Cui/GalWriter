@@ -15,6 +15,7 @@ import { getRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
+import { drawVideoTextLine } from '../shared/canvasTextEffects';
 
 type DrawRenderFrameInput = {
   ctx: CanvasRenderingContext2D;
@@ -55,33 +56,6 @@ const textX = (align: RenderStyle['titleAlign'], left: number, right: number) =>
 
 const visibleTextLength = (text: string) => Array.from(text || '').length;
 const visibleLines = (lines: string[]) => lines.filter((line) => line.length > 0);
-
-const drawStyledLine = (
-  ctx: CanvasRenderingContext2D,
-  line: string,
-  x: number,
-  y: number,
-  options: {
-    align: CanvasTextAlign;
-    fillColor: string;
-    strokeColor: string;
-    strokeWidth: number;
-    letterSpacing: number;
-  },
-) => {
-  ctx.textAlign = options.align;
-  (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
-    `${options.letterSpacing}px`;
-  if (options.strokeWidth > 0) {
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = options.strokeWidth;
-    ctx.strokeStyle = options.strokeColor;
-    ctx.strokeText(line, x, y);
-  }
-  ctx.fillStyle = options.fillColor;
-  ctx.fillText(line, x, y);
-  (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0px';
-};
 
 export const drawRenderFrame = async ({
   ctx,
@@ -214,13 +188,11 @@ export const drawRenderFrame = async ({
     textBaselineOffset +
     textOffsetY;
 
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-  ctx.shadowBlur = 12;
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
   renderTitleLines.forEach((line) => {
-    drawStyledLine(
+    drawVideoTextLine(
       ctx,
       line,
       textX(videoRenderStyle.titleAlign, textLeft + titleObject.x, textLeft + titleObject.x + titleMaxTextWidth),
@@ -228,9 +200,8 @@ export const drawRenderFrame = async ({
       {
         align: videoRenderStyle.titleAlign,
         fillColor: colorWithAlpha(videoRenderStyle.titleColor, videoRenderStyle.titleColorAlpha),
-        strokeColor: videoRenderStyle.titleStrokeColor,
-        strokeWidth: videoRenderStyle.titleStrokeWidth,
         letterSpacing: videoRenderStyle.titleLetterSpacing,
+        object: titleObject,
       },
     );
     y += titleLineHeight;
@@ -242,7 +213,7 @@ export const drawRenderFrame = async ({
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
   renderBodyLines.forEach((line) => {
-    drawStyledLine(
+    drawVideoTextLine(
       ctx,
       line,
       textX(videoRenderStyle.bodyAlign, textLeft + bodyObject.x, textLeft + bodyObject.x + bodyMaxTextWidth),
@@ -250,13 +221,11 @@ export const drawRenderFrame = async ({
       {
         align: videoRenderStyle.bodyAlign,
         fillColor: colorWithAlpha(videoRenderStyle.bodyColor, videoRenderStyle.bodyColorAlpha),
-        strokeColor: videoRenderStyle.bodyStrokeColor,
-        strokeWidth: videoRenderStyle.bodyStrokeWidth,
         letterSpacing: videoRenderStyle.bodyLetterSpacing,
+        object: bodyObject,
       },
     );
     y += bodyLineHeight;
   });
   ctx.restore();
-  ctx.shadowBlur = 0;
 };
