@@ -21,3 +21,9 @@ export type SaveRenderedWebZipInput = {
   bytes: number[];
   outputDir: string;
 };
+
+export type SaveRenderedPptxInput = {
+  fileName: string;
+  bytes: number[];
+  outputDir: string;
+};

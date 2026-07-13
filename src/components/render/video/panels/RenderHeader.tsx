@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   PanelRightClose,
   Play,
+  Presentation,
   Redo2,
   Undo2,
   X,
@@ -94,7 +95,7 @@ export function RenderHeader({
         </div>
         <h2 className="truncate text-sm font-black">渲染脚本</h2>
         <div className="flex h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
-          {(['video', 'web'] as RenderWorkspaceMode[]).map((mode) => (
+          {(['video', 'web', 'ppt'] as RenderWorkspaceMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -113,8 +114,11 @@ export function RenderHeader({
               aria-pressed={workspaceMode === mode}
               title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
             >
-              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : mode === 'web' ? <FileText className="h-3.5 w-3.5" /> : <Presentation className="h-3.5 w-3.5" />}
+              {mode === 'ppt' ? 'PPT' : null}
+              {mode !== 'ppt' && <>
               {mode === 'video' ? '视频' : '网页'}
+              </>}
             </button>
           ))}
         </div>
@@ -281,13 +285,16 @@ export function RenderHeader({
           disabled={
             isRendering ||
             (workspaceMode === 'video' && selectedNodes.length === 0) ||
-            (workspaceMode === 'web' &&
+            ((workspaceMode === 'web' || workspaceMode === 'ppt') &&
               nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
           }
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
         >
           {isRendering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {workspaceMode === 'ppt' ? <span className="hidden sm:inline">导出 PPTX</span> : null}
+          {workspaceMode !== 'ppt' && <>
           <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>
+          </>}
         </button>
         <button
           type="button"

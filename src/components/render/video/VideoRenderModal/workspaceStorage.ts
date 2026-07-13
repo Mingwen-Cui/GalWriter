@@ -12,6 +12,7 @@ import type {
   VideoTextScaleMode,
   WebExportSettings,
   WebHistoryState,
+  PptExportSettings,
 } from '../shared/types';
 
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
@@ -143,6 +144,7 @@ export type PersistedRenderWorkspaceState = {
   webRenderStyle?: Partial<RenderStyle>;
   webPast?: WebHistoryState[];
   webFuture?: WebHistoryState[];
+  pptSettings?: Partial<PptExportSettings>;
   savedAt?: number;
 };
 
@@ -205,7 +207,7 @@ export const clampPersistedNumber = (value: unknown, fallback: number, min: numb
   typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
 export const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
-  value === 'video' || value === 'web';
+  value === 'video' || value === 'web' || value === 'ppt';
 
 export const isExportFormat = (value: unknown): value is ExportFormat =>
   value === 'mp4' || value === 'mov' || value === 'mkv';

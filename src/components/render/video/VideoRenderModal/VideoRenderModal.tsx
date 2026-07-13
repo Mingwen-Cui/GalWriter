@@ -2,10 +2,12 @@ import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { buildPptxBuffer } from '../../ppt/pptExport';
+import { PptWorkspace } from '../../ppt/PptWorkspace';
 import { WebWorkspace } from '../../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
-import { chooseRenderOutputDir, getDefaultRenderDir } from '../export/tauriRenderAdapter';
+import { chooseRenderOutputDir, getDefaultRenderDir, saveRenderedPptx } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
 import {
   DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
@@ -53,6 +55,7 @@ import type {
   RenderStatus,
   RenderStyle,
   RenderWorkspaceMode,
+  PptExportSettings,
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
@@ -137,6 +140,16 @@ export function VideoRenderModal({
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
   );
+  const [pptSettings, setPptSettings] = useState<PptExportSettings>(() => ({
+    layout: persistedWorkspace?.pptSettings?.layout === 'LAYOUT_STANDARD' ? 'LAYOUT_STANDARD' : 'LAYOUT_WIDE',
+    branchMode: persistedWorkspace?.pptSettings?.branchMode || 'interactive',
+    density: persistedWorkspace?.pptSettings?.density || 'oneNodePerSlide',
+    includeCover: persistedWorkspace?.pptSettings?.includeCover ?? true,
+    includeNotes: persistedWorkspace?.pptSettings?.includeNotes ?? true,
+  }));
+  const updatePptSettings = (patch: Partial<PptExportSettings>) => {
+    setPptSettings((current) => ({ ...current, ...patch }));
+  };
   const [status, setStatus] = useState<RenderStatus>('idle');
   const isDesktopApp = isTauriRuntime();
   const [noticeModal, setNoticeModal] = useState<RenderNoticeModalState | null>(null);
@@ -748,6 +761,7 @@ export function VideoRenderModal({
 
   const captureWorkspaceState = (): PersistedRenderWorkspaceState => ({
     workspaceMode,
+    pptSettings,
     selectedIds: [...selectedIds],
     timelineIds,
     timelineSourceById,
@@ -1220,6 +1234,7 @@ export function VideoRenderModal({
     hideSceneTags,
     interactivePreviewBounds,
     outputDir,
+    pptSettings,
     renderStyle,
     resolutionHeight,
     resolutionIndex,
@@ -1758,6 +1773,54 @@ export function VideoRenderModal({
     setProgress,
     setProgressValue,
   });
+  const exportPptProject = async () => {
+    if (status === 'rendering') return;
+    if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
+      setStatus('error');
+      setError(isZh ? '没有可导出的剧情节点' : 'No story nodes to export');
+      return;
+    }
+    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-presentation';
+    setStatus('rendering');
+    setError('');
+    setSavedPath('');
+    setProgressValue(20);
+    setProgress(isZh ? '正在生成可编辑 PPTX...' : 'Building editable PPTX...');
+    try {
+      const buffer = await buildPptxBuffer({
+        nodes,
+        edges,
+        projectName: exportTitle,
+        settings: webSettings,
+        style: renderStyle,
+        pptSettings,
+      });
+      setProgressValue(80);
+      if (isTauriRuntime()) {
+        const result = await saveRenderedPptx({
+          fileName: `${exportTitle}-ppt`,
+          bytes: Array.from(new Uint8Array(buffer)),
+          outputDir: webOutputDir,
+        });
+        setSavedPath(result.path);
+      } else {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${exportTitle}-ppt.pptx`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        setSavedPath(`${exportTitle}-ppt.pptx`);
+      }
+      setStatus('done');
+      setProgressValue(100);
+      setProgress(isZh ? 'PPTX 已导出' : 'PPTX exported');
+    } catch (exportError) {
+      setStatus('error');
+      setError(exportError instanceof Error ? exportError.message : isZh ? 'PPTX 导出失败' : 'PPTX export failed');
+    }
+  };
 
   usePreviewPlayback({
     focusedPreviewNode,
@@ -1881,7 +1944,7 @@ export function VideoRenderModal({
         className="h-full w-full grid"
         style={{
           gridTemplateRows:
-            workspaceMode === 'web'
+            workspaceMode === 'web' || workspaceMode === 'ppt'
               ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
               : videoWorkspaceMode === 'interactive'
                 ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
@@ -1926,6 +1989,10 @@ export function VideoRenderModal({
           onExportClick={() => {
             if (workspaceMode === 'video' && videoWorkspaceMode === 'interactive') {
               exportInteractiveSegments();
+              return;
+            }
+            if (workspaceMode === 'ppt') {
+              exportPptProject();
               return;
             }
             setIsExportDialogOpen(true);
@@ -2213,7 +2280,7 @@ export function VideoRenderModal({
               />
             </>
           )
-        ) : (
+        ) : workspaceMode === 'web' ? (
           <WebWorkspace
             nodes={nodes}
             edges={edges}
@@ -2233,6 +2300,17 @@ export function VideoRenderModal({
             updateWebChoiceColor={updateWebChoiceColor}
             updateWebRenderStyle={updateRenderStyle}
             callAIForTextResult={callAIForTextResult}
+          />
+        ) : (
+          <PptWorkspace
+            nodes={nodes}
+            edges={edges}
+            language={language}
+            projectName={webProjectName || defaultWebProjectName}
+            webSettings={webSettings}
+            renderStyle={renderStyle}
+            pptSettings={pptSettings}
+            updatePptSettings={updatePptSettings}
           />
         )}
       </div>

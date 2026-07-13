@@ -17,7 +17,7 @@ export type TimelineScaleMode = 'seconds' | 'frames';
 export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
 export type ExportSettingsMode = 'video' | 'audio';
-export type RenderWorkspaceMode = 'video' | 'web';
+export type RenderWorkspaceMode = 'video' | 'web' | 'ppt';
 export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type TimelineSegmentMetric = {
   node: FlowNode;
@@ -499,6 +499,15 @@ export type WebHistoryState = {
   renderStyle: RenderStyle;
   choiceColor: string;
   choiceTextColor: string;
+};
+
+/** PPT only stores presentation rules. All visual fields come from WebExportSettings + RenderStyle. */
+export type PptExportSettings = {
+  layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
+  branchMode: 'interactive' | 'linear' | 'all';
+  density: 'oneNodePerSlide' | 'mergeShortDialogue';
+  includeCover: boolean;
+  includeNotes: boolean;
 };
 
 export type RenderContextMenuTarget = {
