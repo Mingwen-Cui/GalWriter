@@ -146,6 +146,7 @@ export function VideoRenderModal({
     density: persistedWorkspace?.pptSettings?.density || 'oneNodePerSlide',
     includeCover: persistedWorkspace?.pptSettings?.includeCover ?? true,
     includeNotes: persistedWorkspace?.pptSettings?.includeNotes ?? true,
+    speakerNotes: persistedWorkspace?.pptSettings?.speakerNotes || {},
   }));
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {
     setPptSettings((current) => ({ ...current, ...patch }));

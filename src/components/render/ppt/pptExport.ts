@@ -52,9 +52,13 @@ export async function buildPptxBuffer({
 
     scene.characters.forEach((character) => {
       if (!isEmbeddableImage(character.imageUrl)) return;
-      const width = Math.min(3.6, Math.max(1.2, 2.3 * (character.scale || 100) / 100));
-      const x = character.position === 'left' ? 0.55 : character.position === 'right' ? 9.18 : 4.87;
-      slide.addImage({ data: character.imageUrl!, x: x + character.offsetX / 100, y: 1.05 + character.offsetY / 100, w: width, h: 4.9, transparency: 0, flipH: character.flipX });
+      const scale = character.scale || 1;
+      const width = Math.min(4.8, Math.max(1.2, 2.45 * scale));
+      const height = Math.min(6.1, Math.max(2.45, 4.9 * scale));
+      const baseX = character.position === 'left' ? 0.24 : character.position === 'right' ? 0.76 : 0.5;
+      const x = Math.max(0, Math.min(13.333 - width, 13.333 * (baseX + character.offsetX / 1000) - width / 2));
+      const y = Math.max(0.3, Math.min(7.5 - height, 7.5 - height - character.offsetY / 100));
+      slide.addImage({ data: character.imageUrl!, x, y, w: width, h: height, transparency: 0, flipH: character.flipX });
     });
 
     slide.addShape(pptx.ShapeType.roundRect, { x: 0.55, y: 5.25, w: 12.23, h: 1.7, rectRadius: style.dialogRadius / 100, fill: { color: hex(colors.panel), transparency: 100 - (style.panelColorAlpha ?? 82) }, line: { transparency: 100 } });
@@ -65,7 +69,7 @@ export async function buildPptxBuffer({
       slide.addText(choice.label, { x: 9.25, y: 5.52 + index * 0.43, w: 3.05, h: 0.3, fontSize: 11, color: 'FFFFFF', bold: true, align: 'center', margin: 0.04, fill: { color: hex(colors.choice) }, line: { color: hex(colors.choice) }, hyperlink: pptSettings.branchMode === 'interactive' && targetSlide ? { slide: targetSlide } : undefined });
     });
     if (pptSettings.includeNotes) {
-      slide.addNotes(`节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`);
+      slide.addNotes(pptSettings.speakerNotes?.[scene.id] || `节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`);
     }
   }
   return (await pptx.write({ outputType: 'arraybuffer', compression: true })) as ArrayBuffer;

@@ -1,17 +1,15 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 
+import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
+import { normalizeStoryPresentation } from '../../../lib/presentation';
+import type { CharacterNodeData, CharacterPresentation, SceneNodeData, StoryPresentation } from '../../../domain/project';
 import { stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
 export type PptChoice = { label: string; targetId?: string };
-export type PptCharacter = {
+export type PptCharacter = Pick<CharacterPresentation, 'sourceNodeId' | 'position' | 'offsetX' | 'offsetY' | 'scale' | 'flipX' | 'layer'> & {
   imageUrl?: string;
   name?: string;
-  position: 'left' | 'center' | 'right';
-  offsetX: number;
-  offsetY: number;
-  scale: number;
-  flipX: boolean;
 };
 export type PptScene = {
   id: string;
@@ -26,7 +24,7 @@ type StoryData = {
   title?: string;
   text?: string;
   imageUrl?: string;
-  presentation?: { characters?: PptCharacter[] };
+  presentation?: StoryPresentation;
 };
 
 /**
@@ -48,12 +46,32 @@ export function resolvePptScenes(
         label: typeof edge.label === 'string' ? edge.label.trim() || `选项 ${choiceIndex + 1}` : `选项 ${choiceIndex + 1}`,
         targetId: edge.target,
       }));
+    const presentation = normalizeStoryPresentation(data.presentation);
+    const sceneSource = presentation.scene
+      ? nodes.find((candidate) => candidate.id === presentation.scene?.sourceNodeId && candidate.type === 'sceneNode')
+      : undefined;
+    const sceneMedia = resolveSceneMedia({
+      data: sceneSource?.data as SceneNodeData | undefined,
+      scene: presentation.scene,
+      fallbackImageUrl: data.imageUrl || settings.sceneBackgroundImageUrl,
+    });
+    const characters = presentation.characters
+      .map((config) => {
+        const source = nodes.find((candidate) => candidate.id === config.sourceNodeId && candidate.type === 'characterNode');
+        if (!source) return null;
+        const characterData = source.data as CharacterNodeData;
+        const imageUrl = resolveCharacterImageUrl(characterData, config);
+        if (!imageUrl) return null;
+        return { ...config, imageUrl, name: characterData.characterName };
+      })
+      .filter(Boolean) as PptCharacter[];
+    characters.sort((a, b) => (a.layer || 1) - (b.layer || 1));
     return {
       id: node.id,
       title: data.title?.trim() || `场景 ${index + 1}`,
       text: stripHtml(data.text || ''),
-      backgroundUrl: data.imageUrl || settings.sceneBackgroundImageUrl,
-      characters: data.presentation?.characters || [],
+      backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
+      characters,
       choices,
     };
   });

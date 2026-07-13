@@ -508,6 +508,7 @@ export type PptExportSettings = {
   density: 'oneNodePerSlide' | 'mergeShortDialogue';
   includeCover: boolean;
   includeNotes: boolean;
+  speakerNotes?: Record<string, string>;
 };
 
 export type RenderContextMenuTarget = {
