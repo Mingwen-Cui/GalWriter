@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Info,
   LayoutTemplate,
+  Copy,
   MousePointerClick,
   Palette,
   Play,
@@ -16,9 +17,9 @@ import {
   Settings,
   Sparkles,
   Type,
+  Trash2,
   Upload,
   Video,
-  Volume2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { createElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -35,7 +36,6 @@ import {
   buildWebExperiencePresets,
 } from './webExperiencePresets';
 import { buildRehearsalTemplate } from './webExperienceTemplates';
-import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
@@ -43,6 +43,31 @@ import { WebPlaytestPreview } from './WebPlaytestPreview';
 const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
 const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
+
+function TemplateMiniPreview({ settings, accent }: { settings: Partial<WebExportSettings>; accent: string }) {
+  const backgroundType = settings.startMenuBackgroundType;
+  const background = backgroundType === 'gradient'
+    ? `linear-gradient(${settings.startMenuBackgroundGradientAngle ?? 135}deg, ${settings.startMenuBackgroundGradientStart || '#0f172a'}, ${settings.startMenuBackgroundGradientEnd || accent})`
+    : backgroundType === 'image' && settings.startMenuBackgroundImageUrl
+      ? `url(${settings.startMenuBackgroundImageUrl}) center / cover`
+      : settings.startMenuBackgroundColor || '#172554';
+  const leftAligned = settings.startMenuTemplate === 'glass' || settings.startMenuTemplate === 'minimal';
+  return (
+    <span
+      className="relative flex h-7 w-11 shrink-0 overflow-hidden rounded-[5px] border border-white/25 shadow-sm"
+      style={{ background }}
+      aria-hidden="true"
+    >
+      <span className={`absolute top-1 flex w-full flex-col gap-[2px] px-1 ${leftAligned ? 'items-start' : 'items-center'}`}>
+        <span className="h-[2px] w-4 rounded-full bg-white/90" />
+        <span className="h-[1.5px] w-3 rounded-full bg-white/55" />
+      </span>
+      <span className={`absolute bottom-1 flex w-full px-1 ${leftAligned ? 'justify-start' : 'justify-center'}`}>
+        <span className="h-[4px] w-4 rounded-[2px] shadow-sm" style={{ backgroundColor: accent }} />
+      </span>
+    </span>
+  );
+}
 
 type AIStartMenuDesign = {
   template?: WebExportSettings['startMenuTemplate'];
@@ -159,7 +184,6 @@ export function WebWorkspace({
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const [aiStartMenuDesigning, setAiStartMenuDesigning] = useState(false);
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
-  const [showMenuMusicSettings, setShowMenuMusicSettings] = useState(false);
   const [savedTemplateLibrary, setSavedTemplateLibrary] = useState(readWebTemplateLibrary);
   const [selectedSavedTemplateId, setSelectedSavedTemplateId] = useState<string | null>(null);
   const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
@@ -229,6 +253,32 @@ export function WebWorkspace({
         console.warn('Could not save start menu design preset:', error);
       }
     }
+  };
+  const persistTemplateLibrary = (next: SavedWebExperienceTemplate[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(next));
+      setSavedTemplateLibrary(next);
+    } catch {
+      // Keep the current library untouched when local storage is unavailable.
+    }
+  };
+  const duplicateSavedTemplate = (templateId: string) => {
+    const source = savedTemplateLibrary.find((item) => item.id === templateId);
+    if (!source) return;
+    const copy: SavedWebExperienceTemplate = {
+      ...source,
+      id: `template-${Date.now()}`,
+      name: `${source.name} ${t('副本', 'コピー', 'copy')}`,
+      savedAt: Date.now(),
+    };
+    persistTemplateLibrary([copy, ...savedTemplateLibrary]);
+    setSelectedSavedTemplateId(copy.id);
+  };
+  const deleteSavedTemplate = (templateId: string) => {
+    const next = savedTemplateLibrary.filter((item) => item.id !== templateId);
+    persistTemplateLibrary(next);
+    if (selectedSavedTemplateId === templateId) setSelectedSavedTemplateId(null);
   };
   const loadStartMenuDesign = (templateId = selectedSavedTemplateId) => {
     if (typeof window === 'undefined') return;
@@ -1088,12 +1138,6 @@ JSON schema:
                   label={t('添加按钮', 'ボタン追加', 'Add button')}
                   onClick={addCurrentSurfaceButton}
                 />
-                <IconToolButton
-                  icon={Volume2}
-                  label={t('音乐', '音楽', 'Music')}
-                  onClick={() => setShowMenuMusicSettings((current) => !current)}
-                  active={showMenuMusicSettings}
-                />
               </>
             )}
             <button
@@ -1257,15 +1301,6 @@ JSON schema:
                   </div>
                 </div>
               </div>}
-              {showMenuMusicSettings && (
-                <WebSettingCard>
-                  <WebMenuMusicPanel
-                    language={language}
-                    settings={webSettings}
-                    updateWebSettings={updateWebSettings}
-                  />
-                </WebSettingCard>
-              )}
             </div>
           )}
           {designPanelMode === 'preset' && (
@@ -1289,14 +1324,26 @@ JSON schema:
                           <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
                             {preset.name}
                           </span>
-                          <span
-                            className="h-3 w-8 shrink-0 rounded-full"
-                            style={{ background: preset.accent }}
-                          />
+                          <TemplateMiniPreview settings={preset.settings} accent={preset.accent} />
                         </span>
                         <span className="line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
                           {preset.description}
                         </span>
+                      </button>
+                    ))}
+                    {savedTemplateLibrary.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); }}
+                        className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
+                        title={t('应用此模板', 'このテンプレートを適用', 'Apply this template')}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">{template.name}</span>
+                          <TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || 'var(--vr-accent)'} />
+                        </span>
+                        <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">{t('已保存的自定义模板', '保存済みのカスタムテンプレート', 'Saved custom template')}</span>
                       </button>
                     ))}
                   </div>
@@ -1311,8 +1358,8 @@ JSON schema:
                       }}
                     />
                     <IconToolButton
-                      icon={Upload}
-                      label={t('应用模板', 'テンプレートを適用', 'Apply template')}
+                      icon={Settings}
+                      label={t('编辑模板', 'テンプレートを編集', 'Edit templates')}
                       onClick={() => setIsTemplateLibraryOpen(true)}
                     />
                   </div>
@@ -1359,13 +1406,18 @@ JSON schema:
               {isTemplateLibraryOpen && (
                 <div className="fixed inset-0 z-[10060] grid place-items-center bg-slate-950/40 p-4" onMouseDown={() => setIsTemplateLibraryOpen(false)}>
                   <div className="w-full max-w-md rounded-2xl border border-indigo-100 bg-white p-4 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-                    <div className="text-sm font-black text-slate-950">{t('应用已保存模板', '保存済みテンプレートを適用', 'Apply saved template')}</div>
-                    <div className="mt-1 text-xs text-slate-500">{t('选择一个保存过的方案后会立即应用。', '保存済みのプランを選ぶとすぐ適用されます。', 'Choose a saved design to apply it immediately.')}</div>
+                    <div className="text-sm font-black text-slate-950">{t('编辑已保存模板', '保存済みテンプレートを編集', 'Edit saved templates')}</div>
+                    <div className="mt-1 text-xs text-slate-500">{t('可应用、复制或删除已保存的模板。', '保存済みテンプレートを適用、複製、削除できます。', 'Apply, duplicate, or delete saved templates.')}</div>
                     <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto">
                       {savedTemplateLibrary.length ? savedTemplateLibrary.map((template) => (
-                        <button key={template.id} type="button" onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); setIsTemplateLibraryOpen(false); }} className="flex h-11 items-center justify-between rounded-xl bg-slate-50 px-3 text-left text-xs font-bold text-slate-800 hover:bg-indigo-50">
-                          <span className="truncate">{template.name}</span><Upload className="h-4 w-4 text-indigo-600" />
-                        </button>
+                        <div key={template.id} className="flex items-center gap-2 rounded-xl bg-slate-50 p-2 text-slate-800">
+                          <button type="button" onClick={() => { setSelectedSavedTemplateId(template.id); loadStartMenuDesign(template.id); setIsTemplateLibraryOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-bold hover:text-indigo-700" title={t('应用此模板', 'このテンプレートを適用', 'Apply this template')}>
+                            <TemplateMiniPreview settings={template.settings || {}} accent={template.choiceColor || '#6366f1'} />
+                            <span className="min-w-0 truncate">{template.name}</span>
+                          </button>
+                          <button type="button" onClick={() => duplicateSavedTemplate(template.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-indigo-600" title={t('复制模板', 'テンプレートを複製', 'Duplicate template')} aria-label={t('复制模板', 'テンプレートを複製', 'Duplicate template')}><Copy className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => deleteSavedTemplate(template.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600" title={t('删除模板', 'テンプレートを削除', 'Delete template')} aria-label={t('删除模板', 'テンプレートを削除', 'Delete template')}><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
                       )) : <div className="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">{t('还没有保存的模板。', '保存済みのテンプレートはありません。', 'No saved templates yet.')}</div>}
                     </div>
                     <button type="button" onClick={() => setIsTemplateLibraryOpen(false)} className="mt-3 h-10 w-full rounded-xl bg-slate-100 text-xs font-bold text-slate-700">{t('关闭', '閉じる', 'Close')}</button>

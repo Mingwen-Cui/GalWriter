@@ -20,6 +20,7 @@ import {
 import { normalizeGradientStops } from './webGradientStops';
 import { gradientFromStops } from './webGradientStops';
 import { FloatingPopover, GradientIcon, InspectorGroup as Group } from './webStyleInspectorControls';
+import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 
 type StartMenuBackgroundInspectorProps = {
   settings: WebExportSettings;
@@ -73,6 +74,7 @@ export function StartMenuBackgroundInspector({
     <div className="space-y-3">
       <CanvasSettingsSection
         language={language}
+        showDescriptions={showDescriptions}
         value={normalizeSharedCanvasSettings(settings)}
         onChange={(patch) => {
           Object.entries(patch).forEach(([key, value]) =>
@@ -242,6 +244,14 @@ export function StartMenuBackgroundInspector({
         </FloatingPopover>
       )}
       </Group>
+      {surface !== 'game' && (
+        <WebMenuMusicPanel
+          language={language}
+          settings={settings}
+          surface={surface}
+          updateWebSettings={updateWebSettings}
+        />
+      )}
     </div>
   );
 }

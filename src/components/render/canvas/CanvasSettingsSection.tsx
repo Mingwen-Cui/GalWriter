@@ -7,12 +7,12 @@ import {
   Link2Off,
   MoveHorizontal,
   MoveVertical,
-  PanelTop,
   PlayCircle,
   Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { ComponentType } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from './canvasSettings';
@@ -23,9 +23,10 @@ type Props = {
   value: SharedCanvasSettings;
   onChange: (patch: Partial<SharedCanvasSettings>) => void;
   variant?: 'web' | 'video';
+  showDescriptions?: boolean;
 };
 
-export function CanvasSettingsSection({ language, value, onChange, variant: _variant = 'web' }: Props) {
+export function CanvasSettingsSection({ language, value, onChange, variant: _variant = 'web', showDescriptions = true }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const text = getCanvasText(language);
   const updateResolution = (field: 'canvasWidth' | 'canvasHeight', next: number) => {
@@ -67,7 +68,7 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
   };
 
   return (
-    <section className="relative rounded-[22px] bg-rose-50 p-3 dark:bg-rose-950/25">
+    <section className={`relative rounded-[22px] bg-rose-50 p-3 dark:bg-rose-950/25 ${showDescriptions ? '' : '[&_.canvas-setting-label]:hidden'}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
         <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-rose-100 px-3 text-sm font-bold text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]">
           <CanvasGlyph />
@@ -108,14 +109,14 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <SettingToggle label={text.skipSingle} icon={value.skipSingleChoicePopup ? EyeOff : Eye} active={value.skipSingleChoicePopup} onClick={() => onChange({ skipSingleChoicePopup: !value.skipSingleChoicePopup })} />
+            <SettingToggle label={text.skipSingle} icon={SkipSingleChoiceGlyph} iconColumn="third" active={value.skipSingleChoicePopup} onClick={() => onChange({ skipSingleChoicePopup: !value.skipSingleChoicePopup })} />
             <ChoicePosition label={text.choicePosition} labels={[text.top, text.middle, text.bottom]} value={value.choicesPosition} onChange={(choicesPosition) => onChange({ choicesPosition })} />
             <div className="h-9 w-11" aria-hidden="true" />
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <SettingToggle label={text.autoAdvance} icon={value.autoAdvance ? FastForward : PlayCircle} active={value.autoAdvance} onClick={() => onChange({ autoAdvance: !value.autoAdvance })} />
-            <SettingToggle label={text.videoAutoplay} icon={Video} active={value.videoAutoPlay} onClick={() => onChange({ videoAutoPlay: !value.videoAutoPlay })} />
+            <SettingToggle label={text.autoAdvance} icon={value.autoAdvance ? FastForward : PlayCircle} iconColumn="third" active={value.autoAdvance} onClick={() => onChange({ autoAdvance: !value.autoAdvance })} />
+            <SettingToggle label={text.videoAutoplay} icon={Video} iconColumn="third" active={value.videoAutoPlay} onClick={() => onChange({ videoAutoPlay: !value.videoAutoPlay })} />
             <div className="h-9 w-11" aria-hidden="true" />
           </div>
 
@@ -142,11 +143,11 @@ const COMMON_RATIOS = [
 function CompactRatioControl({ label, width, height, locked, lockLabel, onWidthChange, onHeightChange, onToggleLock }: { label: string; width: number; height: number; locked: boolean; lockLabel: string; onWidthChange: (value: number) => void; onHeightChange: (value: number) => void; onToggleLock: () => void }) {
   return (
     <div className="space-y-1">
-      <div className="truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="canvas-setting-label truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
       <div className="grid h-9 grid-cols-[minmax(0,1fr)_12px_minmax(0,1fr)_36px] items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text)]">
-        <input type="number" min={1} max={100} value={width} onChange={(event) => onWidthChange(Number(event.target.value) || 1)} className="min-w-0 bg-transparent px-2 text-right text-sm tabular-nums outline-none" aria-label={label} />
+        <DraggableNumberField value={width} min={1} max={100} onChange={onWidthChange} className="min-w-0 bg-transparent px-2 text-right text-sm tabular-nums outline-none" aria-label={label} />
         <span className="text-center text-sm text-[var(--vr-text-muted)]">:</span>
-        <input type="number" min={1} max={100} value={height} onChange={(event) => onHeightChange(Number(event.target.value) || 1)} className="min-w-0 bg-transparent px-2 text-left text-sm tabular-nums outline-none" aria-label={label} />
+        <DraggableNumberField value={height} min={1} max={100} onChange={onHeightChange} className="min-w-0 bg-transparent px-2 text-left text-sm tabular-nums outline-none" aria-label={label} />
         <button type="button" onClick={onToggleLock} className={`grid h-9 place-items-center border-l border-[var(--vr-border)] transition-colors ${locked ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-muted)] hover:bg-white/5'}`} title={lockLabel} aria-pressed={locked}>
           {locked ? <Link className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
         </button>
@@ -157,7 +158,9 @@ function CompactRatioControl({ label, width, height, locked, lockLabel, onWidthC
 
 function CommonRatioSelect({ language, width, height, onChange }: { language: Language; width: number; height: number; onChange: (width: number, height: number) => void }) {
   const label = language === 'zh' ? '常用比例' : language === 'ja' ? '一般的な比率' : 'Common ratios';
-  const current = COMMON_RATIOS.some(([w, h]) => w === width && h === height) ? `${width}:${height}` : '';
+  const customLabel = language === 'zh' ? '自定义' : language === 'ja' ? 'カスタム' : 'Custom';
+  const isCustom = !COMMON_RATIOS.some(([w, h]) => w === width && h === height);
+  const current = isCustom ? customLabel : `${width}:${height}`;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -170,10 +173,10 @@ function CommonRatioSelect({ language, width, height, onChange }: { language: La
   }, [open]);
   return (
     <div ref={rootRef} className="relative space-y-1">
-      <div className="truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="canvas-setting-label truncate px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
       <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-9 w-full items-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] px-3 text-sm text-[var(--vr-text)]" aria-label={label} aria-expanded={open}>
         <RatioCard width={width} height={height} />
-        <span className="min-w-0 flex-1 truncate text-left">{current || `${width}:${height}`}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{current}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--vr-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -187,6 +190,10 @@ function CommonRatioSelect({ language, width, height, onChange }: { language: La
               </button>
             );
           })}
+          <button type="button" onClick={() => setOpen(false)} className={`flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors ${isCustom ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'}`} aria-pressed={isCustom}>
+            <span className={`grid h-6 w-7 shrink-0 place-items-center ${isCustom ? 'text-white' : 'text-[var(--vr-text-muted)]'}`} aria-hidden="true"><span className="h-3 w-4 rounded-[2px] border-[1.5px] border-current border-dashed" /></span>
+            <span className="font-medium">{customLabel}</span>
+          </button>
         </div>
       )}
     </div>
@@ -217,31 +224,38 @@ function approximateRatio(width: number, height: number) {
 }
 
 function DragNumber({ label, icon: Icon, value, min, max, onChange, connected }: { label: string; icon?: LucideIcon; value: number; min: number; max: number; onChange: (value: number) => void; connected?: 'left' | 'right' }) {
-  const start = useRef<{ x: number; value: number } | null>(null);
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
-  const commit = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next))));
   const radius = connected === 'right' ? 'rounded-l-lg' : connected === 'left' ? 'rounded-r-lg' : 'rounded-lg';
   return (
     <div className="space-y-1">
-      <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="canvas-setting-label px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
       <div className={`grid h-9 items-center overflow-hidden bg-[var(--vr-surface-soft)] ${radius} ${Icon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
         {Icon && <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]"><Icon className="h-3.5 w-3.5" /></div>}
-        <div className="flex h-full cursor-ew-resize select-none items-center justify-end px-3 text-[var(--vr-text)] hover:bg-white/5" onPointerDown={(event) => { if ((event.target as HTMLElement).tagName === 'INPUT') return; start.current = { x: event.clientX, value }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (start.current) commit(start.current.value + event.clientX - start.current.x); }} onPointerUp={() => { start.current = null; }}>
-          <input value={draft} inputMode="numeric" onChange={(event) => setDraft(event.target.value)} onBlur={() => commit(Number(draft))} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} className="w-full bg-transparent text-right text-sm font-normal tabular-nums outline-none" />
+        <div className="flex h-full items-center justify-end px-3 text-[var(--vr-text)] hover:bg-white/5">
+          <DraggableNumberField value={value} min={min} max={max} onChange={onChange} className="w-full bg-transparent text-right text-sm font-normal tabular-nums outline-none" aria-label={label} />
         </div>
       </div>
     </div>
   );
 }
 
-function SettingToggle({ label, icon: Icon, active, onClick }: { label: string; icon: LucideIcon; active: boolean; onClick: () => void }) {
+function DraggableNumberField({ value, min, max, onChange, className, ...inputProps }: { value: number; min: number; max: number; onChange: (value: number) => void; className?: string; 'aria-label': string }) {
+  const drag = useRef<{ pointerId: number; startX: number; startValue: number; moved: boolean } | null>(null);
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = (next: number) => {
+    if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, Math.round(next))));
+    else setDraft(String(value));
+  };
+  return <input type="number" min={min} max={max} value={draft} inputMode="numeric" onChange={(event) => setDraft(event.currentTarget.value)} onBlur={() => commit(Number(draft))} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraft(String(value)); }} onPointerDown={(event) => { if (event.button !== 0) return; drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { const current = drag.current; if (!current || current.pointerId !== event.pointerId) return; const distance = event.clientX - current.startX; if (!current.moved && Math.abs(distance) < 3) return; current.moved = true; event.preventDefault(); commit(current.startValue + Math.round(distance)); }} onPointerUp={(event) => { if (drag.current?.pointerId !== event.pointerId) return; drag.current = null; event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { drag.current = null; }} className={`cursor-ew-resize select-none ${className || ''}`} {...inputProps} />;
+}
+
+function SettingToggle({ label, icon: Icon, iconColumn = 'compact', active, onClick }: { label: string; icon: ComponentType<{ className?: string }>; iconColumn?: 'compact' | 'third'; active: boolean; onClick: () => void }) {
   return (
     <div className="space-y-1">
-      <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
-      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+      <div className="canvas-setting-label px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${iconColumn === 'third' ? 'grid-cols-3' : 'grid-cols-[28px_minmax(0,1fr)]'}`}>
         <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]"><Icon className="h-3.5 w-3.5" /></div>
-        <button type="button" onClick={onClick} className={`flex h-9 w-full items-center justify-center transition-colors ${active ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} aria-pressed={active} title={label}>
+        <button type="button" onClick={onClick} className={`flex h-9 w-full items-center justify-center transition-colors ${iconColumn === 'third' ? 'col-span-2' : ''} ${active ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} aria-pressed={active} title={label}>
           {active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </button>
       </div>
@@ -253,10 +267,9 @@ function ChoicePosition({ label, labels, value, onChange }: { label: string; lab
   const options: SharedCanvasSettings['choicesPosition'][] = ['aboveText', 'center', 'belowText'];
   return (
     <div className="space-y-1">
-      <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
-      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
-        <div className="flex items-center justify-center text-[var(--vr-text-muted)]"><PanelTop className="h-3.5 w-3.5" /></div>
-        <div className="grid grid-cols-3">{options.map((option, index) => <button type="button" key={option} onClick={() => onChange(option)} className={`text-[10px] font-black ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'}`}>{labels[index]}</button>)}</div>
+      <div className="canvas-setting-label px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="grid h-9 grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+        {options.map((option, index) => <button type="button" key={option} onClick={() => onChange(option)} className={`grid place-items-center transition-colors ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} title={labels[index]} aria-label={labels[index]} aria-pressed={value === option}><ChoicePositionGlyph position={option} /></button>)}
       </div>
     </div>
   );
@@ -265,19 +278,23 @@ function ChoicePosition({ label, labels, value, onChange }: { label: string; lab
 function TagToggle({ label, kind, active, onClick }: { label: string; kind: 'character' | 'scene'; active: boolean; onClick: () => void }) {
   return (
     <div className="space-y-1">
-      <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
-      <div className="grid h-9 grid-cols-[28px_minmax(0,1fr)] items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+      <div className="canvas-setting-label px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
+      <div className="grid h-9 grid-cols-3 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
         <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">{kind === 'character' ? <CharacterTagGlyph /> : <SceneTagGlyph />}</div>
-        <button type="button" title={label} onClick={onClick} className={`flex h-9 w-full items-center justify-center transition-colors ${active ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} aria-pressed={active}>{active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button>
+        <button type="button" title={label} onClick={onClick} className={`col-span-2 flex h-9 w-full items-center justify-center transition-colors ${active ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} aria-pressed={active}>{active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button>
       </div>
     </div>
   );
 }
 
 function Segmented({ value, options, onChange }: { value: string; options: string[][]; onChange: (value: string) => void }) {
-  return <div className={`grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white dark:bg-[var(--vr-surface-soft)]`}>{options.map(([option, label]) => <button type="button" key={option} onClick={() => onChange(option)} className={`grid h-10 min-w-0 place-items-center text-[10px] font-black ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'}`} aria-pressed={value === option} title={label}>{option === 'classic' ? <MoveHorizontal className="h-4 w-4" /> : <Link className="h-4 w-4" />}</button>)}</div>;
+  return <div className={`grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white dark:bg-[var(--vr-surface-soft)]`}>{options.map(([option, label]) => <button type="button" key={option} onClick={() => onChange(option)} className={`grid h-10 min-w-0 place-items-center text-[10px] font-black ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'}`} aria-pressed={value === option} title={label}>{option === 'classic' ? <SplitLayoutGlyph /> : <MergedLayoutGlyph />}</button>)}</div>;
 }
 
 function CanvasGlyph() { return <span className="relative inline-flex h-4 w-4 items-center justify-center"><span className="h-3 w-4 rounded-[2px] border-[1.5px] border-current" /><span className="absolute bottom-0 h-[1.5px] w-1.5 rounded-full bg-current" /></span>; }
+function SkipSingleChoiceGlyph({ className = 'h-3.5 w-3.5' }: { className?: string }) { return <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9"><rect x="4" y="5" width="8" height="14" rx="2" /><circle cx="8" cy="9" r="1" fill="currentColor" stroke="none" /><path d="M15 12h5m-2-2 2 2-2 2" /></svg>; }
+function ChoicePositionGlyph({ position }: { position: SharedCanvasSettings['choicesPosition'] }) { const y = position === 'aboveText' ? 5.5 : position === 'center' ? 10 : 14.5; return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"><rect x="4" y="3.5" width="16" height="17" rx="2.5" opacity=".55" /><path d={`M7 ${y}h10`} strokeWidth="2.4" /><path d="M8 18h8" opacity=".55" /></svg>; }
+function SplitLayoutGlyph() { return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9"><rect x="4" y="3.5" width="16" height="8" rx="2.5" /><path d="M7 15h10" /><path d="M7 18h7" /><path d="M7 21h9" /></svg>; }
+function MergedLayoutGlyph() { return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9"><rect x="4" y="3.5" width="16" height="17" rx="3" /><path d="M7 14.5h10" /><path d="M7 17.5h7" /><path d="M8.5 7.5h7" /><path d="M8.5 10.5h4" /></svg>; }
 function CharacterTagGlyph() { return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9"><path d="M8 4.5h8a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 16 19.5H8A2.5 2.5 0 0 1 5.5 17V7A2.5 2.5 0 0 1 8 4.5Z" /><circle cx="12" cy="10" r="2" /><path d="M8.5 16c.9-1.8 2.1-2.7 3.5-2.7s2.6.9 3.5 2.7" /></svg>; }
 function SceneTagGlyph() { return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9"><rect x="4.5" y="5" width="15" height="14" rx="2.5" /><circle cx="9" cy="9.5" r="1.4" /><path d="M6.5 16l3.5-3.4 2.7 2.6 1.5-1.5 3.3 2.3" /></svg>; }
