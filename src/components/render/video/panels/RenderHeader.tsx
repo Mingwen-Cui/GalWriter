@@ -11,6 +11,8 @@ import {
   PanelRightClose,
   Play,
   Presentation,
+  Sparkles,
+  PanelsTopLeft,
   Redo2,
   Undo2,
   X,
@@ -33,6 +35,7 @@ type RenderHeaderProps = {
   webPast: unknown[];
   webFuture: unknown[];
   webShowStartMenu: boolean;
+  pptRibbonTab: 'animation' | 'transition';
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
@@ -48,6 +51,7 @@ type RenderHeaderProps = {
   undoWeb: () => void;
   redoWeb: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
+  setPptRibbonTab: (tab: 'animation' | 'transition') => void;
   /** 点击导出按钮时打开弹窗，而非直接导出 */
   onExportClick: () => void;
   onClose: () => void;
@@ -66,6 +70,7 @@ export function RenderHeader({
   webPast,
   webFuture,
   webShowStartMenu,
+  pptRibbonTab,
   selectedNodes,
   nodes,
   setWorkspaceMode,
@@ -81,6 +86,7 @@ export function RenderHeader({
   undoWeb,
   redoWeb,
   setWebShowStartMenu,
+  setPptRibbonTab,
   onExportClick,
   onClose,
 }: RenderHeaderProps) {
@@ -145,6 +151,30 @@ export function RenderHeader({
         >
           {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
         </button>
+        {workspaceMode === 'ppt' && (
+          <div className="ml-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+            <button
+              type="button"
+              onClick={() => setPptRibbonTab('transition')}
+              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'transition' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              aria-pressed={pptRibbonTab === 'transition'}
+              title={t('切换', '画面切り替え', 'Transitions')}
+            >
+              <PanelsTopLeft className="h-3.5 w-3.5" />
+              {t('切换', '切り替え', 'Transitions')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPptRibbonTab('animation')}
+              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'animation' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              aria-pressed={pptRibbonTab === 'animation'}
+              title={t('动画', 'アニメーション', 'Animations')}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {t('动画', 'アニメ', 'Animations')}
+            </button>
+          </div>
+        )}
         {workspaceMode === 'web' && (
           <div className="ml-1 grid h-8 grid-cols-2 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
             <button

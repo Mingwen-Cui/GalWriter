@@ -3820,3 +3820,151 @@ button.web-segment-button:last-child {
   border-top-right-radius: 8px !important;
   border-bottom-right-radius: 8px !important;
 }
+
+/* PPT animation workspace: compact ribbon and object-level editing affordances. */
+.ppt-ribbon-action {
+  display: flex;
+  min-width: 54px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--vr-text-muted);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.ppt-ribbon-action:hover:not(:disabled) {
+  background: var(--vr-surface-soft);
+  color: var(--vr-text);
+}
+
+.ppt-ribbon-action:disabled,
+.ppt-effect-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.ppt-effect-button {
+  display: flex;
+  min-width: 54px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vr-text-muted);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.ppt-effect-button:hover:not(:disabled),
+.ppt-effect-button.is-active {
+  border-color: var(--vr-accent);
+  background: var(--vr-accent-soft);
+  color: var(--vr-accent-strong);
+}
+
+.ppt-selectable {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+
+.ppt-selectable.is-selected::after {
+  position: absolute;
+  inset: -3px;
+  z-index: 80;
+  border: 2px solid var(--vr-accent);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vr-accent) 18%, transparent);
+  content: '';
+  pointer-events: none;
+}
+
+.ppt-selectable:focus-visible::after {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--vr-accent);
+  border-radius: 6px;
+  content: '';
+  pointer-events: none;
+}
+
+.ppt-animation-index {
+  position: absolute;
+  top: -11px;
+  left: -10px;
+  z-index: 90;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid white;
+  border-radius: 999px;
+  background: var(--vr-accent);
+  color: white;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.28);
+  pointer-events: none;
+}
+
+.ppt-mini-button {
+  border: 1px solid var(--vr-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vr-text-muted);
+}
+
+.ppt-mini-button:hover:not(:disabled) {
+  background: var(--vr-bg);
+  color: var(--vr-text);
+}
+
+.ppt-mini-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+@keyframes ppt-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ppt-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ppt-fly-left { from { opacity: 0; transform: translateX(-14%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ppt-fly-right { from { opacity: 0; transform: translateX(14%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ppt-fly-up { from { opacity: 0; transform: translateY(-14%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ppt-fly-down { from { opacity: 0; transform: translateY(14%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ppt-float { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ppt-wipe-left { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-wipe-right { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-wipe-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-wipe-down { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-zoom { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
+
+.ppt-slide-canvas {
+  animation-fill-mode: both;
+  animation-timing-function: ease;
+}
+
+.ppt-transition-smooth { animation-name: ppt-transition-smooth; }
+.ppt-transition-fade { animation-name: ppt-transition-fade; }
+.ppt-transition-push { animation-name: ppt-transition-push; }
+.ppt-transition-wipe { animation-name: ppt-transition-wipe; }
+.ppt-transition-split { animation-name: ppt-transition-split; }
+.ppt-transition-reveal { animation-name: ppt-transition-reveal; }
+.ppt-transition-cut { animation-name: ppt-transition-cut; }
+.ppt-transition-randomBars { animation-name: ppt-transition-bars; }
+
+@keyframes ppt-transition-smooth { from { opacity: 0; transform: translateX(3%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ppt-transition-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ppt-transition-push { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ppt-transition-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-transition-split { from { clip-path: inset(0 50% 0 50%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ppt-transition-reveal { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+@keyframes ppt-transition-cut { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ppt-transition-bars { from { opacity: 0; clip-path: polygon(0 0, 20% 0, 20% 100%, 0 100%); } 50% { opacity: 1; clip-path: polygon(0 0, 72% 0, 72% 100%, 0 100%); } to { opacity: 1; clip-path: inset(0); } }

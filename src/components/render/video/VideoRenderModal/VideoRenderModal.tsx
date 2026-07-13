@@ -147,7 +147,10 @@ export function VideoRenderModal({
     includeCover: persistedWorkspace?.pptSettings?.includeCover ?? true,
     includeNotes: persistedWorkspace?.pptSettings?.includeNotes ?? true,
     speakerNotes: persistedWorkspace?.pptSettings?.speakerNotes || {},
+    animations: persistedWorkspace?.pptSettings?.animations || {},
+    transitions: persistedWorkspace?.pptSettings?.transitions || {},
   }));
+  const [pptRibbonTab, setPptRibbonTab] = useState<'animation' | 'transition'>('animation');
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {
     setPptSettings((current) => ({ ...current, ...patch }));
   };
@@ -1965,6 +1968,7 @@ export function VideoRenderModal({
           webPast={webPast}
           webFuture={webFuture}
           webShowStartMenu={webSettings.showStartMenu}
+          pptRibbonTab={pptRibbonTab}
           selectedNodes={
             videoWorkspaceMode === 'interactive'
               ? interactiveSegments.filter((segment) => segment.enabled)
@@ -1987,6 +1991,7 @@ export function VideoRenderModal({
           undoWeb={undoWeb}
           redoWeb={redoWeb}
           setWebShowStartMenu={(enabled) => updateWebSettings('showStartMenu', enabled)}
+          setPptRibbonTab={setPptRibbonTab}
           onExportClick={() => {
             if (workspaceMode === 'video' && videoWorkspaceMode === 'interactive') {
               exportInteractiveSegments();
@@ -2312,6 +2317,7 @@ export function VideoRenderModal({
             renderStyle={renderStyle}
             pptSettings={pptSettings}
             updatePptSettings={updatePptSettings}
+            ribbonTab={pptRibbonTab}
           />
         )}
       </div>

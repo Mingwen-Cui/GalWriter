@@ -502,6 +502,39 @@ export type WebHistoryState = {
 };
 
 /** PPT only stores presentation rules. All visual fields come from WebExportSettings + RenderStyle. */
+export type PptAnimationEffect = 'none' | 'appear' | 'fade' | 'fly' | 'float' | 'wipe' | 'zoom';
+export type PptAnimationStart = 'onClick' | 'withPrevious' | 'afterPrevious';
+export type PptAnimationDirection = 'left' | 'right' | 'up' | 'down';
+export type PptAnimationTarget =
+  | 'cover-title'
+  | 'cover-subtitle'
+  | 'background'
+  | 'character'
+  | 'dialog-panel'
+  | 'dialog-title'
+  | 'dialog-body'
+  | 'choice';
+
+export type PptObjectAnimation = {
+  id: string;
+  target: PptAnimationTarget;
+  targetId?: string;
+  effect: PptAnimationEffect;
+  start: PptAnimationStart;
+  durationMs: number;
+  delayMs: number;
+  direction: PptAnimationDirection;
+};
+
+export type PptTransitionEffect = 'none' | 'smooth' | 'fade' | 'push' | 'wipe' | 'split' | 'reveal' | 'cut' | 'randomBars';
+export type PptSlideTransition = {
+  effect: PptTransitionEffect;
+  durationMs: number;
+  direction: PptAnimationDirection;
+  advanceOnClick: boolean;
+  advanceAfterMs?: number;
+};
+
 export type PptExportSettings = {
   layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
   branchMode: 'interactive' | 'linear' | 'all';
@@ -509,6 +542,10 @@ export type PptExportSettings = {
   includeCover: boolean;
   includeNotes: boolean;
   speakerNotes?: Record<string, string>;
+  /** Per-slide animation timelines. They are kept separate from visual render settings. */
+  animations?: Record<string, PptObjectAnimation[]>;
+  /** Per-slide page transitions, independent of object animations. */
+  transitions?: Record<string, PptSlideTransition>;
 };
 
 export type RenderContextMenuTarget = {
