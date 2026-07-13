@@ -260,7 +260,7 @@ export function VideoRenderModal({
       ? persistedWorkspace.videoTextScaleMode
       : 'webRatio',
   );
-  const [videoCanvasSelected, setVideoCanvasSelected] = useState(false);
+  const [videoCanvasSelected, setVideoCanvasSelected] = useState(true);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
   const [hideCharacterTags, setHideCharacterTags] = useState(
@@ -1287,6 +1287,7 @@ export function VideoRenderModal({
 
   React.useEffect(() => {
     if (workspaceMode !== 'video') return;
+    setVideoCanvasSelected(true);
     const frame = requestAnimationFrame(() => {
       if (timelineViewportRef.current) {
         timelineViewportRef.current.scrollLeft = timelineScrollInfo.scrollLeft;

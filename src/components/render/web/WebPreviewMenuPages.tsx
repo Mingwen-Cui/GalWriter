@@ -81,6 +81,7 @@ type WebPreviewMenuPagesProps = {
   onToggleControls: () => void;
   onButtonFunction: (element: WebMenuElement) => boolean;
   onSelectElement?: (id: string | null) => void;
+  onSelectElements?: (ids: string[]) => void;
   onUpdateArchiveElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateArchiveElements: (elements: WebMenuElement[]) => void;
@@ -119,6 +120,7 @@ export function WebPreviewMenuPages({
   onToggleControls,
   onButtonFunction,
   onSelectElement,
+  onSelectElements,
   onUpdateArchiveElement,
   onUpdateSettingsElement,
   onUpdateArchiveElements,
@@ -300,6 +302,7 @@ export function WebPreviewMenuPages({
     setMarqueeBox(null);
     setSelectedElementIds(nextIds);
     onSelectElement?.(nextIds[nextIds.length - 1] || null);
+    onSelectElements?.(nextIds);
   };
   const handleElementPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (marqueeRef.current) {

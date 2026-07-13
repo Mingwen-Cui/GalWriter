@@ -412,13 +412,13 @@ export function StartMenuElementInspector({
           textAlign: '文字对齐',
           textColorStyle: '文字颜色样式',
           textColor: '文字颜色与透明度',
-          blendMode: '混合模式',
+          blendMode: '混合',
           strokeStyle: '描边样式',
           strokePosition: '描边位置',
           strokeColor: '描边颜色与透明度',
           shadowType: '阴影类型',
           shadowColor: '阴影颜色与透明度',
-          addShadow: '添加阴影',
+          addShadow: '新建',
           removeShadow: '删除阴影',
         }
       : language === 'ja'
@@ -430,13 +430,13 @@ export function StartMenuElementInspector({
             textAlign: '文字揃え',
             textColorStyle: '文字の色の種類',
             textColor: '文字の色と不透明度',
-            blendMode: '合成モード',
+            blendMode: '合成',
             strokeStyle: '縁取りの種類',
             strokePosition: '縁取りの位置',
             strokeColor: '縁取りの色と不透明度',
             shadowType: '影の種類',
             shadowColor: '影の色と不透明度',
-            addShadow: '影を追加',
+            addShadow: '新規',
             removeShadow: '影を削除',
           }
         : {
@@ -447,13 +447,13 @@ export function StartMenuElementInspector({
             textAlign: 'Text align',
             textColorStyle: 'Text color style',
             textColor: 'Text color and opacity',
-            blendMode: 'Blend mode',
+            blendMode: 'Blend',
             strokeStyle: 'Stroke style',
             strokePosition: 'Stroke position',
             strokeColor: 'Stroke color and opacity',
             shadowType: 'Shadow type',
             shadowColor: 'Shadow color and opacity',
-            addShadow: 'Add shadow',
+            addShadow: 'New',
             removeShadow: 'Remove shadow',
           };
   const fillHasValue =
@@ -598,16 +598,18 @@ export function StartMenuElementInspector({
             max={200}
             onChange={(y) => onUpdate({ y })}
           />
-          <button
-            type="button"
-            onClick={() => setRadiusPopoverOpen((current) => !current)}
-            className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-emerald-100 hover:text-slate-950"
-            title={inspectorCopy.radius}
-            aria-label={inspectorCopy.radius}
-            aria-pressed={radiusPopoverOpen}
-          >
-            <CornerRadiusIcon corner="all" />
-          </button>
+          <SettingDescription show={showDescriptions} label={inspectorCopy.radius}>
+            <button
+              type="button"
+              onClick={() => setRadiusPopoverOpen((current) => !current)}
+              className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-emerald-100 hover:text-slate-950"
+              title={inspectorCopy.radius}
+              aria-label={inspectorCopy.radius}
+              aria-pressed={radiusPopoverOpen}
+            >
+              <CornerRadiusIcon corner="all" />
+            </button>
+          </SettingDescription>
           {radiusPopoverOpen && (
             <div className="absolute left-0 right-[56px] top-[calc(100%+8px)] z-[10020]">
               <RadiusPopover copy={inspectorCopy} element={element} onUpdate={onUpdate} />
@@ -1034,41 +1036,43 @@ export function StartMenuElementInspector({
                 />
               )}
             </SettingDescription>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setFillBlendMenuOpen((open) => !open)}
-                className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-sky-100 hover:text-slate-950"
-                title={text.field.blendMode}
-                aria-label={text.field.blendMode}
-                aria-expanded={fillBlendMenuOpen}
-              >
-                <Blend className="h-4 w-4" />
-              </button>
-              {fillBlendMenuOpen && (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-sky-100 bg-white py-1 shadow-xl shadow-slate-950/15">
-                  {BLEND_OPTIONS.map((blendMode) => {
-                    const selected = (element.blendMode || 'normal') === blendMode;
-                    return (
-                      <button
-                        key={blendMode}
-                        type="button"
-                        onClick={() => {
-                          onUpdate({ blendMode });
-                          setFillBlendMenuOpen(false);
-                        }}
-                        className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs font-medium transition-colors ${
+            <SettingDescription show={showDescriptions} label={descriptionCopy.blendMode}>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setFillBlendMenuOpen((open) => !open)}
+                  className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-sky-100 hover:text-slate-950"
+                  title={text.field.blendMode}
+                  aria-label={text.field.blendMode}
+                  aria-expanded={fillBlendMenuOpen}
+                >
+                  <Blend className="h-4 w-4" />
+                </button>
+                {fillBlendMenuOpen && (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-sky-100 bg-white py-1 shadow-xl shadow-slate-950/15">
+                    {BLEND_OPTIONS.map((blendMode) => {
+                      const selected = (element.blendMode || 'normal') === blendMode;
+                      return (
+                        <button
+                          key={blendMode}
+                          type="button"
+                          onClick={() => {
+                            onUpdate({ blendMode });
+                            setFillBlendMenuOpen(false);
+                          }}
+                          className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs font-medium transition-colors ${
                           selected ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'
                         }`}
-                      >
-                        <span>{blendMode}</span>
-                        {selected && <Check className="h-4 w-4" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                        >
+                          <span>{blendMode}</span>
+                          {selected && <Check className="h-4 w-4" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </SettingDescription>
           </div>
           {popover?.group === 'fill' && backgroundType === 'solid' && (
             <FloatingPopover popoverKey="solid">

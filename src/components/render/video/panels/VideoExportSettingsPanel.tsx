@@ -767,6 +767,7 @@ export function VideoExportSettingsPanel({
           <div className="flex flex-col gap-4">
             {showCanvasSettings && <CanvasSettingsSection
               language={language}
+              showDescriptions={showSettingDescriptions}
               variant="video"
               value={normalizeSharedCanvasSettings({
                 ...videoCanvasOptions,
@@ -792,19 +793,15 @@ export function VideoExportSettingsPanel({
               }}
             />}
 
-            <div className="space-y-2">
-              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('文字样式', 'テキストスタイル', 'Text Style')}
-              </div>
-              <RenderObjectSettingsSection
-                language={language}
-                renderStyle={renderStyle}
-                updateRenderStyle={updateRenderStyle}
-                canvasSettings={canvasSettings}
-                onCanvasSettingsChange={onCanvasSettingsChange}
-                surface="video"
-              />
-            </div>
+            <RenderObjectSettingsSection
+              language={language}
+              renderStyle={renderStyle}
+              updateRenderStyle={updateRenderStyle}
+              canvasSettings={canvasSettings}
+              onCanvasSettingsChange={onCanvasSettingsChange}
+              surface="video"
+              showDescriptions={showSettingDescriptions}
+            />
 
           </div>
         ) : (

@@ -30,7 +30,6 @@ import {
   ControlRow,
   FillTabs,
   FloatingPopover,
-  HeaderAction,
   HeaderSelect,
   InspectorGroup,
   NumberField,
@@ -84,7 +83,6 @@ export function RenderObjectInspector({
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
     : null;
-  const videoTextEffects = surface === 'video';
   const nameplateToggleText =
     language === 'zh'
       ? { inside: '在对话框内', outside: '在对话框外', follow: '跟随角色', fixed: '固定位置' }
@@ -98,6 +96,24 @@ export function RenderObjectInspector({
         ? { outer: '外側', inner: '内側', innerBlur: '内ぼかし' }
         : { outer: 'Outer', inner: 'Inner', innerBlur: 'Inner blur' };
   const [popover, setPopover] = useState<Popover>(null);
+  const strokeLabels =
+    language === 'zh'
+      ? { style: '描边样式', color: '描边颜色与透明度' }
+      : language === 'ja'
+        ? { style: '縁取りの種類', color: '縁取りの色と不透明度' }
+        : { style: 'Stroke style', color: 'Stroke color and opacity' };
+  const shadowLabels =
+    language === 'zh'
+      ? { type: '阴影类型', color: '阴影颜色与透明度', add: '增加' }
+      : language === 'ja'
+        ? { type: '影の種類', color: '影の色と不透明度', add: '追加' }
+        : { type: 'Shadow type', color: 'Shadow color and opacity', add: 'Add' };
+  const animationLabels =
+    language === 'zh'
+      ? { type: '动画类型', typewriter: '打字粒度' }
+      : language === 'ja'
+        ? { type: 'アニメーション種類', typewriter: 'タイプ単位' }
+        : { type: 'Animation type', typewriter: 'Typing unit' };
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
     updateRenderStyle('selectedRenderObject', kind);
@@ -183,6 +199,8 @@ export function RenderObjectInspector({
         tone="position"
         onTitleClick={() => setObject({ visible: !selected.visible })}
         titleActive={selected.visible}
+        showDescriptions={showDescriptions}
+        secondaryHasDescription
         secondary={
           <NumberField
             icon={<Radius className="h-4 w-4" />}
@@ -237,10 +255,6 @@ export function RenderObjectInspector({
         </ControlRow>
         {selectedKind === 'nameplate' && (
           <>
-            <HelpText
-              show={showDescriptions}
-              text={text.help.insideDialog + ' ' + text.help.followCharacter}
-            />
             <ControlRow className="mt-2">
               <IconChoicePair
                 value={renderStyle.nameplateInside}
@@ -292,7 +306,6 @@ export function RenderObjectInspector({
             />
           }
         >
-          <HelpText show={showDescriptions} text={text.help.font} />
           <ControlRow>
             <NumberField
               icon={<CaseSensitive className="h-4 w-4" />}
@@ -380,7 +393,6 @@ export function RenderObjectInspector({
           />
         }
       >
-        <HelpText show={showDescriptions} text={text.help.fill} />
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
           {selected.fill.type === 'solid' ? (
             <InlineColorControl
@@ -454,87 +466,68 @@ export function RenderObjectInspector({
           setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })
         }
         titleActive={selected.stroke.enabled}
+        showDescriptions={showDescriptions}
+        secondaryDescription={strokeLabels.style}
         secondary={
-          <HeaderAction
-            icon={<Palette className="h-4 w-4" />}
-            label={text.field.color}
-            onClick={() =>
-              setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })
-            }
+          <TwoOptionTabs
+            value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
+            onChange={(type) => {
+              setObject({ stroke: { ...selected.stroke, type } });
+              setPopover({ group: 'stroke', type });
+            }}
+            solidLabel={text.option.solid}
+            gradientLabel={text.option.gradient}
           />
         }
       >
         <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
         <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
-          <HelpText show={showDescriptions} text={text.help.stroke} />
           <ControlRow>
             <NumberField
               icon={<Ruler className="h-4 w-4" />}
               label={text.field.strokeWidth}
-              description={showDescriptions ? text.help.strokeWidth : undefined}
+              description={showDescriptions ? text.field.strokeWidth : undefined}
               value={selected.stroke.width}
               min={0}
               max={40}
               onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })}
             />
-            <button
-              type="button"
-              onClick={() =>
-                setPopover(popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' })
-              }
-              className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-bold"
-            >
-              <Palette className="h-4 w-4" />
-              {text.field.color}
-            </button>
+            <SettingDescription show={showDescriptions} label={text.field.strokePosition}>
+              <ThreeOptionTabs
+                value={selected.stroke.position}
+                onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
+              />
+            </SettingDescription>
           </ControlRow>
-          {!videoTextEffects && (
-            <>
-              <ControlRow className="mt-2">
-                <TwoOptionTabs
-                  value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
-                  onChange={(type) => {
-                    setObject({ stroke: { ...selected.stroke, type } });
-                    setPopover({ group: 'stroke', type });
-                  }}
-                  solidLabel={text.option.solid}
-                  gradientLabel={text.option.gradient}
-                />
-                <ThreeOptionTabs
-                  value={selected.stroke.position}
-                  onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
-                />
-              </ControlRow>
-              <HelpText show={showDescriptions} text={`${text.help.strokeType} ${text.help.strokePosition}`} />
-            </>
-          )}
           <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            {selected.stroke.type === 'gradient' && !videoTextEffects ? (
-              <InlineGradientControl
-                label={text.popover.gradientTitle}
-                stops={selected.stroke.gradientStops}
-                onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
-                onAlphaChange={(alpha) =>
-                  setObject({ stroke: { ...selected.stroke, gradientStops: selected.stroke.gradientStops.map((stop) => ({ ...stop, alpha })) } })
-                }
-              />
-            ) : (
-              <InlineColorControl
-                label={text.field.color}
-                color={selected.stroke.color}
-                alpha={selected.stroke.alpha}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
-                onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
-                onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
-              />
-            )}
+            <SettingDescription className="min-w-0" show={showDescriptions} label={strokeLabels.color}>
+              {selected.stroke.type === 'gradient' ? (
+                <InlineGradientControl
+                  label={text.popover.gradientTitle}
+                  stops={selected.stroke.gradientStops}
+                  onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
+                  onAlphaChange={(alpha) =>
+                    setObject({ stroke: { ...selected.stroke, gradientStops: selected.stroke.gradientStops.map((stop) => ({ ...stop, alpha })) } })
+                  }
+                />
+              ) : (
+                <InlineColorControl
+                  label={text.field.color}
+                  color={selected.stroke.color}
+                  alpha={selected.stroke.alpha}
+                  alphaLabel={text.field.opacity}
+                  hexLabel={text.popover.hex}
+                  onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
+                  onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+                  onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
+                />
+              )}
+            </SettingDescription>
             <div className="h-10 w-11" aria-hidden="true" />
           </div>
           {popover?.group === 'stroke' && (
             <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-              {selected.stroke.type === 'gradient' && !videoTextEffects ? (
+              {selected.stroke.type === 'gradient' ? (
                 <GradientPopover
                   tone="stroke"
                   text={text.popover}
@@ -570,6 +563,8 @@ export function RenderObjectInspector({
           tone="shadow"
           onTitleClick={index === 0 ? toggleShadow : undefined}
           titleActive={shadow.enabled}
+          showDescriptions={showDescriptions}
+          secondaryDescription={shadowLabels.type}
           secondary={
             <ShadowModeTabs
               value={shadow.type}
@@ -581,30 +576,32 @@ export function RenderObjectInspector({
         >
           <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
           <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
-            <HelpText show={showDescriptions} text={index === 0 ? text.help.shadow : `${text.help.shadow} ${text.help.removeShadow}`} />
-            <HelpText show={showDescriptions} text={text.help.shadowType} />
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.opacity} description={showDescriptions ? text.help.shadowOpacity : undefined} value={shadow.alpha} min={0} max={100} onChange={(alpha) => setShadowLayer(index, { alpha })} />
-              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.blur} description={showDescriptions ? text.help.shadowBlur : undefined} value={shadow.blur} min={0} max={120} onChange={(blur) => setShadowLayer(index, { blur })} />
-              <button type="button" onClick={addShadowLayer} disabled={shadowLayers.length >= 6} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35" title={text.help.addShadow} aria-label={text.help.addShadow}><Plus className="h-5 w-5" /></button>
+              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.opacity} description={showDescriptions ? text.field.opacity : undefined} value={shadow.alpha} min={0} max={100} onChange={(alpha) => setShadowLayer(index, { alpha })} />
+              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.blur} description={showDescriptions ? text.field.blur : undefined} value={shadow.blur} min={0} max={120} onChange={(blur) => setShadowLayer(index, { blur })} />
+              <SettingDescription show={showDescriptions} label={shadowLabels.add}>
+                <button type="button" onClick={addShadowLayer} disabled={shadowLayers.length >= 6} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35" title={shadowLabels.add} aria-label={shadowLabels.add}><Plus className="h-5 w-5" /></button>
+              </SettingDescription>
             </div>
             <ControlRow className="mt-2">
-              <NumberField icon={<MoveHorizontal className="h-4 w-4" />} label={text.field.x} description={showDescriptions ? text.help.shadowX : undefined} value={shadow.x} min={-120} max={120} onChange={(x) => setShadowLayer(index, { x })} />
-              <NumberField icon={<MoveVertical className="h-4 w-4" />} label={text.field.y} description={showDescriptions ? text.help.shadowY : undefined} value={shadow.y} min={-120} max={120} onChange={(y) => setShadowLayer(index, { y })} />
+              <NumberField icon={<MoveHorizontal className="h-4 w-4" />} label={text.field.x} description={showDescriptions ? text.field.x : undefined} value={shadow.x} min={-120} max={120} onChange={(x) => setShadowLayer(index, { x })} />
+              <NumberField icon={<MoveVertical className="h-4 w-4" />} label={text.field.y} description={showDescriptions ? text.field.y : undefined} value={shadow.y} min={-120} max={120} onChange={(y) => setShadowLayer(index, { y })} />
             </ControlRow>
-            <ControlRow className="mt-2">
-              <InlineColorControl
-                label={text.field.color}
-                color={shadow.color}
-                alpha={shadow.alpha}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(color) => setShadowLayer(index, { color })}
-                onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
-                onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
-              />
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+              <SettingDescription className="min-w-0" show={showDescriptions} label={shadowLabels.color}>
+                <InlineColorControl
+                  label={text.field.color}
+                  color={shadow.color}
+                  alpha={shadow.alpha}
+                  alphaLabel={text.field.opacity}
+                  hexLabel={text.popover.hex}
+                  onColorChange={(color) => setShadowLayer(index, { color })}
+                  onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
+                  onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
+                />
+              </SettingDescription>
               {index > 0 ? <button type="button" onClick={() => removeShadowLayer(index)} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 hover:bg-rose-50" title="Remove shadow" aria-label="Remove shadow"><Minus className="h-5 w-5" /></button> : <div />}
-            </ControlRow>
+            </div>
             {popover?.group === 'shadow' && index === 0 && (
               <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}><SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.alpha} onColorChange={(color) => setShadowLayer(index, { color })} onAlphaChange={(alpha) => setShadowLayer(index, { alpha })} /></FloatingPopover>
             )}
@@ -616,28 +613,31 @@ export function RenderObjectInspector({
         title={text.group.animation}
         icon={<Sparkles className="h-3.5 w-3.5" />}
         tone="animation"
+        showDescriptions={showDescriptions}
+        secondaryHasDescription
         secondary={
-          <SelectField
-            label={text.group.animation}
-            value={selected.animation.animation}
-            options={[
-              { value: 'none', label: text.option.none },
-              { value: 'fade', label: text.option.fade },
-              { value: 'slideUp', label: text.option.slideUp },
-              { value: 'typewriter', label: text.option.typewriter },
-            ]}
-            onChange={(value) =>
-              setObject({ animation: { ...selected.animation, animation: value as TextAnimation } })
-            }
-          />
+          <SettingDescription show={showDescriptions} label={animationLabels.type}>
+            <SelectField
+              label={text.group.animation}
+              value={selected.animation.animation}
+              options={[
+                { value: 'none', label: text.option.none },
+                { value: 'fade', label: text.option.fade },
+                { value: 'slideUp', label: text.option.slideUp },
+                { value: 'typewriter', label: text.option.typewriter },
+              ]}
+              onChange={(value) =>
+                setObject({ animation: { ...selected.animation, animation: value as TextAnimation } })
+              }
+            />
+          </SettingDescription>
         }
       >
-        <HelpText show={showDescriptions} text={text.help.duration} />
         <ControlRow>
           <NumberField
             icon={<RotateCw className="h-4 w-4" />}
             label={text.field.duration}
-            description={showDescriptions ? text.help.duration : undefined}
+            description={showDescriptions ? text.field.duration : undefined}
             value={selected.animation.durationMs}
             min={0}
             max={10000}
@@ -646,20 +646,22 @@ export function RenderObjectInspector({
               setObject({ animation: { ...selected.animation, durationMs } })
             }
           />
-          <SelectField
-            label={text.field.typewriter}
-            value={selected.animation.typewriterMode}
-            options={[
-              { value: 'character', label: text.option.character },
-              { value: 'sentence', label: text.option.sentence },
-              { value: 'line', label: text.option.line },
-            ]}
-            onChange={(value) =>
-              setObject({
-                animation: { ...selected.animation, typewriterMode: value as TypewriterMode },
-              })
-            }
-          />
+          <SettingDescription show={showDescriptions} label={animationLabels.typewriter}>
+            <SelectField
+              label={text.field.typewriter}
+              value={selected.animation.typewriterMode}
+              options={[
+                { value: 'character', label: text.option.character },
+                { value: 'sentence', label: text.option.sentence },
+                { value: 'line', label: text.option.line },
+              ]}
+              onChange={(value) =>
+                setObject({
+                  animation: { ...selected.animation, typewriterMode: value as TypewriterMode },
+                })
+              }
+            />
+          </SettingDescription>
         </ControlRow>
       </InspectorGroup>
 
@@ -932,7 +934,21 @@ function DisabledNotice({ show, label }: { show: boolean; label: string }) {
   );
 }
 
-function HelpText({ show, text }: { show: boolean; text: string }) {
-  if (!show) return null;
-  return <p className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text}</p>;
+function SettingDescription({
+  show,
+  label,
+  className = '',
+  children,
+}: {
+  show: boolean;
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`space-y-1 ${className}`}>
+      {show && <div className="px-1 text-[10px] leading-4 text-slate-500">{label}</div>}
+      {children}
+    </div>
+  );
 }

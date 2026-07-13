@@ -1571,6 +1571,7 @@ export function WebPlaytestPreview({
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
           onButtonFunction={(element) => applySharedButtonFunction(element)}
           onSelectElement={setSelectedStartMenuElementId}
+          onSelectElements={onSelectStartMenuElements}
           onUpdateArchiveElement={(id, patch) => {
             const source = settings.archivePageElements?.length
               ? settings.archivePageElements

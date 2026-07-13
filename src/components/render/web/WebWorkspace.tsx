@@ -626,24 +626,37 @@ export function WebWorkspace({
     const selectedIds = selectedPreviewElementIds;
     if (selectedIds.length < 2) return;
     const selectedIdSet = new Set(selectedIds);
+    const allElements =
+      currentPreviewSurface === 'game'
+        ? [
+            ...(webSettings.previewToolbarElements || []),
+            ...(webSettings.dialogueOverlayElements || []),
+          ]
+        : activePageElements;
+    const selectedElements = allElements.filter((element) => selectedIdSet.has(element.id));
+    if (selectedElements.length < 2) return;
+    const minX = Math.min(...selectedElements.map((element) => element.x));
+    const maxX = Math.max(...selectedElements.map((element) => element.x + element.width));
+    const minY = Math.min(...selectedElements.map((element) => element.y));
+    const maxY = Math.max(...selectedElements.map((element) => element.y + element.height));
     const patchAlignment = (element: WebMenuElement): Partial<WebMenuElement> => {
       if (axis === 'x') {
         return {
           x:
             value === 'start'
-              ? 0
+              ? minX
               : value === 'center'
-                ? (100 - element.width) / 2
-                : 100 - element.width,
+                ? (minX + maxX - element.width) / 2
+                : maxX - element.width,
         };
       }
       return {
         y:
           value === 'start'
-            ? 0
+            ? minY
             : value === 'center'
-              ? (100 - element.height) / 2
-              : 100 - element.height,
+              ? (minY + maxY - element.height) / 2
+              : maxY - element.height,
       };
     };
     const applyAlignment = (elements: WebMenuElement[]) =>
