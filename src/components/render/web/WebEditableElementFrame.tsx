@@ -66,6 +66,7 @@ export function WebEditableElementFrame({
   onRotatePointerDown,
   onResizePointerDown,
   showAuxiliaryControls = true,
+  showResizeHandles = true,
 }: {
   visible: boolean;
   ringClassName?: string;
@@ -77,6 +78,7 @@ export function WebEditableElementFrame({
     handle: WebEditableResizeHandle,
   ) => void;
   showAuxiliaryControls?: boolean;
+  showResizeHandles?: boolean;
 }) {
   return (
     <>
@@ -113,7 +115,7 @@ export function WebEditableElementFrame({
           <Trash2 className="h-4 w-4" />
         </span>
       )}
-      {webEditableResizeHandles.map((handle) => (
+      {showResizeHandles && webEditableResizeHandles.map((handle) => (
         <span
           key={handle}
           tabIndex={-1}

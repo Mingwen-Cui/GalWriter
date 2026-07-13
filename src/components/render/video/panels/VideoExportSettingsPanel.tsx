@@ -518,7 +518,11 @@ export function VideoExportSettingsPanel({
           <div className="space-y-1">
             {showSettingDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {isTitle ? t('标题隐藏', 'タイトルを非表示', 'Title hidden') : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
+                {isTitle
+                  ? visible
+                    ? t('隐藏标题', 'タイトルを隠す', 'Hide title')
+                    : t('显示标题', 'タイトルを表示', 'Show title')
+                  : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
               </div>
             )}
             <button
@@ -527,7 +531,9 @@ export function VideoExportSettingsPanel({
                 if (canToggle) setStyle(visibleKey, !visible as never);
               }}
               className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${isTitle
-                ? 'bg-[#1d4ed8] text-white'
+                ? visible
+                  ? 'bg-[#1d4ed8] text-white'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
                 : visible
                   ? 'bg-white/12 text-[var(--vr-text)]'
                   : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'

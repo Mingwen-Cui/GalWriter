@@ -574,6 +574,7 @@ export function VideoPreviewPanel({
                     {selected && <WebEditableElementFrame
                       visible
                       showAuxiliaryControls={false}
+                      showResizeHandles={kind === 'dialogBox'}
                       onToggleVisible={() => undefined}
                       onRotatePointerDown={() => undefined}
                       onResizePointerDown={(event, handle) => startResize(event, kind, handle)}

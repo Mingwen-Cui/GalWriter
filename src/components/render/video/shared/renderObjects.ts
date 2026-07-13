@@ -266,7 +266,9 @@ export const getRenderObjects = (style: RenderStyle): RenderEditableObjects => {
   if (!current) return legacy;
   return {
     dialogBox: mergeObject(legacy.dialogBox, current.dialogBox),
-    title: mergeObject(legacy.title, current.title),
+    // `titleVisible` is the user-facing switch. Older projects can contain a
+    // stale nested `renderObjects.title.visible` value, which must not override it.
+    title: { ...mergeObject(legacy.title, current.title), visible: style.titleVisible },
     body: mergeObject(legacy.body, current.body),
     nameplate: mergeObject(legacy.nameplate, current.nameplate),
   };
