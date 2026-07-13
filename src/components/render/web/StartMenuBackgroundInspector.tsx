@@ -49,6 +49,7 @@ export function StartMenuBackgroundInspector({
   onGradientEditingChange,
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
+  const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
   const [openEditor, setOpenEditor] = useState<BackgroundType | null>(null);
   const background = getSurfaceBackground(settings, surface);
   const gradientStops = normalizeGradientStops(
@@ -156,7 +157,7 @@ export function StartMenuBackgroundInspector({
         <div className="h-10 w-11" aria-hidden="true" />
       </div>
       {openEditor === 'solid' && (
-        <FloatingPopover popoverKey="solid">
+        <FloatingPopover popoverKey="solid" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
           <SolidColorPopover
             tone="fill"
             text={text.popover}
@@ -182,7 +183,7 @@ export function StartMenuBackgroundInspector({
         </FloatingPopover>
       )}
       {openEditor === 'gradient' && (
-        <PortaledGradientPopover>
+        <PortaledGradientPopover onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
           <GradientEditorPopover
             language={language}
             angle={background.gradientAngle}
@@ -208,7 +209,7 @@ export function StartMenuBackgroundInspector({
         </PortaledGradientPopover>
       )}
       {openEditor === 'image' && (
-        <FloatingPopover popoverKey="image">
+        <FloatingPopover popoverKey="image" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
           <ImageFillPopover
             tone="fill"
             text={text.popover}
@@ -227,7 +228,7 @@ export function StartMenuBackgroundInspector({
         </FloatingPopover>
       )}
       {openEditor === 'video' && (
-        <FloatingPopover popoverKey="style">
+        <FloatingPopover popoverKey="style" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
           <VideoBackgroundPopover
             language={language}
             videoUrl={background.videoUrl}
@@ -310,7 +311,9 @@ function BackgroundPreview({
 }) {
   const backgroundSettings = getSurfaceBackground(settings, surface);
   const background =
-    backgroundSettings.type === 'gradient'
+    backgroundSettings.type === 'video' && !backgroundSettings.videoUrl
+      ? '#000000'
+      : backgroundSettings.type === 'gradient'
       ? gradientFromStops(
           backgroundSettings.gradientShape,
           backgroundSettings.gradientAngle,

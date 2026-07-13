@@ -1,4 +1,5 @@
 import type { RenderStyle, VideoTextScaleMode } from './types';
+import { getRenderObjects } from './renderObjects';
 
 const WEB_RATIO_REFERENCE_HEIGHT = 720;
 
@@ -15,19 +16,34 @@ export const getVideoTextRenderStyle = (
   mode: VideoTextScaleMode,
   resolutionHeight: number,
 ): RenderStyle => {
+  const objects = getRenderObjects(style);
   const scale = resolveVideoTextScale(mode, resolutionHeight);
-  if (scale === 1) return style;
-  return {
+  const objectStyle: RenderStyle = {
     ...style,
-    titleFontSize: Math.round(style.titleFontSize * scale),
-    bodyFontSize: Math.round(style.bodyFontSize * scale),
-    titleStrokeWidth: style.titleStrokeWidth * scale,
-    bodyStrokeWidth: style.bodyStrokeWidth * scale,
-    titleLetterSpacing: style.titleLetterSpacing * scale,
-    bodyLetterSpacing: style.bodyLetterSpacing * scale,
-    nameplateFontSize: Math.round(style.nameplateFontSize * scale),
-    nameplateOffsetX: style.nameplateOffsetX * scale,
-    nameplateOffsetY: style.nameplateOffsetY * scale,
-    nameplateRadius: style.nameplateRadius * scale,
+    dialogVisible: objects.dialogBox.visible,
+    dialogOffsetX: objects.dialogBox.x,
+    dialogOffsetY: objects.dialogBox.y,
+    dialogWidth: objects.dialogBox.width,
+    dialogHeight: objects.dialogBox.height,
+    dialogRadius: objects.dialogBox.radius,
+    nameplateVisible: objects.nameplate.visible,
+    nameplateOffsetX: objects.nameplate.x,
+    nameplateOffsetY: objects.nameplate.y,
+    nameplateScale: objects.nameplate.width,
+    nameplateRadius: objects.nameplate.radius,
+  };
+  if (scale === 1) return objectStyle;
+  return {
+    ...objectStyle,
+    titleFontSize: Math.round(objectStyle.titleFontSize * scale),
+    bodyFontSize: Math.round(objectStyle.bodyFontSize * scale),
+    titleStrokeWidth: objectStyle.titleStrokeWidth * scale,
+    bodyStrokeWidth: objectStyle.bodyStrokeWidth * scale,
+    titleLetterSpacing: objectStyle.titleLetterSpacing * scale,
+    bodyLetterSpacing: objectStyle.bodyLetterSpacing * scale,
+    nameplateFontSize: Math.round(objectStyle.nameplateFontSize * scale),
+    nameplateOffsetX: objectStyle.nameplateOffsetX * scale,
+    nameplateOffsetY: objectStyle.nameplateOffsetY * scale,
+    nameplateRadius: objectStyle.nameplateRadius * scale,
   };
 };

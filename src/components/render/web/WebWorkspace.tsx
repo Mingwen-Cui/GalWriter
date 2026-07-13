@@ -314,47 +314,42 @@ export function WebWorkspace({
     const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
     if (!name) return;
     const entry: SavedWebExperienceTemplate = {
-      ...createStartMenuDesignSnapshot(scope),
+      // Templates are stored in localStorage. Keep their layout and styling, but
+      // never include embedded image/video/audio data; otherwise one uploaded
+      // asset can exceed the storage quota and make every save appear to fail.
+      ...createStartMenuDesignSnapshot(scope, true),
       id: selected?.id || `template-${Date.now()}`,
       name,
       savedAt: Date.now(),
       scope,
       surface: scope === 'current' ? currentPreviewSurface : undefined,
     };
-    const next = [entry, ...savedTemplateLibrary.filter((item) => item.id !== entry.id)].slice(
-      0,
-      24,
-    );
+    const next = [entry, ...savedTemplateLibrary.filter((item) => item.id !== entry.id)]
+      .map(compactSavedTemplate)
+      .slice(0, 24);
     try {
       window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(next));
       setSavedTemplateLibrary(next);
       setSelectedSavedTemplateId(entry.id);
-    } catch (error) {
+    } catch {
       try {
-        const compactEntry = stripEmbeddedDataUrls({ ...entry, ...createStartMenuDesignSnapshot(scope, true) });
-        const compactNext = [
-          compactEntry,
-          ...savedTemplateLibrary.filter((item) => item.id !== entry.id),
-        ].map(compactSavedTemplate).slice(0, 24);
+        const compactNext = next.slice(0, 8);
         try {
           window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(compactNext));
           setSavedTemplateLibrary(compactNext);
         } catch {
-          const trimmedNext = compactNext.slice(0, 8);
           try {
             window.localStorage.removeItem(webTemplateLibraryStorageKey);
-            window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(trimmedNext));
-            setSavedTemplateLibrary(trimmedNext);
+            window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify(compactNext));
+            setSavedTemplateLibrary(compactNext);
           } catch {
-            window.localStorage.removeItem(webTemplateLibraryStorageKey);
-            window.localStorage.setItem(webTemplateLibraryStorageKey, JSON.stringify([compactEntry]));
-            setSavedTemplateLibrary([compactEntry]);
+            // Keep the newly saved template usable for this session even when
+            // the browser blocks localStorage entirely.
+            setSavedTemplateLibrary(next);
           }
         }
         setSelectedSavedTemplateId(entry.id);
-      } catch {
-        console.warn('Could not save start menu design preset:', error);
-      }
+      } catch { setSavedTemplateLibrary(next); setSelectedSavedTemplateId(entry.id); }
     }
   };
   const persistTemplateLibrary = (next: SavedWebExperienceTemplate[]) => {

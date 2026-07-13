@@ -1683,8 +1683,16 @@ function OutsideDismissPopover({
   );
 }
 
-export function PortaledGradientPopover({ children }: { children: React.ReactNode }) {
-  return <FloatingPopover popoverKey="gradient">{children}</FloatingPopover>;
+export function PortaledGradientPopover({
+  children,
+  onClose,
+  closeLabel,
+}: {
+  children: React.ReactNode;
+  onClose?: () => void;
+  closeLabel?: string;
+}) {
+  return <FloatingPopover popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>{children}</FloatingPopover>;
 }
 
 export function GradientEditorPopover({

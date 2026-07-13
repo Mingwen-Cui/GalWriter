@@ -76,6 +76,7 @@ export function RenderObjectInspector({
   hideObjectSelector?: boolean;
 }) {
   const text = renderObjectText(language);
+  const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
   const objects = getRenderObjects(renderStyle);
   const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
   const selected = objects[selectedKind];
@@ -411,7 +412,7 @@ export function RenderObjectInspector({
           <div className="h-10 w-11" aria-hidden="true" />
         </div>
         {popover?.group === 'fill' && selected.fill.type === 'solid' && (
-          <FloatingPopover>
+          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
             <SolidColorPopover
               tone="fill"
               text={text.popover}
@@ -423,7 +424,7 @@ export function RenderObjectInspector({
           </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'gradient' && (
-          <FloatingPopover>
+          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
             <GradientPopover
               tone="fill"
               text={text.popover}
@@ -435,7 +436,7 @@ export function RenderObjectInspector({
           </FloatingPopover>
         )}
         {popover?.group === 'fill' && selected.fill.type === 'image' && (
-          <FloatingPopover>
+          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
             <ImageFillPopover
               tone="fill"
               text={text.popover}
@@ -529,7 +530,7 @@ export function RenderObjectInspector({
             <div className="h-10 w-11" aria-hidden="true" />
           </div>
           {popover?.group === 'stroke' && (
-            <FloatingPopover>
+            <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
               {selected.stroke.type === 'gradient' ? (
                 <GradientPopover
                   tone="stroke"
@@ -595,7 +596,7 @@ export function RenderObjectInspector({
               {index > 0 ? <button type="button" onClick={() => removeShadowLayer(index)} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 hover:bg-rose-50" title="Remove shadow" aria-label="Remove shadow"><Minus className="h-5 w-5" /></button> : <div />}
             </ControlRow>
             {popover?.group === 'shadow' && index === 0 && (
-              <FloatingPopover><SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.alpha} onColorChange={(color) => setShadowLayer(index, { color })} onAlphaChange={(alpha) => setShadowLayer(index, { alpha })} /></FloatingPopover>
+              <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}><SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.alpha} onColorChange={(color) => setShadowLayer(index, { color })} onAlphaChange={(alpha) => setShadowLayer(index, { alpha })} /></FloatingPopover>
             )}
           </div>
         </InspectorGroup>

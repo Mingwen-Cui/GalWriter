@@ -114,6 +114,7 @@ type VideoExportSettingsPanelProps = {
   setHideSceneTags: (value: boolean) => void;
   canvasSettings: SharedCanvasSettings;
   onCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
+  showCanvasSettings: boolean;
 };
 
 const FONT_OPTIONS = [
@@ -199,6 +200,7 @@ export function VideoExportSettingsPanel({
   setHideSceneTags,
   canvasSettings,
   onCanvasSettingsChange,
+  showCanvasSettings,
 }: VideoExportSettingsPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const initialRatioDivisor = greatestCommonDivisor(resolutionWidth, resolutionHeight);
@@ -763,7 +765,7 @@ export function VideoExportSettingsPanel({
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
           <div className="flex flex-col gap-4">
-            <CanvasSettingsSection
+            {showCanvasSettings && <CanvasSettingsSection
               language={language}
               variant="video"
               value={normalizeSharedCanvasSettings({
@@ -788,7 +790,7 @@ export function VideoExportSettingsPanel({
                 if (patch.hideCharacterTags !== undefined) setHideCharacterTags(patch.hideCharacterTags);
                 if (patch.hideSceneTags !== undefined) setHideSceneTags(patch.hideSceneTags);
               }}
-            />
+            />}
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">

@@ -261,6 +261,7 @@ export function VideoRenderModal({
       ? persistedWorkspace.videoTextScaleMode
       : 'webRatio',
   );
+  const [videoCanvasSelected, setVideoCanvasSelected] = useState(false);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
   const [useGpuAcceleration, setUseGpuAcceleration] = useState(() =>
@@ -2077,6 +2078,9 @@ export function VideoRenderModal({
                   renderStyle={renderStyle}
                   updateRenderStyle={updateRenderStyle}
                   canvasSettings={webSettings}
+                  videoTextScaleMode={videoTextScaleMode}
+                  canvasSelected={videoCanvasSelected}
+                  setCanvasSelected={setVideoCanvasSelected}
                 />
 
                 {!exportPanelCollapsed && (
@@ -2149,6 +2153,7 @@ export function VideoRenderModal({
                   setHideSceneTags={setHideSceneTags}
                   canvasSettings={webSettings}
                   onCanvasSettingsChange={updateWebSettingsBulk}
+                  showCanvasSettings={videoCanvasSelected}
                 />
               </main>
 

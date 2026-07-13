@@ -11,6 +11,7 @@ import {
 } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
+import { getRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
@@ -129,6 +130,9 @@ export const drawRenderFrame = async ({
     canvasSettings,
   });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
+  const renderObjects = getRenderObjects(videoRenderStyle);
+  const titleObject = renderObjects.title;
+  const bodyObject = renderObjects.body;
 
   const baseDialogLayout = getDialogueBoxLayout(width, height, videoRenderStyle);
   const paddingX = baseDialogLayout.paddingX ?? baseDialogLayout.padding;
@@ -138,13 +142,15 @@ export const drawRenderFrame = async ({
   const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
   const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
   const maxTextWidth = baseDialogLayout.width - paddingX * 2;
+  const titleMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, titleObject.width / 100)));
+  const bodyMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, bodyObject.width / 100)));
 
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   const titleLines = videoRenderStyle.titleVisible
-    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
+    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), titleMaxTextWidth).slice(0, 2)
     : [];
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-  const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
+  const fullBodyLines = wrapText(ctx, fullBody || '', bodyMaxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
   const titleState = animatedTextState(
     videoRenderStyle.titleAnimation,
@@ -217,8 +223,8 @@ export const drawRenderFrame = async ({
     drawStyledLine(
       ctx,
       line,
-      textX(videoRenderStyle.titleAlign, textLeft, textRight),
-      y + titleState.offsetY,
+      textX(videoRenderStyle.titleAlign, textLeft + titleObject.x, textLeft + titleObject.x + titleMaxTextWidth),
+      y + titleObject.y + titleState.offsetY,
       {
         align: videoRenderStyle.titleAlign,
         fillColor: colorWithAlpha(videoRenderStyle.titleColor, videoRenderStyle.titleColorAlpha),
@@ -239,8 +245,8 @@ export const drawRenderFrame = async ({
     drawStyledLine(
       ctx,
       line,
-      textX(videoRenderStyle.bodyAlign, textLeft, textRight),
-      y + bodyState.offsetY,
+      textX(videoRenderStyle.bodyAlign, textLeft + bodyObject.x, textLeft + bodyObject.x + bodyMaxTextWidth),
+      y + bodyObject.y + bodyState.offsetY,
       {
         align: videoRenderStyle.bodyAlign,
         fillColor: colorWithAlpha(videoRenderStyle.bodyColor, videoRenderStyle.bodyColorAlpha),

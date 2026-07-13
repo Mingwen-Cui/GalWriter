@@ -1350,7 +1350,9 @@ export function WebPlaytestPreview({
     surface: 'start' | 'archive' | 'settings' | 'game',
   ): React.CSSProperties | undefined => {
     const background = getSurfaceBackground(settings, surface);
-    return background.type === 'image' && background.imageUrl
+    return background.type === 'video' && !background.videoUrl
+      ? { background: '#000000' }
+      : background.type === 'image' && background.imageUrl
       ? {
           backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
           backgroundPosition: 'center',

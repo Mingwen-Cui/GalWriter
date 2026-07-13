@@ -8,6 +8,7 @@ import {
   GripHorizontal,
   Image as ImageIcon,
   Palette,
+  X,
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -450,10 +451,14 @@ export function FloatingPopover({
   children,
   className = '',
   popoverKey = 'style',
+  onClose,
+  closeLabel = 'Close',
 }: {
   children: React.ReactNode;
   className?: string;
   popoverKey?: 'solid' | 'gradient' | 'image' | 'style';
+  onClose?: () => void;
+  closeLabel?: string;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -504,7 +509,7 @@ export function FloatingPopover({
       {position && createPortal(
         <div ref={panelRef} className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`} style={position} data-web-style-popover>
           <div
-            className="flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+            className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
             title="Drag"
             onPointerDown={(event) => {
               if (event.button !== 0) return;
@@ -533,6 +538,18 @@ export function FloatingPopover({
             onPointerCancel={() => { dragRef.current = null; }}
           >
             <GripHorizontal className="h-4 w-4" aria-hidden="true" />
+            {onClose && (
+              <button
+                type="button"
+                className="absolute right-1 grid h-5 w-5 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+                title={closeLabel}
+                aria-label={closeLabel}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={onClose}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
           </div>
           <div className="[&>div]:rounded-t-none [&>div]:rounded-b-[22px]">{children}</div>
         </div>,

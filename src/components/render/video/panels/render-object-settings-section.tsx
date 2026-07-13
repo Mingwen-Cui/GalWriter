@@ -67,7 +67,7 @@ export function RenderObjectSettingsSection({
   };
   return (
     <div className="space-y-3">
-      {canvasSettings?.layoutMode === 'classic' && onCanvasSettingsChange && (
+      {surface !== 'video' && canvasSettings?.layoutMode === 'classic' && onCanvasSettingsChange && (
         <div className="grid grid-cols-2 gap-2">
           {(['scene', 'background'] as const).map((kind) => <button key={kind} type="button" aria-pressed={currentSelection === kind} data-render-selection={kind} onPointerDown={(event) => event.stopPropagation()} onClick={() => { changeSelection(kind); updateRenderStyle('selectedRenderObject', undefined); }} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
           {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map((kind) => <button key={kind} type="button" aria-pressed={currentSelection === kind} data-render-selection={kind} onPointerDown={(event) => event.stopPropagation()} onClick={() => selectObject(kind)} className={`h-9 rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{labels[kind]}</button>)}
@@ -76,7 +76,7 @@ export function RenderObjectSettingsSection({
       {(currentSelection === 'scene' || currentSelection === 'background') && canvasSettings && onCanvasSettingsChange ? (
         <SceneCanvasInspector language={language} value={canvasSettings} onChange={onCanvasSettingsChange} mode={currentSelection === 'scene' ? 'position' : 'background'} />
       ) : (
-        <RenderObjectInspector language={language} renderStyle={inspectorStyle} updateRenderStyle={updateRenderStyle} surface={surface} showDescriptions={showDescriptions} hideObjectSelector={canvasSettings?.layoutMode === 'classic'} />
+        <RenderObjectInspector language={language} renderStyle={inspectorStyle} updateRenderStyle={updateRenderStyle} surface={surface} showDescriptions={showDescriptions} hideObjectSelector={surface === 'video' || canvasSettings?.layoutMode === 'classic'} />
       )}
     </div>
   );

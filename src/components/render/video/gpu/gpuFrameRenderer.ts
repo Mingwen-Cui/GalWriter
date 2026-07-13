@@ -15,6 +15,7 @@ import {
 } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
+import { getRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
@@ -121,7 +122,24 @@ async function createTextLayerCanvas(
   // 清空为透明
   ctx.clearRect(0, 0, width, height);
 
-  const baseDialogLayout = getDialogueBoxLayout(width, height, style);
+  const renderObjects = getRenderObjects(style);
+  const videoObjectStyle: RenderStyle = {
+    ...style,
+    dialogVisible: renderObjects.dialogBox.visible,
+    dialogOffsetX: renderObjects.dialogBox.x,
+    dialogOffsetY: renderObjects.dialogBox.y,
+    dialogWidth: renderObjects.dialogBox.width,
+    dialogHeight: renderObjects.dialogBox.height,
+    dialogRadius: renderObjects.dialogBox.radius,
+    nameplateVisible: renderObjects.nameplate.visible,
+    nameplateOffsetX: renderObjects.nameplate.x,
+    nameplateOffsetY: renderObjects.nameplate.y,
+    nameplateScale: renderObjects.nameplate.width,
+    nameplateRadius: renderObjects.nameplate.radius,
+  };
+  const baseDialogLayout = getDialogueBoxLayout(width, height, videoObjectStyle);
+  const titleObject = renderObjects.title;
+  const bodyObject = renderObjects.body;
   const paddingX = baseDialogLayout.paddingX ?? baseDialogLayout.padding;
   const paddingY = baseDialogLayout.paddingY ?? baseDialogLayout.padding;
   const titleSize = Math.max(18, style.titleFontSize);
@@ -129,14 +147,16 @@ async function createTextLayerCanvas(
   const titleLineHeight = Math.round(titleSize * Math.max(0.8, style.titleLineHeight));
   const bodyLineHeight = Math.round(bodySize * Math.max(0.8, style.bodyLineHeight));
   const maxTextWidth = baseDialogLayout.width - paddingX * 2;
+  const titleMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, titleObject.width / 100)));
+  const bodyMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, bodyObject.width / 100)));
 
   // 文字面板
   ctx.font = `800 ${titleSize}px ${style.titleFontFamily}`;
   const titleLines = style.titleVisible
-    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), maxTextWidth).slice(0, 2)
+    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), titleMaxTextWidth).slice(0, 2)
     : [];
   ctx.font = `500 ${bodySize}px ${style.bodyFontFamily}`;
-  const fullBodyLines = wrapText(ctx, fullBody || '', maxTextWidth).slice(0, 7);
+  const fullBodyLines = wrapText(ctx, fullBody || '', bodyMaxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
   let dialogLayout = baseDialogLayout;
   let textLeft = dialogLayout.x + paddingX;
@@ -183,12 +203,12 @@ async function createTextLayerCanvas(
     renderBodyLines.length * bodyLineHeight;
   const isAutoHeight = style.dialogHeightMode === 'auto';
   const nameplateItems = getNameplateItems(node, nodes);
-  const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, ctx, style);
+  const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, ctx, videoObjectStyle);
   dialogLayout = await drawDialogueBox(
     ctx,
     width,
     height,
-    style,
+    videoObjectStyle,
     {
       ...(isAutoHeight
         ? { contentHeight: visibleTextHeight + textBaselineOffset + nameplateReservedHeight }
@@ -196,7 +216,7 @@ async function createTextLayerCanvas(
       topExtension: isAutoHeight ? 0 : nameplateReservedHeight,
     },
   );
-  await drawNameplates(ctx, width, dialogLayout, style, nameplateItems);
+  await drawNameplates(ctx, width, dialogLayout, videoObjectStyle, nameplateItems);
   textLeft = dialogLayout.x + paddingX;
   textRight = dialogLayout.x + dialogLayout.width - paddingX;
   y =
@@ -214,8 +234,8 @@ async function createTextLayerCanvas(
     drawStyledLine(
       ctx,
       line,
-      textX(style.titleAlign, textLeft, textRight),
-      y + titleState.offsetY,
+      textX(style.titleAlign, textLeft + titleObject.x, textLeft + titleObject.x + titleMaxTextWidth),
+      y + titleObject.y + titleState.offsetY,
       {
         align: style.titleAlign,
         fillColor: colorWithAlpha(style.titleColor, style.titleColorAlpha),
@@ -234,7 +254,7 @@ async function createTextLayerCanvas(
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
   renderBodyLines.forEach((line) => {
-    drawStyledLine(ctx, line, textX(style.bodyAlign, textLeft, textRight), y + bodyState.offsetY, {
+    drawStyledLine(ctx, line, textX(style.bodyAlign, textLeft + bodyObject.x, textLeft + bodyObject.x + bodyMaxTextWidth), y + bodyObject.y + bodyState.offsetY, {
       align: style.bodyAlign,
       fillColor: colorWithAlpha(style.bodyColor, style.bodyColorAlpha),
       strokeColor: style.bodyStrokeColor,
