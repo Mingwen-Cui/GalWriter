@@ -1,14 +1,14 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 
-import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
-import { normalizeStoryPresentation } from '../../../lib/presentation';
 import type {
   CharacterNodeData,
   CharacterPresentation,
   SceneNodeData,
   StoryPresentation,
 } from '../../../domain/project';
-import { filterMentionTags, stripHtml } from '../video/shared/storyNodes';
+import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
+import { normalizeStoryPresentation } from '../../../lib/presentation';
+import { filterMentionTags, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
 export type PptChoice = { label: string; targetId?: string };
@@ -81,7 +81,7 @@ export function resolvePptScenes(
 ): PptScene[] {
   const visibleStoryNodes = getPlaytestOrderedStoryNodes(nodes, edges);
   const nodeIds = new Set(visibleStoryNodes.map((node) => node.id));
-  return visibleStoryNodes.map((node, index) => {
+  return visibleStoryNodes.map((node) => {
     const data = node.data as StoryData;
     const choices = edges
       .filter((edge) => edge.source === node.id && nodeIds.has(edge.target))
@@ -120,9 +120,8 @@ export function resolvePptScenes(
     characters.sort((a, b) => (a.layer || 1) - (b.layer || 1));
     return {
       id: node.id,
-      // Do not invent a title for the presentation canvas. Web and video keep
-      // this field empty, so a fallback here created an extra line only in PPT.
-      title: data.title?.trim() || '',
+      // Keep the same fallback order as web/playtest, including a card label.
+      title: getNodeDisplayTitle(node).trim(),
       text: stripHtml(filterMentionTags(data.text || '', true, true)),
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
       backgroundVideoUrl: sceneMedia.videoUrl,

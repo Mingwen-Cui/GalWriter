@@ -14,14 +14,12 @@ import {
 } from '../../../lib/inlinePresentationPlayback';
 import {
   clampCharacterLayer,
-  CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
-  CHARACTER_STAGE_MAX_WIDTH_PERCENT,
   getCharacterEnterDelay,
-  getCharacterStagePosition,
+  getCharacterStageBounds,
   getPresentationTransform,
 } from '../../../lib/presentation';
-import type { WebExportSettings } from '../video/shared/types';
 import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
+import type { WebExportSettings } from '../video/shared/types';
 
 type PresentedCharacter = {
   config: CharacterPresentation;
@@ -126,15 +124,13 @@ export function WebPlaytestMediaLayers({
                   onDragStart={(event) => event.preventDefault()}
                   className="preview-media-safe absolute w-auto object-contain object-bottom"
                   style={{
-                    ...getCharacterStagePosition(config),
-                    maxHeight: `${CHARACTER_STAGE_MAX_HEIGHT_PERCENT}%`,
-                    maxWidth: `${CHARACTER_STAGE_MAX_WIDTH_PERCENT}%`,
+                    ...getCharacterStageBounds(config),
                     zIndex: clampCharacterLayer(config.layer),
                     opacity: animationActive && motion.type === 'fade' ? 0 : 1,
                     transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
                     animation: inlineActionAnimation(inlineAction),
                     ...inlineActionCssVars(inlineAction),
-                    transformOrigin: 'center center',
+                    transformOrigin: 'bottom center',
                     transitionProperty: 'opacity, transform',
                     transitionDuration: inlineAction
                       ? `${inlineDuration}ms`

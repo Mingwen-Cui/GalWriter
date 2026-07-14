@@ -16,7 +16,6 @@ import {
   Settings,
   Sparkles,
   Sun,
-  Timer,
   Type,
   Video,
   X,
@@ -48,7 +47,7 @@ import {
 import {
   clampCharacterLayer,
   getCharacterEnterDelay,
-  getCharacterStagePosition,
+  getCharacterStageBounds,
   getPresentationExitDuration,
   getPresentationTransform,
   getSceneExitDelay,
@@ -56,8 +55,8 @@ import {
 } from '../lib/presentation';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
-import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
+import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import { getSceneBackgroundStyle, getSceneGroupStyle, mergeSceneMediaStyle } from './render/canvas/sceneCanvasStyle';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
@@ -209,7 +208,7 @@ export function PlayTestModal({
   edges,
   onClose,
   language,
-  onLanguageChange,
+  onLanguageChange: _onLanguageChange,
   isDarkMode,
   setIsDarkMode,
   choicesColumns,
@@ -220,11 +219,11 @@ export function PlayTestModal({
   setLayoutMode,
 
   interactionMode,
-  setInteractionMode,
+  setInteractionMode: _setInteractionMode,
   typewriterSpeed,
-  setTypewriterSpeed,
+  setTypewriterSpeed: _setTypewriterSpeed,
   choiceDelay,
-  setChoiceDelay,
+  setChoiceDelay: _setChoiceDelay,
 
   choicesPosition,
   setChoicesPosition,
@@ -237,11 +236,11 @@ export function PlayTestModal({
   autoAdvance,
   setAutoAdvance,
   autoAdvanceDelay,
-  setAutoAdvanceDelay,
+  setAutoAdvanceDelay: _setAutoAdvanceDelay,
   hideCharacterTags,
-  setHideCharacterTags,
+  setHideCharacterTags: _setHideCharacterTags,
   hideSceneTags,
-  setHideSceneTags,
+  setHideSceneTags: _setHideSceneTags,
   canvasSettings,
   onCanvasSettingsChange,
   renderStyle,
@@ -1604,15 +1603,15 @@ export function PlayTestModal({
             alt={data.characterName}
             draggable={false}
             onDragStart={(event) => event.preventDefault()}
-            className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
+            className="preview-media-safe absolute w-auto object-contain object-bottom"
             style={{
-              ...getCharacterStagePosition(config),
+              ...getCharacterStageBounds(config),
               zIndex: clampCharacterLayer(config.layer),
               opacity: animationActive && motion.type === 'fade' ? 0 : 1,
               transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
               animation: inlineActionAnimation(inlineAction),
               ...inlineActionCssVars(inlineAction),
-              transformOrigin: 'center center',
+              transformOrigin: 'bottom center',
               transitionProperty: 'opacity, transform',
               transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
               transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
@@ -2814,7 +2813,7 @@ function PlaytestSegmentedGroup({
   );
 }
 
-function PlaytestToggleButton({
+function _PlaytestToggleButton({
   active,
   icon,
   label,
@@ -2915,7 +2914,7 @@ function SingleChoicePopupGlyph() {
   );
 }
 
-function CharacterTagGlyph() {
+function _CharacterTagGlyph() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -2934,7 +2933,7 @@ function CharacterTagGlyph() {
   );
 }
 
-function SceneTagGlyph() {
+function _SceneTagGlyph() {
   return (
     <svg
       viewBox="0 0 24 24"

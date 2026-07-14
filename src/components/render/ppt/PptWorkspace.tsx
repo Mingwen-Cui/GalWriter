@@ -21,43 +21,26 @@ import {
 } from 'lucide-react';
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 
-import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
-import { getPptCopy, type PptCopy } from './i18n';
-import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
-import { VirtualPresentationStage } from '../../VirtualPresentationStage';
-import {
-  DEFAULT_PPT_TRANSITION,
-  PPT_CONTENT_HEIGHT,
-  PPT_CONTENT_WIDTH,
-  pptCanvasViewportClass,
-  type PptCanvasLayout,
-  type PptSelection,
-  type PptSlideItem,
-  type PptWorkspaceSidebarTab,
-  type PptWorkspaceViewMode,
-} from './pptWorkspaceModel';
-import {
-  WebEditableElementFrame,
-  type WebEditableResizeHandle,
-} from '../web/WebEditableElementFrame';
-import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
-import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
-import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
-import {
-  CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
-  CHARACTER_STAGE_MAX_WIDTH_PERCENT,
-  getCharacterStagePosition,
-} from '../../../lib/presentation';
 import type { Language } from '../../../lib/i18n';
+import {
+  getCharacterStageBounds,
+} from '../../../lib/presentation';
+import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
+import {
+  resolvePresentationDialogueLayout,
+  resolvePresentationTextScale,
+} from '../video/shared/presentationLayout';
+import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
 import type {
   PptAnimationDirection,
   PptAnimationEffect,
@@ -73,6 +56,24 @@ import type {
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import {
+  WebEditableElementFrame,
+  type WebEditableResizeHandle,
+} from '../web/WebEditableElementFrame';
+import { getPptCopy, type PptCopy } from './i18n';
+import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
+import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
+import {
+  DEFAULT_PPT_TRANSITION,
+  PPT_CONTENT_HEIGHT,
+  PPT_CONTENT_WIDTH,
+  type PptCanvasLayout,
+  pptCanvasViewportClass,
+  type PptSelection,
+  type PptSlideItem,
+  type PptWorkspaceSidebarTab,
+  type PptWorkspaceViewMode,
+} from './pptWorkspaceModel';
 
 type ViewMode = PptWorkspaceViewMode;
 type SidebarTab = PptWorkspaceSidebarTab;
@@ -1231,7 +1232,7 @@ function CoverPreview({
 function ScenePreview({
   scene,
   renderStyle,
-  colors,
+  colors: _colors,
   selected,
   animations,
   previewing,
@@ -1255,8 +1256,9 @@ function ScenePreview({
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
   const hasTitle = title.visible && Boolean(scene.title.trim());
-  const titlePaint = textPaint(title);
-  const bodyPaint = textPaint(body);
+  // Match the web preview's logical 720px-canvas text sizing on the 1080px stage.
+  const titlePaint = textPaint(title, true);
+  const bodyPaint = textPaint(body, true);
   const panelStyle = objectPaint(panel);
   const panelLayout = resolvePresentationDialogueLayout(1920, 1080, renderStyle);
   const panelCss = {
@@ -1308,10 +1310,8 @@ function ScenePreview({
             previewing={previewing}
             onSelect={onSelect}
             style={{
-              ...getCharacterStagePosition(character),
-              height: `${CHARACTER_STAGE_MAX_HEIGHT_PERCENT}%`,
-              maxWidth: `${CHARACTER_STAGE_MAX_WIDTH_PERCENT}%`,
-              transform: `translateX(-50%) scaleX(${character.flipX ? -1 : 1}) scale(${character.scale || 1})`,
+              ...getCharacterStageBounds(character),
+              transform: `translate(-50%, 0) scale(${character.scale || 1}) scaleX(${character.flipX ? -1 : 1})`,
               transformOrigin: 'bottom center',
               zIndex: 10 + (character.layer || 1),
             }}
@@ -1450,9 +1450,12 @@ const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({
   transformOrigin: 'center',
   boxSizing: 'border-box',
 });
-const textPaint = (object: RenderEditableObject): React.CSSProperties => {
+const textPaint = (object: RenderEditableObject, scaleForPresentation = false): React.CSSProperties => {
   const text = object as import('../video/shared/types').RenderEditableTextObject;
   const gradient = text.fill.type === 'gradient' || text.fill.type === 'image';
+  const presentationTextScale = scaleForPresentation
+    ? resolvePresentationTextScale(PPT_CONTENT_HEIGHT)
+    : 1;
   return {
     color: gradient ? 'transparent' : alphaColor(text.fill.color, text.fill.alpha),
     backgroundImage: gradient ? fillPaint(text) : undefined,
@@ -1462,9 +1465,9 @@ const textPaint = (object: RenderEditableObject): React.CSSProperties => {
       ? `${text.stroke.width}px ${text.stroke.color}`
       : undefined,
     fontFamily: text.fontFamily,
-    fontSize: text.fontSize,
+    fontSize: text.fontSize * presentationTextScale,
     fontWeight: text.fontWeight,
-    letterSpacing: text.letterSpacing,
+    letterSpacing: text.letterSpacing * presentationTextScale,
     lineHeight: text.lineHeight,
     textAlign: text.textAlign,
     textDecoration:
@@ -1630,7 +1633,7 @@ function PptEditableObject({
 
 function ChoicePreview({
   scene,
-  colors,
+  colors: _colors,
   onChoose,
 }: {
   scene: Scene;
@@ -1771,8 +1774,8 @@ function PptSidebar({
   updateRenderStyle,
   activeTab,
   setActiveTab,
-  selected,
-  animation,
+  selected: _selected,
+  animation: _animation,
   animations,
   pptSettings,
   updatePptSettings,
@@ -1780,7 +1783,7 @@ function PptSidebar({
   onMove,
   onDelete,
   onPreview,
-  onUpdate,
+  onUpdate: _onUpdate,
 }: {
   language: Language;
   renderStyle: RenderStyle;
@@ -2008,7 +2011,7 @@ function AnimationTimeline({
     </>
   );
 }
-function ObjectProperties({
+function _ObjectProperties({
   selected,
   animation,
   onUpdate,

@@ -42,7 +42,6 @@ import {
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useDialog } from '../editor-shell/DialogProvider';
 import type {
   CharacterNodeData,
   CharacterPresentation,
@@ -57,27 +56,8 @@ import type {
   StoryFlowNode,
   StoryNodeData,
 } from '../domain/project';
+import { useDialog } from '../editor-shell/DialogProvider';
 import { Language, translations } from '../lib/i18n';
-import {
-  clampCharacterLayer,
-  copyCharacterPresentationSettings,
-  copyScenePresentationSettings,
-  createCharacterPresentation,
-  createInlinePresentationAction,
-  createScenePresentation,
-  getCharacterStagePosition,
-  getPresentationTransform,
-  hasCharacterPresentationClipboard,
-  hasScenePresentationClipboard,
-  normalizeStoryPresentation,
-  pasteCharacterPresentationSettings,
-  pasteScenePresentationSettings,
-} from '../lib/presentation';
-import {
-  inlineActionAnimation,
-  inlineActionCssVars,
-  inlineActionTransform,
-} from '../lib/inlinePresentationPlayback';
 import {
   characterSwitchOptions,
   getInlineSwitchAction,
@@ -85,10 +65,30 @@ import {
   resolveSceneMedia,
   sceneSwitchOptions,
 } from '../lib/inlineAssetSwitch';
-import { NumberInput } from './NumberInput';
-import { DurationInput } from './DurationInput';
+import {
+  inlineActionAnimation,
+  inlineActionCssVars,
+  inlineActionTransform,
+} from '../lib/inlinePresentationPlayback';
+import {
+  clampCharacterLayer,
+  copyCharacterPresentationSettings,
+  copyScenePresentationSettings,
+  createCharacterPresentation,
+  createInlinePresentationAction,
+  createScenePresentation,
+  getCharacterStageBounds,
+  getPresentationTransform,
+  hasCharacterPresentationClipboard,
+  hasScenePresentationClipboard,
+  normalizeStoryPresentation,
+  pasteCharacterPresentationSettings,
+  pasteScenePresentationSettings,
+} from '../lib/presentation';
 import { DraggableNumberInput } from './DraggableNumberInput';
+import { DurationInput } from './DurationInput';
 import { InlineActionEditor } from './InlineActionEditor';
+import { NumberInput } from './NumberInput';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 import { ZenSelect } from './zen-editor/ZenSelect';
@@ -394,7 +394,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     sourceNodeId: string;
     value: CharacterPresentation | ScenePresentation;
   } | null>(null);
-  const suppressedCharacterTagSourceIdsRef = useRef<Set<string>>(new Set());
+  const _suppressedCharacterTagSourceIdsRef = useRef<Set<string>>(new Set());
   const suppressedSceneTagSourceIdRef = useRef<string | null>(null);
   const [, setPresentationClipboardVersion] = useState(0);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -2584,9 +2584,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
                       src={previewImageUrl}
                       alt={name}
-                      className="absolute max-h-[92%] max-w-[72%] object-contain object-bottom"
+                      className="absolute w-auto object-contain object-bottom"
                       style={{
-                        ...getCharacterStagePosition(config),
+                        ...getCharacterStageBounds(config),
                         zIndex: clampCharacterLayer(config.layer),
                         opacity: animated && motion.type === 'fade' ? 0 : 1,
                         transform: `translate(-50%, 0) ${
@@ -2595,7 +2595,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           'character',
                           config.sourceNodeId,
                         )}`,
-                        transformOrigin: 'center center',
+                        transformOrigin: 'bottom center',
                         transition:
                           previewMatches && motion.type !== 'none' && motion.duration > 0
                             ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
