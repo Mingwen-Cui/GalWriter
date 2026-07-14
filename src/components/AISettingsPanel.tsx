@@ -46,6 +46,7 @@ import {
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
 import { Language, translations } from '../lib/i18n';
+import { aiSettingsCopy } from './i18n/ai-settings';
 import {
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
@@ -57,11 +58,7 @@ import {
 import { isTauriRuntime } from '../lib/tauriRuntime';
 
 type ProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
-type ProfileDraft =
-  | TextAIProfile
-  | ImageAIProfile
-  | BackgroundRemovalAIProfile
-  | VoiceAIProfile;
+type ProfileDraft = TextAIProfile | ImageAIProfile | BackgroundRemovalAIProfile | VoiceAIProfile;
 type ProfileUpdates =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
@@ -96,15 +93,15 @@ type EditorState = {
 };
 type DeleteState =
   | {
-    mode: 'draft';
-    name: string;
-  }
+      mode: 'draft';
+      name: string;
+    }
   | {
-    mode: 'saved';
-    kind: ProfileKind;
-    profileId: string;
-    name: string;
-  };
+      mode: 'saved';
+      kind: ProfileKind;
+      profileId: string;
+      name: string;
+    };
 type HostedQuotaType = 'chat' | 'image' | 'background-removal' | 'voice';
 type HostedQuotaInfo = {
   used: number;
@@ -163,18 +160,18 @@ function FloatingHint({
       {label}
       {position
         ? createPortal(
-          <span
-            className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
-            style={{
-              left: position.left,
-              top: position.top,
-              transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
-            }}
-          >
-            {description}
-          </span>,
-          document.body,
-        )
+            <span
+              className="pointer-events-none fixed z-[2000] w-64 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-xs font-medium leading-relaxed text-[var(--text-secondary)] shadow-xl"
+              style={{
+                left: position.left,
+                top: position.top,
+                transform: position.placement === 'above' ? 'translateY(-100%)' : undefined,
+              }}
+            >
+              {description}
+            </span>,
+            document.body,
+          )
         : null}
     </span>
   );
@@ -625,12 +622,8 @@ const IMAGE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
 
 const BACKGROUND_REMOVAL_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
   custom: [{ value: '', label: 'Custom endpoint' }],
-  aliyun: [
-    { value: ALIYUN_IMAGESEG_API_URL, label: ALIYUN_IMAGESEG_API_URL },
-  ],
-  volcengine: [
-    { value: VOLCENGINE_IMAGEX_API_URL, label: VOLCENGINE_IMAGEX_API_URL },
-  ],
+  aliyun: [{ value: ALIYUN_IMAGESEG_API_URL, label: ALIYUN_IMAGESEG_API_URL }],
+  volcengine: [{ value: VOLCENGINE_IMAGEX_API_URL, label: VOLCENGINE_IMAGEX_API_URL }],
 };
 
 const VOICE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
@@ -738,32 +731,31 @@ const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
     ? 'image'
     : kind === 'background-removal'
       ? 'background-removal'
-    : kind === 'voice'
-      ? 'voice'
-      : 'chat';
+      : kind === 'voice'
+        ? 'voice'
+        : 'chat';
 
 const normalizeHostedUsage = (data: unknown): HostedProxyUsage => {
   const source = (data as { usage?: unknown })?.usage;
   if (!source || typeof source !== 'object') return {};
-  return (['chat', 'image', 'background-removal', 'voice'] as HostedQuotaType[]).reduce<HostedProxyUsage>(
-    (result, type) => {
-      const item = (source as Record<string, unknown>)[type];
-      if (!item || typeof item !== 'object') return result;
-      const record = item as Record<string, unknown>;
-      const used = Number(record.used);
-      const limit = Number(record.limit);
-      const remaining = record.remaining === null ? null : Number(record.remaining);
-      if (Number.isFinite(used) && Number.isFinite(limit)) {
-        result[type] = {
-          used: Math.max(0, used),
-          limit: Math.max(0, limit),
-          remaining: Number.isFinite(remaining) ? Math.max(0, remaining) : null,
-        };
-      }
-      return result;
-    },
-    {},
-  );
+  return (
+    ['chat', 'image', 'background-removal', 'voice'] as HostedQuotaType[]
+  ).reduce<HostedProxyUsage>((result, type) => {
+    const item = (source as Record<string, unknown>)[type];
+    if (!item || typeof item !== 'object') return result;
+    const record = item as Record<string, unknown>;
+    const used = Number(record.used);
+    const limit = Number(record.limit);
+    const remaining = record.remaining === null ? null : Number(record.remaining);
+    if (Number.isFinite(used) && Number.isFinite(limit)) {
+      result[type] = {
+        used: Math.max(0, used),
+        limit: Math.max(0, limit),
+        remaining: Number.isFinite(remaining) ? Math.max(0, remaining) : null,
+      };
+    }
+    return result;
+  }, {});
 };
 
 const isLikelyUrlProfileName = (name: string) => /^https?:\/\//i.test(name.trim());
@@ -888,16 +880,16 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     const sdDefaults =
       provider === LOCAL_STABLE_DIFFUSION_PROVIDER
         ? {
-          negativePrompt: draft.negativePrompt ?? '',
-          steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
-          cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
-          sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
-          seed: draft.seed ?? -1,
-          restoreFaces: draft.restoreFaces ?? false,
-          enableHr: draft.enableHr ?? false,
-          hrScale: draft.hrScale ?? 2,
-          denoisingStrength: draft.denoisingStrength ?? 0.7,
-        }
+            negativePrompt: draft.negativePrompt ?? '',
+            steps: draft.steps ?? DEFAULT_STABLE_DIFFUSION_STEPS,
+            cfgScale: draft.cfgScale ?? DEFAULT_STABLE_DIFFUSION_CFG_SCALE,
+            sampler: draft.sampler ?? DEFAULT_STABLE_DIFFUSION_SAMPLER,
+            seed: draft.seed ?? -1,
+            restoreFaces: draft.restoreFaces ?? false,
+            enableHr: draft.enableHr ?? false,
+            hrScale: draft.hrScale ?? 2,
+            denoisingStrength: draft.denoisingStrength ?? 0.7,
+          }
         : {};
     return {
       ...draft,
@@ -928,10 +920,11 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
 };
 
 const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
+  const ai = aiSettingsCopy(language);
   if (kind === 'text') {
     return {
-      title: language === 'zh' ? '文本 AI' : 'Text AI',
-      subtitle: language === 'zh' ? '续写、润色、助手对话' : 'Writing, polishing, assistant chat',
+      title: ai.text1,
+      subtitle: ai.text2,
       icon: BrainCircuit,
       accent:
         'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-300',
@@ -940,9 +933,8 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
   }
   if (kind === 'image') {
     return {
-      title: language === 'zh' ? '图片 AI' : 'Image AI',
-      subtitle:
-        language === 'zh' ? '角色、场景、背景生成' : 'Character, scene, background generation',
+      title: ai.text3,
+      subtitle: ai.text4,
       icon: ImageIcon,
       accent:
         'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300',
@@ -951,18 +943,8 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
   }
   if (kind === 'background-removal') {
     return {
-      title:
-        language === 'zh'
-          ? '去背景 AI'
-          : language === 'ja'
-            ? '背景除去 AI'
-            : 'Background Removal AI',
-      subtitle:
-        language === 'zh'
-          ? '人物卡片透明背景、生成图片后去背景'
-          : language === 'ja'
-            ? 'キャラクター画像の透過背景処理'
-            : 'Transparent background processing for character images',
+      title: ai.text5,
+      subtitle: ai.text6,
       icon: Eraser,
       accent:
         'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/30 dark:text-fuchsia-300',
@@ -970,8 +952,8 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
     };
   }
   return {
-    title: language === 'zh' ? '语音 AI' : 'Voice AI',
-    subtitle: language === 'zh' ? '朗读、配音、语音合成' : 'Reading, dubbing, speech generation',
+    title: ai.text7,
+    subtitle: ai.text8,
     icon: Volume2,
     accent:
       'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30 dark:text-sky-300',
@@ -1036,6 +1018,7 @@ export function AISettingsPanel({
   assistantOptionsSlot,
 }: AISettingsPanelProps) {
   const t = translations[language];
+  const ai = aiSettingsCopy(language);
   const [editorState, setEditorState] = React.useState<EditorState | null>(null);
   const [deleteState, setDeleteState] = React.useState<DeleteState | null>(null);
   const [imageTemplateImportStatus, setImageTemplateImportStatus] = React.useState<
@@ -1154,14 +1137,16 @@ export function AISettingsPanel({
     },
   ];
   const optionButtonClass = (active: boolean) =>
-    `group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-all ${active
-      ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+    `group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-all ${
+      active
+        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
     }`;
   const optionIconClass = (active: boolean) =>
-    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${active
-      ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
-      : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
+    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+      active
+        ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]'
+        : 'border-[var(--card-border)] text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
     }`;
   const renderInfoHint = (label: React.ReactNode, description: string, className = '') => (
     <FloatingHint label={label} description={description} className={className} />
@@ -1175,17 +1160,17 @@ export function AISettingsPanel({
     const labelMap: Record<ProfileKind, string> =
       language === 'zh'
         ? {
-          text: 'AI 对话',
-          image: '图片',
-          'background-removal': '去背景',
-          voice: '语音',
-        }
+            text: 'AI 对话',
+            image: '图片',
+            'background-removal': '去背景',
+            voice: '语音',
+          }
         : {
-          text: 'AI chat',
-          image: 'image',
-          'background-removal': 'background removal',
-          voice: 'voice',
-        };
+            text: 'AI chat',
+            image: 'image',
+            'background-removal': 'background removal',
+            voice: 'voice',
+          };
     const label = labelMap[kind];
     if (language === 'zh') {
       return `今日已使用 ${quota.used}/${quota.limit} 次${label}额度。`;
@@ -1382,9 +1367,7 @@ export function AISettingsPanel({
                 {option.value}
               </option>
             ))}
-            <option value={CUSTOM_API_URL_VALUE}>
-              {language === 'zh' ? '自定义 URL' : 'Custom URL'}
-            </option>
+            <option value={CUSTOM_API_URL_VALUE}>{ai.text9}</option>
           </select>
         )}
         {showCustomInput && (
@@ -1427,7 +1410,8 @@ export function AISettingsPanel({
     const isHostedVoice = draft.kind === 'voice' && draft.provider === 'hosted-voice';
     const showModelSelect =
       draft.kind === 'background-removal' ||
-      (draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao'));
+      draft.kind !== 'voice' ||
+      (draft.provider !== 'system' && draft.provider !== 'youdao');
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -1443,9 +1427,9 @@ export function AISettingsPanel({
             >
               <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]" />
               <span className="shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]">
-                {language === 'zh' ? '返回' : 'Back'}
+                {ai.text10}
               </span>
-              {language === 'zh' ? '返回已保存配置' : 'Back to saved profiles'}
+              {ai.text11}
             </button>
             <div className="flex items-center gap-3">
               <div
@@ -1463,11 +1447,7 @@ export function AISettingsPanel({
                       ? `编辑${meta.title}配置`
                       : `Edit ${meta.title} profile`}
                 </h3>
-                <p className="mt-1 text-sm font-medium text-[var(--text-muted)]">
-                  {language === 'zh'
-                    ? '保存后才会真正写入本地，不会自动覆盖已有配置。'
-                    : 'Nothing is written until you press save.'}
-                </p>
+                <p className="mt-1 text-sm font-medium text-[var(--text-muted)]">{ai.text12}</p>
               </div>
             </div>
           </div>
@@ -1476,7 +1456,7 @@ export function AISettingsPanel({
         <div className="rounded-[28px] border border-[var(--card-border)] bg-[var(--card-bg)]/90 p-6 shadow-sm">
           <div className="space-y-5">
             <div className="space-y-2">
-              {renderFieldLabel(language === 'zh' ? '配置名称' : 'Profile Name')}
+              {renderFieldLabel(ai.text13)}
               <input
                 type="text"
                 name={`ai-${draft.kind}-profile-name`}
@@ -1484,18 +1464,14 @@ export function AISettingsPanel({
                 spellCheck={false}
                 value={draft.name}
                 onChange={(e) => updateDraft({ name: e.target.value })}
-                placeholder={
-                  language === 'zh'
-                    ? '例如：我的主力文本模型'
-                    : 'For example: My main writing model'
-                }
+                placeholder={ai.text14}
                 className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
               />
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
               <div className={showModelSelect ? 'space-y-2' : 'space-y-2 md:col-span-2'}>
-                {renderFieldLabel(language === 'zh' ? '服务商' : 'Provider')}
+                {renderFieldLabel(ai.text15)}
                 <select
                   value={draft.provider}
                   onChange={(e) => {
@@ -1527,11 +1503,11 @@ export function AISettingsPanel({
                         : 'Backend AI Provider'
                       : draft.kind === 'background-removal' && draft.provider === 'aliyun'
                         ? 'Model'
-                      : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
-                        ? 'Resource ID'
-                      : language === 'zh'
-                        ? '模型'
-                        : 'Model',
+                        : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
+                          ? 'Resource ID'
+                          : language === 'zh'
+                            ? '模型'
+                            : 'Model',
                   )}
                   <select
                     value={currentModelSelectValue}
@@ -1551,11 +1527,7 @@ export function AISettingsPanel({
                         {option.label}
                       </option>
                     ))}
-                    {!isHosted && (
-                      <option value={CUSTOM_MODEL_VALUE}>
-                        {language === 'zh' ? '自定义模型' : 'Custom model'}
-                      </option>
-                    )}
+                    {!isHosted && <option value={CUSTOM_MODEL_VALUE}>{ai.text16}</option>}
                   </select>
                   {currentModelSelectValue === CUSTOM_MODEL_VALUE && (
                     <input
@@ -1586,7 +1558,7 @@ export function AISettingsPanel({
                   {isHosted ? (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
                       <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">
-                        ✅ {language === 'zh' ? '无需填写 API Key' : 'No API Key required'}
+                        ✅ {ai.text17}
                       </p>
                       <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         {language === 'zh'
@@ -1652,14 +1624,16 @@ export function AISettingsPanel({
                   <button
                     type="button"
                     onClick={() => updateDraft({ thinkingMode: !draft.thinkingMode })}
-                    className={`relative h-7 w-14 rounded-full transition-all ${draft.thinkingMode
+                    className={`relative h-7 w-14 rounded-full transition-all ${
+                      draft.thinkingMode
                         ? 'bg-[var(--accent)]'
                         : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                      }`}
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${draft.thinkingMode ? 'left-8' : 'left-1'
-                        }`}
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                        draft.thinkingMode ? 'left-8' : 'left-1'
+                      }`}
                     />
                   </button>
                 </div>
@@ -1671,13 +1645,9 @@ export function AISettingsPanel({
                 <div className="grid gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm font-black text-[var(--text-primary)]">
-                        {language === 'zh' ? '从剪贴板导入模板' : 'Import template from clipboard'}
-                      </p>
+                      <p className="text-sm font-black text-[var(--text-primary)]">{ai.text18}</p>
                       <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                        {language === 'zh'
-                          ? '支持把 curl、JSON 或官方示例直接粘进来自动识别 URL、Key、Model、尺寸。'
-                          : 'Paste curl, JSON, or sample snippets and auto-fill URL, key, model, and size.'}
+                        {ai.text19}
                       </p>
                     </div>
                     <button
@@ -1685,15 +1655,16 @@ export function AISettingsPanel({
                       onClick={importImageTemplateFromClipboard}
                       className="rounded-2xl bg-[var(--accent)] px-4 py-3 text-xs font-black text-white transition-all hover:shadow-lg active:scale-95"
                     >
-                      {language === 'zh' ? '导入模板' : 'Import'}
+                      {ai.text20}
                     </button>
                   </div>
                   {imageTemplateImportStatus !== 'idle' && (
                     <p
-                      className={`text-xs font-bold ${imageTemplateImportStatus === 'success'
+                      className={`text-xs font-bold ${
+                        imageTemplateImportStatus === 'success'
                           ? 'text-emerald-500'
                           : 'text-amber-500'
-                        }`}
+                      }`}
                     >
                       {imageTemplateImportStatus === 'success'
                         ? language === 'zh'
@@ -1731,7 +1702,7 @@ export function AISettingsPanel({
                   </div>
 
                   <div className="space-y-2">
-                    {renderFieldLabel(language === 'zh' ? '尺寸' : 'Size')}
+                    {renderFieldLabel(ai.text21)}
                     <select
                       value={draft.size}
                       onChange={(e) => updateDraft({ size: e.target.value })}
@@ -1753,15 +1724,13 @@ export function AISettingsPanel({
                         Stable Diffusion WebUI 参数
                       </p>
                       <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                        {language === 'zh'
-                          ? '需要在 AUTOMATIC1111 启动时开启 --api；API URL 填 WebUI 地址即可。'
-                          : 'Start AUTOMATIC1111 with --api, then use the WebUI address as API URL.'}
+                        {ai.text22}
                       </p>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2 md:col-span-2">
-                        {renderFieldLabel(language === 'zh' ? '负面提示词' : 'Negative Prompt')}
+                        {renderFieldLabel(ai.text23)}
                         <textarea
                           value={(draft as ImageAIProfile).negativePrompt ?? ''}
                           onChange={(e) => updateDraft({ negativePrompt: e.target.value })}
@@ -1885,146 +1854,124 @@ export function AISettingsPanel({
             {draft.kind === 'background-removal' && (
               <>
                 <div className="grid gap-5 md:grid-cols-2">
-                    {draft.provider === 'aliyun' && (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
-                        <p className="text-sm font-black">
-                          {language === 'zh' ? '阿里云视觉智能分割抠图填写方法' : 'Alibaba Cloud ImageSeg setup'}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <a
-                            href={ALIYUN_IMAGESEG_HELP_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? '打开分割抠图文档' : 'Open ImageSeg docs'}
-                          </a>
-                          <a
-                            href={ALIYUN_IMAGESEG_OPEN_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? '开通分割抠图' : 'Enable ImageSeg'}
-                          </a>
-                          <a
-                            href={ALIYUN_ACCESS_KEY_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? 'AccessKey 管理' : 'AccessKey console'}
-                          </a>
-                        </div>
-                        <p>
-                          {language === 'zh'
-                            ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
-                            : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
-                            : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? '3. API Key：填 AccessKeyId:AccessKeySecret，中间用英文冒号。'
-                            : '3. API Key: enter AccessKeyId:AccessKeySecret with a colon.'}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? '4. 注意：图片必须是公网 HTTP/HTTPS URL；本地 blob/base64 图片需要先上传。接口返回 4 通道透明图 URL。'
-                            : '4. Note: Alibaba Cloud requires a public image URL. Local blob/base64 images must be uploaded first.'}
-                        </p>
+                  {draft.provider === 'aliyun' && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
+                      <p className="text-sm font-black">{ai.text24}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <a
+                          href={ALIYUN_IMAGESEG_HELP_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text25}
+                        </a>
+                        <a
+                          href={ALIYUN_IMAGESEG_OPEN_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text26}
+                        </a>
+                        <a
+                          href={ALIYUN_ACCESS_KEY_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text27}
+                        </a>
                       </div>
-                    )}
-                    {draft.provider === 'volcengine' && (
-                      <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
-                        <p className="text-sm font-black">
-                          {language === 'zh' ? '火山 veImageX 智能背景移除填写方法' : 'Volcengine veImageX background removal setup'}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <a
-                            href={VOLCENGINE_IMAGEX_HELP_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? '打开火山文档' : 'Open Volcengine docs'}
-                          </a>
-                          <a
-                            href={VOLCENGINE_IMAGEX_SERVICE_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? '服务管理 / ServiceId' : 'Service management'}
-                          </a>
-                          <a
-                            href={VOLCENGINE_ACCESS_KEY_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {language === 'zh' ? 'AccessKey 管理' : 'AccessKey console'}
-                          </a>
-                        </div>
-                        <p>
-                          {language === 'zh'
-                            ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
-                            : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? `2. API Key：填 AccessKeyId:SecretAccessKey，中间用英文冒号。`
-                            : '2. API Key: enter AccessKeyId:SecretAccessKey with a colon.'}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
-                            : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? '4. 注意：需开通 veImageX 服务和智能处理计费；输入图片必须是公网 URL。'
-                            : '4. Note: veImageX and smart processing billing must be enabled; the source image must be a public URL.'}
-                        </p>
-                      </div>
-                    )}
-                    {renderApiUrlField({
-                      draft,
-                      name: 'ai-background-removal-api-url',
-                      label: 'API URL',
-                      placeholder: 'api/proxy.php',
-                      className: 'md:col-span-2',
-                    })}
-                    <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel(
-                        draft.provider === 'aliyun' || draft.provider === 'volcengine'
-                          ? 'API Key (AccessKeyId:AccessKeySecret)'
-                          : 'API Key',
-                      )}
-                      <input
-                        type="password"
-                        name="ai-background-removal-api-key"
-                        autoComplete="new-password"
-                        value={draft.apiKey}
-                        onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                      <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                      <p>
                         {language === 'zh'
-                          ? '这里专门用于人物卡片“处理为透明背景”和图片生成后的自动去背景，不再和图片生成 API 共用。'
-                          : 'Used only for transparent background processing, separate from Image AI generation.'}
+                          ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
+                          : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
                       </p>
+                      <p>
+                        {language === 'zh'
+                          ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
+                          : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
+                      </p>
+                      <p>{ai.text28}</p>
+                      <p>{ai.text29}</p>
                     </div>
+                  )}
+                  {draft.provider === 'volcengine' && (
+                    <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
+                      <p className="text-sm font-black">{ai.text30}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <a
+                          href={VOLCENGINE_IMAGEX_HELP_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text31}
+                        </a>
+                        <a
+                          href={VOLCENGINE_IMAGEX_SERVICE_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text32}
+                        </a>
+                        <a
+                          href={VOLCENGINE_ACCESS_KEY_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          {ai.text33}
+                        </a>
+                      </div>
+                      <p>
+                        {language === 'zh'
+                          ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
+                          : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
+                      </p>
+                      <p>{ai.text34}</p>
+                      <p>
+                        {language === 'zh'
+                          ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
+                          : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
+                      </p>
+                      <p>{ai.text35}</p>
+                    </div>
+                  )}
+                  {renderApiUrlField({
+                    draft,
+                    name: 'ai-background-removal-api-url',
+                    label: 'API URL',
+                    placeholder: 'api/proxy.php',
+                    className: 'md:col-span-2',
+                  })}
+                  <div className="space-y-2 md:col-span-2">
+                    {renderFieldLabel(
+                      draft.provider === 'aliyun' || draft.provider === 'volcengine'
+                        ? 'API Key (AccessKeyId:AccessKeySecret)'
+                        : 'API Key',
+                    )}
+                    <input
+                      type="password"
+                      name="ai-background-removal-api-key"
+                      autoComplete="new-password"
+                      value={draft.apiKey}
+                      onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                      className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                    <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                      {ai.text36}
+                    </p>
                   </div>
+                </div>
               </>
             )}
 
@@ -2032,32 +1979,16 @@ export function AISettingsPanel({
               <>
                 {draft.provider === 'system' ? (
                   <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4">
-                    <p className="text-sm font-black text-[var(--text-primary)]">
-                      {language === 'zh'
-                        ? '系统语音'
-                        : language === 'ja'
-                          ? 'システム音声'
-                          : 'System voice'}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                      {language === 'zh'
-                        ? '系统语音使用桌面端内置朗读能力，不需要联网或填写 API Key。'
-                        : language === 'ja'
-                          ? 'システム音声はデスクトップ内蔵のスピーチエンジンを使用するため、インターネット接続やAPIキーの入力は不要です。'
-                          : 'System voice uses the app built-in speech engine and does not require an API key.'}
-                    </p>
+                    <p className="text-sm font-black text-[var(--text-primary)]">{ai.text37}</p>
+                    <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">{ai.text38}</p>
                   </div>
                 ) : (
                   <div className="grid gap-5 md:grid-cols-2">
                     {isHostedVoice ? (
                       <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--app-bg)]/45 px-4 py-4 md:col-span-2">
-                        <p className="text-sm font-black text-[var(--text-primary)]">
-                          {language === 'zh' ? '\u7f51\u7ad9\u6258\u7ba1\u8bed\u97f3' : 'Hosted voice'}
-                        </p>
+                        <p className="text-sm font-black text-[var(--text-primary)]">{ai.text39}</p>
                         <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                          {language === 'zh'
-                            ? '\u8bed\u97f3\u8bf7\u6c42\u5c06\u901a\u8fc7\u7f51\u7ad9\u670d\u52a1\u7aef\u4ee3\u7406\u8f6c\u53d1\uff0c\u7528\u6237\u65e0\u9700\u586b\u5199 API Key\u3002'
-                            : 'Voice requests are forwarded through the hosted server proxy. No user API key is required.'}
+                          {ai.text40}
                         </p>
                       </div>
                     ) : draft.provider === 'youdao' ? (
@@ -2098,9 +2029,7 @@ export function AISettingsPanel({
                           )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel(
-                            language === 'zh' ? '应用ID（App Key）' : 'Application ID (App Key)',
-                          )}
+                          {renderFieldLabel(ai.text41)}
                           <input
                             type="text"
                             name="ai-voice-app-key"
@@ -2108,9 +2037,7 @@ export function AISettingsPanel({
                             spellCheck={false}
                             value={draft.appKey}
                             onChange={(e) => updateDraft({ appKey: e.target.value })}
-                            placeholder={
-                              language === 'zh' ? '填有道后台“应用ID”' : 'Youdao application ID'
-                            }
+                            placeholder={ai.text42}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
                           {language === 'zh' && (
@@ -2120,22 +2047,14 @@ export function AISettingsPanel({
                           )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel(
-                            language === 'zh'
-                              ? '应用密钥（App Secret）'
-                              : 'Application Secret (App Secret)',
-                          )}
+                          {renderFieldLabel(ai.text43)}
                           <input
                             type="password"
                             name="ai-voice-app-secret"
                             autoComplete="new-password"
                             value={draft.apiKey}
                             onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                            placeholder={
-                              language === 'zh'
-                                ? '填有道后台“应用密钥”'
-                                : 'Youdao application secret'
-                            }
+                            placeholder={ai.text44}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
                           {language === 'zh' && (
@@ -2208,27 +2127,21 @@ export function AISettingsPanel({
                           )}
                           {language === 'zh' && (
                             <p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-200">
-                              注意：V3 WebSocket、HTTP Chunked、SSE 都是流式协议，浏览器前端不能直接把它们当普通 mp3 接口调用；需要服务端代理或桌面端原生适配。
+                              注意：V3 WebSocket、HTTP Chunked、SSE
+                              都是流式协议，浏览器前端不能直接把它们当普通 mp3
+                              接口调用；需要服务端代理或桌面端原生适配。
                             </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          {renderFieldLabel(
-                            language === 'zh'
-                              ? 'API Key'
-                              : 'API Key',
-                          )}
+                          {renderFieldLabel(ai.text45)}
                           <input
                             type="password"
                             name="ai-voice-volcengine-api-key"
                             autoComplete="new-password"
                             value={draft.apiKey}
                             onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                            placeholder={
-                              language === 'zh'
-                                ? '填火山引擎新版控制台的 API Key'
-                                : 'Volcengine API Key'
-                            }
+                            placeholder={ai.text46}
                             className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                           />
                           {language === 'zh' && (
@@ -2263,23 +2176,24 @@ export function AISettingsPanel({
 
                     {!isHostedVoice && (
                       <>
-                      {renderApiUrlField({
-                        draft,
-                        name: 'ai-voice-api-url',
-                        label:
-                          draft.provider === 'youdao' && language === 'zh'
-                            ? '接口地址（API URL）'
-                            : 'API URL',
-                        placeholder: draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined,
-                        className: 'md:col-span-2',
-                      })}
-                      <div className="md:col-span-2">
-                        {draft.provider === 'youdao' && language === 'zh' && (
-                          <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                            默认地址是有道官方语音合成接口，普通接入不用改。
-                          </p>
-                        )}
-                      </div>
+                        {renderApiUrlField({
+                          draft,
+                          name: 'ai-voice-api-url',
+                          label:
+                            draft.provider === 'youdao' && language === 'zh'
+                              ? '接口地址（API URL）'
+                              : 'API URL',
+                          placeholder:
+                            draft.provider === 'youdao' ? DEFAULT_TTS_API_URL : undefined,
+                          className: 'md:col-span-2',
+                        })}
+                        <div className="md:col-span-2">
+                          {draft.provider === 'youdao' && language === 'zh' && (
+                            <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                              默认地址是有道官方语音合成接口，普通接入不用改。
+                            </p>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
@@ -2291,7 +2205,7 @@ export function AISettingsPanel({
                       ? '音色（voiceName）'
                       : draft.provider === 'doubao' && language === 'zh'
                         ? '人物音色（voice_type）'
-                      : 'Voice',
+                        : 'Voice',
                   )}
                   <input
                     type="text"
@@ -2309,11 +2223,11 @@ export function AISettingsPanel({
                           ? language === 'zh'
                             ? '例如：zh_female_vv_uranus_bigtts，填写官方音色表里的 voice_type'
                             : 'For example: zh_female_vv_uranus_bigtts'
-                        : language === 'zh'
-                          ? '例如：alloy / youxiaoqin'
-                          : language === 'ja'
-                            ? '例：alloy / youxiaoqin'
-                            : 'For example: alloy / youxiaoqin'
+                          : language === 'zh'
+                            ? '例如：alloy / youxiaoqin'
+                            : language === 'ja'
+                              ? '例：alloy / youxiaoqin'
+                              : 'For example: alloy / youxiaoqin'
                     }
                     className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
                   />
@@ -2333,7 +2247,8 @@ export function AISettingsPanel({
                   )}
                   {draft.provider === 'doubao' && language === 'zh' && (
                     <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                      这里填人物音色的 voice_type，比如 zh_female_vv_uranus_bigtts。需要换声音时，打开
+                      这里填人物音色的 voice_type，比如
+                      zh_female_vv_uranus_bigtts。需要换声音时，打开
                       <a
                         href={VOLCENGINE_VOICE_HELP_URL}
                         target="_blank"
@@ -2356,7 +2271,7 @@ export function AISettingsPanel({
               onClick={handleSaveProfile}
               className="rounded-2xl bg-slate-900 px-5 py-3.5 text-sm font-black text-white transition-all hover:bg-black active:scale-[0.99] dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
             >
-              {language === 'zh' ? '保存' : language === 'ja' ? '保存' : 'Save'}
+              {ai.text47}
             </button>
             <button
               type="button"
@@ -2365,25 +2280,19 @@ export function AISettingsPanel({
                   mode: editorState.mode === 'create' ? 'draft' : 'saved',
                   ...(editorState.mode === 'create'
                     ? {
-                      name:
-                        draft.name.trim() ||
-                        (language === 'zh'
-                          ? '未保存配置'
-                          : language === 'ja'
-                            ? '未保存の設定'
-                            : 'Unsaved profile'),
-                    }
+                        name: draft.name.trim() || ai.text48,
+                      }
                     : {
-                      kind: editorState.kind,
-                      profileId: editorState.profileId || '',
-                      name:
-                        draft.name.trim() || buildFallbackProfileName(editorState.kind, language),
-                    }),
+                        kind: editorState.kind,
+                        profileId: editorState.profileId || '',
+                        name:
+                          draft.name.trim() || buildFallbackProfileName(editorState.kind, language),
+                      }),
                 } as DeleteState)
               }
               className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 text-sm font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-[0.99] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
             >
-              {language === 'zh' ? '删除' : language === 'ja' ? '削除' : 'Delete'}
+              {ai.text49}
             </button>
           </div>
         </div>
@@ -2401,13 +2310,7 @@ export function AISettingsPanel({
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div>
-                    <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh'
-                        ? '\u0041\u0049 \u63a5\u53e3\u914d\u7f6e'
-                        : language === 'ja'
-                          ? 'AI Provider Profiles'
-                          : 'AI Provider Profiles'}
-                    </h3>
+                    <h3 className="text-base font-black text-[var(--text-primary)]">{ai.text50}</h3>
                     <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
                       {t.apiKeyLocalOnly}
                     </p>
@@ -2477,7 +2380,11 @@ export function AISettingsPanel({
                               {showMissingApiHint && (
                                 <span className="h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
                               )}
-                              <span className={'rounded px-2 py-0.5 text-[10px] font-black ' + meta.badge}>
+                              <span
+                                className={
+                                  'rounded px-2 py-0.5 text-[10px] font-black ' + meta.badge
+                                }
+                              >
                                 {profileCountLabel}
                               </span>
                             </div>
@@ -2494,7 +2401,7 @@ export function AISettingsPanel({
                               className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              {language === 'zh' ? '\u6211\u5df2\u77e5\u6653' : 'Got it'}
+                              {ai.text51}
                             </button>
                           )}
                           <button
@@ -2503,7 +2410,7 @@ export function AISettingsPanel({
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--card-border)] bg-white px-3 py-2 text-xs font-black text-slate-900 transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-95 dark:bg-slate-950 dark:text-slate-100"
                           >
                             <Plus className="h-3.5 w-3.5" />
-                            {language === 'zh' ? '\u65b0\u5efa\u914d\u7f6e' : 'New Profile'}
+                            {ai.text52}
                           </button>
                         </div>
                       </div>
@@ -2512,12 +2419,10 @@ export function AISettingsPanel({
                         {allProfiles.length === 0 ? (
                           <div className="rounded-md border border-dashed border-[var(--card-border)] bg-[var(--app-bg)]/40 px-4 py-7 text-center">
                             <p className="text-sm font-black text-[var(--text-primary)]">
-                              {language === 'zh' ? '\u8fd8\u6ca1\u6709\u4fdd\u5b58\u7684\u914d\u7f6e' : 'No saved profiles yet'}
+                              {ai.text53}
                             </p>
                             <p className="mt-2 text-xs font-medium leading-relaxed text-[var(--text-muted)]">
-                              {language === 'zh'
-                                ? '\u70b9\u51fb\u53f3\u4e0a\u89d2\u65b0\u5efa\uff0c\u5148\u586b\u5199\u914d\u7f6e\uff0c\u518d\u6309\u4fdd\u5b58\u3002'
-                                : 'Create one from the top-right button, then save it.'}
+                              {ai.text54}
                             </p>
                           </div>
                         ) : (
@@ -2530,8 +2435,9 @@ export function AISettingsPanel({
                                 profile.id === HOSTED_VOICE_PROXY_PROFILE_ID;
                               const profileSummary = isReadOnly
                                 ? formatHostedSummary(section.kind)
-                                : (profile.provider || 'custom').toUpperCase() + ' / ' +
-                                (profile.model || (language === 'zh' ? '\u672a\u6307\u5b9a\u6a21\u578b' : 'No model selected'));
+                                : (profile.provider || 'custom').toUpperCase() +
+                                  ' / ' +
+                                  (profile.model || ai.text55);
                               return (
                                 <button
                                   key={profile.id}
@@ -2571,13 +2477,13 @@ export function AISettingsPanel({
                                     <div className="flex shrink-0 items-center gap-2">
                                       {isActive && (
                                         <span className="rounded bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-black text-[var(--accent)]">
-                                          {language === 'zh' ? '\u6b63\u5728\u4f7f\u7528' : 'Active'}
+                                          {ai.text56}
                                         </span>
                                       )}
                                       {isReadOnly ? (
                                         <span className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-muted)] opacity-60">
                                           <Lock className="h-3 w-3" />
-                                          {language === 'zh' ? '\u6258\u7ba1\u9501\u5b9a' : 'Locked'}
+                                          {ai.text57}
                                         </span>
                                       ) : (
                                         <span
@@ -2588,7 +2494,7 @@ export function AISettingsPanel({
                                           className="inline-flex items-center gap-1 rounded border border-[var(--card-border)] px-2.5 py-1 text-[10px] font-black text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                         >
                                           <Pencil className="h-3 w-3" />
-                                          {language === 'zh' ? '\u7f16\u8f91' : 'Edit'}
+                                          {ai.text58}
                                         </span>
                                       )}
                                     </div>
@@ -2605,35 +2511,21 @@ export function AISettingsPanel({
               </div>
             </section>
 
-
-
             <section className="space-y-4 border-t border-[var(--header-border)] pt-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {renderInfoHint(
                     <h3 className="text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh'
-                        ? '\u0041\u0049 \u7eed\u5199\u5f39\u7a97\u6309\u94ae'
-                        : language === 'ja'
-                          ? 'AI writing buttons'
-                          : 'AI Action Buttons'}
+                      {ai.text59}
                     </h3>,
-                    language === 'zh'
-                      ? '\u63a7\u5236 \u0041\u0049 \u7eed\u5199\u9009\u62e9\u5f39\u7a97\u4e2d\u663e\u793a\u54ea\u4e9b\u529f\u80fd\u6309\u94ae\u3002'
-                      : language === 'ja'
-                        ? 'AI writing dialog features.'
-                        : 'Control which action buttons appear in the AI writing modal.'
+                    ai.text60,
                   )}
                 </div>
                 <button
                   onClick={() => setAiButtonsConfig(defaultAIButtonsConfig)}
                   className="shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
-                  {language === 'zh'
-                    ? '\u5168\u90e8\u6062\u590d'
-                    : language === 'ja'
-                      ? 'Reset All'
-                      : 'Reset All'}
+                  {ai.text61}
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5 sm:grid-cols-2">
@@ -2642,62 +2534,32 @@ export function AISettingsPanel({
                     {
                       key: 'continue' as const,
                       Icon: PenLine,
-                      label:
-                        language === 'zh'
-                          ? '\u6839\u636e\u524d\u6587\u7eed\u5199'
-                          : language === 'ja'
-                            ? 'Continue from context'
-                            : 'Continue from context',
+                      label: ai.text62,
                     },
                     {
                       key: 'creative' as const,
                       Icon: Lightbulb,
-                      label:
-                        language === 'zh'
-                          ? '\u63d0\u4f9b\u4e0d\u540c\u521b\u610f'
-                          : language === 'ja'
-                            ? 'Creative alternatives'
-                            : 'Creative alternatives',
+                      label: ai.text63,
                     },
                     {
                       key: 'rewrite' as const,
                       Icon: RefreshCw,
-                      label:
-                        language === 'zh'
-                          ? '\u6539\u5199\u5f53\u524d\u5185\u5bb9'
-                          : language === 'ja'
-                            ? 'Rewrite current content'
-                            : 'Rewrite current content',
+                      label: ai.text64,
                     },
                     {
                       key: 'interpolate' as const,
                       Icon: PanelTopDashed,
-                      label:
-                        language === 'zh'
-                          ? '\u8865\u5145\u4e2d\u95f4\u5185\u5bb9'
-                          : language === 'ja'
-                            ? 'Fill in the gap'
-                            : 'Fill in the gap',
+                      label: ai.text65,
                     },
                     {
                       key: 'scene_only' as const,
                       Icon: Feather,
-                      label:
-                        language === 'zh'
-                          ? '\u4ec5\u589e\u52a0\u573a\u666f\u63cf\u5199'
-                          : language === 'ja'
-                            ? 'Scene description only'
-                            : 'Scene description only',
+                      label: ai.text66,
                     },
                     {
                       key: 'dialogue_only' as const,
                       Icon: MessageCircle,
-                      label:
-                        language === 'zh'
-                          ? '\u4ec5\u589e\u52a0\u5bf9\u8bdd'
-                          : language === 'ja'
-                            ? 'Dialogue only'
-                            : 'Dialogue only',
+                      label: ai.text67,
                     },
                   ] as const
                 ).map((item) => (
@@ -2714,9 +2576,7 @@ export function AISettingsPanel({
                     <span className={optionIconClass(aiButtonsConfig[item.key])}>
                       <item.Icon className="h-4 w-4" />
                     </span>
-                    <span className="flex-1 text-sm font-semibold">
-                      {item.label}
-                    </span>
+                    <span className="flex-1 text-sm font-semibold">{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -2727,17 +2587,9 @@ export function AISettingsPanel({
                 <div className="flex items-center gap-2">
                   {renderInfoHint(
                     <h3 className="whitespace-nowrap text-base font-black text-[var(--text-primary)]">
-                      {language === 'zh'
-                        ? '\u0041\u0049 \u5199\u4f5c\u503e\u5411'
-                        : language === 'ja'
-                          ? 'AI writing balance'
-                          : 'AI Writing Balance'}
+                      {ai.text68}
                     </h3>,
-                    language === 'zh'
-                      ? '\u63a7\u5236\u7efc\u5408\u7eed\u5199\u65f6\u66f4\u504f\u5411\u4eba\u7269\u5bf9\u8bdd\uff0c\u8fd8\u662f\u66f4\u504f\u5411\u52a8\u4f5c\u4e0e\u4e8b\u4ef6\u63a8\u8fdb\u3002'
-                      : language === 'ja'
-                        ? 'General writing can lean toward character dialogue or action-driven progress.'
-                        : 'Choose whether general generation leans toward dialogue or action-driven progress.'
+                    ai.text69,
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
@@ -2746,34 +2598,14 @@ export function AISettingsPanel({
                       {
                         value: 'dialogue' as const,
                         Icon: MessageCircle,
-                        label:
-                          language === 'zh'
-                            ? '\u66f4\u591a\u5bf9\u8bdd'
-                            : language === 'ja'
-                              ? 'More Dialogue'
-                              : 'More Dialogue',
-                        description:
-                          language === 'zh'
-                            ? '\u9ed8\u8ba4\uff1a\u8ba9\u4eba\u7269\u4ea4\u6d41\u3001\u53f0\u8bcd\u548c\u60c5\u7eea\u53cd\u5e94\u66f4\u591a\u3002'
-                            : language === 'ja'
-                              ? 'Default: more character speech and emotional response.'
-                              : 'Default: more character speech and emotional response.',
+                        label: ai.text70,
+                        description: ai.text71,
                       },
                       {
                         value: 'action' as const,
                         Icon: Feather,
-                        label:
-                          language === 'zh'
-                            ? '\u66f4\u591a\u52a8\u4f5c'
-                            : language === 'ja'
-                              ? 'More Action'
-                              : 'More Action',
-                        description:
-                          language === 'zh'
-                            ? '\u8ba9\u80a2\u4f53\u52a8\u4f5c\u3001\u573a\u9762\u8c03\u5ea6\u548c\u4e8b\u4ef6\u63a8\u8fdb\u66f4\u591a\u3002'
-                            : language === 'ja'
-                              ? 'More physical action, staging, and plot movement.'
-                              : 'More physical action, staging, and plot movement.',
+                        label: ai.text72,
+                        description: ai.text73,
                       },
                     ] satisfies Array<{
                       value: AIGenerationBalance;
@@ -2788,10 +2620,11 @@ export function AISettingsPanel({
                         key={item.value}
                         type="button"
                         onClick={() => setAiGenerationBalance(item.value)}
-                        className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${selected
+                        className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
+                          selected
                             ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                          }`}
+                        }`}
                       >
                         <span className={optionIconClass(selected)}>
                           <item.Icon className="h-4 w-4" />
@@ -2809,36 +2642,27 @@ export function AISettingsPanel({
               </div>
             </section>
 
-
             <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-black text-[var(--text-primary)]">
-                    {language === 'zh'
-                      ? '\u5141\u8bb8 AI \u52a9\u624b\u8c03\u7528\u56fe\u7247\u751f\u6210 API'
-                      : language === 'ja'
-                        ? 'AI\u30a2\u30b7\u30b9\u30bf\u30f3\u30c8\u306e\u753b\u50cf\u751f\u6210API\u547c\u3073\u51fa\u3057\u3092\u8a31\u53ef'
-                        : 'Allow AI assistant to call image generation API'}
-                  </h3>
+                  <h3 className="text-sm font-black text-[var(--text-primary)]">{ai.text74}</h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                    {language === 'zh'
-                      ? '\u5f00\u542f\u540e\uff0cAI \u52a9\u624b\u53ef\u4ee5\u5728\u5bf9\u8bdd\u4e2d\u8c03\u7528\u5f53\u524d\u56fe\u7247 AI \u914d\u7f6e\u751f\u6210\u89d2\u8272\u3001\u573a\u666f\u6216\u5176\u4ed6\u56fe\u50cf\u3002'
-                      : language === 'ja'
-                        ? '有効にすると、AIアシスタントは現在の画像AI設定を使って画像を生成できます。'
-                        : 'When enabled, the assistant can use the active Image AI profile to generate images from chat.'}
+                    {ai.text75}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAllowAssistantImageGeneration(!allowAssistantImageGeneration)}
-                  className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${allowAssistantImageGeneration
+                  className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${
+                    allowAssistantImageGeneration
                       ? 'bg-[var(--accent)] shadow-md'
                       : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                    }`}
+                  }`}
                 >
                   <div
-                    className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${allowAssistantImageGeneration ? 'left-6' : 'left-1'
-                      }`}
+                    className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                      allowAssistantImageGeneration ? 'left-6' : 'left-1'
+                    }`}
                   />
                 </button>
               </div>
@@ -2849,19 +2673,9 @@ export function AISettingsPanel({
             <section className="space-y-5 border-t border-[var(--header-border)] pt-5">
               <div className="mb-2 flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-base font-black text-[var(--text-primary)]">
-                    {language === 'zh'
-                      ? '自定义 AI 提示词'
-                      : language === 'ja'
-                        ? 'カスタムAIプロンプト'
-                        : 'Custom AI Prompts'}
-                  </h3>
+                  <h3 className="text-base font-black text-[var(--text-primary)]">{ai.text76}</h3>
                   <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-muted)]">
-                    {language === 'zh'
-                      ? '开启后可修改模板变量；关闭后保存项目时不会保留自定义文字。'
-                      : language === 'ja'
-                        ? '有効にするとプロンプトテンプレートを編集できます。無効にした場合、カスタムテキストは保存されません。'
-                        : 'Enable to edit prompt templates. When disabled, custom text is not saved with the project.'}
+                    {ai.text77}
                   </p>
                 </div>
                 <button
@@ -2869,14 +2683,16 @@ export function AISettingsPanel({
                   className="shrink-0 rounded-xl bg-[var(--app-bg)]/30 px-3 py-2 transition-all active:scale-95"
                 >
                   <div
-                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${customAiPromptsEnabled
+                    className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
+                      customAiPromptsEnabled
                         ? 'bg-[var(--accent)] shadow-lg'
                         : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                      }`}
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${customAiPromptsEnabled ? 'left-6' : 'left-1'
-                        }`}
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300 ${
+                        customAiPromptsEnabled ? 'left-6' : 'left-1'
+                      }`}
                     />
                   </div>
                 </button>
@@ -2885,78 +2701,18 @@ export function AISettingsPanel({
                 <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                   {Object.entries(aiPrompts || {}).map(([key, value]) => {
                     const labelMap: Record<string, string> = {
-                      basePrompt:
-                        language === 'zh'
-                          ? '基础前置提示 (所有续写功能共享)'
-                          : language === 'ja'
-                            ? 'システムプロンプト（すべての機能で共有）'
-                            : 'Base System Prompt',
-                      continue:
-                        language === 'zh'
-                          ? '自然续写'
-                          : language === 'ja'
-                            ? '自然に書き続け'
-                            : 'Continue Naturally',
-                      creative:
-                        language === 'zh'
-                          ? '不同创意方向'
-                          : language === 'ja'
-                            ? '異なるアイデア方向'
-                            : 'Creative Directions',
-                      rewrite:
-                        language === 'zh'
-                          ? '文笔改写润色'
-                          : language === 'ja'
-                            ? '文章の書き換えと推敲'
-                            : 'Rewrite & Polish',
-                      interpolate:
-                        language === 'zh'
-                          ? '承上启下补充'
-                          : language === 'ja'
-                            ? '中間の内容を補完'
-                            : 'Interpolate Segment',
-                      sceneOnly:
-                        language === 'zh'
-                          ? '仅环境描写'
-                          : language === 'ja'
-                            ? '環境描写のみ'
-                            : 'Scene Description Only',
-                      dialogueOnly:
-                        language === 'zh'
-                          ? '仅人物对话'
-                          : language === 'ja'
-                            ? '対話のみ'
-                            : 'Dialogue Only',
-                      analyzeStructure:
-                        language === 'zh'
-                          ? '分析结构'
-                          : language === 'ja'
-                            ? '構造分析'
-                            : 'Analyze Structure',
-                      analyzeSuggestions:
-                        language === 'zh'
-                          ? '后续剧情建议'
-                          : language === 'ja'
-                            ? 'その後の展開のアドバイス'
-                            : 'Plot Suggestions',
-                      analyzeDirection:
-                        language === 'zh'
-                          ? '写作方向指导'
-                          : language === 'ja'
-                            ? '執筆方向のガイダンス'
-                            : 'Direction Guidance',
-                      analyzeSolution:
-                        language === 'zh'
-                          ? '解法与修改方案'
-                          : language === 'ja'
-                            ? '修正方案と解決策'
-                            : 'Fix Solutions',
-                      analyzeSummary:
-                        language === 'zh'
-                          ? '整体汇总报告'
-                          : language === 'ja'
-                            ? '全体のまとめ報告'
-                            : 'General Summary',
+                      basePrompt: ai.text78,
+                      continue: ai.text79,
+                      creative: ai.text80,
+                      rewrite: ai.text81,
+                      interpolate: ai.text82,
+                      sceneOnly: ai.text83,
+                      dialogueOnly: ai.text84,
+                      analyzeStructure: ai.text85,
+                      analyzeSuggestions: ai.text86,
+                      analyzeDirection: ai.text87,
+                      analyzeSolution: ai.text88,
+                      analyzeSummary: ai.text89,
                     };
                     const defaultValue =
                       defaultAIPrompts[key as keyof typeof defaultAIPrompts] ?? '';
@@ -2970,21 +2726,10 @@ export function AISettingsPanel({
                           {isModified && (
                             <button
                               onClick={() => setAiPrompts({ ...aiPrompts, [key]: defaultValue })}
-                              title={
-                                language === 'zh'
-                                  ? '恢复默认'
-                                  : language === 'ja'
-                                    ? 'デフォルトに戻す'
-                                    : 'Restore Default'
-                              }
+                              title={ai.text90}
                               className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600 transition-all hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
                             >
-                              ↺{' '}
-                              {language === 'zh'
-                                ? '恢复初始'
-                                : language === 'ja'
-                                  ? '元に戻す'
-                                  : 'Restore'}
+                              ↺ {ai.text91}
                             </button>
                           )}
                         </div>

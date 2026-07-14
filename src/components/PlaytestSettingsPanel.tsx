@@ -13,7 +13,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import React from 'react';
 
-import { Language, translations } from '../lib/i18n';
+import { Language } from '../lib/i18n';
+import { settingsModalCopy } from './i18n/settings-modal';
 import { playtestSettingsCopy } from './i18n/playtest-settings';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
@@ -71,7 +72,7 @@ export function PlaytestSettingsPanel({
   renderStyle,
   updateRenderStyle,
 }: PlaytestSettingsPanelProps) {
-  const t = translations[language];
+  const s = settingsModalCopy(language);
   React.useEffect(() => {
     if (layoutMode === 'immersive' && choicesPosition !== 'center') {
       setChoicesPosition('center');
@@ -125,14 +126,14 @@ export function PlaytestSettingsPanel({
             <div className="grid grid-cols-2 gap-2">
               <LayoutChoiceButton
                 active={layoutMode === 'classic'}
-                title={t.layoutClassic}
+                title={s.layoutClassic}
                 description={uiCopy.splitDesc}
                 icon={<LayoutClassicGlyph />}
                 onClick={() => setLayoutMode('classic')}
               />
               <LayoutChoiceButton
                 active={layoutMode === 'immersive'}
-                title={t.layoutImmersive}
+                title={s.layoutImmersive}
                 description={uiCopy.mergedDesc}
                 icon={<LayoutImmersiveGlyph />}
                 onClick={() => {
@@ -163,7 +164,7 @@ export function PlaytestSettingsPanel({
                 value={String(choicesColumns)}
                 options={[1, 2, 3].map((cols) => ({
                   value: String(cols),
-                  label: t[`column${cols}` as keyof typeof t] as string,
+                  label: s[`column${cols}` as keyof typeof s] as string,
                 }))}
                 onChange={(value) => setChoicesColumns(Number(value) || 1)}
               />
@@ -218,7 +219,7 @@ export function PlaytestSettingsPanel({
             />
           </PlaytestSettingCard>
 
-          <PlaytestSettingCard icon={Video} description={t.videoAutoPlay}>
+          <PlaytestSettingCard icon={Video} description={s.videoAutoPlay}>
             <PlaytestPillToggleGroup
               value={videoAutoPlay ? 'auto' : 'manual'}
               options={[

@@ -43,7 +43,7 @@ import type {
   TtsNarrationMode,
   VoiceAIProfile,
 } from '../domain/project';
-import { Language, translations } from '../lib/i18n';
+import { Language } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { LocalProjectSummary } from '../lib/db';
 
@@ -455,15 +455,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     window.close();
   };
-  const t = translations[language];
   const s = settingsModalCopy(language);
   const isDesktopApp = isTauriRuntime();
-  const applyProjectCountLabel =
-    language === 'zh'
-      ? `应用到 ${selectedApplyProjectIds.length} 个项目`
-      : language === 'ja'
-        ? `${selectedApplyProjectIds.length} 件のプロジェクトに適用`
-        : `Apply to ${selectedApplyProjectIds.length} project${selectedApplyProjectIds.length === 1 ? '' : 's'}`;
+  const applyProjectCountLabel = s.applyProjectCount(selectedApplyProjectIds.length);
   const compactSegmentButtonClass = (active: boolean) =>
     `web-segment-button min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
       active
@@ -499,12 +493,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const renderSettingHint = (label: React.ReactNode, description: string, className = '') => (
     <FloatingHint label={label} description={description} className={className} />
   );
-  const accentColorDescription =
-    language === 'zh'
-      ? '影响选中态、开关、焦点和主要按钮颜色'
-      : language === 'ja'
-        ? '選択状態、スイッチ、フォーカス、主要ボタンの色に反映されます'
-        : 'Applies to selected states, toggles, focus rings, and primary buttons';
+  const accentColorDescription = s.accentColorDescription;
   const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value.trim());
   const normalizeHexDraft = (value: string) => {
     const trimmed = value.trim();
@@ -554,7 +543,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="settings-modal-shell bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
           <div className="settings-modal-header h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
             <h2 className="flex-1 text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              {t.settings}
+              {s.settings}
             </h2>
             <button
               type="button"
@@ -582,7 +571,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="settings-modal-sidebar w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
               <div className="settings-modal-tabs flex-1 space-y-1.5">
                 {[
-                  { id: 'appearance', label: t.theme, icon: <ImageIcon className="w-4 h-4" /> },
+                  { id: 'appearance', label: s.theme, icon: <ImageIcon className="w-4 h-4" /> },
                   {
                     id: 'editor',
                     label: s.editorTab,
@@ -593,7 +582,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     label: s.playtestTab,
                     icon: <PlayCircle className="w-4 h-4" />,
                   },
-                  { id: 'ai', label: t.aiSettings, icon: <BrainCircuit className="w-4 h-4" /> },
+                  { id: 'ai', label: s.aiSettings, icon: <BrainCircuit className="w-4 h-4" /> },
                   {
                     id: 'about',
                     label: s.aboutTab,
@@ -632,7 +621,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setShowSettings(false)}
                 className="w-full py-3 bg-slate-900 dark:bg-white hover:bg-black dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-sm font-black shadow-xl dark:shadow-none transition-all active:scale-95"
               >
-                {t.finish}
+                {s.finish}
               </button>
             </div>
 
@@ -648,7 +637,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </header>
                     <div className="grid grid-cols-1 gap-3">
                       <div className={settingsRowClass}>
-                        <h3 className={settingsRowTitleClass}>{t.theme}</h3>
+                        <h3 className={settingsRowTitleClass}>{s.theme}</h3>
                         <div className={segmentedControlClass}>
                           <button
                             onClick={() => {
@@ -656,11 +645,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             }}
                             className={`${!isDesktopApp ? 'hidden' : ''} ${compactTextButtonClass(theme === 'system')}`}
                           >
-                            {language === 'zh'
-                              ? '跟随系统'
-                              : language === 'ja'
-                                ? 'システム'
-                                : 'System'}
+                            {s.systemTheme}
                           </button>
                           <button
                             onClick={() => {
@@ -671,7 +656,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               theme === 'light' || (!isDesktopApp && theme === 'system'),
                             )}
                           >
-                            {t.lightMode}
+                            {s.lightMode}
                           </button>
                           <button
                             onClick={() => {
@@ -680,22 +665,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             }}
                             className={compactTextButtonClass(theme === 'dark')}
                           >
-                            {t.darkMode}
+                            {s.darkMode}
                           </button>
                         </div>
                       </div>
                       <div className={settingsRowClass}>
                         <h3 className={settingsRowTitleClass}>
-                          {renderSettingHint(
-                            <span>
-                              {language === 'zh'
-                                ? '强调色'
-                                : language === 'ja'
-                                  ? 'アクセントカラー'
-                                  : 'Accent Color'}
-                            </span>,
-                            accentColorDescription,
-                          )}
+                          {renderSettingHint(<span>{s.accentColor}</span>, accentColorDescription)}
                         </h3>
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <label className="relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
@@ -741,13 +717,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   setEditingAccentHex(true);
                                 }}
                                 className="text-left text-xs font-mono font-bold uppercase text-[var(--text-primary)]"
-                                title={
-                                  language === 'zh'
-                                    ? '双击输入颜色'
-                                    : language === 'ja'
-                                      ? 'ダブルクリックして色を入力'
-                                      : 'Double-click to edit color'
-                                }
+                                title={s.doubleClickToEditColor}
                               >
                                 {accentColor || effectiveAccentColor}
                               </button>
@@ -768,7 +738,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onClick={() => setLanguage('en')}
                             className={compactTextButtonClass(language === 'en')}
                           >
-                            English
+                            {s.english}
                           </button>
                           <button
                             onClick={() => setLanguage('ja')}
@@ -788,13 +758,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setToolbarLayout('vertical')}
                         className={compactSegmentButtonClass(toolbarLayout === 'vertical')}
                       >
-                        {t.vertical}
+                        {s.vertical}
                       </button>
                       <button
                         onClick={() => setToolbarLayout('horizontal')}
                         className={compactSegmentButtonClass(toolbarLayout === 'horizontal')}
                       >
-                        {t.horizontal}
+                        {s.horizontal}
                       </button>
                     </div>
                   </section>
@@ -865,13 +835,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setSelectionMenuLayout('horizontal')}
                         className={compactSegmentButtonClass(selectionMenuLayout === 'horizontal')}
                       >
-                        {t.menuHorizontal}
+                        {s.menuHorizontal}
                       </button>
                       <button
                         onClick={() => setSelectionMenuLayout('vertical')}
                         className={compactSegmentButtonClass(selectionMenuLayout === 'vertical')}
                       >
-                        {t.menuVertical}
+                        {s.menuVertical}
                       </button>
                     </div>
                   </section>
@@ -880,7 +850,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {[
                       {
                         id: 'showStats',
-                        label: t.showStats,
+                        label: s.showStats,
                         value: showStats,
                         setter: setShowStats,
                       },
@@ -898,7 +868,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       },
                       {
                         id: 'showMiniMap',
-                        label: t.showMiniMap,
+                        label: s.showMiniMap,
                         value: showMiniMap,
                         setter: setShowMiniMap,
                       },
@@ -924,7 +894,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {showMiniMap && (
                     <section className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{t.miniMapPosition}</h3>
+                      <h3 className={settingsRowTitleClass}>{s.miniMapPosition}</h3>
                       <div className={segmentedControlClass}>
                         <button
                           onClick={() => setMiniMapPosition('left')}
@@ -932,7 +902,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         >
                           <span className="flex items-center justify-center gap-1.5">
                             <ArrowLeft className="w-3.5 h-3.5" />
-                            {t.miniMapLeft}
+                            {s.miniMapLeft}
                           </span>
                         </button>
                         <button
@@ -940,7 +910,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           className={compactSegmentButtonClass(miniMapPosition === 'right')}
                         >
                           <span className="flex items-center justify-center gap-1.5">
-                            {t.miniMapRight}
+                            {s.miniMapRight}
                             <ArrowRight className="w-3.5 h-3.5" />
                           </span>
                         </button>
@@ -949,7 +919,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
 
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>{t.showControls}</h3>
+                    <h3 className={settingsRowTitleClass}>{s.showControls}</h3>
                     <div className={segmentedControlClass}>
                       <button
                         onClick={() => setShowControls(true)}
@@ -971,7 +941,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-5">
                     <header className="flex items-center justify-between gap-3 mb-2">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {renderSettingHint(<span>{t.bgColors}</span>, s.bgColorsDesc)}
+                        {renderSettingHint(<span>{s.bgColors}</span>, s.bgColorsDesc)}
                       </h3>
                       <button
                         type="button"
@@ -1061,7 +1031,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {activeSettingsTab === 'editor' && (
                 <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>{t.edgeStyle}</h3>
+                    <h3 className={settingsRowTitleClass}>{s.edgeStyle}</h3>
                     <div className={segmentedControlClass}>
                       <button
                         onClick={() => setEdgeStyle('step')}
@@ -1077,7 +1047,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                         </div>
                         <span className="text-xs font-black tracking-widest uppercase">
-                          {t.step}
+                          {s.step}
                         </span>
                       </button>
                       <button
@@ -1100,20 +1070,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                         </div>
                         <span className="text-xs font-black tracking-widest uppercase">
-                          {t.bezier}
+                          {s.bezier}
                         </span>
                       </button>
                     </div>
                   </section>
 
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                      {language === 'zh'
-                        ? '箭头样式'
-                        : language === 'ja'
-                          ? '矢印スタイル'
-                          : 'Arrow Style'}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.arrowStyle}</h3>
                     <div className="flex min-w-0 flex-1 items-center gap-5">
                       <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -1124,13 +1088,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 value={edgeColor}
                                 onChange={(event) => setEdgeColor(event.target.value)}
                                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                aria-label={
-                                  language === 'zh'
-                                    ? '箭头线段颜色'
-                                    : language === 'ja'
-                                      ? '矢印線の色'
-                                      : 'Arrow line color'
-                                }
+                                aria-label={s.arrowLineColor}
                               />
                               <span
                                 className="block h-full w-full"
@@ -1168,13 +1126,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 setEditingEdgeHex(true);
                               }}
                               className="min-w-0 flex-1 truncate text-left text-[11px] font-mono font-bold uppercase text-[var(--text-primary)]"
-                              title={
-                                language === 'zh'
-                                  ? '双击输入颜色'
-                                  : language === 'ja'
-                                    ? 'ダブルクリックして色を入力'
-                                    : 'Double-click to edit color'
-                              }
+                              title={s.doubleClickToEditColor}
                             >
                               {edgeColor}
                             </button>
@@ -1182,7 +1134,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh' ? '大小' : language === 'ja' ? 'サイズ' : 'Size'}
+                            {s.size}
                           </span>
                           <div className="min-w-0 flex-1">
                             <DraggableNumberInput
@@ -1197,7 +1149,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh' ? '圆角' : language === 'ja' ? '角丸' : 'Radius'}
+                            {s.radius}
                           </span>
                           <div className="min-w-0 flex-1">
                             <DraggableNumberInput
@@ -1212,7 +1164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh' ? '尖角' : language === 'ja' ? '先端角' : 'Angle'}
+                            {s.angle}
                           </span>
                           <div className="min-w-0 flex-1">
                             <DraggableNumberInput
@@ -1463,32 +1415,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </section>
 
                   <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>
-                      {language === 'zh'
-                        ? '文字转音频内容'
-                        : language === 'ja'
-                          ? '音声化する内容'
-                          : 'Text-to-audio content'}
-                    </h3>
+                    <h3 className={settingsRowTitleClass}>{s.textToAudioContent}</h3>
                     <div className={segmentedControlClass}>
                       {[
                         {
                           id: 'body',
-                          label: language === 'zh' ? '正文' : language === 'ja' ? '本文' : 'Body',
+                          label: s.narrationBody,
                         },
                         {
                           id: 'title',
-                          label:
-                            language === 'zh' ? '标题' : language === 'ja' ? 'タイトル' : 'Title',
+                          label: s.narrationTitle,
                         },
                         {
                           id: 'all',
-                          label:
-                            language === 'zh'
-                              ? '标题+正文'
-                              : language === 'ja'
-                                ? 'タイトル+本文'
-                                : 'Title + Body',
+                          label: s.narrationTitleAndBody,
                         },
                       ].map((item) => (
                         <button
@@ -1507,50 +1447,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
                       <div className={settingsRowTitleClass}>
-                        {renderSettingHint(
-                          language === 'zh'
-                            ? '人物图片类型'
-                            : language === 'ja'
-                              ? 'キャラクター画像タイプ'
-                              : 'Character Image Type',
-                          language === 'zh'
-                            ? '人物卡片的一键生图会根据这里选择的形式生成图片。'
-                            : language === 'ja'
-                              ? 'キャラクターカードの画像生成形式を選択します。'
-                              : 'Choose the format used by character card image generation.',
-                        )}
+                        {renderSettingHint(s.characterImageType, s.characterImageTypeDescription)}
                       </div>
                       <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                         {[
                           {
                             value: 'three-view' as const,
-                            title:
-                              language === 'zh'
-                                ? '三视图'
-                                : language === 'ja'
-                                  ? '三面図'
-                                  : 'Three-view',
-                            description:
-                              language === 'zh'
-                                ? '在一张图中生成正面、侧面和背面设定图。'
-                                : language === 'ja'
-                                  ? '正面・側面・背面を1枚に生成します。'
-                                  : 'Front, side, and back views in one image.',
+                            title: s.characterThreeView,
+                            description: s.characterThreeViewDescription,
                           },
                           {
                             value: 'transparent-sprite' as const,
-                            title:
-                              language === 'zh'
-                                ? '透明背景立绘'
-                                : language === 'ja'
-                                  ? '透過背景立ち絵'
-                                  : 'Transparent Sprite',
-                            description:
-                              language === 'zh'
-                                ? '生成单人全身立绘，并要求透明背景。'
-                                : language === 'ja'
-                                  ? '透過背景の全身立ち絵を生成します。'
-                                  : 'A single full-body character on a transparent background.',
+                            title: s.characterTransparentSprite,
+                            description: s.characterTransparentSpriteDescription,
                           },
                         ].map((option) => {
                           const selected = characterImageMode === option.value;
@@ -1580,18 +1489,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }`}
                     >
                       {renderSettingHint(
-                        <div className="text-sm font-black">
-                          {language === 'zh'
-                            ? '有 Tag 时隐藏剧情卡生图按钮'
-                            : language === 'ja'
-                              ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
-                              : 'Hide story image button when tags exist'}
-                        </div>,
-                        language === 'zh'
-                          ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
-                          : language === 'ja'
-                            ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
-                            : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
+                        <div className="text-sm font-black">{s.hideStoryImageWithTags}</div>,
+                        s.hideStoryImageWithTagsDescription,
                       )}
                       <span
                         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
@@ -1611,50 +1510,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <div className={settingsRowTitleClass}>
-                      {renderSettingHint(
-                        language === 'zh'
-                          ? '场景图片比例'
-                          : language === 'ja'
-                            ? 'シーン画像比率'
-                            : 'Scene Image Ratio',
-                        language === 'zh'
-                          ? '只影响场景卡片的一键生图，优先级高于图片 API 配置中的尺寸。'
-                          : language === 'ja'
-                            ? 'シーンカードの画像生成にのみ適用され、画像 API のサイズ設定より優先されます。'
-                            : 'Only affects scene card generation and overrides the image API size.',
-                      )}
+                      {renderSettingHint(s.sceneImageRatio, s.sceneImageRatioDescription)}
                     </div>
                     <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                       {[
                         {
                           value: 'storyboard-16:9' as const,
-                          title:
-                            language === 'zh'
-                              ? '16:9 分镜图'
-                              : language === 'ja'
-                                ? '16:9 絵コンテ'
-                                : '16:9 Storyboard',
-                          description:
-                            language === 'zh'
-                              ? '强制请求并输出横向 16:9 场景图。'
-                              : language === 'ja'
-                                ? '横長 16:9 のシーン画像を強制します。'
-                                : 'Force a landscape 16:9 scene image.',
+                          title: s.sceneStoryboard,
+                          description: s.sceneStoryboardDescription,
                         },
                         {
                           value: 'follow-api' as const,
-                          title:
-                            language === 'zh'
-                              ? '跟随图片 API'
-                              : language === 'ja'
-                                ? '画像 API に従う'
-                                : 'Follow Image API',
-                          description:
-                            language === 'zh'
-                              ? '使用图片 AI 配置中填写的普通图片尺寸。'
-                              : language === 'ja'
-                                ? '画像 AI 設定の通常サイズを使用します。'
-                                : 'Use the size configured in the image AI profile.',
+                          title: s.sceneFollowApi,
+                          description: s.sceneFollowApiDescription,
                         },
                       ].map((option) => {
                         const selected = sceneImageMode === option.value;
@@ -1687,13 +1555,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {[
                         {
                           id: 'pastePlain',
-                          label: t.pastePlain,
+                          label: s.pastePlain,
                           value: pasteAsPlainText,
                           setter: setPasteAsPlainText,
                         },
                         {
                           id: 'showActions',
-                          label: t.showActions,
+                          label: s.showActions,
                           value: showNodeActions,
                           setter: setShowNodeActions,
                         },
@@ -1711,7 +1579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         },
                         {
                           id: 'showMiniMap',
-                          label: t.showMiniMap,
+                          label: s.showMiniMap,
                           value: showMiniMap,
                           setter: setShowMiniMap,
                         },
@@ -1779,7 +1647,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         {/* Playtest Layout Mode */}
                         <div className={settingsRowClass}>
-                          <h3 className={settingsRowTitleClass}>{t.playtestLayoutMode}</h3>
+                          <h3 className={settingsRowTitleClass}>{s.playtestLayoutMode}</h3>
                           <div className={segmentedControlClass}>
                             <button
                               onClick={() => setPlayTestLayoutMode('classic')}
@@ -1787,7 +1655,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 playTestLayoutMode === 'classic',
                               )}
                             >
-                              {t.layoutClassic}
+                              {s.layoutClassic}
                             </button>
                             <button
                               onClick={() => setPlayTestLayoutMode('immersive')}
@@ -1795,7 +1663,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 playTestLayoutMode === 'immersive',
                               )}
                             >
-                              {t.layoutImmersive}
+                              {s.layoutImmersive}
                             </button>
                           </div>
                         </div>
@@ -1809,13 +1677,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 onClick={() => setPlayTestDarkMode(false)}
                                 className={compactSegmentButtonClass(!playTestDarkMode)}
                               >
-                                {t.lightMode}
+                                {s.lightMode}
                               </button>
                               <button
                                 onClick={() => setPlayTestDarkMode(true)}
                                 className={compactSegmentButtonClass(playTestDarkMode)}
                               >
-                                {t.darkMode}
+                                {s.darkMode}
                               </button>
                             </div>
                           </div>
@@ -1853,7 +1721,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }`}
                       >
                         <section className={settingsRowClass}>
-                          <h3 className={settingsRowTitleClass}>{t.choiceColumns}</h3>
+                          <h3 className={settingsRowTitleClass}>{s.choiceColumns}</h3>
                           <div className={segmentedControlClass}>
                             {[1, 2, 3].map((cols) => (
                               <button
@@ -1863,7 +1731,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   playTestChoicesColumns === cols,
                                 )}
                               >
-                                {t[`column${cols}` as keyof typeof t]}
+                                {s[`column${cols}` as keyof typeof s] as string}
                               </button>
                             ))}
                           </div>
@@ -2136,7 +2004,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <h3 className={settingsRowTitleClass}>{s.multimediaSettings}</h3>
                         <div className="flex-1 flex items-center justify-between">
                           <span className="text-xs text-[var(--text-muted)] font-medium">
-                            {t.videoAutoPlay}
+                            {s.videoAutoPlay}
                           </span>
                           <button
                             onClick={() => setPlayTestVideoAutoPlay(!playTestVideoAutoPlay)}
@@ -2150,21 +2018,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </section>
 
                       <section className="space-y-3">
-                        <h3 className={settingsRowTitleClass}>
-                          {language === 'zh'
-                            ? '标签显示'
-                            : language === 'ja'
-                              ? 'タグ表示'
-                              : 'Tag Display'}
-                        </h3>
+                        <h3 className={settingsRowTitleClass}>{s.tagDisplay}</h3>
                         <div className={settingsRowClass}>
-                          <h3 className={settingsRowTitleClass}>
-                            {language === 'zh'
-                              ? '隐藏人物标签'
-                              : language === 'ja'
-                                ? 'キャラクタータグを非表示'
-                                : 'Hide character tags'}
-                          </h3>
+                          <h3 className={settingsRowTitleClass}>{s.hideCharacterTags}</h3>
                           <button
                             type="button"
                             onClick={() => setPlayTestHideCharacterTags(!playTestHideCharacterTags)}
@@ -2176,13 +2032,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </button>
                         </div>
                         <div className={settingsRowClass}>
-                          <h3 className={settingsRowTitleClass}>
-                            {language === 'zh'
-                              ? '隐藏场景标签'
-                              : language === 'ja'
-                                ? 'シーンタグを非表示'
-                                : 'Hide scene tags'}
-                          </h3>
+                          <h3 className={settingsRowTitleClass}>{s.hideSceneTags}</h3>
                           <button
                             type="button"
                             onClick={() => setPlayTestHideSceneTags(!playTestHideSceneTags)}
@@ -2295,14 +2145,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section>
                     <header className="flex items-center gap-3 mb-6">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {t.contactTitle}
+                        {s.contactTitle}
                       </h3>
                     </header>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 leading-relaxed font-medium px-4">
-                      {t.contactDesc}
+                      {s.contactDesc}
                     </p>
                     <p className="text-sm font-bold leading-relaxed px-4 py-3 mb-5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
-                      {t.freeNotice}
+                      {s.freeNotice}
                     </p>
                     <div className="grid grid-cols-2 gap-6">
                       {[
@@ -2600,7 +2450,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setShowApplySettingsConfirm(false)}
                 className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
               >
-                {t.cancel}
+                {s.cancel}
               </button>
               <button
                 type="button"
