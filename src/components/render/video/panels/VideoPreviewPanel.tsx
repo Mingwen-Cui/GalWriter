@@ -12,7 +12,7 @@ import {
   getNameplateLayouts,
   getNameplateReservedHeight,
 } from '../shared/nameplateRenderer';
-import { getRenderObjects, updateRenderObject } from '../shared/renderObjects';
+import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderEditableObjectKind, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
@@ -205,7 +205,7 @@ export function VideoPreviewPanel({
 
   const selectRenderObject = (kind: RenderEditableObjectKind) => {
     setCanvasSelected(false);
-    if (kind === 'title' && !getRenderObjects(renderStyle).title.visible) {
+    if (kind === 'title' && !getVideoRenderObjects(renderStyle).title.visible) {
       const styleWithVisibleTitle = { ...renderStyle, titleVisible: true };
       updateRenderStyle('titleVisible', true);
       updateRenderStyle(
@@ -221,7 +221,7 @@ export function VideoPreviewPanel({
     [renderStyle, resolution.height, videoTextScaleMode],
   );
   const editableFrames = useMemo(() => {
-    const objects = getRenderObjects(videoRenderStyle);
+    const objects = getVideoRenderObjects(videoRenderStyle);
     const baseDialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle);
     const paddingX = baseDialog.paddingX ?? baseDialog.padding;
     const paddingY = baseDialog.paddingY ?? baseDialog.padding;
@@ -336,7 +336,7 @@ export function VideoPreviewPanel({
     if (previewObjectSelectionLocked || event.button === 2) return;
     event.preventDefault(); event.stopPropagation();
     selectRenderObject(kind);
-    const object = getRenderObjects(renderStyle)[kind];
+    const object = getVideoRenderObjects(renderStyle)[kind];
     const frame = editableFrames[kind];
     const startX = event.clientX; const startY = event.clientY;
     const hostRect = event.currentTarget.parentElement?.getBoundingClientRect();
@@ -372,7 +372,7 @@ export function VideoPreviewPanel({
   };
   const startResize = (event: React.PointerEvent<HTMLElement>, kind: RenderEditableObjectKind, handle: WebEditableResizeHandle) => {
     if (previewObjectSelectionLocked) return;
-    const object = getRenderObjects(renderStyle)[kind]; const frame = editableFrames[kind];
+    const object = getVideoRenderObjects(renderStyle)[kind]; const frame = editableFrames[kind];
     const startX = event.clientX; const startY = event.clientY;
     const hostRect = event.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
     if (!hostRect) return;

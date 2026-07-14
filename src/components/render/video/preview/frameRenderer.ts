@@ -11,7 +11,7 @@ import {
 } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
-import { getRenderObjects } from '../shared/renderObjects';
+import { getVideoRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
@@ -104,7 +104,7 @@ export const drawRenderFrame = async ({
     canvasSettings,
   });
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
-  const renderObjects = getRenderObjects(videoRenderStyle);
+  const renderObjects = getVideoRenderObjects(videoRenderStyle);
   const titleObject = renderObjects.title;
   const bodyObject = renderObjects.body;
 

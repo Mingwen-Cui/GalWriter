@@ -13,6 +13,29 @@ import type { PptExportSettings, RenderStyle, WebExportSettings } from '../video
 const hex = (value: string) => value.replace('#', '').slice(0, 6) || '0F172A';
 const isEmbeddableImage = (value?: string) => Boolean(value?.startsWith('data:image/'));
 
+const WIDE_PAGE_WIDTH = 13.333;
+const WIDE_PAGE_HEIGHT = 7.5;
+
+/**
+ * PPT stores inches, whereas the editor, web preview, and video renderer share
+ * a 16:9 logical scene. Standard (4:3) slides therefore contain that scene
+ * instead of independently reflowing it.
+ */
+const createPptPageMapper = (layout: PptExportSettings['layout']) => {
+  const pageWidth = layout === 'LAYOUT_STANDARD' ? 10 : WIDE_PAGE_WIDTH;
+  const pageHeight = WIDE_PAGE_HEIGHT;
+  const scale = pageWidth / WIDE_PAGE_WIDTH;
+  const contentHeight = WIDE_PAGE_HEIGHT * scale;
+  const offsetY = (pageHeight - contentHeight) / 2;
+  const frame = (x: number, y: number, w: number, h: number) => ({
+    x: x * scale,
+    y: offsetY + y * scale,
+    w: w * scale,
+    h: h * scale,
+  });
+  return { scale, frame };
+};
+
 export async function buildPptxBuffer({
   nodes,
   edges,
@@ -33,6 +56,8 @@ export async function buildPptxBuffer({
   pptx.author = 'GalWriter AI';
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
+  const page = createPptPageMapper(pptSettings.layout);
+  const fullContentFrame = page.frame(0, 0, WIDE_PAGE_WIDTH, WIDE_PAGE_HEIGHT);
 
   const scenes = resolvePptScenes(nodes, edges, settings);
   const colors = pptSceneColors(style, settings);
@@ -47,34 +72,25 @@ export async function buildPptxBuffer({
     const slide = pptx.addSlide();
     slide.background = { color: hex(settings.startMenuBackgroundColor || colors.background) };
     if (isEmbeddableImage(settings.startMenuBackgroundImageUrl)) {
-      slide.addImage({ data: settings.startMenuBackgroundImageUrl, x: 0, y: 0, w: 13.333, h: 7.5 });
+      slide.addImage({ data: settings.startMenuBackgroundImageUrl, ...fullContentFrame });
     }
     slide.addShape(pptx.ShapeType.rect, {
-      x: 0,
-      y: 0,
-      w: 13.333,
-      h: 7.5,
+      ...fullContentFrame,
       fill: { color: '000000', transparency: 38 },
       line: { transparency: 100 },
     });
     slide.addText(projectName, {
-      x: 0.9,
-      y: 2.75,
-      w: 11.5,
-      h: 0.7,
+      ...page.frame(0.9, 2.75, 11.5, 0.7),
       fontFace: style.titleFontFamily,
-      fontSize: 34,
+      fontSize: 34 * page.scale,
       bold: true,
       color: hex(colors.title),
       align: 'center',
       margin: 0,
     });
     slide.addText('由 GalWriter AI 生成', {
-      x: 0.9,
-      y: 3.62,
-      w: 11.5,
-      h: 0.3,
-      fontSize: 15,
+      ...page.frame(0.9, 3.62, 11.5, 0.3),
+      fontSize: 15 * page.scale,
       color: hex(colors.body),
       align: 'center',
       margin: 0,
@@ -87,11 +103,8 @@ export async function buildPptxBuffer({
     if (isEmbeddableImage(scene.backgroundUrl)) {
       slide.addImage({
         data: scene.backgroundUrl!,
-        x: 0,
-        y: 0,
-        w: 13.333,
-        h: 7.5,
-        sizing: { type: 'cover', x: 0, y: 0, w: 13.333, h: 7.5 },
+        ...fullContentFrame,
+        sizing: { type: 'cover', ...fullContentFrame },
       });
     }
 
@@ -112,7 +125,7 @@ export async function buildPptxBuffer({
       );
       slide.addImage({
         data: character.imageUrl!,
-        sizing: { type: 'contain', x, y, w: width, h: height },
+        sizing: { type: 'contain', ...page.frame(x, y, width, height) },
         transparency: 0,
         flipH: character.flipX,
       });
@@ -130,12 +143,10 @@ export async function buildPptxBuffer({
     const panelH = (layout.height / 1080) * 7.5;
     const panelPaddingX = (layout.paddingX / 1920) * 13.333;
     const panelPaddingY = (layout.paddingY / 1080) * 7.5;
+    const panelFrame = page.frame(panelX, panelY, panelW, panelH);
     if (panel.visible) {
       slide.addShape(pptx.ShapeType.roundRect, {
-        x: panelX,
-        y: panelY,
-        w: panelW,
-        h: panelH,
+        ...panelFrame,
         rectRadius: Math.max(0.02, panel.radius / 180),
         fill: { color: hex(panel.fill.color), transparency: 100 - panel.fill.alpha },
         line: panel.stroke.enabled
@@ -151,12 +162,14 @@ export async function buildPptxBuffer({
     const hasTitle = title.visible && Boolean(scene.title.trim());
     if (hasTitle) {
       slide.addText(scene.title, {
-        x: panelX + panelPaddingX + title.x / 144,
-        y: panelY + panelPaddingY + title.y / 144,
-        w: Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100),
-        h: Math.max(0.18, title.height / 144),
+        ...page.frame(
+          panelX + panelPaddingX + title.x / 144,
+          panelY + panelPaddingY + title.y / 144,
+          Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100),
+          Math.max(0.18, title.height / 144),
+        ),
         fontFace: title.fontFamily,
-        fontSize: Math.max(8, title.fontSize * 0.75),
+        fontSize: Math.max(8 * page.scale, title.fontSize * 0.75 * page.scale),
         bold: title.fontWeight >= 700,
         color: hex(title.fill.color),
         align: title.textAlign,
@@ -167,12 +180,14 @@ export async function buildPptxBuffer({
     }
     if (body.visible) {
       slide.addText(scene.text || ' ', {
-        x: panelX + panelPaddingX + body.x / 144,
-        y: panelY + panelPaddingY + (hasTitle ? title.height / 144 + 0.08 : 0) + body.y / 144,
-        w: Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100),
-        h: Math.max(0.2, body.height / 144),
+        ...page.frame(
+          panelX + panelPaddingX + body.x / 144,
+          panelY + panelPaddingY + (hasTitle ? title.height / 144 + 0.08 : 0) + body.y / 144,
+          Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100),
+          Math.max(0.2, body.height / 144),
+        ),
         fontFace: body.fontFamily,
-        fontSize: Math.max(8, body.fontSize * 0.75),
+        fontSize: Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale),
         bold: body.fontWeight >= 700,
         color: hex(body.fill.color),
         align: body.textAlign,
@@ -188,11 +203,9 @@ export async function buildPptxBuffer({
       const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
       const w = Math.max(1.1, Math.min(5, (13.333 * nameplate.width) / 100));
       const h = Math.max(0.26, nameplate.height / 100);
+      const nameplateFrame = page.frame(x, y, w, h);
       slide.addShape(pptx.ShapeType.roundRect, {
-        x,
-        y,
-        w,
-        h,
+        ...nameplateFrame,
         rectRadius: Math.max(0.02, nameplate.radius / 180),
         fill: { color: hex(nameplate.fill.color), transparency: 100 - nameplate.fill.alpha },
         line: nameplate.stroke.enabled
@@ -205,12 +218,9 @@ export async function buildPptxBuffer({
         rotate: nameplate.rotation,
       });
       slide.addText(name, {
-        x: x + 0.06,
-        y: y + 0.05,
-        w: w - 0.12,
-        h: Math.max(0.16, h - 0.1),
+        ...page.frame(x + 0.06, y + 0.05, w - 0.12, Math.max(0.16, h - 0.1)),
         fontFace: nameplate.fontFamily,
-        fontSize: Math.max(8, nameplate.fontSize * 0.66),
+        fontSize: Math.max(8 * page.scale, nameplate.fontSize * 0.66 * page.scale),
         bold: nameplate.fontWeight >= 700,
         color: hex(style.nameplateTextColor || '#FFFFFF'),
         align: nameplate.textAlign,
@@ -232,27 +242,18 @@ export async function buildPptxBuffer({
     if (isEmbeddableImage(scene.backgroundUrl)) {
       choiceSlide.addImage({
         data: scene.backgroundUrl!,
-        x: 0,
-        y: 0,
-        w: 13.333,
-        h: 7.5,
-        sizing: { type: 'cover', x: 0, y: 0, w: 13.333, h: 7.5 },
+        ...fullContentFrame,
+        sizing: { type: 'cover', ...fullContentFrame },
       });
     }
     choiceSlide.addShape(pptx.ShapeType.rect, {
-      x: 0,
-      y: 0,
-      w: 13.333,
-      h: 7.5,
+      ...fullContentFrame,
       fill: { color: '0F172A', transparency: 42 },
       line: { transparency: 100 },
     });
     choiceSlide.addText('CHOOSE YOUR ROUTE', {
-      x: 1.1,
-      y: 1.08,
-      w: 11.1,
-      h: 0.3,
-      fontSize: 12,
+      ...page.frame(1.1, 1.08, 11.1, 0.3),
+      fontSize: 12 * page.scale,
       bold: true,
       charSpacing: 3,
       color: 'D1D5DB',
@@ -260,12 +261,9 @@ export async function buildPptxBuffer({
       margin: 0,
     });
     choiceSlide.addText('你的选择是？', {
-      x: 1.1,
-      y: 1.48,
-      w: 11.1,
-      h: 0.55,
+      ...page.frame(1.1, 1.48, 11.1, 0.55),
       fontFace: style.titleFontFamily,
-      fontSize: 28,
+      fontSize: 28 * page.scale,
       bold: true,
       color: 'FFFFFF',
       align: 'center',
@@ -275,10 +273,7 @@ export async function buildPptxBuffer({
       const targetSlide = choice.targetId ? slideByNodeId.get(choice.targetId) : undefined;
       const y = 2.32 + index * 0.86;
       choiceSlide.addShape(pptx.ShapeType.roundRect, {
-        x: 2.0,
-        y,
-        w: 9.33,
-        h: 0.62,
+        ...page.frame(2.0, y, 9.33, 0.62),
         rectRadius: 0.08,
         fill: { color: '111827', transparency: 14 },
         line: { color: 'FFFFFF', transparency: 62 },
@@ -288,31 +283,22 @@ export async function buildPptxBuffer({
             : undefined,
       });
       choiceSlide.addShape(pptx.ShapeType.ellipse, {
-        x: 2.28,
-        y: y + 0.12,
-        w: 0.38,
-        h: 0.38,
+        ...page.frame(2.28, y + 0.12, 0.38, 0.38),
         fill: { color: hex(colors.choice) },
         line: { transparency: 100 },
       });
       choiceSlide.addText(String(index + 1), {
-        x: 2.28,
-        y: y + 0.165,
-        w: 0.38,
-        h: 0.16,
-        fontSize: 8,
+        ...page.frame(2.28, y + 0.165, 0.38, 0.16),
+        fontSize: 8 * page.scale,
         bold: true,
         color: 'FFFFFF',
         align: 'center',
         margin: 0,
       });
       choiceSlide.addText(choice.label, {
-        x: 2.86,
-        y: y + 0.15,
-        w: 8.0,
-        h: 0.27,
+        ...page.frame(2.86, y + 0.15, 8.0, 0.27),
         fontFace: style.bodyFontFamily,
-        fontSize: 16,
+        fontSize: 16 * page.scale,
         bold: true,
         color: 'FFFFFF',
         margin: 0,

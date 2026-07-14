@@ -33,6 +33,18 @@ import {
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
+import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import {
+  DEFAULT_PPT_TRANSITION,
+  PPT_CONTENT_HEIGHT,
+  PPT_CONTENT_WIDTH,
+  pptCanvasViewportClass,
+  type PptCanvasLayout,
+  type PptSelection,
+  type PptSlideItem,
+  type PptWorkspaceSidebarTab,
+  type PptWorkspaceViewMode,
+} from './pptWorkspaceModel';
 import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
@@ -62,15 +74,10 @@ import type {
   WebExportSettings,
 } from '../video/shared/types';
 
-type ViewMode = 'normal' | 'sorter' | 'reading';
-type SidebarTab = 'timeline' | 'style' | 'export';
-type SlideItem = {
-  id: string;
-  title: string;
-  kind: 'cover' | 'scene' | 'choice';
-  sceneId?: string;
-};
-type Selection = { target: PptAnimationTarget; targetId?: string; label: string };
+type ViewMode = PptWorkspaceViewMode;
+type SidebarTab = PptWorkspaceSidebarTab;
+type SlideItem = PptSlideItem;
+type Selection = PptSelection;
 type Scene = ReturnType<typeof resolvePptScenes>[number];
 type Copy = PptCopy & PptWorkspaceCopy;
 const PptCopyContext = createContext<Copy | null>(null);
@@ -138,12 +145,7 @@ const directionLabel = (copy: PptCopy, direction: PptAnimationDirection) =>
 const animationKey = (target: PptAnimationTarget, targetId?: string) =>
   `${target}:${targetId || ''}`;
 const choiceSlideId = (sceneId: string) => `choice:${sceneId}`;
-const DEFAULT_TRANSITION: PptSlideTransition = {
-  effect: 'none',
-  durationMs: 700,
-  direction: 'left',
-  advanceOnClick: true,
-};
+const DEFAULT_TRANSITION = DEFAULT_PPT_TRANSITION;
 const TRANSITIONS: Array<{ value: PptTransitionEffect; key: keyof PptCopy; glyph: string }> = [
   { value: 'none', key: 'none', glyph: '□' },
   { value: 'smooth', key: 'smooth', glyph: '◇' },
@@ -478,6 +480,7 @@ export function PptWorkspace({
               webSettings={webSettings}
               renderStyle={renderStyle}
               colors={colors}
+              layout={pptSettings.layout}
               onSelect={selectSlide}
             />
           ) : null}
@@ -496,6 +499,7 @@ export function PptWorkspace({
                 webSettings={webSettings}
                 renderStyle={renderStyle}
                 colors={colors}
+                layout={pptSettings.layout}
                 onSelect={(id) => {
                   selectSlide(id);
                   setViewMode('normal');
@@ -508,27 +512,34 @@ export function PptWorkspace({
                 <div className="min-h-0 flex-1 overflow-auto p-6 lg:p-10">
                   <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
                     <div
-                      className="w-full transition-transform duration-150"
-                      style={{ transform: `scale(${zoom / 100})` }}
+                      className={`relative w-full shrink-0 overflow-hidden bg-slate-950 transition-transform duration-150 ${pptCanvasViewportClass(pptSettings.layout)}`}
+                      style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center' }}
                     >
-                      <SlideCanvas
-                        key={selectedId}
-                        selectedId={selectedId}
-                        isChoiceSlide={activeSlide?.kind === 'choice'}
-                        scene={scene}
-                        projectName={projectName}
-                        webSettings={webSettings}
-                        renderStyle={renderStyle}
-                        colors={colors}
-                        animations={currentAnimations}
-                        transition={currentTransition}
-                        selected={selectedObject}
-                        previewing={isPreviewing}
-                        editable
-                        onSelect={selectObject}
-                        onUpdateObject={updatePptObject}
-                        onChoose={goToScene}
-                      />
+                      <VirtualPresentationStage
+                        fit="contain"
+                        width={PPT_CONTENT_WIDTH}
+                        height={PPT_CONTENT_HEIGHT}
+                        className="absolute inset-0 h-full w-full"
+                      >
+                        <SlideCanvas
+                          key={selectedId}
+                          selectedId={selectedId}
+                          isChoiceSlide={activeSlide?.kind === 'choice'}
+                          scene={scene}
+                          projectName={projectName}
+                          webSettings={webSettings}
+                          renderStyle={renderStyle}
+                          colors={colors}
+                          animations={currentAnimations}
+                          transition={currentTransition}
+                          selected={selectedObject}
+                          previewing={isPreviewing}
+                          editable
+                          onSelect={selectObject}
+                          onUpdateObject={updatePptObject}
+                          onChoose={goToScene}
+                        />
+                      </VirtualPresentationStage>
                     </div>
                   </div>
                 </div>
@@ -587,6 +598,7 @@ export function PptWorkspace({
             colors={colors}
             animations={currentAnimations}
             transition={currentTransition}
+            layout={pptSettings.layout}
             selectedIndex={selectedIndex}
             total={slides.length}
             onNext={next}
@@ -602,7 +614,7 @@ export function PptWorkspace({
           setNotesOpen={setNotesOpen}
           zoom={zoom}
           setZoom={setZoom}
-          onFit={() => setZoom(92)}
+          onFit={() => setZoom(100)}
           onPlay={playFromStart}
         />
       </main>
@@ -933,6 +945,7 @@ type ThumbnailProps = {
   colors: ReturnType<typeof pptSceneColors>;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
+  layout: PptCanvasLayout;
 };
 function SlideThumbnail({
   slide,
@@ -943,11 +956,17 @@ function SlideThumbnail({
   colors,
   animations,
   transition,
+  layout,
 }: ThumbnailProps) {
   const scene = slide.sceneId ? scenes.find((item) => item.id === slide.sceneId) : undefined;
   return (
-    <div className="pointer-events-none aspect-video overflow-hidden rounded bg-slate-950">
-      <div style={{ width: '714.2857%', transform: 'scale(.14)', transformOrigin: 'top left' }}>
+    <div className={`pointer-events-none relative overflow-hidden rounded bg-slate-950 ${pptCanvasViewportClass(layout)}`}>
+      <VirtualPresentationStage
+        fit="contain"
+        width={PPT_CONTENT_WIDTH}
+        height={PPT_CONTENT_HEIGHT}
+        className="absolute inset-0 h-full w-full"
+      >
         <SlideCanvas
           selectedId={slide.id}
           isChoiceSlide={slide.kind === 'choice'}
@@ -962,7 +981,7 @@ function SlideThumbnail({
           previewing={false}
           onSelect={() => undefined}
         />
-      </div>
+      </VirtualPresentationStage>
     </div>
   );
 }
@@ -977,6 +996,7 @@ function SlideList({
   renderStyle,
   colors,
   onSelect,
+  layout,
 }: {
   slides: SlideItem[];
   scenes: Scene[];
@@ -988,6 +1008,7 @@ function SlideList({
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
   onSelect: (id: string) => void;
+  layout: PptCanvasLayout;
 }) {
   return (
     <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-3">
@@ -1018,6 +1039,7 @@ function SlideList({
                 colors={colors}
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
+                layout={layout}
               />
               {(timelines[slide.id]?.length || 0) > 0 ? (
                 <div className="mt-1 text-right text-[10px] font-bold text-[var(--vr-accent-strong)]">
@@ -1042,6 +1064,7 @@ function SlideSorter({
   renderStyle,
   colors,
   onSelect,
+  layout,
 }: {
   slides: SlideItem[];
   scenes: Scene[];
@@ -1053,6 +1076,7 @@ function SlideSorter({
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
   onSelect: (id: string) => void;
+  layout: PptCanvasLayout;
 }) {
   return (
     <div className="h-full overflow-auto p-8">
@@ -1082,6 +1106,7 @@ function SlideSorter({
               colors={colors}
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
+              layout={layout}
             />
             <div className="mt-2 truncate text-sm font-black">{slide.title}</div>
           </button>
@@ -2265,6 +2290,7 @@ function PlayerOverlay({
   colors,
   animations,
   transition,
+  layout,
   selectedIndex,
   total,
   onNext,
@@ -2282,6 +2308,7 @@ function PlayerOverlay({
   colors: ReturnType<typeof pptSceneColors>;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
+  layout: PptCanvasLayout;
   selectedIndex: number;
   total: number;
   onNext: () => void;
@@ -2292,23 +2319,30 @@ function PlayerOverlay({
   return (
     <div className="fixed inset-0 z-[500] grid place-items-center bg-black" ref={playerRef}>
       <div className="relative flex h-full w-full items-center justify-center p-4">
-        <div className="w-full max-w-[177vh]">
-          <SlideCanvas
-            key={selectedId}
-            selectedId={selectedId}
-            isChoiceSlide={isChoiceSlide}
-            scene={scene}
-            projectName={projectName}
-            webSettings={webSettings}
-            renderStyle={renderStyle}
-            colors={colors}
-            animations={animations}
-            transition={transition}
-            selected={null}
-            previewing
-            onSelect={() => undefined}
-            onChoose={onChoose}
-          />
+        <div className={`relative w-full overflow-hidden bg-slate-950 ${pptCanvasViewportClass(layout)} ${layout === 'LAYOUT_STANDARD' ? 'max-w-[133vh]' : 'max-w-[177vh]'}`}>
+          <VirtualPresentationStage
+            fit="contain"
+            width={PPT_CONTENT_WIDTH}
+            height={PPT_CONTENT_HEIGHT}
+            className="absolute inset-0 h-full w-full"
+          >
+            <SlideCanvas
+              key={selectedId}
+              selectedId={selectedId}
+              isChoiceSlide={isChoiceSlide}
+              scene={scene}
+              projectName={projectName}
+              webSettings={webSettings}
+              renderStyle={renderStyle}
+              colors={colors}
+              animations={animations}
+              transition={transition}
+              selected={null}
+              previewing
+              onSelect={() => undefined}
+              onChoose={onChoose}
+            />
+          </VirtualPresentationStage>
         </div>
         <div className="absolute bottom-5 left-5 text-xs font-bold text-white/70">
           {selectedIndex + 1} / {total}

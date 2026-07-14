@@ -18,6 +18,10 @@ import type {
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
   selectedRenderObject: 'dialogBox',
   renderObjects: buildDefaultRenderObjects(),
+  videoTextAnimations: {
+    title: { animation: 'none', durationMs: 300, typewriterMode: 'character' },
+    body: { animation: 'typewriter', durationMs: 300, typewriterMode: 'character' },
+  },
   titleVisible: true,
   titleFontSize: 28,
   bodyFontSize: 18,

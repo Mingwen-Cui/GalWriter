@@ -42,6 +42,8 @@ export type VideoRenderModalProps = {
 export type RenderStyle = {
   selectedRenderObject?: RenderEditableObjectKind;
   renderObjects?: RenderEditableObjects;
+  /** Video-only text animation settings. Web playback keeps using its established animation path. */
+  videoTextAnimations?: Partial<Record<'title' | 'body', RenderObjectAnimationStyle>>;
   titleVisible: boolean;
   titleFontSize: number;
   bodyFontSize: number;

@@ -274,6 +274,42 @@ export const getRenderObjects = (style: RenderStyle): RenderEditableObjects => {
   };
 };
 
+/**
+ * Resolves the animation configuration used by the Canvas renderer.
+ *
+ * Video used to read the shared web object state directly. That meant the
+ * inspector could write one representation while Canvas read another. Keep
+ * the video timeline's animation controls in an explicit, video-only layer.
+ */
+export const getVideoRenderObjects = (style: RenderStyle): RenderEditableObjects => {
+  const objects = getRenderObjects(style);
+  const videoAnimations = style.videoTextAnimations;
+  if (!videoAnimations) return objects;
+  return {
+    ...objects,
+    title: {
+      ...objects.title,
+      animation: { ...objects.title.animation, ...videoAnimations.title },
+    },
+    body: {
+      ...objects.body,
+      animation: { ...objects.body.animation, ...videoAnimations.body },
+    },
+  };
+};
+
+export const updateVideoTextAnimations = (
+  style: RenderStyle,
+  kind: 'title' | 'body',
+  updates: Partial<RenderObjectAnimationStyle>,
+) => ({
+  ...style.videoTextAnimations,
+  [kind]: {
+    ...getVideoRenderObjects(style)[kind].animation,
+    ...updates,
+  },
+});
+
 export const updateRenderObject = (
   style: RenderStyle,
   kind: RenderEditableObjectKind,

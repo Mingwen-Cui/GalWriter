@@ -43,7 +43,7 @@ import {
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
-import { getRenderObjects } from '../shared/renderObjects';
+import { getVideoRenderObjects } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
 import { stripHtml } from '../shared/storyNodes';
 import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
@@ -1332,7 +1332,7 @@ export function VideoRenderModal({
   }, [focusedPreviewNode?.id]);
 
   const renderAnimationSignature = useMemo(() => {
-    const objects = getRenderObjects(renderStyle);
+    const objects = getVideoRenderObjects(renderStyle);
     return JSON.stringify(
       (['dialogBox', 'title', 'body', 'nameplate'] as const).map((kind) => objects[kind].animation),
     );
@@ -1344,8 +1344,16 @@ export function VideoRenderModal({
     previousRenderAnimationSignatureRef.current = renderAnimationSignature;
     setPreviewTime(0);
     setPreviewPlaying(false);
-    if (focusedTimelineMetric) setTimelinePreviewTime(focusedTimelineMetric.start);
-  }, [focusedTimelineMetric, renderAnimationSignature]);
+    // The canvas uses timelinePreviewTime while the whole timeline is being previewed.
+    // Resetting only previewTime left the canvas at (for example) 0:03, after every
+    // entrance animation had already finished, making all animation controls appear inert.
+    const activeMetric =
+      focusedTimelineMetric ||
+      timelineMetrics.segments.find(
+        (metric) => timelinePreviewTime >= metric.start && timelinePreviewTime < metric.end,
+      );
+    setTimelinePreviewTime(activeMetric?.start ?? 0);
+  }, [focusedTimelineMetric, renderAnimationSignature, timelineMetrics.segments, timelinePreviewTime]);
 
   React.useEffect(() => {
     setPreviewTime((prev) => Math.min(prev, previewDuration));

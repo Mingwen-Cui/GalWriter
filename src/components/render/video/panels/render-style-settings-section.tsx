@@ -28,7 +28,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
 import { TEXT_ANIMATION_OPTIONS } from '../shared/constants';
-import { getRenderObjects, updateRenderObject } from '../shared/renderObjects';
+import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
 import type { RenderStyle, TextAlign, TextAnimation, TypewriterMode } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
@@ -522,11 +522,11 @@ export function RenderStyleSettingsSection({
     const alignKey = `${kind}Align` as keyof RenderStyle;
     const spacingKey = `${kind}LetterSpacing` as keyof RenderStyle;
     const lineHeightKey = `${kind}LineHeight` as keyof RenderStyle;
-    const objectAnimation = getRenderObjects(renderStyle)[kind].animation;
+    const objectAnimation = getVideoRenderObjects(renderStyle)[kind].animation;
     const setObjectAnimation = (updates: Partial<typeof objectAnimation>) =>
       updateRenderStyle(
-        'renderObjects',
-        updateRenderObject(renderStyle, kind, { animation: { ...objectAnimation, ...updates } }),
+        'videoTextAnimations',
+        updateVideoTextAnimations(renderStyle, kind, updates),
       );
     const animation = objectAnimation.animation;
     const isTypewriter = animation === 'typewriter';
@@ -606,7 +606,7 @@ export function RenderStyleSettingsSection({
         {renderCollapsibleRows(
           showDetailRows,
           <>
-          {!isTitle && <div className="grid grid-cols-3 gap-2">
+          <div className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale" title={t('视频文字动画暂不可用', '動画テキストアニメーションは現在利用できません', 'Video text animation is currently unavailable')}>
           {iconSelect(
             Sparkles,
             `${kind}-animation`,
@@ -646,7 +646,7 @@ export function RenderStyleSettingsSection({
             t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
             !isTypewriter,
           )}
-          </div>}
+          </div>
           <div className="grid grid-cols-3 gap-2">
           {iconColor(
             Palette,

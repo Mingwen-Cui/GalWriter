@@ -35,7 +35,13 @@ import {
   NumberField,
 } from '../../web/webStyleInspectorControls';
 import { InlineColorControl, InlineGradientControl } from '../../web/StartMenuElementInspector';
-import { getRenderObjects, isTextRenderObject, updateRenderObject } from '../shared/renderObjects';
+import {
+  getRenderObjects,
+  getVideoRenderObjects,
+  isTextRenderObject,
+  updateRenderObject,
+  updateVideoTextAnimations,
+} from '../shared/renderObjects';
 import type {
   RenderEditableObject,
   RenderEditableObjectKind,
@@ -77,7 +83,7 @@ export function RenderObjectInspector({
 }) {
   const text = renderObjectText(language);
   const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
-  const objects = getRenderObjects(renderStyle);
+  const objects = surface === 'video' ? getVideoRenderObjects(renderStyle) : getRenderObjects(renderStyle);
   const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
   const selected = objects[selectedKind];
   const textObject = isTextRenderObject(selectedKind)
@@ -127,6 +133,17 @@ export function RenderObjectInspector({
   };
 
   const setObject = (updates: Partial<RenderEditableObject | RenderEditableTextObject>) => {
+    const isVideoTextAnimation =
+      surface === 'video' &&
+      (selectedKind === 'title' || selectedKind === 'body') &&
+      'animation' in updates;
+    if (isVideoTextAnimation) {
+      updateRenderStyle(
+        'videoTextAnimations',
+        updateVideoTextAnimations(renderStyle, selectedKind, updates.animation || {}),
+      );
+      return;
+    }
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
     const geometryKeys = ['x', 'y', 'width', 'height'] as const;
@@ -616,7 +633,8 @@ export function RenderObjectInspector({
         </InspectorGroup>
       ))}
 
-      {selectedKind === 'body' && (
+      {(selectedKind === 'title' || selectedKind === 'body') && (
+      <div className={surface === 'video' ? 'pointer-events-none select-none opacity-40 grayscale' : undefined}>
       <InspectorGroup
         title={text.group.animation}
         icon={<Sparkles className="h-3.5 w-3.5" />}
@@ -672,6 +690,12 @@ export function RenderObjectInspector({
           </SettingDescription>
         </ControlRow>
       </InspectorGroup>
+      {surface === 'video' && (
+        <p className="mt-1 px-2 text-[10px] text-slate-500">
+          {language === 'zh' ? '视频文字动画暂不可用' : language === 'ja' ? '動画テキストアニメーションは現在利用できません' : 'Video text animation is currently unavailable'}
+        </p>
+      )}
+      </div>
       )}
 
     </div>
