@@ -2315,6 +2315,7 @@ export function VideoRenderModal({
             projectName={webProjectName || defaultWebProjectName}
             webSettings={webSettings}
             renderStyle={renderStyle}
+            updateRenderStyle={updateRenderStyle}
             pptSettings={pptSettings}
             updatePptSettings={updatePptSettings}
             ribbonTab={pptRibbonTab}

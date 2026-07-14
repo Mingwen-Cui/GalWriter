@@ -535,6 +535,7 @@ export type PptAnimationTarget =
   | 'dialog-panel'
   | 'dialog-title'
   | 'dialog-body'
+  | 'nameplate'
   | 'choice';
 
 export type PptObjectAnimation = {

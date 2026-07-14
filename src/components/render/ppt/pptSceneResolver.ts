@@ -16,6 +16,7 @@ export type PptScene = {
   title: string;
   text: string;
   backgroundUrl?: string;
+  backgroundVideoUrl?: string;
   characters: PptCharacter[];
   choices: PptChoice[];
 };
@@ -24,6 +25,7 @@ type StoryData = {
   title?: string;
   text?: string;
   imageUrl?: string;
+  videoUrl?: string;
   presentation?: StoryPresentation;
 };
 
@@ -87,6 +89,7 @@ export function resolvePptScenes(
       data: sceneSource?.data as SceneNodeData | undefined,
       scene: presentation.scene,
       fallbackImageUrl: data.imageUrl || settings.sceneBackgroundImageUrl,
+      fallbackVideoUrl: data.videoUrl,
     });
     const characters = presentation.characters
       .map((config) => {
@@ -104,6 +107,7 @@ export function resolvePptScenes(
       title: data.title?.trim() || `场景 ${index + 1}`,
       text: stripHtml(data.text || ''),
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
+      backgroundVideoUrl: sceneMedia.videoUrl,
       characters,
       choices,
     };
