@@ -2,12 +2,20 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 
 import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
 import { normalizeStoryPresentation } from '../../../lib/presentation';
-import type { CharacterNodeData, CharacterPresentation, SceneNodeData, StoryPresentation } from '../../../domain/project';
+import type {
+  CharacterNodeData,
+  CharacterPresentation,
+  SceneNodeData,
+  StoryPresentation,
+} from '../../../domain/project';
 import { filterMentionTags, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
 export type PptChoice = { label: string; targetId?: string };
-export type PptCharacter = Pick<CharacterPresentation, 'sourceNodeId' | 'position' | 'offsetX' | 'offsetY' | 'scale' | 'flipX' | 'layer'> & {
+export type PptCharacter = Pick<
+  CharacterPresentation,
+  'sourceNodeId' | 'position' | 'offsetX' | 'offsetY' | 'scale' | 'flipX' | 'layer'
+> & {
   imageUrl?: string;
   name?: string;
 };
@@ -78,12 +86,18 @@ export function resolvePptScenes(
     const choices = edges
       .filter((edge) => edge.source === node.id && nodeIds.has(edge.target))
       .map((edge, choiceIndex) => ({
-        label: typeof edge.label === 'string' ? edge.label.trim() || `选项 ${choiceIndex + 1}` : `选项 ${choiceIndex + 1}`,
+        label:
+          typeof edge.label === 'string'
+            ? edge.label.trim() || `选项 ${choiceIndex + 1}`
+            : `选项 ${choiceIndex + 1}`,
         targetId: edge.target,
       }));
     const presentation = normalizeStoryPresentation(data.presentation);
     const sceneSource = presentation.scene
-      ? nodes.find((candidate) => candidate.id === presentation.scene?.sourceNodeId && candidate.type === 'sceneNode')
+      ? nodes.find(
+          (candidate) =>
+            candidate.id === presentation.scene?.sourceNodeId && candidate.type === 'sceneNode',
+        )
       : undefined;
     const sceneMedia = resolveSceneMedia({
       data: sceneSource?.data as SceneNodeData | undefined,
@@ -93,7 +107,9 @@ export function resolvePptScenes(
     });
     const characters = presentation.characters
       .map((config) => {
-        const source = nodes.find((candidate) => candidate.id === config.sourceNodeId && candidate.type === 'characterNode');
+        const source = nodes.find(
+          (candidate) => candidate.id === config.sourceNodeId && candidate.type === 'characterNode',
+        );
         if (!source) return null;
         const characterData = source.data as CharacterNodeData;
         const imageUrl = resolveCharacterImageUrl(characterData, config);
@@ -104,7 +120,9 @@ export function resolvePptScenes(
     characters.sort((a, b) => (a.layer || 1) - (b.layer || 1));
     return {
       id: node.id,
-      title: data.title?.trim() || `场景 ${index + 1}`,
+      // Do not invent a title for the presentation canvas. Web and video keep
+      // this field empty, so a fallback here created an extra line only in PPT.
+      title: data.title?.trim() || '',
       text: stripHtml(filterMentionTags(data.text || '', true, true)),
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
       backgroundVideoUrl: sceneMedia.videoUrl,

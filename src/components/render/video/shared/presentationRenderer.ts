@@ -8,6 +8,8 @@ import type {
   StoryPresentation,
 } from '../../../../domain/project';
 import {
+  CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
+  CHARACTER_STAGE_MAX_WIDTH_PERCENT,
   clampCharacterLayer,
   getCharacterEnterDelay,
   getPresentationMotionDuration,
@@ -26,10 +28,7 @@ type MediaSource = { source: CanvasImageSource; width: number; height: number };
 
 const easeOut = (value: number) => 1 - Math.pow(1 - clamp(value, 0, 1), 3);
 
-const inlineCanvasState = (
-  action: InlinePresentationAction | null | undefined,
-  elapsed = 0,
-) => {
+const inlineCanvasState = (action: InlinePresentationAction | null | undefined, elapsed = 0) => {
   if (!action || action.action === 'none') {
     return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
   }
@@ -38,8 +37,24 @@ const inlineCanvasState = (
   const repeats = Math.max(1, Math.round(action.repeats || 1));
   const wave = Math.sin(progress * Math.PI * 2 * repeats) * (1 - progress);
   const pulse = Math.sin(progress * Math.PI);
-  if (action.action === 'shake-x') return { x: wave * (action.strength || 10), y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
-  if (action.action === 'shake-y') return { x: 0, y: wave * (action.strength || 10), scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+  if (action.action === 'shake-x')
+    return {
+      x: wave * (action.strength || 10),
+      y: 0,
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
+  if (action.action === 'shake-y')
+    return {
+      x: 0,
+      y: wave * (action.strength || 10),
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
   if (action.action === 'translate') {
     return {
       x: (action.offsetX || action.strength || 0) * easeOut(progress),
@@ -50,18 +65,72 @@ const inlineCanvasState = (
       brightness: 1,
     };
   }
-  if (action.action === 'translate-x') return { x: (action.offsetX || action.strength || 0) * easeOut(progress), y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
-  if (action.action === 'translate-y') return { x: 0, y: (action.offsetY || action.strength || 0) * easeOut(progress), scale: 1, alpha: 1, rotation: 0, brightness: 1 };
-  if (action.action === 'scale') return { x: 0, y: 0, scale: 1 + ((action.scale || 1.08) - 1) * pulse, alpha: 1, rotation: 0, brightness: 1 };
-  if (action.action === 'pulse') return { x: 0, y: 0, scale: 1, alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 2 * repeats)) * 0.45, rotation: 0, brightness: 1 };
-  if (action.action === 'rotate') return { x: 0, y: 0, scale: 1, alpha: 1, rotation: ((action.strength || 12) * easeOut(progress) * Math.PI) / 180, brightness: 1 };
+  if (action.action === 'translate-x')
+    return {
+      x: (action.offsetX || action.strength || 0) * easeOut(progress),
+      y: 0,
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
+  if (action.action === 'translate-y')
+    return {
+      x: 0,
+      y: (action.offsetY || action.strength || 0) * easeOut(progress),
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
+  if (action.action === 'scale')
+    return {
+      x: 0,
+      y: 0,
+      scale: 1 + ((action.scale || 1.08) - 1) * pulse,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1,
+    };
+  if (action.action === 'pulse')
+    return {
+      x: 0,
+      y: 0,
+      scale: 1,
+      alpha: 0.55 + Math.abs(Math.cos(progress * Math.PI * 2 * repeats)) * 0.45,
+      rotation: 0,
+      brightness: 1,
+    };
+  if (action.action === 'rotate')
+    return {
+      x: 0,
+      y: 0,
+      scale: 1,
+      alpha: 1,
+      rotation: ((action.strength || 12) * easeOut(progress) * Math.PI) / 180,
+      brightness: 1,
+    };
   if (action.action === 'opacity') {
     const targetAlpha = clamp((action.strength || 0) / 100, 0, 1);
-    return { x: 0, y: 0, scale: 1, alpha: 1 + (targetAlpha - 1) * easeOut(progress), rotation: 0, brightness: 1 };
+    return {
+      x: 0,
+      y: 0,
+      scale: 1,
+      alpha: 1 + (targetAlpha - 1) * easeOut(progress),
+      rotation: 0,
+      brightness: 1,
+    };
   }
   if (action.action === 'brightness') {
     const targetBrightness = clamp((action.strength || 0) / 100, 0, 1);
-    return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 + (targetBrightness - 1) * easeOut(progress) };
+    return {
+      x: 0,
+      y: 0,
+      scale: 1,
+      alpha: 1,
+      rotation: 0,
+      brightness: 1 + (targetBrightness - 1) * easeOut(progress),
+    };
   }
   return { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 };
@@ -200,7 +269,12 @@ export const drawPresentationVisuals = async ({
       scene,
       fallbackImageUrl: (node.data?.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
       fallbackVideoUrl: selectedSceneImage?.videoUrl || (node.data?.videoUrl as string | undefined),
-      switchAction: getInlineSwitchAction('scene', scene?.sourceNodeId, null, completedSwitchActions),
+      switchAction: getInlineSwitchAction(
+        'scene',
+        scene?.sourceNodeId,
+        null,
+        completedSwitchActions,
+      ),
     });
     const imageUrl = sceneMedia.videoUrl ? undefined : sceneMedia.imageUrl;
     if (imageUrl) {
@@ -219,21 +293,42 @@ export const drawPresentationVisuals = async ({
 
   if (canvasSettings?.sceneBackgroundVisible && canvasSettings.sceneBackgroundType === 'gradient') {
     const angle = (canvasSettings.sceneBackgroundGradientAngle * Math.PI) / 180;
-    const dx = Math.cos(angle) * width / 2;
-    const dy = Math.sin(angle) * height / 2;
-    const gradient = ctx.createLinearGradient(width / 2 - dx, height / 2 - dy, width / 2 + dx, height / 2 + dy);
+    const dx = (Math.cos(angle) * width) / 2;
+    const dy = (Math.sin(angle) * height) / 2;
+    const gradient = ctx.createLinearGradient(
+      width / 2 - dx,
+      height / 2 - dy,
+      width / 2 + dx,
+      height / 2 + dy,
+    );
     gradient.addColorStop(0, canvasSettings.sceneBackgroundGradientStart);
     gradient.addColorStop(1, canvasSettings.sceneBackgroundGradientEnd);
     ctx.fillStyle = gradient;
   } else {
-    ctx.fillStyle = canvasSettings?.sceneBackgroundVisible ? canvasSettings.sceneBackgroundColor : '#111827';
+    ctx.fillStyle = canvasSettings?.sceneBackgroundVisible
+      ? canvasSettings.sceneBackgroundColor
+      : '#111827';
   }
   ctx.fillRect(0, 0, width, height);
-  if (canvasSettings?.sceneBackgroundVisible && canvasSettings.sceneBackgroundType === 'image' && canvasSettings.sceneBackgroundImageUrl) {
+  if (
+    canvasSettings?.sceneBackgroundVisible &&
+    canvasSettings.sceneBackgroundType === 'image' &&
+    canvasSettings.sceneBackgroundImageUrl
+  ) {
     try {
       const backgroundImage = await loadCachedImage(canvasSettings.sceneBackgroundImageUrl);
-      drawFitted(ctx, backgroundImage, backgroundImage.naturalWidth || width, backgroundImage.naturalHeight || height, width, height, 'cover');
-    } catch { /* Keep the selected fallback color. */ }
+      drawFitted(
+        ctx,
+        backgroundImage,
+        backgroundImage.naturalWidth || width,
+        backgroundImage.naturalHeight || height,
+        width,
+        height,
+        'cover',
+      );
+    } catch {
+      /* Keep the selected fallback color. */
+    }
   }
 
   // The video canvas is always a single composited frame. The split-layout scale and
@@ -244,10 +339,7 @@ export const drawPresentationVisuals = async ({
   const characterEnterDelay = getCharacterEnterDelay(presentation);
   const sceneExitDuration = getPresentationMotionDuration(scene?.exit);
   ctx.save();
-  ctx.translate(
-    0,
-    0,
-  );
+  ctx.translate(0, 0);
   ctx.translate(width / 2, height / 2);
   ctx.scale(presentationScaleX, presentationScaleY);
   ctx.translate(-width / 2, -height / 2);
@@ -259,11 +351,12 @@ export const drawPresentationVisuals = async ({
       scene?.sourceNodeId,
     );
     const inlineState =
-      activeInlineAction?.kind === 'scene' && activeInlineAction.sourceNodeId === scene?.sourceNodeId
+      activeInlineAction?.kind === 'scene' &&
+      activeInlineAction.sourceNodeId === scene?.sourceNodeId
         ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
         : completedSceneAction
           ? inlineCanvasState(completedSceneAction, Number.POSITIVE_INFINITY)
-        : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+          : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
     const state = scene
       ? activeMotionState(scene.enter, scene.exit, elapsed, duration, width, height, 0, 0)
       : { x: 0, y: 0, scale: 1, alpha: 1 };
@@ -313,7 +406,10 @@ export const drawPresentationVisuals = async ({
     .forEach(({ config, image }) => {
       const sourceWidth = image.naturalWidth || width;
       const sourceHeight = image.naturalHeight || height;
-      const fit = Math.min((width * 0.72) / sourceWidth, (height * 0.92) / sourceHeight);
+      const fit = Math.min(
+        (width * (CHARACTER_STAGE_MAX_WIDTH_PERCENT / 100)) / sourceWidth,
+        (height * (CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100)) / sourceHeight,
+      );
       const drawWidth = sourceWidth * fit;
       const drawHeight = sourceHeight * fit;
       const baseX = config.position === 'left' ? 0.24 : config.position === 'right' ? 0.76 : 0.5;
@@ -340,7 +436,7 @@ export const drawPresentationVisuals = async ({
           ? inlineCanvasState(activeInlineAction, activeInlineActionElapsed)
           : completedCharacterAction
             ? inlineCanvasState(completedCharacterAction, Number.POSITIVE_INFINITY)
-          : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
+            : { x: 0, y: 0, scale: 1, alpha: 1, rotation: 0, brightness: 1 };
 
       ctx.save();
       ctx.globalAlpha = state.alpha * inlineState.alpha;

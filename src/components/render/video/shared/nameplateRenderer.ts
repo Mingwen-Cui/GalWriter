@@ -29,6 +29,8 @@ type DialogueLayout = {
   height: number;
 };
 
+type ObjectAnimationState = { alpha: number; offsetY: number; reveal: number };
+
 const clampValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export const colorWithAlpha = (color: string, alpha: number) => {
@@ -246,36 +248,47 @@ export const drawNameplates = async (
   dialogueLayout: DialogueLayout,
   style: RenderStyle,
   items: NameplateItem[],
+  animation: ObjectAnimationState = { alpha: 1, offsetY: 0, reveal: 1 },
 ) => {
   const layouts = getNameplateLayouts(items, ctx, stageWidth, dialogueLayout, style);
   if (!layouts.length) return layouts;
 
   for (const layout of layouts) {
+    if (animation.reveal <= 0) continue;
+    const animatedLayout = {
+      ...layout,
+      y: layout.y + animation.offsetY,
+      width: layout.width * animation.reveal,
+    };
     const fontSize = Math.max(10, style.nameplateFontSize ?? 18);
     const nameplateObject = getRenderObjects(style).nameplate;
     if (!style.nameplateInside) {
       ctx.save();
       roundedRect(
         ctx,
-        layout.x,
-        layout.y,
-        layout.width,
-        layout.height,
-        Math.min(Math.max(0, style.nameplateRadius ?? 14), layout.height / 2),
+        animatedLayout.x,
+        animatedLayout.y,
+        animatedLayout.width,
+        animatedLayout.height,
+        Math.min(Math.max(0, style.nameplateRadius ?? 14), animatedLayout.height / 2),
       );
       ctx.clip();
-      await fillNameplateBackground(ctx, layout, style);
+      ctx.globalAlpha = animation.alpha;
+      await fillNameplateBackground(ctx, animatedLayout, style);
       ctx.restore();
     }
 
     ctx.font = `800 ${fontSize}px ${style.nameplateFontFamily || style.titleFontFamily}`;
     ctx.textBaseline = 'middle';
-    drawVideoTextLine(ctx, layout.item.name, layout.x + layout.width / 2, layout.y + layout.height / 2, {
+    ctx.save();
+    ctx.globalAlpha = animation.alpha;
+    drawVideoTextLine(ctx, layout.item.name, animatedLayout.x + animatedLayout.width / 2, animatedLayout.y + animatedLayout.height / 2, {
       align: 'center',
       fillColor: colorWithAlpha(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100),
       letterSpacing: nameplateObject.letterSpacing,
       object: nameplateObject,
     });
+    ctx.restore();
   }
   return layouts;
 };

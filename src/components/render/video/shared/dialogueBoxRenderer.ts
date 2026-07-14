@@ -8,6 +8,8 @@ type DialogueBoxLayoutOptions = {
   topExtension?: number;
 };
 
+type ObjectAnimationState = { alpha: number; offsetY: number; reveal: number };
+
 export const getDialogueBoxLayout = (
   width: number,
   height: number,
@@ -56,9 +58,10 @@ export const drawDialogueBox = async (
   height: number,
   style: RenderStyle,
   options: DialogueBoxLayoutOptions = {},
+  animation: ObjectAnimationState = { alpha: 1, offsetY: 0, reveal: 1 },
 ) => {
   const layout = getDialogueBoxLayout(width, height, style, options);
-  if (!style.dialogVisible) return layout;
+  if (!style.dialogVisible || animation.reveal <= 0) return layout;
   const dialogObject = getRenderObjects(style).dialogBox;
   const shadowLayers = dialogObject.shadows?.length ? dialogObject.shadows : [dialogObject.shadow];
 
@@ -67,7 +70,7 @@ export const drawDialogueBox = async (
   for (const shadow of shadowLayers) {
     if (!shadow.enabled || shadow.type !== 'outer' || shadow.alpha <= 0) continue;
     ctx.save();
-    roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
+    roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
     ctx.shadowColor = colorWithAlpha(shadow.color, shadow.alpha);
     ctx.shadowBlur = shadow.blur;
     ctx.shadowOffsetX = shadow.x;
@@ -80,7 +83,8 @@ export const drawDialogueBox = async (
   }
 
   ctx.save();
-  roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
+  ctx.globalAlpha = animation.alpha;
+  roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
   ctx.clip();
 
   if (style.dialogBackgroundType === 'image' && style.dialogImageUrl) {
@@ -94,15 +98,15 @@ export const drawDialogueBox = async (
       ctx.drawImage(
         image,
         layout.x + (layout.width - drawWidth) / 2,
-        layout.y + (layout.height - drawHeight) / 2,
+        layout.y + animation.offsetY + (layout.height - drawHeight) / 2,
         drawWidth,
         drawHeight,
       );
     } catch {
       ctx.fillStyle = style.panelColor;
       const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
-      ctx.globalAlpha = alpha / 100;
-      ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
+      ctx.globalAlpha = (alpha / 100) * animation.alpha;
+      ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
     }
   } else if (style.dialogBackgroundType === 'gradient') {
     // NOTE: dialogGradientAngle 可能为 undefined（旧存档数据），需要 fallback 为 90 防止产生 NaN
@@ -111,7 +115,7 @@ export const drawDialogueBox = async (
     // NOTE: 当 width/height 为 0 时 length 会为 0，createLinearGradient 起终点相同会抛出异常，故至少保证 length >= 1
     const length = Math.max(1, Math.hypot(layout.width, layout.height) / 2);
     const centerX = layout.x + layout.width / 2;
-    const centerY = layout.y + layout.height / 2;
+    const centerY = layout.y + animation.offsetY + layout.height / 2;
     const dx = Math.cos(angle) * length;
     const dy = Math.sin(angle) * length;
     const x0 = centerX - dx;
@@ -122,8 +126,8 @@ export const drawDialogueBox = async (
     if (!Number.isFinite(x0) || !Number.isFinite(y0) || !Number.isFinite(x1) || !Number.isFinite(y1)) {
       ctx.fillStyle = style.panelColor;
       const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
-      ctx.globalAlpha = alpha / 100;
-      ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
+      ctx.globalAlpha = (alpha / 100) * animation.alpha;
+      ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
       ctx.restore();
       return layout;
     }
@@ -135,19 +139,20 @@ export const drawDialogueBox = async (
       );
     });
     ctx.fillStyle = gradient;
-    ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
+    ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
   } else {
     ctx.fillStyle = style.panelColor;
     const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
-    ctx.globalAlpha = alpha / 100;
-    ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
+    ctx.globalAlpha = (alpha / 100) * animation.alpha;
+    ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
   }
 
   ctx.restore();
 
   if (dialogObject.stroke.enabled && dialogObject.stroke.width > 0) {
     ctx.save();
-    roundedRect(ctx, layout.x, layout.y, layout.width, layout.height, style.dialogRadius);
+    ctx.globalAlpha = animation.alpha;
+    roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
     ctx.lineJoin = dialogObject.stroke.lineJoin;
     ctx.lineCap = dialogObject.stroke.lineCap;
     // Filling the background after an extra-wide stroke leaves the requested

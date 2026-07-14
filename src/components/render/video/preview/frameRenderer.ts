@@ -2,7 +2,7 @@ import { htmlToSpeechText } from '../../../../lib/tts';
 import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
 import type { StoryPresentation } from '../../../../domain/project';
-import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
+import { animatedTextState, objectAnimationState, revealCharacters } from '../canvas/textAnimation';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
 import {
   drawNameplates,
@@ -127,23 +127,21 @@ export const drawRenderFrame = async ({
   const fullBodyLines = wrapText(ctx, fullBody || '', bodyMaxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));
   const titleState = animatedTextState(
-    videoRenderStyle.titleAnimation,
+    titleObject.animation.animation,
     titleLines,
-    videoRenderStyle.titleAnimationLeadSeconds ?? animationLeadSeconds,
+    titleObject.animation.durationMs,
     elapsed,
-    duration,
     forceFinalText,
-    videoRenderStyle.titleTypewriterMode,
+    titleObject.animation.typewriterMode,
   );
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const bodyState = animatedTextState(
-    videoRenderStyle.bodyAnimation,
+    bodyObject.animation.animation,
     bodyLines,
-    videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+    bodyObject.animation.durationMs,
     elapsed,
-    duration,
     forceFinalText,
-    videoRenderStyle.bodyTypewriterMode,
+    bodyObject.animation.typewriterMode,
   );
   const renderTitleLines = visibleLines(titleState.lines);
   const renderBodyLines = visibleLines(bodyState.lines);
@@ -165,8 +163,16 @@ export const drawRenderFrame = async ({
     height,
     videoRenderStyle,
     { topExtension: nameplateReservedHeight },
+    objectAnimationState(renderObjects.dialogBox.animation.animation, renderObjects.dialogBox.animation.durationMs, elapsed, forceFinalText),
   );
-  await drawNameplates(ctx, width, dialogLayout, videoRenderStyle, nameplateItems);
+  await drawNameplates(
+    ctx,
+    width,
+    dialogLayout,
+    videoRenderStyle,
+    nameplateItems,
+    objectAnimationState(renderObjects.nameplate.animation.animation, renderObjects.nameplate.animation.durationMs, elapsed, forceFinalText),
+  );
   const textLeft = dialogLayout.x + paddingX;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;
   let y =

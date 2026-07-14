@@ -252,28 +252,21 @@ export function VideoPreviewPanel({
     const previewElapsed = focusedPreviewNode
       ? previewTime
       : Math.max(0, (timelinePreviewTime - (focusedTimelineMetric?.start ?? 0)) * speed);
-    const previewAnimationDuration = focusedPreviewNode
-      ? previewDuration
-      : focusedTimelineMetric
-        ? focusedTimelineMetric.duration * speed
-        : undefined;
     const titleState = animatedTextState(
-      videoRenderStyle.titleAnimation,
+      objects.title.animation.animation,
       titleLines,
-      videoRenderStyle.titleAnimationLeadSeconds ?? animationLeadSeconds,
+      objects.title.animation.durationMs,
       previewElapsed,
-      previewAnimationDuration,
       false,
-      videoRenderStyle.titleTypewriterMode,
+      objects.title.animation.typewriterMode,
     );
     const bodyState = animatedTextState(
-      videoRenderStyle.bodyAnimation,
+      objects.body.animation.animation,
       bodyLines,
-      videoRenderStyle.bodyAnimationLeadSeconds ?? animationLeadSeconds,
+      objects.body.animation.durationMs,
       previewElapsed,
-      previewAnimationDuration,
       false,
-      videoRenderStyle.bodyTypewriterMode,
+      objects.body.animation.typewriterMode,
     );
     const renderedTitleLines = titleState.lines.filter((line) => line.length > 0);
     const renderedBodyLines = bodyState.lines.filter((line) => line.length > 0);

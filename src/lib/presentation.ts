@@ -98,7 +98,8 @@ export const normalizeStoryPresentation = (
 export const inlinePresentationActionLabel = (action: InlinePresentationActionType) => {
   if (action === 'shake-x') return '↔ 左右抖动';
   if (action === 'shake-y') return '↕ 上下抖动';
-  if (action === 'translate' || action === 'translate-x' || action === 'translate-y') return '⇄ 平移';
+  if (action === 'translate' || action === 'translate-x' || action === 'translate-y')
+    return '⇄ 平移';
   if (action === 'scale') return '⤢ 缩放';
   if (action === 'pulse') return '✦ 闪烁';
   if (action === 'rotate') return '⟳ 旋转';
@@ -108,13 +109,27 @@ export const inlinePresentationActionLabel = (action: InlinePresentationActionTy
   return '· 无动作';
 };
 
-export const getCharacterStagePosition = (config: CharacterPresentation) => {
+type CharacterStageConfig = Pick<CharacterPresentation, 'position' | 'offsetX' | 'offsetY'>;
+
+export const getCharacterStagePosition = (config: CharacterStageConfig) => {
   const basePosition = config.position === 'left' ? 24 : config.position === 'right' ? 76 : 50;
   return {
     left: `calc(${basePosition}% + ${config.offsetX / 10}%)`,
     bottom: `${config.offsetY / 10}%`,
   };
 };
+
+// All render targets place characters in this same safe stage.  Keeping these
+// numbers here prevents the web, video, and presentation renderers from
+// quietly developing different character scales again.
+export const CHARACTER_STAGE_MAX_WIDTH_PERCENT = 72;
+export const CHARACTER_STAGE_MAX_HEIGHT_PERCENT = 92;
+
+export const getCharacterStageBounds = (config: CharacterStageConfig) => ({
+  ...getCharacterStagePosition(config),
+  maxWidth: `${CHARACTER_STAGE_MAX_WIDTH_PERCENT}%`,
+  height: `${CHARACTER_STAGE_MAX_HEIGHT_PERCENT}%`,
+});
 
 type CharacterPresentationSettings = Omit<
   CharacterPresentation,

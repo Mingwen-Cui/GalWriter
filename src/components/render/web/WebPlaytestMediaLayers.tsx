@@ -14,6 +14,8 @@ import {
 } from '../../../lib/inlinePresentationPlayback';
 import {
   clampCharacterLayer,
+  CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
+  CHARACTER_STAGE_MAX_WIDTH_PERCENT,
   getCharacterEnterDelay,
   getCharacterStagePosition,
   getPresentationTransform,
@@ -67,86 +69,89 @@ export function WebPlaytestMediaLayers({
         data-split-visual-group={settings.layoutMode === 'classic' ? 'true' : undefined}
         style={settings.layoutMode === 'classic' ? getSceneGroupStyle(settings) : undefined}
       >
-      {currentImageUrl ? (
-        <img
-          key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
-          src={currentImageUrl}
-          alt=""
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-          className="preview-media-safe h-full w-full"
-          style={sceneStyle}
-        />
-      ) : currentVideoUrl ? (
-        <video
-          ref={currentVideoRef}
-          src={currentVideoUrl}
-          controls
-          playsInline
-          autoPlay={settings.videoAutoPlay || settings.autoAdvance}
-          muted={settings.videoAutoPlay}
-          onEnded={onVideoEnded}
-          className="h-full w-full"
-          style={sceneStyle}
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
-          {emptyText}
-        </div>
-      )}
-      {presentedCharacters.length > 0 && (
-        <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
-          {presentedCharacters.map(({ config, data, imageUrl }) => {
-            const motion = presentationExiting ? config.exit : config.enter;
-            const animationActive =
-              settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible);
-            const animationTransform =
-              animationActive && motion
-                ? getPresentationTransform(motion.type, presentationExiting)
-                : '';
-            const inlineAction =
-              activeInlineAction?.kind === 'character' &&
-              activeInlineAction.sourceNodeId === config.sourceNodeId
-                ? activeInlineAction
-                : latestPersistentInlineAction(
-                    completedInlineActions,
-                    'character',
-                    config.sourceNodeId,
-                  );
-            const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
-            return (
-              <img
-                key={config.sourceNodeId}
-                src={imageUrl}
-                alt={data.characterName}
-                draggable={false}
-                onDragStart={(event) => event.preventDefault()}
-                className="preview-media-safe absolute max-h-[92%] max-w-[72%] w-auto object-contain object-bottom"
-                style={{
-                  ...getCharacterStagePosition(config),
-                  zIndex: clampCharacterLayer(config.layer),
-                  opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-                  transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-                  animation: inlineActionAnimation(inlineAction),
-                  ...inlineActionCssVars(inlineAction),
-                  transformOrigin: 'center center',
-                  transitionProperty: 'opacity, transform',
-                  transitionDuration: inlineAction
-                    ? `${inlineDuration}ms`
-                    : settings.layoutMode === 'classic'
-                      ? '0ms'
-                      : `${motion.type === 'none' ? 0 : motion.duration}ms`,
-                  transitionDelay:
-                    settings.layoutMode === 'classic' || presentationExiting
-                      ? '0ms'
-                      : `${getCharacterEnterDelay(presentation)}ms`,
-                  transitionTimingFunction: 'ease-out',
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+        {currentImageUrl ? (
+          <img
+            key={`${currentNodeId}-${currentImageUrl}-${settings.layoutMode}`}
+            src={currentImageUrl}
+            alt=""
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
+            className="preview-media-safe h-full w-full"
+            style={sceneStyle}
+          />
+        ) : currentVideoUrl ? (
+          <video
+            ref={currentVideoRef}
+            src={currentVideoUrl}
+            controls
+            playsInline
+            autoPlay={settings.videoAutoPlay || settings.autoAdvance}
+            muted={settings.videoAutoPlay}
+            onEnded={onVideoEnded}
+            className="h-full w-full"
+            style={sceneStyle}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm font-bold text-white/45">
+            {emptyText}
+          </div>
+        )}
+        {presentedCharacters.length > 0 && (
+          <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+            {presentedCharacters.map(({ config, data, imageUrl }) => {
+              const motion = presentationExiting ? config.exit : config.enter;
+              const animationActive =
+                settings.layoutMode === 'immersive' &&
+                (presentationExiting || !presentationVisible);
+              const animationTransform =
+                animationActive && motion
+                  ? getPresentationTransform(motion.type, presentationExiting)
+                  : '';
+              const inlineAction =
+                activeInlineAction?.kind === 'character' &&
+                activeInlineAction.sourceNodeId === config.sourceNodeId
+                  ? activeInlineAction
+                  : latestPersistentInlineAction(
+                      completedInlineActions,
+                      'character',
+                      config.sourceNodeId,
+                    );
+              const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
+              return (
+                <img
+                  key={config.sourceNodeId}
+                  src={imageUrl}
+                  alt={data.characterName}
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
+                  className="preview-media-safe absolute w-auto object-contain object-bottom"
+                  style={{
+                    ...getCharacterStagePosition(config),
+                    maxHeight: `${CHARACTER_STAGE_MAX_HEIGHT_PERCENT}%`,
+                    maxWidth: `${CHARACTER_STAGE_MAX_WIDTH_PERCENT}%`,
+                    zIndex: clampCharacterLayer(config.layer),
+                    opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+                    transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+                    animation: inlineActionAnimation(inlineAction),
+                    ...inlineActionCssVars(inlineAction),
+                    transformOrigin: 'center center',
+                    transitionProperty: 'opacity, transform',
+                    transitionDuration: inlineAction
+                      ? `${inlineDuration}ms`
+                      : settings.layoutMode === 'classic'
+                        ? '0ms'
+                        : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                    transitionDelay:
+                      settings.layoutMode === 'classic' || presentationExiting
+                        ? '0ms'
+                        : `${getCharacterEnterDelay(presentation)}ms`,
+                    transitionTimingFunction: 'ease-out',
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -37,21 +37,36 @@ export const revealSentences = (lines: string[], visibleSentences: number) => {
 export const revealLineBlocks = (lines: string[], visibleLines: number) =>
   lines.map((line, index) => (index < visibleLines ? line : ''));
 
+export const objectAnimationState = (
+  animation: 'none' | 'fade' | 'slideUp' | 'typewriter',
+  durationMs: number,
+  elapsed?: number,
+  forceFinal = false,
+) => {
+  if (forceFinal || elapsed === undefined || animation === 'none') {
+    return { alpha: 1, offsetY: 0, reveal: 1 };
+  }
+
+  const progress = Math.min(1, Math.max(0, elapsed / Math.max(0.05, durationMs / 1000)));
+  if (animation === 'fade') return { alpha: progress, offsetY: 0, reveal: 1 };
+  if (animation === 'slideUp') return { alpha: progress, offsetY: (1 - progress) * 28, reveal: 1 };
+  // A typewriter effect on a non-text object is a left-to-right reveal.
+  return { alpha: 1, offsetY: 0, reveal: progress };
+};
+
 export const animatedTextState = (
   animation: 'none' | 'fade' | 'slideUp' | 'typewriter',
   lines: string[],
-  animationLeadSeconds: number,
+  animationDurationMs: number,
   elapsed?: number,
-  duration?: number,
   forceFinal = false,
   typewriterMode: 'character' | 'word' | 'sentence' | 'line' = 'character',
 ) => {
-  if (forceFinal || !elapsed || !duration || animation === 'none') {
+  if (forceFinal || elapsed === undefined || animation === 'none') {
     return { lines, alpha: 1, offsetY: 0 };
   }
 
-  const animationDuration = Math.max(0.1, duration - animationLeadSeconds);
-  const progress = Math.min(1, Math.max(0, elapsed / animationDuration));
+  const progress = Math.min(1, Math.max(0, elapsed / Math.max(0.05, animationDurationMs / 1000)));
   if (animation === 'fade') {
     return {
       lines,
