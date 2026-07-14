@@ -260,35 +260,6 @@ export function PlaytestSettingsPanel({
             />
           </PlaytestSettingCard>
 
-          <PlaytestSettingCard icon={<CharacterTagGlyph />} description={uiCopy.characterTags}>
-            <PlaytestToggleButton
-              active={hideCharacterTags}
-              icon={
-                hideCharacterTags ? (
-                  <EyeOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )
-              }
-              label={hideCharacterTags ? uiCopy.hide : uiCopy.show}
-              onClick={() => setHideCharacterTags(!hideCharacterTags)}
-            />
-          </PlaytestSettingCard>
-
-          <PlaytestSettingCard icon={<SceneTagGlyph />} description={uiCopy.sceneTags}>
-            <PlaytestToggleButton
-              active={hideSceneTags}
-              icon={
-                hideSceneTags ? (
-                  <EyeOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )
-              }
-              label={hideSceneTags ? uiCopy.hide : uiCopy.show}
-              onClick={() => setHideSceneTags(!hideSceneTags)}
-            />
-          </PlaytestSettingCard>
         </div>
       </div>
 

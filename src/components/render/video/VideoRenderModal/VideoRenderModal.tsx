@@ -280,12 +280,8 @@ export function VideoRenderModal({
   const [videoCanvasSelected, setVideoCanvasSelected] = useState(true);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
-  const [hideCharacterTags, setHideCharacterTags] = useState(
-    () => persistedWorkspace?.hideCharacterTags ?? true,
-  );
-  const [hideSceneTags, setHideSceneTags] = useState(
-    () => persistedWorkspace?.hideSceneTags ?? true,
-  );
+  const [hideCharacterTags, setHideCharacterTags] = useState(true);
+  const [hideSceneTags, setHideSceneTags] = useState(true);
   const [progress, setProgress] = useState('');
   const [progressValue, setProgressValue] = useState(0);
   const [previewTime, setPreviewTime] = useState(0);

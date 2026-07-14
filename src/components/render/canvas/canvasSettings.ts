@@ -106,8 +106,8 @@ export function normalizeSharedCanvasSettings(
     skipSingleChoicePopup: value?.skipSingleChoicePopup !== false,
     autoAdvance: value?.autoAdvance === true,
     videoAutoPlay: value?.videoAutoPlay === true,
-    hideCharacterTags: value?.hideCharacterTags !== false,
-    hideSceneTags: value?.hideSceneTags !== false,
+    hideCharacterTags: true,
+    hideSceneTags: true,
   };
 }
 

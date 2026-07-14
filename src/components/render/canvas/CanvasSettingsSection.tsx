@@ -136,11 +136,6 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
             <div className="h-9 w-11" aria-hidden="true" />
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <TagToggle label={text.hideCharacterTags} kind="character" active={value.hideCharacterTags} onClick={() => onChange({ hideCharacterTags: !value.hideCharacterTags })} />
-            <TagToggle label={text.hideSceneTags} kind="scene" active={value.hideSceneTags} onClick={() => onChange({ hideSceneTags: !value.hideSceneTags })} />
-            <div className="h-9 w-11" aria-hidden="true" />
-          </div>
         </div>
       )}
     </section>

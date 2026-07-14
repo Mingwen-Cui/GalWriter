@@ -1010,42 +1010,6 @@ export function PreviewSettingsPopover({
           value={settings.videoAutoPlay ? 'autoplay' : ''}
           onChange={() => onUpdateSettings('videoAutoPlay', !settings.videoAutoPlay)}
         />
-        <PreviewOptionGroup
-          title={t('人物标签', 'キャラタグ', 'Character Tags')}
-          titleIcon={<CharacterTagGlyph />}
-          options={[
-            {
-              value: 'hide',
-              label: t('隐藏', '非表示', 'Hide'),
-              icon: <EyeOff className="h-3.5 w-3.5" />,
-            },
-            {
-              value: 'show',
-              label: t('显示', '表示', 'Show'),
-              icon: <Eye className="h-3.5 w-3.5" />,
-            },
-          ]}
-          value={settings.hideCharacterTags ? 'hide' : 'show'}
-          onChange={(value) => onUpdateSettings('hideCharacterTags', value === 'hide')}
-        />
-        <PreviewOptionGroup
-          title={t('场景标签', 'シーンタグ', 'Scene Tags')}
-          titleIcon={<SceneTagGlyph />}
-          options={[
-            {
-              value: 'hide',
-              label: t('隐藏', '非表示', 'Hide'),
-              icon: <EyeOff className="h-3.5 w-3.5" />,
-            },
-            {
-              value: 'show',
-              label: t('显示', '表示', 'Show'),
-              icon: <Eye className="h-3.5 w-3.5" />,
-            },
-          ]}
-          value={settings.hideSceneTags ? 'hide' : 'show'}
-          onChange={(value) => onUpdateSettings('hideSceneTags', value === 'hide')}
-        />
         <PreviewRange
           label={t('标题字号', 'タイトルサイズ', 'Title Size')}
           value={renderStyle.titleFontSize}

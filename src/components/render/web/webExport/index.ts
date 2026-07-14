@@ -399,8 +399,8 @@ export async function buildInteractiveWebZipBlob(
     typewriterSpeed: options.settings?.typewriterSpeed ?? 65,
     autoAdvance: options.settings?.autoAdvance ?? false,
     videoAutoPlay: options.settings?.videoAutoPlay ?? false,
-    hideCharacterTags: options.settings?.hideCharacterTags ?? true,
-    hideSceneTags: options.settings?.hideSceneTags ?? true,
+    hideCharacterTags: true,
+    hideSceneTags: true,
   };
   settings.startMenuBackgroundImageUrl = await addImageAsset(
     zip,

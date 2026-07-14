@@ -422,21 +422,13 @@ export function PlayTestModal({
   const rawTextHtml =
     currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
   const textHtml = React.useMemo(() => {
-    if ((!hideCharacterTags && !hideSceneTags) || !rawTextHtml) return rawTextHtml;
+    if (!rawTextHtml) return rawTextHtml;
     const container = document.createElement('div');
     container.innerHTML = rawTextHtml;
-    if (hideCharacterTags) {
-      container
-        .querySelectorAll('[data-mention-kind="character"]')
-        .forEach((node) => node.remove());
-    }
-    if (hideSceneTags) {
-      container
-        .querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]')
-        .forEach((node) => node.remove());
-    }
+    container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
+    container.querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]').forEach((node) => node.remove());
     return container.innerHTML;
-  }, [hideCharacterTags, hideSceneTags, rawTextHtml]);
+  }, [rawTextHtml]);
 
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
@@ -1806,41 +1798,6 @@ export function PlayTestModal({
               />
             </PlaytestSettingCard>
 
-            <PlaytestSettingCard
-              icon={<CharacterTagGlyph />}
-              description={language === 'zh' ? '人物标签' : 'Character tags'}
-            >
-              <PlaytestToggleButton
-                active={hideCharacterTags}
-                icon={
-                  hideCharacterTags ? (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" />
-                  )
-                }
-                label={hideCharacterTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
-                onClick={() => setHideCharacterTags(!hideCharacterTags)}
-              />
-            </PlaytestSettingCard>
-
-            <PlaytestSettingCard
-              icon={<SceneTagGlyph />}
-              description={language === 'zh' ? '场景标签' : 'Scene tags'}
-            >
-              <PlaytestToggleButton
-                active={hideSceneTags}
-                icon={
-                  hideSceneTags ? (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" />
-                  )
-                }
-                label={hideSceneTags ? (language === 'zh' ? '隐藏' : 'Hide') : (language === 'zh' ? '显示' : 'Show')}
-                onClick={() => setHideSceneTags(!hideSceneTags)}
-              />
-            </PlaytestSettingCard>
           </div>
         </div>
 

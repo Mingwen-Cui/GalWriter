@@ -505,7 +505,7 @@ export function WebPlaytestPreview({
       );
   }, [activeInlineAction, completedSwitchActions, presentation.characters, nodes]);
   const rawText = getNodeDisplayText(currentNode);
-  const text = filterMentionTags(rawText, settings.hideCharacterTags, settings.hideSceneTags);
+  const text = filterMentionTags(rawText, true, true);
   const shouldHideCenteredSingleChoice =
     settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices =

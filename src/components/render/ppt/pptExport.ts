@@ -67,21 +67,33 @@ export async function buildPptxBuffer({
       slide.addImage({ data: character.imageUrl!, x, y, w: width, h: height, transparency: 0, flipH: character.flipX });
     });
 
-    if (style.nameplateVisible) {
-      const nameplate = getRenderObjects(style).nameplate;
-      if (nameplate.visible) {
-        const name = scene.characters.find((character) => character.name)?.name || scene.title;
-        const x = Math.max(0.55, Math.min(9.5, 0.9 + (nameplate.x || style.nameplateOffsetX || 0) / 100));
-        const y = Math.max(0.3, Math.min(6.5, 4.88 + (nameplate.y || style.nameplateOffsetY || 0) / 100));
-        const w = Math.max(1.25, Math.min(3.8, (nameplate.width || style.nameplateScale || 100) / 50));
-        slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h: 0.38, rectRadius: Math.max(0.02, (nameplate.radius || style.nameplateRadius || 14) / 180), fill: { color: hex(style.nameplateColor || colors.choice), transparency: 100 - (style.nameplateColorAlpha ?? 86) }, line: { transparency: 100 } });
-        slide.addText(name, { x: x + 0.08, y: y + 0.08, w: w - 0.16, h: 0.17, fontFace: style.nameplateFontFamily || style.titleFontFamily, fontSize: Math.max(10, (style.nameplateFontSize || 18) * 0.68), bold: true, color: hex(style.nameplateTextColor || '#FFFFFF'), align: 'center', margin: 0 });
-      }
+    const objects = getRenderObjects(style);
+    const panel = objects.dialogBox;
+    const title = objects.title;
+    const body = objects.body;
+    const nameplate = objects.nameplate;
+    const panelX = Math.max(0, Math.min(12.2, 0.93 + panel.x / 100));
+    const panelY = Math.max(0, Math.min(6.8, 4.43 + panel.y / 100));
+    const panelW = Math.max(1.2, Math.min(13.333 - panelX, 13.333 * panel.width / 100));
+    const panelH = Math.max(0.35, Math.min(7.5 - panelY, 7.5 * panel.height / 100));
+    if (panel.visible) {
+      slide.addShape(pptx.ShapeType.roundRect, { x: panelX, y: panelY, w: panelW, h: panelH, rectRadius: Math.max(.02, panel.radius / 180), fill: { color: hex(panel.fill.color), transparency: 100 - panel.fill.alpha }, line: panel.stroke.enabled ? { color: hex(panel.stroke.color), transparency: 100 - panel.stroke.alpha, width: panel.stroke.width } : { transparency: 100 }, rotate: panel.rotation });
     }
-
-    slide.addShape(pptx.ShapeType.roundRect, { x: 0.55, y: 5.25, w: 12.23, h: 1.7, rectRadius: style.dialogRadius / 100, fill: { color: hex(colors.panel), transparency: 100 - (style.panelColorAlpha ?? 82) }, line: { transparency: 100 } });
-    slide.addText(scene.title, { x: 0.9, y: 5.45, w: 2.8, h: 0.32, fontFace: style.titleFontFamily, fontSize: 16, bold: true, color: hex(colors.title), margin: 0 });
-    slide.addText(scene.text || ' ', { x: 0.9, y: 5.86, w: 8.1, h: 0.8, fontFace: style.bodyFontFamily, fontSize: 18, color: hex(colors.body), breakLine: false, margin: 0, valign: 'middle' });
+    if (title.visible) {
+      slide.addText(scene.title, { x: panelX + .22 + title.x / 100, y: panelY + .16 + title.y / 100, w: Math.min(panelW - .3, panelW * title.width / 100), h: Math.max(.18, title.height / 100), fontFace: title.fontFamily, fontSize: Math.max(8, title.fontSize * .66), bold: title.fontWeight >= 700, color: hex(title.fill.color), align: title.textAlign, margin: 0, breakLine: false, rotate: title.rotation });
+    }
+    if (body.visible) {
+      slide.addText(scene.text || ' ', { x: panelX + .22 + body.x / 100, y: panelY + .16 + title.height / 100 + .08 + body.y / 100, w: Math.min(panelW - .3, panelW * body.width / 100), h: Math.max(.2, body.height / 100), fontFace: body.fontFamily, fontSize: Math.max(8, body.fontSize * .66), bold: body.fontWeight >= 700, color: hex(body.fill.color), align: body.textAlign, breakLine: false, margin: 0, valign: 'middle', rotate: body.rotation });
+    }
+    if (style.nameplateVisible && nameplate.visible) {
+      const name = scene.characters.find((character) => character.name)?.name || scene.title;
+      const x = Math.max(0, Math.min(11.8, .93 + nameplate.x / 100));
+      const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
+      const w = Math.max(1.1, Math.min(5, 13.333 * nameplate.width / 100));
+      const h = Math.max(.26, nameplate.height / 100);
+      slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, rectRadius: Math.max(.02, nameplate.radius / 180), fill: { color: hex(nameplate.fill.color), transparency: 100 - nameplate.fill.alpha }, line: nameplate.stroke.enabled ? { color: hex(nameplate.stroke.color), transparency: 100 - nameplate.stroke.alpha, width: nameplate.stroke.width } : { transparency: 100 }, rotate: nameplate.rotation });
+      slide.addText(name, { x: x + .06, y: y + .05, w: w - .12, h: Math.max(.16, h - .1), fontFace: nameplate.fontFamily, fontSize: Math.max(8, nameplate.fontSize * .66), bold: nameplate.fontWeight >= 700, color: hex(style.nameplateTextColor || '#FFFFFF'), align: nameplate.textAlign, margin: 0, rotate: nameplate.rotation });
+    }
     if (pptSettings.includeNotes) {
       slide.addNotes(pptSettings.speakerNotes?.[scene.id] || `节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`);
     }

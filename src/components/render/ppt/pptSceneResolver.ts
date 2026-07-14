@@ -3,7 +3,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
 import { normalizeStoryPresentation } from '../../../lib/presentation';
 import type { CharacterNodeData, CharacterPresentation, SceneNodeData, StoryPresentation } from '../../../domain/project';
-import { stripHtml } from '../video/shared/storyNodes';
+import { filterMentionTags, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
 export type PptChoice = { label: string; targetId?: string };
@@ -105,7 +105,7 @@ export function resolvePptScenes(
     return {
       id: node.id,
       title: data.title?.trim() || `场景 ${index + 1}`,
-      text: stripHtml(data.text || ''),
+      text: stripHtml(filterMentionTags(data.text || '', true, true)),
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
       backgroundVideoUrl: sceneMedia.videoUrl,
       characters,
