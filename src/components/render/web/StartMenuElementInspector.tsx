@@ -467,6 +467,8 @@ export function StartMenuElementInspector({
   const fillEnabled = element.fillEnabled ?? fillHasValue;
   const strokeEnabled = element.strokeEnabled ?? strokeHasValue;
   const shadowEnabled = element.shadowEnabled ?? shadowHasValue;
+  const elementHidden = element.visible === false;
+  const hiddenLabel = language === 'zh' ? '已隐藏' : language === 'ja' ? '非表示' : 'Hidden';
   const toggleFill = () => {
     if (element.kind === 'text') return;
     pushInspectorSnapshot(element.id, 'fill', {
@@ -559,11 +561,11 @@ export function StartMenuElementInspector({
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
       <Group
-        title={text.group.position}
-        icon={<Box className="h-3.5 w-3.5" />}
+        title={elementHidden ? hiddenLabel : text.group.position}
+        icon={elementHidden ? <SlashedIcon><Box className="h-3.5 w-3.5" /></SlashedIcon> : <Box className="h-3.5 w-3.5" />}
         tone="position"
-        onTitleClick={() => onUpdate({ visible: element.visible === false })}
-        titleActive={element.visible !== false}
+        onTitleClick={() => onUpdate({ visible: elementHidden })}
+        titleActive
         expandLabel={inspectorCopy.expand}
         collapseLabel={inspectorCopy.collapse}
         showDescriptions={showDescriptions}
@@ -1588,6 +1590,10 @@ function TwoSegmentControl<T extends string>({
       ))}
     </div>
   );
+}
+
+function SlashedIcon({ children }: { children: React.ReactNode }) {
+  return <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true">{children}<span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" /></span>;
 }
 
 function SettingDescription({

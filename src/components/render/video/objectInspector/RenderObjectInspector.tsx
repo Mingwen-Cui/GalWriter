@@ -114,6 +114,13 @@ export function RenderObjectInspector({
       : language === 'ja'
         ? { type: 'アニメーション種類', typewriter: 'タイプ単位' }
         : { type: 'Animation type', typewriter: 'Typing unit' };
+  const positionTitle = selected.visible
+    ? text.group.position
+    : language === 'zh'
+      ? '已隐藏'
+      : language === 'ja'
+        ? '非表示'
+        : 'Hidden';
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
     updateRenderStyle('selectedRenderObject', kind);
@@ -194,11 +201,11 @@ export function RenderObjectInspector({
       </div>}
 
       <InspectorGroup
-        title={text.group.position}
-        icon={<Box className="h-3.5 w-3.5" />}
+        title={positionTitle}
+        icon={<PositionVisibilityIcon visible={selected.visible} />}
         tone="position"
         onTitleClick={() => setObject({ visible: !selected.visible })}
-        titleActive={selected.visible}
+        titleActive
         showDescriptions={showDescriptions}
         secondaryHasDescription
         secondary={
@@ -737,6 +744,11 @@ function syncLegacyFields(
     updateRenderStyle('nameplateGradientStops', textObject.fill.gradientStops);
     updateRenderStyle('nameplateImageUrl', textObject.fill.imageUrl);
   }
+}
+
+function PositionVisibilityIcon({ visible }: { visible: boolean }) {
+  if (visible) return <Box className="h-3.5 w-3.5" />;
+  return <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true"><Box className="h-3.5 w-3.5" /><span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" /></span>;
 }
 
 function SelectField({

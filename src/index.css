@@ -3945,6 +3945,29 @@ button.web-segment-button:last-child {
 @keyframes ppt-wipe-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes ppt-wipe-down { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes ppt-zoom { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
+/* PPT stage animations: enter and exit use only a straight path. */
+@keyframes ppt-line-left { from { opacity: 0; translate: -24% 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes ppt-line-right { from { opacity: 0; translate: 24% 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes ppt-line-up { from { opacity: 0; translate: 0 -24%; } to { opacity: 1; translate: 0 0; } }
+@keyframes ppt-line-down { from { opacity: 0; translate: 0 24%; } to { opacity: 1; translate: 0 0; } }
+@keyframes ppt-line-out-left { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: -24% 0; } }
+@keyframes ppt-line-out-right { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 24% 0; } }
+@keyframes ppt-line-out-up { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 -24%; } }
+@keyframes ppt-line-out-down { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 24%; } }
+/* PPT-inspired emphasis effects. They run around the label's existing pose. */
+@keyframes ppt-pulse { 50% { scale: 1.12; } }
+@keyframes ppt-colorPulse { 50% { filter: saturate(1.8) hue-rotate(35deg); } }
+@keyframes ppt-bounce { 0%, 100% { translate: 0 0; } 45% { translate: 0 -16%; } 70% { translate: 0 5%; } }
+@keyframes ppt-teeter { 25% { rotate: -11deg; } 75% { rotate: 11deg; } }
+@keyframes ppt-growShrink { 50% { scale: 1.22; } }
+@keyframes ppt-spin { to { rotate: 360deg; } }
+@keyframes ppt-blink { 50% { opacity: .16; } }
+@keyframes ppt-wave { 0%, 100% { rotate: 0; translate: 0 0; } 25% { rotate: -5deg; translate: 0 -5%; } 75% { rotate: 5deg; translate: 0 5%; } }
+@keyframes ppt-wiggle { 0%, 100% { translate: 0 0; } 25% { translate: -5% 0; } 75% { translate: 5% 0; } }
+@keyframes ppt-desaturate { 50% { filter: grayscale(1); } }
+@keyframes ppt-darken { 50% { filter: brightness(.55); } }
+@keyframes ppt-lighten { 50% { filter: brightness(1.65); } }
+@keyframes ppt-transparency { 50% { opacity: .28; } }
 
 .ppt-slide-canvas {
   animation-fill-mode: both;

@@ -502,7 +502,29 @@ export type WebHistoryState = {
 };
 
 /** PPT only stores presentation rules. All visual fields come from WebExportSettings + RenderStyle. */
-export type PptAnimationEffect = 'none' | 'appear' | 'fade' | 'fly' | 'float' | 'wipe' | 'zoom';
+/**
+ * PPT animations are deliberately split into the three stages used by the
+ * story presentation: entering, performing on stage, and exiting.
+ */
+export type PptAnimationPhase = 'enter' | 'emphasis' | 'exit';
+export type PptAnimationEffect =
+  | 'none'
+  | 'line'
+  | 'pulse'
+  | 'colorPulse'
+  | 'bounce'
+  | 'teeter'
+  | 'growShrink'
+  | 'spin'
+  | 'blink'
+  | 'wave'
+  | 'wiggle'
+  | 'desaturate'
+  | 'darken'
+  | 'lighten'
+  | 'transparency'
+  // Legacy values are retained so existing saved projects still load.
+  | 'appear' | 'fade' | 'fly' | 'float' | 'wipe' | 'zoom';
 export type PptAnimationStart = 'onClick' | 'withPrevious' | 'afterPrevious';
 export type PptAnimationDirection = 'left' | 'right' | 'up' | 'down';
 export type PptAnimationTarget =
@@ -519,6 +541,8 @@ export type PptObjectAnimation = {
   id: string;
   target: PptAnimationTarget;
   targetId?: string;
+  /** Missing phase means a legacy entrance animation. */
+  phase?: PptAnimationPhase;
   effect: PptAnimationEffect;
   start: PptAnimationStart;
   durationMs: number;

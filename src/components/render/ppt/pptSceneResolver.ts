@@ -28,6 +28,39 @@ type StoryData = {
 };
 
 /**
+ * Mirrors the story-test navigation's graph walk instead of trusting the
+ * React Flow node array (which only reflects creation/canvas order).
+ *
+ * Branches are kept in their edge order, matching the choice order presented
+ * by PlayTestModal.  Unreachable cards stay at the end so exporting never
+ * silently loses authored content.
+ */
+const getPlaytestOrderedStoryNodes = (nodes: FlowNode[], edges: FlowEdge[]) => {
+  const storyNodes = nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden);
+  const root = storyNodes.find((node) => node.data?.isRoot) || storyNodes[0];
+  if (!root) return [];
+
+  const byId = new Map(storyNodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  const ordered: FlowNode[] = [];
+  const visit = (nodeId: string) => {
+    if (visited.has(nodeId)) return;
+    const node = byId.get(nodeId);
+    if (!node) return;
+    visited.add(nodeId);
+    ordered.push(node);
+    edges.filter((edge) => edge.source === nodeId).forEach((edge) => visit(edge.target));
+  };
+
+  visit(root.id);
+  storyNodes
+    .filter((node) => !visited.has(node.id))
+    .sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x)
+    .forEach((node) => ordered.push(node));
+  return ordered;
+};
+
+/**
  * The one shared scene contract for the PPT preview and .pptx output.
  * It intentionally consumes the existing story graph and web visual settings.
  */
@@ -36,7 +69,7 @@ export function resolvePptScenes(
   edges: FlowEdge[],
   settings: WebExportSettings,
 ): PptScene[] {
-  const visibleStoryNodes = nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden);
+  const visibleStoryNodes = getPlaytestOrderedStoryNodes(nodes, edges);
   const nodeIds = new Set(visibleStoryNodes.map((node) => node.id));
   return visibleStoryNodes.map((node, index) => {
     const data = node.data as StoryData;
