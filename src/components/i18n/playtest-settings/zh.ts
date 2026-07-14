@@ -1,0 +1,21 @@
+export const playtestSettingsZh = {
+  settingsTitle: '\u6d4b\u8bd5\u53c2\u6570',
+  layout: '\u754c\u9762\u5e03\u5c40',
+  splitDesc: '\u753b\u9762\u4e0e\u6587\u672c\u5206\u533a\uff0c\u9002\u5408\u7a33\u5b9a\u9605\u8bfb',
+  mergedDesc:
+    '\u6587\u672c\u53e0\u52a0\u5230\u753b\u9762\u4e0a\uff0c\u9002\u5408\u5168\u5c4f\u6f14\u51fa',
+  choicePosition: '\u9009\u9879\u4f4d\u7f6e',
+  top: '\u4e0a\u65b9',
+  center: '\u4e2d\u95f4',
+  bottom: '\u4e0b\u65b9',
+  columns: '\u9009\u9879\u5217\u6570',
+  blurBackground: '\u80cc\u666f\u865a\u5316',
+  blurText: '\u6587\u5b57\u865a\u5316',
+  singlePopup: '\u5355\u9009\u5f39\u7a97',
+  autoAdvance: '\u81ea\u52a8\u7ffb\u9875',
+  characterTags: '\u4eba\u7269\u6807\u7b7e',
+  sceneTags: '\u573a\u666f\u6807\u7b7e',
+  hide: '\u9690\u85cf',
+  show: '\u663e\u793a',
+  styleTitle: '\u6807\u9898 / \u6b63\u6587 / \u6587\u5b57\u6846',
+} as const;

@@ -193,7 +193,7 @@ export const translations = {
     toolMedia: 'Import Media (Image/Video/Audio)',
     toolText: 'Add Custom Text Label (Size/Color/Bold)',
     toolBatchReplace:
-      'Right-click on the arrow line segment to delete it. Double-click on the arrow line segment to reverse it.',
+      'Add Batch Replace Card (find and replace text in cards inside a background area)',
     toolPlotStructure:
       'Add Plot Structure Design card (auto-generate story continuation inside background/group)',
     toolScene: 'Add Scene Setting card',
@@ -362,7 +362,7 @@ export const translations = {
     toolText: 'カスタムテキストラベルを追加 (サイズ/色/太字)',
     toolBatchReplace:
       '矢印の線を右クリックして削除します。矢印の線をダブルクリックして反転します。',
-    toolPlotStructure: 'プロット構造設計カードを追加 (背景/グループ内にストーリーの続きを自动生成)',
+    toolPlotStructure: 'プロット構造設計カードを追加 (背景/グループ内でストーリーの続きを自動生成)',
     toolScene: 'シーン設定カードを追加',
     fit: 'フィット',
     crop: '切り抜き',

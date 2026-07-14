@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 
 import { AISettingsPanel } from './AISettingsPanel';
 import { DraggableNumberInput } from './DraggableNumberInput';
+import { settingsModalCopy } from './i18n/settings-modal';
 import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
@@ -263,377 +264,6 @@ interface SettingsModalProps {
   onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
 }
 
-const settingsText = {
-  zh: {
-    editorTab: '编辑器',
-    playtestTab: '剧本测试',
-    aboutTab: '关于与反馈',
-    language: '系统语言',
-    chinese: '简体中文',
-    japanese: '日本語',
-    closeSettings: '关闭设置',
-    themeLanguage: '主题与语言',
-    rightToolbar: '右侧工具',
-    selectionMenu: '框选菜单',
-    show: '显示',
-    hide: '隐藏',
-    on: '开启',
-    off: '关闭',
-    shownInToolbar: '工具栏显示',
-    hiddenInToolbar: '工具栏隐藏',
-    applyCurrentSettingsTitle: '应用当前设置到其他项目',
-    applying: '应用中...',
-    applyToOtherProjects: '应用到其他项目',
-    chooseTargetProjects: '选择要应用设置的项目',
-    chooseTargetProjectsDesc: '勾选要复制当前设置的项目文件。项目标题会保留。',
-    clearAll: '取消全选',
-    selectAll: '全选',
-    noOtherProjects: '暂无其他本地项目可应用。',
-    untitledProject: '未命名项目',
-    updated: '最近编辑',
-    copied: '已复制！',
-    clickToCopy: '点击复制',
-    toolbarBubbleStyle: '工具栏气泡质感',
-    cardToolbarScale: '卡片工具栏缩放',
-    cardToolbarScaleDesc: '调整点击卡片后弹出的工具栏整体比例。',
-    hoverButtonAnimations: '悬浮按钮动画',
-    hoverButtonAnimationsDesc: '开启后，鼠标悬浮在部分工具按钮上会播放 Lottie 引导动画。',
-    opaqueAssistantMessagesInGlass: 'AI 助手对话不透明',
-    opaqueFooterInGlass: '底部状态栏不透明',
-    glass: '玻璃',
-    flat: '扁平',
-    bgColorsDesc: '点击颜色块可自定义颜色，这些颜色会显示在画布右侧的快速切换栏中。',
-    storyTitlePosition: '普通卡片标题位置',
-    titleInside: '卡片内部',
-    titleOutsideLeft: '卡片外部左上角',
-    titleOutsideRight: '卡片外部右上角',
-    plotStructureDirection: '剧情结构卡片生成方向',
-    plotStructureDirectionDesc: '一键生成后续剧情时，卡片会朝这个方向延展。',
-    directionUp: '上方',
-    directionDown: '下方',
-    directionLeft: '左侧',
-    directionRight: '右侧',
-    interactions: '交互与显示',
-    showLastSavedTime: '显示上次保存时间',
-    saveAssistantConversations: '保存 AI 助手对话',
-    allowAssistantImageGeneration: '允许 AI 助手调用图片生成 API',
-    skipAssistantAgentAnimation: '跳过 AI 助手动画',
-    skipAssistantAgentAnimationDesc: '默认关闭。开启后，AI 助手生成卡片时会直接完成，不显示等待指针和逐步输入动画。',
-    assistantMemorySkill: 'AI 偏好记忆 skill',
-    assistantMemorySkillDesc:
-      '默认关闭。开启后，AI 助手会记录你明确表达的创作习惯，并在后续生成卡片时作为偏好参考。',
-    downloadAssistantMemory: '下载偏好记忆',
-    assistantMemoryCount: '已记录偏好',
-    playtestThemeLayout: '剧情测试主题与排版',
-    playtestTheme: '测试界面主题',
-    choicePosition: '选项按钮位置',
-    choiceCenter: '画面中间',
-    choiceAboveText: '文字上方',
-    choiceBelowText: '文字下方',
-    blurChoiceBackground: '选项弹出背景虚化',
-    enableBackgroundBlur: '开启背景虚化',
-    disableBackgroundBlur: '关闭背景虚化',
-    blurStoryTextToo: '虚化时模糊剧情文字',
-    blurText: '文字也虚化',
-    keepTextClear: '文字保持清晰',
-    hideCenterPopupSingleChoice: '单选项时隐藏居中弹窗',
-    hideClickText: '隐藏（点击文字继续）',
-    showPopup: '显示弹窗选择',
-    storyTextInteraction: '剧情文本交互策略',
-    storyTextDisplayMode: '剧情显示模式',
-    immediateMode: '立即显示（直接显示文本与选项）',
-    typewriterMode: '打字机效果（文本逐字打出后显示选项）',
-    timedMode: '延迟显示选项（文本载入 N 秒后显示选项）',
-    clickToShowMode: '点击显示选项（点击文本区域后显示选项）',
-    typewriterSpeed: '打字速度（每字延迟）',
-    charUnit: 'ms/字',
-    choicesDelay: '选择项延迟出现时间',
-    secondUnit: '秒',
-    autoAdvance: '自动翻页',
-    continueAfterAnimation: '动画结束后自动继续',
-    autoAdvanceDesc: '仅在没有多个选项时生效，多选项会暂停等待选择。',
-    waitTime: '等待秒数',
-    enableOverlay: '启用遮罩',
-    disableOverlay: '关闭遮罩',
-    multimediaSettings: '多媒体设置',
-    qqPersonal: 'QQ群',
-    visitAuthorWebsite: '访问介绍网站',
-    helpUsageNotice: '帮助和使用须知',
-    aboutProductTitle: 'AI 交互式小说创作工具',
-    aboutProductDesc: '致力于构建下一代 AI 交互式小说创作工具，让每一颗想象力的种子都能开花结果。',
-    desktopCloseButton: '桌面端关闭按钮',
-    minimizeToTray: '最小化到后台',
-    quitApp: '直接关闭应用',
-    desktopCloseDesc: '此选项只影响 Tauri 打包后的桌面应用，浏览器预览不会改变窗口行为。',
-    forceQuitTitle: '强制退出应用',
-    forceCloseApp: '强制关闭 GalWriter AI',
-    forceCloseDesc: '当窗口关闭按钮只会最小化时，可以用这个按钮直接退出桌面应用。',
-    backToAbout: '返回关于与反馈',
-    responsibleUseTitle: '请合理、合法地使用 GalWriter AI',
-    responsibleUseDesc:
-      '本工具用于辅助个人创作、学习和原型设计。请在遵守所在地法律法规、平台规则和基本创作伦理的前提下使用。',
-    responsibleUseRule1:
-      '请不要将本软件本体、安装包或未经授权的改版拿去售卖、倒卖或包装成付费产品。',
-    responsibleUseRule2:
-      '请不要使用本软件生成、传播违法违规内容，包括诈骗、暴力犯罪、色情剥削、仇恨骚扰、侵犯隐私等内容。',
-    responsibleUseRule3:
-      'AI 生成内容可能存在错误、偏见或不适合公开发布的表达，发布前请自行审校并承担相应责任。',
-    responsibleUseRule4:
-      '请尊重他人的版权、肖像权、隐私权和商业权益，不要冒充他人或未经许可使用受保护素材。',
-    responsibleDisclaimer:
-      '免责声明：作者不对用户使用本软件产生的内容、收益、纠纷或法律后果承担责任。继续使用即表示你理解并愿意遵守以上须知。',
-  },
-  en: {
-    editorTab: 'Editor',
-    playtestTab: 'Playtest',
-    aboutTab: 'About & Feedback',
-    language: 'Language',
-    chinese: 'Chinese',
-    japanese: 'Japanese',
-    closeSettings: 'Close settings',
-    themeLanguage: 'Theme & Language',
-    rightToolbar: 'Right Toolbar',
-    selectionMenu: 'Selection Menu',
-    show: 'Show',
-    hide: 'Hide',
-    on: 'On',
-    off: 'Off',
-    shownInToolbar: 'Shown in toolbar',
-    hiddenInToolbar: 'Hidden in toolbar',
-    applyCurrentSettingsTitle: 'Apply current settings to other projects',
-    applying: 'Applying...',
-    applyToOtherProjects: 'Apply to other projects',
-    chooseTargetProjects: 'Choose target projects',
-    chooseTargetProjectsDesc:
-      'Select the project files that should receive the current settings. Project titles will be preserved.',
-    clearAll: 'Clear all',
-    selectAll: 'Select all',
-    noOtherProjects: 'No other local projects available.',
-    untitledProject: 'Untitled project',
-    updated: 'Updated',
-    copied: 'Copied!',
-    clickToCopy: 'Click to Copy',
-    toolbarBubbleStyle: 'Toolbar Bubble Style',
-    cardToolbarScale: 'Card Toolbar Scale',
-    cardToolbarScaleDesc: 'Adjust the overall size of the toolbar shown after selecting a card.',
-    hoverButtonAnimations: 'Hover Button Animations',
-    hoverButtonAnimationsDesc: 'Play Lottie guides when hovering over supported toolbar buttons.',
-    opaqueAssistantMessagesInGlass: 'Opaque AI assistant messages',
-    opaqueFooterInGlass: 'Opaque bottom footer',
-    glass: 'Glass',
-    flat: 'Flat',
-    bgColorsDesc: 'Click color blocks to customize. These will appear in the quick switcher.',
-    storyTitlePosition: 'Story Card Title Position',
-    titleInside: 'Inside',
-    titleOutsideLeft: 'Outside Top Left',
-    titleOutsideRight: 'Outside Top Right',
-    plotStructureDirection: 'Plot Structure Card Direction',
-    plotStructureDirectionDesc: 'Generated story cards extend in this direction.',
-    directionUp: 'Up',
-    directionDown: 'Down',
-    directionLeft: 'Left',
-    directionRight: 'Right',
-    interactions: 'Interactions',
-    showLastSavedTime: 'Show last saved time',
-    saveAssistantConversations: 'Save AI assistant chats',
-    allowAssistantImageGeneration: 'Allow AI assistant to call image generation API',
-    skipAssistantAgentAnimation: 'Skip AI assistant animation',
-    skipAssistantAgentAnimationDesc:
-      'Off by default. When enabled, card generation finishes directly without the waiting cursor or step-by-step typing animation.',
-    assistantMemorySkill: 'AI preference memory skill',
-    assistantMemorySkillDesc:
-      'Off by default. When enabled, the assistant records explicit writing preferences and uses them as generation guidance.',
-    downloadAssistantMemory: 'Download memory',
-    assistantMemoryCount: 'Saved preferences',
-    playtestThemeLayout: 'Playtest Theme & Layout',
-    playtestTheme: 'Playtest Theme',
-    choicePosition: 'Choice Position',
-    choiceCenter: 'Center',
-    choiceAboveText: 'Above Text',
-    choiceBelowText: 'Below Text',
-    blurChoiceBackground: 'Blur Choice Background',
-    enableBackgroundBlur: 'Enabled',
-    disableBackgroundBlur: 'Disabled',
-    blurStoryTextToo: 'Blur Story Text Too',
-    blurText: 'Blur Text',
-    keepTextClear: 'Keep Text Clear',
-    hideCenterPopupSingleChoice: 'Hide Center Popup for Single Choice',
-    hideClickText: 'Hide (Click Text)',
-    showPopup: 'Show Popup',
-    storyTextInteraction: 'Story Text Interaction',
-    storyTextDisplayMode: 'Story Text Display Mode',
-    immediateMode: 'Immediate (Show all instantly)',
-    typewriterMode: 'Typewriter (Reveal word-by-word)',
-    timedMode: 'Timed Delay (Show choices after N seconds)',
-    clickToShowMode: 'Click-to-Show (Tap text to unlock choices)',
-    typewriterSpeed: 'Typewriting Speed',
-    charUnit: 'ms/char',
-    choicesDelay: 'Choices Appending Delay',
-    secondUnit: 's',
-    autoAdvance: 'Auto Advance',
-    continueAfterAnimation: 'Continue after animation',
-    autoAdvanceDesc: 'Only runs when there is not more than one choice.',
-    waitTime: 'Wait Time',
-    enableOverlay: 'Enabled',
-    disableOverlay: 'Disabled',
-    multimediaSettings: 'Multimedia Settings',
-    qqPersonal: 'QQ Group',
-    visitAuthorWebsite: 'Visit Author Website',
-    helpUsageNotice: 'Help & Usage Notice',
-    aboutProductTitle: 'Interactive AI Fiction Creation Tool',
-    aboutProductDesc:
-      'Dedicated to building next-gen AI narrative infrastructure, making every seed of imagination bloom.',
-    desktopCloseButton: 'Desktop Close Button',
-    minimizeToTray: 'Minimize',
-    quitApp: 'Quit',
-    desktopCloseDesc:
-      'This only affects the packaged Tauri app; browser preview behavior is unchanged.',
-    forceQuitTitle: 'Force quit app',
-    forceCloseApp: 'Force Close GalWriter AI',
-    forceCloseDesc: 'Use this when the window close button only minimizes the app.',
-    backToAbout: 'Back to About & Feedback',
-    responsibleUseTitle: 'Use GalWriter AI Responsibly',
-    responsibleUseDesc:
-      'This tool is intended for personal creation, learning, and prototyping. Use it in accordance with applicable laws, platform rules, and basic creative ethics.',
-    responsibleUseRule1:
-      'Do not sell, resell, or repackage this software, installer, or unauthorized modified versions as a paid product.',
-    responsibleUseRule2:
-      'Do not use this software to generate or distribute illegal or harmful content, including fraud, violent crime, sexual exploitation, hate, harassment, or privacy violations.',
-    responsibleUseRule3:
-      'AI-generated content may contain mistakes, bias, or unsuitable wording. Review it before publishing and take responsibility for the final output.',
-    responsibleUseRule4:
-      'Respect copyright, likeness rights, privacy, and commercial rights. Do not impersonate others or use protected material without permission.',
-    responsibleDisclaimer:
-      'Disclaimer: The author is not responsible for content, revenue, disputes, or legal consequences arising from user behavior. Continued use means you understand and agree to follow this notice.',
-  },
-  ja: {
-    editorTab: 'エディタ',
-    playtestTab: 'テストプレイ',
-    aboutTab: 'バージョン情報',
-    language: 'システム言語',
-    chinese: '中国語（簡体字）',
-    japanese: '日本語',
-    closeSettings: '設定を閉じる',
-    themeLanguage: 'テーマと言語',
-    rightToolbar: '右側ツールバー',
-    selectionMenu: '選択メニュー',
-    show: '表示',
-    hide: '非表示',
-    on: 'オン',
-    off: 'オフ',
-    shownInToolbar: 'ツールバーに表示',
-    hiddenInToolbar: 'ツールバーで非表示',
-    applyCurrentSettingsTitle: '現在の設定を他のプロジェクトに適用',
-    applying: '適用中...',
-    applyToOtherProjects: '他のプロジェクトに適用',
-    chooseTargetProjects: '設定を適用するプロジェクトを選択',
-    chooseTargetProjectsDesc:
-      '現在の設定をコピーするプロジェクトファイルを選択してください。プロジェクト名は保持されます。',
-    clearAll: '全解除',
-    selectAll: 'すべて選択',
-    noOtherProjects: '適用できる他のローカルプロジェクトはありません。',
-    untitledProject: '無題のプロジェクト',
-    updated: '最近の編集',
-    copied: 'コピーしました！',
-    clickToCopy: 'クリックしてコピー',
-    toolbarBubbleStyle: 'ツールバーのバブルスタイル',
-    cardToolbarScale: 'カードツールバー倍率',
-    cardToolbarScaleDesc: 'カード選択時に表示されるツールバー全体の大きさを調整します。',
-    hoverButtonAnimations: 'ホバーボタンのアニメーション',
-    hoverButtonAnimationsDesc:
-      '対応するツールボタンにマウスを合わせると、Lottie ガイドを再生します。',
-    opaqueAssistantMessagesInGlass: 'AIアシスタント会話を不透明にする',
-    opaqueFooterInGlass: '下部フッターを不透明にする',
-    glass: 'ガラス',
-    flat: 'フラット',
-    bgColorsDesc:
-      '色をクリックするとカスタマイズできます。これらの色はキャンバス右側のクイック切り替えバーに表示されます。',
-    storyTitlePosition: '通常カードのタイトル位置',
-    titleInside: 'カード内部',
-    titleOutsideLeft: 'カードの左上（外部）',
-    titleOutsideRight: 'カードの右上（外部）',
-    plotStructureDirection: 'ストーリー構造カードの生成方向',
-    plotStructureDirectionDesc: '後続カードはこの方向へ伸びます。',
-    directionUp: '上',
-    directionDown: '下',
-    directionLeft: '左',
-    directionRight: '右',
-    interactions: 'インタラクションと表示',
-    showLastSavedTime: '最终保存時間の表示',
-    saveAssistantConversations: 'AIアシスタントの会話を保存する',
-    allowAssistantImageGeneration: 'AIアシスタントの画像生成API呼び出しを許可',
-    skipAssistantAgentAnimation: 'AIアシスタントのアニメーションをスキップ',
-    skipAssistantAgentAnimationDesc:
-      'デフォルトはオフです。オンにすると、カード生成時の待機カーソルと段階的な入力アニメーションを表示せず、直接完了します。',
-    assistantMemorySkill: 'AI嗜好メモリ skill',
-    assistantMemorySkillDesc:
-      'デフォルトはオフです。オンにすると、明示された創作上の好みを記録し、以後のカード生成の参考にします。',
-    downloadAssistantMemory: 'メモリをダウンロード',
-    assistantMemoryCount: '保存済みの好み',
-    playtestThemeLayout: 'テストプレイのテーマとレイアウト',
-    playtestTheme: 'テストUIのテーマ',
-    choicePosition: '選択肢ボタンの位置',
-    choiceCenter: '画面中央',
-    choiceAboveText: 'テキストの上',
-    choiceBelowText: 'テキストの下',
-    blurChoiceBackground: '選択肢表示時の背景ぼかし',
-    enableBackgroundBlur: '背景ぼかしを有効にする',
-    disableBackgroundBlur: '背景ぼかしを無効にする',
-    blurStoryTextToo: '背景ぼかし時にストーリーテキストもぼかす',
-    blurText: 'テキストもぼかす',
-    keepTextClear: 'テキストをクリアに保つ',
-    hideCenterPopupSingleChoice: '単一選択肢の場合は中央ポップアップを非表示',
-    hideClickText: '非表示（クリックして進む）',
-    showPopup: 'ポップアップ選択を表示',
-    storyTextInteraction: 'ストーリーテキストの表示設定',
-    storyTextDisplayMode: '表示モード',
-    immediateMode: '即時表示（テキストと選択肢を同時に表示）',
-    typewriterMode: 'タイプライター風表示（文字を徐々に表示し、終わったら選択肢を表示）',
-    timedMode: '遅延表示（テキストロードのN秒後に選択肢を表示）',
-    clickToShowMode: 'クリックで表示（テキスト領域をクリック後に選択肢を表示）',
-    typewriterSpeed: 'タイピング速度（文字ごとのディレイ）',
-    charUnit: 'ms/文字',
-    choicesDelay: '選択肢の表示ディレイ',
-    secondUnit: '秒',
-    autoAdvance: '自動ページ送り',
-    continueAfterAnimation: 'アニメーション終了後に自動で進む',
-    autoAdvanceDesc: '複数の選択肢がない場合のみ有効です。複数の選択肢がある場合は選択を待ちます。',
-    waitTime: '待機時間',
-    enableOverlay: 'オーバーレイを表示',
-    disableOverlay: 'オーバーレイを非表示',
-    multimediaSettings: 'マルチメディア設定',
-    qqPersonal: 'QQグループ',
-    visitAuthorWebsite: '開発者のウェブサイトを訪問',
-    helpUsageNotice: 'ヘルプと利用規約',
-    aboutProductTitle: 'インタラクティブAI小説執筆ツール',
-    aboutProductDesc:
-      '次世代のAIインタラクティブ小説創作インフラの構築を目指し、想像力のすべての種が花を咲かせるよう支援します。',
-    desktopCloseButton: 'デスクトップ閉じるボタンの挙動',
-    minimizeToTray: 'タスクトレイに最小化',
-    quitApp: 'アプリを終了',
-    desktopCloseDesc:
-      'この設定はTauriデスクトップアプリにのみ適用されます。ブラウザでのプレビュー動作には影響しません。',
-    forceQuitTitle: 'アプリを強制終了',
-    forceCloseApp: 'GalWriter AIを強制終了',
-    forceCloseDesc:
-      'ウィンドウの閉じるボタンが最小化として動作する場合に、このボタンで直接アプリを終了できます。',
-    backToAbout: 'バージョン情報に戻る',
-    responsibleUseTitle: 'GalWriter AIの適切な利用について',
-    responsibleUseDesc:
-      '本ツールは個人の創作活動、学習、およびプロトタイピングの支援を目的としています。現地の法律、プラットフォーム利用規約、および基本的な創作倫理を遵守してご利用ください。',
-    responsibleUseRule1:
-      '本ソフトウェア本体、インストーラー、または無断で改変した版を販売、転売、有料製品として再包装しないでください。',
-    responsibleUseRule2:
-      '詐欺、暴力犯罪、性的搾取、ヘイト、嫌がらせ、プライバシー侵害など、違法または有害な内容の生成や配布に使用しないでください。',
-    responsibleUseRule3:
-      'AI 生成コンテンツには誤り、偏り、公開に適さない表現が含まれる場合があります。公開前に確認し、最終的な内容にはご自身で責任を持ってください。',
-    responsibleUseRule4:
-      '著作権、肖像権、プライバシー、商業上の権利を尊重してください。他者になりすましたり、許可なく保護された素材を使用したりしないでください。',
-    responsibleDisclaimer:
-      '免責事項：作者は、ユーザーの利用によって生じたコンテンツ、収益、紛争、法的結果について責任を負いません。利用を続けることで、この注意事項を理解し遵守することに同意したものとみなされます。',
-  },
-} satisfies Record<Language, Record<string, string>>;
-
 const localeByLanguage: Record<Language, string> = {
   zh: 'zh-CN',
   en: 'en-US',
@@ -826,7 +456,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     window.close();
   };
   const t = translations[language];
-  const s = settingsText[language];
+  const s = settingsModalCopy(language);
   const isDesktopApp = isTauriRuntime();
   const applyProjectCountLabel =
     language === 'zh'
@@ -1425,7 +1055,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   </section>
-
                 </div>
               )}
 
@@ -1568,11 +1197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh'
-                              ? '圆角'
-                              : language === 'ja'
-                                ? '角丸'
-                                : 'Radius'}
+                            {language === 'zh' ? '圆角' : language === 'ja' ? '角丸' : 'Radius'}
                           </span>
                           <div className="min-w-0 flex-1">
                             <DraggableNumberInput
@@ -1587,11 +1212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-16 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
-                            {language === 'zh'
-                              ? '尖角'
-                              : language === 'ja'
-                                ? '先端角'
-                                : 'Angle'}
+                            {language === 'zh' ? '尖角' : language === 'ja' ? '先端角' : 'Angle'}
                           </span>
                           <div className="min-w-0 flex-1">
                             <DraggableNumberInput
@@ -1766,9 +1387,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         max={3}
                         step={0.05}
                         value={cardToolbarScale}
-                        onChange={(event) =>
-                          setCardToolbarScale(parseFloat(event.target.value))
-                        }
+                        onChange={(event) => setCardToolbarScale(parseFloat(event.target.value))}
                         className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-700"
                       />
                       <span className="shrink-0 text-xs font-mono font-bold text-[var(--accent)]">
@@ -1830,9 +1449,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <div className="min-w-0 flex-1">
                                 <div
                                   className={`text-xs font-black ${
-                                    selected
-                                      ? 'text-[var(--accent)]'
-                                      : 'text-[var(--text-primary)]'
+                                    selected ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'
                                   }`}
                                 >
                                   {item.label}
@@ -1955,9 +1572,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)
-                      }
+                      onClick={() => setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)}
                       className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left transition-all ${
                         hideStoryImageButtonWithTags
                           ? 'text-[var(--text-primary)]'
@@ -1972,11 +1587,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               ? 'タグがある場合、ストーリーカードの画像生成ボタンを非表示'
                               : 'Hide story image button when tags exist'}
                         </div>,
-                          language === 'zh'
-                            ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
-                            : language === 'ja'
-                              ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
-                              : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
+                        language === 'zh'
+                          ? '仅在选择透明背景立绘，且剧情卡正文含人物或场景 Tag 时生效。'
+                          : language === 'ja'
+                            ? '透過背景立ち絵を選択し、本文に人物またはシーンタグがある場合のみ有効です。'
+                            : 'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
                       )}
                       <span
                         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
@@ -2006,7 +1621,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           ? '只影响场景卡片的一键生图，优先级高于图片 API 配置中的尺寸。'
                           : language === 'ja'
                             ? 'シーンカードの画像生成にのみ適用され、画像 API のサイズ設定より優先されます。'
-                          : 'Only affects scene card generation and overrides the image API size.',
+                            : 'Only affects scene card generation and overrides the image API size.',
                       )}
                     </div>
                     <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
@@ -2155,410 +1770,430 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                   {false && (
                     <>
-                  <section className="space-y-5">
-                    <header className="flex items-center gap-3 mb-2">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {s.playtestThemeLayout}
-                      </h3>
-                    </header>
+                      <section className="space-y-5">
+                        <header className="flex items-center gap-3 mb-2">
+                          <h3 className="text-base font-black text-[var(--text-primary)]">
+                            {s.playtestThemeLayout}
+                          </h3>
+                        </header>
 
-                    {/* Playtest Layout Mode */}
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{t.playtestLayoutMode}</h3>
-                      <div className={segmentedControlClass}>
-                        <button
-                          onClick={() => setPlayTestLayoutMode('classic')}
-                          className={compactSegmentButtonClass(playTestLayoutMode === 'classic')}
-                        >
-                          {t.layoutClassic}
-                        </button>
-                        <button
-                          onClick={() => setPlayTestLayoutMode('immersive')}
-                          className={compactSegmentButtonClass(playTestLayoutMode === 'immersive')}
-                        >
-                          {t.layoutImmersive}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Playtest Theme */}
-                    {playTestLayoutMode === 'classic' && (
-                      <div className={settingsRowClass}>
-                        <h3 className={settingsRowTitleClass}>{s.playtestTheme}</h3>
-                        <div className={segmentedControlClass}>
-                          <button
-                            onClick={() => setPlayTestDarkMode(false)}
-                            className={compactSegmentButtonClass(!playTestDarkMode)}
-                          >
-                            {t.lightMode}
-                          </button>
-                          <button
-                            onClick={() => setPlayTestDarkMode(true)}
-                            className={compactSegmentButtonClass(playTestDarkMode)}
-                          >
-                            {t.darkMode}
-                          </button>
+                        {/* Playtest Layout Mode */}
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>{t.playtestLayoutMode}</h3>
+                          <div className={segmentedControlClass}>
+                            <button
+                              onClick={() => setPlayTestLayoutMode('classic')}
+                              className={compactSegmentButtonClass(
+                                playTestLayoutMode === 'classic',
+                              )}
+                            >
+                              {t.layoutClassic}
+                            </button>
+                            <button
+                              onClick={() => setPlayTestLayoutMode('immersive')}
+                              className={compactSegmentButtonClass(
+                                playTestLayoutMode === 'immersive',
+                              )}
+                            >
+                              {t.layoutImmersive}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </section>
 
-                  {/* Playtest Choices Position */}
-                  <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>{s.choicePosition}</h3>
-                    <div className={segmentedControlClass}>
-                      {[
-                        { id: 'center', label: s.choiceCenter },
-                        { id: 'aboveText', label: s.choiceAboveText },
-                        { id: 'belowText', label: s.choiceBelowText },
-                      ].map((pos) => (
-                        <button
-                          key={pos.id}
-                          onClick={() => setPlayTestChoicesPosition(pos.id as any)}
-                          className={compactSegmentButtonClass(playTestChoicesPosition === pos.id)}
-                        >
-                          {pos.label}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
+                        {/* Playtest Theme */}
+                        {playTestLayoutMode === 'classic' && (
+                          <div className={settingsRowClass}>
+                            <h3 className={settingsRowTitleClass}>{s.playtestTheme}</h3>
+                            <div className={segmentedControlClass}>
+                              <button
+                                onClick={() => setPlayTestDarkMode(false)}
+                                className={compactSegmentButtonClass(!playTestDarkMode)}
+                              >
+                                {t.lightMode}
+                              </button>
+                              <button
+                                onClick={() => setPlayTestDarkMode(true)}
+                                className={compactSegmentButtonClass(playTestDarkMode)}
+                              >
+                                {t.darkMode}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </section>
 
-                  {/* Playtest Choices Columns */}
-                  <div
-                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                      playTestChoicesPosition !== 'center'
-                        ? 'max-h-[200px] opacity-100'
-                        : 'max-h-0 opacity-0 pointer-events-none'
-                    }`}
-                  >
-                    <section className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{t.choiceColumns}</h3>
-                      <div className={segmentedControlClass}>
-                        {[1, 2, 3].map((cols) => (
-                          <button
-                            key={cols}
-                            onClick={() => setPlayTestChoicesColumns(cols)}
-                            className={compactSegmentButtonClass(playTestChoicesColumns === cols)}
-                          >
-                            {t[`column${cols}` as keyof typeof t]}
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  </div>
-
-                  {/* Playtest Blur Options */}
-                  <section className="space-y-3">
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{s.blurChoiceBackground}</h3>
-                      <div className={segmentedControlClass}>
-                        {[
-                          {
-                            id: 'true',
-                            value: true,
-                            label: s.enableBackgroundBlur,
-                          },
-                          {
-                            id: 'false',
-                            value: false,
-                            label: s.disableBackgroundBlur,
-                          },
-                        ].map((opt) => (
-                          <button
-                            key={opt.id}
-                            onClick={() => setPlayTestBlurBackground(opt.value)}
-                            className={compactSegmentButtonClass(
-                              playTestBlurBackground === opt.value,
-                            )}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div
-                      className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                        playTestBlurBackground
-                          ? 'max-h-[200px] opacity-100'
-                          : 'max-h-0 opacity-0 pointer-events-none'
-                      }`}
-                    >
-                      <div className={settingsRowClass}>
-                        <h3 className={settingsRowTitleClass}>{s.blurStoryTextToo}</h3>
+                      {/* Playtest Choices Position */}
+                      <section className={settingsRowClass}>
+                        <h3 className={settingsRowTitleClass}>{s.choicePosition}</h3>
                         <div className={segmentedControlClass}>
                           {[
-                            {
-                              id: 'true',
-                              value: true,
-                              label: s.blurText,
-                            },
-                            {
-                              id: 'false',
-                              value: false,
-                              label: s.keepTextClear,
-                            },
-                          ].map((opt) => (
+                            { id: 'center', label: s.choiceCenter },
+                            { id: 'aboveText', label: s.choiceAboveText },
+                            { id: 'belowText', label: s.choiceBelowText },
+                          ].map((pos) => (
                             <button
-                              key={opt.id}
-                              onClick={() => setPlayTestBlurText(opt.value)}
-                              className={compactSegmentButtonClass(playTestBlurText === opt.value)}
+                              key={pos.id}
+                              onClick={() => setPlayTestChoicesPosition(pos.id as any)}
+                              className={compactSegmentButtonClass(
+                                playTestChoicesPosition === pos.id,
+                              )}
                             >
-                              {opt.label}
+                              {pos.label}
                             </button>
                           ))}
                         </div>
-                      </div>
-                    </div>
-                  </section>
+                      </section>
 
-                  {/* Playtest Skip Single Choice Popup */}
-                  {playTestChoicesPosition === 'center' && (
-                    <section
-                      className={`animate-in fade-in slide-in-from-top-1 duration-200 ${settingsRowClass}`}
-                    >
-                      <h3 className={settingsRowTitleClass}>{s.hideCenterPopupSingleChoice}</h3>
-                      <div className={segmentedControlClass}>
-                        {[
-                          {
-                            id: 'true',
-                            value: true,
-                            label: s.hideClickText,
-                          },
-                          {
-                            id: 'false',
-                            value: false,
-                            label: s.showPopup,
-                          },
-                        ].map((opt) => (
-                          <button
-                            key={opt.id}
-                            onClick={() => setPlayTestSkipSingleChoicePopup(opt.value)}
-                            className={compactSegmentButtonClass(
-                              playTestSkipSingleChoicePopup === opt.value,
-                            )}
+                      {/* Playtest Choices Columns */}
+                      <div
+                        className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                          playTestChoicesPosition !== 'center'
+                            ? 'max-h-[200px] opacity-100'
+                            : 'max-h-0 opacity-0 pointer-events-none'
+                        }`}
+                      >
+                        <section className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>{t.choiceColumns}</h3>
+                          <div className={segmentedControlClass}>
+                            {[1, 2, 3].map((cols) => (
+                              <button
+                                key={cols}
+                                onClick={() => setPlayTestChoicesColumns(cols)}
+                                className={compactSegmentButtonClass(
+                                  playTestChoicesColumns === cols,
+                                )}
+                              >
+                                {t[`column${cols}` as keyof typeof t]}
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      </div>
+
+                      {/* Playtest Blur Options */}
+                      <section className="space-y-3">
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>{s.blurChoiceBackground}</h3>
+                          <div className={segmentedControlClass}>
+                            {[
+                              {
+                                id: 'true',
+                                value: true,
+                                label: s.enableBackgroundBlur,
+                              },
+                              {
+                                id: 'false',
+                                value: false,
+                                label: s.disableBackgroundBlur,
+                              },
+                            ].map((opt) => (
+                              <button
+                                key={opt.id}
+                                onClick={() => setPlayTestBlurBackground(opt.value)}
+                                className={compactSegmentButtonClass(
+                                  playTestBlurBackground === opt.value,
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div
+                          className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                            playTestBlurBackground
+                              ? 'max-h-[200px] opacity-100'
+                              : 'max-h-0 opacity-0 pointer-events-none'
+                          }`}
+                        >
+                          <div className={settingsRowClass}>
+                            <h3 className={settingsRowTitleClass}>{s.blurStoryTextToo}</h3>
+                            <div className={segmentedControlClass}>
+                              {[
+                                {
+                                  id: 'true',
+                                  value: true,
+                                  label: s.blurText,
+                                },
+                                {
+                                  id: 'false',
+                                  value: false,
+                                  label: s.keepTextClear,
+                                },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => setPlayTestBlurText(opt.value)}
+                                  className={compactSegmentButtonClass(
+                                    playTestBlurText === opt.value,
+                                  )}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* Playtest Skip Single Choice Popup */}
+                      {playTestChoicesPosition === 'center' && (
+                        <section
+                          className={`animate-in fade-in slide-in-from-top-1 duration-200 ${settingsRowClass}`}
+                        >
+                          <h3 className={settingsRowTitleClass}>{s.hideCenterPopupSingleChoice}</h3>
+                          <div className={segmentedControlClass}>
+                            {[
+                              {
+                                id: 'true',
+                                value: true,
+                                label: s.hideClickText,
+                              },
+                              {
+                                id: 'false',
+                                value: false,
+                                label: s.showPopup,
+                              },
+                            ].map((opt) => (
+                              <button
+                                key={opt.id}
+                                onClick={() => setPlayTestSkipSingleChoicePopup(opt.value)}
+                                className={compactSegmentButtonClass(
+                                  playTestSkipSingleChoicePopup === opt.value,
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      <div className="border-t border-[var(--header-border)]" />
+
+                      {/* Interaction Modes Settings */}
+                      <section className="space-y-5">
+                        <header className="flex items-center gap-3 mb-2">
+                          <h3 className="text-base font-black text-[var(--text-primary)]">
+                            {s.storyTextInteraction}
+                          </h3>
+                        </header>
+
+                        {/* Interaction Mode Selection */}
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>{s.storyTextDisplayMode}</h3>
+                          <select
+                            value={playTestInteractionMode}
+                            onChange={(e) => setPlayTestInteractionMode(e.target.value)}
+                            className="flex-1 px-4 py-2.5 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-xs font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] cursor-pointer"
                           >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  <div className="border-t border-[var(--header-border)]" />
-
-                  {/* Interaction Modes Settings */}
-                  <section className="space-y-5">
-                    <header className="flex items-center gap-3 mb-2">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {s.storyTextInteraction}
-                      </h3>
-                    </header>
-
-                    {/* Interaction Mode Selection */}
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{s.storyTextDisplayMode}</h3>
-                      <select
-                        value={playTestInteractionMode}
-                        onChange={(e) => setPlayTestInteractionMode(e.target.value)}
-                        className="flex-1 px-4 py-2.5 bg-[var(--app-bg)] border-2 border-[var(--card-border)] rounded-xl text-xs font-bold text-[var(--text-primary)] outline-none focus:ring-4 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] cursor-pointer"
-                      >
-                        <option
-                          value="immediate"
-                          className={
-                            theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
-                          }
-                        >
-                          {s.immediateMode}
-                        </option>
-                        <option
-                          value="typewriter"
-                          className={
-                            theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
-                          }
-                        >
-                          {s.typewriterMode}
-                        </option>
-                        <option
-                          value="timed"
-                          className={
-                            theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
-                          }
-                        >
-                          {s.timedMode}
-                        </option>
-                        <option
-                          value="clickToShow"
-                          className={
-                            theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'
-                          }
-                        >
-                          {s.clickToShowMode}
-                        </option>
-                      </select>
-                    </div>
-
-                    {/* Dynamic Configuration Sliders based on Mode */}
-                    {playTestInteractionMode === 'typewriter' && (
-                      <div
-                        className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
-                      >
-                        <h3 className={settingsRowTitleClass}>{s.typewriterSpeed}</h3>
-                        <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
-                          <input
-                            type="range"
-                            min={10}
-                            max={100}
-                            step={5}
-                            value={playTestTypewriterSpeed}
-                            onChange={(e) => setPlayTestTypewriterSpeed(parseInt(e.target.value))}
-                            className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-                          />
-                          <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestTypewriterSpeed} {s.charUnit}
-                          </span>
+                            <option
+                              value="immediate"
+                              className={
+                                theme === 'dark'
+                                  ? 'bg-slate-900 text-white'
+                                  : 'bg-white text-slate-800'
+                              }
+                            >
+                              {s.immediateMode}
+                            </option>
+                            <option
+                              value="typewriter"
+                              className={
+                                theme === 'dark'
+                                  ? 'bg-slate-900 text-white'
+                                  : 'bg-white text-slate-800'
+                              }
+                            >
+                              {s.typewriterMode}
+                            </option>
+                            <option
+                              value="timed"
+                              className={
+                                theme === 'dark'
+                                  ? 'bg-slate-900 text-white'
+                                  : 'bg-white text-slate-800'
+                              }
+                            >
+                              {s.timedMode}
+                            </option>
+                            <option
+                              value="clickToShow"
+                              className={
+                                theme === 'dark'
+                                  ? 'bg-slate-900 text-white'
+                                  : 'bg-white text-slate-800'
+                              }
+                            >
+                              {s.clickToShowMode}
+                            </option>
+                          </select>
                         </div>
-                      </div>
-                    )}
 
-                    {playTestInteractionMode === 'timed' && (
-                      <div
-                        className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
-                      >
-                        <h3 className={settingsRowTitleClass}>{s.choicesDelay}</h3>
-                        <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
-                          <input
-                            type="range"
-                            min={0.5}
-                            max={10}
-                            step={0.5}
-                            value={playTestChoiceDelay}
-                            onChange={(e) => setPlayTestChoiceDelay(parseFloat(e.target.value))}
-                            className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-                          />
-                          <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestChoiceDelay} {s.secondUnit}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
-                  <div className="border-t border-[var(--header-border)]" />
-
-                  {/* Auto Advance Settings */}
-                  <section className="space-y-5">
-                    <header className="flex items-center gap-3 mb-2">
-                      <h3 className="text-base font-black text-[var(--text-primary)]">
-                        {s.autoAdvance}
-                      </h3>
-                    </header>
-
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>{s.continueAfterAnimation}</h3>
-                      <div className="flex-1 flex items-center justify-between">
-                        <span className="text-xs text-[var(--text-muted)] font-medium">
-                          {s.autoAdvanceDesc}
-                        </span>
-                        <button
-                          onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
-                          className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                        >
+                        {/* Dynamic Configuration Sliders based on Mode */}
+                        {playTestInteractionMode === 'typewriter' && (
                           <div
-                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestAutoAdvance ? 'left-6' : 'left-1'}`}
-                          />
-                        </button>
-                      </div>
-                    </div>
+                            className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
+                          >
+                            <h3 className={settingsRowTitleClass}>{s.typewriterSpeed}</h3>
+                            <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
+                              <input
+                                type="range"
+                                min={10}
+                                max={100}
+                                step={5}
+                                value={playTestTypewriterSpeed}
+                                onChange={(e) =>
+                                  setPlayTestTypewriterSpeed(parseInt(e.target.value))
+                                }
+                                className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                              />
+                              <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                                {playTestTypewriterSpeed} {s.charUnit}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
-                    {playTestAutoAdvance && (
-                      <div
-                        className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
-                      >
-                        <h3 className={settingsRowTitleClass}>{s.waitTime}</h3>
-                        <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
-                          <input
-                            type="range"
-                            min={1}
-                            max={10}
-                            step={1}
-                            value={playTestAutoAdvanceDelay}
-                            onChange={(e) =>
-                              setPlayTestAutoAdvanceDelay(parseInt(e.target.value, 10))
-                            }
-                            className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-                          />
-                          <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                            {playTestAutoAdvanceDelay} {s.secondUnit}
-                          </span>
+                        {playTestInteractionMode === 'timed' && (
+                          <div
+                            className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
+                          >
+                            <h3 className={settingsRowTitleClass}>{s.choicesDelay}</h3>
+                            <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
+                              <input
+                                type="range"
+                                min={0.5}
+                                max={10}
+                                step={0.5}
+                                value={playTestChoiceDelay}
+                                onChange={(e) => setPlayTestChoiceDelay(parseFloat(e.target.value))}
+                                className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                              />
+                              <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                                {playTestChoiceDelay} {s.secondUnit}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </section>
+
+                      <div className="border-t border-[var(--header-border)]" />
+
+                      {/* Auto Advance Settings */}
+                      <section className="space-y-5">
+                        <header className="flex items-center gap-3 mb-2">
+                          <h3 className="text-base font-black text-[var(--text-primary)]">
+                            {s.autoAdvance}
+                          </h3>
+                        </header>
+
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>{s.continueAfterAnimation}</h3>
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-xs text-[var(--text-muted)] font-medium">
+                              {s.autoAdvanceDesc}
+                            </span>
+                            <button
+                              onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
+                              className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                            >
+                              <div
+                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestAutoAdvance ? 'left-6' : 'left-1'}`}
+                              />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </section>
 
-                  {/* Playtest Video Autoplay */}
-                  <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>{s.multimediaSettings}</h3>
-                    <div className="flex-1 flex items-center justify-between">
-                      <span className="text-xs text-[var(--text-muted)] font-medium">
-                        {t.videoAutoPlay}
-                      </span>
-                      <button
-                        onClick={() => setPlayTestVideoAutoPlay(!playTestVideoAutoPlay)}
-                        className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                      >
-                        <div
-                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
-                        />
-                      </button>
-                    </div>
-                  </section>
+                        {playTestAutoAdvance && (
+                          <div
+                            className={`animate-in slide-in-from-top-2 duration-300 ${settingsRowClass}`}
+                          >
+                            <h3 className={settingsRowTitleClass}>{s.waitTime}</h3>
+                            <div className="flex-1 flex items-center gap-4 bg-[var(--app-bg)]/50 p-2.5 rounded-lg border border-[var(--header-border)]">
+                              <input
+                                type="range"
+                                min={1}
+                                max={10}
+                                step={1}
+                                value={playTestAutoAdvanceDelay}
+                                onChange={(e) =>
+                                  setPlayTestAutoAdvanceDelay(parseInt(e.target.value, 10))
+                                }
+                                className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                              />
+                              <span className="text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                                {playTestAutoAdvanceDelay} {s.secondUnit}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </section>
 
-                  <section className="space-y-3">
-                    <h3 className={settingsRowTitleClass}>
-                      {language === 'zh'
-                        ? '标签显示'
-                        : language === 'ja'
-                          ? 'タグ表示'
-                          : 'Tag Display'}
-                    </h3>
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>
-                        {language === 'zh'
-                          ? '隐藏人物标签'
-                          : language === 'ja'
-                            ? 'キャラクタータグを非表示'
-                            : 'Hide character tags'}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setPlayTestHideCharacterTags(!playTestHideCharacterTags)}
-                        className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideCharacterTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                      >
-                        <div
-                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideCharacterTags ? 'left-6' : 'left-1'}`}
-                        />
-                      </button>
-                    </div>
-                    <div className={settingsRowClass}>
-                      <h3 className={settingsRowTitleClass}>
-                        {language === 'zh'
-                          ? '隐藏场景标签'
-                          : language === 'ja'
-                            ? 'シーンタグを非表示'
-                            : 'Hide scene tags'}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setPlayTestHideSceneTags(!playTestHideSceneTags)}
-                        className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideSceneTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
-                      >
-                        <div
-                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideSceneTags ? 'left-6' : 'left-1'}`}
-                        />
-                      </button>
-                    </div>
-                  </section>
+                      {/* Playtest Video Autoplay */}
+                      <section className={settingsRowClass}>
+                        <h3 className={settingsRowTitleClass}>{s.multimediaSettings}</h3>
+                        <div className="flex-1 flex items-center justify-between">
+                          <span className="text-xs text-[var(--text-muted)] font-medium">
+                            {t.videoAutoPlay}
+                          </span>
+                          <button
+                            onClick={() => setPlayTestVideoAutoPlay(!playTestVideoAutoPlay)}
+                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                          >
+                            <div
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
+                            />
+                          </button>
+                        </div>
+                      </section>
+
+                      <section className="space-y-3">
+                        <h3 className={settingsRowTitleClass}>
+                          {language === 'zh'
+                            ? '标签显示'
+                            : language === 'ja'
+                              ? 'タグ表示'
+                              : 'Tag Display'}
+                        </h3>
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>
+                            {language === 'zh'
+                              ? '隐藏人物标签'
+                              : language === 'ja'
+                                ? 'キャラクタータグを非表示'
+                                : 'Hide character tags'}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setPlayTestHideCharacterTags(!playTestHideCharacterTags)}
+                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideCharacterTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                          >
+                            <div
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideCharacterTags ? 'left-6' : 'left-1'}`}
+                            />
+                          </button>
+                        </div>
+                        <div className={settingsRowClass}>
+                          <h3 className={settingsRowTitleClass}>
+                            {language === 'zh'
+                              ? '隐藏场景标签'
+                              : language === 'ja'
+                                ? 'シーンタグを非表示'
+                                : 'Hide scene tags'}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setPlayTestHideSceneTags(!playTestHideSceneTags)}
+                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideSceneTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                          >
+                            <div
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideSceneTags ? 'left-6' : 'left-1'}`}
+                            />
+                          </button>
+                        </div>
+                      </section>
                     </>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { RenderStatus, TimelineSegmentMetric } from '../shared/types';
 import type { PreviewAudioSegment } from './usePreviewAudio';
@@ -54,6 +54,7 @@ export const usePreviewPlayback = ({
   setPreviewTime: Dispatch<SetStateAction<number>>;
   setTimelinePreviewTime: Dispatch<SetStateAction<number>>;
 }) => {
+  const playbackFrameRef = useRef<number | null>(null);
   useEffect(() => {
     if (!focusedPreviewNode) {
       setPreviewDuration(Math.max(0.1, timelineTotalDuration));
@@ -120,7 +121,7 @@ export const usePreviewPlayback = ({
     const startedAt = performance.now();
     const startTimelineTime = activeTimelineTime;
     const startPreviewTime = previewTime;
-    const timer = window.setInterval(() => {
+    const tick = () => {
       const elapsed = (performance.now() - startedAt) / 1000;
       if (focusedTimelineMetric) {
         const nextPreviewTime = startPreviewTime + elapsed * speed;
@@ -128,6 +129,7 @@ export const usePreviewPlayback = ({
           setPreviewTime(previewDuration);
           setTimelinePreviewTime(focusedTimelineMetric.end);
           setPreviewPlaying(false);
+          playbackFrameRef.current = null;
           return;
         }
         setPreviewTime(nextPreviewTime);
@@ -140,11 +142,19 @@ export const usePreviewPlayback = ({
       if (nextTime >= timelineTotalDuration) {
         seekTimelineTime(timelineTotalDuration);
         setPreviewPlaying(false);
+        playbackFrameRef.current = null;
         return;
       }
       seekTimelineTime(nextTime, { keepPlaying: true });
-    }, 120);
-    return () => window.clearInterval(timer);
+      playbackFrameRef.current = window.requestAnimationFrame(tick);
+    };
+    playbackFrameRef.current = window.requestAnimationFrame(tick);
+    return () => {
+      if (playbackFrameRef.current !== null) {
+        window.cancelAnimationFrame(playbackFrameRef.current);
+        playbackFrameRef.current = null;
+      }
+    };
   }, [
     activeTimelineTime,
     focusedTimelineMetric,

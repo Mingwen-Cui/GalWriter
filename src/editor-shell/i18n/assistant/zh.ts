@@ -1,0 +1,32 @@
+export const assistantPanelZh = {
+  newConversation: '新对话', back: '返回', close: '关闭', articleToGalgame: '文章转 Galgame',
+  uploadArticle: '上传文章文档', showAnalysis: '展示 AI 解析过程', generateChapterRegions: '生成章节背景框',
+  generateCharacters: '生成候选人物卡', storyPartner: '我是你的 AI 剧本搭子', tryAsking: '试试可以这样问我：',
+  position: '位置', documents: '参考文档', suggestions: '建议', send: '发送',
+  heroTitle: '随时陪你把脑洞写成作品', shortDrama: '快速生成一个短剧', generateCards: '生成卡片',
+  inputPlaceholder: '请你给我生成一个故事', futureWriting: '未来写作建议',
+  welcomePrompts: {
+    idea: { title: '我有一个新脑洞', description: '从一句灵感开始，帮你扩展成故事设定、角色和冲突。', prompt: '我有一个新脑洞，想让你帮我扩展成一个完整故事。' },
+    continue: { title: '我想继续写下去', description: '接着当前剧情，帮你推进下一幕、对白或分镜。', prompt: '我想继续写下去，请帮我接着当前内容推进剧情。' },
+    article: { title: '我想把文章转成 Galgame', description: '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。', prompt: '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。' },
+  },
+  articleFlow: {
+    uploadTitle: '上传文章，我来拆成可教学的章节剧本', uploadDescription: '我会先梳理文章内容、结构和章节重点，再询问教学方式，并在画布上按章节生成背景框和剧情卡。',
+    analyzingTitle: 'AI 正在真实阅读文章...', errorTitle: '文章解析遇到问题', readyTitle: '文章结构已解析完成',
+    dropTitle: '拖拽 PDF 或 Word 文档到这里', dropDescription: '也可以点击选择文件。支持 PDF、Word、Excel、PPT 和常见文本文件。',
+    learningPrompt: '选择你希望读者如何学习这篇文章：', characterDescription: 'AI 助手会摆出 3 张人物模板和 1 张空白自填卡。',
+    analysisRunning: 'AI 文章解析中...', analysisFailed: 'AI 文章解析失败', analysisComplete: 'AI 已完成文章诊断',
+    documentSummary: '已读取 {count} 个文档，约 {characters} 字。', documentSummaryEmpty: '上传后会在这里显示文档解析结果。',
+    documentReading: '正在读取上传文档...', documentExtracting: '正在提取文档正文、标题、段落和可读取文本。',
+    documentExtracted: '已真实提取 {count} 个文档的可读文本，共约 {characters} 字。',
+    textApiMissing: '无法进行真实 AI 阅读：还没有配置文本 AI 接口。请先在设置中添加 API Key。',
+    steps: {
+      reading: { title: '文章内容读取', pending: '等待提取文档中的正文、标题和段落内容。' },
+      ideas: { title: '主题与核心观点识别', pending: '等待 AI 阅读文章并判断主题、核心观点和关键概念。', active: 'AI 正在阅读全文，识别主题、核心观点和关键概念。', fallback: '已识别文章主题和核心观点。' },
+      chapters: { title: '章节结构梳理', pending: '等待 AI 根据文章逻辑拆分章节和知识点顺序。', active: 'AI 正在按文章逻辑拆分章节、层级和知识点顺序。', fallback: '已根据文章逻辑拆分章节结构。' },
+      teaching: { title: '教学路径规划', pending: '等待 AI 规划提问点、讲解点、反馈节奏和学习路径。', active: 'AI 正在把文章知识点转成可教学的提问、讲解和反馈路径。', fallback: '已规划文章的教学路径。' },
+      galgame: { title: 'Galgame 场景转化', pending: '等待 AI 规划教学角色、场景、对白节奏和章节背景框。', active: 'AI 正在规划教学角色、场景、对白节奏和章节背景框。', fallback: '已规划 Galgame 化的角色、场景和章节框。' },
+      teachingStyle: { title: '等待教学方式', pending: '文章真实解析完成后，请选择接下来用哪种方式转成 Galgame。', complete: '真实解析已完成。请选择对话式教学或讲课式教学，我会基于上面的分析生成章节背景框和剧情卡。', evidence: '后续生成会沿用本次主题、章节、教学路径和 Galgame 转化结论。' },
+    },
+  },
+} as const;

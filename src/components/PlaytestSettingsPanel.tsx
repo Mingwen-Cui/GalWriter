@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import React from 'react';
 
 import { Language, translations } from '../lib/i18n';
+import { playtestSettingsCopy } from './i18n/playtest-settings';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
 
@@ -80,68 +81,36 @@ export function PlaytestSettingsPanel({
   const panelTone = isDarkMode
     ? 'border-[var(--vr-border)] bg-[var(--vr-panel)]'
     : 'border-[var(--vr-border)] bg-[var(--vr-surface)]';
-  const workspaceStyle = (isDarkMode
-    ? {
-        '--vr-bg': 'var(--app-bg)',
-        '--vr-surface': 'rgba(32, 37, 44, 0.92)',
-        '--vr-surface-strong': '#20252c',
-        '--vr-surface-soft': 'rgba(32, 37, 44, 0.86)',
-        '--vr-panel': 'rgba(20, 20, 23, 0.9)',
-        '--vr-border': 'rgba(255, 255, 255, 0.1)',
-        '--vr-border-strong': 'rgba(255, 255, 255, 0.16)',
-        '--vr-text': '#f4f4f5',
-        '--vr-text-soft': '#c7c7cc',
-        '--vr-text-muted': '#85858c',
-        '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
-      }
-    : {
-        '--vr-bg': 'var(--app-bg)',
-        '--vr-surface': 'rgba(255, 255, 255, 0.92)',
-        '--vr-surface-strong': '#ffffff',
-        '--vr-surface-soft': 'rgba(248, 250, 252, 0.94)',
-        '--vr-panel': 'rgba(255, 255, 255, 0.82)',
-        '--vr-border': 'rgba(148, 163, 184, 0.32)',
-        '--vr-border-strong': 'rgba(100, 116, 139, 0.38)',
-        '--vr-text': '#172033',
-        '--vr-text-soft': '#475569',
-        '--vr-text-muted': '#8290a3',
-        '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-      }) as React.CSSProperties;
-  const uiCopy = {
-    settingsTitle:
-      language === 'zh' ? '\u6d4b\u8bd5\u53c2\u6570' : language === 'ja' ? 'Test Settings' : 'Playtest Settings',
-    layout: language === 'zh' ? '\u754c\u9762\u5e03\u5c40' : language === 'ja' ? 'Layout' : 'Layout',
-    splitDesc:
-      language === 'zh'
-        ? '\u753b\u9762\u4e0e\u6587\u672c\u5206\u533a\uff0c\u9002\u5408\u7a33\u5b9a\u9605\u8bfb'
-        : 'Separate media and text for steady reading',
-    mergedDesc:
-      language === 'zh'
-        ? '\u6587\u672c\u53e0\u5408\u5230\u753b\u9762\u4e0a\uff0c\u9002\u5408\u5168\u5c4f\u6f14\u51fa'
-        : 'Merge text onto media for fullscreen presentation',
-    choicePosition:
-      language === 'zh' ? '\u9009\u9879\u4f4d\u7f6e' : 'Choice position',
-    top: language === 'zh' ? '\u4e0a\u65b9' : 'Top',
-    center: language === 'zh' ? '\u4e2d\u95f4' : 'Center',
-    bottom: language === 'zh' ? '\u4e0b\u65b9' : 'Bottom',
-    columns: language === 'zh' ? '\u9009\u9879\u5217\u6570' : 'Columns',
-    blurBackground:
-      language === 'zh' ? '\u80cc\u666f\u865a\u5316' : 'Blur background',
-    blurText: language === 'zh' ? '\u6587\u5b57\u865a\u5316' : 'Blur text',
-    singlePopup:
-      language === 'zh' ? '\u5355\u9009\u5f39\u7a97' : 'Single popup',
-    autoAdvance:
-      language === 'zh' ? '\u81ea\u52a8\u7ffb\u9875' : 'Auto advance',
-    characterTags:
-      language === 'zh' ? '\u4eba\u7269\u6807\u7b7e' : 'Character tags',
-    sceneTags: language === 'zh' ? '\u573a\u666f\u6807\u7b7e' : 'Scene tags',
-    hide: language === 'zh' ? '\u9690\u85cf' : 'Hide',
-    show: language === 'zh' ? '\u663e\u793a' : 'Show',
-    styleTitle:
-      language === 'zh'
-        ? '\u6807\u9898 / \u6b63\u6587 / \u6587\u5b57\u6846'
-        : 'Title / Body / Text Box',
-  };
+  const workspaceStyle = (
+    isDarkMode
+      ? {
+          '--vr-bg': 'var(--app-bg)',
+          '--vr-surface': 'rgba(32, 37, 44, 0.92)',
+          '--vr-surface-strong': '#20252c',
+          '--vr-surface-soft': 'rgba(32, 37, 44, 0.86)',
+          '--vr-panel': 'rgba(20, 20, 23, 0.9)',
+          '--vr-border': 'rgba(255, 255, 255, 0.1)',
+          '--vr-border-strong': 'rgba(255, 255, 255, 0.16)',
+          '--vr-text': '#f4f4f5',
+          '--vr-text-soft': '#c7c7cc',
+          '--vr-text-muted': '#85858c',
+          '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
+        }
+      : {
+          '--vr-bg': 'var(--app-bg)',
+          '--vr-surface': 'rgba(255, 255, 255, 0.92)',
+          '--vr-surface-strong': '#ffffff',
+          '--vr-surface-soft': 'rgba(248, 250, 252, 0.94)',
+          '--vr-panel': 'rgba(255, 255, 255, 0.82)',
+          '--vr-border': 'rgba(148, 163, 184, 0.32)',
+          '--vr-border-strong': 'rgba(100, 116, 139, 0.38)',
+          '--vr-text': '#172033',
+          '--vr-text-soft': '#475569',
+          '--vr-text-muted': '#8290a3',
+          '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+        }
+  ) as React.CSSProperties;
+  const uiCopy = playtestSettingsCopy(language);
 
   return (
     <div className="video-render-workspace space-y-4" style={workspaceStyle}>
@@ -259,7 +228,6 @@ export function PlaytestSettingsPanel({
               onChange={(value) => setVideoAutoPlay(value === 'auto')}
             />
           </PlaytestSettingCard>
-
         </div>
       </div>
 
@@ -378,7 +346,9 @@ function PlaytestPillToggleGroup({
   columns?: string;
 }) {
   return (
-    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div
+      className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -415,7 +385,9 @@ function PlaytestSegmentedGroup({
   columns?: string;
 }) {
   return (
-    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div
+      className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -431,7 +403,7 @@ function PlaytestSegmentedGroup({
                 ? 'bg-[var(--vr-accent)] text-white'
                 : option.disabled
                   ? 'text-[var(--vr-text-muted)] opacity-35 grayscale'
-                : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
+                  : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
             }`}
             title={option.label}
             aria-pressed={active}

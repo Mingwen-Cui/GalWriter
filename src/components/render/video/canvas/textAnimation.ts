@@ -20,7 +20,8 @@ export const revealWords = (lines: string[], visibleWords: number) => {
   });
 };
 
-const sentenceTokens = (line: string) => line.match(/[^。！？.!?]+[。！？.!?]?\s*/g) || [];
+const sentenceTokens = (line: string) =>
+  line.match(/[^\u3002\uff01\uff1f.!?\n]+[\u3002\uff01\uff1f.!?]?\s*|\n+/g) || [];
 
 export const revealSentences = (lines: string[], visibleSentences: number) => {
   let remaining = visibleSentences;
@@ -82,7 +83,16 @@ export const animatedTextState = (
     };
   }
 
-  if (typewriterMode === 'sentence' || typewriterMode === 'word') {
+  if (typewriterMode === 'word') {
+    const totalWords = lines.reduce((sum, line) => sum + (line.match(/\S+\s*/g) || []).length, 0);
+    return {
+      lines: revealWords(lines, Math.ceil(totalWords * progress)),
+      alpha: 1,
+      offsetY: 0,
+    };
+  }
+
+  if (typewriterMode === 'sentence') {
     const totalSentences = lines.reduce((sum, line) => sum + sentenceTokens(line).length, 0);
     return {
       lines: revealSentences(lines, Math.ceil(totalSentences * progress)),

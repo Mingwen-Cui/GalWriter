@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
 import { TEXT_ANIMATION_OPTIONS } from '../shared/constants';
+import { getRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
 import type { RenderStyle, TextAlign, TextAnimation, TypewriterMode } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
@@ -515,19 +516,22 @@ export function RenderStyleSettingsSection({
     const visible = isTitle ? renderStyle.titleVisible : true;
     const fontSizeKey = `${kind}FontSize` as keyof RenderStyle;
     const fontFamilyKey = `${kind}FontFamily` as keyof RenderStyle;
-    const animationKey = `${kind}Animation` as keyof RenderStyle;
-    const leadKey = `${kind}AnimationLeadSeconds` as keyof RenderStyle;
-    const typewriterKey = `${kind}TypewriterMode` as keyof RenderStyle;
     const colorKey = `${kind}Color` as keyof RenderStyle;
     const colorAlphaKey = `${kind}ColorAlpha` as keyof RenderStyle;
     const strokeWidthKey = `${kind}StrokeWidth` as keyof RenderStyle;
     const alignKey = `${kind}Align` as keyof RenderStyle;
     const spacingKey = `${kind}LetterSpacing` as keyof RenderStyle;
     const lineHeightKey = `${kind}LineHeight` as keyof RenderStyle;
-    const animation = renderStyle[animationKey] as TextAnimation;
+    const objectAnimation = getRenderObjects(renderStyle)[kind].animation;
+    const setObjectAnimation = (updates: Partial<typeof objectAnimation>) =>
+      updateRenderStyle(
+        'renderObjects',
+        updateRenderObject(renderStyle, kind, { animation: { ...objectAnimation, ...updates } }),
+      );
+    const animation = objectAnimation.animation;
     const isTypewriter = animation === 'typewriter';
     const align = renderStyle[alignKey] as TextAlign;
-    const typewriterMode = renderStyle[typewriterKey] as TypewriterMode;
+    const typewriterMode = objectAnimation.typewriterMode;
     const normalizedTypewriterMode = typewriterMode === 'word' ? 'sentence' : typewriterMode;
     const characterModeLabel = t('逐字', '一文字ずつ', 'Character');
     const sentenceModeLabel = t('逐句', '一文ずつ', 'Sentence');
@@ -602,12 +606,12 @@ export function RenderStyleSettingsSection({
         {renderCollapsibleRows(
           showDetailRows,
           <>
-          <div className="grid grid-cols-3 gap-2">
+          {!isTitle && <div className="grid grid-cols-3 gap-2">
           {iconSelect(
             Sparkles,
             `${kind}-animation`,
             animation,
-            (value) => setStyle(animationKey, value as TextAnimation as never),
+            (value) => setObjectAnimation({ animation: value as TextAnimation }),
             TEXT_ANIMATION_OPTIONS.map((option) => ({
               value: option.value,
               label: renderCopy(language, option.zh, option.ja, option.en),
@@ -619,12 +623,12 @@ export function RenderStyleSettingsSection({
             Timer,
             <DragSizeControl
               label={t('拖动调整提前完成时间', '早めに完了する時間を调整', 'Adjust finish-early time')}
-              value={renderStyle[leadKey] as number}
+              value={objectAnimation.durationMs}
               min={0}
-              max={30}
-              step={0.1}
-              unit="s"
-              onChange={(value) => setStyle(leadKey, value as never)}
+              max={10000}
+              step={50}
+              unit="ms"
+              onChange={(value) => setObjectAnimation({ durationMs: value })}
             />,
             t('动画提前完成时间', 'アニメーション先行完了時間', 'Finish-early time'),
           )}
@@ -632,7 +636,7 @@ export function RenderStyleSettingsSection({
             CaseSensitive,
             `${kind}-typewriter`,
             normalizedTypewriterMode,
-            (value) => setStyle(typewriterKey, value as TypewriterMode as never),
+            (value) => setObjectAnimation({ typewriterMode: value as TypewriterMode }),
             [
               { value: 'character', label: characterModeLabel },
               { value: 'sentence', label: sentenceModeLabel },
@@ -642,7 +646,7 @@ export function RenderStyleSettingsSection({
             t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
             !isTypewriter,
           )}
-          </div>
+          </div>}
           <div className="grid grid-cols-3 gap-2">
           {iconColor(
             Palette,

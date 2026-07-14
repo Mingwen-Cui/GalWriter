@@ -43,6 +43,7 @@ import {
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
+import { getRenderObjects } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
 import { stripHtml } from '../shared/storyNodes';
 import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
@@ -1329,6 +1330,22 @@ export function VideoRenderModal({
     setPreviewTime(0);
     setPreviewPlaying(false);
   }, [focusedPreviewNode?.id]);
+
+  const renderAnimationSignature = useMemo(() => {
+    const objects = getRenderObjects(renderStyle);
+    return JSON.stringify(
+      (['dialogBox', 'title', 'body', 'nameplate'] as const).map((kind) => objects[kind].animation),
+    );
+  }, [renderStyle]);
+  const previousRenderAnimationSignatureRef = useRef(renderAnimationSignature);
+
+  React.useEffect(() => {
+    if (previousRenderAnimationSignatureRef.current === renderAnimationSignature) return;
+    previousRenderAnimationSignatureRef.current = renderAnimationSignature;
+    setPreviewTime(0);
+    setPreviewPlaying(false);
+    if (focusedTimelineMetric) setTimelinePreviewTime(focusedTimelineMetric.start);
+  }, [focusedTimelineMetric, renderAnimationSignature]);
 
   React.useEffect(() => {
     setPreviewTime((prev) => Math.min(prev, previewDuration));

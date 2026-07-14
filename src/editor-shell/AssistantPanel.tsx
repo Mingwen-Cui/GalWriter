@@ -35,6 +35,7 @@ import type { AssistantMessage, AssistantTask } from '../editor-state/editorConf
 import type { AssistantArticleAnalysisState } from '../editor-features/assistant/useAssistantPanel';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
+import { assistantPanelCopy } from './i18n/assistant';
 
 interface AssistantPanelProps {
   assistantOpen: boolean;
@@ -167,6 +168,7 @@ export function AssistantPanel({
   showStats,
   language,
 }: AssistantPanelProps) {
+  const ui = assistantPanelCopy(language);
   const [shouldRender, setShouldRender] = useState(assistantOpen);
   const [panelVisible, setPanelVisible] = useState(assistantOpen);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -395,50 +397,11 @@ export function AssistantPanel({
     setSuggestMenuOpen(true);
   };
 
-  const welcomePrompts =
-    language === 'zh'
-      ? [
-          {
-            icon: <Lightbulb className="h-4 w-4" />,
-            title: '我有一个新脑洞',
-            description: '从一句灵感开始，帮你扩展成故事设定、角色和冲突。',
-            prompt: '我有一个新脑洞，想让你帮我扩展成一个完整故事。',
-          },
-          {
-            icon: <PencilLine className="h-4 w-4" />,
-            title: '我想继续写下去',
-            description: '接着当前剧情，帮你推进下一幕、对白或分镜。',
-            prompt: '我想继续写下去，请帮我接着当前内容推进剧情。',
-          },
-          {
-            icon: <SearchCheck className="h-4 w-4" />,
-            title: '我想把文章转成 Galgame',
-            description:
-              '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。',
-            prompt:
-              '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。',
-          },
-        ]
-      : [
-          {
-            icon: <Lightbulb className="h-4 w-4" />,
-            title: 'I have a new idea',
-            description: 'Turn one spark into a story premise, cast, and conflict.',
-            prompt: 'I have a new idea. Help me expand it into a complete story.',
-          },
-          {
-            icon: <PencilLine className="h-4 w-4" />,
-            title: 'I want to keep writing',
-            description: 'Continue the current plot with the next scene, dialogue, or storyboard.',
-            prompt: 'I want to continue writing. Help me move the current story forward.',
-          },
-          {
-            icon: <SearchCheck className="h-4 w-4" />,
-            title: 'I am stuck',
-            description: 'Break down the problem and find conflict, rhythm, and new directions.',
-            prompt: 'I am stuck in the plot. Help me analyze the problem and suggest ways forward.',
-          },
-        ];
+  const welcomePrompts = [
+    { icon: <Lightbulb className="h-4 w-4" />, ...ui.welcomePrompts.idea },
+    { icon: <PencilLine className="h-4 w-4" />, ...ui.welcomePrompts.continue },
+    { icon: <SearchCheck className="h-4 w-4" />, ...ui.welcomePrompts.article },
+  ];
 
   const isLegacyAssistantWelcomeMessage = (message: AssistantMessage) =>
     message.role === 'assistant' &&
@@ -581,13 +544,11 @@ export function AssistantPanel({
     0,
   );
   const articleDocumentSummary =
-    language === 'zh'
-      ? articleDocumentCount > 0
-        ? `已读取 ${articleDocumentCount} 个文档，约 ${articleDocumentCharCount.toLocaleString()} 字。`
-        : '上传后会在这里显示文档解析结果。'
-      : articleDocumentCount > 0
-        ? `Read ${articleDocumentCount} document(s), about ${articleDocumentCharCount.toLocaleString()} characters.`
-        : 'Document analysis results will appear here after upload.';
+    articleDocumentCount > 0
+      ? ui.articleFlow.documentSummary
+          .replace('{count}', String(articleDocumentCount))
+          .replace('{characters}', articleDocumentCharCount.toLocaleString())
+      : ui.articleFlow.documentSummaryEmpty;
   const articleAnalysisSteps = assistantArticleAnalysis.steps;
   const effectiveArticleStage =
     assistantArticleAnalysis.status === 'ready'
@@ -635,11 +596,11 @@ export function AssistantPanel({
             disabled={assistantLoading}
             className="assistant-glass-action assistant-glass-action-new flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
             title={
-              language === 'zh' ? '新对话' : language === 'ja' ? '新しい会話' : 'New conversation'
+              ui.newConversation
             }
           >
             <PlusCircle className="h-3.5 w-3.5" />
-            {language === 'zh' ? '新对话' : language === 'ja' ? '新しい会話' : 'New conversation'}
+            {ui.newConversation}
           </button>
           <button
             onClick={handleAssistantUndo}
@@ -785,7 +746,7 @@ export function AssistantPanel({
                 type="button"
                 onClick={closeDocumentUpload}
                 className="assistant-article-upload-back"
-                title={language === 'zh' ? '返回' : language === 'ja' ? '戻る' : 'Back'}
+                title={ui.back}
               >
                 <ChevronDown className="h-4 w-4 rotate-90" />
               </button>
@@ -793,7 +754,7 @@ export function AssistantPanel({
                 type="button"
                 onClick={closeDocumentUpload}
                 className="assistant-article-upload-close"
-                title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
+                title={ui.close}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -809,29 +770,19 @@ export function AssistantPanel({
                 )}
               </div>
               <p className="assistant-article-upload-kicker">
-                {language === 'zh' ? '文章转 Galgame' : 'Article to Galgame'}
+                {ui.articleToGalgame}
               </p>
               <h2>
                 {effectiveArticleStage === 'upload'
-                  ? language === 'zh'
-                    ? '上传文章，我来拆成可教学的章节剧本'
-                    : 'Upload an article and turn it into teachable chapters'
+                  ? ui.articleFlow.uploadTitle
                   : effectiveArticleStage === 'analyzing'
-                    ? language === 'zh'
-                      ? assistantArticleAnalysis.status === 'error'
-                        ? '文章解析遇到问题'
-                        : 'AI 正在真实阅读文章...'
-                      : 'AI is analyzing the article...'
-                    : language === 'zh'
-                      ? '文章结构已解析完成'
-                      : 'Article structure is ready'}
+                    ? assistantArticleAnalysis.status === 'error'
+                      ? ui.articleFlow.errorTitle
+                      : ui.articleFlow.analyzingTitle
+                    : ui.articleFlow.readyTitle}
               </h2>
               <p>
-                {effectiveArticleStage === 'upload'
-                  ? language === 'zh'
-                    ? '我会先梳理文章内容、结构和章节重点，再询问教学方式，并在画布上按章节生成背景框和剧情卡。'
-                    : 'I will analyze the article, ask how to teach it, then generate chapter regions and story cards.'
-                  : articleAnalysisSummary}
+                {effectiveArticleStage === 'upload' ? ui.articleFlow.uploadDescription : articleAnalysisSummary}
               </p>
             </div>
             {effectiveArticleStage === 'upload' ? (
@@ -862,28 +813,24 @@ export function AssistantPanel({
                 >
                   <UploadCloud className="h-9 w-9" />
                   <span className="assistant-article-upload-drop-title">
-                    {language === 'zh'
-                      ? '拖拽 PDF 或 Word 文档到这里'
-                      : 'Drop PDF or Word documents here'}
+                    {ui.articleFlow.dropTitle}
                   </span>
                   <span className="assistant-article-upload-drop-subtitle">
-                    {language === 'zh'
-                      ? '也可以点击选择文件。支持 PDF、Word、Excel、PPT 和常见文本文件。'
-                      : 'Or click to choose files. PDF, Word, Excel, PPT, and common text files are supported.'}
+                    {ui.articleFlow.dropDescription}
                   </span>
                 </button>
                 <div className="assistant-article-upload-steps">
                   <div>
                     <span>1</span>
-                    <p>{language === 'zh' ? '上传文章文档' : 'Upload article documents'}</p>
+                    <p>{ui.uploadArticle}</p>
                   </div>
                   <div>
                     <span>2</span>
-                    <p>{language === 'zh' ? '展示 AI 解析过程' : 'Show AI analysis process'}</p>
+                    <p>{ui.showAnalysis}</p>
                   </div>
                   <div>
                     <span>3</span>
-                    <p>{language === 'zh' ? '生成章节背景框' : 'Generate chapter regions'}</p>
+                    <p>{ui.generateChapterRegions}</p>
                   </div>
                 </div>
               </>
@@ -894,14 +841,10 @@ export function AssistantPanel({
                     <BrainCircuit className="h-4 w-4" />
                     <span>
                       {effectiveArticleStage === 'analyzing'
-                        ? language === 'zh'
-                          ? assistantArticleAnalysis.status === 'error'
-                            ? 'AI 文章解析失败'
-                            : 'AI 文章解析中...'
-                          : 'AI Article Analysis...'
-                        : language === 'zh'
-                          ? 'AI 已完成文章诊断'
-                          : 'AI analysis complete'}
+                        ? assistantArticleAnalysis.status === 'error'
+                          ? ui.articleFlow.analysisFailed
+                          : ui.articleFlow.analysisRunning
+                        : ui.articleFlow.analysisComplete}
                     </span>
                   </div>
                   <div className="assistant-article-analysis-timeline">
@@ -970,21 +913,17 @@ export function AssistantPanel({
                 {effectiveArticleStage === 'ready' && (
                   <div className="assistant-article-teach-choice">
                     <p>
-                      {language === 'zh'
-                        ? '选择你希望读者如何学习这篇文章：'
-                        : 'Choose how readers should learn this article:'}
+                      {ui.articleFlow.learningPrompt}
                     </p>
                     <button
                       type="button"
                       onClick={() => void handleAssistantOptionSelect('__article_roles_create__')}
                     >
                       <span>
-                        {language === 'zh' ? '生成候选人物卡' : 'Generate Character Cards'}
+                        {ui.generateCharacters}
                       </span>
                       <small>
-                        {language === 'zh'
-                          ? 'AI 助手会摆出 3 张人物模板和 1 张空白自填卡。'
-                          : 'The assistant will place three role templates and one blank fill-in card.'}
+                        {ui.articleFlow.characterDescription}
                       </small>
                     </button>
                   </div>
@@ -997,19 +936,17 @@ export function AssistantPanel({
             <div className="assistant-welcome-hero">
               <div className="assistant-welcome-copy">
                 <p className="assistant-welcome-kicker">
-                  {language === 'zh' ? '我是你的 AI 剧本搭子' : 'Your AI story partner'}
+                  {ui.storyPartner}
                 </p>
                 <h2>
-                  {language === 'zh'
-                    ? '随时陪你把脑洞写成作品'
-                    : 'Ready to turn ideas into finished work'}
+                  {ui.heroTitle}
                 </h2>
               </div>
               <img src="./glass.png" alt="" className="assistant-welcome-logo" />
             </div>
             <div className="assistant-welcome-prompts">
               <div className="assistant-welcome-prompt-title">
-                {language === 'zh' ? '试试可以这样问我：' : 'Try asking me:'}
+                {ui.tryAsking}
               </div>
               <div className="assistant-welcome-options">
                 {welcomePrompts.map((item, index) => (
@@ -1132,7 +1069,7 @@ export function AssistantPanel({
                         }
                       >
                         <MapPin className="h-3.5 w-3.5" />
-                        {language === 'zh' ? '位置' : language === 'ja' ? '位置' : 'Position'}
+                        {ui.position}
                       </button>
                     )}
                 </div>
@@ -1175,7 +1112,7 @@ export function AssistantPanel({
                 <UploadCloud className="h-3.5 w-3.5" />
               )}
               <span>
-                {language === 'zh' ? '参考文档' : language === 'ja' ? '参考ドキュメント' : 'Docs'}
+                {ui.documents}
               </span>
             </button>
             {assistantDocuments.length > 0 && (
@@ -1229,11 +1166,7 @@ export function AssistantPanel({
               className="assistant-bottom-glass-action assistant-bottom-action-short-drama flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-orange-100 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-orange-50 disabled:opacity-50 dark:border-orange-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:bg-orange-950/40"
             >
               <PencilLine className="h-3.5 w-3.5 text-orange-500" />
-              {language === 'zh'
-                ? '快速生成一个短剧'
-                : language === 'ja'
-                  ? '短編ドラマを生成'
-                  : 'Quick short drama'}
+              {ui.shortDrama}
             </button>
             <div className="relative shrink-0">
               <button
@@ -1243,11 +1176,7 @@ export function AssistantPanel({
                 disabled={assistantLoading}
                 className="assistant-bottom-glass-action assistant-bottom-action-generate flex items-center justify-center gap-1 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 text-xs font-bold text-indigo-600 shadow-sm transition-colors hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-400/20 dark:bg-slate-900/80 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
               >
-                {language === 'zh'
-                  ? '生成卡片'
-                  : language === 'ja'
-                    ? 'カード生成'
-                    : 'Generate cards'}
+                {ui.generateCards}
                 <ChevronDown
                   className={`h-3 w-3 transition-transform ${cardGenerateOpen ? 'rotate-180' : ''}`}
                 />
@@ -1260,7 +1189,7 @@ export function AssistantPanel({
               disabled={assistantLoading}
               className="assistant-bottom-glass-action assistant-bottom-action-suggest flex shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              {language === 'zh' ? '建议' : language === 'ja' ? '提案' : 'Suggest'}
+              {ui.suggestions}
               <ChevronDown
                 className={`h-3 w-3 transition-transform ${suggestMenuOpen ? 'rotate-180' : ''}`}
               />
@@ -1288,13 +1217,7 @@ export function AssistantPanel({
                       void sendAssistantMessage();
                     }
                   }}
-                  placeholder={
-                    language === 'zh'
-                      ? '请你给我生成一个故事'
-                      : language === 'ja'
-                        ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
-                        : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
-                  }
+                  placeholder={ui.inputPlaceholder}
                   rows={3}
                   className="custom-scrollbar max-h-48 min-h-[4.75rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
                 />
@@ -1361,7 +1284,7 @@ export function AssistantPanel({
                       onClick={() => void sendAssistantMessage()}
                       disabled={assistantLoading || !assistantInput.trim()}
                       className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
-                      title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
+                      title={ui.send}
                     >
                       {assistantLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1411,13 +1334,7 @@ export function AssistantPanel({
                       void sendAssistantMessage();
                     }
                   }}
-                  placeholder={
-                    language === 'zh'
-                      ? '请你给我生成一个故事'
-                      : language === 'ja'
-                        ? 'AIとストーリーを議論するか、キャラクターやシーン、ストーリーカードの生成や修正を依頼してください...'
-                        : 'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards...'
-                  }
+                  placeholder={ui.inputPlaceholder}
                   rows={1}
                   className="custom-scrollbar h-9 min-h-9 flex-1 resize-none bg-transparent text-sm leading-9 text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
                 />
@@ -1461,7 +1378,7 @@ export function AssistantPanel({
                     onClick={() => void sendAssistantMessage()}
                     disabled={assistantLoading || !assistantInput.trim()}
                     className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
-                    title={language === 'zh' ? '发送' : language === 'ja' ? '送信' : 'Send'}
+                    title={ui.send}
                   >
                     {assistantLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1612,11 +1529,7 @@ export function AssistantPanel({
             >
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {language === 'zh'
-                  ? '未来写作建议'
-                  : language === 'ja'
-                    ? '将来の執筆提案'
-                    : 'Future Writing Plan'}
+                {ui.futureWriting}
               </span>
             </button>
           </div>,
@@ -1648,7 +1561,7 @@ export function AssistantPanel({
                   type="button"
                   onClick={closeDocumentUpload}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-900 dark:hover:text-white"
-                  title={language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close'}
+                  title={ui.close}
                 >
                   <X className="h-4 w-4" />
                 </button>

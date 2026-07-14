@@ -616,6 +616,7 @@ export function RenderObjectInspector({
         </InspectorGroup>
       ))}
 
+      {selectedKind === 'body' && (
       <InspectorGroup
         title={text.group.animation}
         icon={<Sparkles className="h-3.5 w-3.5" />}
@@ -671,6 +672,7 @@ export function RenderObjectInspector({
           </SettingDescription>
         </ControlRow>
       </InspectorGroup>
+      )}
 
     </div>
   );
