@@ -1,14 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { getCharacterStageBounds } from '../../../lib/presentation';
@@ -43,6 +34,7 @@ import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
 import { targetLabel } from './pptAnimationLabels';
 import { findAnimation, previewStyle } from './pptAnimationPreview';
+import { PptCopyContext, type PptCopyContextValue } from './pptCopyContext';
 import { PptInsertRibbon } from './PptInsertRibbon';
 import {
   createManualButton,
@@ -76,14 +68,8 @@ type SidebarTab = PptWorkspaceSidebarTab;
 export type SlideItem = PptSlideItem;
 export type Selection = PptSelection;
 export type Scene = ReturnType<typeof resolvePptScenes>[number];
-type Copy = PptCopy & PptWorkspaceCopy;
+type Copy = PptCopyContextValue;
 export type VideoTimelineTrack = { durationMs: number; loop: boolean };
-const PptCopyContext = createContext<Copy | null>(null);
-export const usePptCopy = () => {
-  const value = useContext(PptCopyContext);
-  if (!value) throw new Error('PptCopyContext is missing.');
-  return value;
-};
 
 export const PHASES: Array<{ value: PptAnimationPhase; key: 'enter' | 'emphasis' | 'exit' }> = [
   { value: 'enter', key: 'enter' },
@@ -160,23 +146,24 @@ export const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurat
   Math.max(
     1000,
     mediaDurationMs,
-    ...withTimelineStarts(animations).map((animation) =>
-      animation.timelineStartMs + animation.durationMs,
+    ...withTimelineStarts(animations).map(
+      (animation) => animation.timelineStartMs + animation.durationMs,
     ),
   );
 const choiceSlideId = (sceneId: string) => `choice:${sceneId}`;
 export const DEFAULT_TRANSITION = DEFAULT_PPT_TRANSITION;
-export const TRANSITIONS: Array<{ value: PptTransitionEffect; key: keyof PptCopy; glyph: string }> = [
-  { value: 'none', key: 'none', glyph: '□' },
-  { value: 'smooth', key: 'smooth', glyph: '◇' },
-  { value: 'fade', key: 'fadeTransition', glyph: '◌' },
-  { value: 'push', key: 'push', glyph: '⇢' },
-  { value: 'wipe', key: 'wipe', glyph: '▸' },
-  { value: 'split', key: 'split', glyph: '⇆' },
-  { value: 'reveal', key: 'reveal', glyph: '▣' },
-  { value: 'cut', key: 'cut', glyph: '▰' },
-  { value: 'randomBars', key: 'randomBars', glyph: '▥' },
-];
+export const TRANSITIONS: Array<{ value: PptTransitionEffect; key: keyof PptCopy; glyph: string }> =
+  [
+    { value: 'none', key: 'none', glyph: '□' },
+    { value: 'smooth', key: 'smooth', glyph: '◇' },
+    { value: 'fade', key: 'fadeTransition', glyph: '◌' },
+    { value: 'push', key: 'push', glyph: '⇢' },
+    { value: 'wipe', key: 'wipe', glyph: '▸' },
+    { value: 'split', key: 'split', glyph: '⇆' },
+    { value: 'reveal', key: 'reveal', glyph: '▣' },
+    { value: 'cut', key: 'cut', glyph: '▰' },
+    { value: 'randomBars', key: 'randomBars', glyph: '▥' },
+  ];
 
 type Props = {
   nodes: FlowNode[];
@@ -250,6 +237,7 @@ export function PptWorkspace({
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
+  const stageViewportRef = useRef<HTMLElement>(null);
   const previewTimerRef = useRef<number | null>(null);
   const previewFrameRef = useRef<number | null>(null);
   const stageWheelAtRef = useRef(0);
@@ -315,11 +303,20 @@ export function PptWorkspace({
     setSelectedManualElementId(undefined);
   }, []);
   const saveManualSlides = (nextSlides: PptManualSlide[], nextOrder?: string[]) =>
-    updatePptSettings({ manualSlides: nextSlides, slideOrder: nextOrder || pptSettings.slideOrder });
+    updatePptSettings({
+      manualSlides: nextSlides,
+      slideOrder: nextOrder || pptSettings.slideOrder,
+    });
   const addManualSlide = (slide = createManualSlide(copy.manualSlide), afterId = selectedId) => {
     const nextSlides = [...manualSlides, slide];
-    const knownIds = [...generatedSlides.map((item) => item.id), ...nextSlides.map((item) => item.id)];
-    saveManualSlides(nextSlides, insertPptSlideOrder(pptSettings.slideOrder, knownIds, afterId, slide.id));
+    const knownIds = [
+      ...generatedSlides.map((item) => item.id),
+      ...nextSlides.map((item) => item.id),
+    ];
+    saveManualSlides(
+      nextSlides,
+      insertPptSlideOrder(pptSettings.slideOrder, knownIds, afterId, slide.id),
+    );
     selectSlide(slide.id);
     return slide;
   };
@@ -327,7 +324,9 @@ export function PptWorkspace({
     if (manualSlide) {
       saveManualSlides(
         manualSlides.map((slide) =>
-          slide.id === manualSlide.id ? { ...slide, elements: [...slide.elements, element] } : slide,
+          slide.id === manualSlide.id
+            ? { ...slide, elements: [...slide.elements, element] }
+            : slide,
         ),
       );
       setSelectedManualElementId(element.id);
@@ -336,21 +335,42 @@ export function PptWorkspace({
     const slide = addManualSlide();
     saveManualSlides(
       [...manualSlides, { ...slide, elements: [element] }],
-      insertPptSlideOrder(pptSettings.slideOrder, [...generatedSlides.map((item) => item.id), ...manualSlides.map((item) => item.id), slide.id], selectedId, slide.id),
+      insertPptSlideOrder(
+        pptSettings.slideOrder,
+        [
+          ...generatedSlides.map((item) => item.id),
+          ...manualSlides.map((item) => item.id),
+          slide.id,
+        ],
+        selectedId,
+        slide.id,
+      ),
     );
     setSelectedManualElementId(element.id);
   };
   const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
     if (!manualSlide) return;
-    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? updateManualElement(slide, elementId, patch) : slide)));
+    saveManualSlides(
+      manualSlides.map((slide) =>
+        slide.id === manualSlide.id ? updateManualElement(slide, elementId, patch) : slide,
+      ),
+    );
   };
   const updateActiveManualSlide = (patch: Partial<PptManualSlide>) => {
     if (!manualSlide) return;
-    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, ...patch } : slide)));
+    saveManualSlides(
+      manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, ...patch } : slide)),
+    );
   };
   const deleteActiveManualElement = (elementId: string) => {
     if (!manualSlide) return;
-    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) } : slide)));
+    saveManualSlides(
+      manualSlides.map((slide) =>
+        slide.id === manualSlide.id
+          ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) }
+          : slide,
+      ),
+    );
     setSelectedManualElementId(undefined);
   };
   const selectManualElement = (elementId: string) => {
@@ -380,7 +400,7 @@ export function PptWorkspace({
     [selectIndex, slides],
   );
   const handleStageWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
+    (event: WheelEvent) => {
       if (!event.deltaY) return;
       event.preventDefault();
       const now = Date.now();
@@ -391,6 +411,12 @@ export function PptWorkspace({
     },
     [next, previous],
   );
+  useEffect(() => {
+    const stageViewport = stageViewportRef.current;
+    if (!stageViewport) return;
+    stageViewport.addEventListener('wheel', handleStageWheel, { passive: false });
+    return () => stageViewport.removeEventListener('wheel', handleStageWheel);
+  }, [handleStageWheel]);
   const selectObject = (selection: Selection) => {
     setSelectedObject(selection);
     setSidebarTab('style');
@@ -645,8 +671,8 @@ export function PptWorkspace({
             />
           ) : null}
           <section
+            ref={stageViewportRef}
             className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--vr-bg)]"
-            onWheel={handleStageWheel}
           >
             {viewMode === 'sorter' ? (
               <SlideSorter
@@ -1023,7 +1049,9 @@ function ScenePreview({
             muted
             loop={videoLoop}
             playsInline
-            onLoadedMetadata={(event) => onVideoDurationChange?.(event.currentTarget.duration * 1000)}
+            onLoadedMetadata={(event) =>
+              onVideoDurationChange?.(event.currentTarget.duration * 1000)
+            }
             className="h-full w-full object-cover"
           />
         ) : scene.backgroundUrl ? (
@@ -1415,19 +1443,31 @@ function ChoicePreview({
         <p className="text-sm font-bold tracking-[0.28em] text-white/70">CHOOSE YOUR ROUTE</p>
         <h2 className="mt-3 text-3xl font-black">你的选择是？</h2>
         <div className="mt-9 space-y-3">
-          {scene.choices.map((choice, index) => (
-            <button
-              key={`${choice.label}-${index}`}
-              type="button"
-              onClick={() => choice.targetId && onChoose?.(choice.targetId)}
-              className="block w-full rounded-xl border border-white/30 bg-slate-950/70 px-6 py-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-slate-900/85"
-            >
-              <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
-                {index + 1}
-              </span>
-              <span className="text-lg font-bold">{choice.label}</span>
-            </button>
-          ))}
+          {scene.choices.map((choice, index) =>
+            onChoose ? (
+              <button
+                key={`${choice.label}-${index}`}
+                type="button"
+                onClick={() => choice.targetId && onChoose(choice.targetId)}
+                className="block w-full rounded-xl border border-white/30 bg-slate-950/70 px-6 py-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-slate-900/85"
+              >
+                <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
+                  {index + 1}
+                </span>
+                <span className="text-lg font-bold">{choice.label}</span>
+              </button>
+            ) : (
+              <div
+                key={`${choice.label}-${index}`}
+                className="block w-full rounded-xl border border-white/30 bg-slate-950/70 px-6 py-4 text-left shadow-lg"
+              >
+                <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
+                  {index + 1}
+                </span>
+                <span className="text-lg font-bold">{choice.label}</span>
+              </div>
+            ),
+          )}
         </div>
       </div>
     </>

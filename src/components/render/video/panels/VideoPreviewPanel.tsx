@@ -5,6 +5,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { htmlToSpeechText } from '../../../../lib/tts';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
+import {
+  WebEditableElementFrame,
+  type WebEditableResizeHandle,
+} from '../../web/WebEditableElementFrame';
+import { animatedTextState } from '../canvas/textAnimation';
 import { RangeControl } from '../controls/RenderControls';
 import { getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
 import {
@@ -12,14 +17,17 @@ import {
   getNameplateLayouts,
   getNameplateReservedHeight,
 } from '../shared/nameplateRenderer';
-import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
+import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
-import type { RenderEditableObjectKind, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
+import type {
+  RenderEditableObjectKind,
+  RenderStatus,
+  RenderStyle,
+  VideoTextScaleMode,
+} from '../shared/types';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
 import { formatSeconds } from '../timeline/timelineUtils';
-import { WebEditableElementFrame, type WebEditableResizeHandle } from '../../web/WebEditableElementFrame';
-import { animatedTextState } from '../canvas/textAnimation';
 
 type VideoPreviewPanelProps = {
   language: Language;
@@ -44,7 +52,6 @@ type VideoPreviewPanelProps = {
   setPreviewPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   setPreviewTime: (value: number) => void;
   setTimelinePreviewTime: (value: number) => void;
-  seekTimelineTime: (time: number) => void;
   openContextMenu: (
     event: React.MouseEvent<HTMLElement>,
     target: { kind: 'preview'; nodeId?: string },
@@ -92,11 +99,12 @@ const getRenderedTextFrame = ({
   const bounds = renderLines.map((line, index) => {
     const metrics = ctx.measureText(line);
     const width = metrics.width;
-    const x = align === 'center'
-      ? anchorX - width / 2
-      : align === 'right' || align === 'end'
-        ? anchorX - width
-        : anchorX;
+    const x =
+      align === 'center'
+        ? anchorX - width / 2
+        : align === 'right' || align === 'end'
+          ? anchorX - width
+          : anchorX;
     const baseline = firstBaseline + index * lineHeight;
     return {
       left: x,
@@ -107,7 +115,12 @@ const getRenderedTextFrame = ({
   });
 
   if (!bounds.length) {
-    return { x: anchorX, y: firstBaseline - fallbackAscent, width: 24, height: fallbackAscent + fallbackDescent };
+    return {
+      x: anchorX,
+      y: firstBaseline - fallbackAscent,
+      width: 24,
+      height: fallbackAscent + fallbackDescent,
+    };
   }
   const x = Math.min(...bounds.map((bound) => bound.left));
   const y = Math.min(...bounds.map((bound) => bound.top));
@@ -142,7 +155,6 @@ export function VideoPreviewPanel({
   setPreviewPlaying,
   setPreviewTime,
   setTimelinePreviewTime,
-  seekTimelineTime,
   openContextMenu,
   renderStyle,
   updateRenderStyle,
@@ -158,12 +170,17 @@ export function VideoPreviewPanel({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const controlBarRef = useRef<HTMLDivElement | null>(null);
   const previewFullscreenRef = useRef<HTMLDivElement | null>(null);
-  const selectionBeforeFullscreenRef = useRef<{ kind?: RenderEditableObjectKind; canvas: boolean } | null>(null);
+  const selectionBeforeFullscreenRef = useRef<{
+    kind?: RenderEditableObjectKind;
+    canvas: boolean;
+  } | null>(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [controlBarHeight, setControlBarHeight] = useState(0);
   const [previewObjectSelectionLocked, setPreviewObjectSelectionLocked] = useState(false);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
-  const [activeAlignmentGuides, setActiveAlignmentGuides] = useState<{ x?: number; y?: number }>({});
+  const [activeAlignmentGuides, setActiveAlignmentGuides] = useState<{ x?: number; y?: number }>(
+    {},
+  );
 
   const videoAspect = useMemo(
     () => Math.max(0.01, resolution.width / Math.max(1, resolution.height)),
@@ -199,7 +216,10 @@ export function VideoPreviewPanel({
     await previewFullscreenRef.current?.requestFullscreen?.();
   };
 
-  const updateObject = (kind: RenderEditableObjectKind, patch: Parameters<typeof updateRenderObject>[2]) => {
+  const updateObject = (
+    kind: RenderEditableObjectKind,
+    patch: Parameters<typeof updateRenderObject>[2],
+  ) => {
     updateRenderStyle('renderObjects', updateRenderObject(renderStyle, kind, patch));
   };
 
@@ -231,22 +251,32 @@ export function VideoPreviewPanel({
     const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
     const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
     const textContext = canvasRef.current?.getContext('2d');
-    const measurementContext = textContext || ({ measureText: () => ({ width: 0 }) } as unknown as CanvasRenderingContext2D);
+    const measurementContext =
+      textContext || ({ measureText: () => ({ width: 0 }) } as unknown as CanvasRenderingContext2D);
     const currentNode = focusedPreviewNode || activePreviewNode;
-    const titleWidth = Math.max(48, contentWidth * Math.min(1, Math.max(0.08, objects.title.width / 100)));
-    const bodyWidth = Math.max(48, contentWidth * Math.min(1, Math.max(0.08, objects.body.width / 100)));
+    const titleWidth = Math.max(
+      48,
+      contentWidth * Math.min(1, Math.max(0.08, objects.title.width / 100)),
+    );
+    const bodyWidth = Math.max(
+      48,
+      contentWidth * Math.min(1, Math.max(0.08, objects.body.width / 100)),
+    );
     if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
     const titleLines = objects.title.visible
       ? wrapText(
           measurementContext,
-          htmlToSpeechText(String(currentNode?.data?.title || '')) || (language === 'zh' ? '未命名片段' : 'Untitled segment'),
+          htmlToSpeechText(String(currentNode?.data?.title || '')) ||
+            (language === 'zh' ? '未命名片段' : 'Untitled segment'),
           titleWidth,
         ).slice(0, 2)
       : [];
     if (textContext) textContext.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
     const bodyLines = wrapText(
       measurementContext,
-      htmlToSpeechText(filterMentionTags(String(currentNode?.data?.text || ''), hideCharacterTags, hideSceneTags)) || ' ',
+      htmlToSpeechText(
+        filterMentionTags(String(currentNode?.data?.text || ''), hideCharacterTags, hideSceneTags),
+      ) || ' ',
       bodyWidth,
     ).slice(0, 7);
     const previewElapsed = focusedPreviewNode
@@ -271,21 +301,30 @@ export function VideoPreviewPanel({
     const renderedTitleLines = titleState.lines.filter((line) => line.length > 0);
     const renderedBodyLines = bodyState.lines.filter((line) => line.length > 0);
     const fullTextGap = titleLines.length && bodyLines.length ? Math.round(bodySize * 0.6) : 0;
-    const renderedTextGap = renderedTitleLines.length && renderedBodyLines.length ? Math.round(bodySize * 0.6) : 0;
-    const fixedTextHeight = titleLines.length * titleLineHeight + fullTextGap + bodyLines.length * bodyLineHeight;
+    const renderedTextGap =
+      renderedTitleLines.length && renderedBodyLines.length ? Math.round(bodySize * 0.6) : 0;
+    const fixedTextHeight =
+      titleLines.length * titleLineHeight + fullTextGap + bodyLines.length * bodyLineHeight;
     const textBaselineOffset = Math.round(bodySize * 0.35);
     const nameplateItems = currentNode ? getNameplateItems(currentNode, storyNodes) : [];
-    const nameplateReservedHeight = getNameplateReservedHeight(nameplateItems, measurementContext, videoRenderStyle);
+    const nameplateReservedHeight = getNameplateReservedHeight(
+      nameplateItems,
+      measurementContext,
+      videoRenderStyle,
+    );
     const textOffsetY = Math.round(
-      (baseDialog.height * Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) / 100,
+      (baseDialog.height * Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) /
+        100,
     );
     const dialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle, {
       topExtension: nameplateReservedHeight,
     });
-    const textTop = dialog.y + nameplateReservedHeight + Math.max(
-      paddingY,
-      (dialog.height - nameplateReservedHeight - fixedTextHeight) / 2,
-    ) + textBaselineOffset + textOffsetY;
+    const textTop =
+      dialog.y +
+      nameplateReservedHeight +
+      Math.max(paddingY, (dialog.height - nameplateReservedHeight - fixedTextHeight) / 2) +
+      textBaselineOffset +
+      textOffsetY;
     const renderedTitleHeight = renderedTitleLines.length * titleLineHeight;
     if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
     const titleFrame = getRenderedTextFrame({
@@ -305,7 +344,8 @@ export function VideoPreviewPanel({
       align: videoRenderStyle.bodyAlign,
       left: dialog.x + paddingX + objects.body.x,
       right: dialog.x + paddingX + objects.body.x + bodyWidth,
-      firstBaseline: textTop + renderedTitleHeight + renderedTextGap + objects.body.y + bodyState.offsetY,
+      firstBaseline:
+        textTop + renderedTitleHeight + renderedTextGap + objects.body.y + bodyState.offsetY,
       lineHeight: bodyLineHeight,
       fontSize: bodySize,
     });
@@ -320,8 +360,12 @@ export function VideoPreviewPanel({
       ? {
           x: Math.min(...nameplateLayouts.map((item) => item.x)),
           y: Math.min(...nameplateLayouts.map((item) => item.y)),
-          width: Math.max(...nameplateLayouts.map((item) => item.x + item.width)) - Math.min(...nameplateLayouts.map((item) => item.x)),
-          height: Math.max(...nameplateLayouts.map((item) => item.y + item.height)) - Math.min(...nameplateLayouts.map((item) => item.y)),
+          width:
+            Math.max(...nameplateLayouts.map((item) => item.x + item.width)) -
+            Math.min(...nameplateLayouts.map((item) => item.x)),
+          height:
+            Math.max(...nameplateLayouts.map((item) => item.y + item.height)) -
+            Math.min(...nameplateLayouts.map((item) => item.y)),
         }
       : { x: dialog.x, y: dialog.y, width: 0, height: 0 };
     return {
@@ -330,33 +374,78 @@ export function VideoPreviewPanel({
       body: bodyFrame,
       nameplate: nameplateFrame,
     };
-  }, [activePreviewNode, animationLeadSeconds, canvasRef, focusedPreviewNode, focusedTimelineMetric?.duration, focusedTimelineMetric?.start, hideCharacterTags, hideSceneTags, language, previewDuration, previewTime, renderStyle, resolution.height, resolution.width, speed, storyNodes, timelinePreviewTime, videoRenderStyle]);
+  }, [
+    activePreviewNode,
+    animationLeadSeconds,
+    canvasRef,
+    focusedPreviewNode,
+    focusedTimelineMetric?.duration,
+    focusedTimelineMetric?.start,
+    hideCharacterTags,
+    hideSceneTags,
+    language,
+    previewDuration,
+    previewTime,
+    renderStyle,
+    resolution.height,
+    resolution.width,
+    speed,
+    storyNodes,
+    timelinePreviewTime,
+    videoRenderStyle,
+  ]);
 
   const startMove = (event: React.PointerEvent<HTMLDivElement>, kind: RenderEditableObjectKind) => {
     if (previewObjectSelectionLocked || event.button === 2) return;
-    event.preventDefault(); event.stopPropagation();
+    event.preventDefault();
+    event.stopPropagation();
     selectRenderObject(kind);
     const object = getVideoRenderObjects(renderStyle)[kind];
     const frame = editableFrames[kind];
-    const startX = event.clientX; const startY = event.clientY;
+    const startX = event.clientX;
+    const startY = event.clientY;
     const hostRect = event.currentTarget.parentElement?.getBoundingClientRect();
     if (!hostRect) return;
     const move = (moveEvent: PointerEvent) => {
-      const rawDx = (moveEvent.clientX - startX) * resolution.width / hostRect.width;
-      const rawDy = (moveEvent.clientY - startY) * resolution.height / hostRect.height;
+      const rawDx = ((moveEvent.clientX - startX) * resolution.width) / hostRect.width;
+      const rawDy = ((moveEvent.clientY - startY) * resolution.height) / hostRect.height;
       const otherFrames = Object.entries(editableFrames)
         .filter(([otherKind]) => otherKind !== kind)
         .map(([, otherFrame]) => otherFrame);
-      const xCandidates = [0, resolution.width / 2, resolution.width, ...otherFrames.flatMap((otherFrame) => [otherFrame.x, otherFrame.x + otherFrame.width / 2, otherFrame.x + otherFrame.width])];
-      const yCandidates = [0, resolution.height / 2, resolution.height, ...otherFrames.flatMap((otherFrame) => [otherFrame.y, otherFrame.y + otherFrame.height / 2, otherFrame.y + otherFrame.height])];
+      const xCandidates = [
+        0,
+        resolution.width / 2,
+        resolution.width,
+        ...otherFrames.flatMap((otherFrame) => [
+          otherFrame.x,
+          otherFrame.x + otherFrame.width / 2,
+          otherFrame.x + otherFrame.width,
+        ]),
+      ];
+      const yCandidates = [
+        0,
+        resolution.height / 2,
+        resolution.height,
+        ...otherFrames.flatMap((otherFrame) => [
+          otherFrame.y,
+          otherFrame.y + otherFrame.height / 2,
+          otherFrame.y + otherFrame.height,
+        ]),
+      ];
       const snapAxis = (origin: number, size: number, delta: number, candidates: number[]) => {
         const movingPoints = [origin + delta, origin + delta + size / 2, origin + delta + size];
         let closest: { adjustment: number; guide: number } | null = null;
-        movingPoints.forEach((point) => candidates.forEach((candidate) => {
-          const adjustment = candidate - point;
-          if (Math.abs(adjustment) > 8 || (closest && Math.abs(adjustment) >= Math.abs(closest.adjustment))) return;
-          closest = { adjustment, guide: candidate };
-        }));
+        movingPoints.forEach((point) =>
+          candidates.forEach((candidate) => {
+            const adjustment = candidate - point;
+            if (
+              Math.abs(adjustment) > 8 ||
+              (closest && Math.abs(adjustment) >= Math.abs(closest.adjustment))
+            )
+              return;
+            closest = { adjustment, guide: candidate };
+          }),
+        );
         return closest;
       };
       const xSnap = snapAxis(frame.x, frame.width, rawDx, xCandidates);
@@ -364,37 +453,72 @@ export function VideoPreviewPanel({
       const dx = rawDx + (xSnap?.adjustment || 0);
       const dy = rawDy + (ySnap?.adjustment || 0);
       setActiveAlignmentGuides({ x: xSnap?.guide, y: ySnap?.guide });
-      if (kind === 'dialogBox') updateObject(kind, { x: Math.round(object.x + dx * 200 / Math.max(1, resolution.width - frame.width)), y: Math.round(object.y + dy * 100 / Math.max(1, resolution.height - frame.height)) });
+      if (kind === 'dialogBox')
+        updateObject(kind, {
+          x: Math.round(object.x + (dx * 200) / Math.max(1, resolution.width - frame.width)),
+          y: Math.round(object.y + (dy * 100) / Math.max(1, resolution.height - frame.height)),
+        });
       else updateObject(kind, { x: Math.round(object.x + dx), y: Math.round(object.y + dy) });
     };
-    const end = () => { setActiveAlignmentGuides({}); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', end);
+    const end = () => {
+      setActiveAlignmentGuides({});
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
   };
-  const startResize = (event: React.PointerEvent<HTMLElement>, kind: RenderEditableObjectKind, handle: WebEditableResizeHandle) => {
+  const startResize = (
+    event: React.PointerEvent<HTMLElement>,
+    kind: RenderEditableObjectKind,
+    handle: WebEditableResizeHandle,
+  ) => {
     if (previewObjectSelectionLocked) return;
-    const object = getVideoRenderObjects(renderStyle)[kind]; const frame = editableFrames[kind];
-    const startX = event.clientX; const startY = event.clientY;
+    const object = getVideoRenderObjects(renderStyle)[kind];
+    const frame = editableFrames[kind];
+    const startX = event.clientX;
+    const startY = event.clientY;
     const hostRect = event.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
     if (!hostRect) return;
     const move = (moveEvent: PointerEvent) => {
-      const dx = (moveEvent.clientX - startX) * resolution.width / hostRect.width;
-      const dy = (moveEvent.clientY - startY) * resolution.height / hostRect.height;
-      const widthDelta = kind === 'dialogBox' ? dx * 100 / resolution.width : dx * 100 / Math.max(1, frame.width);
-      const heightDelta = kind === 'dialogBox' ? dy * 100 / resolution.height : dy * 100 / Math.max(1, frame.height);
+      const dx = ((moveEvent.clientX - startX) * resolution.width) / hostRect.width;
+      const dy = ((moveEvent.clientY - startY) * resolution.height) / hostRect.height;
+      const widthDelta =
+        kind === 'dialogBox'
+          ? (dx * 100) / resolution.width
+          : (dx * 100) / Math.max(1, frame.width);
+      const heightDelta =
+        kind === 'dialogBox'
+          ? (dy * 100) / resolution.height
+          : (dy * 100) / Math.max(1, frame.height);
       const minWidth = kind === 'dialogBox' ? 35 : 8;
       const minHeight = kind === 'dialogBox' ? 16 : 8;
-      let nextWidth = object.width + (handle.includes('e') ? widthDelta : handle.includes('w') ? -widthDelta : 0);
-      let nextHeight = object.height + (handle.includes('s') ? heightDelta : handle.includes('n') ? -heightDelta : 0);
-      const offsetX = kind === 'dialogBox' ? dx * 200 / Math.max(1, resolution.width - frame.width) : dx;
-      const offsetY = kind === 'dialogBox' ? dy * 100 / Math.max(1, resolution.height - frame.height) : dy;
+      let nextWidth =
+        object.width + (handle.includes('e') ? widthDelta : handle.includes('w') ? -widthDelta : 0);
+      let nextHeight =
+        object.height +
+        (handle.includes('s') ? heightDelta : handle.includes('n') ? -heightDelta : 0);
+      const offsetX =
+        kind === 'dialogBox' ? (dx * 200) / Math.max(1, resolution.width - frame.width) : dx;
+      const offsetY =
+        kind === 'dialogBox' ? (dy * 100) / Math.max(1, resolution.height - frame.height) : dy;
       const nextX = handle.includes('w') ? object.x + offsetX : object.x;
       const nextY = handle.includes('n') ? object.y + offsetY : object.y;
       nextWidth = Math.max(minWidth, nextWidth);
       nextHeight = Math.max(minHeight, nextHeight);
-      updateObject(kind, { x: Math.round(nextX), y: Math.round(nextY), width: Math.round(nextWidth), height: Math.round(nextHeight) });
+      updateObject(kind, {
+        x: Math.round(nextX),
+        y: Math.round(nextY),
+        width: Math.round(nextWidth),
+        height: Math.round(nextHeight),
+      });
     };
-    const end = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', end);
+    const end = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
   };
 
   useLayoutEffect(() => {
@@ -445,12 +569,80 @@ export function VideoPreviewPanel({
 
   return (
     <section className="min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden bg-[var(--vr-bg)]">
-      <div className="border-b border-[var(--vr-border)] px-4 py-2">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-        <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
-          <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-          {t('测试预览窗口', 'プレビュー画面', 'Preview Monitor')}
+      <div className="shrink-0 border-b border-[var(--vr-border)] px-4 py-[5.2px]">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+            <Play className="w-4 h-4 text-[var(--vr-accent)]" />
+            {t('测试预览窗口', 'プレビュー画面', 'Preview Monitor')}
+          </div>
+          <div className="hidden rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black tabular-nums text-[var(--vr-text)]">
+            {timelineScaleMode === 'frames'
+              ? `${t('帧', 'フレーム', 'Frame')} ${activeTimelineFrame}`
+              : `${formatSeconds(activeTimelineTime)} / ${activeTimelineFrame}f`}
+          </div>
+          <div className="hidden min-w-0 items-center justify-end gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
+            <span>{resolution.label}</span>
+            <span>{frameRate} fps</span>
+          </div>
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5 overflow-x-auto">
+            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1">
+              {(
+                [
+                  ['scene', t('画面', '画面', 'Scene')],
+                  ['dialogBox', t('对话框背景', 'ダイアログ背景', 'Dialog box')],
+                  ['title', t('标题', 'タイトル', 'Title')],
+                  ['body', t('正文', '本文', 'Body')],
+                  ['nameplate', t('人物名牌', 'ネームプレート', 'Nameplate')],
+                ] as Array<[RenderEditableObjectKind | 'scene', string]>
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => {
+                    const selectingCanvas = kind === 'scene';
+                    if (selectingCanvas) {
+                      setCanvasSelected(true);
+                      updateRenderStyle('selectedRenderObject', undefined);
+                    } else {
+                      selectRenderObject(kind);
+                    }
+                  }}
+                  className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-bold transition-colors ${(kind === 'scene' ? canvasSelected : !canvasSelected && renderStyle.selectedRenderObject === kind) ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-pressed={previewObjectSelectionLocked}
+              aria-label={
+                previewObjectSelectionLocked
+                  ? t('解锁对象编辑', 'オブジェクト編集のロックを解除', 'Unlock object editing')
+                  : t('锁定对象编辑', 'オブジェクト編集をロック', 'Lock object editing')
+              }
+              title={
+                previewObjectSelectionLocked
+                  ? t('解锁对象编辑', 'オブジェクト編集のロックを解除', 'Unlock object editing')
+                  : t('锁定对象编辑', 'オブジェクト編集をロック', 'Lock object editing')
+              }
+              onClick={() => setPreviewObjectSelectionLocked((locked) => !locked)}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md text-[0px] transition-colors ${previewObjectSelectionLocked ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
+            >
+              {previewObjectSelectionLocked ? (
+                <Lock className="h-3.5 w-3.5" />
+              ) : (
+                <LockKeyholeOpen className="h-3.5 w-3.5" />
+              )}
+              {previewObjectSelectionLocked
+                ? t('已锁定', 'ロック中', 'Locked')
+                : t('未锁定', '未ロック', 'Unlocked')}
+            </button>
+          </div>
         </div>
+      </div>
+      <div className="mt-2 grid w-full shrink-0 grid-cols-[1fr_auto_1fr] items-center px-4">
+        <div />
         <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black tabular-nums text-[var(--vr-text)]">
           {timelineScaleMode === 'frames'
             ? `${t('帧', 'フレーム', 'Frame')} ${activeTimelineFrame}`
@@ -460,46 +652,13 @@ export function VideoPreviewPanel({
           <span>{resolution.label}</span>
           <span>{frameRate} fps</span>
         </div>
-        </div>
-        <div className="mt-2 flex min-w-0 items-center gap-1.5">
-          {([
-            ['scene', t('画面', '画面', 'Scene')],
-            ['dialogBox', t('对话框背景', 'ダイアログ背景', 'Dialog box')],
-            ['title', t('标题', 'タイトル', 'Title')],
-            ['body', t('正文', '本文', 'Body')],
-            ['nameplate', t('人物名牌', 'ネームプレート', 'Nameplate')],
-          ] as Array<[RenderEditableObjectKind | 'scene', string]>).map(([kind, label]) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => {
-                const selectingCanvas = kind === 'scene';
-                if (selectingCanvas) {
-                  setCanvasSelected(true);
-                  updateRenderStyle('selectedRenderObject', undefined);
-                } else {
-                  selectRenderObject(kind);
-                }
-              }}
-              className={`h-7 rounded-md px-2.5 text-xs font-bold transition-colors ${(kind === 'scene' ? canvasSelected : !canvasSelected && renderStyle.selectedRenderObject === kind) ? 'bg-[var(--vr-accent)] text-white' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-pressed={previewObjectSelectionLocked}
-            onClick={() => setPreviewObjectSelectionLocked((locked) => !locked)}
-            className={`ml-auto flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold transition-colors ${previewObjectSelectionLocked ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
-          >
-            {previewObjectSelectionLocked ? <Lock className="h-3.5 w-3.5" /> : <LockKeyholeOpen className="h-3.5 w-3.5" />}
-            {previewObjectSelectionLocked ? t('已锁定', 'ロック中', 'Locked') : t('未锁定', '未ロック', 'Unlocked')}
-          </button>
-        </div>
       </div>
 
-      <div className="min-h-0 flex-1 p-4 xl:p-5">
-        <div ref={stageRef} className="flex h-full min-h-0 items-center justify-center overflow-hidden">
+      <div className="flex min-h-0 flex-1 p-4 xl:p-5">
+        <div
+          ref={stageRef}
+          className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden"
+        >
           <div
             ref={previewFullscreenRef}
             className={`flex min-w-0 flex-col ${previewFullscreen ? 'h-screen w-screen items-center justify-center bg-black' : ''}`}
@@ -515,7 +674,9 @@ export function VideoPreviewPanel({
               style={{
                 height: previewFullscreen
                   ? 'min(calc(100vh - 44px), calc(100vw * 9 / 16))'
-                  : fittedSize ? `${fittedSize.height}px` : '100%',
+                  : fittedSize
+                    ? `${fittedSize.height}px`
+                    : '100%',
                 width: previewFullscreen ? '100vw' : undefined,
                 boxShadow: 'var(--vr-shadow)',
               }}
@@ -537,44 +698,65 @@ export function VideoPreviewPanel({
               {canvasSelected && !previewObjectSelectionLocked && !previewFullscreen && (
                 <div className="pointer-events-none absolute inset-0 z-20 ring-2 ring-inset ring-indigo-500" />
               )}
-              {!previewFullscreen && (activeAlignmentGuides.x !== undefined || activeAlignmentGuides.y !== undefined) && (
-                <div className="pointer-events-none absolute inset-0 z-30">
-                  {activeAlignmentGuides.x !== undefined && (
-                    <div
-                      className="absolute top-0 h-full border-l-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.55)]"
-                      style={{ left: `${activeAlignmentGuides.x / resolution.width * 100}%` }}
-                    />
-                  )}
-                  {activeAlignmentGuides.y !== undefined && (
-                    <div
-                      className="absolute left-0 w-full border-t-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.55)]"
-                      style={{ top: `${activeAlignmentGuides.y / resolution.height * 100}%` }}
-                    />
-                  )}
-                </div>
-              )}
-              {!previewObjectSelectionLocked && !previewFullscreen && (Object.entries(editableFrames) as Array<[RenderEditableObjectKind, typeof editableFrames.dialogBox]>).map(([kind, frame]) => {
-                const selected = !canvasSelected && renderStyle.selectedRenderObject === kind;
-                return (
-                  <div
-                    key={kind}
-                    className={`absolute z-20 touch-none ${selected ? 'cursor-grab' : 'cursor-pointer'}`}
-                    data-render-object={kind}
-                    style={{ left: `${frame.x / resolution.width * 100}%`, top: `${frame.y / resolution.height * 100}%`, width: `${frame.width / resolution.width * 100}%`, height: `${frame.height / resolution.height * 100}%` }}
-                    onPointerDown={(event) => { event.stopPropagation(); startMove(event, kind); }}
-                    onClick={(event) => { event.stopPropagation(); selectRenderObject(kind); }}
-                  >
-                    {selected && <WebEditableElementFrame
-                      visible
-                      showAuxiliaryControls={false}
-                      showResizeHandles={kind === 'dialogBox'}
-                      onToggleVisible={() => undefined}
-                      onRotatePointerDown={() => undefined}
-                      onResizePointerDown={(event, handle) => startResize(event, kind, handle)}
-                    />}
+              {!previewFullscreen &&
+                (activeAlignmentGuides.x !== undefined ||
+                  activeAlignmentGuides.y !== undefined) && (
+                  <div className="pointer-events-none absolute inset-0 z-30">
+                    {activeAlignmentGuides.x !== undefined && (
+                      <div
+                        className="absolute top-0 h-full border-l-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.55)]"
+                        style={{ left: `${(activeAlignmentGuides.x / resolution.width) * 100}%` }}
+                      />
+                    )}
+                    {activeAlignmentGuides.y !== undefined && (
+                      <div
+                        className="absolute left-0 w-full border-t-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.55)]"
+                        style={{ top: `${(activeAlignmentGuides.y / resolution.height) * 100}%` }}
+                      />
+                    )}
                   </div>
-                );
-              })}
+                )}
+              {!previewObjectSelectionLocked &&
+                !previewFullscreen &&
+                (
+                  Object.entries(editableFrames) as Array<
+                    [RenderEditableObjectKind, typeof editableFrames.dialogBox]
+                  >
+                ).map(([kind, frame]) => {
+                  const selected = !canvasSelected && renderStyle.selectedRenderObject === kind;
+                  return (
+                    <div
+                      key={kind}
+                      className={`absolute z-20 touch-none ${selected ? 'cursor-grab' : 'cursor-pointer'}`}
+                      data-render-object={kind}
+                      style={{
+                        left: `${(frame.x / resolution.width) * 100}%`,
+                        top: `${(frame.y / resolution.height) * 100}%`,
+                        width: `${(frame.width / resolution.width) * 100}%`,
+                        height: `${(frame.height / resolution.height) * 100}%`,
+                      }}
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        startMove(event, kind);
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectRenderObject(kind);
+                      }}
+                    >
+                      {selected && (
+                        <WebEditableElementFrame
+                          visible
+                          showAuxiliaryControls={false}
+                          showResizeHandles={kind === 'dialogBox'}
+                          onToggleVisible={() => undefined}
+                          onRotatePointerDown={() => undefined}
+                          onResizePointerDown={(event, handle) => startResize(event, kind, handle)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             <div
@@ -600,7 +782,11 @@ export function VideoPreviewPanel({
                       : t('播放预览', 'プレビューを再生', 'Play preview')
                   }
                 >
-                  {previewPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {previewPlaying ? (
+                    <Pause className="h-3.5 w-3.5" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
                 </button>
                 <div className="min-w-0 flex-1">
                   <RangeControl
@@ -636,10 +822,22 @@ export function VideoPreviewPanel({
                   type="button"
                   onClick={togglePreviewFullscreen}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--vr-text-soft)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                  title={previewFullscreen ? t('退出全屏', '全画面を終了', 'Exit fullscreen') : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')}
-                  aria-label={previewFullscreen ? t('退出全屏', '全画面を終了', 'Exit fullscreen') : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')}
+                  title={
+                    previewFullscreen
+                      ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
+                      : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')
+                  }
+                  aria-label={
+                    previewFullscreen
+                      ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
+                      : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')
+                  }
                 >
-                  {previewFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  {previewFullscreen ? (
+                    <Minimize className="h-4 w-4" />
+                  ) : (
+                    <Maximize className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>

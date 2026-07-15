@@ -13,14 +13,10 @@ import type {
   RenderStyle,
 } from '../video/shared/types';
 import { targetLabel } from './pptAnimationLabels';
+import { usePptCopy } from './pptCopyContext';
 import { PptManualInspector } from './PptManualInspector';
 import type { Scene, Selection, VideoTimelineTrack } from './PptWorkspace';
-import {
-  directionLabel,
-  effectLabel,
-  startLabel,
-  usePptCopy,
-} from './PptWorkspace';
+import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
 import { Field, Toggle } from './PptWorkspaceFooter';
 import type { PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
@@ -189,7 +185,11 @@ export function PptSidebar({
           )
         ) : null}
         {activeTab === 'export' ? (
-          <ExportRules scene={scene} pptSettings={pptSettings} updatePptSettings={updatePptSettings} />
+          <ExportRules
+            scene={scene}
+            pptSettings={pptSettings}
+            updatePptSettings={updatePptSettings}
+          />
         ) : null}
       </div>
     </aside>
@@ -317,9 +317,12 @@ function AnimationTimeline({
     Math.round(viewportStartMs + (viewportDurationMs / 4) * index),
   );
   const playheadPercent =
-    (Math.min(timelineViewport.end, Math.max(timelineViewport.start, playheadMs / timelineDurationMs)) -
+    ((Math.min(
+      timelineViewport.end,
+      Math.max(timelineViewport.start, playheadMs / timelineDurationMs),
+    ) -
       timelineViewport.start) /
-    (timelineViewport.end - timelineViewport.start) *
+      (timelineViewport.end - timelineViewport.start)) *
     100;
   const clipStyle = (startMs: number, durationMs: number) => {
     const endMs = startMs + durationMs;
@@ -368,278 +371,304 @@ function AnimationTimeline({
   const isOverview = mode === 'overview';
   return (
     <>
-      {isOverview ? <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animationPane}</h2>
+      {isOverview ? (
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animationPane}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={previewing ? onPausePreview : onPreview}
+            className="render-icon-button"
+            title={previewing ? '暂停预览' : copy.playCurrentSlide}
+          >
+            {previewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={previewing ? onPausePreview : onPreview}
-          className="render-icon-button"
-          title={previewing ? '暂停预览' : copy.playCurrentSlide}
-        >
-          {previewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-      </div> : null}
+      ) : null}
       {hasTracks ? (
         <div className="space-y-3">
-          {isOverview ? <div className="overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-            <div className="min-w-0">
-              <div className="mb-2 flex items-center justify-between text-[10px] font-bold text-[var(--vr-text-muted)]">
-                <span>播放头</span>
-                <output className="rounded bg-[var(--vr-accent-soft)] px-1.5 py-0.5 text-[var(--vr-accent-strong)]">
-                  {formatTime(playheadMs)}
-                </output>
-              </div>
-              <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] gap-2">
-                <div />
-                <div
-                  className="relative h-10 cursor-ew-resize select-none border-y border-[var(--vr-border)] bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(25%_-_1px),var(--vr-border)_calc(25%_-_1px),var(--vr-border)_25%)]"
-                  onPointerDown={beginSeek}
-                  onPointerMove={continueSeek}
-                  onPointerUp={endSeek}
-                  onPointerCancel={endSeek}
-                  aria-label="拖动播放头定位动画时间"
-                >
-                  {timelineTicks.map((tick) => (
-                    <span
-                      key={tick}
-                      className="absolute top-1 text-[10px] font-bold text-[var(--vr-text-muted)]"
-                      style={{
-                        left: `${((tick - viewportStartMs) / viewportDurationMs) * 100}%`,
-                        transform: 'translateX(-50%)',
-                      }}
-                    >
-                      {formatTime(tick)}
-                    </span>
-                  ))}
-                  <span
-                    className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
-                    style={{ left: `${playheadPercent}%` }}
-                  >
-                    <span className="absolute -left-3 -top-1 rounded bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white">
-                      {formatTime(playheadMs)}
-                    </span>
-                  </span>
+          {isOverview ? (
+            <div className="overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center justify-between text-[10px] font-bold text-[var(--vr-text-muted)]">
+                  <span>播放头</span>
+                  <output className="rounded bg-[var(--vr-accent-soft)] px-1.5 py-0.5 text-[var(--vr-accent-strong)]">
+                    {formatTime(playheadMs)}
+                  </output>
                 </div>
-                <div />
-              </div>
-              <div className="relative space-y-1.5 pt-2">
-                <span
-                  className="pointer-events-none absolute bottom-0 left-[92px] right-[50px] top-0 z-20"
-                >
-                  <span
-                    className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
-                    style={{ left: `${playheadPercent}%` }}
-                  />
-                </span>
-                {videoTrack ? (
-                  <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onSelectVideo}
-                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                      title="视频"
-                    >
-                      <span aria-hidden="true" className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded bg-violet-500 text-[9px] text-white">▶</span>
-                      <span className="truncate">视频</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onSelectVideo}
-                      className={`relative h-8 overflow-hidden rounded border text-left ${
-                        playheadMs <= (videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)
-                          ? 'border-violet-500 bg-violet-500/10'
-                          : 'border-transparent bg-[var(--vr-border)]'
-                      }`}
-                      title={videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
-                    >
-                      <span
-                        className="absolute inset-y-1 overflow-hidden rounded bg-violet-500 text-white"
-                        style={clipStyle(0, videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)}
-                      >
-                        <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-12 gap-px opacity-65">
-                          {Array.from({ length: 12 }, (_, frame) => (
-                            <i key={frame} className="rounded-sm bg-white/80" style={{ opacity: 0.38 + (frame % 3) * 0.2 }} />
-                          ))}
-                        </span>
-                        <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                          {videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
-                        </strong>
-                      </span>
-                    </button>
-                    <div />
-                  </div>
-                ) : null}
-                {animations.map((item, index) => (
+                <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] gap-2">
+                  <div />
                   <div
-                    key={item.id}
-                    className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2"
+                    className="relative h-10 cursor-ew-resize select-none border-y border-[var(--vr-border)] bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(25%_-_1px),var(--vr-border)_calc(25%_-_1px),var(--vr-border)_25%)]"
+                    onPointerDown={beginSeek}
+                    onPointerMove={continueSeek}
+                    onPointerUp={endSeek}
+                    onPointerCancel={endSeek}
+                    aria-label="拖动播放头定位动画时间"
                   >
-                    <button
-                      type="button"
-                      onClick={() => onSelect(item)}
-                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                      title={effectLabel(copy, item.effect)}
-                      aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect)}`}
-                    >
-                      <span>{index + 1}.</span>
-                      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`} />
-                      <span className="truncate">{effectLabel(copy, item.effect)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelect(item)}
-                      className={`relative h-8 overflow-hidden rounded border text-left ${
-                        playheadMs >= starts[index] && playheadMs <= starts[index] + item.durationMs
-                          ? phaseActiveClass(item)
-                          : 'border-transparent bg-[var(--vr-border)]'
-                      }`}
-                      title={`${startLabel(copy, item.start)} · ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
-                    >
+                    {timelineTicks.map((tick) => (
                       <span
-                        className={`absolute inset-y-1 overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
-                        style={clipStyle(starts[index], item.durationMs)}
+                        key={tick}
+                        className="absolute top-1 text-[10px] font-bold text-[var(--vr-text-muted)]"
+                        style={{
+                          left: `${((tick - viewportStartMs) / viewportDurationMs) * 100}%`,
+                          transform: 'translateX(-50%)',
+                        }}
                       >
-                        <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-8 gap-px opacity-65">
-                          {Array.from({ length: 8 }, (_, frame) => (
-                            <i
-                              key={frame}
-                              className="rounded-sm bg-white/80"
-                              style={animationFrameStyle(item, frame)}
-                            />
-                          ))}
-                        </span>
-                        <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                          {effectLabel(copy, item.effect)}
-                        </strong>
+                        {formatTime(tick)}
                       </span>
-                    </button>
-                    <div className="flex gap-0.5">
-                      <button
-                        type="button"
-                        className="ppt-mini-button"
-                        onClick={() => onMove(item.id, -1)}
-                        disabled={
-                          item.source === 'tag' ||
-                          index === 0 ||
-                          animations[index - 1]?.source === 'tag'
-                        }
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="ppt-mini-button"
-                        onClick={() => onMove(item.id, 1)}
-                        disabled={
-                          item.source === 'tag' ||
-                          index === animations.length - 1 ||
-                          animations[index + 1]?.source === 'tag'
-                        }
-                      >
-                        ↓
-                      </button>
-                    </div>
+                    ))}
+                    <span
+                      className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
+                      style={{ left: `${playheadPercent}%` }}
+                    >
+                      <span className="absolute -left-3 -top-1 rounded bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white">
+                        {formatTime(playheadMs)}
+                      </span>
+                    </span>
                   </div>
-                ))}
-              </div>
-              <div
-                ref={navigatorRef}
-                className="relative ml-[94px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
-                aria-label="时间轴缩放和滚动范围"
-              >
+                  <div />
+                </div>
+                <div className="relative space-y-1.5 pt-2">
+                  <span className="pointer-events-none absolute bottom-0 left-[92px] right-[50px] top-0 z-20">
+                    <span
+                      className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
+                      style={{ left: `${playheadPercent}%` }}
+                    />
+                  </span>
+                  {videoTrack ? (
+                    <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onSelectVideo}
+                        className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
+                        title="视频"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded bg-violet-500 text-[9px] text-white"
+                        >
+                          ▶
+                        </span>
+                        <span className="truncate">视频</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onSelectVideo}
+                        className={`relative h-8 overflow-hidden rounded border text-left ${
+                          playheadMs <=
+                          (videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)
+                            ? 'border-violet-500 bg-violet-500/10'
+                            : 'border-transparent bg-[var(--vr-border)]'
+                        }`}
+                        title={videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
+                      >
+                        <span
+                          className="absolute inset-y-1 overflow-hidden rounded bg-violet-500 text-white"
+                          style={clipStyle(
+                            0,
+                            videoTrack.loop ? timelineDurationMs : videoTrack.durationMs,
+                          )}
+                        >
+                          <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-12 gap-px opacity-65">
+                            {Array.from({ length: 12 }, (_, frame) => (
+                              <i
+                                key={frame}
+                                className="rounded-sm bg-white/80"
+                                style={{ opacity: 0.38 + (frame % 3) * 0.2 }}
+                              />
+                            ))}
+                          </span>
+                          <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
+                            {videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
+                          </strong>
+                        </span>
+                      </button>
+                      <div />
+                    </div>
+                  ) : null}
+                  {animations.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelect(item)}
+                        className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
+                        title={effectLabel(copy, item.effect)}
+                        aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect)}`}
+                      >
+                        <span>{index + 1}.</span>
+                        <span
+                          aria-hidden="true"
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`}
+                        />
+                        <span className="truncate">{effectLabel(copy, item.effect)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(item)}
+                        className={`relative h-8 overflow-hidden rounded border text-left ${
+                          playheadMs >= starts[index] &&
+                          playheadMs <= starts[index] + item.durationMs
+                            ? phaseActiveClass(item)
+                            : 'border-transparent bg-[var(--vr-border)]'
+                        }`}
+                        title={`${startLabel(copy, item.start)} · ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
+                      >
+                        <span
+                          className={`absolute inset-y-1 overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
+                          style={clipStyle(starts[index], item.durationMs)}
+                        >
+                          <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-8 gap-px opacity-65">
+                            {Array.from({ length: 8 }, (_, frame) => (
+                              <i
+                                key={frame}
+                                className="rounded-sm bg-white/80"
+                                style={animationFrameStyle(item, frame)}
+                              />
+                            ))}
+                          </span>
+                          <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
+                            {effectLabel(copy, item.effect)}
+                          </strong>
+                        </span>
+                      </button>
+                      <div className="flex gap-0.5">
+                        <button
+                          type="button"
+                          className="ppt-mini-button"
+                          onClick={() => onMove(item.id, -1)}
+                          disabled={
+                            item.source === 'tag' ||
+                            index === 0 ||
+                            animations[index - 1]?.source === 'tag'
+                          }
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="ppt-mini-button"
+                          onClick={() => onMove(item.id, 1)}
+                          disabled={
+                            item.source === 'tag' ||
+                            index === animations.length - 1 ||
+                            animations[index + 1]?.source === 'tag'
+                          }
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <div
-                  className="absolute inset-y-0 cursor-grab rounded-full bg-[var(--vr-accent-soft)] active:cursor-grabbing"
-                  style={{
-                    left: `${timelineViewport.start * 100}%`,
-                    width: `${(timelineViewport.end - timelineViewport.start) * 100}%`,
-                  }}
-                  onPointerDown={(event) => beginNavigatorDrag(event, 'pan')}
-                  onPointerMove={updateNavigatorDrag}
-                  onPointerUp={endNavigatorDrag}
-                  onPointerCancel={endNavigatorDrag}
-                  title="拖动移动时间轴视图"
+                  ref={navigatorRef}
+                  className="relative ml-[94px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
+                  aria-label="时间轴缩放和滚动范围"
                 >
-                  <span className="pointer-events-none absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/60" />
-                  <button
-                    type="button"
-                    className="absolute left-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
-                    onPointerDown={(event) => beginNavigatorDrag(event, 'start')}
+                  <div
+                    className="absolute inset-y-0 cursor-grab rounded-full bg-[var(--vr-accent-soft)] active:cursor-grabbing"
+                    style={{
+                      left: `${timelineViewport.start * 100}%`,
+                      width: `${(timelineViewport.end - timelineViewport.start) * 100}%`,
+                    }}
+                    onPointerDown={(event) => beginNavigatorDrag(event, 'pan')}
                     onPointerMove={updateNavigatorDrag}
                     onPointerUp={endNavigatorDrag}
                     onPointerCancel={endNavigatorDrag}
-                    title="拖动缩放时间轴左边界"
-                    aria-label="拖动缩放时间轴左边界"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0 top-1/2 z-10 h-4 w-4 translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
-                    onPointerDown={(event) => beginNavigatorDrag(event, 'end')}
-                    onPointerMove={updateNavigatorDrag}
-                    onPointerUp={endNavigatorDrag}
-                    onPointerCancel={endNavigatorDrag}
-                    title="拖动缩放时间轴右边界"
-                    aria-label="拖动缩放时间轴右边界"
-                  />
+                    title="拖动移动时间轴视图"
+                  >
+                    <span className="pointer-events-none absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/60" />
+                    <button
+                      type="button"
+                      className="absolute left-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
+                      onPointerDown={(event) => beginNavigatorDrag(event, 'start')}
+                      onPointerMove={updateNavigatorDrag}
+                      onPointerUp={endNavigatorDrag}
+                      onPointerCancel={endNavigatorDrag}
+                      title="拖动缩放时间轴左边界"
+                      aria-label="拖动缩放时间轴左边界"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-0 top-1/2 z-10 h-4 w-4 translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
+                      onPointerDown={(event) => beginNavigatorDrag(event, 'end')}
+                      onPointerMove={updateNavigatorDrag}
+                      onPointerUp={endNavigatorDrag}
+                      onPointerCancel={endNavigatorDrag}
+                      title="拖动缩放时间轴右边界"
+                      aria-label="拖动缩放时间轴右边界"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div> : null}
-          {!isOverview ? <div className="space-y-2">
-            {videoTrack ? (
-              <div className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5">
-                <button
-                  type="button"
-                  onClick={onSelectVideo}
-                  className="flex w-full items-start gap-2 text-left"
-                >
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-violet-500 text-[10px] font-black text-white">▶</span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-xs text-[var(--vr-text)]">视频</strong>
-                    <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                      {videoTrack.loop ? '循环播放' : '播放一次'} · {(videoTrack.durationMs / 1000).toFixed(1)} {copy.seconds}
-                    </small>
-                  </span>
-                </button>
-              </div>
-            ) : null}
-            {animations.map((item, index) => (
-              <div
-                key={`${item.id}-details`}
-                className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(item)}
-                  className="flex w-full items-start gap-2 text-left"
-                >
-                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-black text-white ${phaseMarkerClass(item)}`}>
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-xs text-[var(--vr-text)]">
-                      {effectLabel(copy, item.effect)} · {targetLabel(copy, item)}
-                    </strong>
-                    <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                      {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
-                      {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
-                    </small>
-                  </span>
-                </button>
-                <div className="mt-2 flex justify-end gap-1">
+          ) : null}
+          {!isOverview ? (
+            <div className="space-y-2">
+              {videoTrack ? (
+                <div className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5">
                   <button
                     type="button"
-                    className="ppt-mini-button text-rose-500"
-                    onClick={() => onDelete(item.id)}
-                    disabled={item.source === 'tag'}
+                    onClick={onSelectVideo}
+                    className="flex w-full items-start gap-2 text-left"
                   >
-                    {copy.delete}
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-violet-500 text-[10px] font-black text-white">
+                      ▶
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-xs text-[var(--vr-text)]">视频</strong>
+                      <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
+                        {videoTrack.loop ? '循环播放' : '播放一次'} ·{' '}
+                        {(videoTrack.durationMs / 1000).toFixed(1)} {copy.seconds}
+                      </small>
+                    </span>
                   </button>
                 </div>
-              </div>
-            ))}
-          </div> : null}
+              ) : null}
+              {animations.map((item, index) => (
+                <div
+                  key={`${item.id}-details`}
+                  className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelect(item)}
+                    className="flex w-full items-start gap-2 text-left"
+                  >
+                    <span
+                      className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-black text-white ${phaseMarkerClass(item)}`}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-xs text-[var(--vr-text)]">
+                        {effectLabel(copy, item.effect)} · {targetLabel(copy, item)}
+                      </strong>
+                      <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
+                        {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
+                        {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
+                      </small>
+                    </span>
+                  </button>
+                  <div className="mt-2 flex justify-end gap-1">
+                    <button
+                      type="button"
+                      className="ppt-mini-button text-rose-500"
+                      onClick={() => onDelete(item.id)}
+                      disabled={item.source === 'tag'}
+                    >
+                      {copy.delete}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--vr-border)] px-4 py-8 text-center text-xs leading-5 text-[var(--vr-text-muted)]">
@@ -683,71 +712,79 @@ function _ObjectProperties({
           <strong className="block text-[var(--vr-text)]">由剧情标签驱动</strong>
           {startLabel(copy, animation.start)} · {effectLabel(copy, animation.effect)} ·{' '}
           {(animation.durationMs / 1000).toFixed(1)} {copy.seconds}
-          <p className="mt-1">此处只展示该标签对应的 PPT 动画；编辑标签后，时间轴和导出会自动同步。</p>
+          <p className="mt-1">
+            此处只展示该标签对应的 PPT 动画；编辑标签后，时间轴和导出会自动同步。
+          </p>
         </div>
-      ) : <>
-      <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
-        {copy.start}
-        <select
-          value={animation?.start || 'onClick'}
-          onChange={(event) => onUpdate({ start: event.target.value as PptAnimationStart })}
-          className="render-field mt-1.5 w-full"
-        >
-          <option value="onClick">{copy.onClick}</option>
-          <option value="withPrevious">{copy.withPrevious}</option>
-          <option value="afterPrevious">{copy.afterPrevious}</option>
-        </select>
-      </label>
-      <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
-        {copy.effectOptions}
-        <select
-          value={animation?.direction || 'left'}
-          onChange={(event) => onUpdate({ direction: event.target.value as PptAnimationDirection })}
-          className="render-field mt-1.5 w-full"
-        >
-          <option value="left">{copy.fromLeft}</option>
-          <option value="right">{copy.fromRight}</option>
-          <option value="up">{copy.fromTop}</option>
-          <option value="down">{copy.fromBottom}</option>
-        </select>
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs font-bold text-[var(--vr-text-muted)]">
-          {copy.duration}
-          <input
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            value={(animation?.durationMs || 500) / 1000}
-            onChange={(event) =>
-              onUpdate({
-                durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
-              })
-            }
-            className="render-field mt-1.5 w-full"
-          />
-        </label>
-        <label className="text-xs font-bold text-[var(--vr-text-muted)]">
-          {copy.delay}
-          <input
-            type="number"
-            min="0"
-            max="10"
-            step="0.1"
-            value={(animation?.delayMs || 0) / 1000}
-            onChange={(event) =>
-              onUpdate({ delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000) })
-            }
-            className="render-field mt-1.5 w-full"
-          />
-        </label>
-      </div>
-      <div className="mt-6 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
-        <Clock3 className="mr-1 inline h-3.5 w-3.5" />
-        {copy.animationPersistenceHint}
-      </div>
-      </>}
+      ) : (
+        <>
+          <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
+            {copy.start}
+            <select
+              value={animation?.start || 'onClick'}
+              onChange={(event) => onUpdate({ start: event.target.value as PptAnimationStart })}
+              className="render-field mt-1.5 w-full"
+            >
+              <option value="onClick">{copy.onClick}</option>
+              <option value="withPrevious">{copy.withPrevious}</option>
+              <option value="afterPrevious">{copy.afterPrevious}</option>
+            </select>
+          </label>
+          <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
+            {copy.effectOptions}
+            <select
+              value={animation?.direction || 'left'}
+              onChange={(event) =>
+                onUpdate({ direction: event.target.value as PptAnimationDirection })
+              }
+              className="render-field mt-1.5 w-full"
+            >
+              <option value="left">{copy.fromLeft}</option>
+              <option value="right">{copy.fromRight}</option>
+              <option value="up">{copy.fromTop}</option>
+              <option value="down">{copy.fromBottom}</option>
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold text-[var(--vr-text-muted)]">
+              {copy.duration}
+              <input
+                type="number"
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={(animation?.durationMs || 500) / 1000}
+                onChange={(event) =>
+                  onUpdate({
+                    durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
+                  })
+                }
+                className="render-field mt-1.5 w-full"
+              />
+            </label>
+            <label className="text-xs font-bold text-[var(--vr-text-muted)]">
+              {copy.delay}
+              <input
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                value={(animation?.delayMs || 0) / 1000}
+                onChange={(event) =>
+                  onUpdate({
+                    delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000),
+                  })
+                }
+                className="render-field mt-1.5 w-full"
+              />
+            </label>
+          </div>
+          <div className="mt-6 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
+            <Clock3 className="mr-1 inline h-3.5 w-3.5" />
+            {copy.animationPersistenceHint}
+          </div>
+        </>
+      )}
     </>
   );
 }

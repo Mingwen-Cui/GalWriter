@@ -8,7 +8,11 @@ import { PptWorkspace } from '../../ppt/PptWorkspace';
 import { WebWorkspace } from '../../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
-import { chooseRenderOutputDir, getDefaultRenderDir, saveRenderedPptx } from '../export/tauriRenderAdapter';
+import {
+  chooseRenderOutputDir,
+  getDefaultRenderDir,
+  saveRenderedPptx,
+} from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
 import {
   DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
@@ -140,14 +144,19 @@ export function VideoRenderModal({
       ? persistedWorkspace.workspaceMode
       : 'video',
   );
-  const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>('forward');
+  const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>(
+    'forward',
+  );
   const [videoWorkspaceMode, setVideoWorkspaceMode] = useState<VideoWorkspaceMode>('timeline');
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
   );
   const [pptSettings, setPptSettings] = useState<PptExportSettings>(() => ({
-    layout: persistedWorkspace?.pptSettings?.layout === 'LAYOUT_STANDARD' ? 'LAYOUT_STANDARD' : 'LAYOUT_WIDE',
+    layout:
+      persistedWorkspace?.pptSettings?.layout === 'LAYOUT_STANDARD'
+        ? 'LAYOUT_STANDARD'
+        : 'LAYOUT_WIDE',
     branchMode: persistedWorkspace?.pptSettings?.branchMode || 'interactive',
     density: persistedWorkspace?.pptSettings?.density || 'oneNodePerSlide',
     includeCover: persistedWorkspace?.pptSettings?.includeCover ?? true,
@@ -168,10 +177,17 @@ export function VideoRenderModal({
     setPptPast((previous) => [...previous.slice(-49), capturePptState()]);
     setPptFuture([]);
   };
-  const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>('animation');
+  const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>(
+    'animation',
+  );
   const [pptRibbonCollapsed, setPptRibbonCollapsed] = useState(false);
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {
-    if (Object.entries(patch).every(([key, value]) => pptSettings[key as keyof PptExportSettings] === value)) return;
+    if (
+      Object.entries(patch).every(
+        ([key, value]) => pptSettings[key as keyof PptExportSettings] === value,
+      )
+    )
+      return;
     pushPptHistory();
     setPptSettings((current) => ({ ...current, ...patch }));
   };
@@ -852,9 +868,10 @@ export function VideoRenderModal({
     if (mode === workspaceMode) return;
 
     saveWorkspaceImmediately();
-    const direction = WORKSPACE_MODE_ORDER.indexOf(mode) > WORKSPACE_MODE_ORDER.indexOf(workspaceMode)
-      ? 'forward'
-      : 'backward';
+    const direction =
+      WORKSPACE_MODE_ORDER.indexOf(mode) > WORKSPACE_MODE_ORDER.indexOf(workspaceMode)
+        ? 'forward'
+        : 'backward';
     const applyWorkspaceMode = () => {
       flushSync(() => {
         document.documentElement.dataset.renderWorkspaceSlide = direction;
@@ -1417,7 +1434,12 @@ export function VideoRenderModal({
         (metric) => timelinePreviewTime >= metric.start && timelinePreviewTime < metric.end,
       );
     setTimelinePreviewTime(activeMetric?.start ?? 0);
-  }, [focusedTimelineMetric, renderAnimationSignature, timelineMetrics.segments, timelinePreviewTime]);
+  }, [
+    focusedTimelineMetric,
+    renderAnimationSignature,
+    timelineMetrics.segments,
+    timelinePreviewTime,
+  ]);
 
   React.useEffect(() => {
     setPreviewTime((prev) => Math.min(prev, previewDuration));
@@ -1899,7 +1921,9 @@ export function VideoRenderModal({
         });
         setSavedPath(result.path);
       } else {
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+        const blob = new Blob([buffer], {
+          type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
@@ -1913,7 +1937,13 @@ export function VideoRenderModal({
       setProgress(isZh ? 'PPTX 已导出' : 'PPTX exported');
     } catch (exportError) {
       setStatus('error');
-      setError(exportError instanceof Error ? exportError.message : isZh ? 'PPTX 导出失败' : 'PPTX export failed');
+      setError(
+        exportError instanceof Error
+          ? exportError.message
+          : isZh
+            ? 'PPTX 导出失败'
+            : 'PPTX export failed',
+      );
     }
   };
 
@@ -2102,322 +2132,321 @@ export function VideoRenderModal({
               : undefined
           }
         >
-        {workspaceMode === 'video' ? (
-          videoWorkspaceMode === 'interactive' ? (
-            <InteractiveSegmentExportWorkspace
-              language={language}
-              segments={interactiveSegments}
+          {workspaceMode === 'video' ? (
+            videoWorkspaceMode === 'interactive' ? (
+              <InteractiveSegmentExportWorkspace
+                language={language}
+                segments={interactiveSegments}
+                nodes={nodes}
+                nodesById={storyNodeById}
+                renderStyle={renderStyle}
+                videoTextScaleMode={videoTextScaleMode}
+                animationLeadSeconds={animationLeadSeconds}
+                hideCharacterTags={hideCharacterTags}
+                hideSceneTags={hideSceneTags}
+                activeSegmentId={activeInteractiveSegmentId}
+                status={status}
+                exportFormat={exportFormat}
+                frameRate={frameRate}
+                resolutionIndex={resolutionIndex}
+                resolutionWidth={resolutionWidth}
+                resolutionHeight={resolutionHeight}
+                outputDir={outputDir}
+                outputDirError={outputDirError}
+                progress={progress}
+                error={error}
+                progressValue={progressValue}
+                savedPath={savedPath}
+                defaultSeconds={defaultSeconds}
+                exportOrderIds={interactiveExportOrderIds}
+                setExportOrderIds={setInteractiveExportOrderIds}
+                previewBounds={interactivePreviewBounds}
+                setPreviewBounds={setInteractivePreviewBounds}
+                onExportRequested={exportInteractiveSegments}
+                onSelectSegment={setActiveInteractiveSegmentId}
+                onSegmentsChange={setInteractiveSegments}
+                onRescan={rescanInteractiveSegments}
+                setExportFormat={setExportFormat}
+                setFrameRate={setFrameRate}
+                setResolutionIndex={setResolutionIndex}
+                setResolutionWidth={setResolutionWidth}
+                setResolutionHeight={setResolutionHeight}
+                setOutputDir={setOutputDir}
+                setOutputDirError={setOutputDirError}
+                chooseOutputDir={chooseOutputDir}
+              />
+            ) : (
+              <>
+                <main className="min-h-0 min-w-0 flex overflow-hidden bg-[var(--vr-bg)]">
+                  <VideoAssetSidebar
+                    language={language}
+                    assetPanelWidth={assetPanelCollapsed ? 0 : assetPanelWidth}
+                    assetCardLayout={assetCardLayout}
+                    assetCardScale={assetCardScale}
+                    assetRegionFilter={assetRegionFilter}
+                    assetRegionOptions={assetRegionOptions}
+                    visibleAssetNodes={visibleAssetNodes}
+                    allAssetNodes={allAssetNodes}
+                    timelineIds={timelineIds}
+                    nodeRegionById={nodeRegionById}
+                    activePreviewNode={activePreviewNode}
+                    selectedAssetIds={selectedAssetIds}
+                    assetScrollInfo={assetScrollInfo}
+                    assetThumbTopPercent={assetThumbTopPercent}
+                    assetThumbHeightPercent={assetThumbHeightPercent}
+                    assetUploadInputRef={assetUploadInputRef}
+                    assetViewportRef={assetViewportRef}
+                    setAssetCardLayout={setAssetCardLayout}
+                    setAssetRegionFilter={setAssetRegionFilter}
+                    setActivePreviewId={setActivePreviewId}
+                    setAssetSelection={(ids) => {
+                      setSelectedAssetIds(ids);
+                    }}
+                    handleAssetUploadInputChange={handleAssetUploadInputChange}
+                    handleAssetFileDragOver={handleAssetFileDragOver}
+                    handleAssetFileDrop={handleAssetFileDrop}
+                    syncAssetScrollInfo={syncAssetScrollInfo}
+                    handleAssetDragStart={handleAssetDragStart}
+                    openContextMenu={openContextMenu}
+                    addNodeToTimeline={addNodeToTimeline}
+                    mediaIcon={mediaIcon}
+                    mediaKind={mediaKind}
+                    segmentTitle={segmentTitle}
+                    segmentText={segmentText}
+                    segmentDurationLabel={segmentDurationLabel}
+                    handleAssetScrollThumbStart={handleAssetScrollThumbStart}
+                    handleAssetScrollThumbMove={handleAssetScrollThumbMove}
+                    handleAssetScrollThumbEnd={handleAssetScrollThumbEnd}
+                    handleAssetScaleHandleStart={handleAssetScaleHandleStart}
+                    handleAssetScaleHandleMove={handleAssetScaleHandleMove}
+                    handleAssetScaleHandleEnd={handleAssetScaleHandleEnd}
+                  />
+                  {!assetPanelCollapsed && (
+                    <ResizeHandle
+                      label={renderCopy(
+                        language,
+                        '调整素材栏宽度',
+                        '素材欄の幅を調整',
+                        'Resize asset panel',
+                      )}
+                      axis="x"
+                      value={assetPanelWidth}
+                      min={0}
+                      max={assetPanelMax}
+                      onChange={setAssetPanelWidthInteractive}
+                      onDragEnd={commitAssetPanelWidth}
+                    />
+                  )}
+
+                  <VideoPreviewPanel
+                    language={language}
+                    canvasRef={canvasRef}
+                    activeTimelineFrame={activeTimelineFrame}
+                    activeTimelineTime={activeTimelineTime}
+                    resolution={resolution}
+                    frameRate={frameRate}
+                    timelineScaleMode={timelineScaleMode}
+                    focusedPreviewNode={focusedPreviewNode}
+                    activePreviewNode={activePreviewNode}
+                    focusedTimelineMetric={focusedTimelineMetric}
+                    previewPlaying={previewPlaying}
+                    previewTime={previewTime}
+                    previewDuration={previewDuration}
+                    timelinePreviewTime={timelinePreviewTime}
+                    timelineNodes={timelineNodes}
+                    storyNodes={nodes}
+                    timelineMetrics={timelineMetrics}
+                    status={status}
+                    speed={speed}
+                    setPreviewPlaying={setPreviewPlaying}
+                    setPreviewTime={setPreviewTime}
+                    setTimelinePreviewTime={setTimelinePreviewTime}
+                    openContextMenu={openContextMenu}
+                    renderStyle={renderStyle}
+                    updateRenderStyle={updateRenderStyle}
+                    canvasSettings={webSettings}
+                    hideCharacterTags={hideCharacterTags}
+                    hideSceneTags={hideSceneTags}
+                    videoTextScaleMode={videoTextScaleMode}
+                    animationLeadSeconds={animationLeadSeconds}
+                    canvasSelected={videoCanvasSelected}
+                    setCanvasSelected={setVideoCanvasSelected}
+                  />
+
+                  {!exportPanelCollapsed && (
+                    <ResizeHandle
+                      label={renderCopy(
+                        language,
+                        '调整导出设置宽度',
+                        '書き出し設定の幅を調整',
+                        'Resize export settings',
+                      )}
+                      axis="x"
+                      value={exportPanelWidth}
+                      min={0}
+                      max={exportPanelMax}
+                      reverse
+                      onChange={setExportPanelWidthInteractive}
+                      onDragEnd={commitExportPanelWidth}
+                    />
+                  )}
+                  <VideoExportSettingsPanel
+                    language={language}
+                    exportPanelWidth={exportPanelCollapsed ? 0 : exportPanelWidth}
+                    exportSettingsMode={exportSettingsMode}
+                    setExportSettingsMode={setExportSettingsMode}
+                    status={status}
+                    exportFormat={exportFormat}
+                    setExportFormat={setExportFormat}
+                    resolutionIndex={resolutionIndex}
+                    setResolutionIndex={setResolutionIndex}
+                    resolutionWidth={resolutionWidth}
+                    setResolutionWidth={setResolutionWidth}
+                    resolutionHeight={resolutionHeight}
+                    setResolutionHeight={setResolutionHeight}
+                    frameRate={frameRate}
+                    setFrameRate={setFrameRate}
+                    outputDir={outputDir}
+                    setOutputDir={setOutputDir}
+                    outputDirError={outputDirError}
+                    setOutputDirError={setOutputDirError}
+                    chooseOutputDir={chooseOutputDir}
+                    renderStyle={renderStyle}
+                    updateRenderStyle={updateRenderStyle}
+                    videoTextScaleMode={videoTextScaleMode}
+                    setVideoTextScaleMode={setVideoTextScaleMode}
+                    speed={speed}
+                    setSpeed={setSpeed}
+                    selectedSpeechNodeCount={selectedSpeechNodes.length}
+                    selectedAudioClipCount={selectedAudioNodes.length}
+                    selectedAudioVolume={selectedAudioVolume}
+                    selectedAudioFadeIn={selectedAudioFadeIn}
+                    selectedAudioFadeOut={selectedAudioFadeOut}
+                    updateSelectedAudioSettings={updateSelectedAudioSettings}
+                    audioBusy={audioBusy}
+                    audioMessage={audioMessage}
+                    isRecordingVoiceover={isRecordingVoiceover}
+                    generateAudioFromSelectedText={generateAudioFromSelectedText}
+                    startVoiceoverRecording={startVoiceoverRecording}
+                    stopVoiceoverRecording={stopVoiceoverRecording}
+                    assetUploadInputRef={assetUploadInputRef}
+                    progress={progress}
+                    error={error}
+                    progressValue={progressValue}
+                    savedPath={savedPath}
+                    hideCharacterTags={hideCharacterTags}
+                    setHideCharacterTags={setHideCharacterTags}
+                    hideSceneTags={hideSceneTags}
+                    setHideSceneTags={setHideSceneTags}
+                    canvasSettings={webSettings}
+                    onCanvasSettingsChange={updateWebSettingsBulk}
+                    showCanvasSettings={videoCanvasSelected}
+                  />
+                </main>
+
+                <VideoTimelinePanel
+                  language={language}
+                  timelineHeight={timelineHeight}
+                  timelineMax={timelineMax}
+                  setTimelineHeight={setTimelineHeight}
+                  status={status}
+                  previewPlaying={previewPlaying}
+                  setPreviewPlaying={setPreviewPlaying}
+                  activeTimelineTime={activeTimelineTime}
+                  activeTimelineFrame={activeTimelineFrame}
+                  timelineMetrics={timelineMetrics}
+                  timelineSnapEnabled={timelineSnapEnabled}
+                  setTimelineSnapEnabled={setTimelineSnapEnabled}
+                  timelineWheelMode={timelineWheelMode}
+                  setTimelineWheelMode={setTimelineWheelMode}
+                  timelineViewportRef={timelineViewportRef}
+                  syncTimelineScrollInfo={syncTimelineScrollInfo}
+                  handleTimelineDrop={handleTimelineDrop}
+                  openContextMenu={openContextMenu}
+                  timelineScaleMode={timelineScaleMode}
+                  setTimelineScaleMode={setTimelineScaleMode}
+                  timelineScrubSurfaceRef={timelineScrubSurfaceRef}
+                  handleTimelineScrubStart={handleTimelineScrubStart}
+                  handleTimelineScrubMove={handleTimelineScrubMove}
+                  handleTimelineScrubEnd={handleTimelineScrubEnd}
+                  timelineTicks={timelineTicks}
+                  frameRate={frameRate}
+                  timelineTickSettings={timelineTickSettings}
+                  timelinePlayheadLeft={timelinePlayheadLeft}
+                  videoTrackIds={videoTrackIds}
+                  audioTrackIds={audioTrackIds}
+                  videoTrackByNodeId={videoTrackByNodeId}
+                  audioTrackByNodeId={audioTrackByNodeId}
+                  timelineNodes={timelineNodes}
+                  timelineMetricById={timelineMetricById}
+                  selectedIds={selectedIds}
+                  focusedPreviewId={focusedPreviewId}
+                  keyShotIds={keyShotIds}
+                  addVideoTrack={addVideoTrack}
+                  addAudioTrack={addAudioTrack}
+                  removeVideoTrack={removeVideoTrack}
+                  removeAudioTrack={removeAudioTrack}
+                  removeTimelineNode={removeTimelineNode}
+                  handleAssetDragStart={handleAssetDragStart}
+                  focusTimelineSegment={focusTimelineSegment}
+                  segmentTitle={segmentTitle}
+                  mediaKind={mediaKind}
+                  seekTimelineTime={seekTimelineTime}
+                  setFocusedPreviewId={setFocusedPreviewId}
+                  segmentText={segmentText}
+                  handleTimelinePlayheadGrabStart={handleTimelinePlayheadGrabStart}
+                  handleTimelinePlayheadGrabMove={handleTimelinePlayheadGrabMove}
+                  timelineThumbLeftPercent={timelineThumbLeftPercent}
+                  timelineThumbWidthPercent={timelineThumbWidthPercent}
+                  handleTimelineScrollThumbStart={handleTimelineScrollThumbStart}
+                  handleTimelineScrollThumbMove={handleTimelineScrollThumbMove}
+                  handleTimelineScrollThumbEnd={handleTimelineScrollThumbEnd}
+                  handleTimelineScaleHandleStart={handleTimelineScaleHandleStart}
+                  handleTimelineScaleHandleMove={handleTimelineScaleHandleMove}
+                  handleTimelineScaleHandleEnd={handleTimelineScaleHandleEnd}
+                  pushTimelineHistory={pushTimelineHistory}
+                  snapTimelineTime={snapTimelineTime}
+                  setTimelineStartById={setTimelineStartById}
+                  setTimelineDurationById={setTimelineDurationById}
+                />
+              </>
+            )
+          ) : workspaceMode === 'web' ? (
+            <WebWorkspace
               nodes={nodes}
-              nodesById={storyNodeById}
-              renderStyle={renderStyle}
-              videoTextScaleMode={videoTextScaleMode}
-              animationLeadSeconds={animationLeadSeconds}
-              hideCharacterTags={hideCharacterTags}
-              hideSceneTags={hideSceneTags}
-              activeSegmentId={activeInteractiveSegmentId}
-              status={status}
-              exportFormat={exportFormat}
-              frameRate={frameRate}
-              resolutionIndex={resolutionIndex}
-              resolutionWidth={resolutionWidth}
-              resolutionHeight={resolutionHeight}
-              outputDir={outputDir}
-              outputDirError={outputDirError}
+              edges={edges}
+              language={language}
+              webRenderStyle={renderStyle}
+              webChoiceColor={webChoiceColor}
+              webChoiceTextColor={webChoiceTextColor}
+              webSettings={webSettings}
+              webProjectName={webProjectName}
               progress={progress}
               error={error}
               progressValue={progressValue}
               savedPath={savedPath}
-              defaultSeconds={defaultSeconds}
-              exportOrderIds={interactiveExportOrderIds}
-              setExportOrderIds={setInteractiveExportOrderIds}
-              previewBounds={interactivePreviewBounds}
-              setPreviewBounds={setInteractivePreviewBounds}
-              onExportRequested={exportInteractiveSegments}
-              onSelectSegment={setActiveInteractiveSegmentId}
-              onSegmentsChange={setInteractiveSegments}
-              onRescan={rescanInteractiveSegments}
-              setExportFormat={setExportFormat}
-              setFrameRate={setFrameRate}
-              setResolutionIndex={setResolutionIndex}
-              setResolutionWidth={setResolutionWidth}
-              setResolutionHeight={setResolutionHeight}
-              setOutputDir={setOutputDir}
-              setOutputDirError={setOutputDirError}
-              chooseOutputDir={chooseOutputDir}
+              updateWebSettings={updateWebSettings}
+              updateWebSettingsBulk={updateWebSettingsBulk}
+              updateWebChoiceTextColor={updateWebChoiceTextColor}
+              updateWebChoiceColor={updateWebChoiceColor}
+              updateWebRenderStyle={updateRenderStyle}
+              callAIForTextResult={callAIForTextResult}
             />
           ) : (
-            <>
-              <main className="min-h-0 min-w-0 flex overflow-hidden bg-[var(--vr-bg)]">
-                <VideoAssetSidebar
-                  language={language}
-                  assetPanelWidth={assetPanelCollapsed ? 0 : assetPanelWidth}
-                  assetCardLayout={assetCardLayout}
-                  assetCardScale={assetCardScale}
-                  assetRegionFilter={assetRegionFilter}
-                  assetRegionOptions={assetRegionOptions}
-                  visibleAssetNodes={visibleAssetNodes}
-                  allAssetNodes={allAssetNodes}
-                  timelineIds={timelineIds}
-                  nodeRegionById={nodeRegionById}
-                  activePreviewNode={activePreviewNode}
-                  selectedAssetIds={selectedAssetIds}
-                  assetScrollInfo={assetScrollInfo}
-                  assetThumbTopPercent={assetThumbTopPercent}
-                  assetThumbHeightPercent={assetThumbHeightPercent}
-                  assetUploadInputRef={assetUploadInputRef}
-                  assetViewportRef={assetViewportRef}
-                  setAssetCardLayout={setAssetCardLayout}
-                  setAssetRegionFilter={setAssetRegionFilter}
-                  setActivePreviewId={setActivePreviewId}
-                  setAssetSelection={(ids) => {
-                    setSelectedAssetIds(ids);
-                  }}
-                  handleAssetUploadInputChange={handleAssetUploadInputChange}
-                  handleAssetFileDragOver={handleAssetFileDragOver}
-                  handleAssetFileDrop={handleAssetFileDrop}
-                  syncAssetScrollInfo={syncAssetScrollInfo}
-                  handleAssetDragStart={handleAssetDragStart}
-                  openContextMenu={openContextMenu}
-                  addNodeToTimeline={addNodeToTimeline}
-                  mediaIcon={mediaIcon}
-                  mediaKind={mediaKind}
-                  segmentTitle={segmentTitle}
-                  segmentText={segmentText}
-                  segmentDurationLabel={segmentDurationLabel}
-                  handleAssetScrollThumbStart={handleAssetScrollThumbStart}
-                  handleAssetScrollThumbMove={handleAssetScrollThumbMove}
-                  handleAssetScrollThumbEnd={handleAssetScrollThumbEnd}
-                  handleAssetScaleHandleStart={handleAssetScaleHandleStart}
-                  handleAssetScaleHandleMove={handleAssetScaleHandleMove}
-                  handleAssetScaleHandleEnd={handleAssetScaleHandleEnd}
-                />
-                {!assetPanelCollapsed && (
-                  <ResizeHandle
-                    label={renderCopy(
-                      language,
-                      '调整素材栏宽度',
-                      '素材欄の幅を調整',
-                      'Resize asset panel',
-                    )}
-                    axis="x"
-                    value={assetPanelWidth}
-                    min={0}
-                    max={assetPanelMax}
-                    onChange={setAssetPanelWidthInteractive}
-                    onDragEnd={commitAssetPanelWidth}
-                  />
-                )}
-
-                <VideoPreviewPanel
-                  language={language}
-                  canvasRef={canvasRef}
-                  activeTimelineFrame={activeTimelineFrame}
-                  activeTimelineTime={activeTimelineTime}
-                  resolution={resolution}
-                  frameRate={frameRate}
-                  timelineScaleMode={timelineScaleMode}
-                  focusedPreviewNode={focusedPreviewNode}
-                  activePreviewNode={activePreviewNode}
-                  focusedTimelineMetric={focusedTimelineMetric}
-                  previewPlaying={previewPlaying}
-                  previewTime={previewTime}
-                  previewDuration={previewDuration}
-                  timelinePreviewTime={timelinePreviewTime}
-                   timelineNodes={timelineNodes}
-                   storyNodes={nodes}
-                  timelineMetrics={timelineMetrics}
-                  status={status}
-                  speed={speed}
-                  setPreviewPlaying={setPreviewPlaying}
-                  setPreviewTime={setPreviewTime}
-                  setTimelinePreviewTime={setTimelinePreviewTime}
-                  seekTimelineTime={seekTimelineTime}
-                  openContextMenu={openContextMenu}
-                  renderStyle={renderStyle}
-                   updateRenderStyle={updateRenderStyle}
-                   canvasSettings={webSettings}
-                   hideCharacterTags={hideCharacterTags}
-                   hideSceneTags={hideSceneTags}
-                   videoTextScaleMode={videoTextScaleMode}
-                   animationLeadSeconds={animationLeadSeconds}
-                  canvasSelected={videoCanvasSelected}
-                  setCanvasSelected={setVideoCanvasSelected}
-                />
-
-                {!exportPanelCollapsed && (
-                  <ResizeHandle
-                    label={renderCopy(
-                      language,
-                      '调整导出设置宽度',
-                      '書き出し設定の幅を調整',
-                      'Resize export settings',
-                    )}
-                    axis="x"
-                    value={exportPanelWidth}
-                    min={0}
-                    max={exportPanelMax}
-                    reverse
-                    onChange={setExportPanelWidthInteractive}
-                    onDragEnd={commitExportPanelWidth}
-                  />
-                )}
-                <VideoExportSettingsPanel
-                  language={language}
-                  exportPanelWidth={exportPanelCollapsed ? 0 : exportPanelWidth}
-                  exportSettingsMode={exportSettingsMode}
-                  setExportSettingsMode={setExportSettingsMode}
-                  status={status}
-                  exportFormat={exportFormat}
-                  setExportFormat={setExportFormat}
-                  resolutionIndex={resolutionIndex}
-                  setResolutionIndex={setResolutionIndex}
-                  resolutionWidth={resolutionWidth}
-                  setResolutionWidth={setResolutionWidth}
-                  resolutionHeight={resolutionHeight}
-                  setResolutionHeight={setResolutionHeight}
-                  frameRate={frameRate}
-                  setFrameRate={setFrameRate}
-                  outputDir={outputDir}
-                  setOutputDir={setOutputDir}
-                  outputDirError={outputDirError}
-                  setOutputDirError={setOutputDirError}
-                  chooseOutputDir={chooseOutputDir}
-                  renderStyle={renderStyle}
-                  updateRenderStyle={updateRenderStyle}
-                  videoTextScaleMode={videoTextScaleMode}
-                  setVideoTextScaleMode={setVideoTextScaleMode}
-                  speed={speed}
-                  setSpeed={setSpeed}
-                  selectedSpeechNodeCount={selectedSpeechNodes.length}
-                  selectedAudioClipCount={selectedAudioNodes.length}
-                  selectedAudioVolume={selectedAudioVolume}
-                  selectedAudioFadeIn={selectedAudioFadeIn}
-                  selectedAudioFadeOut={selectedAudioFadeOut}
-                  updateSelectedAudioSettings={updateSelectedAudioSettings}
-                  audioBusy={audioBusy}
-                  audioMessage={audioMessage}
-                  isRecordingVoiceover={isRecordingVoiceover}
-                  generateAudioFromSelectedText={generateAudioFromSelectedText}
-                  startVoiceoverRecording={startVoiceoverRecording}
-                  stopVoiceoverRecording={stopVoiceoverRecording}
-                  assetUploadInputRef={assetUploadInputRef}
-                  progress={progress}
-                  error={error}
-                  progressValue={progressValue}
-                  savedPath={savedPath}
-                  hideCharacterTags={hideCharacterTags}
-                  setHideCharacterTags={setHideCharacterTags}
-                  hideSceneTags={hideSceneTags}
-                  setHideSceneTags={setHideSceneTags}
-                  canvasSettings={webSettings}
-                  onCanvasSettingsChange={updateWebSettingsBulk}
-                  showCanvasSettings={videoCanvasSelected}
-                />
-              </main>
-
-              <VideoTimelinePanel
-                language={language}
-                timelineHeight={timelineHeight}
-                timelineMax={timelineMax}
-                setTimelineHeight={setTimelineHeight}
-                status={status}
-                previewPlaying={previewPlaying}
-                setPreviewPlaying={setPreviewPlaying}
-                activeTimelineTime={activeTimelineTime}
-                activeTimelineFrame={activeTimelineFrame}
-                timelineMetrics={timelineMetrics}
-                timelineSnapEnabled={timelineSnapEnabled}
-                setTimelineSnapEnabled={setTimelineSnapEnabled}
-                timelineWheelMode={timelineWheelMode}
-                setTimelineWheelMode={setTimelineWheelMode}
-                timelineViewportRef={timelineViewportRef}
-                syncTimelineScrollInfo={syncTimelineScrollInfo}
-                handleTimelineDrop={handleTimelineDrop}
-                openContextMenu={openContextMenu}
-                timelineScaleMode={timelineScaleMode}
-                setTimelineScaleMode={setTimelineScaleMode}
-                timelineScrubSurfaceRef={timelineScrubSurfaceRef}
-                handleTimelineScrubStart={handleTimelineScrubStart}
-                handleTimelineScrubMove={handleTimelineScrubMove}
-                handleTimelineScrubEnd={handleTimelineScrubEnd}
-                timelineTicks={timelineTicks}
-                frameRate={frameRate}
-                timelineTickSettings={timelineTickSettings}
-                timelinePlayheadLeft={timelinePlayheadLeft}
-                videoTrackIds={videoTrackIds}
-                audioTrackIds={audioTrackIds}
-                videoTrackByNodeId={videoTrackByNodeId}
-                audioTrackByNodeId={audioTrackByNodeId}
-                timelineNodes={timelineNodes}
-                timelineMetricById={timelineMetricById}
-                selectedIds={selectedIds}
-                focusedPreviewId={focusedPreviewId}
-                keyShotIds={keyShotIds}
-                addVideoTrack={addVideoTrack}
-                addAudioTrack={addAudioTrack}
-                removeVideoTrack={removeVideoTrack}
-                removeAudioTrack={removeAudioTrack}
-                removeTimelineNode={removeTimelineNode}
-                handleAssetDragStart={handleAssetDragStart}
-                focusTimelineSegment={focusTimelineSegment}
-                segmentTitle={segmentTitle}
-                mediaKind={mediaKind}
-                seekTimelineTime={seekTimelineTime}
-                setFocusedPreviewId={setFocusedPreviewId}
-                segmentText={segmentText}
-                handleTimelinePlayheadGrabStart={handleTimelinePlayheadGrabStart}
-                handleTimelinePlayheadGrabMove={handleTimelinePlayheadGrabMove}
-                timelineThumbLeftPercent={timelineThumbLeftPercent}
-                timelineThumbWidthPercent={timelineThumbWidthPercent}
-                handleTimelineScrollThumbStart={handleTimelineScrollThumbStart}
-                handleTimelineScrollThumbMove={handleTimelineScrollThumbMove}
-                handleTimelineScrollThumbEnd={handleTimelineScrollThumbEnd}
-                handleTimelineScaleHandleStart={handleTimelineScaleHandleStart}
-                handleTimelineScaleHandleMove={handleTimelineScaleHandleMove}
-                handleTimelineScaleHandleEnd={handleTimelineScaleHandleEnd}
-                pushTimelineHistory={pushTimelineHistory}
-                snapTimelineTime={snapTimelineTime}
-                setTimelineStartById={setTimelineStartById}
-                setTimelineDurationById={setTimelineDurationById}
-              />
-            </>
-          )
-        ) : workspaceMode === 'web' ? (
-          <WebWorkspace
-            nodes={nodes}
-            edges={edges}
-            language={language}
-            webRenderStyle={renderStyle}
-            webChoiceColor={webChoiceColor}
-            webChoiceTextColor={webChoiceTextColor}
-            webSettings={webSettings}
-            webProjectName={webProjectName}
-            progress={progress}
-            error={error}
-            progressValue={progressValue}
-            savedPath={savedPath}
-            updateWebSettings={updateWebSettings}
-            updateWebSettingsBulk={updateWebSettingsBulk}
-            updateWebChoiceTextColor={updateWebChoiceTextColor}
-            updateWebChoiceColor={updateWebChoiceColor}
-            updateWebRenderStyle={updateRenderStyle}
-            callAIForTextResult={callAIForTextResult}
-          />
-        ) : (
-          <PptWorkspace
-            nodes={nodes}
-            edges={edges}
-            language={language}
-            projectName={webProjectName || defaultWebProjectName}
-            webSettings={webSettings}
-            renderStyle={renderStyle}
-            updateRenderStyle={updateRenderStyle}
-            pptSettings={pptSettings}
-            updatePptSettings={updatePptSettings}
-            ribbonTab={pptRibbonTab}
-            ribbonCollapsed={pptRibbonCollapsed}
-          />
-        )}
+            <PptWorkspace
+              nodes={nodes}
+              edges={edges}
+              language={language}
+              projectName={webProjectName || defaultWebProjectName}
+              webSettings={webSettings}
+              renderStyle={renderStyle}
+              updateRenderStyle={updateRenderStyle}
+              pptSettings={pptSettings}
+              updatePptSettings={updatePptSettings}
+              ribbonTab={pptRibbonTab}
+              ribbonCollapsed={pptRibbonCollapsed}
+            />
+          )}
         </div>
       </div>
       {workspaceMode === 'video' && videoWorkspaceMode === 'timeline' && (

@@ -13,6 +13,7 @@ import type {
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import { usePptCopy } from './pptCopyContext';
 import { pptSceneColors } from './pptSceneResolver';
 import type { Scene, Selection, SlideItem } from './PptWorkspace';
 import {
@@ -21,7 +22,6 @@ import {
   PHASES,
   SlideCanvas,
   TRANSITIONS,
-  usePptCopy,
 } from './PptWorkspace';
 import {
   PPT_CONTENT_HEIGHT,
@@ -369,7 +369,9 @@ function SlideThumbnail({
   manualSlides,
 }: ThumbnailProps) {
   const scene = slide.sceneId ? scenes.find((item) => item.id === slide.sceneId) : undefined;
-  const manualSlide = slide.manualSlideId ? manualSlides.find((item) => item.id === slide.manualSlideId) : undefined;
+  const manualSlide = slide.manualSlideId
+    ? manualSlides.find((item) => item.id === slide.manualSlideId)
+    : undefined;
   return (
     <div
       className={`pointer-events-none relative overflow-hidden rounded bg-slate-950 ${pptCanvasViewportClass(layout)}`}
