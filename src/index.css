@@ -3897,6 +3897,66 @@ button.web-segment-button:first-child {
   opacity: 0.4;
 }
 
+/* The workspaces themselves use a native view-transition snapshot. This keeps
+   the heavy editors mounted one at a time while their rendered surfaces slide. */
+.render-workspace-transition-surface {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  view-transition-name: render-workspace-surface;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(render-workspace-surface) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+
+:root[data-render-workspace-slide='forward']::view-transition-old(render-workspace-surface) {
+  animation: render-workspace-slide-out-left 320ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+
+:root[data-render-workspace-slide='forward']::view-transition-new(render-workspace-surface) {
+  animation: render-workspace-slide-in-right 320ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+
+:root[data-render-workspace-slide='backward']::view-transition-old(render-workspace-surface) {
+  animation: render-workspace-slide-out-right 320ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+
+:root[data-render-workspace-slide='backward']::view-transition-new(render-workspace-surface) {
+  animation: render-workspace-slide-in-left 320ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+
+@keyframes render-workspace-slide-out-left {
+  to { transform: translateX(-100%); }
+}
+
+@keyframes render-workspace-slide-in-right {
+  from { transform: translateX(100%); }
+}
+
+@keyframes render-workspace-slide-out-right {
+  to { transform: translateX(100%); }
+}
+
+@keyframes render-workspace-slide-in-left {
+  from { transform: translateX(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(render-workspace-surface),
+  ::view-transition-old(render-workspace-surface),
+  ::view-transition-new(render-workspace-surface) {
+    animation: none;
+  }
+}
+
 /* Render-header controls on the right describe the current workspace, not a
    different output type. They use a connected-tab treatment: the white header
    is the outer colour, while the selected tab takes the colour of the surface

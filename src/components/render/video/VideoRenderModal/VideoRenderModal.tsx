@@ -1,5 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import type { Language } from '../../../../lib/i18n';
 import { buildPptxBuffer } from '../../ppt/pptExport';
@@ -119,6 +120,8 @@ import {
 
 type VideoWorkspaceMode = 'timeline' | 'interactive';
 
+const WORKSPACE_MODE_ORDER: RenderWorkspaceMode[] = ['video', 'web', 'ppt'];
+
 export function VideoRenderModal({
   nodes,
   edges,
@@ -137,6 +140,7 @@ export function VideoRenderModal({
       ? persistedWorkspace.workspaceMode
       : 'video',
   );
+  const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>('forward');
   const [videoWorkspaceMode, setVideoWorkspaceMode] = useState<VideoWorkspaceMode>('timeline');
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
@@ -842,6 +846,32 @@ export function VideoRenderModal({
     const snapshot = captureWorkspaceState();
     latestWorkspaceSnapshotRef.current = { workspaceKey, snapshot };
     writeRenderWorkspaceState(workspaceKey, snapshot);
+  };
+
+  const switchWorkspaceMode = (mode: RenderWorkspaceMode) => {
+    if (mode === workspaceMode) return;
+
+    saveWorkspaceImmediately();
+    const direction = WORKSPACE_MODE_ORDER.indexOf(mode) > WORKSPACE_MODE_ORDER.indexOf(workspaceMode)
+      ? 'forward'
+      : 'backward';
+    const applyWorkspaceMode = () => {
+      flushSync(() => {
+        document.documentElement.dataset.renderWorkspaceSlide = direction;
+        setWorkspaceSlideDirection(direction);
+        setWorkspaceMode(mode);
+      });
+    };
+    const transitionDocument = document as Document & {
+      startViewTransition?: (update: () => void) => unknown;
+    };
+
+    if (typeof transitionDocument.startViewTransition === 'function') {
+      transitionDocument.startViewTransition(applyWorkspaceMode);
+      return;
+    }
+
+    applyWorkspaceMode();
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -2007,14 +2037,7 @@ export function VideoRenderModal({
     >
       <div
         className="h-full w-full grid"
-        style={{
-          gridTemplateRows:
-            workspaceMode === 'web' || workspaceMode === 'ppt'
-              ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
-              : videoWorkspaceMode === 'interactive'
-                ? `${HEADER_HEIGHT}px minmax(0, 1fr)`
-                : `${HEADER_HEIGHT}px minmax(0, 1fr) ${timelineHeight}px`,
-        }}
+        style={{ gridTemplateRows: `${HEADER_HEIGHT}px minmax(0, 1fr)` }}
       >
         <RenderHeader
           language={language}
@@ -2039,10 +2062,7 @@ export function VideoRenderModal({
               : selectedNodes
           }
           nodes={nodes}
-          setWorkspaceMode={(mode) => {
-            saveWorkspaceImmediately();
-            setWorkspaceMode(mode);
-          }}
+          setWorkspaceMode={switchWorkspaceMode}
           setVideoWorkspaceMode={setVideoWorkspaceMode}
           setError={setError}
           setProgress={setProgress}
@@ -2073,6 +2093,15 @@ export function VideoRenderModal({
           onClose={closeRenderWorkspace}
         />
 
+        <div
+          className="render-workspace-transition-surface"
+          data-workspace-slide-direction={workspaceSlideDirection}
+          style={
+            workspaceMode === 'video' && videoWorkspaceMode === 'timeline'
+              ? { gridTemplateRows: `minmax(0, 1fr) ${timelineHeight}px` }
+              : undefined
+          }
+        >
         {workspaceMode === 'video' ? (
           videoWorkspaceMode === 'interactive' ? (
             <InteractiveSegmentExportWorkspace
@@ -2389,6 +2418,7 @@ export function VideoRenderModal({
             ribbonCollapsed={pptRibbonCollapsed}
           />
         )}
+        </div>
       </div>
       {workspaceMode === 'video' && videoWorkspaceMode === 'timeline' && (
         <RenderContextMenu
