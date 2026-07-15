@@ -658,6 +658,9 @@ export type PptExportSettings = {
   slideOrder?: string[];
 };
 
+/** Snapshots used by the PPT workspace undo and redo controls. */
+export type PptHistoryState = PptExportSettings;
+
 export type RenderContextMenuTarget = {
   kind: 'asset' | 'timeline' | 'audio' | 'preview' | 'empty';
   nodeId?: string;

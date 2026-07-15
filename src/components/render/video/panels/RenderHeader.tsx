@@ -38,6 +38,8 @@ type RenderHeaderProps = {
   timelineFuture: unknown[];
   webPast: unknown[];
   webFuture: unknown[];
+  pptPast: unknown[];
+  pptFuture: unknown[];
   webShowStartMenu: boolean;
   pptRibbonTab: 'insert' | 'animation' | 'transition';
   pptRibbonCollapsed: boolean;
@@ -55,6 +57,8 @@ type RenderHeaderProps = {
   redoTimeline: () => void;
   undoWeb: () => void;
   redoWeb: () => void;
+  undoPpt: () => void;
+  redoPpt: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
   setPptRibbonTab: (tab: 'insert' | 'animation' | 'transition') => void;
   setPptRibbonCollapsed: (collapsed: boolean) => void;
@@ -75,6 +79,8 @@ export function RenderHeader({
   timelineFuture,
   webPast,
   webFuture,
+  pptPast,
+  pptFuture,
   webShowStartMenu,
   pptRibbonTab,
   pptRibbonCollapsed,
@@ -92,6 +98,8 @@ export function RenderHeader({
   redoTimeline,
   undoWeb,
   redoWeb,
+  undoPpt,
+  redoPpt,
   setWebShowStartMenu,
   setPptRibbonTab,
   setPptRibbonCollapsed,
@@ -162,14 +170,14 @@ export function RenderHeader({
         </button>
         {workspaceMode === 'ppt' && (
           <>
-          <div className="ml-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+          <div className="render-context-tabs render-context-tabs--ppt ml-1" aria-label={t('PPT 编辑工具', 'PPT 編集ツール', 'PPT editing tools')}>
             <button
               type="button"
               onClick={() => {
                 setPptRibbonTab('insert');
                 setPptRibbonCollapsed(false);
               }}
-              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'insert' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              className={`render-context-tab ${pptRibbonTab === 'insert' ? 'is-active' : ''}`}
               aria-pressed={pptRibbonTab === 'insert'}
               title={pptCopy.insert}
             >
@@ -182,7 +190,7 @@ export function RenderHeader({
                 setPptRibbonTab('transition');
                 setPptRibbonCollapsed(false);
               }}
-              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'transition' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              className={`render-context-tab ${pptRibbonTab === 'transition' ? 'is-active' : ''}`}
               aria-pressed={pptRibbonTab === 'transition'}
               title={t('切换', '画面切り替え', 'Transitions')}
             >
@@ -195,7 +203,7 @@ export function RenderHeader({
                 setPptRibbonTab('animation');
                 setPptRibbonCollapsed(false);
               }}
-              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'animation' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              className={`render-context-tab ${pptRibbonTab === 'animation' ? 'is-active' : ''}`}
               aria-pressed={pptRibbonTab === 'animation'}
               title={t('动画', 'アニメーション', 'Animations')}
             >
@@ -216,7 +224,7 @@ export function RenderHeader({
           </>
         )}
         {workspaceMode === 'web' && (
-          <div className="ml-1 grid h-8 grid-cols-2 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+          <div className="render-context-tabs render-context-tabs--web ml-1" aria-label={t('网页启动方式', 'Web 起動方法', 'Web launch mode')}>
             <button
               type="button"
               onClick={() => {
@@ -224,11 +232,11 @@ export function RenderHeader({
                 setWebShowStartMenu(true);
               }}
               disabled={isRendering}
-              className={`flex h-7 items-center justify-center gap-1.5 rounded-md px-3 text-[11px] font-black transition-colors ${
+              className={`render-context-tab ${
                 webShowStartMenu
-                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              } disabled:opacity-40`}
+                  ? 'is-active'
+                  : ''
+              }`}
               title={t('启用主界面入口', 'メイン画面を有効化', 'Enable menu entry')}
               aria-pressed={webShowStartMenu}
             >
@@ -242,11 +250,11 @@ export function RenderHeader({
                 setWebShowStartMenu(false);
               }}
               disabled={isRendering}
-              className={`flex h-7 items-center justify-center gap-1.5 rounded-md px-3 text-[11px] font-black transition-colors ${
+              className={`render-context-tab ${
                 !webShowStartMenu
-                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              } disabled:opacity-40`}
+                  ? 'is-active'
+                  : ''
+              }`}
               title={t('直接进入剧情', '直接シナリオへ', 'Start directly')}
               aria-pressed={!webShowStartMenu}
             >
@@ -256,7 +264,7 @@ export function RenderHeader({
           </div>
         )}
         {workspaceMode === 'video' && (
-          <div className="mx-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+          <div className="render-context-tabs render-context-tabs--video mx-1" aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}>
             {[
               {
                 value: 'timeline' as const,
@@ -278,11 +286,11 @@ export function RenderHeader({
                   setSavedPath('');
                 }}
                 disabled={isRendering}
-                className={`h-7 rounded-md px-3 text-[11px] font-black transition-colors ${
+                className={`render-context-tab ${
                   videoWorkspaceMode === mode.value
-                    ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                    : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                } disabled:opacity-40`}
+                    ? 'is-active'
+                    : ''
+                }`}
                 aria-pressed={videoWorkspaceMode === mode.value}
                 title={mode.label}
               >
@@ -344,6 +352,30 @@ export function RenderHeader({
               disabled={webFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
               title="重做网页更改"
+            >
+              <Redo2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {workspaceMode === 'ppt' && (
+          <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
+            <button
+              type="button"
+              onClick={undoPpt}
+              disabled={pptPast.length === 0 || isRendering}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
+              title="撤销 PPT 更改"
+              aria-label="撤销 PPT 更改"
+            >
+              <Undo2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={redoPpt}
+              disabled={pptFuture.length === 0 || isRendering}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[var(--vr-text-muted)]"
+              title="重做 PPT 更改"
+              aria-label="重做 PPT 更改"
             >
               <Redo2 className="h-4 w-4" />
             </button>

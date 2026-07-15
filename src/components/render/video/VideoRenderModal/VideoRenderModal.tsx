@@ -57,6 +57,7 @@ import type {
   RenderStyle,
   RenderWorkspaceMode,
   PptExportSettings,
+  PptHistoryState,
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
@@ -152,9 +153,22 @@ export function VideoRenderModal({
     transitions: persistedWorkspace?.pptSettings?.transitions || {},
     videoLoopByScene: persistedWorkspace?.pptSettings?.videoLoopByScene || {},
   }));
+  const [pptPast, setPptPast] = useState<PptHistoryState[]>(
+    () => persistedWorkspace?.pptPast || [],
+  );
+  const [pptFuture, setPptFuture] = useState<PptHistoryState[]>(
+    () => persistedWorkspace?.pptFuture || [],
+  );
+  const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
+  const pushPptHistory = () => {
+    setPptPast((previous) => [...previous.slice(-49), capturePptState()]);
+    setPptFuture([]);
+  };
   const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>('animation');
   const [pptRibbonCollapsed, setPptRibbonCollapsed] = useState(false);
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {
+    if (Object.entries(patch).every(([key, value]) => pptSettings[key as keyof PptExportSettings] === value)) return;
+    pushPptHistory();
     setPptSettings((current) => ({ ...current, ...patch }));
   };
   const [status, setStatus] = useState<RenderStatus>('idle');
@@ -819,6 +833,8 @@ export function VideoRenderModal({
     webRenderStyle: renderStyle,
     webPast: webPast.slice(-50),
     webFuture: webFuture.slice(0, 50),
+    pptPast: pptPast.slice(-50),
+    pptFuture: pptFuture.slice(0, 50),
     savedAt: Date.now(),
   });
 
@@ -970,6 +986,22 @@ export function VideoRenderModal({
     setTimelineFuture((prev) => prev.slice(1));
     setTimelinePast((prev) => [...prev, captureTimelineState()]);
     restoreTimelineState(next);
+  };
+
+  const undoPpt = () => {
+    if (pptPast.length === 0 || status === 'rendering') return;
+    const previous = pptPast[pptPast.length - 1];
+    setPptPast((past) => past.slice(0, -1));
+    setPptFuture((future) => [capturePptState(), ...future].slice(0, 50));
+    setPptSettings(previous);
+  };
+
+  const redoPpt = () => {
+    if (pptFuture.length === 0 || status === 'rendering') return;
+    const next = pptFuture[0];
+    setPptFuture((future) => future.slice(1));
+    setPptPast((past) => [...past.slice(-49), capturePptState()]);
+    setPptSettings(next);
   };
 
   const seekTimelineTime = (
@@ -1680,6 +1712,12 @@ export function VideoRenderModal({
         else redoWeb();
         return;
       }
+      if (workspaceMode === 'ppt') {
+        if (key === 'z' && event.shiftKey) redoPpt();
+        else if (key === 'z') undoPpt();
+        else redoPpt();
+        return;
+      }
       if (key === 'z' && event.shiftKey) redoTimeline();
       else if (key === 'z') undoTimeline();
       else redoTimeline();
@@ -1990,6 +2028,8 @@ export function VideoRenderModal({
           timelineFuture={timelineFuture}
           webPast={webPast}
           webFuture={webFuture}
+          pptPast={pptPast}
+          pptFuture={pptFuture}
           webShowStartMenu={webSettings.showStartMenu}
           pptRibbonTab={pptRibbonTab}
           pptRibbonCollapsed={pptRibbonCollapsed}
@@ -2014,6 +2054,8 @@ export function VideoRenderModal({
           redoTimeline={redoTimeline}
           undoWeb={undoWeb}
           redoWeb={redoWeb}
+          undoPpt={undoPpt}
+          redoPpt={redoPpt}
           setWebShowStartMenu={(enabled) => updateWebSettings('showStartMenu', enabled)}
           setPptRibbonTab={setPptRibbonTab}
           setPptRibbonCollapsed={setPptRibbonCollapsed}

@@ -3815,6 +3815,76 @@ button.web-segment-button:first-child {
   border-bottom-left-radius: 0 !important;
 }
 
+/* Render-header controls on the right describe the current workspace, not a
+   different output type. Give them a browser-tab treatment so they read as a
+   second level beneath the Video / Web / PPT switcher on the left. */
+.render-context-tabs {
+  position: relative;
+  display: flex;
+  align-self: stretch;
+  align-items: end;
+  gap: 2px;
+  height: 36px;
+  padding: 4px 5px 0;
+  border: 1px solid var(--vr-border);
+  border-radius: 11px 11px 0 0;
+  background: color-mix(in srgb, var(--vr-accent-soft) 58%, var(--vr-surface-soft));
+  transform: translateY(-2px);
+}
+
+.render-context-tab {
+  display: flex;
+  height: 31px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 0 12px;
+  color: var(--vr-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.render-context-tab:hover:not(:disabled) {
+  color: var(--vr-text);
+  background: color-mix(in srgb, var(--vr-surface-strong) 72%, transparent);
+}
+
+.render-context-tab.is-active {
+  position: relative;
+  z-index: 1;
+  margin-bottom: -2px;
+  border-color: var(--vr-border);
+  border-bottom-color: var(--vr-surface-strong);
+  background: var(--vr-surface-strong);
+  color: var(--vr-accent-strong);
+  box-shadow: 0 -1px 5px rgb(15 23 42 / 0.08);
+}
+
+.render-context-tab:focus-visible {
+  outline: 2px solid var(--vr-accent);
+  outline-offset: -2px;
+}
+
+.render-context-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.render-context-tabs--video .render-context-tab,
+.render-context-tabs--web .render-context-tab {
+  min-width: 104px;
+}
+
+.render-context-tabs--ppt .render-context-tab {
+  min-width: 68px;
+  padding-inline: 10px;
+}
+
 .toolbar-bubble-surface button.web-segment-button:last-child,
 button.web-segment-button:last-child {
   border-top-right-radius: 8px !important;

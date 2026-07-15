@@ -149,6 +149,8 @@ export type PersistedRenderWorkspaceState = {
   webPast?: WebHistoryState[];
   webFuture?: WebHistoryState[];
   pptSettings?: Partial<PptExportSettings>;
+  pptPast?: PptExportSettings[];
+  pptFuture?: PptExportSettings[];
   savedAt?: number;
 };
 
