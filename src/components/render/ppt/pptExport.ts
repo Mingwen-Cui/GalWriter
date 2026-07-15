@@ -2,6 +2,8 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import PptxGenJS from 'pptxgenjs';
 
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
+import { finalizePptxForPowerPoint, toPptFontFace } from './pptxCompatibility';
+import { getPptImageDimensions, toPptImageData } from './pptMedia';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
 import {
@@ -11,10 +13,18 @@ import {
 import type { PptExportSettings, RenderStyle, WebExportSettings } from '../video/shared/types';
 
 const hex = (value: string) => value.replace('#', '').slice(0, 6) || '0F172A';
-const isEmbeddableImage = (value?: string) => Boolean(value?.startsWith('data:image/'));
 
 const WIDE_PAGE_WIDTH = 13.333;
 const WIDE_PAGE_HEIGHT = 7.5;
+
+/**
+ * `LAYOUT_STANDARD` is the application's saved 4:3 preference, not a
+ * PptxGenJS layout name.  Passing it through makes the library reject the
+ * export with `UNKNOWN-LAYOUT`, so keep the app-facing and library-facing
+ * values deliberately separate.
+ */
+const toPptxGenLayout = (layout: PptExportSettings['layout']) =>
+  layout === 'LAYOUT_STANDARD' ? 'LAYOUT_4x3' : 'LAYOUT_WIDE';
 
 /**
  * PPT stores inches, whereas the editor, web preview, and video renderer share
@@ -36,6 +46,16 @@ const createPptPageMapper = (layout: PptExportSettings['layout']) => {
   return { scale, frame };
 };
 
+const fitImageContain = (
+  source: { width: number; height: number },
+  frame: { x: number; y: number; w: number; h: number },
+) => {
+  const scale = Math.min(frame.w / source.width, frame.h / source.height);
+  const w = source.width * scale;
+  const h = source.height * scale;
+  return { x: frame.x + (frame.w - w) / 2, y: frame.y + (frame.h - h), w, h };
+};
+
 export async function buildPptxBuffer({
   nodes,
   edges,
@@ -52,7 +72,7 @@ export async function buildPptxBuffer({
   pptSettings: PptExportSettings;
 }): Promise<ArrayBuffer> {
   const pptx = new PptxGenJS();
-  pptx.layout = pptSettings.layout;
+  pptx.layout = toPptxGenLayout(pptSettings.layout);
   pptx.author = 'GalWriter AI';
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
@@ -61,6 +81,15 @@ export async function buildPptxBuffer({
 
   const scenes = resolvePptScenes(nodes, edges, settings);
   const colors = pptSceneColors(style, settings);
+  const imageCache = new Map<string, Promise<string | undefined>>();
+  const resolveImage = (url?: string) => {
+    if (!url) return Promise.resolve(undefined);
+    const cached = imageCache.get(url);
+    if (cached) return cached;
+    const image = toPptImageData(url);
+    imageCache.set(url, image);
+    return image;
+  };
   const slideByNodeId = new Map<string, number>();
   let slideNumber = pptSettings.includeCover ? 2 : 1;
   scenes.forEach((scene) => {
@@ -71,8 +100,9 @@ export async function buildPptxBuffer({
   if (pptSettings.includeCover) {
     const slide = pptx.addSlide();
     slide.background = { color: hex(settings.startMenuBackgroundColor || colors.background) };
-    if (isEmbeddableImage(settings.startMenuBackgroundImageUrl)) {
-      slide.addImage({ data: settings.startMenuBackgroundImageUrl, ...fullContentFrame });
+    const coverImage = await resolveImage(settings.startMenuBackgroundImageUrl);
+    if (coverImage) {
+      slide.addImage({ data: coverImage, ...fullContentFrame });
     }
     slide.addShape(pptx.ShapeType.rect, {
       ...fullContentFrame,
@@ -81,7 +111,7 @@ export async function buildPptxBuffer({
     });
     slide.addText(projectName, {
       ...page.frame(0.9, 2.75, 11.5, 0.7),
-      fontFace: style.titleFontFamily,
+      fontFace: toPptFontFace(style.titleFontFamily),
       fontSize: 34 * page.scale,
       bold: true,
       color: hex(colors.title),
@@ -100,16 +130,18 @@ export async function buildPptxBuffer({
   for (const scene of scenes) {
     const slide = pptx.addSlide();
     slide.background = { color: hex(colors.background) };
-    if (isEmbeddableImage(scene.backgroundUrl)) {
+    const backgroundImage = await resolveImage(scene.backgroundUrl);
+    if (backgroundImage) {
       slide.addImage({
-        data: scene.backgroundUrl!,
+        data: backgroundImage,
         ...fullContentFrame,
         sizing: { type: 'cover', ...fullContentFrame },
       });
     }
 
-    scene.characters.forEach((character) => {
-      if (!isEmbeddableImage(character.imageUrl)) return;
+    for (const character of scene.characters) {
+      const characterImage = await resolveImage(character.imageUrl);
+      if (!characterImage) continue;
       const scale = character.scale || 1;
       const width = 13.333 * (CHARACTER_STAGE_MAX_WIDTH_PERCENT / 100) * scale;
       const height = 7.5 * (CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100) * scale;
@@ -123,13 +155,18 @@ export async function buildPptxBuffer({
         0,
         Math.min(7.5 - height, 7.5 - height - (7.5 * character.offsetY) / 1000),
       );
+      const characterFrame = page.frame(x, y, width, height);
+      const imageFrame = fitImageContain(
+        await getPptImageDimensions(characterImage),
+        characterFrame,
+      );
       slide.addImage({
-        data: character.imageUrl!,
-        sizing: { type: 'contain', ...page.frame(x, y, width, height) },
+        data: characterImage,
+        ...imageFrame,
         transparency: 0,
         flipH: character.flipX,
       });
-    });
+    }
 
     const objects = getRenderObjects(style);
     const panel = objects.dialogBox;
@@ -168,7 +205,7 @@ export async function buildPptxBuffer({
           Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100),
           Math.max(0.18, title.height / 144),
         ),
-        fontFace: title.fontFamily,
+        fontFace: toPptFontFace(title.fontFamily),
         fontSize: Math.max(8 * page.scale, title.fontSize * 0.75 * page.scale),
         bold: title.fontWeight >= 700,
         color: hex(title.fill.color),
@@ -186,7 +223,7 @@ export async function buildPptxBuffer({
           Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100),
           Math.max(0.2, body.height / 144),
         ),
-        fontFace: body.fontFamily,
+        fontFace: toPptFontFace(body.fontFamily),
         fontSize: Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale),
         bold: body.fontWeight >= 700,
         color: hex(body.fill.color),
@@ -219,7 +256,7 @@ export async function buildPptxBuffer({
       });
       slide.addText(name, {
         ...page.frame(x + 0.06, y + 0.05, w - 0.12, Math.max(0.16, h - 0.1)),
-        fontFace: nameplate.fontFamily,
+        fontFace: toPptFontFace(nameplate.fontFamily),
         fontSize: Math.max(8 * page.scale, nameplate.fontSize * 0.66 * page.scale),
         bold: nameplate.fontWeight >= 700,
         color: hex(style.nameplateTextColor || '#FFFFFF'),
@@ -239,9 +276,9 @@ export async function buildPptxBuffer({
 
     const choiceSlide = pptx.addSlide();
     choiceSlide.background = { color: hex(colors.background) };
-    if (isEmbeddableImage(scene.backgroundUrl)) {
+    if (backgroundImage) {
       choiceSlide.addImage({
-        data: scene.backgroundUrl!,
+        data: backgroundImage,
         ...fullContentFrame,
         sizing: { type: 'cover', ...fullContentFrame },
       });
@@ -262,7 +299,7 @@ export async function buildPptxBuffer({
     });
     choiceSlide.addText('你的选择是？', {
       ...page.frame(1.1, 1.48, 11.1, 0.55),
-      fontFace: style.titleFontFamily,
+        fontFace: toPptFontFace(style.titleFontFamily),
       fontSize: 28 * page.scale,
       bold: true,
       color: 'FFFFFF',
@@ -297,7 +334,7 @@ export async function buildPptxBuffer({
       });
       choiceSlide.addText(choice.label, {
         ...page.frame(2.86, y + 0.15, 8.0, 0.27),
-        fontFace: style.bodyFontFamily,
+        fontFace: toPptFontFace(style.bodyFontFamily),
         fontSize: 16 * page.scale,
         bold: true,
         color: 'FFFFFF',
@@ -313,5 +350,6 @@ export async function buildPptxBuffer({
         `选择节点：${scene.id}\n\n${scene.choices.map((choice, index) => `${index + 1}. ${choice.label}`).join('\n')}`,
       );
   }
-  return (await pptx.write({ outputType: 'arraybuffer', compression: true })) as ArrayBuffer;
+  const buffer = (await pptx.write({ outputType: 'arraybuffer', compression: true })) as ArrayBuffer;
+  return finalizePptxForPowerPoint(buffer);
 }
