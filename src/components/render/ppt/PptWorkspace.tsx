@@ -81,6 +81,7 @@ type SlideItem = PptSlideItem;
 type Selection = PptSelection;
 type Scene = ReturnType<typeof resolvePptScenes>[number];
 type Copy = PptCopy & PptWorkspaceCopy;
+type VideoTimelineTrack = { durationMs: number; loop: boolean };
 const PptCopyContext = createContext<Copy | null>(null);
 const usePptCopy = () => {
   const value = useContext(PptCopyContext);
@@ -159,9 +160,10 @@ const withTimelineStarts = (animations: PptObjectAnimation[]): TimedPptObjectAni
     return { ...animation, timelineStartMs };
   });
 };
-const getTimelineDuration = (animations: PptObjectAnimation[]) =>
+const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs = 0) =>
   Math.max(
     1000,
+    mediaDurationMs,
     ...withTimelineStarts(animations).map((animation) =>
       animation.timelineStartMs + animation.durationMs,
     ),
@@ -243,6 +245,7 @@ export function PptWorkspace({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
+  const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const previewTimerRef = useRef<number | null>(null);
   const previewFrameRef = useRef<number | null>(null);
@@ -269,6 +272,21 @@ export function PptWorkspace({
   );
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
+  const currentVideoTrack: VideoTimelineTrack | undefined = scene?.backgroundVideoUrl
+    ? { durationMs: videoDurationByScene[scene.id] || 5000, loop: currentVideoLoop }
+    : undefined;
+  const updateCurrentVideoDuration = useCallback(
+    (durationMs: number) => {
+      if (!scene || !Number.isFinite(durationMs) || durationMs <= 0) return;
+      const roundedDurationMs = Math.round(durationMs);
+      setVideoDurationByScene((previous) =>
+        previous[scene.id] === roundedDurationMs
+          ? previous
+          : { ...previous, [scene.id]: roundedDurationMs },
+      );
+    },
+    [scene],
+  );
 
   useEffect(() => {
     if (!slides.some((slide) => slide.id === selectedId)) setSelectedId(slides[0]?.id || 'cover');
@@ -425,7 +443,7 @@ export function PptWorkspace({
     setIsPreviewing(false);
     setTimelinePlayheadMs(undefined);
     setPreviewRunId((value) => value + 1);
-    const duration = getTimelineDuration(timeline);
+    const duration = getTimelineDuration(timeline, currentVideoTrack?.durationMs);
     const startedAt = performance.now();
     const tick = (now: number) => {
       const elapsed = Math.min(duration, Math.max(0, now - startedAt));
@@ -608,6 +626,7 @@ export function PptWorkspace({
                           selected={selectedObject}
                           previewing={isPreviewing}
                           previewAtMs={timelinePlayheadMs}
+                          onVideoDurationChange={updateCurrentVideoDuration}
                           editable
                           onSelect={selectObject}
                           onUpdateObject={updatePptObject}
@@ -642,6 +661,7 @@ export function PptWorkspace({
               selected={selectedObject}
               animation={getAnimation()}
               animations={currentAnimations}
+              videoTrack={currentVideoTrack}
               playheadMs={timelinePlayheadMs ?? 0}
               onPlayheadChange={seekTimeline}
               scene={scene}
@@ -654,6 +674,9 @@ export function PptWorkspace({
                   label: targetLabel(copy, animation, scene),
                 });
                 setSelectedPhase(animation.phase || 'enter');
+              }}
+              onSelectVideo={() => {
+                setSelectedObject({ target: 'background', label: copy.background });
               }}
               onMove={moveAnimation}
               onDelete={(id) => replaceTimeline(currentAnimations.filter((item) => item.id !== id))}
@@ -1211,6 +1234,7 @@ function SlideCanvas({
   selected,
   previewing,
   previewAtMs,
+  onVideoDurationChange,
   editable = false,
   onSelect,
   onUpdateObject,
@@ -1229,6 +1253,7 @@ function SlideCanvas({
   selected: Selection | null;
   previewing: boolean;
   previewAtMs?: number;
+  onVideoDurationChange?: (durationMs: number) => void;
   editable?: boolean;
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
@@ -1267,6 +1292,7 @@ function SlideCanvas({
             animations={animations}
             previewing={previewing}
             previewAtMs={previewAtMs}
+            onVideoDurationChange={onVideoDurationChange}
             editable={editable}
             onSelect={onSelect}
             onUpdateObject={onUpdateObject}
@@ -1329,6 +1355,7 @@ function ScenePreview({
   animations,
   previewing,
   previewAtMs,
+  onVideoDurationChange,
   editable,
   onSelect,
   onUpdateObject,
@@ -1341,10 +1368,12 @@ function ScenePreview({
   animations: PptObjectAnimation[];
   previewing: boolean;
   previewAtMs?: number;
+  onVideoDurationChange?: (durationMs: number) => void;
   editable: boolean;
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const objects = getRenderObjects(renderStyle);
   const title = objects.title;
   const body = objects.body;
@@ -1363,6 +1392,15 @@ function ScenePreview({
     height: `${panelLayout.height / 10.8}%`,
     padding: `${panelLayout.paddingY / 10.8}% ${panelLayout.paddingX / 19.2}%`,
   };
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || previewAtMs === undefined || previewing) return;
+    const durationMs = video.duration * 1000;
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+    const nextTimeMs = videoLoop ? previewAtMs % durationMs : Math.min(previewAtMs, durationMs);
+    video.currentTime = nextTimeMs / 1000;
+    video.pause();
+  }, [previewAtMs, previewing, videoLoop]);
   return (
     <>
       <Selectable
@@ -1376,11 +1414,13 @@ function ScenePreview({
       >
         {scene.backgroundVideoUrl ? (
           <video
+            ref={videoRef}
             src={scene.backgroundVideoUrl}
             autoPlay
             muted
             loop={videoLoop}
             playsInline
+            onLoadedMetadata={(event) => onVideoDurationChange?.(event.currentTarget.duration * 1000)}
             className="h-full w-full object-cover"
           />
         ) : scene.backgroundUrl ? (
@@ -1896,12 +1936,14 @@ function PptSidebar({
   selected: _selected,
   animation: _animation,
   animations,
+  videoTrack,
   playheadMs,
   onPlayheadChange,
   scene,
   pptSettings,
   updatePptSettings,
   onSelectAnimation,
+  onSelectVideo,
   onMove,
   onDelete,
   onPreview,
@@ -1917,12 +1959,14 @@ function PptSidebar({
   selected: Selection | null;
   animation?: PptObjectAnimation;
   animations: PptObjectAnimation[];
+  videoTrack?: VideoTimelineTrack;
   playheadMs: number;
   onPlayheadChange: (milliseconds: number) => void;
   scene?: Scene;
   pptSettings: PptExportSettings;
   updatePptSettings: (patch: Partial<PptExportSettings>) => void;
   onSelectAnimation: (animation: PptObjectAnimation) => void;
+  onSelectVideo: () => void;
   onMove: (id: string, direction: -1 | 1) => void;
   onDelete: (id: string) => void;
   onPreview: () => void;
@@ -1982,9 +2026,11 @@ function PptSidebar({
                 <AnimationTimeline
                   mode="overview"
                   animations={animations}
+                  videoTrack={videoTrack}
                   playheadMs={playheadMs}
                   onPlayheadChange={onPlayheadChange}
                   onSelect={selectAnimation}
+                  onSelectVideo={onSelectVideo}
                   onMove={onMove}
                   onDelete={onDelete}
                   onPreview={onPreview}
@@ -1995,9 +2041,11 @@ function PptSidebar({
                 <AnimationTimeline
                   mode="list"
                   animations={animations}
+                  videoTrack={videoTrack}
                   playheadMs={playheadMs}
                   onPlayheadChange={onPlayheadChange}
                   onSelect={selectAnimation}
+                  onSelectVideo={onSelectVideo}
                   onMove={onMove}
                   onDelete={onDelete}
                   onPreview={onPreview}
@@ -2027,9 +2075,11 @@ function PptSidebar({
 function AnimationTimeline({
   mode,
   animations,
+  videoTrack,
   playheadMs,
   onPlayheadChange,
   onSelect,
+  onSelectVideo,
   onMove,
   onDelete,
   onPreview,
@@ -2038,9 +2088,11 @@ function AnimationTimeline({
 }: {
   mode: 'overview' | 'list';
   animations: PptObjectAnimation[];
+  videoTrack?: VideoTimelineTrack;
   playheadMs: number;
   onPlayheadChange: (milliseconds: number) => void;
   onSelect: (animation: PptObjectAnimation) => void;
+  onSelectVideo: () => void;
   onMove: (id: string, direction: -1 | 1) => void;
   onDelete: (id: string) => void;
   onPreview: () => void;
@@ -2060,8 +2112,10 @@ function AnimationTimeline({
   }, []);
   const totalMs = Math.max(
     1000,
+    videoTrack?.durationMs || 0,
     ...animations.map((item, index) => starts[index] + item.durationMs),
   );
+  const hasTracks = Boolean(videoTrack) || animations.length > 0;
   const timelineDurationMs = Math.max(3000, Math.ceil(totalMs / 1000) * 1000);
   const [timelineViewport, setTimelineViewport] = useState({ start: 0, end: 1 });
   const navigatorRef = useRef<HTMLDivElement>(null);
@@ -2168,7 +2222,26 @@ function AnimationTimeline({
       return { opacity: 0.5 + progress * 0.5, transform: `rotate(${(progress - 0.5) * 12}deg)` };
     return { opacity: 0.45 + Math.abs(Math.sin(progress * Math.PI)) * 0.55 };
   };
-  const phaseLabel = (item: PptObjectAnimation) => copy[item.phase || 'enter'];
+  const phaseMarkerClass = (item: PptObjectAnimation) => {
+    switch (item.phase || 'enter') {
+      case 'exit':
+        return 'bg-rose-500';
+      case 'emphasis':
+        return 'bg-blue-500';
+      default:
+        return 'bg-emerald-500';
+    }
+  };
+  const phaseActiveClass = (item: PptObjectAnimation) => {
+    switch (item.phase || 'enter') {
+      case 'exit':
+        return 'border-rose-500 bg-rose-500/10';
+      case 'emphasis':
+        return 'border-blue-500 bg-blue-500/10';
+      default:
+        return 'border-emerald-500 bg-emerald-500/10';
+    }
+  };
   const isOverview = mode === 'overview';
   return (
     <>
@@ -2185,7 +2258,7 @@ function AnimationTimeline({
           {previewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </button>
       </div> : null}
-      {animations.length ? (
+      {hasTracks ? (
         <div className="space-y-3">
           {isOverview ? <div className="overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
             <div className="min-w-0">
@@ -2237,6 +2310,44 @@ function AnimationTimeline({
                     style={{ left: `${playheadPercent}%` }}
                   />
                 </span>
+                {videoTrack ? (
+                  <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onSelectVideo}
+                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
+                      title="视频"
+                    >
+                      <span aria-hidden="true" className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded bg-violet-500 text-[9px] text-white">▶</span>
+                      <span className="truncate">视频</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onSelectVideo}
+                      className={`relative h-8 overflow-hidden rounded border text-left ${
+                        playheadMs <= (videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)
+                          ? 'border-violet-500 bg-violet-500/10'
+                          : 'border-transparent bg-[var(--vr-border)]'
+                      }`}
+                      title={videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
+                    >
+                      <span
+                        className="absolute inset-y-1 overflow-hidden rounded bg-violet-500 text-white"
+                        style={clipStyle(0, videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)}
+                      >
+                        <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-12 gap-px opacity-65">
+                          {Array.from({ length: 12 }, (_, frame) => (
+                            <i key={frame} className="rounded-sm bg-white/80" style={{ opacity: 0.38 + (frame % 3) * 0.2 }} />
+                          ))}
+                        </span>
+                        <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
+                          {videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
+                        </strong>
+                      </span>
+                    </button>
+                    <div />
+                  </div>
+                ) : null}
                 {animations.map((item, index) => (
                   <div
                     key={item.id}
@@ -2245,23 +2356,26 @@ function AnimationTimeline({
                     <button
                       type="button"
                       onClick={() => onSelect(item)}
-                      className="truncate text-left text-[11px] font-bold text-[var(--vr-text)]"
-                      title={`${phaseLabel(item)} · ${targetLabel(copy, item)}`}
+                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
+                      title={effectLabel(copy, item.effect)}
+                      aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect)}`}
                     >
-                      {index + 1}. {phaseLabel(item)}
+                      <span>{index + 1}.</span>
+                      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`} />
+                      <span className="truncate">{effectLabel(copy, item.effect)}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onSelect(item)}
                       className={`relative h-8 overflow-hidden rounded border text-left ${
                         playheadMs >= starts[index] && playheadMs <= starts[index] + item.durationMs
-                          ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]'
+                          ? phaseActiveClass(item)
                           : 'border-transparent bg-[var(--vr-border)]'
                       }`}
                       title={`${startLabel(copy, item.start)} · ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
                     >
                       <span
-                        className="absolute inset-y-1 overflow-hidden rounded bg-[var(--vr-accent)] text-white"
+                        className={`absolute inset-y-1 overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
                         style={clipStyle(starts[index], item.durationMs)}
                       >
                         <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-8 gap-px opacity-65">
@@ -2274,7 +2388,7 @@ function AnimationTimeline({
                           ))}
                         </span>
                         <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                          {targetLabel(copy, item)}
+                          {effectLabel(copy, item.effect)}
                         </strong>
                       </span>
                     </button>
@@ -2350,6 +2464,23 @@ function AnimationTimeline({
             </div>
           </div> : null}
           {!isOverview ? <div className="space-y-2">
+            {videoTrack ? (
+              <div className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5">
+                <button
+                  type="button"
+                  onClick={onSelectVideo}
+                  className="flex w-full items-start gap-2 text-left"
+                >
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-violet-500 text-[10px] font-black text-white">▶</span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-xs text-[var(--vr-text)]">视频</strong>
+                    <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
+                      {videoTrack.loop ? '循环播放' : '播放一次'} · {(videoTrack.durationMs / 1000).toFixed(1)} {copy.seconds}
+                    </small>
+                  </span>
+                </button>
+              </div>
+            ) : null}
             {animations.map((item, index) => (
               <div
                 key={`${item.id}-details`}
@@ -2360,20 +2491,16 @@ function AnimationTimeline({
                   onClick={() => onSelect(item)}
                   className="flex w-full items-start gap-2 text-left"
                 >
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-[var(--vr-accent)] text-[10px] font-black text-white">
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-black text-white ${phaseMarkerClass(item)}`}>
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1">
                     <strong className="block truncate text-xs text-[var(--vr-text)]">
-                      {phaseLabel(item)} · {targetLabel(copy, item)} ·{' '}
-                      {effectLabel(copy, item.effect)}
+                      {effectLabel(copy, item.effect)} · {targetLabel(copy, item)}
                     </strong>
                     <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                      {startLabel(copy, item.start)} ·{' '}
-                      {(item.phase || 'enter') === 'emphasis'
-                        ? copy.emphasisEffect
-                        : directionLabel(copy, item.direction)}{' '}
-                      · {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
+                      {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
+                      {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
                     </small>
                   </span>
                 </button>
