@@ -3819,6 +3819,84 @@ button.web-segment-button:first-child {
   border-bottom-left-radius: 0 !important;
 }
 
+/* The primary Video / Web / PPT switch uses one moving selection surface, so
+   the active colour travels as a single unit instead of fading button by button. */
+.render-workspace-switcher {
+  --workspace-switch-gap: 2px;
+  --workspace-switch-radius: 9px;
+  --workspace-switch-speed: 0.55s;
+  --workspace-switch-ease: cubic-bezier(0.22, 0.9, 0.25, 1);
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 36px;
+  min-width: 228px;
+  overflow: hidden;
+  border: 1px solid var(--vr-border);
+  border-radius: var(--workspace-switch-radius);
+  background: var(--vr-surface-soft);
+  padding: var(--workspace-switch-gap);
+}
+
+.render-workspace-switcher::before {
+  content: '';
+  position: absolute;
+  inset: var(--workspace-switch-gap) auto var(--workspace-switch-gap) var(--workspace-switch-gap);
+  width: calc((100% - var(--workspace-switch-gap) - var(--workspace-switch-gap)) / 3);
+  border-radius: calc(var(--workspace-switch-radius) - 2px);
+  background: var(--vr-accent);
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, #fff 28%, transparent),
+    inset 0 -1px 2px color-mix(in srgb, #000 20%, transparent),
+    0 1px 3px color-mix(in srgb, var(--vr-accent) 36%, transparent);
+  transform: translateX(0);
+  transition: transform var(--workspace-switch-speed) var(--workspace-switch-ease);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.render-workspace-switcher--web::before {
+  transform: translateX(100%);
+}
+
+.render-workspace-switcher--ppt::before {
+  transform: translateX(200%);
+}
+
+.render-workspace-tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--vr-text-muted);
+  font-size: 12px;
+  font-weight: 900;
+  transition: color 0.35s ease, transform 0.2s ease;
+}
+
+.render-workspace-tab:not(.is-active):hover:not(:disabled) {
+  color: var(--vr-text);
+}
+
+.render-workspace-tab.is-active {
+  color: #fff;
+}
+
+.render-workspace-tab:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.render-workspace-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 /* Render-header controls on the right describe the current workspace, not a
    different output type. They use a connected-tab treatment: the white header
    is the outer colour, while the selected tab takes the colour of the surface

@@ -117,7 +117,7 @@ export function RenderHeader({
           <Film className="h-5 w-5" />
         </div>
         <h2 className="truncate text-sm font-black">渲染脚本</h2>
-        <div className="flex h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+        <div className={`render-workspace-switcher render-workspace-switcher--${workspaceMode}`}>
           {(['video', 'web', 'ppt'] as RenderWorkspaceMode[]).map((mode) => (
             <button
               key={mode}
@@ -129,10 +129,10 @@ export function RenderHeader({
                 setProgress('');
                 setSavedPath('');
               }}
-              className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-black transition-colors ${
+              className={`render-workspace-tab ${
                 workspaceMode === mode
-                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                  ? 'is-active'
+                  : ''
               }`}
               aria-pressed={workspaceMode === mode}
               title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
