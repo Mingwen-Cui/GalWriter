@@ -150,6 +150,7 @@ export function VideoRenderModal({
     speakerNotes: persistedWorkspace?.pptSettings?.speakerNotes || {},
     animations: persistedWorkspace?.pptSettings?.animations || {},
     transitions: persistedWorkspace?.pptSettings?.transitions || {},
+    videoLoopByScene: persistedWorkspace?.pptSettings?.videoLoopByScene || {},
   }));
   const [pptRibbonTab, setPptRibbonTab] = useState<'animation' | 'transition'>('animation');
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {

@@ -526,7 +526,12 @@ export type PptAnimationEffect =
   | 'lighten'
   | 'transparency'
   // Legacy values are retained so existing saved projects still load.
-  | 'appear' | 'fade' | 'fly' | 'float' | 'wipe' | 'zoom';
+  | 'appear'
+  | 'fade'
+  | 'fly'
+  | 'float'
+  | 'wipe'
+  | 'zoom';
 export type PptAnimationStart = 'onClick' | 'withPrevious' | 'afterPrevious';
 export type PptAnimationDirection = 'left' | 'right' | 'up' | 'down';
 export type PptAnimationTarget =
@@ -544,6 +549,28 @@ export type PptObjectAnimation = {
   id: string;
   target: PptAnimationTarget;
   targetId?: string;
+  /** Tag-generated entries stay linked to the story card and are not saved as manual PPT overrides. */
+  source?: 'tag' | 'manual';
+  /** The mention span that triggered a middle-of-scene animation. */
+  mentionId?: string;
+  /** Extra native timing parameters copied from an inline story-tag action. */
+  repeats?: number;
+  strength?: number;
+  offsetX?: number;
+  offsetY?: number;
+  scale?: number;
+  /** Resolved replacement asset for a tag-driven native cross-fade. */
+  switchImageUrl?: string;
+  action?:
+    | 'shake-x'
+    | 'shake-y'
+    | 'translate'
+    | 'scale'
+    | 'pulse'
+    | 'rotate'
+    | 'opacity'
+    | 'brightness'
+    | 'switch';
   /** Missing phase means a legacy entrance animation. */
   phase?: PptAnimationPhase;
   effect: PptAnimationEffect;
@@ -553,7 +580,16 @@ export type PptObjectAnimation = {
   direction: PptAnimationDirection;
 };
 
-export type PptTransitionEffect = 'none' | 'smooth' | 'fade' | 'push' | 'wipe' | 'split' | 'reveal' | 'cut' | 'randomBars';
+export type PptTransitionEffect =
+  | 'none'
+  | 'smooth'
+  | 'fade'
+  | 'push'
+  | 'wipe'
+  | 'split'
+  | 'reveal'
+  | 'cut'
+  | 'randomBars';
 export type PptSlideTransition = {
   effect: PptTransitionEffect;
   durationMs: number;
@@ -573,6 +609,8 @@ export type PptExportSettings = {
   animations?: Record<string, PptObjectAnimation[]>;
   /** Per-slide page transitions, independent of object animations. */
   transitions?: Record<string, PptSlideTransition>;
+  /** PPT-native video playback is configured per story slide and defaults to one pass. */
+  videoLoopByScene?: Record<string, boolean>;
 };
 
 export type RenderContextMenuTarget = {

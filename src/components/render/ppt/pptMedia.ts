@@ -62,6 +62,8 @@ const isPptSafeImageDataUrl = (value: string) =>
   isImageDataUrl(value) &&
   isBase64DataUrl(value) &&
   /^data:image\/(png|jpeg|gif|svg\+xml);base64,/i.test(value);
+const isPptSafeVideoDataUrl = (value: string) =>
+  /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
 
 export const getPptImageDimensions = async (data: string) => {
   const image = new Image();
@@ -95,5 +97,28 @@ export async function toPptImageData(url?: string): Promise<string | undefined> 
       console.warn('Could not embed image in PPTX:', { imageError, fetchError });
       return undefined;
     }
+  }
+}
+
+/**
+ * PPTX media cannot point to the editor's Blob URLs. Materialise videos in the
+ * same way as images, but preserve the original video bytes rather than
+ * rasterising them. PowerPoint is most reliable with MP4/H.264 assets.
+ */
+export async function toPptVideoData(url?: string): Promise<string | undefined> {
+  const source = url?.trim();
+  if (!source) return undefined;
+  if (isPptSafeVideoDataUrl(source)) return source;
+
+  try {
+    const response = await fetch(source);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    if (!blob.type.startsWith('video/')) throw new Error(`Unsupported media type: ${blob.type}`);
+    const data = await readBlobAsDataUrl(blob);
+    return isPptSafeVideoDataUrl(data) ? data : undefined;
+  } catch (error) {
+    console.warn('Could not embed video in PPTX:', error);
+    return undefined;
   }
 }

@@ -18,13 +18,18 @@ export type PptCharacter = Pick<
 > & {
   imageUrl?: string;
   name?: string;
+  switchImageUrls?: Record<string, string>;
 };
 export type PptScene = {
   id: string;
   title: string;
   text: string;
+  /** Original rich text is retained solely for resolving ordered animation tags. */
+  rawText: string;
+  presentation: StoryPresentation;
   backgroundUrl?: string;
   backgroundVideoUrl?: string;
+  sceneSwitchImageUrls?: Record<string, string>;
   characters: PptCharacter[];
   choices: PptChoice[];
 };
@@ -114,7 +119,16 @@ export function resolvePptScenes(
         const characterData = source.data as CharacterNodeData;
         const imageUrl = resolveCharacterImageUrl(characterData, config);
         if (!imageUrl) return null;
-        return { ...config, imageUrl, name: characterData.characterName };
+        return {
+          ...config,
+          imageUrl,
+          name: characterData.characterName,
+          switchImageUrls: Object.fromEntries(
+            (characterData.outfits || [])
+              .filter((outfit) => Boolean(outfit.id && outfit.imageUrl))
+              .map((outfit) => [outfit.id, outfit.imageUrl!] as const),
+          ),
+        };
       })
       .filter(Boolean) as PptCharacter[];
     characters.sort((a, b) => (a.layer || 1) - (b.layer || 1));
@@ -123,8 +137,15 @@ export function resolvePptScenes(
       // Keep the same fallback order as web/playtest, including a card label.
       title: getNodeDisplayTitle(node).trim(),
       text: stripHtml(filterMentionTags(data.text || '', true, true)),
+      rawText: data.text || '',
+      presentation,
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
       backgroundVideoUrl: sceneMedia.videoUrl,
+      sceneSwitchImageUrls: Object.fromEntries(
+        ((sceneSource?.data as SceneNodeData | undefined)?.images || [])
+          .filter((image) => Boolean(image.id && image.imageUrl))
+          .map((image) => [image.id, image.imageUrl!] as const),
+      ),
       characters,
       choices,
     };
