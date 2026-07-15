@@ -111,7 +111,7 @@ export function RenderHeader({
   const isRendering = status === 'rendering';
 
   return (
-    <header className="relative flex h-14 items-center justify-between border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)]/90 px-4 shadow-sm backdrop-blur-xl">
+    <header className="relative flex h-14 items-center justify-between border-b border-transparent bg-[var(--vr-surface-strong)]/90 px-4 backdrop-blur-xl">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]">
           <Film className="h-5 w-5" />
@@ -147,7 +147,7 @@ export function RenderHeader({
         </div>
       </div>
 
-      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1">
+      <div className="absolute inset-y-0 left-1/2 flex -translate-x-1/2 items-center gap-1">
         {assetPanelCollapsed ? (
           <button
             type="button"
@@ -264,7 +264,7 @@ export function RenderHeader({
           </div>
         )}
         {workspaceMode === 'video' && (
-          <div className="render-context-tabs render-context-tabs--video mx-1" aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}>
+          <div className={`render-context-tabs render-context-tabs--video render-context-tabs--video-${videoWorkspaceMode} mx-1`} aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}>
             {[
               {
                 value: 'timeline' as const,

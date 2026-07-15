@@ -2675,6 +2675,8 @@ input[type='range']::-moz-range-track {
   --vr-surface: rgba(255, 255, 255, 0.82);
   --vr-surface-strong: #ffffff;
   --vr-surface-soft: rgba(248, 250, 252, 0.88);
+  /* The visible result of --vr-surface-soft over --vr-bg. */
+  --vr-surface-soft-solid: #f7f9fc;
   --vr-panel: rgba(255, 255, 255, 0.72);
   --vr-border: rgba(148, 163, 184, 0.32);
   --vr-border-strong: rgba(100, 116, 139, 0.38);
@@ -2715,6 +2717,8 @@ input[type='range']::-moz-range-track {
   --vr-surface: rgba(32, 37, 44, 0.92);
   --vr-surface-strong: #20252c;
   --vr-surface-soft: rgba(32, 37, 44, 0.86);
+  /* The visible result of --vr-surface-soft over --vr-bg. */
+  --vr-surface-soft-solid: #1d2228;
   --vr-panel: rgba(20, 20, 23, 0.9);
   --vr-border: rgba(255, 255, 255, 0.1);
   --vr-border-strong: rgba(255, 255, 255, 0.16);
@@ -3816,53 +3820,108 @@ button.web-segment-button:first-child {
 }
 
 /* Render-header controls on the right describe the current workspace, not a
-   different output type. Give them a browser-tab treatment so they read as a
-   second level beneath the Video / Web / PPT switcher on the left. */
+   different output type. They use a connected-tab treatment: the white header
+   is the outer colour, while the selected tab takes the colour of the surface
+   it opens onto below. */
 .render-context-tabs {
+  --render-context-page: var(--vr-bg);
+  --render-context-header: var(--vr-surface-strong);
+  --render-context-tab-border: color-mix(in srgb, var(--vr-accent) 42%, var(--vr-border));
   position: relative;
   display: flex;
   align-self: stretch;
-  align-items: end;
-  gap: 2px;
-  height: 36px;
-  padding: 4px 5px 0;
-  border: 1px solid var(--vr-border);
-  border-radius: 11px 11px 0 0;
-  background: color-mix(in srgb, var(--vr-accent-soft) 58%, var(--vr-surface-soft));
-  transform: translateY(-2px);
+  align-items: flex-end;
+  gap: 0;
+  min-height: 0;
+  padding: 0 12px;
+  background: var(--render-context-header);
+  isolation: isolate;
+}
+
+/* Continue the selected tab's outline through the workspace seam. The active
+   tab covers its middle portion, leaving a single unbroken line on either side. */
+.render-context-tabs::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  height: 1px;
+  transform: translateX(-50%);
+  background: var(--render-context-tab-border);
+  pointer-events: none;
 }
 
 .render-context-tab {
+  position: relative;
+  z-index: 1;
   display: flex;
-  height: 31px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
+  border: 0;
+  border-radius: 10px 10px 0 0;
   padding: 0 12px;
+  background: transparent;
   color: var(--vr-text-muted);
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 .render-context-tab:hover:not(:disabled) {
   color: var(--vr-text);
-  background: color-mix(in srgb, var(--vr-surface-strong) 72%, transparent);
 }
 
 .render-context-tab.is-active {
   position: relative;
-  z-index: 1;
-  margin-bottom: -2px;
-  border-color: var(--vr-border);
-  border-bottom-color: var(--vr-surface-strong);
-  background: var(--vr-surface-strong);
+  z-index: 2;
+  height: 48px;
+  margin-bottom: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--render-context-tab-border);
+  /* Fill the seam with the page colour so browser zoom cannot reveal the
+     white header underneath. The matching colour keeps the tab open below. */
+  border-bottom-color: var(--render-context-page);
+  border-radius: 10px 10px 0 0;
+  padding-top: 6px;
+  background: var(--render-context-page);
   color: var(--vr-accent-strong);
-  box-shadow: 0 -1px 5px rgb(15 23 42 / 0.08);
+  box-shadow: none;
+}
+
+/* The small curved pieces on each side make the active tab flow into its
+   workspace instead of looking like a raised button. */
+.render-context-tab.is-active::before,
+.render-context-tab.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  background: var(--render-context-header);
+  pointer-events: none;
+}
+
+.render-context-tab.is-active::before {
+  left: -10px;
+  box-sizing: border-box;
+  border-right: 1px solid var(--render-context-tab-border);
+  border-bottom: 1px solid var(--render-context-tab-border);
+  border-bottom-right-radius: 10px;
+  box-shadow: 3px 3px 0 3px var(--render-context-page);
+}
+
+.render-context-tab.is-active::after {
+  right: -10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--render-context-tab-border);
+  border-left: 1px solid var(--render-context-tab-border);
+  border-bottom-left-radius: 10px;
+  box-shadow: -3px 3px 0 3px var(--render-context-page);
 }
 
 .render-context-tab:focus-visible {
@@ -3880,9 +3939,23 @@ button.web-segment-button:first-child {
   min-width: 104px;
 }
 
+/* The tab inherits the surface immediately below it in each workspace. */
+.render-context-tabs--video-timeline {
+  --render-context-page: var(--vr-bg);
+}
+
+.render-context-tabs--video-interactive,
+.render-context-tabs--web {
+  --render-context-page: var(--vr-surface-soft-solid);
+}
+
 .render-context-tabs--ppt .render-context-tab {
   min-width: 68px;
   padding-inline: 10px;
+}
+
+.render-context-tabs--ppt {
+  --render-context-page: var(--vr-surface-strong);
 }
 
 .toolbar-bubble-surface button.web-segment-button:last-child,
