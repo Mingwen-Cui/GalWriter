@@ -58,7 +58,7 @@ export function AnimationRibbon({
   const copy = usePptCopy();
   const disabled = !selected;
   return (
-    <header className="shrink-0 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-sm">
+    <header className="ppt-ribbon-shell">
       {activeTab === 'transition' ? (
         <TransitionControls
           transition={transition}
@@ -67,7 +67,7 @@ export function AnimationRibbon({
           onApplyToAll={onApplyTransitionToAll}
         />
       ) : (
-        <div className="flex min-h-[94px] items-stretch overflow-x-auto px-3">
+        <div className="ppt-ribbon">
           <RibbonGroup label={copy.preview}>
             <button type="button" onClick={onPreview} className="ppt-ribbon-action">
               <Eye className="h-5 w-5" />
@@ -229,7 +229,7 @@ function TransitionControls({
 }) {
   const copy = usePptCopy();
   return (
-    <div className="flex min-h-[94px] items-stretch overflow-x-auto px-3">
+    <div className="ppt-ribbon">
       <RibbonGroup label={copy.preview}>
         <button type="button" onClick={onPreview} className="ppt-ribbon-action">
           <Eye className="h-5 w-5" />

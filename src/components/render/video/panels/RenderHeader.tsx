@@ -1,5 +1,7 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
+  ChevronDown,
+  ChevronUp,
   Download,
   FileText,
   Film,
@@ -38,6 +40,7 @@ type RenderHeaderProps = {
   webFuture: unknown[];
   webShowStartMenu: boolean;
   pptRibbonTab: 'insert' | 'animation' | 'transition';
+  pptRibbonCollapsed: boolean;
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
@@ -54,6 +57,7 @@ type RenderHeaderProps = {
   redoWeb: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
   setPptRibbonTab: (tab: 'insert' | 'animation' | 'transition') => void;
+  setPptRibbonCollapsed: (collapsed: boolean) => void;
   /** 点击导出按钮时打开弹窗，而非直接导出 */
   onExportClick: () => void;
   onClose: () => void;
@@ -73,6 +77,7 @@ export function RenderHeader({
   webFuture,
   webShowStartMenu,
   pptRibbonTab,
+  pptRibbonCollapsed,
   selectedNodes,
   nodes,
   setWorkspaceMode,
@@ -89,6 +94,7 @@ export function RenderHeader({
   redoWeb,
   setWebShowStartMenu,
   setPptRibbonTab,
+  setPptRibbonCollapsed,
   onExportClick,
   onClose,
 }: RenderHeaderProps) {
@@ -155,10 +161,14 @@ export function RenderHeader({
           {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
         </button>
         {workspaceMode === 'ppt' && (
+          <>
           <div className="ml-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
             <button
               type="button"
-              onClick={() => setPptRibbonTab('insert')}
+              onClick={() => {
+                setPptRibbonTab('insert');
+                setPptRibbonCollapsed(false);
+              }}
               className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'insert' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
               aria-pressed={pptRibbonTab === 'insert'}
               title={pptCopy.insert}
@@ -168,7 +178,10 @@ export function RenderHeader({
             </button>
             <button
               type="button"
-              onClick={() => setPptRibbonTab('transition')}
+              onClick={() => {
+                setPptRibbonTab('transition');
+                setPptRibbonCollapsed(false);
+              }}
               className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'transition' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
               aria-pressed={pptRibbonTab === 'transition'}
               title={t('切换', '画面切り替え', 'Transitions')}
@@ -178,7 +191,10 @@ export function RenderHeader({
             </button>
             <button
               type="button"
-              onClick={() => setPptRibbonTab('animation')}
+              onClick={() => {
+                setPptRibbonTab('animation');
+                setPptRibbonCollapsed(false);
+              }}
               className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'animation' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
               aria-pressed={pptRibbonTab === 'animation'}
               title={t('动画', 'アニメーション', 'Animations')}
@@ -187,6 +203,17 @@ export function RenderHeader({
               {t('动画', 'アニメ', 'Animations')}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setPptRibbonCollapsed(!pptRibbonCollapsed)}
+            className="ml-1 h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+            title={pptRibbonCollapsed ? t('\u5c55\u5f00\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b', 'Expand ribbon') : t('\u6536\u8d77\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080', 'Collapse ribbon')}
+            aria-label={pptRibbonCollapsed ? t('\u5c55\u5f00\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b', 'Expand ribbon') : t('\u6536\u8d77\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080', 'Collapse ribbon')}
+            aria-expanded={!pptRibbonCollapsed}
+          >
+            {pptRibbonCollapsed ? <ChevronDown className="mx-auto h-4 w-4" /> : <ChevronUp className="mx-auto h-4 w-4" />}
+          </button>
+          </>
         )}
         {workspaceMode === 'web' && (
           <div className="ml-1 grid h-8 grid-cols-2 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">

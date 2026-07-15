@@ -56,30 +56,32 @@ export function PptInsertRibbon({
     reader.readAsDataURL(file);
   };
   return (
-    <div className="flex min-h-[94px] items-stretch overflow-x-auto px-3">
-      <InsertGroup label={copy.slides}>
-        <InsertAction label={copy.newSlide} icon={PlusSquare} onClick={onNewSlide} />
-        <InsertAction label={copy.duplicateSlide} icon={CopyPlus} onClick={onDuplicateSlide} />
-      </InsertGroup>
-      <InsertGroup label={copy.image}>
-        <input
-          ref={imageInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          onChange={(event) => {
-            readImage(event.target.files?.[0]);
-            event.target.value = '';
-          }}
-        />
-        <InsertAction label={copy.insertImage} icon={ImagePlus} onClick={() => imageInputRef.current?.click()} />
-      </InsertGroup>
-      <InsertGroup label={copy.text}>
-        <InsertAction label={copy.insertTitle} icon={Type} onClick={onInsertText} />
-      </InsertGroup>
-      <InsertGroup label={copy.button}>
-        <InsertAction label={copy.insertButton} icon={Webhook} onClick={onInsertButton} />
-      </InsertGroup>
-    </div>
+    <header className="ppt-ribbon-shell">
+      <div className="ppt-ribbon">
+        <InsertGroup label={copy.slides}>
+          <InsertAction label={copy.newSlide} icon={PlusSquare} onClick={onNewSlide} />
+          <InsertAction label={copy.duplicateSlide} icon={CopyPlus} onClick={onDuplicateSlide} />
+        </InsertGroup>
+        <InsertGroup label={copy.image}>
+          <input
+            ref={imageInputRef}
+            className="hidden"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              readImage(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
+          <InsertAction label={copy.insertImage} icon={ImagePlus} onClick={() => imageInputRef.current?.click()} />
+        </InsertGroup>
+        <InsertGroup label={copy.text}>
+          <InsertAction label={copy.insertTitle} icon={Type} onClick={onInsertText} />
+        </InsertGroup>
+        <InsertGroup label={copy.button}>
+          <InsertAction label={copy.insertButton} icon={Webhook} onClick={onInsertButton} />
+        </InsertGroup>
+      </div>
+    </header>
   );
 }

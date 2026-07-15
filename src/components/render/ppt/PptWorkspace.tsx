@@ -189,6 +189,7 @@ type Props = {
   pptSettings: PptExportSettings;
   updatePptSettings: (patch: Partial<PptExportSettings>) => void;
   ribbonTab: 'insert' | 'animation' | 'transition';
+  ribbonCollapsed: boolean;
 };
 
 export function PptWorkspace({
@@ -202,6 +203,7 @@ export function PptWorkspace({
   pptSettings,
   updatePptSettings,
   ribbonTab,
+  ribbonCollapsed,
 }: Props) {
   const copy: Copy = { ...getPptCopy(language), ...getPptWorkspaceCopy(language) };
   const scenes = useMemo(
@@ -600,30 +602,31 @@ export function PptWorkspace({
   return (
     <PptCopyContext.Provider value={copy}>
       <main className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--vr-bg)] pb-9">
-        {ribbonTab === 'insert' ? (
-          <PptInsertRibbon
-            copy={copy}
-            onNewSlide={() => addManualSlide()}
-            onDuplicateSlide={duplicateCurrentManualSlide}
-            onInsertText={() => appendManualElement(createManualText(copy.text))}
-            onInsertButton={() => appendManualElement(createManualButton(copy.button))}
-            onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
-          />
-        ) : (
-          <AnimationRibbon
-            activeTab={ribbonTab}
-            selected={selectedObject}
-            phase={selectedPhase}
-            setPhase={setSelectedPhase}
-            animation={getAnimation()}
-            onApply={applyEffect}
-            onPreview={preview}
-            onUpdate={updateSelectedAnimation}
-            transition={currentTransition}
-            onUpdateTransition={updateTransition}
-            onApplyTransitionToAll={applyTransitionToAll}
-          />
-        )}
+        {!ribbonCollapsed &&
+          (ribbonTab === 'insert' ? (
+            <PptInsertRibbon
+              copy={copy}
+              onNewSlide={() => addManualSlide()}
+              onDuplicateSlide={duplicateCurrentManualSlide}
+              onInsertText={() => appendManualElement(createManualText(copy.text))}
+              onInsertButton={() => appendManualElement(createManualButton(copy.button))}
+              onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
+            />
+          ) : (
+            <AnimationRibbon
+              activeTab={ribbonTab}
+              selected={selectedObject}
+              phase={selectedPhase}
+              setPhase={setSelectedPhase}
+              animation={getAnimation()}
+              onApply={applyEffect}
+              onPreview={preview}
+              onUpdate={updateSelectedAnimation}
+              transition={currentTransition}
+              onUpdateTransition={updateTransition}
+              onApplyTransitionToAll={applyTransitionToAll}
+            />
+          ))}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {viewMode === 'normal' ? (
             <SlideList

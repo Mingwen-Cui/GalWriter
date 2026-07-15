@@ -3822,6 +3822,26 @@ button.web-segment-button:last-child {
 }
 
 /* PPT animation workspace: compact ribbon and object-level editing affordances. */
+.ppt-ribbon-shell {
+  --ppt-ribbon-height: 136px;
+  flex: 0 0 var(--ppt-ribbon-height);
+  height: var(--ppt-ribbon-height);
+  overflow: hidden;
+  border-bottom: 1px solid var(--vr-border);
+  background: var(--vr-surface-strong);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.ppt-ribbon {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 12px;
+}
+
 .ppt-ribbon-action {
   display: flex;
   min-width: 54px;
