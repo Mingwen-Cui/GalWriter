@@ -3869,25 +3869,27 @@ button.web-segment-button:first-child {
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  transition: background-color 140ms ease, color 140ms ease;
 }
 
 .render-context-tab:hover:not(:disabled) {
   color: var(--vr-text);
 }
 
+.render-context-tab:not(.is-active) {
+  padding-bottom: 12px;
+}
+
 .render-context-tab.is-active {
   position: relative;
   z-index: 2;
-  height: 48px;
-  margin-bottom: 0;
+  height: 45px;
+  margin-bottom: -0.5px;
   box-sizing: border-box;
   border: 1px solid var(--render-context-tab-border);
   /* Fill the seam with the page colour so browser zoom cannot reveal the
      white header underneath. The matching colour keeps the tab open below. */
   border-bottom-color: var(--render-context-page);
   border-radius: 10px 10px 0 0;
-  padding-top: 6px;
   background: var(--render-context-page);
   color: var(--vr-accent-strong);
   box-shadow: none;

@@ -444,7 +444,7 @@ export function VideoPreviewPanel({
   }, [controlBarHeight, stageSize.height, stageSize.width, videoAspect]);
 
   return (
-    <section className="min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden bg-[var(--vr-surface-soft)]">
+    <section className="min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden bg-[var(--vr-bg)]">
       <div className="border-b border-[var(--vr-border)] px-4 py-2">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center">
         <div className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
