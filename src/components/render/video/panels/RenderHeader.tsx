@@ -9,16 +9,18 @@ import {
   Minimize2,
   PanelLeftClose,
   PanelRightClose,
-  Play,
-  Presentation,
-  Sparkles,
   PanelsTopLeft,
+  Play,
+  PlusSquare,
+  Presentation,
   Redo2,
+  Sparkles,
   Undo2,
   X,
 } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
+import { getPptCopy } from '../../ppt/i18n';
 import { renderCopy } from '../shared/renderCopy';
 import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 
@@ -35,7 +37,7 @@ type RenderHeaderProps = {
   webPast: unknown[];
   webFuture: unknown[];
   webShowStartMenu: boolean;
-  pptRibbonTab: 'animation' | 'transition';
+  pptRibbonTab: 'insert' | 'animation' | 'transition';
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
@@ -51,7 +53,7 @@ type RenderHeaderProps = {
   undoWeb: () => void;
   redoWeb: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
-  setPptRibbonTab: (tab: 'animation' | 'transition') => void;
+  setPptRibbonTab: (tab: 'insert' | 'animation' | 'transition') => void;
   /** 点击导出按钮时打开弹窗，而非直接导出 */
   onExportClick: () => void;
   onClose: () => void;
@@ -91,6 +93,7 @@ export function RenderHeader({
   onClose,
 }: RenderHeaderProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const pptCopy = getPptCopy(language);
   const isRendering = status === 'rendering';
 
   return (
@@ -153,6 +156,16 @@ export function RenderHeader({
         </button>
         {workspaceMode === 'ppt' && (
           <div className="ml-1 flex h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-0.5">
+            <button
+              type="button"
+              onClick={() => setPptRibbonTab('insert')}
+              className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[11px] font-black transition-colors ${pptRibbonTab === 'insert' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
+              aria-pressed={pptRibbonTab === 'insert'}
+              title={pptCopy.insert}
+            >
+              <PlusSquare className="h-3.5 w-3.5" />
+              {pptCopy.insert}
+            </button>
             <button
               type="button"
               onClick={() => setPptRibbonTab('transition')}

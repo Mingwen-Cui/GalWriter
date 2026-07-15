@@ -598,6 +598,47 @@ export type PptSlideTransition = {
   advanceAfterMs?: number;
 };
 
+export type PptManualElementBase = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+};
+export type PptManualImageElement = PptManualElementBase & {
+  kind: 'image';
+  src: string;
+  alt?: string;
+};
+export type PptManualTextElement = PptManualElementBase & {
+  kind: 'text';
+  text: string;
+  fontSize: number;
+  fontFamily?: string;
+  color: string;
+  align?: 'left' | 'center' | 'right';
+  bold?: boolean;
+};
+export type PptManualButtonElement = PptManualElementBase & {
+  kind: 'button';
+  text: string;
+  variant: 'primary' | 'secondary' | 'link';
+  action: 'none' | 'slide' | 'url';
+  targetSlideId?: string;
+  url?: string;
+};
+export type PptManualElement =
+  | PptManualImageElement
+  | PptManualTextElement
+  | PptManualButtonElement;
+export type PptManualSlide = {
+  id: string;
+  title: string;
+  backgroundColor: string;
+  elements: PptManualElement[];
+};
+
 export type PptExportSettings = {
   layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
   branchMode: 'interactive' | 'linear' | 'all';
@@ -611,6 +652,10 @@ export type PptExportSettings = {
   transitions?: Record<string, PptSlideTransition>;
   /** PPT-native video playback is configured per story slide and defaults to one pass. */
   videoLoopByScene?: Record<string, boolean>;
+  /** User-created pages stay separate from story-generated slides and retain their own content. */
+  manualSlides?: PptManualSlide[];
+  /** A stable mixed sequence of generated and user-created slide ids. */
+  slideOrder?: string[];
 };
 
 export type RenderContextMenuTarget = {

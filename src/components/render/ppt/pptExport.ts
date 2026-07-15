@@ -7,8 +7,13 @@ import {
 } from '../../../lib/presentation';
 import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
 import { getRenderObjects } from '../video/shared/renderObjects';
-import type { PptExportSettings, RenderStyle, WebExportSettings } from '../video/shared/types';
-import { getPptImageDimensions, toPptImageData, toPptVideoData } from './pptMedia';
+import type { PptExportSettings, PptManualSlide, RenderStyle, WebExportSettings } from '../video/shared/types';
+import {
+  getPptImageDimensions,
+  toPptImageData,
+  toPptVideoData,
+  toPptVideoLastFrameData,
+} from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import {
@@ -105,14 +110,99 @@ export async function buildPptxBuffer({
     videoCache.set(url, video);
     return video;
   };
+  const manualSlides = pptSettings.manualSlides || [];
+  const automaticSlideIds = [
+    ...(pptSettings.includeCover ? ['cover'] : []),
+    ...scenes.flatMap((scene) => [
+      scene.id,
+      ...(pptSettings.branchMode !== 'linear' && scene.choices.length > 1 ? [`choice:${scene.id}`] : []),
+    ]),
+  ];
+  const knownSlideIds = new Set([...automaticSlideIds, ...manualSlides.map((slide) => slide.id)]);
+  const orderedSlideIds = [
+    ...(pptSettings.slideOrder || []).filter((id) => knownSlideIds.has(id)),
+    ...automaticSlideIds.filter((id) => !(pptSettings.slideOrder || []).includes(id)),
+    ...manualSlides.map((slide) => slide.id).filter((id) => !(pptSettings.slideOrder || []).includes(id)),
+  ];
   const slideByNodeId = new Map<string, number>();
+  const slideNumberById = new Map(orderedSlideIds.map((id, index) => [id, index + 1]));
   const animationTargets: PptAnimationExportTarget[] = [];
   const videoPlaybackTargets: PptVideoPlaybackTarget[] = [];
-  let slideNumber = pptSettings.includeCover ? 2 : 1;
   scenes.forEach((scene) => {
-    slideByNodeId.set(scene.id, slideNumber);
-    slideNumber += 1 + (pptSettings.branchMode !== 'linear' && scene.choices.length > 1 ? 1 : 0);
+    slideByNodeId.set(scene.id, slideNumberById.get(scene.id) || 1);
   });
+  const manualByAnchor = new Map<string, PptManualSlide[]>();
+  const manualById = new Map(manualSlides.map((slide) => [slide.id, slide]));
+  orderedSlideIds.forEach((id, index) => {
+    const slide = manualById.get(id);
+    if (!slide) return;
+    const anchor = orderedSlideIds[index - 1] || '__start__';
+    const items = manualByAnchor.get(anchor) || [];
+    items.push(slide);
+    manualByAnchor.set(anchor, items);
+  });
+  const addManualSlide = async (manual: PptManualSlide) => {
+    const slide = pptx.addSlide();
+    slide.background = { color: hex(manual.backgroundColor) };
+    for (const element of manual.elements) {
+      const frame = page.frame(
+        (element.x / 1920) * WIDE_PAGE_WIDTH,
+        (element.y / 1080) * WIDE_PAGE_HEIGHT,
+        (element.width / 1920) * WIDE_PAGE_WIDTH,
+        (element.height / 1080) * WIDE_PAGE_HEIGHT,
+      );
+      if (element.kind === 'image') {
+        const image = await resolveImage(element.src);
+        if (image) slide.addImage({ data: image, ...frame, rotate: element.rotation || 0 });
+        continue;
+      }
+      if (element.kind === 'text') {
+        slide.addText(element.text || ' ', {
+          ...frame,
+          fontFace: toPptFontFace(element.fontFamily || style.bodyFontFamily),
+          fontSize: Math.max(8, element.fontSize * 0.75 * page.scale),
+          bold: element.bold,
+          color: hex(element.color),
+          align: element.align || 'left',
+          margin: 0,
+          rotate: element.rotation || 0,
+        });
+        continue;
+      }
+      const targetSlide = element.targetSlideId ? slideNumberById.get(element.targetSlideId) : undefined;
+      const hyperlink = element.action === 'slide' && targetSlide
+        ? { slide: targetSlide }
+        : element.action === 'url' && element.url
+          ? { url: element.url }
+          : undefined;
+      const isPrimary = element.variant === 'primary';
+      const isSecondary = element.variant === 'secondary';
+      slide.addShape(pptx.ShapeType.roundRect, {
+        ...frame,
+        rectRadius: 0.08,
+        fill: isPrimary ? { color: '4F46E5' } : { color: 'FFFFFF', transparency: isSecondary ? 0 : 100 },
+        line: isSecondary ? { color: '4F46E5', width: 1.4 } : { transparency: 100 },
+        hyperlink,
+      });
+      slide.addText(element.text || ' ', {
+        ...frame,
+        fontSize: Math.max(8, 18 * page.scale),
+        bold: true,
+        color: isPrimary ? 'FFFFFF' : '4F46E5',
+        align: 'center',
+        valign: 'middle',
+        margin: 0,
+        hyperlink,
+      });
+    }
+  };
+  const appendManualSlides = async (anchorId: string) => {
+    for (const manual of manualByAnchor.get(anchorId) || []) {
+      await addManualSlide(manual);
+      await appendManualSlides(manual.id);
+    }
+  };
+  await appendManualSlides('__start__');
 
   if (pptSettings.includeCover) {
     const slide = pptx.addSlide();
@@ -142,6 +232,7 @@ export async function buildPptxBuffer({
       align: 'center',
       margin: 0,
     });
+    await appendManualSlides('cover');
   }
 
   for (const scene of scenes) {
@@ -439,13 +530,18 @@ export async function buildPptxBuffer({
       );
     }
 
+    await appendManualSlides(scene.id);
+
     if (pptSettings.branchMode === 'linear' || scene.choices.length < 2) continue;
 
     const choiceSlide = pptx.addSlide();
     choiceSlide.background = { color: hex(colors.background) };
-    if (backgroundImage) {
+    const choiceBackgroundImage = backgroundVideo
+      ? (await toPptVideoLastFrameData(scene.backgroundVideoUrl)) || backgroundImage
+      : backgroundImage;
+    if (choiceBackgroundImage) {
       choiceSlide.addImage({
-        data: backgroundImage,
+        data: choiceBackgroundImage,
         ...fullContentFrame,
         sizing: { type: 'cover', ...fullContentFrame },
       });
@@ -516,6 +612,7 @@ export async function buildPptxBuffer({
       choiceSlide.addNotes(
         `选择节点：${scene.id}\n\n${scene.choices.map((choice, index) => `${index + 1}. ${choice.label}`).join('\n')}`,
       );
+    await appendManualSlides(`choice:${scene.id}`);
   }
   const buffer = (await pptx.write({
     outputType: 'arraybuffer',

@@ -64,6 +64,7 @@ const isPptSafeImageDataUrl = (value: string) =>
   /^data:image\/(png|jpeg|gif|svg\+xml);base64,/i.test(value);
 const isPptSafeVideoDataUrl = (value: string) =>
   /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
+const videoLastFrameCache = new Map<string, Promise<string | undefined>>();
 
 export const getPptImageDimensions = async (data: string) => {
   const image = new Image();
@@ -121,4 +122,68 @@ export async function toPptVideoData(url?: string): Promise<string | undefined> 
     console.warn('Could not embed video in PPTX:', error);
     return undefined;
   }
+}
+
+/**
+ * Choice slides must remain static after a scene video ends. Capture the final
+ * decodable frame as a PNG so the exported choice slide matches the editor.
+ */
+export function toPptVideoLastFrameData(url?: string): Promise<string | undefined> {
+  const source = url?.trim();
+  if (!source) return Promise.resolve(undefined);
+  const cached = videoLastFrameCache.get(source);
+  if (cached) return cached;
+
+  const capture = new Promise<string | undefined>((resolve) => {
+    const video = document.createElement('video');
+    let settled = false;
+    const isRemote = /^https?:\/\//i.test(source);
+    if (isRemote) video.crossOrigin = 'anonymous';
+    video.preload = 'auto';
+    video.muted = true;
+    video.playsInline = true;
+    const finish = (value?: string) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      video.removeAttribute('src');
+      video.load();
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => finish(), 15000);
+    const captureFrame = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (!context || !canvas.width || !canvas.height) {
+          finish();
+          return;
+        }
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        finish(canvas.toDataURL('image/png'));
+      } catch {
+        finish();
+      }
+    };
+    video.onerror = () => finish();
+    video.onloadedmetadata = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) {
+        finish();
+        return;
+      }
+      const lastFrameTime = Math.max(0, video.duration - Math.min(0.08, video.duration / 20));
+      if (lastFrameTime <= 0) {
+        video.onloadeddata = captureFrame;
+        return;
+      }
+      video.onseeked = captureFrame;
+      video.currentTime = lastFrameTime;
+    };
+    video.src = source;
+    video.load();
+  });
+  videoLastFrameCache.set(source, capture);
+  return capture;
 }

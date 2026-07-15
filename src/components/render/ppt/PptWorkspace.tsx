@@ -1,26 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Eye,
-  Grid2X2,
-  ListOrdered,
-  Maximize2,
-  MonitorPlay,
-  MousePointer2,
-  Pause,
-  Play,
-  Presentation,
-  Settings2,
-  Sparkles,
-  StickyNote,
-  TimerReset,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react';
-import {
   createContext,
   type ReactNode,
   useCallback,
@@ -34,7 +13,6 @@ import {
 import type { Language } from '../../../lib/i18n';
 import { getCharacterStageBounds } from '../../../lib/presentation';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
-import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import {
   resolvePresentationDialogueLayout,
   resolvePresentationTextScale,
@@ -47,6 +25,8 @@ import type {
   PptAnimationStart,
   PptAnimationTarget,
   PptExportSettings,
+  PptManualElement,
+  PptManualSlide,
   PptObjectAnimation,
   PptSlideTransition,
   PptTransitionEffect,
@@ -61,40 +41,56 @@ import {
 } from '../web/WebEditableElementFrame';
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
+import { targetLabel } from './pptAnimationLabels';
+import { findAnimation, previewStyle } from './pptAnimationPreview';
+import { PptInsertRibbon } from './PptInsertRibbon';
+import {
+  createManualButton,
+  createManualImage,
+  createManualSlide,
+  createManualText,
+  duplicateManualSlide,
+  updateManualElement,
+} from './pptManualContent';
+import { PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
+import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
 import {
+  composePptSlides,
   DEFAULT_PPT_TRANSITION,
+  insertPptSlideOrder,
   PPT_CONTENT_HEIGHT,
   PPT_CONTENT_WIDTH,
-  type PptCanvasLayout,
   pptCanvasViewportClass,
   type PptSelection,
   type PptSlideItem,
   type PptWorkspaceSidebarTab,
   type PptWorkspaceViewMode,
 } from './pptWorkspaceModel';
+import { NotesPanel, PptSidebar } from './PptWorkspaceSidebar';
 
 type ViewMode = PptWorkspaceViewMode;
 type SidebarTab = PptWorkspaceSidebarTab;
-type SlideItem = PptSlideItem;
-type Selection = PptSelection;
-type Scene = ReturnType<typeof resolvePptScenes>[number];
+export type SlideItem = PptSlideItem;
+export type Selection = PptSelection;
+export type Scene = ReturnType<typeof resolvePptScenes>[number];
 type Copy = PptCopy & PptWorkspaceCopy;
-type VideoTimelineTrack = { durationMs: number; loop: boolean };
+export type VideoTimelineTrack = { durationMs: number; loop: boolean };
 const PptCopyContext = createContext<Copy | null>(null);
-const usePptCopy = () => {
+export const usePptCopy = () => {
   const value = useContext(PptCopyContext);
   if (!value) throw new Error('PptCopyContext is missing.');
   return value;
 };
 
-const PHASES: Array<{ value: PptAnimationPhase; key: 'enter' | 'emphasis' | 'exit' }> = [
+export const PHASES: Array<{ value: PptAnimationPhase; key: 'enter' | 'emphasis' | 'exit' }> = [
   { value: 'enter', key: 'enter' },
   { value: 'emphasis', key: 'emphasis' },
   { value: 'exit', key: 'exit' },
 ];
-const EMPHASIS_EFFECTS: Array<{
+export const EMPHASIS_EFFECTS: Array<{
   value: PptAnimationEffect;
   key: keyof PptWorkspaceCopy;
   glyph: string;
@@ -113,7 +109,7 @@ const EMPHASIS_EFFECTS: Array<{
   { value: 'lighten', key: 'lighten', glyph: '◌' },
   { value: 'transparency', key: 'transparency', glyph: '◍' },
 ];
-const effectLabel = (copy: Copy, effect: PptAnimationEffect) => {
+export const effectLabel = (copy: Copy, effect: PptAnimationEffect) => {
   if (effect === 'line') return copy.line;
   if (effect === 'none') return copy.noAnimation;
   const emphasis = EMPHASIS_EFFECTS.find((item) => item.value === effect);
@@ -130,11 +126,11 @@ const effectLabel = (copy: Copy, effect: PptAnimationEffect) => {
         } as Record<string, string>
       )[effect] || copy.noAnimation;
 };
-const startLabel = (copy: PptCopy, start: PptAnimationStart) =>
+export const startLabel = (copy: PptCopy, start: PptAnimationStart) =>
   copy[
     start === 'onClick' ? 'onClick' : start === 'withPrevious' ? 'withPrevious' : 'afterPrevious'
   ];
-const directionLabel = (copy: PptCopy, direction: PptAnimationDirection) =>
+export const directionLabel = (copy: PptCopy, direction: PptAnimationDirection) =>
   copy[
     direction === 'left'
       ? 'fromLeft'
@@ -160,7 +156,7 @@ const withTimelineStarts = (animations: PptObjectAnimation[]): TimedPptObjectAni
     return { ...animation, timelineStartMs };
   });
 };
-const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs = 0) =>
+export const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs = 0) =>
   Math.max(
     1000,
     mediaDurationMs,
@@ -169,8 +165,8 @@ const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs =
     ),
   );
 const choiceSlideId = (sceneId: string) => `choice:${sceneId}`;
-const DEFAULT_TRANSITION = DEFAULT_PPT_TRANSITION;
-const TRANSITIONS: Array<{ value: PptTransitionEffect; key: keyof PptCopy; glyph: string }> = [
+export const DEFAULT_TRANSITION = DEFAULT_PPT_TRANSITION;
+export const TRANSITIONS: Array<{ value: PptTransitionEffect; key: keyof PptCopy; glyph: string }> = [
   { value: 'none', key: 'none', glyph: '□' },
   { value: 'smooth', key: 'smooth', glyph: '◇' },
   { value: 'fade', key: 'fadeTransition', glyph: '◌' },
@@ -192,7 +188,7 @@ type Props = {
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   pptSettings: PptExportSettings;
   updatePptSettings: (patch: Partial<PptExportSettings>) => void;
-  ribbonTab: 'animation' | 'transition';
+  ribbonTab: 'insert' | 'animation' | 'transition';
 };
 
 export function PptWorkspace({
@@ -212,7 +208,7 @@ export function PptWorkspace({
     () => resolvePptScenes(nodes, edges, webSettings),
     [nodes, edges, webSettings],
   );
-  const slides = useMemo<SlideItem[]>(
+  const generatedSlides = useMemo<SlideItem[]>(
     () => [
       ...(pptSettings.includeCover
         ? [{ id: 'cover', title: projectName || copy.untitled, kind: 'cover' as const }]
@@ -232,6 +228,11 @@ export function PptWorkspace({
       ]),
     ],
     [pptSettings.branchMode, pptSettings.includeCover, projectName, scenes],
+  );
+  const manualSlides = pptSettings.manualSlides || [];
+  const slides = useMemo(
+    () => composePptSlides(generatedSlides, manualSlides, pptSettings.slideOrder),
+    [generatedSlides, manualSlides, pptSettings.slideOrder],
   );
   const [selectedId, setSelectedId] = useState(() => slides[0]?.id || 'cover');
   const [selectedObject, setSelectedObject] = useState<Selection | null>(null);
@@ -255,6 +256,10 @@ export function PptWorkspace({
     slides.findIndex((slide) => slide.id === selectedId),
   );
   const activeSlide = slides.find((slide) => slide.id === selectedId);
+  const manualSlide = activeSlide?.manualSlideId
+    ? manualSlides.find((slide) => slide.id === activeSlide.manualSlideId)
+    : undefined;
+  const [selectedManualElementId, setSelectedManualElementId] = useState<string>();
   const scene = activeSlide?.sceneId
     ? scenes.find((item) => item.id === activeSlide.sceneId)
     : undefined;
@@ -305,7 +310,57 @@ export function PptWorkspace({
     setSidebarTab('timeline');
     setIsPreviewing(false);
     setTimelinePlayheadMs(undefined);
+    setSelectedManualElementId(undefined);
   }, []);
+  const saveManualSlides = (nextSlides: PptManualSlide[], nextOrder?: string[]) =>
+    updatePptSettings({ manualSlides: nextSlides, slideOrder: nextOrder || pptSettings.slideOrder });
+  const addManualSlide = (slide = createManualSlide(copy.manualSlide), afterId = selectedId) => {
+    const nextSlides = [...manualSlides, slide];
+    const knownIds = [...generatedSlides.map((item) => item.id), ...nextSlides.map((item) => item.id)];
+    saveManualSlides(nextSlides, insertPptSlideOrder(pptSettings.slideOrder, knownIds, afterId, slide.id));
+    selectSlide(slide.id);
+    return slide;
+  };
+  const appendManualElement = (element: PptManualElement) => {
+    if (manualSlide) {
+      saveManualSlides(
+        manualSlides.map((slide) =>
+          slide.id === manualSlide.id ? { ...slide, elements: [...slide.elements, element] } : slide,
+        ),
+      );
+      setSelectedManualElementId(element.id);
+      return;
+    }
+    const slide = addManualSlide();
+    saveManualSlides(
+      [...manualSlides, { ...slide, elements: [element] }],
+      insertPptSlideOrder(pptSettings.slideOrder, [...generatedSlides.map((item) => item.id), ...manualSlides.map((item) => item.id), slide.id], selectedId, slide.id),
+    );
+    setSelectedManualElementId(element.id);
+  };
+  const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
+    if (!manualSlide) return;
+    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? updateManualElement(slide, elementId, patch) : slide)));
+  };
+  const updateActiveManualSlide = (patch: Partial<PptManualSlide>) => {
+    if (!manualSlide) return;
+    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, ...patch } : slide)));
+  };
+  const deleteActiveManualElement = (elementId: string) => {
+    if (!manualSlide) return;
+    saveManualSlides(manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) } : slide)));
+    setSelectedManualElementId(undefined);
+  };
+  const selectManualElement = (elementId: string) => {
+    setSelectedManualElementId(elementId);
+    setSidebarTab('style');
+  };
+  const duplicateCurrentManualSlide = () => {
+    const next = manualSlide
+      ? duplicateManualSlide(manualSlide, copy.duplicateSlide)
+      : createManualSlide(copy.manualSlide);
+    addManualSlide(next);
+  };
   const selectIndex = useCallback(
     (index: number) =>
       selectSlide(slides[Math.max(0, Math.min(slides.length - 1, index))]?.id || 'cover'),
@@ -545,19 +600,30 @@ export function PptWorkspace({
   return (
     <PptCopyContext.Provider value={copy}>
       <main className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--vr-bg)] pb-9">
-        <AnimationRibbon
-          activeTab={ribbonTab}
-          selected={selectedObject}
-          phase={selectedPhase}
-          setPhase={setSelectedPhase}
-          animation={getAnimation()}
-          onApply={applyEffect}
-          onPreview={preview}
-          onUpdate={updateSelectedAnimation}
-          transition={currentTransition}
-          onUpdateTransition={updateTransition}
-          onApplyTransitionToAll={applyTransitionToAll}
-        />
+        {ribbonTab === 'insert' ? (
+          <PptInsertRibbon
+            copy={copy}
+            onNewSlide={() => addManualSlide()}
+            onDuplicateSlide={duplicateCurrentManualSlide}
+            onInsertText={() => appendManualElement(createManualText(copy.text))}
+            onInsertButton={() => appendManualElement(createManualButton(copy.button))}
+            onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
+          />
+        ) : (
+          <AnimationRibbon
+            activeTab={ribbonTab}
+            selected={selectedObject}
+            phase={selectedPhase}
+            setPhase={setSelectedPhase}
+            animation={getAnimation()}
+            onApply={applyEffect}
+            onPreview={preview}
+            onUpdate={updateSelectedAnimation}
+            transition={currentTransition}
+            onUpdateTransition={updateTransition}
+            onApplyTransitionToAll={applyTransitionToAll}
+          />
+        )}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {viewMode === 'normal' ? (
             <SlideList
@@ -571,6 +637,7 @@ export function PptWorkspace({
               renderStyle={renderStyle}
               colors={colors}
               layout={pptSettings.layout}
+              manualSlides={manualSlides}
               onSelect={selectSlide}
             />
           ) : null}
@@ -590,6 +657,7 @@ export function PptWorkspace({
                 renderStyle={renderStyle}
                 colors={colors}
                 layout={pptSettings.layout}
+                manualSlides={manualSlides}
                 onSelect={(id) => {
                   selectSlide(id);
                   setViewMode('normal');
@@ -616,6 +684,7 @@ export function PptWorkspace({
                           selectedId={selectedId}
                           isChoiceSlide={activeSlide?.kind === 'choice'}
                           scene={scene}
+                          manualSlide={manualSlide}
                           videoLoop={currentVideoLoop}
                           projectName={projectName}
                           webSettings={webSettings}
@@ -631,6 +700,9 @@ export function PptWorkspace({
                           onSelect={selectObject}
                           onUpdateObject={updatePptObject}
                           onChoose={goToScene}
+                          selectedManualElementId={selectedManualElementId}
+                          onSelectManualElement={selectManualElement}
+                          onUpdateManualElement={updateActiveManualElement}
                         />
                       </VirtualPresentationStage>
                     </div>
@@ -684,6 +756,12 @@ export function PptWorkspace({
               previewing={isPreviewing}
               onPausePreview={pausePreview}
               onUpdate={updateSelectedAnimation}
+              manualSlide={manualSlide}
+              selectedManualElementId={selectedManualElementId}
+              slides={slides}
+              onUpdateManualSlide={updateActiveManualSlide}
+              onUpdateManualElement={updateActiveManualElement}
+              onDeleteManualElement={deleteActiveManualElement}
             />
           ) : null}
         </div>
@@ -693,6 +771,7 @@ export function PptWorkspace({
             selectedId={selectedId}
             isChoiceSlide={activeSlide?.kind === 'choice'}
             scene={scene}
+            manualSlide={manualSlide}
             videoLoop={currentVideoLoop}
             projectName={projectName}
             webSettings={webSettings}
@@ -724,503 +803,7 @@ export function PptWorkspace({
   );
 }
 
-function AnimationRibbon({
-  activeTab,
-  selected,
-  phase,
-  setPhase,
-  animation,
-  onApply,
-  onPreview,
-  onUpdate,
-  transition,
-  onUpdateTransition,
-  onApplyTransitionToAll,
-}: {
-  activeTab: 'animation' | 'transition';
-  selected: Selection | null;
-  phase: PptAnimationPhase;
-  setPhase: (phase: PptAnimationPhase) => void;
-  animation?: PptObjectAnimation;
-  onApply: (effect: PptAnimationEffect) => void;
-  onPreview: () => void;
-  onUpdate: (patch: Partial<PptObjectAnimation>) => void;
-  transition: PptSlideTransition;
-  onUpdateTransition: (patch: Partial<PptSlideTransition>) => void;
-  onApplyTransitionToAll: () => void;
-}) {
-  const copy = usePptCopy();
-  const disabled = !selected;
-  return (
-    <header className="shrink-0 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-sm">
-      {activeTab === 'transition' ? (
-        <TransitionControls
-          transition={transition}
-          onPreview={onPreview}
-          onUpdate={onUpdateTransition}
-          onApplyToAll={onApplyTransitionToAll}
-        />
-      ) : (
-        <div className="flex min-h-[94px] items-stretch overflow-x-auto px-3">
-          <RibbonGroup label={copy.preview}>
-            <button type="button" onClick={onPreview} className="ppt-ribbon-action">
-              <Eye className="h-5 w-5" />
-              <span>{copy.preview}</span>
-            </button>
-          </RibbonGroup>
-          <RibbonGroup label={copy.animation}>
-            <div className="flex gap-1">
-              {PHASES.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => setPhase(item.value)}
-                  className={`ppt-effect-button min-w-[54px] ${phase === item.value ? 'is-active' : ''}`}
-                >
-                  <span>{copy[item.key]}</span>
-                </button>
-              ))}
-            </div>
-          </RibbonGroup>
-          <RibbonGroup
-            label={
-              phase === 'emphasis'
-                ? copy.emphasisEffects
-                : phase === 'enter'
-                  ? copy.entrancePath
-                  : copy.exitPath
-            }
-          >
-            <div className="flex gap-1">
-              {phase === 'emphasis' ? (
-                EMPHASIS_EFFECTS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onApply(item.value)}
-                    className={`ppt-effect-button min-w-[60px] ${animation?.effect === item.value ? 'is-active' : ''}`}
-                  >
-                    <span className="text-lg leading-none">{item.glyph}</span>
-                    <span>{copy[item.key]}</span>
-                  </button>
-                ))
-              ) : (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onApply('line')}
-                  className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
-                >
-                  <span className="text-lg leading-none">↔</span>
-                  <span>{copy.line}</span>
-                </button>
-              )}
-            </div>
-          </RibbonGroup>
-          <RibbonGroup label={copy.effectOptions}>
-            <select
-              disabled={disabled || phase === 'emphasis'}
-              value={animation?.direction || 'left'}
-              onChange={(event) =>
-                onUpdate({ direction: event.target.value as PptAnimationDirection })
-              }
-              className="render-field min-w-24 text-xs"
-            >
-              <option value="left">{copy.fromLeft}</option>
-              <option value="right">{copy.fromRight}</option>
-              <option value="up">{copy.fromTop}</option>
-              <option value="down">{copy.fromBottom}</option>
-            </select>
-          </RibbonGroup>
-          <RibbonGroup label={copy.addAnimation}>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() =>
-                onApply(animation?.effect || (phase === 'emphasis' ? 'pulse' : 'line'))
-              }
-              className="ppt-ribbon-action"
-            >
-              <Sparkles className="h-5 w-5" />
-              <span>{copy.addAnimation}</span>
-            </button>
-            <button type="button" className="ppt-ribbon-action" title={copy.trigger} disabled>
-              <MousePointer2 className="h-5 w-5" />
-              <span>{copy.trigger}</span>
-            </button>
-          </RibbonGroup>
-          <RibbonGroup label={copy.timing}>
-            <div className="grid grid-cols-[auto_84px] items-center gap-x-2 gap-y-1.5 text-[11px] text-[var(--vr-text-muted)]">
-              <label>{copy.start}</label>
-              <select
-                disabled={disabled}
-                value={animation?.start || 'onClick'}
-                onChange={(event) => onUpdate({ start: event.target.value as PptAnimationStart })}
-                className="render-field h-7 text-[11px]"
-              >
-                <option value="onClick">{copy.onClick}</option>
-                <option value="withPrevious">{copy.withPrevious}</option>
-                <option value="afterPrevious">{copy.afterPrevious}</option>
-              </select>
-              <label>{copy.duration}</label>
-              <input
-                disabled={disabled}
-                type="number"
-                min="0.1"
-                max="10"
-                step="0.1"
-                value={(animation?.durationMs || 500) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
-                  })
-                }
-                className="render-field h-7 text-[11px]"
-              />
-              <label>{copy.delay}</label>
-              <input
-                disabled={disabled}
-                type="number"
-                min="0"
-                max="10"
-                step="0.1"
-                value={(animation?.delayMs || 0) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000),
-                  })
-                }
-                className="render-field h-7 text-[11px]"
-              />
-            </div>
-          </RibbonGroup>
-        </div>
-      )}
-    </header>
-  );
-}
-function RibbonGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="relative flex min-w-max items-center gap-2 border-r border-[var(--vr-border)] px-3 pb-5 pt-2 last:border-r-0">
-      <div className="absolute inset-x-0 bottom-1 text-center text-[10px] font-medium text-[var(--vr-text-muted)]">
-        {label}
-      </div>
-      {children}
-    </section>
-  );
-}
-function TransitionControls({
-  transition,
-  onPreview,
-  onUpdate,
-  onApplyToAll,
-}: {
-  transition: PptSlideTransition;
-  onPreview: () => void;
-  onUpdate: (patch: Partial<PptSlideTransition>) => void;
-  onApplyToAll: () => void;
-}) {
-  const copy = usePptCopy();
-  return (
-    <div className="flex min-h-[94px] items-stretch overflow-x-auto px-3">
-      <RibbonGroup label={copy.preview}>
-        <button type="button" onClick={onPreview} className="ppt-ribbon-action">
-          <Eye className="h-5 w-5" />
-          <span>{copy.preview}</span>
-        </button>
-      </RibbonGroup>
-      <RibbonGroup label={copy.transitionToSlide}>
-        <div className="flex gap-1">
-          {TRANSITIONS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => onUpdate({ effect: item.value })}
-              className={`ppt-effect-button min-w-[62px] ${transition.effect === item.value ? 'is-active' : ''}`}
-            >
-              <span className="text-lg leading-none">{item.glyph}</span>
-              <span>{copy[item.key]}</span>
-            </button>
-          ))}
-        </div>
-      </RibbonGroup>
-      <RibbonGroup label={copy.effectOptions}>
-        <select
-          disabled={transition.effect === 'none' || transition.effect === 'fade'}
-          value={transition.direction}
-          onChange={(event) => onUpdate({ direction: event.target.value as PptAnimationDirection })}
-          className="render-field min-w-24 text-xs"
-        >
-          <option value="left">{copy.fromLeft}</option>
-          <option value="right">{copy.fromRight}</option>
-          <option value="up">{copy.fromTop}</option>
-          <option value="down">{copy.fromBottom}</option>
-        </select>
-      </RibbonGroup>
-      <RibbonGroup label={copy.timing}>
-        <div className="grid grid-cols-[auto_94px] items-center gap-x-2 gap-y-1.5 text-[11px] text-[var(--vr-text-muted)]">
-          <label>{copy.sound}</label>
-          <select disabled className="render-field h-7 text-[11px]">
-            <option>{copy.noSound}</option>
-          </select>
-          <label>{copy.duration}</label>
-          <input
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            value={(transition.durationMs / 1000).toFixed(1)}
-            onChange={(event) =>
-              onUpdate({
-                durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.7)) * 1000),
-              })
-            }
-            className="render-field h-7 text-[11px]"
-          />
-          <label className="col-span-2 flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={transition.advanceOnClick}
-              onChange={(event) => onUpdate({ advanceOnClick: event.target.checked })}
-            />
-            {copy.clickMouse}
-          </label>
-          <label className="col-span-2 flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={transition.advanceAfterMs !== undefined}
-              onChange={(event) =>
-                onUpdate({ advanceAfterMs: event.target.checked ? 0 : undefined })
-              }
-            />
-            {copy.autoAdvance}
-          </label>
-          {transition.advanceAfterMs !== undefined ? (
-            <>
-              <label>{copy.autoTime}</label>
-              <input
-                type="number"
-                min="0"
-                max="3600"
-                step="0.1"
-                value={(transition.advanceAfterMs / 1000).toFixed(1)}
-                onChange={(event) =>
-                  onUpdate({ advanceAfterMs: Math.max(0, Number(event.target.value || 0) * 1000) })
-                }
-                className="render-field h-7 text-[11px]"
-              />
-            </>
-          ) : null}
-        </div>
-        <button type="button" onClick={onApplyToAll} className="ppt-ribbon-action ml-1">
-          <Presentation className="h-5 w-5" />
-          <span>{copy.applyAll}</span>
-        </button>
-      </RibbonGroup>
-    </div>
-  );
-}
-
-function SlideTransitionIndicator({ transition }: { transition?: PptSlideTransition }) {
-  const copy = usePptCopy();
-  if (!transition || transition.effect === 'none') return null;
-  const item = TRANSITIONS.find((entry) => entry.value === transition.effect);
-  if (!item) return null;
-  const label = copy[item.key];
-  return (
-    <span
-      title={`${copy.transition}: ${label}`}
-      aria-label={`${copy.transition}: ${label}`}
-      className="grid h-4 w-4 shrink-0 place-items-center text-xs leading-none text-[var(--vr-text-muted)]"
-    >
-      {item.glyph}
-    </span>
-  );
-}
-type ThumbnailProps = {
-  slide: SlideItem;
-  scenes: Scene[];
-  projectName: string;
-  webSettings: WebExportSettings;
-  renderStyle: RenderStyle;
-  colors: ReturnType<typeof pptSceneColors>;
-  animations: PptObjectAnimation[];
-  transition: PptSlideTransition;
-  layout: PptCanvasLayout;
-};
-function SlideThumbnail({
-  slide,
-  scenes,
-  projectName,
-  webSettings,
-  renderStyle,
-  colors,
-  animations,
-  transition,
-  layout,
-}: ThumbnailProps) {
-  const scene = slide.sceneId ? scenes.find((item) => item.id === slide.sceneId) : undefined;
-  return (
-    <div
-      className={`pointer-events-none relative overflow-hidden rounded bg-slate-950 ${pptCanvasViewportClass(layout)}`}
-    >
-      <VirtualPresentationStage
-        fit="contain"
-        width={PPT_CONTENT_WIDTH}
-        height={PPT_CONTENT_HEIGHT}
-        className="absolute inset-0 h-full w-full"
-      >
-        <SlideCanvas
-          selectedId={slide.id}
-          isChoiceSlide={slide.kind === 'choice'}
-          scene={scene}
-          projectName={projectName}
-          webSettings={webSettings}
-          renderStyle={renderStyle}
-          colors={colors}
-          animations={animations}
-          transition={transition}
-          selected={null}
-          previewing={false}
-          onSelect={() => undefined}
-        />
-      </VirtualPresentationStage>
-    </div>
-  );
-}
-function SlideList({
-  slides,
-  scenes,
-  selectedId,
-  timelines,
-  transitions,
-  projectName,
-  webSettings,
-  renderStyle,
-  colors,
-  onSelect,
-  layout,
-}: {
-  slides: SlideItem[];
-  scenes: Scene[];
-  selectedId: string;
-  timelines: Record<string, PptObjectAnimation[]>;
-  transitions: Record<string, PptSlideTransition>;
-  projectName: string;
-  webSettings: WebExportSettings;
-  renderStyle: RenderStyle;
-  colors: ReturnType<typeof pptSceneColors>;
-  onSelect: (id: string) => void;
-  layout: PptCanvasLayout;
-}) {
-  return (
-    <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-3">
-      <div className="mb-3 flex items-center gap-2 px-1 text-xs font-black text-[var(--vr-text)]">
-        <Presentation className="h-4 w-4 text-[var(--vr-accent-strong)]" />
-        幻灯片
-      </div>
-      <div className="space-y-3">
-        {slides.map((slide, index) => (
-          <div key={slide.id} className="flex items-start gap-2">
-            <div
-              className={`flex w-4 shrink-0 flex-col items-center gap-1 pt-0.5 text-sm leading-none ${selectedId === slide.id ? 'text-[var(--vr-accent-strong)]' : 'text-[var(--vr-text-muted)]'}`}
-            >
-              <span>{index + 1}</span>
-              <SlideTransitionIndicator transition={transitions[slide.id]} />
-            </div>
-            <button
-              type="button"
-              onClick={() => onSelect(slide.id)}
-              className={`min-w-0 flex-1 rounded-lg border p-2 text-left transition-colors ${selectedId === slide.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] hover:bg-[var(--vr-surface-soft)]'}`}
-            >
-              <SlideThumbnail
-                slide={slide}
-                scenes={scenes}
-                projectName={projectName}
-                webSettings={webSettings}
-                renderStyle={renderStyle}
-                colors={colors}
-                animations={timelines[slide.id] || []}
-                transition={transitions[slide.id] || DEFAULT_TRANSITION}
-                layout={layout}
-              />
-              {(timelines[slide.id]?.length || 0) > 0 ? (
-                <div className="mt-1 text-right text-[10px] font-bold text-[var(--vr-accent-strong)]">
-                  {timelines[slide.id].length} 个动画
-                </div>
-              ) : null}
-            </button>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-}
-function SlideSorter({
-  slides,
-  scenes,
-  selectedId,
-  timelines,
-  transitions,
-  projectName,
-  webSettings,
-  renderStyle,
-  colors,
-  onSelect,
-  layout,
-}: {
-  slides: SlideItem[];
-  scenes: Scene[];
-  selectedId: string;
-  timelines: Record<string, PptObjectAnimation[]>;
-  transitions: Record<string, PptSlideTransition>;
-  projectName: string;
-  webSettings: WebExportSettings;
-  renderStyle: RenderStyle;
-  colors: ReturnType<typeof pptSceneColors>;
-  onSelect: (id: string) => void;
-  layout: PptCanvasLayout;
-}) {
-  return (
-    <div className="h-full overflow-auto p-8">
-      <div className="mx-auto grid max-w-5xl grid-cols-2 gap-5 lg:grid-cols-3">
-        {slides.map((slide, index) => (
-          <button
-            key={slide.id}
-            type="button"
-            onClick={() => onSelect(slide.id)}
-            className={`rounded-xl border p-3 text-left shadow-sm ${selectedId === slide.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)] bg-[var(--vr-surface-strong)] hover:bg-[var(--vr-surface-soft)]'}`}
-          >
-            <div className="mb-3 flex items-center gap-1.5">
-              <span className="text-xs text-[var(--vr-text-muted)]">{index + 1}</span>
-              <SlideTransitionIndicator transition={transitions[slide.id]} />
-              {(timelines[slide.id]?.length || 0) > 0 ? (
-                <span className="text-xs text-[var(--vr-accent-strong)]">
-                  {timelines[slide.id].length} 个动画
-                </span>
-              ) : null}
-            </div>
-            <SlideThumbnail
-              slide={slide}
-              scenes={scenes}
-              projectName={projectName}
-              webSettings={webSettings}
-              renderStyle={renderStyle}
-              colors={colors}
-              animations={timelines[slide.id] || []}
-              transition={transitions[slide.id] || DEFAULT_TRANSITION}
-              layout={layout}
-            />
-            <div className="mt-2 truncate text-sm font-black">{slide.title}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SlideCanvas({
+export function SlideCanvas({
   selectedId,
   isChoiceSlide = false,
   scene,
@@ -1239,6 +822,10 @@ function SlideCanvas({
   onSelect,
   onUpdateObject,
   onChoose,
+  manualSlide,
+  selectedManualElementId,
+  onSelectManualElement,
+  onUpdateManualElement,
 }: {
   selectedId: string;
   isChoiceSlide?: boolean;
@@ -1258,6 +845,10 @@ function SlideCanvas({
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
   onChoose?: (targetId: string) => void;
+  manualSlide?: PptManualSlide;
+  selectedManualElementId?: string;
+  onSelectManualElement?: (elementId: string) => void;
+  onUpdateManualElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
 }) {
   const transitionStyle =
     transition.effect === 'none' ? undefined : { animationDuration: `${transition.durationMs}ms` };
@@ -1270,7 +861,16 @@ function SlideCanvas({
         ...transitionStyle,
       }}
     >
-      {selectedId === 'cover' ? (
+      {manualSlide ? (
+        <PptManualSlideCanvas
+          slide={manualSlide}
+          editable={editable}
+          selectedElementId={selectedManualElementId}
+          onSelectElement={onSelectManualElement}
+          onUpdateElement={onUpdateManualElement}
+          onNavigateSlide={onChoose}
+        />
+      ) : selectedId === 'cover' ? (
         <CoverPreview
           projectName={projectName}
           selected={selected}
@@ -1281,7 +881,7 @@ function SlideCanvas({
         />
       ) : scene ? (
         isChoiceSlide ? (
-          <ChoicePreview scene={scene} videoLoop={videoLoop} colors={colors} onChoose={onChoose} />
+          <ChoicePreview scene={scene} colors={colors} onChoose={onChoose} />
         ) : (
           <ScenePreview
             scene={scene}
@@ -1779,12 +1379,10 @@ function PptEditableObject({
 
 function ChoicePreview({
   scene,
-  videoLoop,
   colors: _colors,
   onChoose,
 }: {
   scene: Scene;
-  videoLoop: boolean;
   colors: ReturnType<typeof pptSceneColors>;
   onChoose?: (targetId: string) => void;
 }) {
@@ -1794,10 +1392,15 @@ function ChoicePreview({
         {scene.backgroundVideoUrl ? (
           <video
             src={scene.backgroundVideoUrl}
-            autoPlay
             muted
-            loop={videoLoop}
             playsInline
+            preload="auto"
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget;
+              if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+              video.currentTime = Math.max(0, video.duration - Math.min(0.08, video.duration / 20));
+            }}
+            onSeeked={(event) => event.currentTarget.pause()}
             className="h-full w-full object-cover"
           />
         ) : scene.backgroundUrl ? (
@@ -1874,1086 +1477,5 @@ function Selectable({
       {children}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
     </div>
-  );
-}
-function findAnimation(
-  animations: PptObjectAnimation[],
-  target: PptAnimationTarget,
-  targetId?: string,
-) {
-  return animations.filter(
-    (item) => animationKey(item.target, item.targetId) === animationKey(target, targetId),
-  );
-}
-function previewStyle(
-  animations: PptObjectAnimation[],
-  previewing: boolean,
-  previewAtMs?: number,
-): React.CSSProperties {
-  if (!animations.length || (!previewing && previewAtMs === undefined)) return {};
-  const animationName = (item: PptObjectAnimation) => {
-    const phase = item.phase || 'enter';
-    if (item.effect === 'line')
-      return `ppt-line-${phase === 'exit' ? 'out-' : ''}${item.direction}`;
-    const suffix = item.effect === 'fly' || item.effect === 'wipe' ? `-${item.direction}` : '';
-    return `ppt-${item.effect}${suffix}`;
-  };
-  return {
-    animation: animations
-      .map((item) => {
-        const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
-        const delay = previewAtMs === undefined || previewing ? start : start - previewAtMs;
-        return `${animationName(item)} ${item.durationMs}ms ease ${delay}ms both`;
-      })
-      .join(', '),
-    animationPlayState: previewAtMs === undefined || previewing ? undefined : 'paused',
-  };
-}
-function targetLabel(copy: PptCopy, animation: PptObjectAnimation, scene?: Scene) {
-  if (animation.target === 'character')
-    return `${copy.character}：${scene?.characters.find((item) => item.sourceNodeId === animation.targetId)?.name || copy.unnamed}`;
-  if (animation.target === 'choice') return `${copy.choice} ${Number(animation.targetId || 0) + 1}`;
-  return (
-    (
-      {
-        background: copy.background,
-        'dialog-panel': copy.dialogPanel,
-        'dialog-title': copy.dialogTitle,
-        'dialog-body': copy.dialogBody,
-        'cover-title': copy.coverTitle,
-        'cover-subtitle': copy.coverSubtitle,
-      } as Record<string, string>
-    )[animation.target] || copy.objectProperties
-  );
-}
-
-function PptSidebar({
-  language,
-  renderStyle,
-  updateRenderStyle,
-  activeTab,
-  setActiveTab,
-  selected: _selected,
-  animation: _animation,
-  animations,
-  videoTrack,
-  playheadMs,
-  onPlayheadChange,
-  scene,
-  pptSettings,
-  updatePptSettings,
-  onSelectAnimation,
-  onSelectVideo,
-  onMove,
-  onDelete,
-  onPreview,
-  previewing,
-  onPausePreview,
-  onUpdate: _onUpdate,
-}: {
-  language: Language;
-  renderStyle: RenderStyle;
-  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
-  activeTab: SidebarTab;
-  setActiveTab: (tab: SidebarTab) => void;
-  selected: Selection | null;
-  animation?: PptObjectAnimation;
-  animations: PptObjectAnimation[];
-  videoTrack?: VideoTimelineTrack;
-  playheadMs: number;
-  onPlayheadChange: (milliseconds: number) => void;
-  scene?: Scene;
-  pptSettings: PptExportSettings;
-  updatePptSettings: (patch: Partial<PptExportSettings>) => void;
-  onSelectAnimation: (animation: PptObjectAnimation) => void;
-  onSelectVideo: () => void;
-  onMove: (id: string, direction: -1 | 1) => void;
-  onDelete: (id: string) => void;
-  onPreview: () => void;
-  previewing: boolean;
-  onPausePreview: () => void;
-  onUpdate: (patch: Partial<PptObjectAnimation>) => void;
-}) {
-  const copy = usePptCopy();
-  const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
-  const selectAnimation = (item: PptObjectAnimation) => {
-    onSelectAnimation(item);
-  };
-  return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--vr-border)] bg-[var(--vr-surface-strong)]">
-      <div className="flex border-b border-[var(--vr-border)]">
-        {(
-          [
-            { id: 'timeline', label: copy.animationPane, icon: ListOrdered },
-            { id: 'style', label: copy.design, icon: Settings2 },
-            { id: 'export', label: copy.exportRules, icon: Presentation },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-xs font-bold ${activeTab === tab.id ? 'border-[var(--vr-accent)] text-[var(--vr-accent-strong)]' : 'border-transparent text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
-          >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {activeTab === 'timeline' ? (
-          <>
-            <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setAnimationPage('timeline')}
-                className={`relative z-10 h-8 min-w-0 flex-1 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                aria-pressed={animationPage === 'timeline'}
-              >
-                时间轴
-              </button>
-              <button
-                type="button"
-                onClick={() => setAnimationPage('details')}
-                className={`relative z-10 h-8 min-w-0 flex-1 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                aria-pressed={animationPage === 'details'}
-              >
-                动画详情
-              </button>
-            </div>
-            <div className="mt-3">
-              {animationPage === 'timeline' ? (
-                <AnimationTimeline
-                  mode="overview"
-                  animations={animations}
-                  videoTrack={videoTrack}
-                  playheadMs={playheadMs}
-                  onPlayheadChange={onPlayheadChange}
-                  onSelect={selectAnimation}
-                  onSelectVideo={onSelectVideo}
-                  onMove={onMove}
-                  onDelete={onDelete}
-                  onPreview={onPreview}
-                  previewing={previewing}
-                  onPausePreview={onPausePreview}
-                />
-              ) : (
-                <AnimationTimeline
-                  mode="list"
-                  animations={animations}
-                  videoTrack={videoTrack}
-                  playheadMs={playheadMs}
-                  onPlayheadChange={onPlayheadChange}
-                  onSelect={selectAnimation}
-                  onSelectVideo={onSelectVideo}
-                  onMove={onMove}
-                  onDelete={onDelete}
-                  onPreview={onPreview}
-                  previewing={previewing}
-                  onPausePreview={onPausePreview}
-                />
-              )}
-            </div>
-          </>
-        ) : null}
-        {activeTab === 'style' ? (
-          <RenderObjectInspector
-            language={language}
-            renderStyle={renderStyle}
-            updateRenderStyle={updateRenderStyle}
-            surface="web"
-            hideObjectSelector
-          />
-        ) : null}
-        {activeTab === 'export' ? (
-          <ExportRules scene={scene} pptSettings={pptSettings} updatePptSettings={updatePptSettings} />
-        ) : null}
-      </div>
-    </aside>
-  );
-}
-function AnimationTimeline({
-  mode,
-  animations,
-  videoTrack,
-  playheadMs,
-  onPlayheadChange,
-  onSelect,
-  onSelectVideo,
-  onMove,
-  onDelete,
-  onPreview,
-  previewing,
-  onPausePreview,
-}: {
-  mode: 'overview' | 'list';
-  animations: PptObjectAnimation[];
-  videoTrack?: VideoTimelineTrack;
-  playheadMs: number;
-  onPlayheadChange: (milliseconds: number) => void;
-  onSelect: (animation: PptObjectAnimation) => void;
-  onSelectVideo: () => void;
-  onMove: (id: string, direction: -1 | 1) => void;
-  onDelete: (id: string) => void;
-  onPreview: () => void;
-  previewing: boolean;
-  onPausePreview: () => void;
-}) {
-  const copy = usePptCopy();
-  const starts = animations.reduce<number[]>((values, item, index) => {
-    const previousStart = values[index - 1] || 0;
-    const previous = animations[index - 1];
-    const start =
-      item.start === 'withPrevious'
-        ? previousStart + item.delayMs
-        : previousStart + (previous?.durationMs || 0) + item.delayMs;
-    values.push(start);
-    return values;
-  }, []);
-  const totalMs = Math.max(
-    1000,
-    videoTrack?.durationMs || 0,
-    ...animations.map((item, index) => starts[index] + item.durationMs),
-  );
-  const hasTracks = Boolean(videoTrack) || animations.length > 0;
-  const timelineDurationMs = Math.max(3000, Math.ceil(totalMs / 1000) * 1000);
-  const [timelineViewport, setTimelineViewport] = useState({ start: 0, end: 1 });
-  const navigatorRef = useRef<HTMLDivElement>(null);
-  const navigatorDragRef = useRef<{
-    mode: 'pan' | 'start' | 'end';
-    x: number;
-    start: number;
-    end: number;
-  } | null>(null);
-  const viewportStartMs = timelineViewport.start * timelineDurationMs;
-  const viewportDurationMs = (timelineViewport.end - timelineViewport.start) * timelineDurationMs;
-  const movePlayhead = (event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    onPlayheadChange(Math.round(viewportStartMs + ratio * viewportDurationMs));
-  };
-  const beginSeek = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    movePlayhead(event);
-  };
-  const continueSeek = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) movePlayhead(event);
-  };
-  const endSeek = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId))
-      event.currentTarget.releasePointerCapture(event.pointerId);
-  };
-  const beginNavigatorDrag = (
-    event: React.PointerEvent<HTMLElement>,
-    mode: 'pan' | 'start' | 'end',
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    navigatorDragRef.current = {
-      mode,
-      x: event.clientX,
-      start: timelineViewport.start,
-      end: timelineViewport.end,
-    };
-  };
-  const updateNavigatorDrag = (event: React.PointerEvent<HTMLElement>) => {
-    const drag = navigatorDragRef.current;
-    const rect = navigatorRef.current?.getBoundingClientRect();
-    if (!drag || !rect || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    const delta = (event.clientX - drag.x) / rect.width;
-    const minWindow = 0.14;
-    if (drag.mode === 'pan') {
-      const width = drag.end - drag.start;
-      const start = Math.min(1 - width, Math.max(0, drag.start + delta));
-      setTimelineViewport({ start, end: start + width });
-      return;
-    }
-    if (drag.mode === 'start') {
-      setTimelineViewport({
-        start: Math.min(drag.end - minWindow, Math.max(0, drag.start + delta)),
-        end: drag.end,
-      });
-      return;
-    }
-    setTimelineViewport({
-      start: drag.start,
-      end: Math.max(drag.start + minWindow, Math.min(1, drag.end + delta)),
-    });
-  };
-  const endNavigatorDrag = (event: React.PointerEvent<HTMLElement>) => {
-    navigatorDragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId))
-      event.currentTarget.releasePointerCapture(event.pointerId);
-  };
-  const formatTime = (milliseconds: number) => {
-    const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-  };
-  const timelineTicks = Array.from({ length: 5 }, (_, index) =>
-    Math.round(viewportStartMs + (viewportDurationMs / 4) * index),
-  );
-  const playheadPercent =
-    (Math.min(timelineViewport.end, Math.max(timelineViewport.start, playheadMs / timelineDurationMs)) -
-      timelineViewport.start) /
-    (timelineViewport.end - timelineViewport.start) *
-    100;
-  const clipStyle = (startMs: number, durationMs: number) => {
-    const endMs = startMs + durationMs;
-    const visibleStart = Math.max(viewportStartMs, startMs);
-    const visibleEnd = Math.min(viewportStartMs + viewportDurationMs, endMs);
-    if (visibleEnd <= visibleStart) return { display: 'none' as const };
-    return {
-      left: `${((visibleStart - viewportStartMs) / viewportDurationMs) * 100}%`,
-      width: `${Math.max(3, ((visibleEnd - visibleStart) / viewportDurationMs) * 100)}%`,
-    };
-  };
-  const animationFrameStyle = (item: PptObjectAnimation, frame: number): React.CSSProperties => {
-    const progress = (frame + 1) / 8;
-    const reverse = (item.phase || 'enter') === 'exit';
-    const amount = reverse ? progress : 1 - progress;
-    if (item.effect === 'line' || item.effect === 'fly')
-      return { opacity: 0.3 + progress * 0.7, transform: `translateX(${amount * -9}px)` };
-    if (item.effect === 'zoom' || item.effect === 'growShrink')
-      return { opacity: 0.35 + progress * 0.65, transform: `scale(${0.72 + progress * 0.28})` };
-    if (item.effect === 'fade' || item.effect === 'appear')
-      return { opacity: reverse ? 1 - progress * 0.72 : 0.28 + progress * 0.72 };
-    if (item.effect === 'spin' || item.effect === 'wiggle')
-      return { opacity: 0.5 + progress * 0.5, transform: `rotate(${(progress - 0.5) * 12}deg)` };
-    return { opacity: 0.45 + Math.abs(Math.sin(progress * Math.PI)) * 0.55 };
-  };
-  const phaseMarkerClass = (item: PptObjectAnimation) => {
-    switch (item.phase || 'enter') {
-      case 'exit':
-        return 'bg-rose-500';
-      case 'emphasis':
-        return 'bg-blue-500';
-      default:
-        return 'bg-emerald-500';
-    }
-  };
-  const phaseActiveClass = (item: PptObjectAnimation) => {
-    switch (item.phase || 'enter') {
-      case 'exit':
-        return 'border-rose-500 bg-rose-500/10';
-      case 'emphasis':
-        return 'border-blue-500 bg-blue-500/10';
-      default:
-        return 'border-emerald-500 bg-emerald-500/10';
-    }
-  };
-  const isOverview = mode === 'overview';
-  return (
-    <>
-      {isOverview ? <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animationPane}</h2>
-        </div>
-        <button
-          type="button"
-          onClick={previewing ? onPausePreview : onPreview}
-          className="render-icon-button"
-          title={previewing ? '暂停预览' : copy.playCurrentSlide}
-        >
-          {previewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-      </div> : null}
-      {hasTracks ? (
-        <div className="space-y-3">
-          {isOverview ? <div className="overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2">
-            <div className="min-w-0">
-              <div className="mb-2 flex items-center justify-between text-[10px] font-bold text-[var(--vr-text-muted)]">
-                <span>播放头</span>
-                <output className="rounded bg-[var(--vr-accent-soft)] px-1.5 py-0.5 text-[var(--vr-accent-strong)]">
-                  {formatTime(playheadMs)}
-                </output>
-              </div>
-              <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] gap-2">
-                <div />
-                <div
-                  className="relative h-10 cursor-ew-resize select-none border-y border-[var(--vr-border)] bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(25%_-_1px),var(--vr-border)_calc(25%_-_1px),var(--vr-border)_25%)]"
-                  onPointerDown={beginSeek}
-                  onPointerMove={continueSeek}
-                  onPointerUp={endSeek}
-                  onPointerCancel={endSeek}
-                  aria-label="拖动播放头定位动画时间"
-                >
-                  {timelineTicks.map((tick) => (
-                    <span
-                      key={tick}
-                      className="absolute top-1 text-[10px] font-bold text-[var(--vr-text-muted)]"
-                      style={{
-                        left: `${((tick - viewportStartMs) / viewportDurationMs) * 100}%`,
-                        transform: 'translateX(-50%)',
-                      }}
-                    >
-                      {formatTime(tick)}
-                    </span>
-                  ))}
-                  <span
-                    className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-[var(--vr-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
-                    style={{ left: `${playheadPercent}%` }}
-                  >
-                    <span className="absolute -left-3 -top-1 rounded bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white">
-                      {formatTime(playheadMs)}
-                    </span>
-                  </span>
-                </div>
-                <div />
-              </div>
-              <div className="relative space-y-1.5 pt-2">
-                <span
-                  className="pointer-events-none absolute bottom-0 left-[92px] right-[50px] top-0 z-20"
-                >
-                  <span
-                    className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
-                    style={{ left: `${playheadPercent}%` }}
-                  />
-                </span>
-                {videoTrack ? (
-                  <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onSelectVideo}
-                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                      title="视频"
-                    >
-                      <span aria-hidden="true" className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded bg-violet-500 text-[9px] text-white">▶</span>
-                      <span className="truncate">视频</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onSelectVideo}
-                      className={`relative h-8 overflow-hidden rounded border text-left ${
-                        playheadMs <= (videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)
-                          ? 'border-violet-500 bg-violet-500/10'
-                          : 'border-transparent bg-[var(--vr-border)]'
-                      }`}
-                      title={videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
-                    >
-                      <span
-                        className="absolute inset-y-1 overflow-hidden rounded bg-violet-500 text-white"
-                        style={clipStyle(0, videoTrack.loop ? timelineDurationMs : videoTrack.durationMs)}
-                      >
-                        <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-12 gap-px opacity-65">
-                          {Array.from({ length: 12 }, (_, frame) => (
-                            <i key={frame} className="rounded-sm bg-white/80" style={{ opacity: 0.38 + (frame % 3) * 0.2 }} />
-                          ))}
-                        </span>
-                        <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                          {videoTrack.loop ? '视频 · 循环播放' : '视频 · 播放一次'}
-                        </strong>
-                      </span>
-                    </button>
-                    <div />
-                  </div>
-                ) : null}
-                {animations.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelect(item)}
-                      className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                      title={effectLabel(copy, item.effect)}
-                      aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect)}`}
-                    >
-                      <span>{index + 1}.</span>
-                      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`} />
-                      <span className="truncate">{effectLabel(copy, item.effect)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelect(item)}
-                      className={`relative h-8 overflow-hidden rounded border text-left ${
-                        playheadMs >= starts[index] && playheadMs <= starts[index] + item.durationMs
-                          ? phaseActiveClass(item)
-                          : 'border-transparent bg-[var(--vr-border)]'
-                      }`}
-                      title={`${startLabel(copy, item.start)} · ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
-                    >
-                      <span
-                        className={`absolute inset-y-1 overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
-                        style={clipStyle(starts[index], item.durationMs)}
-                      >
-                        <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-8 gap-px opacity-65">
-                          {Array.from({ length: 8 }, (_, frame) => (
-                            <i
-                              key={frame}
-                              className="rounded-sm bg-white/80"
-                              style={animationFrameStyle(item, frame)}
-                            />
-                          ))}
-                        </span>
-                        <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                          {effectLabel(copy, item.effect)}
-                        </strong>
-                      </span>
-                    </button>
-                    <div className="flex gap-0.5">
-                      <button
-                        type="button"
-                        className="ppt-mini-button"
-                        onClick={() => onMove(item.id, -1)}
-                        disabled={
-                          item.source === 'tag' ||
-                          index === 0 ||
-                          animations[index - 1]?.source === 'tag'
-                        }
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="ppt-mini-button"
-                        onClick={() => onMove(item.id, 1)}
-                        disabled={
-                          item.source === 'tag' ||
-                          index === animations.length - 1 ||
-                          animations[index + 1]?.source === 'tag'
-                        }
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div
-                ref={navigatorRef}
-                className="relative ml-[94px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
-                aria-label="时间轴缩放和滚动范围"
-              >
-                <div
-                  className="absolute inset-y-0 cursor-grab rounded-full bg-[var(--vr-accent-soft)] active:cursor-grabbing"
-                  style={{
-                    left: `${timelineViewport.start * 100}%`,
-                    width: `${(timelineViewport.end - timelineViewport.start) * 100}%`,
-                  }}
-                  onPointerDown={(event) => beginNavigatorDrag(event, 'pan')}
-                  onPointerMove={updateNavigatorDrag}
-                  onPointerUp={endNavigatorDrag}
-                  onPointerCancel={endNavigatorDrag}
-                  title="拖动移动时间轴视图"
-                >
-                  <span className="pointer-events-none absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/60" />
-                  <button
-                    type="button"
-                    className="absolute left-0 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
-                    onPointerDown={(event) => beginNavigatorDrag(event, 'start')}
-                    onPointerMove={updateNavigatorDrag}
-                    onPointerUp={endNavigatorDrag}
-                    onPointerCancel={endNavigatorDrag}
-                    title="拖动缩放时间轴左边界"
-                    aria-label="拖动缩放时间轴左边界"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0 top-1/2 z-10 h-4 w-4 translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-[var(--vr-surface-strong)] bg-[var(--vr-accent)] shadow-sm"
-                    onPointerDown={(event) => beginNavigatorDrag(event, 'end')}
-                    onPointerMove={updateNavigatorDrag}
-                    onPointerUp={endNavigatorDrag}
-                    onPointerCancel={endNavigatorDrag}
-                    title="拖动缩放时间轴右边界"
-                    aria-label="拖动缩放时间轴右边界"
-                  />
-                </div>
-              </div>
-            </div>
-          </div> : null}
-          {!isOverview ? <div className="space-y-2">
-            {videoTrack ? (
-              <div className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-2.5">
-                <button
-                  type="button"
-                  onClick={onSelectVideo}
-                  className="flex w-full items-start gap-2 text-left"
-                >
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-violet-500 text-[10px] font-black text-white">▶</span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-xs text-[var(--vr-text)]">视频</strong>
-                    <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                      {videoTrack.loop ? '循环播放' : '播放一次'} · {(videoTrack.durationMs / 1000).toFixed(1)} {copy.seconds}
-                    </small>
-                  </span>
-                </button>
-              </div>
-            ) : null}
-            {animations.map((item, index) => (
-              <div
-                key={`${item.id}-details`}
-                className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-2.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(item)}
-                  className="flex w-full items-start gap-2 text-left"
-                >
-                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-black text-white ${phaseMarkerClass(item)}`}>
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-xs text-[var(--vr-text)]">
-                      {effectLabel(copy, item.effect)} · {targetLabel(copy, item)}
-                    </strong>
-                    <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                      {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
-                      {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
-                    </small>
-                  </span>
-                </button>
-                <div className="mt-2 flex justify-end gap-1">
-                  <button
-                    type="button"
-                    className="ppt-mini-button text-rose-500"
-                    onClick={() => onDelete(item.id)}
-                    disabled={item.source === 'tag'}
-                  >
-                    {copy.delete}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div> : null}
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-[var(--vr-border)] px-4 py-8 text-center text-xs leading-5 text-[var(--vr-text-muted)]">
-          {copy.noAnimationsHint}
-        </div>
-      )}
-    </>
-  );
-}
-function _ObjectProperties({
-  selected,
-  animation,
-  onUpdate,
-}: {
-  selected: Selection | null;
-  animation?: PptObjectAnimation;
-  onUpdate: (patch: Partial<PptObjectAnimation>) => void;
-}) {
-  const copy = usePptCopy();
-  if (!selected)
-    return (
-      <div className="rounded-lg border border-dashed border-[var(--vr-border)] px-4 py-8 text-center text-xs leading-5 text-[var(--vr-text-muted)]">
-        {copy.selectedObjectHint}
-      </div>
-    );
-  return (
-    <>
-      <div className="mb-5 flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]">
-          <Sparkles className="h-4 w-4" />
-        </span>
-        <div>
-          <h2 className="text-sm font-black text-[var(--vr-text)]">{selected.label}</h2>
-          <p className="text-xs text-[var(--vr-text-muted)]">
-            {animation ? effectLabel(copy, animation.effect) : copy.noAnimationAdded}
-          </p>
-        </div>
-      </div>
-      {animation?.source === 'tag' ? (
-        <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
-          <strong className="block text-[var(--vr-text)]">由剧情标签驱动</strong>
-          {startLabel(copy, animation.start)} · {effectLabel(copy, animation.effect)} ·{' '}
-          {(animation.durationMs / 1000).toFixed(1)} {copy.seconds}
-          <p className="mt-1">此处只展示该标签对应的 PPT 动画；编辑标签后，时间轴和导出会自动同步。</p>
-        </div>
-      ) : <>
-      <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
-        {copy.start}
-        <select
-          value={animation?.start || 'onClick'}
-          onChange={(event) => onUpdate({ start: event.target.value as PptAnimationStart })}
-          className="render-field mt-1.5 w-full"
-        >
-          <option value="onClick">{copy.onClick}</option>
-          <option value="withPrevious">{copy.withPrevious}</option>
-          <option value="afterPrevious">{copy.afterPrevious}</option>
-        </select>
-      </label>
-      <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
-        {copy.effectOptions}
-        <select
-          value={animation?.direction || 'left'}
-          onChange={(event) => onUpdate({ direction: event.target.value as PptAnimationDirection })}
-          className="render-field mt-1.5 w-full"
-        >
-          <option value="left">{copy.fromLeft}</option>
-          <option value="right">{copy.fromRight}</option>
-          <option value="up">{copy.fromTop}</option>
-          <option value="down">{copy.fromBottom}</option>
-        </select>
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs font-bold text-[var(--vr-text-muted)]">
-          {copy.duration}
-          <input
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            value={(animation?.durationMs || 500) / 1000}
-            onChange={(event) =>
-              onUpdate({
-                durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
-              })
-            }
-            className="render-field mt-1.5 w-full"
-          />
-        </label>
-        <label className="text-xs font-bold text-[var(--vr-text-muted)]">
-          {copy.delay}
-          <input
-            type="number"
-            min="0"
-            max="10"
-            step="0.1"
-            value={(animation?.delayMs || 0) / 1000}
-            onChange={(event) =>
-              onUpdate({ delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000) })
-            }
-            className="render-field mt-1.5 w-full"
-          />
-        </label>
-      </div>
-      <div className="mt-6 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
-        <Clock3 className="mr-1 inline h-3.5 w-3.5" />
-        {copy.animationPersistenceHint}
-      </div>
-      </>}
-    </>
-  );
-}
-function ExportRules({
-  scene,
-  pptSettings,
-  updatePptSettings,
-}: {
-  scene?: Scene;
-  pptSettings: PptExportSettings;
-  updatePptSettings: (patch: Partial<PptExportSettings>) => void;
-}) {
-  return (
-    <>
-      <h2 className="mb-5 flex items-center gap-2 text-sm font-black text-[var(--vr-text)]">
-        <Settings2 className="h-4 w-4 text-[var(--vr-accent-strong)]" />
-        PPT 导出规则
-      </h2>
-      <Field label="页面比例">
-        <select
-          value={pptSettings.layout}
-          onChange={(event) =>
-            updatePptSettings({ layout: event.target.value as PptExportSettings['layout'] })
-          }
-          className="render-field"
-        >
-          <option value="LAYOUT_WIDE">16:9</option>
-          <option value="LAYOUT_STANDARD">4:3</option>
-        </select>
-      </Field>
-      <Field label="分支表现">
-        <select
-          value={pptSettings.branchMode}
-          onChange={(event) =>
-            updatePptSettings({ branchMode: event.target.value as PptExportSettings['branchMode'] })
-          }
-          className="render-field"
-        >
-          <option value="interactive">互动跳转</option>
-          <option value="linear">主线演示</option>
-          <option value="all">全部分支</option>
-        </select>
-      </Field>
-      <Toggle
-        label="生成封面页"
-        checked={pptSettings.includeCover}
-        onChange={(includeCover) => updatePptSettings({ includeCover })}
-      />
-      {scene?.backgroundVideoUrl ? (
-        <Toggle
-          label="循环播放此页视频"
-          checked={pptSettings.videoLoopByScene?.[scene.id] ?? false}
-          onChange={(loop) =>
-            updatePptSettings({
-              videoLoopByScene: { ...pptSettings.videoLoopByScene, [scene.id]: loop },
-            })
-          }
-        />
-      ) : null}
-      <Toggle
-        label="写入演讲备注"
-        checked={pptSettings.includeNotes}
-        onChange={(includeNotes) => updatePptSettings({ includeNotes })}
-      />
-      <div className="mt-6 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
-        背景、角色、对话框、字体与选项均与网页设置同步；动画以独立时间线保存。
-      </div>
-    </>
-  );
-}
-function NotesPanel({
-  height,
-  onResizeStart,
-  value,
-  onChange,
-}: {
-  height: number;
-  onResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
-  value?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <section
-      className="relative shrink-0 border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)]"
-      style={{ height }}
-    >
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        onPointerDown={onResizeStart}
-        className="absolute inset-x-0 top-0 z-10 h-2 -translate-y-1/2 cursor-row-resize before:absolute before:inset-x-0 before:top-1/2 before:border-t before:border-[var(--vr-border)] hover:before:border-[var(--vr-accent)]"
-      />
-      <textarea
-        value={value || ''}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="单击此处添加备注"
-        className="h-full w-full resize-none bg-transparent px-4 py-3 text-base leading-7 text-[var(--vr-text)] outline-none placeholder:text-[var(--vr-text-muted)]"
-      />
-    </section>
-  );
-}
-function PptFooterBar({
-  viewMode,
-  setViewMode,
-  notesOpen,
-  setNotesOpen,
-  zoom,
-  setZoom,
-  onFit,
-  onPlay,
-}: {
-  viewMode: ViewMode;
-  setViewMode: (value: ViewMode) => void;
-  notesOpen: boolean;
-  setNotesOpen: (value: boolean) => void;
-  zoom: number;
-  setZoom: (value: number) => void;
-  onFit: () => void;
-  onPlay: () => void;
-}) {
-  const button = (active: boolean) =>
-    `grid h-8 w-8 place-items-center rounded transition-colors ${active ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]' : 'text-[var(--vr-text-muted)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]'}`;
-  return (
-    <footer className="absolute inset-x-0 bottom-0 z-50 flex h-9 items-center border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-2 text-xs shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
-      <button
-        type="button"
-        onClick={() => setNotesOpen(!notesOpen)}
-        className={`flex h-8 items-center gap-1.5 border-r border-[var(--vr-border)] px-2 font-bold ${notesOpen ? 'text-[var(--vr-accent-strong)]' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
-      >
-        <StickyNote className="h-4 w-4" />
-        备注
-      </button>
-      <div className="ml-auto flex h-full items-center gap-1">
-        <button
-          type="button"
-          title="普通视图"
-          className={button(viewMode === 'normal')}
-          onClick={() => setViewMode('normal')}
-        >
-          <Presentation className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          title="幻灯片浏览"
-          className={button(viewMode === 'sorter')}
-          onClick={() => setViewMode('sorter')}
-        >
-          <Grid2X2 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          title="阅读视图"
-          className={button(viewMode === 'reading')}
-          onClick={() => setViewMode('reading')}
-        >
-          <BookOpen className="h-4 w-4" />
-        </button>
-        <button type="button" title="从头播放" className={button(false)} onClick={onPlay}>
-          <MonitorPlay className="h-4 w-4" />
-        </button>
-        <span className="mx-1 h-4 border-l border-[var(--vr-border)]" />
-        <button
-          type="button"
-          title="缩小"
-          className={button(false)}
-          onClick={() => setZoom(Math.max(50, zoom - 10))}
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <input
-          aria-label="缩放比例"
-          type="range"
-          min="50"
-          max="200"
-          value={zoom}
-          onChange={(event) => setZoom(Number(event.target.value))}
-          className="w-20 accent-[var(--vr-accent)]"
-        />
-        <button
-          type="button"
-          title="放大"
-          className={button(false)}
-          onClick={() => setZoom(Math.min(200, zoom + 10))}
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <span className="w-10 text-center tabular-nums text-[var(--vr-text-muted)]">{zoom}%</span>
-        <button type="button" title="适应窗口" className={button(false)} onClick={onFit}>
-          <Maximize2 className="h-4 w-4" />
-        </button>
-      </div>
-    </footer>
-  );
-}
-function PlayerOverlay({
-  playerRef,
-  selectedId,
-  isChoiceSlide,
-  scene,
-  videoLoop,
-  projectName,
-  webSettings,
-  renderStyle,
-  colors,
-  animations,
-  transition,
-  layout,
-  selectedIndex,
-  total,
-  onNext,
-  onPrevious,
-  onClose,
-  onChoose,
-}: {
-  playerRef: React.RefObject<HTMLDivElement | null>;
-  selectedId: string;
-  isChoiceSlide?: boolean;
-  scene?: Scene;
-  videoLoop: boolean;
-  projectName: string;
-  webSettings: WebExportSettings;
-  renderStyle: RenderStyle;
-  colors: ReturnType<typeof pptSceneColors>;
-  animations: PptObjectAnimation[];
-  transition: PptSlideTransition;
-  layout: PptCanvasLayout;
-  selectedIndex: number;
-  total: number;
-  onNext: () => void;
-  onPrevious: () => void;
-  onClose: () => void;
-  onChoose: (targetId: string) => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[500] grid place-items-center bg-black" ref={playerRef}>
-      <div className="relative flex h-full w-full items-center justify-center p-4">
-        <div
-          className={`relative w-full overflow-hidden bg-slate-950 ${pptCanvasViewportClass(layout)} ${layout === 'LAYOUT_STANDARD' ? 'max-w-[133vh]' : 'max-w-[177vh]'}`}
-        >
-          <VirtualPresentationStage
-            fit="contain"
-            width={PPT_CONTENT_WIDTH}
-            height={PPT_CONTENT_HEIGHT}
-            className="absolute inset-0 h-full w-full"
-          >
-            <SlideCanvas
-              key={selectedId}
-              selectedId={selectedId}
-              isChoiceSlide={isChoiceSlide}
-              scene={scene}
-              videoLoop={videoLoop}
-              projectName={projectName}
-              webSettings={webSettings}
-              renderStyle={renderStyle}
-              colors={colors}
-              animations={animations}
-              transition={transition}
-              selected={null}
-              previewing
-              onSelect={() => undefined}
-              onChoose={onChoose}
-            />
-          </VirtualPresentationStage>
-        </div>
-        <div className="absolute bottom-5 left-5 text-xs font-bold text-white/70">
-          {selectedIndex + 1} / {total}
-        </div>
-        <div className="absolute bottom-4 right-4 flex items-center gap-2">
-          <PlayerButton label="上一页" onClick={onPrevious}>
-            <ChevronLeft className="h-5 w-5" />
-          </PlayerButton>
-          {!isChoiceSlide ? (
-            <PlayerButton label="下一页" onClick={onNext}>
-              <ChevronRight className="h-5 w-5" />
-            </PlayerButton>
-          ) : null}
-          <PlayerButton label="退出播放" onClick={onClose}>
-            <TimerReset className="h-5 w-5" />
-          </PlayerButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-function PlayerButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      className="grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25"
-    >
-      {children}
-    </button>
-  );
-}
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
-      <span className="mb-1.5 block">{label}</span>
-      {children}
-    </label>
-  );
-}
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 text-xs font-bold text-[var(--vr-text)]">
-      <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-    </label>
   );
 }
