@@ -315,8 +315,31 @@ body,
   cursor: none;
 }
 
-.story-canvas-flow--placing-region .react-flow__pane {
+.story-canvas-flow--placing-region .react-flow__pane,
+.story-canvas-flow--placing-region .react-flow__pane.selection,
+.story-canvas-flow--placing-region .react-flow__pane.draggable,
+.story-canvas-flow--placing-region .react-flow__pane.dragging {
   cursor: crosshair;
+}
+
+/* During a region drag, React Flow can move the pointer target from the pane to
+ * its renderer/background layers. Keep the creation cursor stable across those layers. */
+.story-canvas-flow--placing-region .react-flow__renderer,
+.story-canvas-flow--placing-region .react-flow__background,
+.story-canvas-flow--placing-region .react-flow__background * {
+  cursor: crosshair !important;
+}
+
+/* Keep the system cursor as a crosshair for the complete press-and-drag gesture. */
+html.region-placement-dragging,
+html.region-placement-dragging * {
+  cursor: crosshair !important;
+}
+
+/* Right-click box selection also keeps a stable crosshair while the button is held. */
+html.canvas-selection-dragging,
+html.canvas-selection-dragging * {
+  cursor: crosshair !important;
 }
 
 .card-placement-preview {

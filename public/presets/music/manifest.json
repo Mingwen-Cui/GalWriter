@@ -1,4 +1,29 @@
 {
   "version": 1,
-  "tracks": []
+  "tracks": [
+    {
+      "id": "cafe-ambient",
+      "name": "\u5496\u5561\u5385\u80cc\u666f",
+      "file": "\u5496\u5561\u5385\u80cc\u666f.mp3",
+      "tags": ["\u5496\u5561\u5385", "\u65e5\u5e38", "\u6e29\u99a8"],
+      "loop": true,
+      "volume": 0.4
+    },
+    {
+      "id": "rooftop-southeast-mountain",
+      "name": "\u5c4b\u9876\u4e0a\u7684\u4e1c\u5357\u82e6\u884c\u5c71",
+      "file": "\u5c4b\u9876\u4e0a\u7684\u4e1c\u5357\u82e6\u884c\u5c71.mp3",
+      "tags": ["\u7a7a\u7075", "\u53d9\u4e8b", "\u5b89\u9759"],
+      "loop": true,
+      "volume": 0.45
+    },
+    {
+      "id": "upbeat-daily",
+      "name": "\u8f7b\u5feb\u7684\u97f3\u4e50",
+      "file": "\u8f7b\u5feb\u7684\u97f3\u4e50.mp3",
+      "tags": ["\u8f7b\u5feb", "\u65e5\u5e38", "\u660e\u4eae"],
+      "loop": true,
+      "volume": 0.45
+    }
+  ]
 }

@@ -1446,14 +1446,32 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     backgroundCardTitle: t.bgCard,
   });
 
+  const cancelPendingPlacement = useCallback(() => {
+    setPendingCardPlacement(null);
+    setCardPlacementStart(null);
+    setBackgroundCardDragStart(null);
+    setDynamicWrapDragStart(null);
+  }, []);
+
+  const handleInteractionModeChange = useCallback(
+    (mode: 'select' | 'box') => {
+      cancelPendingPlacement();
+      setInteractionMode(mode);
+    },
+    [cancelPendingPlacement],
+  );
+
   const startCardPlacement = useCallback(
     (kind: 'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText') => {
-      setCardPlacementStart(null);
-      setBackgroundCardDragStart(null);
-      setDynamicWrapDragStart(null);
+      if (pendingCardPlacement === kind) {
+        cancelPendingPlacement();
+        return;
+      }
+
+      cancelPendingPlacement();
       setPendingCardPlacement(kind);
     },
-    [],
+    [cancelPendingPlacement, pendingCardPlacement],
   );
 
   const handleCardPlacement = useCallback(
@@ -1635,29 +1653,32 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   );
 
   useEffect(() => {
+    const isRegionPlacementDragging = Boolean(backgroundCardDragStart || dynamicWrapDragStart);
+    document.documentElement.classList.toggle(
+      'region-placement-dragging',
+      isRegionPlacementDragging,
+    );
+    return () => document.documentElement.classList.remove('region-placement-dragging');
+  }, [backgroundCardDragStart, dynamicWrapDragStart]);
+
+  useEffect(() => {
     if (isMobile) {
-      setPendingCardPlacement(null);
-      setCardPlacementStart(null);
-      setBackgroundCardDragStart(null);
-      setDynamicWrapDragStart(null);
+      cancelPendingPlacement();
     }
-  }, [isMobile]);
+  }, [cancelPendingPlacement, isMobile]);
 
   useEffect(() => {
     if (!pendingCardPlacement) return;
 
     const cancelPlacement = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setPendingCardPlacement(null);
-        setCardPlacementStart(null);
-        setBackgroundCardDragStart(null);
-        setDynamicWrapDragStart(null);
+        cancelPendingPlacement();
       }
     };
 
     window.addEventListener('keydown', cancelPlacement);
     return () => window.removeEventListener('keydown', cancelPlacement);
-  }, [pendingCardPlacement]);
+  }, [cancelPendingPlacement, pendingCardPlacement]);
 
   const handleEdgeDelete = useCallback(
     (edgeId: string) => {
@@ -2165,6 +2186,32 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     storyEditorCopy,
   });
 
+  const handleSendSummaryToAssistant = useCallback(
+    (summaryId: string, content: string) => {
+      const text = content.trim();
+      if (!text) return;
+      const summaryNode = nodes.find((node) => node.id === summaryId && node.type === 'summaryNode');
+      const title = String(
+        summaryNode?.data?.title ||
+          (language === 'zh' ? '文本导出' : language === 'ja' ? 'テキスト書き出し' : 'Text Export'),
+      );
+      const contextId = `summary:${summaryId}`;
+
+      setAssistantOpen(true);
+      setAssistantInputContexts((contexts) => [
+        ...contexts.filter((context) => context.id !== contextId),
+        {
+          id: contextId,
+          title,
+          content: text,
+          cardCount: 0,
+          assetCounts: { images: 0, videos: 0 },
+        },
+      ]);
+    },
+    [language, nodes, setAssistantInputContexts, setAssistantOpen],
+  );
+
   // =========================================================================
   // Project Management (extracted to useProjectManagement)
   // =========================================================================
@@ -2477,6 +2524,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleUpdateNode,
   });
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('canvas-selection-dragging', isRightDragging);
+    return () => document.documentElement.classList.remove('canvas-selection-dragging');
+  }, [isRightDragging]);
+
   // NOTE: 手机端上框选时，为了防止默认的页面滚动/缩放，需要阻止默认行为 (preventDefault)。
   // 由于现代浏览器在 React 事件系统中默认将 Touch 监听器注册为被动监听器 (passive: true)，
   // 导致在 onTouchMoveCapture 里 preventDefault() 会报错。
@@ -2600,6 +2652,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onConvertToGroup: convertBackgroundToDynamicGroup,
       onConvertToBackground: convertDynamicGroupToBackground,
       onSendToAssistant: handlePrefillAssistantFromRegion,
+      onSendSummaryToAssistant: handleSendSummaryToAssistant,
       onHighlightStoryline: toggleStorylineHighlight,
       pasteAsPlainText,
       showNodeActions,
@@ -2639,6 +2692,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       convertBackgroundToDynamicGroup,
       convertDynamicGroupToBackground,
       handlePrefillAssistantFromRegion,
+      handleSendSummaryToAssistant,
       toggleStorylineHighlight,
       pasteAsPlainText,
       showNodeActions,
@@ -2751,9 +2805,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             hasHiddenNodes={nodes.some((node) => node.data?.hidden)}
             fileInputRef={fileInputRef}
             setToolbarCollapsed={setToolbarCollapsed}
-            setInteractionMode={setInteractionMode}
+            setInteractionMode={handleInteractionModeChange}
             addNewShape={addNewShape}
             startCardPlacement={startCardPlacement}
+            cancelPendingPlacement={cancelPendingPlacement}
             addNewBackgroundCard={addNewBackgroundCard}
             addNewDynamicWrap={addNewDynamicWrap}
             addNewCharacterNode={addNewCharacterNode}

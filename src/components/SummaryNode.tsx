@@ -1,6 +1,6 @@
 import { Handle, NodeProps, Position, useStoreApi, useUpdateNodeInternals } from '@xyflow/react';
-import { ChevronDown, ChevronRight, Copy, FileText, RefreshCw, Trash2 } from 'lucide-react';
-import React, { memo, useEffect, useState } from 'react';
+import { Bot, ChevronDown, ChevronRight, Copy, FileText, Trash2 } from 'lucide-react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 
 import { formatCharacterNodeText, formatSceneNodeText } from '../lib/export';
 import type { Language } from '../lib/i18n';
@@ -8,7 +8,10 @@ import { filterMentionTags } from './render/video/shared/storyNodes';
 
 export function SummaryNode({ id, data, selected }: NodeProps) {
   const lang = (data.language as Language) || 'zh';
-  const tr = (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en);
+  const tr = useCallback(
+    (zh: string, ja: string, en: string) => (lang === 'zh' ? zh : lang === 'ja' ? ja : en),
+    [lang],
+  );
   const [content, setContent] = useState('');
   const [copying, setCopying] = useState(false);
   const [useNumbers, setUseNumbers] = useState(true);
@@ -45,7 +48,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     }
   };
 
-  const handleConvert = () => {
+  const handleConvert = useCallback(() => {
     // NOTE: 在函数调用时读取快照，而不订阅整个数组，避免不必要的重渲染
     const { edges, nodes } = storeApi.getState();
     // 找出所有可以到达当前汇总卡片的节点 (向后追溯)
@@ -171,7 +174,12 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     const separator = useArrows ? '\n\n→\n\n' : '\n\n';
     const convertedText = textArray.join(separator);
     setContent(convertedText);
-  };
+  }, [hideCharacterTags, hideSceneTags, id, includeTitles, storeApi, traceToRoot, tr, useArrows, useNumbers]);
+
+  useEffect(() => {
+    handleConvert();
+    return storeApi.subscribe(handleConvert);
+  }, [handleConvert, storeApi]);
 
   const handleCopy = async () => {
     if (!content) return;
@@ -206,14 +214,22 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
     setTimeout(() => setCopying(false), 2000);
   };
 
+  const handleSendToAssistant = () => {
+    if (!content) return;
+    (data.onSendSummaryToAssistant as ((nodeId: string, text: string) => void) | undefined)?.(
+      id,
+      content,
+    );
+  };
+
   const renderContent = () => {
     if (!content)
       return (
         <div className="text-[var(--text-muted)] text-sm text-center py-8 select-none">
           {tr(
-            '点击上方转化按钮，获取连接卡片的文字内容。',
-            '上の変換ボタンを押すと、接続されたカードのテキストを取得できます。',
-            'Click Convert above to collect text from connected cards.',
+            '连接卡片后，文字内容会实时显示在这里。',
+            'カードを接続すると、テキストがここにリアルタイムで表示されます。',
+            'Connected card text appears here in real time.',
           )}
         </div>
       );
@@ -263,16 +279,18 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
           </div>
           <div className="flex gap-1">
             <button
-              onClick={handleConvert}
-              className="px-2.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-[10px] font-bold transition-colors flex items-center gap-1 shadow-sm"
+              type="button"
+              onClick={handleSendToAssistant}
+              disabled={!content}
+              className="px-2.5 py-1.5 rounded text-[10px] font-bold transition-colors flex items-center gap-1 shadow-sm border border-violet-500/30 bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-violet-300"
               title={tr(
-                '将连接的卡片转换为纯文本',
-                '接続されたカードをプレーンテキストに変換',
-                'Convert connected cards to plain text',
+                '将实时文本发送给 AI 助手',
+                'リアルタイムテキストを AI アシスタントに送る',
+                'Send live text to the AI assistant',
               )}
             >
-              <RefreshCw className="w-3 h-3" />
-              {tr('转化', '変換', 'Convert')}
+              <Bot className="w-3 h-3" />
+              AI
             </button>
             <button
               onClick={handleCopy}

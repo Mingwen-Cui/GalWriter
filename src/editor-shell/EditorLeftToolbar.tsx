@@ -124,11 +124,12 @@ interface EditorLeftToolbarProps {
   hasHiddenNodes: boolean;
   fileInputRef: MutableRefObject<HTMLInputElement | null>;
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
-  setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
+  setInteractionMode: (mode: 'select' | 'box') => void;
   addNewShape: (shape: StoryCardVisualShape) => void;
   startCardPlacement: (
     kind: 'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText',
   ) => void;
+  cancelPendingPlacement: () => void;
   addNewBackgroundCard: () => void;
   addNewDynamicWrap: () => void;
   addNewCharacterNode: () => void;
@@ -167,6 +168,7 @@ export function EditorLeftToolbar({
   setInteractionMode,
   addNewShape,
   startCardPlacement,
+  cancelPendingPlacement,
   addNewBackgroundCard,
   addNewDynamicWrap,
   addNewCharacterNode,
@@ -472,22 +474,31 @@ export function EditorLeftToolbar({
         : activeQuickMenu === 'media'
           ? [
               {
-                id: 'image',
-                label: sideToolbarStrings.image,
-                Icon: ImageIcon,
-                onSelect: () => openMediaPicker('image'),
+            id: 'image',
+            label: sideToolbarStrings.image,
+            Icon: ImageIcon,
+            onSelect: () => {
+              cancelPendingPlacement();
+              openMediaPicker('image');
+            },
               },
               {
-                id: 'video',
-                label: sideToolbarStrings.video,
-                Icon: Video,
-                onSelect: () => openMediaPicker('video'),
+            id: 'video',
+            label: sideToolbarStrings.video,
+            Icon: Video,
+            onSelect: () => {
+              cancelPendingPlacement();
+              openMediaPicker('video');
+            },
               },
               {
-                id: 'audio',
-                label: sideToolbarStrings.audio,
-                Icon: AudioLines,
-                onSelect: () => openMediaPicker('audio'),
+            id: 'audio',
+            label: sideToolbarStrings.audio,
+            Icon: AudioLines,
+            onSelect: () => {
+              cancelPendingPlacement();
+              openMediaPicker('audio');
+            },
               },
             ]
           : [];
@@ -634,7 +645,10 @@ export function EditorLeftToolbar({
 
             <button
               className="relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewCharacterNode}
+              onClick={() => {
+                cancelPendingPlacement();
+                addNewCharacterNode();
+              }}
               onMouseEnter={(event) => showCardHoverGuide('character', event.currentTarget)}
               onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('character', event.currentTarget)}
@@ -647,7 +661,10 @@ export function EditorLeftToolbar({
 
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
-              onClick={addNewSceneNode}
+              onClick={() => {
+                cancelPendingPlacement();
+                addNewSceneNode();
+              }}
               onMouseEnter={(event) => showCardHoverGuide('scene', event.currentTarget)}
               onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('scene', event.currentTarget)}
@@ -660,7 +677,10 @@ export function EditorLeftToolbar({
 
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewPlotStructureNode}
+              onClick={() => {
+                cancelPendingPlacement();
+                addNewPlotStructureNode();
+              }}
               onMouseEnter={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
               onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('plotStructure', event.currentTarget)}
@@ -673,7 +693,10 @@ export function EditorLeftToolbar({
 
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={addNewNumberConditionNode}
+              onClick={() => {
+                cancelPendingPlacement();
+                addNewNumberConditionNode();
+              }}
               onMouseEnter={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
               onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
               onFocus={(event) => showCardHoverGuide('numberCondition', event.currentTarget)}
@@ -689,7 +712,10 @@ export function EditorLeftToolbar({
             {!isMobile && (
               <button
                 className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={addNewSummaryNode}
+                onClick={() => {
+                  cancelPendingPlacement();
+                  addNewSummaryNode();
+                }}
                 onMouseEnter={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
                 onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
                 onFocus={(event) => showCardHoverGuide('textSummary', event.currentTarget)}
@@ -704,7 +730,10 @@ export function EditorLeftToolbar({
             {!isMobile && (
               <button
                 className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={addNewBatchReplaceNode}
+                onClick={() => {
+                  cancelPendingPlacement();
+                  addNewBatchReplaceNode();
+                }}
                 onMouseEnter={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
                 onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
                 onFocus={(event) => showCardHoverGuide('batchReplace', event.currentTarget)}
@@ -720,7 +749,10 @@ export function EditorLeftToolbar({
 
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => openMediaPicker('all')}
+              onClick={() => {
+                cancelPendingPlacement();
+                openMediaPicker('all');
+              }}
               onPointerEnter={(event) => openQuickMenu('media', event.currentTarget)}
               onPointerLeave={scheduleQuickMenuClose}
               aria-label={t.toolMedia}
