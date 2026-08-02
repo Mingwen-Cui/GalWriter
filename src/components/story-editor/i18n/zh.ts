@@ -11,6 +11,7 @@ export const storyEditorZh: typeof storyEditorEn = {
   textAudioName: '文字音频 {number}',
   audioGenerated: '文字音频已生成',
   audioGenerationFailed: '文字音频生成失败',
+  unknownError: '未知错误',
   branchTitle: '分支',
   storylineTraced: '已追踪当前故事线',
   aiGenerationFailed: 'AI 生成失败',

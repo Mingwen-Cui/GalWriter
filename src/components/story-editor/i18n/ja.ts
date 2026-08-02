@@ -11,6 +11,7 @@ export const storyEditorJa: typeof storyEditorEn = {
   textAudioName: 'テキスト音声 {number}',
   audioGenerated: '音声を生成しました',
   audioGenerationFailed: '音声生成に失敗しました',
+  unknownError: '不明なエラー',
   branchTitle: '分岐',
   storylineTraced: '現在のストーリーラインを追跡しました',
   aiGenerationFailed: 'AI生成に失敗しました',

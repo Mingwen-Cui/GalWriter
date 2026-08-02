@@ -9,6 +9,7 @@ export const storyEditorEn = {
   textAudioName: 'Text audio {number}',
   audioGenerated: 'Audio generated',
   audioGenerationFailed: 'Audio generation failed',
+  unknownError: 'Unknown error',
   branchTitle: 'Branch',
   storylineTraced: 'Storyline traced',
   aiGenerationFailed: 'AI generation failed',

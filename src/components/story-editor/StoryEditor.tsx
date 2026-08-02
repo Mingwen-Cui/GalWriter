@@ -12,7 +12,6 @@ import type {
   ProjectAIProfilesExport,
   SavedAIProfile,
   SceneImageMode,
-  StoryAudioClip,
   StoryNodeData,
   StoryTitlePlacement,
   TextAIProfile,
@@ -37,7 +36,6 @@ import { useSelectionActions } from '../../editor-features/selection-tools/useSe
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { createProjectThumbnail } from '../../editor-services/projectThumbnail';
-import { ttsService } from '../../editor-services/ttsService';
 import { AIActionModal } from '../../editor-shell/AIActionModal';
 import { AssistantPanel } from '../../editor-shell/AssistantPanel';
 import { AutoSaveRecoveryModal } from '../../editor-shell/AutoSaveRecoveryModal';
@@ -67,7 +65,6 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
-import { buildRegionStoryItems, formatRegionStoryForPrompt } from '../../lib/plotStructure';
 import {
   createCharacterPresentation,
   createScenePresentation,
@@ -123,9 +120,13 @@ import type {
 } from './types';
 import { useAssistantSystem } from './useAssistantSystem';
 import { useEditorFooterHint } from './useEditorFooterHint';
+import { useEditorHistory } from './useEditorHistory';
+import { useEditorKeyboardShortcuts } from './useEditorKeyboardShortcuts';
 import { useGraphPresentation } from './useGraphPresentation';
 import { usePlotStructureGeneration } from './usePlotStructureGeneration';
 import { useProjectManagement } from './useProjectManagement';
+import { useRegionAssistantContext } from './useRegionAssistantContext';
+import { useStoryNodeSpeechGeneration } from './useStoryNodeSpeechGeneration';
 import { syncCloseButtonBehavior } from './windowBehavior';
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
@@ -734,13 +735,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     );
   }, [showTitles, storyTitlePlacement, setNodes]);
 
-  const [history, setHistory] = useState<{
-    past: { nodes: Node[]; edges: Edge[] }[];
-    future: { nodes: Node[]; edges: Edge[] }[];
-  }>({ past: [], future: [] });
-  const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: INITIAL_EDGES });
-  const isUndoRedoAction = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { history, setHistory, lastHistoryState, undo, redo } = useEditorHistory({
+    edges,
+    nodes,
+    setEdges,
+    setNodes,
+  });
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
   // NOTE: ollama 和 hosted 均不需要用户填写 API Key，故不触发警告
   const missingTextApiKey =
@@ -1186,24 +1186,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   );
 
   React.useEffect(() => {
-    if (isUndoRedoAction.current) {
-      isUndoRedoAction.current = false;
-      return;
-    }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      // Deep equal check for history
-      if (JSON.stringify(lastHistoryState.current) !== JSON.stringify({ nodes, edges })) {
-        setHistory((h) => ({
-          past: [...h.past, lastHistoryState.current].slice(-50),
-          future: [],
-        }));
-        lastHistoryState.current = { nodes, edges };
-      }
-    }, 800);
-  }, [nodes, edges]);
-
-  React.useEffect(() => {
     setNodes((currentNodes) => {
       const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
       let changed = false;
@@ -1395,32 +1377,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setNodes,
   });
 
-  const undo = useCallback(() => {
-    setHistory((h) => {
-      if (h.past.length === 0) return h;
-      const previous = h.past[h.past.length - 1];
-      const newPast = h.past.slice(0, -1);
-      isUndoRedoAction.current = true;
-      setNodes(previous.nodes);
-      setEdges(previous.edges);
-      lastHistoryState.current = previous;
-      return { past: newPast, future: [{ nodes, edges }, ...h.future] };
-    });
-  }, [nodes, edges, setNodes, setEdges]);
-
-  const redo = useCallback(() => {
-    setHistory((h) => {
-      if (h.future.length === 0) return h;
-      const next = h.future[0];
-      const newFuture = h.future.slice(1);
-      isUndoRedoAction.current = true;
-      setNodes(next.nodes);
-      setEdges(next.edges);
-      lastHistoryState.current = next;
-      return { past: [...h.past, { nodes, edges }], future: newFuture };
-    });
-  }, [nodes, edges, setNodes, setEdges]);
-
   const {
     handleCopy,
     handlePaste,
@@ -1450,56 +1406,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
   });
 
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const modifier = isMac ? e.metaKey : e.ctrlKey;
-      const key = e.key.toLowerCase();
-      const activeElement = document.activeElement;
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      const hasInputSelection =
-        (activeElement instanceof HTMLInputElement ||
-          activeElement instanceof HTMLTextAreaElement) &&
-        activeElement.selectionStart !== null &&
-        activeElement.selectionEnd !== null &&
-        activeElement.selectionStart !== activeElement.selectionEnd;
-      const hasDocumentSelection = Boolean(window.getSelection()?.toString());
-
-      if (modifier && key === 'c' && (hasInputSelection || hasDocumentSelection)) {
-        showToast(storyEditorCopy.textCopied);
-        return;
-      }
-
-      if (
-        activeTag === 'input' ||
-        activeTag === 'textarea' ||
-        (activeElement as HTMLElement)?.isContentEditable
-      ) {
-        return;
-      }
-
-      if (modifier && key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-      } else if (modifier && key === 'y') {
-        e.preventDefault();
-        redo();
-      } else if (modifier && key === 'c') {
-        handleCopy();
-      } else if (modifier && key === 'v') {
-        e.preventDefault();
-        handlePaste();
-      } else if (key === 'delete' || key === 'backspace') {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-          e.preventDefault();
-          deleteSelected();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, handleCopy, handlePaste, deleteSelected, showToast, storyEditorCopy.textCopied]);
+  useEditorKeyboardShortcuts({
+    deleteSelected,
+    handleCopy,
+    handlePaste,
+    redo,
+    showToast,
+    textCopiedMessage: storyEditorCopy.textCopied,
+    undo,
+  });
 
   const handleUpdateNode = useCallback(
     (id: string, data: any) => {
@@ -1528,108 +1443,25 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [setNodes],
   );
 
-  const handleGenerateStoryNodeSpeech = useCallback(
-    async (nodeId: string) => {
-      if (ttsLoading) return;
-
-      const node = nodes.find((item) => item.id === nodeId && item.type === 'storyNode');
-      if (!node) return;
-
-      const speechSegments = ttsService.buildSpeechSegments(
-        String(node.data.title || ''),
-        String(node.data.text || ''),
-        ttsNarrationMode,
-      );
-      if (speechSegments.length === 0) return;
-      const missingVoiceApiConfig =
-        !activeVoiceProfile ||
-        (ttsProvider === 'youdao'
-          ? !ttsAppKey.trim() || !ttsApiKey.trim()
-          : ttsProvider !== 'system' && ttsProvider !== 'hosted-voice' && !ttsApiKey.trim());
-      if (missingVoiceApiConfig) {
-        requestSettingsAttention('voice');
-        showToast(storyEditorCopy.voiceApiRequired);
-        return;
-      }
-
-      setTtsLoading(true);
-      try {
-        showToast(storyEditorCopy.generatingAudio);
-        const existingClips = Array.isArray(node.data.audioClips)
-          ? node.data.audioClips
-          : typeof node.data.audioUrl === 'string' && node.data.audioUrl
-            ? [
-                {
-                  id: crypto.randomUUID(),
-                  name: storyEditorCopy.existingAudio,
-                  url: node.data.audioUrl,
-                  source: 'imported' as const,
-                  createdAt: Date.now() - 1,
-                },
-              ]
-            : [];
-        const generatedClips: StoryAudioClip[] = [];
-        for (const [index, segment] of speechSegments.entries()) {
-          const audio = await ttsService.generate({
-            text: segment.text,
-            provider: ttsProvider,
-            apiUrl: ttsApiUrl,
-            apiKey: ttsApiKey,
-            appKey: ttsAppKey,
-            appSecret: ttsAppSecret || ttsApiKey,
-            model: ttsModel,
-            voice: ttsVoice,
-          });
-          generatedClips.push({
-            id: crypto.randomUUID(),
-            name: formatStoryEditorText(storyEditorCopy.textAudioName, {
-              number: existingClips.length + index + 1,
-            }),
-            url: audio.url,
-            source: 'tts',
-            createdAt: Date.now() + index,
-            segmentId: segment.id,
-            order: index,
-          });
-        }
-        const nextClips = [...existingClips, ...generatedClips];
-        handleUpdateNode(nodeId, {
-          audioUrl: nextClips.find((clip) => !clip.skipped)?.url || generatedClips[0]?.url,
-          audioClips: nextClips,
-          ttsGenerated: true,
-        });
-        showToast(storyEditorCopy.audioGenerated);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('TTS generation failed:', error);
-        await showDialogAlert({
-          title: storyEditorCopy.audioGenerationFailed,
-          description: message,
-          tone: 'warning',
-        });
-      } finally {
-        setTtsLoading(false);
-      }
-    },
-    [
-      handleUpdateNode,
-      nodes,
-      activeVoiceProfile,
-      requestSettingsAttention,
-      showToast,
-      ttsApiKey,
-      ttsApiUrl,
-      ttsAppKey,
-      ttsAppSecret,
-      ttsLoading,
-      ttsModel,
-      ttsNarrationMode,
-      ttsProvider,
-      ttsVoice,
-      showDialogAlert,
-      storyEditorCopy,
-    ],
-  );
+  const handleGenerateStoryNodeSpeech = useStoryNodeSpeechGeneration({
+    activeVoiceProfile,
+    handleUpdateNode,
+    nodes,
+    requestSettingsAttention,
+    setTtsLoading,
+    showDialogAlert,
+    showToast,
+    storyEditorCopy,
+    ttsApiKey,
+    ttsApiUrl,
+    ttsAppKey,
+    ttsAppSecret,
+    ttsLoading,
+    ttsModel,
+    ttsNarrationMode,
+    ttsProvider,
+    ttsVoice,
+  });
 
   const {
     callAIForText,
@@ -2250,129 +2082,17 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     requestSettingsAttention,
   });
 
-  const handlePrefillAssistantFromRegion = useCallback(
-    (regionId: string) => {
-      const region = nodes.find(
-        (node) =>
-          node.id === regionId && (node.type === 'backgroundNode' || node.type === 'groupNode'),
-      );
-      if (!region) return;
-
-      const isContentNode = (node: Node) =>
-        ['storyNode', 'characterNode', 'sceneNode', 'textNode'].includes(node.type || '');
-      const readSize = (value: unknown, fallback: number) => {
-        const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
-        return Number.isFinite(parsed) ? parsed : fallback;
-      };
-      let regionNodeIds: string[];
-
-      if (region.type === 'groupNode') {
-        const childIds = Array.isArray(region.data?.childIds) ? region.data.childIds : [];
-        regionNodeIds = childIds.filter((id) => {
-          const child = nodes.find((node) => node.id === id);
-          return !!child && isContentNode(child);
-        });
-      } else {
-        const width = readSize(region.measured?.width ?? region.style?.width, 600);
-        const height = readSize(region.measured?.height ?? region.style?.height, 400);
-        regionNodeIds = nodes
-          .filter(isContentNode)
-          .filter((node) => {
-            const nodeWidth = readSize(node.measured?.width ?? node.style?.width, 300);
-            const nodeHeight = readSize(node.measured?.height ?? node.style?.height, 200);
-            const centerX = node.position.x + nodeWidth / 2;
-            const centerY = node.position.y + nodeHeight / 2;
-            return (
-              centerX >= region.position.x &&
-              centerX <= region.position.x + width &&
-              centerY >= region.position.y &&
-              centerY <= region.position.y + height
-            );
-          })
-          .map((node) => node.id);
-      }
-
-      const orderedIds = [...regionNodeIds].sort((leftId, rightId) => {
-        const left = nodes.find((node) => node.id === leftId)!;
-        const right = nodes.find((node) => node.id === rightId)!;
-        return Math.abs(left.position.y - right.position.y) > 30
-          ? left.position.y - right.position.y
-          : left.position.x - right.position.x;
-      });
-      const content = formatRegionStoryForPrompt(buildRegionStoryItems(nodes, edges, orderedIds));
-
-      if (!content) {
-        showToast(storyEditorCopy.regionEmpty, 'error');
-        return;
-      }
-
-      const regionTitle = String(
-        region.data?.title || (region.type === 'groupNode' ? t.dynamicWrap : t.bgCard),
-      );
-      const message = formatStoryEditorText(storyEditorCopy.regionContext, {
-        regionTitle,
-        content,
-      });
-
-      const replacingExistingContext = assistantInputContexts.some(
-        (context) => context.id === regionId,
-      );
-      if (!replacingExistingContext && assistantInputContexts.length >= 10) {
-        showToast(storyEditorCopy.regionLimit, 'error');
-        return;
-      }
-
-      setAssistantOpen(true);
-      const assetUrls = {
-        images: new Set<string>(),
-        videos: new Set<string>(),
-      };
-      const addAsset = (type: keyof typeof assetUrls, url: unknown) => {
-        if (typeof url === 'string' && url.trim()) assetUrls[type].add(url);
-      };
-      orderedIds.forEach((nodeId) => {
-        const node = nodes.find((item) => item.id === nodeId);
-        if (!node) return;
-        const nodeData = node.data as Record<string, unknown>;
-        addAsset('images', nodeData.imageUrl);
-        addAsset('videos', nodeData.videoUrl);
-        if (Array.isArray(nodeData.outfits)) {
-          nodeData.outfits.forEach((outfit) =>
-            addAsset('images', (outfit as { imageUrl?: unknown })?.imageUrl),
-          );
-        }
-        if (Array.isArray(nodeData.images)) {
-          nodeData.images.forEach((image) => {
-            addAsset('images', (image as { imageUrl?: unknown })?.imageUrl);
-            addAsset('videos', (image as { videoUrl?: unknown })?.videoUrl);
-          });
-        }
-      });
-      setAssistantInputContexts((contexts) => [
-        ...contexts.filter((context) => context.id !== regionId),
-        {
-          id: regionId,
-          title: regionTitle,
-          content: message,
-          cardCount: orderedIds.length,
-          assetCounts: {
-            images: assetUrls.images.size,
-            videos: assetUrls.videos.size,
-          },
-        },
-      ]);
-    },
-    [
-      assistantInputContexts,
-      edges,
-      nodes,
-      setAssistantInputContexts,
-      setAssistantOpen,
-      showToast,
-      storyEditorCopy,
-      t,
-    ],
-  );
+  const handlePrefillAssistantFromRegion = useRegionAssistantContext({
+    assistantInputContexts,
+    backgroundLabel: t.bgCard,
+    dynamicGroupLabel: t.dynamicWrap,
+    edges,
+    nodes,
+    setAssistantInputContexts,
+    setAssistantOpen,
+    showToast,
+    storyEditorCopy,
+  });
 
   // =========================================================================
   // Project Management (extracted to useProjectManagement)
