@@ -1,7 +1,7 @@
 {
   "name": "galwriter-ai",
   "private": true,
-  "version": "1.2.7",
+  "version": "1.3.0",
   "type": "module",
   "description": "AI 互动叙事创作工作台 - 旮旯作家 · GalWriter",
   "author": "旮旯作家 · GalWriter (Mingwen Cui)",
