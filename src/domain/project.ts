@@ -50,6 +50,17 @@ export type AIActionType =
   | 'scene_only'
   | 'dialogue_only';
 
+export type SettingLibraryKind = 'character' | 'scene';
+export type SettingLibrarySource = 'saved' | 'preset';
+
+export interface SettingLibraryListItem {
+  id: string;
+  kind: SettingLibraryKind;
+  source: SettingLibrarySource;
+  name: string;
+  updatedAt?: number;
+}
+
 export interface AIPromptsConfig {
   basePrompt: string;
   continue: string;
@@ -544,6 +555,17 @@ export interface EditorNodeCallbacks {
   onRemoveTextFromImage?: (id: string) => void;
   onExtractMedia?: (id: string) => void;
   onGenerateSettingText?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
+  onSaveSettingLibrary?: (
+    id: string,
+    kind: SettingLibraryKind,
+    mode: 'new' | 'update',
+  ) => Promise<void> | void;
+  onUseSettingLibrary?: (
+    kind: SettingLibraryKind,
+    itemId: string,
+    source: SettingLibrarySource,
+  ) => Promise<void> | void;
+  onDeleteSettingLibrary?: (itemId: string) => Promise<void> | void;
   onPlotStructureGenerate?: (params: unknown) => Promise<void> | void;
   onHighlightStoryline?: (id: string) => void;
 }
@@ -568,6 +590,8 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   isHighlighted?: boolean;
   isMinimized?: boolean;
   cardToolbarScale?: CardToolbarScale;
+  settingLibraryItems?: SettingLibraryListItem[];
+  settingLibraryPresets?: SettingLibraryListItem[];
 }
 
 export interface StoryNodeData extends BaseEditorNodeData {
@@ -606,6 +630,7 @@ export interface CharacterNodeData extends BaseEditorNodeData {
   relationships?: string;
   notes?: string;
   voiceProfileId?: string;
+  libraryItemId?: string;
   voiceOptions?: CharacterVoiceOption[];
   /** Legacy fields retained so existing projects continue to load unchanged. */
   features?: string;
@@ -629,6 +654,7 @@ export interface SceneNodeData extends BaseEditorNodeData {
   visual?: string;
   sound?: string;
   notes?: string;
+  libraryItemId?: string;
   /** Legacy scene fields retained so existing projects remain readable. */
   description: string;
   location?: string;

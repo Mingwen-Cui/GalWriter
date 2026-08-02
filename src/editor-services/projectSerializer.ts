@@ -12,6 +12,7 @@ import type {
   StoryNode,
   StoryProject,
 } from '../domain/project';
+import type { SettingLibraryItem } from '../domain/settingLibrary';
 import type {
   AssistantTask,
   EditorProjectSettings,
@@ -139,6 +140,7 @@ export interface ExportZipParams {
   filePath?: string | null;
   thumbnailDataUrl?: string | null;
   defaultSaveDir?: string | null;
+  settingLibraryItems?: SettingLibraryItem[];
 }
 
 export interface ProjectExportResult {
@@ -164,6 +166,7 @@ export interface ImportedProjectEntry {
   suggestedProjectName: string;
   zip: JSZip | null;
   thumbnailDataUrl?: string | null;
+  settingLibraryItems?: SettingLibraryItem[];
 }
 
 export interface ApplyImportedProjectParams {
@@ -470,6 +473,39 @@ const restoreProjectMediaValue = async (
   }
 
   return value;
+};
+
+const readSettingLibraryFromZip = async (zip: JSZip | null): Promise<SettingLibraryItem[]> => {
+  if (!zip) return [];
+
+  const file = zip.file('setting-library.json');
+  if (!file) return [];
+
+  try {
+    const parsed = JSON.parse(await file.async('string')) as { items?: unknown };
+    if (!Array.isArray(parsed.items)) return [];
+
+    const rawItems = parsed.items.filter(
+      (item): item is SettingLibraryItem =>
+        isRecord(item) &&
+        typeof item.id === 'string' &&
+        (item.kind === 'character' || item.kind === 'scene') &&
+        typeof item.name === 'string' &&
+        isRecord(item.data) &&
+        typeof item.createdAt === 'number' &&
+        typeof item.updatedAt === 'number',
+    );
+
+    return Promise.all(
+      rawItems.map(async (item) => ({
+        ...item,
+        data: (await restoreProjectMediaValue(item.data, zip)) as SettingLibraryItem['data'],
+      })),
+    );
+  } catch (error) {
+    console.warn('Failed to restore setting library from ZIP', error);
+    return [];
+  }
 };
 
 const applyProjectSettings = (
@@ -826,6 +862,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     zip: JSZip,
     projectData: ProjectSnapshotData,
     thumbnailDataUrl?: string | null,
+    settingLibraryItems: SettingLibraryItem[] = [],
   ) => {
     const assetsFolder = zip.folder('assets');
 
@@ -848,6 +885,26 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     };
 
     zip.file('project.json', JSON.stringify(exportProject));
+    if (settingLibraryItems.length > 0) {
+      const processedSettingLibraryItems = await Promise.all(
+        settingLibraryItems.map(async (item) => ({
+          ...item,
+          data: (await packProjectMediaValue(
+            item.data,
+            assetsFolder,
+            `setting-library_${item.id}`,
+          )) as SettingLibraryItem['data'],
+        })),
+      );
+      zip.file(
+        'setting-library.json',
+        JSON.stringify({
+          type: 'galwriter-setting-library',
+          version: 1,
+          items: processedSettingLibraryItems,
+        }),
+      );
+    }
     if (thumbnailDataUrl) {
       const thumbnailBlob = await urlToBlob(thumbnailDataUrl);
       if (thumbnailBlob) {
@@ -864,10 +921,16 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     filePath,
     thumbnailDataUrl,
     defaultSaveDir,
+    settingLibraryItems,
   }: ExportZipParams): Promise<ProjectExportResult> => {
     const JSZip = await loadJSZip();
     const zip = new JSZip();
-    const exportProject = await writeProjectToZip(zip, projectData, thumbnailDataUrl);
+    const exportProject = await writeProjectToZip(
+      zip,
+      projectData,
+      thumbnailDataUrl,
+      settingLibraryItems,
+    );
 
     const content = await zip.generateAsync({ type: 'blob' });
     const normalizedFileName = fileName.endsWith('.zip') ? fileName : `${fileName}.zip`;
@@ -991,6 +1054,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
             thumbnailDataUrl: thumbnailFile
               ? await blobToDataUrl(await thumbnailFile.async('blob'))
               : null,
+            settingLibraryItems: await readSettingLibraryFromZip(entryZip),
           };
         }),
       );
@@ -1006,6 +1070,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
         thumbnailDataUrl: thumbnailFile
           ? await blobToDataUrl(await thumbnailFile.async('blob'))
           : null,
+        settingLibraryItems: await readSettingLibraryFromZip(zip),
       },
     ];
   };

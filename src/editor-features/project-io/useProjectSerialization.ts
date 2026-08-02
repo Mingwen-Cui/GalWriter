@@ -12,6 +12,7 @@ import type {
   EditorProjectSettingsSetters,
 } from '../../editor-state/editorConfig';
 import type { ProjectAIProfilesExport } from '../../domain/project';
+import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import { autosaveService } from '../../editor-services/autosaveService';
 import {
   createProjectSerializer,
@@ -50,6 +51,8 @@ interface UseProjectSerializationParams {
   showToast: (message: string) => void;
   getProjectThumbnailDataUrl?: () => Promise<string | null>;
   getExportedAIProfiles?: () => ProjectAIProfilesExport | null;
+  getExportedSettingLibraryItems?: () => Promise<SettingLibraryItem[]>;
+  onImportedSettingLibraryItems?: (items: SettingLibraryItem[]) => Promise<void> | void;
   onProjectFilePathSaved?: (filePath: string) => Promise<void> | void;
   onImportedProject?: (params: {
     projectData: ProjectSnapshotData;
@@ -86,6 +89,8 @@ export const useProjectSerialization = ({
   showToast,
   getProjectThumbnailDataUrl,
   getExportedAIProfiles,
+  getExportedSettingLibraryItems,
+  onImportedSettingLibraryItems,
   onProjectFilePathSaved,
   onImportedProject,
   defaultEdgeOptions,
@@ -155,7 +160,7 @@ export const useProjectSerialization = ({
   );
 
   const confirmExportZIP = useCallback(
-    async (options?: { includeApiProfiles?: boolean }) => {
+    async (options?: { includeApiProfiles?: boolean; includeSettingLibrary?: boolean }) => {
       try {
         const projectData = createSnapshotData();
         if (options?.includeApiProfiles) {
@@ -164,6 +169,9 @@ export const useProjectSerialization = ({
             projectData.exportedAIProfiles = exportedAIProfiles;
           }
         }
+        const settingLibraryItems = options?.includeSettingLibrary
+          ? await getExportedSettingLibraryItems?.()
+          : [];
         const thumbnailDataUrl = await getProjectThumbnailDataUrl?.();
         const exportedProject = await projectSerializer.exportZip({
           projectData,
@@ -171,6 +179,7 @@ export const useProjectSerialization = ({
           filePath: currentProjectFilePath,
           thumbnailDataUrl,
           defaultSaveDir: defaultProjectSaveDir,
+          settingLibraryItems,
         });
 
         if (exportedProject.canceled) return;
@@ -219,6 +228,7 @@ export const useProjectSerialization = ({
       currentProjectFilePath,
       defaultProjectSaveDir,
       getExportedAIProfiles,
+      getExportedSettingLibraryItems,
       getProjectThumbnailDataUrl,
       lastSavedSnapshotRef,
       onProjectFilePathSaved,
@@ -240,6 +250,7 @@ export const useProjectSerialization = ({
           suggestedProjectName,
           zip,
           thumbnailDataUrl,
+          settingLibraryItems,
         } of importedEntries) {
           if (!projectData.nodes || !projectData.edges) continue;
           const handled = await onImportedProject?.({
@@ -252,6 +263,9 @@ export const useProjectSerialization = ({
 
           if (!handled) {
             await applyProjectData(projectData, { zip, markSaved: true });
+          }
+          if (settingLibraryItems?.length) {
+            await onImportedSettingLibraryItems?.(settingLibraryItems);
           }
         }
       } catch (error) {
@@ -273,7 +287,15 @@ export const useProjectSerialization = ({
         });
       }
     },
-    [applyProjectData, currentProjectId, onImportedProject, projectSerializer, settings.language, showDialogAlert],
+    [
+      applyProjectData,
+      currentProjectId,
+      onImportedProject,
+      onImportedSettingLibraryItems,
+      projectSerializer,
+      settings.language,
+      showDialogAlert,
+    ],
   );
 
   const handleImportZIP = useCallback(

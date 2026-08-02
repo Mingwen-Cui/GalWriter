@@ -4,8 +4,10 @@ interface SaveProjectModalProps {
   visible: boolean;
   saveFileName: string;
   includeApiProfiles: boolean;
+  includeSettingLibrary: boolean;
   onChangeFileName: (value: string) => void;
   onChangeIncludeApiProfiles: (value: boolean) => void;
+  onChangeIncludeSettingLibrary: (value: boolean) => void;
   onClose: () => void;
   onConfirm: () => void;
   t: {
@@ -14,6 +16,8 @@ interface SaveProjectModalProps {
     projectName: string;
     includeApiProfiles: string;
     includeApiProfilesDesc: string;
+    includeSettingLibrary: string;
+    includeSettingLibraryDesc: string;
     cancel: string;
     confirmSave: string;
   };
@@ -23,8 +27,10 @@ export function SaveProjectModal({
   visible,
   saveFileName,
   includeApiProfiles,
+  includeSettingLibrary,
   onChangeFileName,
   onChangeIncludeApiProfiles,
+  onChangeIncludeSettingLibrary,
   onClose,
   onConfirm,
   t,
@@ -74,6 +80,23 @@ export function SaveProjectModal({
               </span>
               <span className="mt-1 block text-xs font-medium leading-relaxed text-amber-700 dark:text-amber-200">
                 {t.includeApiProfilesDesc}
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-left transition-colors hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:hover:bg-indigo-950/50">
+            <input
+              type="checkbox"
+              checked={includeSettingLibrary}
+              onChange={(event) => onChangeIncludeSettingLibrary(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-slate-800 dark:text-slate-100">
+                {t.includeSettingLibrary}
+              </span>
+              <span className="mt-1 block text-xs font-medium leading-relaxed text-indigo-700 dark:text-indigo-200">
+                {t.includeSettingLibraryDesc}
               </span>
             </span>
           </label>

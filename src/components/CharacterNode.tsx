@@ -36,6 +36,8 @@ import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
+import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
+import { SettingLibraryMenu } from './SettingLibraryMenu';
 
 const PROFILE_TEXTAREA_CLASS =
   'w-full min-h-[54px] resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -62,7 +64,7 @@ const getNumericSize = (value: unknown) => {
 const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
   70 + 73 + 330 + 48 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
-const CHARACTER_NODE_MIN_WIDTH = 440;
+const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
 
 export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
@@ -217,6 +219,32 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     [effectiveMinHeight, id, isMinimized, setNodes, updateNodeInternals],
   );
 
+  // Existing projects may contain character cards created with an older width.
+  // Normalize those cards to the same fixed width used by scene setting cards.
+  const syncNodeWidthToSettingCard = useCallback(() => {
+    setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id !== id) return node;
+
+        const currentWidth =
+          getNumericSize(node.style?.width) ??
+          getNumericSize((node as any).width) ??
+          getNumericSize((node as any).measured?.width);
+
+        if (currentWidth === SETTING_NODE_CARD_WIDTH) return node;
+
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            width: SETTING_NODE_CARD_WIDTH,
+            minWidth: SETTING_NODE_CARD_WIDTH,
+          },
+        };
+      }),
+    );
+  }, [id, setNodes]);
+
   const measureContentMinHeight = useCallback(() => {
     if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
 
@@ -322,6 +350,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     if (!data.assistantAutoHeightNonce) return;
     syncNodeHeightToMinimum(calculatedMinHeight, true);
   }, [calculatedMinHeight, data.assistantAutoHeightNonce, syncNodeHeightToMinimum]);
+
+  useLayoutEffect(() => {
+    syncNodeWidthToSettingCard();
+  }, [syncNodeWidthToSettingCard]);
 
   /**
    * React Flow 会缓存每个 Handle 的位置。
@@ -561,6 +593,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     >
       <NodeResizer
         minWidth={CHARACTER_NODE_MIN_WIDTH}
+        maxWidth={CHARACTER_NODE_MIN_WIDTH}
         minHeight={effectiveMinHeight}
         shouldResize={shouldResizeCharacterNode}
         isVisible={!isMinimized && selected && selectionCount === 1}
@@ -582,6 +615,15 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             </span>
           </div>
           <div className="flex gap-1 items-center">
+            <SettingLibraryMenu
+              kind="character"
+              sourceItemId={data.libraryItemId}
+              savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'character')}
+              presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'character')}
+              onSave={(mode) => data.onSaveSettingLibrary?.(id, 'character', mode)}
+              onUse={(itemId, source) => data.onUseSettingLibrary?.('character', itemId, source)}
+              onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
+            />
             <button
               onClick={handleCopyExport}
               className={`px-1.5 py-1 rounded transition-colors flex items-center justify-center ${copied ? 'text-emerald-500 hover:bg-emerald-500/20' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)]'}`}
@@ -706,23 +748,25 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <input
-                  data-agent-field="character-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => updateNodeData({ characterName: e.target.value })}
-                  placeholder="输入角色姓名..."
-                  className="w-full bg-transparent text-sm font-bold text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-b-2 focus:border-purple-400"
-                />
-                <input
-                  data-agent-field="identity"
-                  type="text"
-                  value={data.identity || ''}
-                  onChange={(e) => updateNodeData({ identity: e.target.value })}
-                  placeholder="年龄 · 职业 · 身份"
-                  className="mt-1 w-full bg-transparent text-[11px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none focus:border-b focus:border-purple-400"
-                />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <input
+                    data-agent-field="character-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => updateNodeData({ characterName: e.target.value })}
+                    placeholder="输入角色姓名..."
+                    className="min-w-[72px] max-w-[45%] flex-[0_1_34%] bg-transparent text-sm font-bold text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-b-2 focus:border-purple-400"
+                  />
+                  <input
+                    data-agent-field="identity"
+                    type="text"
+                    value={data.identity || ''}
+                    onChange={(e) => updateNodeData({ identity: e.target.value })}
+                    placeholder="年龄 · 职业 · 身份"
+                    className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none focus:border-b focus:border-purple-400"
+                  />
+                </div>
                 <div className="text-[10px] text-purple-500 font-medium flex items-center gap-1 mt-1">
                   <Settings2 className="w-3 h-3" />
                   {isGlobal

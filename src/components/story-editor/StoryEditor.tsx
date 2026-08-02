@@ -33,6 +33,7 @@ import {
 } from '../../editor-features/media/imageGeneration';
 import { useMediaActions } from '../../editor-features/media/useMediaActions';
 import { useNodeActions } from '../../editor-features/node-actions/useNodeActions';
+import { useSettingLibrary } from '../../editor-features/setting-library/useSettingLibrary';
 import { useSelectionActions } from '../../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
@@ -245,6 +246,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showPresetColors, setShowPresetColors] = useState(true);
   const [showSaveNameModal, setShowSaveNameModal] = useState(false);
   const [includeApiProfilesInExport, setIncludeApiProfilesInExport] = useState(false);
+  const [includeSettingLibraryInExport, setIncludeSettingLibraryInExport] = useState(false);
   const [showProjectHome, setShowProjectHome] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
@@ -609,6 +611,20 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setToast({ message, visible: true, tone });
     setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   }, []);
+
+  const {
+    deleteSettingLibrary,
+    presetListItems,
+    savedListItems,
+    saveSettingLibrary,
+    useSettingLibraryItem,
+  } = useSettingLibrary({
+    nodes,
+    setNodes,
+    getCenterPosition,
+    language,
+    showToast,
+  });
 
   const { emailCopied, handleContactCopy, handleDownloadAssistantMemory, qqCopied } =
     useEditorUtilityActions({
@@ -2262,6 +2278,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onRemoveTextFromImage: handleRemoveTextFromImage,
       onExtractMedia: handleExtractMedia,
       onGenerateSettingText: handleGenerateSettingText,
+      onSaveSettingLibrary: saveSettingLibrary,
+      onUseSettingLibrary: useSettingLibraryItem,
+      onDeleteSettingLibrary: deleteSettingLibrary,
+      settingLibraryItems: savedListItems,
+      settingLibraryPresets: presetListItems,
       onPlotStructureGenerate: handlePlotStructureGenerate,
       onConvertToGroup: convertBackgroundToDynamicGroup,
       onConvertToBackground: convertDynamicGroupToBackground,
@@ -2295,6 +2316,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       handleRemoveTextFromImage,
       handleExtractMedia,
       handleGenerateSettingText,
+      saveSettingLibrary,
+      useSettingLibraryItem,
+      deleteSettingLibrary,
+      savedListItems,
+      presetListItems,
       handlePlotStructureGenerate,
       convertBackgroundToDynamicGroup,
       convertDynamicGroupToBackground,
@@ -2858,10 +2884,17 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         visible={showSaveNameModal}
         saveFileName={saveFileName}
         includeApiProfiles={includeApiProfilesInExport}
+        includeSettingLibrary={includeSettingLibraryInExport}
         onChangeFileName={setSaveFileName}
         onChangeIncludeApiProfiles={setIncludeApiProfilesInExport}
+        onChangeIncludeSettingLibrary={setIncludeSettingLibraryInExport}
         onClose={() => setShowSaveNameModal(false)}
-        onConfirm={() => confirmExportJSON({ includeApiProfiles: includeApiProfilesInExport })}
+        onConfirm={() =>
+          confirmExportJSON({
+            includeApiProfiles: includeApiProfilesInExport,
+            includeSettingLibrary: includeSettingLibraryInExport,
+          })
+        }
         t={t}
       />
 

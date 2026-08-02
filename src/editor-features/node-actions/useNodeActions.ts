@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
+import { MIN_STORY_CARD_HEIGHT, SETTING_NODE_CARD_WIDTH } from '../../components/story-editor/constants';
 import type { StoryCardVisualShape } from '../../domain/project';
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
@@ -213,7 +213,8 @@ export const useNodeActions = ({
     const newNode: Node = {
       id: newId,
       type: 'characterNode',
-      position: { x: center.x - 140, y: center.y - 150 },
+      position: { x: center.x - SETTING_NODE_CARD_WIDTH / 2, y: center.y - 150 },
+      style: { width: SETTING_NODE_CARD_WIDTH },
       data: {
         id: newId,
         characterName:
@@ -230,7 +231,8 @@ export const useNodeActions = ({
     const newNode: Node = {
       id: newId,
       type: 'sceneNode',
-      position: { x: center.x - 140, y: center.y - 150 },
+      position: { x: center.x - SETTING_NODE_CARD_WIDTH / 2, y: center.y - 150 },
+      style: { width: SETTING_NODE_CARD_WIDTH },
       data: {
         id: newId,
         sceneName: language === 'zh' ? '新场景' : language === 'ja' ? '新シーン' : 'New Scene',

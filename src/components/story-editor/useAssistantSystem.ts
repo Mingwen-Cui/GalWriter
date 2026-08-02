@@ -33,6 +33,7 @@ import {
   AI_SETTING_CARD_LAYOUT_HEIGHT,
   AI_STORY_CARD_HEIGHT,
   AI_STORY_CARD_WIDTH,
+  SETTING_NODE_CARD_WIDTH,
 } from './constants';
 
 // ---------------------------------------------------------------------------
@@ -494,8 +495,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         AI_STORY_CARD_WIDTH * storyColumnCount + storyColumnGap * (storyColumnCount - 1);
       const rowGap = 200;
       const layoutColumns = [
-        { type: 'character' as const, indexes: characterIndexes, width: 440 },
-        { type: 'scene' as const, indexes: sceneIndexes, width: 440 },
+        { type: 'character' as const, indexes: characterIndexes, width: SETTING_NODE_CARD_WIDTH },
+        { type: 'scene' as const, indexes: sceneIndexes, width: SETTING_NODE_CARD_WIDTH },
         { type: 'story' as const, indexes: storyIndexes, width: storyLayoutWidth },
         { type: 'number-condition' as const, indexes: numberConditionIndexes, width: 300 },
       ].filter((column) => column.indexes.length > 0);

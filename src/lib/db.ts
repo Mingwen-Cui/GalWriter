@@ -7,6 +7,7 @@ import type {
   SavedAIProfile,
   StoryProject,
 } from '../domain/project';
+import type { SettingLibraryItem } from '../domain/settingLibrary';
 import { registerBlobAsset } from './blobAssetRegistry';
 
 export interface AutoSaveRecord {
@@ -76,6 +77,16 @@ interface StoredLocalProjectRecord {
   thumbnailDataUrl?: string | null;
 }
 
+interface StoredSettingLibraryRecord {
+  id: string;
+  kind: SettingLibraryItem['kind'];
+  name: string;
+  snapshot: string;
+  media: Record<string, Blob>;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface GalWriterDB extends DBSchema {
   autosave: {
     key: string;
@@ -86,6 +97,14 @@ interface GalWriterDB extends DBSchema {
     value: StoredLocalProjectRecord;
     indexes: {
       'by-updatedAt': number;
+    };
+  };
+  settingLibrary: {
+    key: string;
+    value: StoredSettingLibraryRecord;
+    indexes: {
+      'by-updatedAt': number;
+      'by-kind': SettingLibraryItem['kind'];
     };
   };
   appSettings: {
@@ -103,7 +122,7 @@ interface GalWriterDB extends DBSchema {
 }
 
 const DB_NAME = 'GalWriterDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
@@ -162,6 +181,12 @@ const getDB = () => {
         if (!db.objectStoreNames.contains('localProjects')) {
           const projectStore = db.createObjectStore('localProjects', { keyPath: 'id' });
           projectStore.createIndex('by-updatedAt', 'updatedAt');
+        }
+
+        if (!db.objectStoreNames.contains('settingLibrary')) {
+          const settingLibraryStore = db.createObjectStore('settingLibrary', { keyPath: 'id' });
+          settingLibraryStore.createIndex('by-updatedAt', 'updatedAt');
+          settingLibraryStore.createIndex('by-kind', 'kind');
         }
 
         if (!db.objectStoreNames.contains('appSettings')) {
@@ -564,6 +589,55 @@ export const deleteLocalProject = async (id: string): Promise<void> => {
       APP_SETTINGS_KEY,
     );
   }
+};
+
+export const saveSettingLibraryItem = async (item: SettingLibraryItem): Promise<void> => {
+  const db = await getDB();
+  const snapshot = JSON.stringify(item.data);
+  await db.put('settingLibrary', {
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    ...(await extractSnapshotMedia(snapshot)),
+  });
+};
+
+const reviveSettingLibraryItem = (record: StoredSettingLibraryRecord): SettingLibraryItem => ({
+  id: record.id,
+  kind: record.kind,
+  name: record.name,
+  data: JSON.parse(reviveSnapshotMedia(record.snapshot, record.media)) as SettingLibraryItem['data'],
+  createdAt: record.createdAt,
+  updatedAt: record.updatedAt,
+});
+
+export const getSettingLibraryItem = async (id: string): Promise<SettingLibraryItem | null> => {
+  const db = await getDB();
+  const record = await db.get('settingLibrary', id);
+  return record ? reviveSettingLibraryItem(record) : null;
+};
+
+export const listSettingLibraryItems = async (): Promise<SettingLibraryItem[]> => {
+  const db = await getDB();
+  const tx = db.transaction('settingLibrary');
+  const index = tx.store.index('by-updatedAt');
+  const items: SettingLibraryItem[] = [];
+  let cursor = await index.openCursor(null, 'prev');
+
+  while (cursor) {
+    items.push(reviveSettingLibraryItem(cursor.value));
+    cursor = await cursor.continue();
+  }
+
+  await tx.done;
+  return items;
+};
+
+export const deleteSettingLibraryItem = async (id: string): Promise<void> => {
+  const db = await getDB();
+  await db.delete('settingLibrary', id);
 };
 
 export const saveAppSettings = async (

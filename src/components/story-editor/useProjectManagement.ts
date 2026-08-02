@@ -3,6 +3,7 @@ import React, { useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { ProjectAIProfilesExport } from '../../domain/project';
+import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import {
   type ProjectSnapshotData,
   useProjectSerialization,
@@ -225,6 +226,16 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   // =========================================================================
   const isSavingProjectRef = useRef(false);
 
+  const getSettingLibraryItemsForExport = useCallback(
+    () => localPersistenceService.listSettingLibraryItems(),
+    [],
+  );
+
+  const importSettingLibraryItems = useCallback(async (items: SettingLibraryItem[]) => {
+    await Promise.all(items.map((item) => localPersistenceService.saveSettingLibraryItem(item)));
+    window.dispatchEvent(new Event('galwriter-setting-library-changed'));
+  }, []);
+
   // =========================================================================
   // useProjectSerialization
   // =========================================================================
@@ -255,6 +266,8 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     showToast,
     getProjectThumbnailDataUrl: createCurrentProjectThumbnail,
     getExportedAIProfiles,
+    getExportedSettingLibraryItems: getSettingLibraryItemsForExport,
+    onImportedSettingLibraryItems: importSettingLibraryItems,
     onProjectFilePathSaved: async (filePath) => {
       setCurrentProjectFilePath(filePath);
       if (currentProjectId) {

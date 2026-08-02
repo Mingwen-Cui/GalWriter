@@ -115,6 +115,8 @@ export const translations = {
     projectName: '项目名称',
     includeApiProfiles: '导出正在使用的 API 配置',
     includeApiProfilesDesc: '勾选后会把当前启用的文本、图片、语音 API 配置和 API Key 写入 ZIP。',
+    includeSettingLibrary: '导出设定库中的已保存卡片',
+    includeSettingLibraryDesc: '勾选后会把已保存的人物、场景设定及其图片写入 ZIP；重新导入时会合并回设定库。',
     confirmSave: '导出 ZIP',
 
     // Guide
@@ -286,6 +288,9 @@ export const translations = {
     includeApiProfiles: 'Export active API profiles',
     includeApiProfilesDesc:
       'When checked, the active text, image, and voice API profiles, including API keys, are written into the ZIP.',
+    includeSettingLibrary: 'Export saved setting-library cards',
+    includeSettingLibraryDesc:
+      'Includes saved character and scene settings with their images. They are merged into the setting library when imported.',
     confirmSave: 'Export ZIP',
 
     // Guide
@@ -453,6 +458,9 @@ export const translations = {
     includeApiProfiles: 'アクティブなAPI設定をエクスポート',
     includeApiProfilesDesc:
       'チェックすると、現在アクティブなテキスト、画像、音声のAPI設定（APIキーを含む）がZIPに書き込まれます。',
+    includeSettingLibrary: '保存済みの設定ライブラリーカードをエクスポート',
+    includeSettingLibraryDesc:
+      '保存済みの人物・シーン設定と画像をZIPに含めます。インポート時には設定ライブラリーへ統合されます。',
     confirmSave: 'ZIPをエクスポート',
 
     // Guide

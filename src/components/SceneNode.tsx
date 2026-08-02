@@ -36,6 +36,8 @@ import { formatSceneNodeText } from '../lib/export';
 import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import { PanoramaModal, PanoramaViewer } from './PanoramaViewer';
+import { SettingLibraryMenu } from './SettingLibraryMenu';
+import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 
 const SCENE_TEXTAREA_CLASS =
   'w-full min-h-[58px] resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-blue-600 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -67,7 +69,7 @@ const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
   20 +
   (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
 
-const SCENE_NODE_MIN_WIDTH = 440;
+const SCENE_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const SCENE_NODE_HEIGHT_SAFETY = 8;
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
@@ -514,6 +516,15 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
               </span>
             </div>
             <div className="flex gap-1 items-center">
+              <SettingLibraryMenu
+                kind="scene"
+                sourceItemId={data.libraryItemId}
+                savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'scene')}
+                presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'scene')}
+                onSave={(mode) => data.onSaveSettingLibrary?.(id, 'scene', mode)}
+                onUse={(itemId, source) => data.onUseSettingLibrary?.('scene', itemId, source)}
+                onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
+              />
               <button
                 onClick={handleCopyExport}
                 className={`px-1.5 py-1 rounded transition-colors flex items-center justify-center ${copied ? 'text-emerald-500 hover:bg-emerald-500/20' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)]'}`}

@@ -11,6 +11,8 @@ export const AI_STORY_CARD_HEIGHT = 220;
 export const MIN_STORY_CARD_HEIGHT = 60;
 export const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
 export const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
+// Character and scene setting cards deliberately share a canvas width.
+export const SETTING_NODE_CARD_WIDTH = 440;
 export const DEFAULT_LIGHT_ACCENT_COLOR = '#4f46e5';
 export const DEFAULT_DARK_ACCENT_COLOR = '#54b9fb';
 export const DEFAULT_EDGE_COLOR = '#6366f1';

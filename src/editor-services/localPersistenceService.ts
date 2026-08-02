@@ -5,12 +5,16 @@ import type {
   SavedAIProfile,
   StoryProject,
 } from '../domain/project';
+import type { SettingLibraryItem } from '../domain/settingLibrary';
 import {
   deleteLocalProject,
+  deleteSettingLibraryItem,
   getAIProfiles,
   getApiSettings,
   getAppSettings,
   getLocalProject,
+  getSettingLibraryItem,
+  listSettingLibraryItems,
   listLocalProjects,
   renameLocalProject,
   getMostRecentLocalProject,
@@ -18,6 +22,7 @@ import {
   saveAIProfiles,
   saveAppSettings,
   saveLocalProject,
+  saveSettingLibraryItem,
   type LocalAIProfilesState,
   type LocalProjectSummary,
   type LocalApiKeySettings,
@@ -106,6 +111,22 @@ export const localPersistenceService = {
 
   async loadProject(projectId: string): Promise<LocalProjectSnapshot | null> {
     return toProjectSnapshot(await getLocalProject(projectId));
+  },
+
+  listSettingLibraryItems() {
+    return listSettingLibraryItems();
+  },
+
+  getSettingLibraryItem(id: string) {
+    return getSettingLibraryItem(id);
+  },
+
+  saveSettingLibraryItem(item: SettingLibraryItem) {
+    return saveSettingLibraryItem(item);
+  },
+
+  deleteSettingLibraryItem(id: string) {
+    return deleteSettingLibraryItem(id);
   },
 
   async saveTheme(theme: 'light' | 'dark' | 'system') {
