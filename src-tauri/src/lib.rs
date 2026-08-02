@@ -1071,6 +1071,53 @@ fn save_rendered_pptx(
 }
 
 #[tauri::command]
+fn transcode_ppt_video(app: AppHandle, bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+  if bytes.is_empty() {
+    return Err("PPT video conversion received an empty file.".to_string());
+  }
+
+  let nonce = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|err| format!("Could not create a temporary video path: {err}"))?
+    .as_nanos();
+  let work_dir = env::temp_dir().join(format!("galwriter-ppt-video-{nonce}"));
+  fs::create_dir_all(&work_dir).map_err(|err| format!("Could not create temporary video directory: {err}"))?;
+  let input_path = work_dir.join("source-video");
+  let output_path = work_dir.join("powerpoint-video.mp4");
+  fs::write(&input_path, bytes).map_err(|err| format!("Could not prepare video for conversion: {err}"))?;
+
+  let output = Command::new(find_ffmpeg(&app))
+    .arg("-y")
+    .arg("-i")
+    .arg(&input_path)
+    .arg("-map")
+    .arg("0:v:0")
+    .arg("-map")
+    .arg("0:a?")
+    .arg("-c:v")
+    .arg("libx264")
+    .arg("-pix_fmt")
+    .arg("yuv420p")
+    .arg("-c:a")
+    .arg("aac")
+    .arg("-movflags")
+    .arg("+faststart")
+    .arg(&output_path)
+    .output()
+    .map_err(|err| format!("Failed to start bundled FFmpeg for PPT video conversion: {err}"))?;
+
+  if !output.status.success() {
+    let detail = String::from_utf8_lossy(&output.stderr);
+    let _ = fs::remove_dir_all(&work_dir);
+    return Err(format!("PPT video conversion failed: {detail}"));
+  }
+
+  let converted = fs::read(&output_path).map_err(|err| format!("Could not read converted PPT video: {err}"))?;
+  let _ = fs::remove_dir_all(&work_dir);
+  Ok(converted)
+}
+
+#[tauri::command]
 fn create_render_session(
   file_name: String,
   output_dir: Option<String>,
@@ -1517,6 +1564,7 @@ pub fn run() {
       save_rendered_video,
       save_rendered_web_zip,
       save_rendered_pptx,
+      transcode_ppt_video,
       // save_rendered_frames,
       create_render_session,
       write_render_frame,

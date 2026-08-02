@@ -29,8 +29,9 @@ import {
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { useDialog } from '../editor-shell/DialogProvider';
 import type { SceneFlowNode, SceneImage, SceneNodeData } from '../domain/project';
+import { useDialog } from '../editor-shell/DialogProvider';
+import { registerBlobAsset } from '../lib/blobAssetRegistry';
 import { formatSceneNodeText } from '../lib/export';
 import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
@@ -356,7 +357,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
+    const url = registerBlobAsset(URL.createObjectURL(file), file);
 
     if (imageId) {
       updateNodeData({

@@ -86,6 +86,7 @@ import {
 import { translations } from '../../lib/i18n';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import {
+  buildRegionStoryItems,
   expandBackgroundToFitNodes,
   formatRegionStoryForPrompt,
   parseGeneratedPlotCards,
@@ -1841,6 +1842,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleMediaUpload,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
+    convertBackgroundToDynamicGroup,
+    convertDynamicGroupToBackground,
     connectSelectedToSummaryNode,
   } = useNodeActions({
     nodes,
@@ -2213,6 +2216,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     assistantResizing,
     assistantInput,
     setAssistantInput,
+    assistantInputContexts,
+    setAssistantInputContexts,
     assistantLoading,
     assistantListening,
     assistantDocuments,
@@ -2278,6 +2283,140 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
     requestSettingsAttention,
   });
+
+  const handlePrefillAssistantFromRegion = useCallback(
+    (regionId: string) => {
+      const region = nodes.find(
+        (node) =>
+          node.id === regionId && (node.type === 'backgroundNode' || node.type === 'groupNode'),
+      );
+      if (!region) return;
+
+      const isContentNode = (node: Node) =>
+        ['storyNode', 'characterNode', 'sceneNode', 'textNode'].includes(node.type || '');
+      const readSize = (value: unknown, fallback: number) => {
+        const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+        return Number.isFinite(parsed) ? parsed : fallback;
+      };
+      let regionNodeIds: string[];
+
+      if (region.type === 'groupNode') {
+        const childIds = Array.isArray(region.data?.childIds) ? region.data.childIds : [];
+        regionNodeIds = childIds.filter((id) => {
+          const child = nodes.find((node) => node.id === id);
+          return !!child && isContentNode(child);
+        });
+      } else {
+        const width = readSize(region.measured?.width ?? region.style?.width, 600);
+        const height = readSize(region.measured?.height ?? region.style?.height, 400);
+        regionNodeIds = nodes
+          .filter(isContentNode)
+          .filter((node) => {
+            const nodeWidth = readSize(node.measured?.width ?? node.style?.width, 300);
+            const nodeHeight = readSize(node.measured?.height ?? node.style?.height, 200);
+            const centerX = node.position.x + nodeWidth / 2;
+            const centerY = node.position.y + nodeHeight / 2;
+            return (
+              centerX >= region.position.x &&
+              centerX <= region.position.x + width &&
+              centerY >= region.position.y &&
+              centerY <= region.position.y + height
+            );
+          })
+          .map((node) => node.id);
+      }
+
+      const orderedIds = [...regionNodeIds].sort((leftId, rightId) => {
+        const left = nodes.find((node) => node.id === leftId)!;
+        const right = nodes.find((node) => node.id === rightId)!;
+        return Math.abs(left.position.y - right.position.y) > 30
+          ? left.position.y - right.position.y
+          : left.position.x - right.position.x;
+      });
+      const content = formatRegionStoryForPrompt(buildRegionStoryItems(nodes, edges, orderedIds));
+
+      if (!content) {
+        showToast(
+          language === 'zh'
+            ? '这个区域里还没有可发送给 AI 的内容'
+            : language === 'ja'
+              ? 'このエリアには AI に送信できるカードがありません'
+              : 'There are no cards in this area to send to AI.',
+          'error',
+        );
+        return;
+      }
+
+      const regionTitle = String(region.data?.title || (region.type === 'groupNode' ? t.dynamicWrap : t.bgCard));
+      const message =
+        language === 'zh'
+          ? `请阅读并使用以下「${regionTitle}」区域内的卡片内容作为当前创作上下文：\n\n${content}`
+          : language === 'ja'
+            ? `以下の「${regionTitle}」エリア内のカード内容を、現在の創作コンテキストとして読んで使用してください。\n\n${content}`
+            : `Read and use the cards in the "${regionTitle}" area as the current writing context.\n\n${content}`;
+
+      const replacingExistingContext = assistantInputContexts.some((context) => context.id === regionId);
+      if (!replacingExistingContext && assistantInputContexts.length >= 10) {
+        showToast(
+          language === 'zh'
+            ? 'AI 助手最多可附加 10 组区域内容'
+            : language === 'ja'
+              ? 'AI アシスタントには最大 10 個のエリアを追加できます'
+              : 'You can attach up to 10 area groups to the AI assistant.',
+          'error',
+        );
+        return;
+      }
+
+      setAssistantOpen(true);
+      const assetUrls = {
+        images: new Set<string>(),
+        videos: new Set<string>(),
+      };
+      const addAsset = (type: keyof typeof assetUrls, url: unknown) => {
+        if (typeof url === 'string' && url.trim()) assetUrls[type].add(url);
+      };
+      orderedIds.forEach((nodeId) => {
+        const node = nodes.find((item) => item.id === nodeId);
+        if (!node) return;
+        const nodeData = node.data as Record<string, unknown>;
+        addAsset('images', nodeData.imageUrl);
+        addAsset('videos', nodeData.videoUrl);
+        if (Array.isArray(nodeData.outfits)) {
+          nodeData.outfits.forEach((outfit) => addAsset('images', (outfit as { imageUrl?: unknown })?.imageUrl));
+        }
+        if (Array.isArray(nodeData.images)) {
+          nodeData.images.forEach((image) => {
+            addAsset('images', (image as { imageUrl?: unknown })?.imageUrl);
+            addAsset('videos', (image as { videoUrl?: unknown })?.videoUrl);
+          });
+        }
+      });
+      setAssistantInputContexts((contexts) => [
+        ...contexts.filter((context) => context.id !== regionId),
+        {
+          id: regionId,
+          title: regionTitle,
+          content: message,
+          cardCount: orderedIds.length,
+          assetCounts: {
+            images: assetUrls.images.size,
+            videos: assetUrls.videos.size,
+          },
+        },
+      ]);
+    },
+    [
+      assistantInputContexts,
+      edges,
+      language,
+      nodes,
+      setAssistantInputContexts,
+      setAssistantOpen,
+      showToast,
+      t,
+    ],
+  );
 
   // =========================================================================
   // Project Management (extracted to useProjectManagement)
@@ -2868,6 +3007,9 @@ ${layoutConfig.label}
           onExtractMedia: handleExtractMedia,
           onGenerateSettingText: handleGenerateSettingText,
           onPlotStructureGenerate: handlePlotStructureGenerate,
+          onConvertToGroup: convertBackgroundToDynamicGroup,
+          onConvertToBackground: convertDynamicGroupToBackground,
+          onSendToAssistant: handlePrefillAssistantFromRegion,
           onHighlightStoryline: toggleStorylineHighlight,
           isHighlighted,
           pasteAsPlainText,
@@ -2910,6 +3052,9 @@ ${layoutConfig.label}
     handleExtractMedia,
     handleGenerateSettingText,
     handlePlotStructureGenerate,
+    convertBackgroundToDynamicGroup,
+    convertDynamicGroupToBackground,
+    handlePrefillAssistantFromRegion,
     toggleStorylineHighlight,
     highlightedPath,
     pasteAsPlainText,
@@ -3247,6 +3392,7 @@ ${layoutConfig.label}
           assistantDocumentLoading={assistantDocumentLoading}
           assistantArticleAnalysis={assistantArticleAnalysis}
           assistantInput={assistantInput}
+          assistantInputContexts={assistantInputContexts}
           selectedAssistantTargetNodesCount={selectedAssistantTargetNodes.length}
           assistantTasks={assistantTasks}
           activeAssistantTaskId={activeAssistantTaskId}
@@ -3254,6 +3400,7 @@ ${layoutConfig.label}
           assistantMessagesRef={assistantMessagesRef}
           setAssistantOpen={setAssistantOpen}
           setAssistantInput={setAssistantInput}
+          setAssistantInputContexts={setAssistantInputContexts}
           setActiveAssistantTaskId={setActiveAssistantTaskId}
           handleNewAssistantTask={handleNewAssistantTask}
           handleRenameAssistantTask={handleRenameAssistantTask}

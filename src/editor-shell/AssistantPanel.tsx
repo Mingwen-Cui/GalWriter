@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Image,
   Lightbulb,
   Loader2,
   MapPin,
@@ -19,6 +20,7 @@ import {
   Undo2,
   UploadCloud,
   UserRound,
+  Video,
   X,
 } from 'lucide-react';
 import type {
@@ -32,7 +34,10 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
-import type { AssistantArticleAnalysisState } from '../editor-features/assistant/useAssistantPanel';
+import type {
+  AssistantArticleAnalysisState,
+  AssistantInputContext,
+} from '../editor-features/assistant/useAssistantPanel';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
@@ -47,6 +52,7 @@ interface AssistantPanelProps {
   assistantDocumentLoading: boolean;
   assistantArticleAnalysis: AssistantArticleAnalysisState;
   assistantInput: string;
+  assistantInputContexts: AssistantInputContext[];
   selectedAssistantTargetNodesCount: number;
   assistantTasks: AssistantTask[];
   activeAssistantTaskId: string;
@@ -54,6 +60,7 @@ interface AssistantPanelProps {
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setAssistantInput: Dispatch<SetStateAction<string>>;
+  setAssistantInputContexts: Dispatch<SetStateAction<AssistantInputContext[]>>;
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
   handleNewAssistantTask: () => void;
   handleRenameAssistantTask: (taskId: string, title: string) => void;
@@ -139,6 +146,7 @@ export function AssistantPanel({
   assistantDocumentLoading,
   assistantArticleAnalysis,
   assistantInput,
+  assistantInputContexts,
   selectedAssistantTargetNodesCount,
   assistantTasks,
   activeAssistantTaskId,
@@ -146,6 +154,7 @@ export function AssistantPanel({
   assistantMessagesRef,
   setAssistantOpen,
   setAssistantInput,
+  setAssistantInputContexts,
   setActiveAssistantTaskId,
   handleNewAssistantTask,
   handleRenameAssistantTask,
@@ -209,7 +218,8 @@ export function AssistantPanel({
   const closeAnimationTimerRef = useRef<number | null>(null);
   const welcomeGradientTimerRef = useRef<number | null>(null);
   const showArticleUploadPage = documentUploadOpen && documentUploadIntent === 'article-to-galgame';
-  const assistantInputExpanded = assistantInputFocused || assistantInput.trim().length > 0;
+  const assistantInputExpanded =
+    assistantInputFocused || assistantInput.trim().length > 0 || assistantInputContexts.length > 0;
 
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
@@ -1202,6 +1212,46 @@ export function AssistantPanel({
           >
             {assistantInputExpanded ? (
               <>
+                {assistantInputContexts.length > 0 && (
+                  <div className="custom-scrollbar flex min-w-0 items-center gap-2 overflow-x-auto pb-1">
+                    {assistantInputContexts.map((context) => (
+                      <div
+                        key={context.id}
+                        className="flex shrink-0 items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-xs text-indigo-900 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-100"
+                      >
+                        <span className="max-w-28 truncate font-semibold">{context.title}</span>
+                        {context.cardCount > 0 && (
+                          <span className="flex items-center gap-1 text-indigo-600/80 dark:text-indigo-200/75">
+                            <FileText className="h-3.5 w-3.5" />×{context.cardCount}
+                          </span>
+                        )}
+                        {context.assetCounts.images > 0 && (
+                          <span className="flex items-center gap-1 text-indigo-600/80 dark:text-indigo-200/75">
+                            <Image className="h-3.5 w-3.5" />×{context.assetCounts.images}
+                          </span>
+                        )}
+                        {context.assetCounts.videos > 0 && (
+                          <span className="flex items-center gap-1 text-indigo-600/80 dark:text-indigo-200/75">
+                            <Video className="h-3.5 w-3.5" />×{context.assetCounts.videos}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAssistantInputContexts((contexts) =>
+                              contexts.filter((item) => item.id !== context.id),
+                            )
+                          }
+                          className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800 dark:text-indigo-200 dark:hover:bg-indigo-400/20 dark:hover:text-white"
+                          title={language === 'zh' ? '移除区域内容' : language === 'ja' ? 'エリア内容を削除' : 'Remove area content'}
+                          aria-label={language === 'zh' ? '移除区域内容' : language === 'ja' ? 'エリア内容を削除' : 'Remove area content'}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   ref={assistantInputRef}
                   value={assistantInput}
@@ -1282,7 +1332,7 @@ export function AssistantPanel({
                     )}
                     <button
                       onClick={() => void sendAssistantMessage()}
-                      disabled={assistantLoading || !assistantInput.trim()}
+                      disabled={assistantLoading || (!assistantInput.trim() && assistantInputContexts.length === 0)}
                       className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                       title={ui.send}
                     >
@@ -1376,7 +1426,7 @@ export function AssistantPanel({
                   )}
                   <button
                     onClick={() => void sendAssistantMessage()}
-                    disabled={assistantLoading || !assistantInput.trim()}
+                    disabled={assistantLoading || (!assistantInput.trim() && assistantInputContexts.length === 0)}
                     className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                     title={ui.send}
                   >

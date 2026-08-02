@@ -2,6 +2,8 @@ import type { Edge, Node } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+
+import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
 
 interface UseNodeActionsParams {
@@ -16,6 +18,28 @@ interface UseNodeActionsParams {
   setShowSaveNameModal: Dispatch<SetStateAction<boolean>>;
   dynamicWrapTitle: string;
   backgroundCardTitle: string;
+}
+
+const REGION_PADDING = 60;
+
+function readNodeSize(node: Node, fallbackWidth = 300, fallbackHeight = 200) {
+  const width = node.measured?.width ?? node.width ?? node.style?.width ?? fallbackWidth;
+  const height = node.measured?.height ?? node.height ?? node.style?.height ?? fallbackHeight;
+
+  return {
+    width: typeof width === 'number' ? width : Number.parseFloat(String(width)) || fallbackWidth,
+    height: typeof height === 'number' ? height : Number.parseFloat(String(height)) || fallbackHeight,
+  };
+}
+
+function isRegionContentNode(node: Node) {
+  return ![
+    'backgroundNode',
+    'groupNode',
+    'batchReplaceNode',
+    'plotStructureNode',
+    'aiNode',
+  ].includes(node.type || '');
 }
 
 export const useNodeActions = ({
@@ -190,7 +214,7 @@ export const useNodeActions = ({
 
       for (let index = 0; index < fileArray.length; index += 1) {
         const file = fileArray[index];
-        const url = URL.createObjectURL(file);
+        const url = registerBlobAsset(URL.createObjectURL(file), file);
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};
@@ -293,7 +317,7 @@ export const useNodeActions = ({
       maxY = Math.max(maxY, y + height);
     });
 
-    const padding = 60;
+    const padding = REGION_PADDING;
     const newId = uuidv4();
     const newNode: Node = {
       id: newId,
@@ -309,6 +333,93 @@ export const useNodeActions = ({
       newNode,
     ]);
   }, [backgroundCardTitle, nodes, setNodes]);
+
+  const convertBackgroundToDynamicGroup = useCallback(
+    (backgroundId: string) => {
+      setNodes((currentNodes) => {
+        const background = currentNodes.find(
+          (node) => node.id === backgroundId && node.type === 'backgroundNode',
+        );
+        if (!background) return currentNodes;
+
+        const backgroundSize = readNodeSize(background, 600, 400);
+        const childIds = currentNodes
+          .filter(isRegionContentNode)
+          .filter((node) => {
+            const size = readNodeSize(node);
+            const centerX = node.position.x + size.width / 2;
+            const centerY = node.position.y + size.height / 2;
+            return (
+              centerX >= background.position.x &&
+              centerX <= background.position.x + backgroundSize.width &&
+              centerY >= background.position.y &&
+              centerY <= background.position.y + backgroundSize.height
+            );
+          })
+          .map((node) => node.id);
+
+        if (childIds.length === 0) return currentNodes;
+
+        return currentNodes.map((node) =>
+          node.id === backgroundId
+            ? {
+                ...node,
+                type: 'groupNode',
+                dragHandle: undefined,
+                data: { ...node.data, childIds },
+                style: { ...node.style, zIndex: -2 },
+              }
+            : node,
+        );
+      });
+    },
+    [setNodes],
+  );
+
+  const convertDynamicGroupToBackground = useCallback(
+    (groupId: string) => {
+      setNodes((currentNodes) => {
+        const group = currentNodes.find((node) => node.id === groupId && node.type === 'groupNode');
+        const childIds = Array.isArray(group?.data?.childIds) ? group.data.childIds : [];
+        const children = currentNodes.filter(
+          (node) => childIds.includes(node.id) && isRegionContentNode(node),
+        );
+        if (!group || children.length === 0) return currentNodes;
+
+        const bounds = children.reduce(
+          (result, node) => {
+            const size = readNodeSize(node);
+            return {
+              minX: Math.min(result.minX, node.position.x),
+              minY: Math.min(result.minY, node.position.y),
+              maxX: Math.max(result.maxX, node.position.x + size.width),
+              maxY: Math.max(result.maxY, node.position.y + size.height),
+            };
+          },
+          { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
+        );
+
+        return currentNodes.map((node) => {
+          if (node.id !== groupId) return node;
+          const { childIds: _childIds, hullPoints: _hullPoints, ...data } = node.data || {};
+          return {
+            ...node,
+            type: 'backgroundNode',
+            position: { x: bounds.minX - REGION_PADDING, y: bounds.minY - REGION_PADDING },
+            dragHandle: '.custom-drag-handle',
+            data,
+            style: {
+              ...node.style,
+              width: bounds.maxX - bounds.minX + REGION_PADDING * 2,
+              height: bounds.maxY - bounds.minY + REGION_PADDING * 2,
+              zIndex: -3,
+            },
+          };
+        });
+      });
+    },
+    [setNodes],
+  );
 
   const connectSelectedToSummaryNode = useCallback(() => {
     const selected = nodes.filter(
@@ -365,6 +476,8 @@ export const useNodeActions = ({
     handleExportJSON,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
+    convertBackgroundToDynamicGroup,
+    convertDynamicGroupToBackground,
     connectSelectedToSummaryNode,
   };
 };

@@ -2,6 +2,7 @@ import type { Node } from '@xyflow/react';
 import { useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
 
 interface UseCanvasDnDParams {
@@ -80,7 +81,7 @@ export const useCanvasDnD = ({
           continue;
         }
 
-        const url = URL.createObjectURL(file);
+        const url = registerBlobAsset(URL.createObjectURL(file), file);
         const newId = uuidv4();
 
         let mediaData: Record<string, string> = {};

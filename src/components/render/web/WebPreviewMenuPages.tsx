@@ -433,6 +433,25 @@ export function WebPreviewMenuPages({
           : element,
       )
     : archiveElements;
+  const activeArchiveSave = saveSlots[0] || null;
+  const testArchiveElements = archiveElements
+    .filter(
+      (element) =>
+        activeArchiveSave || !['slotContinue', 'slotDelete'].includes(element.role || ''),
+    )
+    .map((element) =>
+      element.role === 'slot' && activeArchiveSave
+        ? {
+            ...element,
+            text: renderCopy(
+              language,
+              `存档 1\n最近保存：${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
+              `セーブ 1\n最終保存：${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
+              `Save 1\nLast saved: ${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
+            ),
+          }
+        : element,
+    );
   return (
     <>
       {archiveOpen && (
@@ -463,7 +482,7 @@ export function WebPreviewMenuPages({
             page="archive"
             elements={
               previewMode === 'test'
-                ? archiveElements.filter((element) => !['slot', 'slotContinue', 'slotDelete'].includes(element.role || ''))
+                ? testArchiveElements
                 : editableArchiveElements.filter(
                     (element) =>
                       archiveShowsSaveExample ||
@@ -486,26 +505,10 @@ export function WebPreviewMenuPages({
               if (element.role === 'back') onCloseArchive();
               if (element.role === 'new') onNewGame();
               if (element.role === 'settings') onOpenSettings();
+              if (element.role === 'slotContinue' && activeArchiveSave) onContinueSave?.(activeArchiveSave);
+              if (element.role === 'slotDelete' && activeArchiveSave) onDeleteSave?.(activeArchiveSave.id);
             }}
           />
-          {previewMode === 'test' && (
-            <div className="absolute left-1/2 top-[30%] z-30 grid w-[min(56%,680px)] -translate-x-1/2 gap-3 rounded-2xl border border-white/20 bg-slate-950/72 p-4 shadow-2xl backdrop-blur-md">
-              {saveSlots.length === 0 ? (
-                <p className="text-center text-sm text-white/65">{renderCopy(language, '尚无存档', 'セーブなし', 'No save')}</p>
-              ) : saveSlots.map((slot, index) => (
-                <article key={slot.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-xl border border-white/12 bg-white/[0.08] px-4 py-3 shadow-lg">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">{renderCopy(language, `存档 ${index + 1}`, `セーブ ${index + 1}`, `Save ${index + 1}`)}</p>
-                    <p className="mt-1 truncate text-xs text-white/55">{new Date(slot.savedAt).toLocaleString()}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <button type="button" className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-400" onClick={() => onContinueSave?.(slot)}>{renderCopy(language, '继续', '続ける', 'Continue')}</button>
-                    <button type="button" className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/18" onClick={() => onDeleteSave?.(slot.id)}>{renderCopy(language, '删除', '削除', 'Delete')}</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
         </div>
       )}
       {settingsOpen && (

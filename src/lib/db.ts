@@ -6,6 +6,7 @@ import type {
   SavedAIProfile,
   StoryProject,
 } from '../domain/project';
+import { registerBlobAsset } from './blobAssetRegistry';
 
 export interface AutoSaveRecord {
   snapshot: string;
@@ -391,7 +392,7 @@ const reviveSnapshotMedia = (snapshot: string, media: Record<string, Blob>) => {
   let revivedSnapshot = snapshot;
 
   for (const [oldUrl, blob] of Object.entries(media)) {
-    const newUrl = URL.createObjectURL(blob);
+    const newUrl = registerBlobAsset(URL.createObjectURL(blob), blob);
     revivedSnapshot = revivedSnapshot.split(oldUrl).join(newUrl);
   }
 

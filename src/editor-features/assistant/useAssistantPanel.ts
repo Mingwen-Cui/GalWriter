@@ -90,6 +90,17 @@ interface UseAssistantPanelParams {
   setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
 }
 
+export interface AssistantInputContext {
+  id: string;
+  title: string;
+  content: string;
+  cardCount: number;
+  assetCounts: {
+    images: number;
+    videos: number;
+  };
+}
+
 interface UseAssistantPanelResult {
   assistantOpen: boolean;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
@@ -97,6 +108,8 @@ interface UseAssistantPanelResult {
   assistantResizing: boolean;
   assistantInput: string;
   setAssistantInput: Dispatch<SetStateAction<string>>;
+  assistantInputContexts: AssistantInputContext[];
+  setAssistantInputContexts: Dispatch<SetStateAction<AssistantInputContext[]>>;
   assistantLoading: boolean;
   assistantListening: boolean;
   assistantDocuments: AssistantDocument[];
@@ -165,6 +178,7 @@ export const useAssistantPanel = ({
     dragged: boolean;
   } | null>(null);
   const [assistantInput, setAssistantInput] = useState('');
+  const [assistantInputContexts, setAssistantInputContexts] = useState<AssistantInputContext[]>([]);
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantListening, setAssistantListening] = useState(false);
   const [assistantDocuments, setAssistantDocuments] = useState<AssistantDocument[]>([]);
@@ -405,6 +419,7 @@ export const useAssistantPanel = ({
     ]);
     setActiveAssistantTaskId(id);
     setAssistantInput('');
+    setAssistantInputContexts([]);
     assistantHistoryPastRef.current = [];
     assistantHistoryFutureRef.current = [];
     setAssistantHistoryVersion((version) => version + 1);
@@ -426,6 +441,7 @@ export const useAssistantPanel = ({
       setAssistantTasks(nextTasks);
       setActiveAssistantTaskId(nextActiveTaskId);
       setAssistantInput('');
+      setAssistantInputContexts([]);
       assistantHistoryPastRef.current = [];
       assistantHistoryFutureRef.current = [];
       setAssistantHistoryVersion((version) => version + 1);
@@ -1053,11 +1069,14 @@ The previous streaming response did not complete every placeholder card. Return 
 
   const handleAssistantSend = useCallback(
     async (overrideText?: string) => {
-      const userText = (overrideText ?? assistantInput).trim();
+      const draftText = (overrideText ?? assistantInput).trim();
+      const contextTexts = assistantInputContexts.map((context) => context.content.trim()).filter(Boolean);
+      const userText = [...contextTexts, draftText].filter(Boolean).join('\n\n');
       if (!userText || assistantLoading) return;
 
       pushAssistantHistory();
       setAssistantInput('');
+      setAssistantInputContexts([]);
       setAssistantLoading(true);
       const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
       setAssistantMessages((messages) => [...messages, userMessage]);
@@ -1596,6 +1615,7 @@ ${canvasContext || '无'}`;
       }
     },
     [
+      assistantInputContexts,
       assistantInput,
       assistantLoading,
       assistantDocuments,
@@ -2421,6 +2441,8 @@ cards 必须正好有 3 张。`);
     assistantResizing,
     assistantInput,
     setAssistantInput,
+    assistantInputContexts,
+    setAssistantInputContexts,
     assistantLoading,
     assistantListening,
     assistantDocuments,

@@ -1,5 +1,5 @@
 import { NodeProps, NodeToolbar, Position, useStore } from '@xyflow/react';
-import { BookOpen, Lock, Replace, Unlock } from 'lucide-react';
+import { Bot, Lock, Replace, Repeat2, Trash2, Unlock } from 'lucide-react';
 import React, { memo, useCallback, useMemo } from 'react';
 
 import type { RegionBackgroundMusic } from '../domain/project';
@@ -537,6 +537,22 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
               onChange={(backgroundMusic) => updateNodeData({ backgroundMusic })}
             />
 
+            <button
+              onClick={() => (data.onConvertToBackground as Function)?.(id)}
+              className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--app-bg)] hover:text-indigo-600 transition-colors"
+              title="转为背景卡片"
+            >
+              <Repeat2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => (data.onSendToAssistant as Function)?.(id)}
+              className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--app-bg)] hover:text-indigo-600 transition-colors"
+              title="发送区域内容给 AI 助手"
+            >
+              <Bot className="w-4 h-4" />
+            </button>
+
             {batchToolCount > 0 && (
               <div className="flex items-center gap-1 rounded-full bg-teal-500/10 border border-teal-500/20 px-2 py-1 text-[10px] font-black text-teal-600 whitespace-nowrap">
                 <Replace className="w-3 h-3" />
@@ -546,9 +562,10 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
 
             <button
               onClick={() => (data.onDelete as Function)?.(id)}
-              className="text-red-500 hover:text-red-700 text-xs font-bold px-2 hover:bg-red-50 rounded-md py-1 transition-colors"
+              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+              title="删除"
             >
-              删除
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </NodeToolbar>

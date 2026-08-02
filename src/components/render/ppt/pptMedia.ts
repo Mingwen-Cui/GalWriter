@@ -1,3 +1,7 @@
+import { getRegisteredBlobAsset } from '../../../lib/blobAssetRegistry';
+import { isTauriRuntime } from '../../../lib/tauriRuntime';
+import { transcodePptVideo } from '../video/export/tauriRenderAdapter';
+
 const isImageDataUrl = (value: string) => value.startsWith('data:image/');
 const isBase64DataUrl = (value: string) => /;base64,/i.test(value);
 const PPT_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml']);
@@ -66,6 +70,64 @@ const isPptSafeVideoDataUrl = (value: string) =>
   /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
 const videoLastFrameCache = new Map<string, Promise<string | undefined>>();
 
+const readVideoBlobWithXhr = (source: string) =>
+  new Promise<Blob>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('GET', source, true);
+    request.responseType = 'blob';
+    request.onload = () => {
+      // Blob URLs report a status of 0 in some WebViews even when the read worked.
+      if ((request.status >= 200 && request.status < 300) || (request.status === 0 && request.response)) {
+        resolve(request.response);
+        return;
+      }
+      reject(new Error(`HTTP ${request.status}`));
+    };
+    request.onerror = () => reject(new Error('The video source could not be read'));
+    request.onabort = () => reject(new Error('The video source read was cancelled'));
+    request.send();
+  });
+
+const readVideoBlob = async (source: string) => {
+  try {
+    const response = await fetch(source);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.blob();
+  } catch (fetchError) {
+    try {
+      // Tauri WebView can play a Blob URL while fetch(blob:) is unavailable.
+      return await readVideoBlobWithXhr(source);
+    } catch (xhrError) {
+      throw new Error(
+        `Could not read the video source (${fetchError instanceof Error ? fetchError.message : 'fetch failed'}; ${
+          xhrError instanceof Error ? xhrError.message : 'fallback read failed'
+        })`,
+      );
+    }
+  }
+};
+
+const pptVideoMimeFromBlob = async (blob: Blob) => {
+  const declared = blob.type.toLowerCase();
+  if (declared === 'video/mp4' || declared === 'video/x-m4v') return 'video/mp4';
+  if (declared.startsWith('video/')) return undefined;
+
+  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+  const box = String.fromCharCode(...bytes.slice(4, 8));
+  const brand = String.fromCharCode(...bytes.slice(8, 12));
+  return box === 'ftyp' && brand !== 'qt  ' ? 'video/mp4' : undefined;
+};
+
+const toPowerPointMp4Blob = async (blob: Blob) => {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (!isTauriRuntime()) {
+    throw new Error('PPT video export in the browser supports MP4 (H.264/AAC) only. Use the desktop app to convert this video automatically.');
+  }
+  const transcoded = await transcodePptVideo(bytes);
+  if (!transcoded.length) throw new Error('The video conversion returned no data.');
+  return new Blob([new Uint8Array(transcoded)], { type: 'video/mp4' });
+};
+
 export const getPptImageDimensions = async (data: string) => {
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -104,24 +166,24 @@ export async function toPptImageData(url?: string): Promise<string | undefined> 
 /**
  * PPTX media cannot point to the editor's Blob URLs. Materialise videos in the
  * same way as images, but preserve the original video bytes rather than
- * rasterising them. PowerPoint is most reliable with MP4/H.264 assets.
+ * rasterising them. PowerPoint requires an MP4 container; H.264/AAC is the
+ * compatible codec combination. Failure is surfaced to the export dialog so
+ * we never create a seemingly successful deck with the video silently missing.
  */
 export async function toPptVideoData(url?: string): Promise<string | undefined> {
   const source = url?.trim();
   if (!source) return undefined;
-  if (isPptSafeVideoDataUrl(source)) return source;
+  if (isPptSafeVideoDataUrl(source) && /^data:video\/(mp4|x-m4v);base64,/i.test(source))
+    return source.replace(/^data:video\/x-m4v/i, 'data:video/mp4');
 
-  try {
-    const response = await fetch(source);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    if (!blob.type.startsWith('video/')) throw new Error(`Unsupported media type: ${blob.type}`);
-    const data = await readBlobAsDataUrl(blob);
-    return isPptSafeVideoDataUrl(data) ? data : undefined;
-  } catch (error) {
-    console.warn('Could not embed video in PPTX:', error);
-    return undefined;
+  let blob = getRegisteredBlobAsset(source) || (await readVideoBlob(source));
+  const mime = await pptVideoMimeFromBlob(blob);
+  if (!mime) {
+    blob = await toPowerPointMp4Blob(blob);
   }
+  const data = await readBlobAsDataUrl(blob);
+  if (!isPptSafeVideoDataUrl(data)) throw new Error('Could not encode the video for PPT export.');
+  return data.replace(/^data:video\/x-m4v/i, 'data:video/mp4');
 }
 
 /**
