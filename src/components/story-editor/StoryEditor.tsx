@@ -1,11 +1,4 @@
-import {
-  Edge,
-  Node,
-  useEdgesState,
-  useNodesState,
-  useReactFlow,
-  useStore,
-} from '@xyflow/react';
+import { Edge, Node, useEdgesState, useNodesState, useReactFlow, useStore } from '@xyflow/react';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -74,19 +67,13 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
-import {
-  buildRegionStoryItems,
-  expandBackgroundToFitNodes,
-  formatRegionStoryForPrompt,
-  parseGeneratedPlotCards,
-} from '../../lib/plotStructure';
+import { buildRegionStoryItems, formatRegionStoryForPrompt } from '../../lib/plotStructure';
 import {
   createCharacterPresentation,
   createScenePresentation,
   normalizeStoryPresentation,
 } from '../../lib/presentation';
 import { isTauriRuntime } from '../../lib/tauriRuntime';
-import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
@@ -118,11 +105,11 @@ import {
 } from './constants';
 import { EditorFooter } from './EditorFooter';
 import { edgeTypes, nodeTypes } from './flowTypes';
+import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
 import { createDefaultEdgeOptions, INITIAL_EDGES, INITIAL_NODES } from './initialGraph';
 import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
 import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
-import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
 import { getPersistedProjectName, getProjectDisplayName } from './projectNames';
 import { StoryCanvasWorkspace } from './StoryCanvasWorkspace';
 import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
@@ -137,6 +124,7 @@ import type {
 import { useAssistantSystem } from './useAssistantSystem';
 import { useEditorFooterHint } from './useEditorFooterHint';
 import { useGraphPresentation } from './useGraphPresentation';
+import { usePlotStructureGeneration } from './usePlotStructureGeneration';
 import { useProjectManagement } from './useProjectManagement';
 import { syncCloseButtonBehavior } from './windowBehavior';
 
@@ -152,8 +140,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
   const [showPlayTest, setShowPlayTest] = useState(false);
   const [showVideoRender, setShowVideoRender] = useState(false);
-  const [renderLaunchIntent, setRenderLaunchIntent] =
-    useState<RenderWorkspaceLaunchIntent>();
+  const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
   const [showTitles, setShowTitles] = useState(true);
@@ -208,7 +195,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const getViewportZoom = useCallback(() => getViewport().zoom, [getViewport]);
   // 右上角显示的思考过程文字，null 表示不显示
   const [, setThinkingContent] = useState<string | null>(null);
-  const [generateLength, setGenerateLength] = useState<string>('2-3句话');
+  const [generateLength, setGenerateLength] = useState<string>(
+    () => getStoryEditorCopy(appLanguage).plotStandardDetail,
+  );
   // AI续写操作选择弹窗状态
   const [showAIActionModal, setShowAIActionModal] = useState(false);
   const [pendingAINodeId, setPendingAINodeId] = useState<string | null>(null);
@@ -278,7 +267,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [closeButtonBehavior, setCloseButtonBehavior] = useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
-  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('vertical');
+  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
+    'vertical',
+  );
   const [cardToolbarScale, setCardToolbarScale] = useState(1);
   const {
     playTestDarkMode,
@@ -328,6 +319,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     useSharedRenderStyle();
 
   const t = translations[language];
+  const storyEditorCopy = getStoryEditorCopy(language);
   const [isDirty, setIsDirtyRaw] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isProjectSnapshotSynced, setIsProjectSnapshotSynced] = useState(false);
@@ -644,7 +636,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
     performCopy().then((success) => {
       if (success) {
-        showToast(language === 'zh' ? '复制成功！' : 'Copied to clipboard!');
+        showToast(storyEditorCopy.copySuccess);
         if (type === 'qq') {
           setQqCopied(true);
           setTimeout(() => setQqCopied(false), 2000);
@@ -679,14 +671,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(language === 'zh' ? '偏好记忆已下载' : 'Assistant memory downloaded');
+    showToast(storyEditorCopy.assistantMemoryDownloaded);
   }, [
     assistantMemoryNotes,
     assistantMemorySkillEnabled,
-    language,
     projectTitle,
     saveFileName,
     showToast,
+    storyEditorCopy.assistantMemoryDownloaded,
   ]);
 
   // 卡片剪贴板
@@ -1474,13 +1466,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       const hasDocumentSelection = Boolean(window.getSelection()?.toString());
 
       if (modifier && key === 'c' && (hasInputSelection || hasDocumentSelection)) {
-        showToast(
-          language === 'zh'
-            ? '已复制文本'
-            : language === 'ja'
-              ? 'テキストをコピーしました'
-              : 'Text copied',
-        );
+        showToast(storyEditorCopy.textCopied);
         return;
       }
 
@@ -1513,7 +1499,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, handleCopy, handlePaste, deleteSelected, language, showToast]);
+  }, [undo, redo, handleCopy, handlePaste, deleteSelected, showToast, storyEditorCopy.textCopied]);
 
   const handleUpdateNode = useCallback(
     (id: string, data: any) => {
@@ -1562,37 +1548,20 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           : ttsProvider !== 'system' && ttsProvider !== 'hosted-voice' && !ttsApiKey.trim());
       if (missingVoiceApiConfig) {
         requestSettingsAttention('voice');
-        showToast(
-          language === 'zh'
-            ? '请先在设置 > AI 配置 > 语音 AI 中连接语音 API'
-            : language === 'ja'
-              ? '設定 > AI設定 > Voice AI で音声APIを接続してください'
-              : 'Connect a Voice AI API in Settings > AI Settings > Voice AI first',
-        );
+        showToast(storyEditorCopy.voiceApiRequired);
         return;
       }
 
       setTtsLoading(true);
       try {
-        showToast(
-          language === 'zh'
-            ? '正在生成文字音频'
-            : language === 'ja'
-              ? '音声を生成中'
-              : 'Generating audio',
-        );
+        showToast(storyEditorCopy.generatingAudio);
         const existingClips = Array.isArray(node.data.audioClips)
           ? node.data.audioClips
           : typeof node.data.audioUrl === 'string' && node.data.audioUrl
             ? [
                 {
                   id: crypto.randomUUID(),
-                  name:
-                    language === 'zh'
-                      ? '已有音频'
-                      : language === 'ja'
-                        ? '既存の音声'
-                        : 'Existing audio',
+                  name: storyEditorCopy.existingAudio,
                   url: node.data.audioUrl,
                   source: 'imported' as const,
                   createdAt: Date.now() - 1,
@@ -1613,12 +1582,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           });
           generatedClips.push({
             id: crypto.randomUUID(),
-            name:
-              language === 'zh'
-                ? `文字音频 ${existingClips.length + index + 1}`
-                : language === 'ja'
-                  ? `テキスト音声 ${existingClips.length + index + 1}`
-                  : `Text audio ${existingClips.length + index + 1}`,
+            name: formatStoryEditorText(storyEditorCopy.textAudioName, {
+              number: existingClips.length + index + 1,
+            }),
             url: audio.url,
             source: 'tts',
             createdAt: Date.now() + index,
@@ -1632,23 +1598,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           audioClips: nextClips,
           ttsGenerated: true,
         });
-        showToast(
-          language === 'zh'
-            ? '文字音频已生成'
-            : language === 'ja'
-              ? '音声を生成しました'
-              : 'Audio generated',
-        );
+        showToast(storyEditorCopy.audioGenerated);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('TTS generation failed:', error);
         await showDialogAlert({
-          title:
-            language === 'zh'
-              ? '文字音频生成失败'
-              : language === 'ja'
-                ? '音声生成に失敗しました'
-                : 'Audio generation failed',
+          title: storyEditorCopy.audioGenerationFailed,
           description: message,
           tone: 'warning',
         });
@@ -1658,7 +1613,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     },
     [
       handleUpdateNode,
-      language,
       nodes,
       activeVoiceProfile,
       requestSettingsAttention,
@@ -1673,6 +1627,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ttsProvider,
       ttsVoice,
       showDialogAlert,
+      storyEditorCopy,
     ],
   );
 
@@ -1737,13 +1692,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
     onMissingImageApiKeyRequest: () => {
       requestSettingsAttention('image');
-      showToast(
-        language === 'zh'
-          ? '请先在设置 > AI 配置 > 图片 AI 中连接图片 API'
-          : language === 'ja'
-            ? '設定 > AI設定 > Image AI で画像APIを接続してください'
-            : 'Connect an Image AI API in Settings > AI Settings > Image AI first',
-      );
+      showToast(storyEditorCopy.imageApiRequired);
     },
     onMissingBackgroundRemovalApiRequest: () => {
       requestSettingsAttention('background-removal');
@@ -1819,7 +1768,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
           data: {
             id: newId,
-            title: '分支',
+            title: storyEditorCopy.branchTitle,
             shape: 'square',
             color: '#ffffff',
             sizeMode: 'auto',
@@ -2187,9 +2136,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         edges: pathEdges,
         edgeColors: pathEdgeColors,
       });
-      showToast(language === 'zh' ? '已追踪当前故事线' : 'Storyline traced');
+      showToast(storyEditorCopy.storylineTraced);
     },
-    [nodes, edges, highlightedPath, language, showToast],
+    [nodes, edges, highlightedPath, showToast, storyEditorCopy.storylineTraced],
   );
 
   // NOTE: 用户点击AI按钮时先弹出选项弹窗
@@ -2212,26 +2161,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       } catch (error: any) {
         console.error('AI Generation failed:', error);
         await showDialogAlert({
-          title:
-            language === 'zh'
-              ? 'AI 生成失败'
-              : language === 'ja'
-                ? 'AI 生成に失敗しました'
-                : 'AI generation failed',
-          description:
-            error.message ||
-            (language === 'zh'
-              ? '请检查 API 密钥和网络连接'
-              : language === 'ja'
-                ? 'API キーとネットワーク接続を確認してください'
-                : 'Check your API key and network connection.'),
+          title: storyEditorCopy.aiGenerationFailed,
+          description: error.message || storyEditorCopy.checkApiNetwork,
           tone: 'warning',
         });
       } finally {
         setAiLoadingNodeId(null);
       }
     },
-    [language, runAIGenerate, showDialogAlert],
+    [runAIGenerate, showDialogAlert, storyEditorCopy],
   );
 
   // =========================================================================
@@ -2364,35 +2302,23 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       const content = formatRegionStoryForPrompt(buildRegionStoryItems(nodes, edges, orderedIds));
 
       if (!content) {
-        showToast(
-          language === 'zh'
-            ? '这个区域里还没有可发送给 AI 的内容'
-            : language === 'ja'
-              ? 'このエリアには AI に送信できるカードがありません'
-              : 'There are no cards in this area to send to AI.',
-          'error',
-        );
+        showToast(storyEditorCopy.regionEmpty, 'error');
         return;
       }
 
-      const regionTitle = String(region.data?.title || (region.type === 'groupNode' ? t.dynamicWrap : t.bgCard));
-      const message =
-        language === 'zh'
-          ? `请阅读并使用以下「${regionTitle}」区域内的卡片内容作为当前创作上下文：\n\n${content}`
-          : language === 'ja'
-            ? `以下の「${regionTitle}」エリア内のカード内容を、現在の創作コンテキストとして読んで使用してください。\n\n${content}`
-            : `Read and use the cards in the "${regionTitle}" area as the current writing context.\n\n${content}`;
+      const regionTitle = String(
+        region.data?.title || (region.type === 'groupNode' ? t.dynamicWrap : t.bgCard),
+      );
+      const message = formatStoryEditorText(storyEditorCopy.regionContext, {
+        regionTitle,
+        content,
+      });
 
-      const replacingExistingContext = assistantInputContexts.some((context) => context.id === regionId);
+      const replacingExistingContext = assistantInputContexts.some(
+        (context) => context.id === regionId,
+      );
       if (!replacingExistingContext && assistantInputContexts.length >= 10) {
-        showToast(
-          language === 'zh'
-            ? 'AI 助手最多可附加 10 组区域内容'
-            : language === 'ja'
-              ? 'AI アシスタントには最大 10 個のエリアを追加できます'
-              : 'You can attach up to 10 area groups to the AI assistant.',
-          'error',
-        );
+        showToast(storyEditorCopy.regionLimit, 'error');
         return;
       }
 
@@ -2411,7 +2337,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         addAsset('images', nodeData.imageUrl);
         addAsset('videos', nodeData.videoUrl);
         if (Array.isArray(nodeData.outfits)) {
-          nodeData.outfits.forEach((outfit) => addAsset('images', (outfit as { imageUrl?: unknown })?.imageUrl));
+          nodeData.outfits.forEach((outfit) =>
+            addAsset('images', (outfit as { imageUrl?: unknown })?.imageUrl),
+          );
         }
         if (Array.isArray(nodeData.images)) {
           nodeData.images.forEach((image) => {
@@ -2437,11 +2365,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [
       assistantInputContexts,
       edges,
-      language,
       nodes,
       setAssistantInputContexts,
       setAssistantOpen,
       showToast,
+      storyEditorCopy,
       t,
     ],
   );
@@ -2574,223 +2502,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [generateSetting],
   );
 
-  const handlePlotStructureGenerate = useCallback(
-    async (params: PlotStructureGenerateParams) => {
-      const { toolNodeId, cardCount, detailLevel, direction, regionStoryNodes, region } = params;
-      const layoutDirection = plotStructureGenerateDirection;
-      const layoutConfig = PLOT_STRUCTURE_DIRECTION_CONFIG[layoutDirection];
-
-      if (regionStoryNodes.length === 0) {
-        await showDialogAlert({
-          title:
-            language === 'zh'
-              ? '无法生成剧情'
-              : language === 'ja'
-                ? '生成できません'
-                : 'Unable to generate',
-          description:
-            language === 'zh'
-              ? '区域内没有找到可续写的剧情卡片'
-              : language === 'ja'
-                ? 'エリア内に続きから生成できるストーリーカードがありません'
-                : 'No story cards were found in this area to continue from.',
-          tone: 'warning',
-        });
-        return;
-      }
-
-      const existingContent = formatRegionStoryForPrompt(regionStoryNodes);
-      const detailText =
-        detailLevel === 'brief'
-          ? '每段 1-3 句话，简洁推进剧情'
-          : detailLevel === 'detailed'
-            ? '每段详细展开，包含场景描写、动作和人物对话'
-            : generateLength;
-
-      const prompt = `你是一位专业的互动剧本/视觉小说创作者。
-
-以下是区域内已有剧情（按顺序排列）：
-${existingContent}
-
-用户希望的后续发展方向：
-${direction}
-
-剧情卡片生成方向：
-${layoutConfig.label}
-
-请根据上述内容和发展方向，生成 ${cardCount} 张后续剧情卡片。
-详细程度要求：${detailText}
-
-请严格按以下格式返回，每张卡片以 ### 标题 开头，正文换行后直接写内容。不要包含其他说明：
-### 卡片标题
-正文内容
-
-### 卡片标题
-正文内容`;
-
-      try {
-        const result = await callAIForText(prompt);
-        const cards = parseGeneratedPlotCards(result).slice(0, cardCount);
-
-        if (cards.length === 0) {
-          await showDialogAlert({
-            title:
-              language === 'zh'
-                ? '解析失败'
-                : language === 'ja'
-                  ? '解析に失敗しました'
-                  : 'Parsing failed',
-            description:
-              language === 'zh'
-                ? 'AI 返回内容无法解析，请重试'
-                : language === 'ja'
-                  ? 'AI の返答を解析できませんでした。もう一度お試しください'
-                  : 'The AI response could not be parsed. Please try again.',
-            tone: 'warning',
-          });
-          return;
-        }
-
-        const lastNodeId = regionStoryNodes[regionStoryNodes.length - 1].id;
-        const newIds = cards.map(() => uuidv4());
-        const newEdges: Edge[] = [];
-        let sourceId = lastNodeId;
-
-        for (let i = 0; i < cards.length; i++) {
-          newEdges.push({
-            id: `e-${sourceId}-${newIds[i]}`,
-            source: sourceId,
-            sourceHandle: layoutConfig.sourceHandle,
-            target: newIds[i],
-            targetHandle: layoutConfig.targetHandle,
-            type: 'customEdge',
-          });
-          sourceId = newIds[i];
-        }
-
-        setNodes((nds) => {
-          const lastNode = nds.find((n) => n.id === lastNodeId);
-          if (!lastNode) return nds;
-
-          const srcW = lastNode.measured?.width || (lastNode.style?.width as number) || 300;
-          const srcH = lastNode.measured?.height || (lastNode.style?.height as number) || 200;
-          const cardWidth = 300;
-          const cardHeight = 200;
-          const offsetDist = 120;
-          const startPosition =
-            layoutConfig.primaryAxis === 'x'
-              ? {
-                  x:
-                    layoutDirection === 'left'
-                      ? lastNode.position.x - cardWidth - offsetDist
-                      : lastNode.position.x + srcW + offsetDist,
-                  y: lastNode.position.y,
-                }
-              : {
-                  x: lastNode.position.x,
-                  y:
-                    layoutDirection === 'up'
-                      ? lastNode.position.y - cardHeight - offsetDist
-                      : lastNode.position.y + srcH + offsetDist,
-                };
-          let currentX = startPosition.x;
-          let currentY = startPosition.y;
-
-          const newNodes: Node[] = cards.map((card, index) => {
-            const newId = newIds[index];
-            const isOccupied = (x: number, y: number) =>
-              nds.some((n) => Math.abs(n.position.x - x) < 50 && Math.abs(n.position.y - y) < 50);
-
-            let attempts = 0;
-            while (isOccupied(currentX, currentY) && attempts < 10) {
-              if (layoutConfig.collisionAxis === 'x') {
-                currentX += layoutConfig.collisionStep;
-              } else {
-                currentY += layoutConfig.collisionStep;
-              }
-              attempts++;
-            }
-
-            const node: Node = {
-              id: newId,
-              type: 'storyNode',
-              position: { x: currentX, y: currentY },
-              style: { width: cardWidth, height: cardHeight },
-              data: {
-                id: newId,
-                title: card.title,
-                text: card.text,
-                shape: 'square',
-                color: '#ffffff',
-                sizeMode: 'auto',
-              } satisfies StoryNodeData,
-            };
-
-            if (layoutConfig.primaryAxis === 'x') {
-              currentX += layoutConfig.primaryDelta;
-            } else {
-              currentY += layoutConfig.primaryDelta;
-            }
-            return node;
-          });
-
-          let updatedNodes = [...nds, ...newNodes];
-
-          if (region?.type === 'dynamicGroup') {
-            updatedNodes = updatedNodes.map((node) => {
-              if (node.id !== region.id || node.type !== 'groupNode') return node;
-              const childIds = Array.isArray(node.data.childIds) ? node.data.childIds : [];
-              const mergedChildIds = Array.from(new Set([...childIds, ...newIds]));
-              return {
-                ...node,
-                data: { ...node.data, childIds: mergedChildIds },
-              };
-            });
-          }
-
-          if (region?.type === 'background') {
-            const containedIds = [
-              ...regionStoryNodes.map((item) => item.id),
-              toolNodeId,
-              ...newIds,
-            ];
-            updatedNodes = expandBackgroundToFitNodes(updatedNodes, region.id, containedIds);
-          }
-
-          return updatedNodes;
-        });
-
-        setEdges((eds) => [...eds, ...newEdges]);
-      } catch (error: any) {
-        console.error('Plot structure generation failed:', error);
-        await showDialogAlert({
-          title:
-            language === 'zh'
-              ? '剧情生成失败'
-              : language === 'ja'
-                ? 'プロット生成に失敗しました'
-                : 'Plot generation failed',
-          description:
-            error.message ||
-            (language === 'zh'
-              ? '请检查 API 密钥和网络连接'
-              : language === 'ja'
-                ? 'API キーとネットワーク接続を確認してください'
-                : 'Check your API key and network connection.'),
-          tone: 'warning',
-        });
-      }
-    },
-    [
-      callAIForText,
-      generateLength,
-      language,
-      plotStructureGenerateDirection,
-      setEdges,
-      setNodes,
-      showDialogAlert,
-    ],
-  );
+  const handlePlotStructureGenerate = usePlotStructureGeneration({
+    callAIForText,
+    generateLength,
+    language,
+    plotStructureGenerateDirection,
+    setEdges,
+    setNodes,
+    showDialogAlert,
+  });
 
   const handleAIAnalyze = useCallback(
     async (nodeId: string, mode: string = 'summary') => {
@@ -2799,24 +2519,13 @@ ${layoutConfig.label}
       } catch (error: any) {
         console.error('AI Analysis failed:', error);
         await showDialogAlert({
-          title:
-            language === 'zh'
-              ? 'AI 分析失败'
-              : language === 'ja'
-                ? 'AI 分析に失敗しました'
-                : 'AI analysis failed',
-          description:
-            error.message ||
-            (language === 'zh'
-              ? '请检查网络和 API 配置'
-              : language === 'ja'
-                ? 'ネットワークと API 配置を確認してください'
-                : 'Check your network and API configuration.'),
+          title: storyEditorCopy.aiAnalysisFailed,
+          description: error.message || storyEditorCopy.checkNetworkApi,
           tone: 'warning',
         });
       }
     },
-    [language, runAIAnalyze, showDialogAlert],
+    [runAIAnalyze, showDialogAlert, storyEditorCopy],
   );
 
   const {
@@ -3313,7 +3022,9 @@ ${layoutConfig.label}
             blurText={playTestBlurText}
             setBlurText={setPlayTestBlurText}
             skipSingleChoicePopup={sharedCanvas.settings.skipSingleChoicePopup}
-            setSkipSingleChoicePopup={(skipSingleChoicePopup) => sharedCanvas.update({ skipSingleChoicePopup })}
+            setSkipSingleChoicePopup={(skipSingleChoicePopup) =>
+              sharedCanvas.update({ skipSingleChoicePopup })
+            }
             autoAdvance={sharedCanvas.settings.autoAdvance}
             setAutoAdvance={(autoAdvance) => sharedCanvas.update({ autoAdvance })}
             autoAdvanceDelay={playTestAutoAdvanceDelay}
@@ -3553,22 +3264,10 @@ ${layoutConfig.label}
       <ConfirmActionModal
         visible={showAppClosePrompt}
         language={language}
-        title={
-          language === 'zh'
-            ? '退出应用？'
-            : language === 'ja'
-              ? 'アプリを終了しますか？'
-              : 'Quit app?'
-        }
-        description={
-          language === 'zh'
-            ? '确定要关闭旮旯作家 · GalWriter 吗？'
-            : language === 'ja'
-              ? 'GalWriter を終了しますか？'
-              : 'Are you sure you want to quit GalWriter?'
-        }
-        confirmLabel={language === 'zh' ? '退出应用' : language === 'ja' ? '終了' : 'Quit'}
-        cancelLabel={language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}
+        title={storyEditorCopy.quitTitle}
+        description={storyEditorCopy.quitDescription}
+        confirmLabel={storyEditorCopy.quitConfirm}
+        cancelLabel={storyEditorCopy.cancel}
         tone="warning"
         onCancel={handleCancelAppClose}
         onConfirm={handleConfirmAppClose}
@@ -3615,23 +3314,19 @@ ${layoutConfig.label}
       <ConfirmActionModal
         visible={projectIdsPendingDeletion.length > 0}
         language={language}
-        title={language === 'zh' ? '删除项目？' : 'Delete project?'}
+        title={storyEditorCopy.deleteProjectTitle}
         description={
           projectIdsPendingDeletion.length > 1
-            ? language === 'zh'
-              ? `确定要删除这 ${projectIdsPendingDeletion.length} 个项目吗？此操作不可撤销。`
-              : `Delete these ${projectIdsPendingDeletion.length} projects? This cannot be undone.`
-            : language === 'zh'
-              ? `确定要删除项目「${
+            ? formatStoryEditorText(storyEditorCopy.deleteProjectsDescription, {
+                count: projectIdsPendingDeletion.length,
+              })
+            : formatStoryEditorText(storyEditorCopy.deleteProjectDescription, {
+                name:
                   projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                    ?.projectName || '未命名项目'
-                }」吗？此操作不可撤销。`
-              : `Delete "${
-                  projectSummaries.find((item) => item.id === projectIdsPendingDeletion[0])
-                    ?.projectName || 'Untitled project'
-                }"? This cannot be undone.`
+                    ?.projectName || storyEditorCopy.untitledProject,
+              })
         }
-        confirmLabel={language === 'zh' ? '删除项目' : 'Delete project'}
+        confirmLabel={storyEditorCopy.deleteProjectConfirm}
         onCancel={() => setProjectIdsPendingDeletion([])}
         onConfirm={() => {
           const projectIds = projectIdsPendingDeletion;
@@ -3648,19 +3343,13 @@ ${layoutConfig.label}
       <ConfirmActionModal
         visible={Boolean(assistantTaskPendingCloseId)}
         language={language}
-        title={language === 'zh' ? '关闭对话？' : 'Close conversation?'}
-        description={
-          language === 'zh'
-            ? `确定要关闭「${
-                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-                '这个对话'
-              }」吗？`
-            : `Close "${
-                assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
-                'this conversation'
-              }"?`
-        }
-        confirmLabel={language === 'zh' ? '关闭对话' : 'Close conversation'}
+        title={storyEditorCopy.closeConversationTitle}
+        description={formatStoryEditorText(storyEditorCopy.closeConversationDescription, {
+          name:
+            assistantTasks.find((task) => task.id === assistantTaskPendingCloseId)?.title ||
+            storyEditorCopy.unnamedConversation,
+        })}
+        confirmLabel={storyEditorCopy.closeConversationConfirm}
         tone="warning"
         onCancel={handleCancelCloseAssistantTask}
         onConfirm={handleConfirmCloseAssistantTask}
