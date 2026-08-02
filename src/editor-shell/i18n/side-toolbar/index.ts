@@ -15,6 +15,14 @@ export interface SideToolbarStrings {
   summary: string;
   replace: string;
   media: string;
+  standardCard: string;
+  hexagonCard: string;
+  diamondCard: string;
+  bodyText: string;
+  headingText: string;
+  image: string;
+  video: string;
+  audio: string;
   restore: string;
   assistant: string;
   settings: string;

@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import {
   ChevronDown,
   Eye,
@@ -10,9 +11,8 @@ import {
   PlayCircle,
   Video,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from './canvasSettings';
@@ -36,6 +36,13 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
         {label || '\u00a0'}
       </div>
     ) : null;
+  const splitLayout = value.layoutMode === 'classic';
+
+  useEffect(() => {
+    if (splitLayout && value.choicesPosition !== 'aboveText') {
+      onChange({ choicesPosition: 'aboveText' });
+    }
+  }, [onChange, splitLayout, value.choicesPosition]);
   const updateResolution = (field: 'canvasWidth' | 'canvasHeight', next: number) => {
     const rounded = Math.round(next);
     if (!value.canvasRatioLocked) return onChange({ [field]: rounded });
@@ -86,7 +93,7 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
         </div>
         <div>
           {canvasHeaderDescription(layoutLabel)}
-          <Segmented value={value.layoutMode} options={[["classic", text.split], ["immersive", text.merged]]} onChange={(layoutMode) => onChange({ layoutMode: layoutMode as SharedCanvasSettings['layoutMode'] })} />
+          <Segmented value={value.layoutMode} options={[["classic", text.split], ["immersive", text.merged]]} onChange={(layoutMode) => onChange({ layoutMode: layoutMode as SharedCanvasSettings['layoutMode'], ...(layoutMode === 'classic' ? { choicesPosition: 'aboveText' as const } : {}) })} />
         </div>
         <div>
           {canvasHeaderDescription()}
@@ -126,7 +133,7 @@ export function CanvasSettingsSection({ language, value, onChange, variant: _var
 
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
             <SettingToggle label={text.skipSingle} icon={SkipSingleChoiceGlyph} iconColumn="third" active={value.skipSingleChoicePopup} onClick={() => onChange({ skipSingleChoicePopup: !value.skipSingleChoicePopup })} />
-            <ChoicePosition label={text.choicePosition} labels={[text.top, text.middle, text.bottom]} value={value.choicesPosition} onChange={(choicesPosition) => onChange({ choicesPosition })} />
+            <ChoicePosition label={text.choicePosition} labels={[text.top, text.middle, text.bottom]} value={splitLayout ? 'aboveText' : value.choicesPosition} options={splitLayout ? ['aboveText'] : undefined} onChange={(choicesPosition) => onChange({ choicesPosition })} />
             <div className="h-9 w-11" aria-hidden="true" />
           </div>
 
@@ -274,13 +281,14 @@ function SettingToggle({ label, icon: Icon, iconColumn = 'compact', active, onCl
   );
 }
 
-function ChoicePosition({ label, labels, value, onChange }: { label: string; labels: string[]; value: SharedCanvasSettings['choicesPosition']; onChange: (value: SharedCanvasSettings['choicesPosition']) => void }) {
-  const options: SharedCanvasSettings['choicesPosition'][] = ['aboveText', 'center', 'belowText'];
+function ChoicePosition({ label, labels, value, options: allowedOptions, onChange }: { label: string; labels: string[]; value: SharedCanvasSettings['choicesPosition']; options?: SharedCanvasSettings['choicesPosition'][]; onChange: (value: SharedCanvasSettings['choicesPosition']) => void }) {
+  const allOptions: SharedCanvasSettings['choicesPosition'][] = ['aboveText', 'center', 'belowText'];
+  const options = allowedOptions || allOptions;
   return (
     <div className="space-y-1">
       <div className="canvas-setting-label px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{label}</div>
-      <div className="grid h-9 grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
-        {options.map((option, index) => <button type="button" key={option} onClick={() => onChange(option)} className={`grid place-items-center transition-colors ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} title={labels[index]} aria-label={labels[index]} aria-pressed={value === option}><ChoicePositionGlyph position={option} /></button>)}
+      <div className="grid h-9 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+        {options.map((option) => { const optionLabel = labels[allOptions.indexOf(option)]; return <button type="button" key={option} onClick={() => onChange(option)} className={`grid place-items-center transition-colors ${value === option ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)] hover:bg-white/5'}`} title={optionLabel} aria-label={optionLabel} aria-pressed={value === option}><ChoicePositionGlyph position={option} /></button>; })}
       </div>
     </div>
   );

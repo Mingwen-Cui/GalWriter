@@ -558,6 +558,81 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setProjectTitle,
   ]);
 
+  const saveProjectAsCopy = useCallback(async () => {
+    if (isSavingProjectRef.current) return false;
+
+    isSavingProjectRef.current = true;
+    setIsSavingProject(true);
+    try {
+      const savedAt = Date.now();
+      const projectId = uuidv4();
+      const snapshot = JSON.parse(getProjectSnapshot()) as ProjectSnapshotData;
+      const baseName = getPersistedProjectName(projectTitle, saveFileName);
+      const copySuffix = language === 'zh' ? '副本' : language === 'ja' ? 'コピー' : 'Copy';
+      const projectName = `${baseName} - ${copySuffix}`;
+
+      snapshot.settings = { ...snapshot.settings, projectTitle: projectName };
+      const thumbnailDataUrl = await createCurrentProjectThumbnail();
+      await localPersistenceService.saveLocalProject({
+        id: projectId,
+        projectName,
+        projectData: snapshot,
+        updatedAt: savedAt,
+        thumbnailDataUrl,
+      });
+
+      setCurrentProjectId(projectId);
+      setCurrentProjectPersisted(true);
+      setSaveFileName(projectName);
+      setProjectTitle(projectName);
+      setLastSavedTime(savedAt);
+      lastSavedSnapshot.current = stableStringify(snapshot);
+      setIsDirty(false);
+      setIsProjectSnapshotSynced(true);
+      await clearAutoSave();
+      await refreshProjectSummaries();
+      showToast(
+        language === 'zh'
+          ? '已另存为项目副本'
+          : language === 'ja'
+            ? 'プロジェクトのコピーを保存しました'
+            : 'Saved as a project copy',
+      );
+      return true;
+    } catch (error) {
+      console.error('Failed to save project copy:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(
+        language === 'zh'
+          ? `另存为副本失败: ${message}`
+          : language === 'ja'
+            ? `コピーの保存に失敗しました: ${message}`
+            : `Failed to save copy: ${message}`,
+      );
+      return false;
+    } finally {
+      isSavingProjectRef.current = false;
+      setIsSavingProject(false);
+    }
+  }, [
+    clearAutoSave,
+    createCurrentProjectThumbnail,
+    getProjectSnapshot,
+    language,
+    lastSavedSnapshot,
+    projectTitle,
+    refreshProjectSummaries,
+    saveFileName,
+    setCurrentProjectId,
+    setCurrentProjectPersisted,
+    setIsDirty,
+    setIsProjectSnapshotSynced,
+    setLastSavedTime,
+    setProjectTitle,
+    setSaveFileName,
+    showToast,
+  ]);
+
   // Save shortcut (Ctrl+S)
   React.useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -1227,6 +1302,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     restoreProjectSession,
     resetEditorToBlankState,
     saveCurrentProject,
+    saveProjectAsCopy,
     handleCreateProject,
     handleRenameProject,
     handleDeleteProject,

@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  BookOpen,
   Boxes,
   Braces,
   Code2,
@@ -10,7 +9,6 @@ import {
   Film,
   Gamepad2,
   Play,
-  PlusSquare,
   Presentation,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -195,18 +193,7 @@ export function ExportQuickMenu({ language, showLabel, onLaunch }: ExportQuickMe
             },
           ]
         : activeMode === 'ppt'
-          ? [
-              {
-                label: copy.storyPpt,
-                icon: BookOpen,
-                intent: { workspaceMode: 'ppt', entryMode: 'story' },
-              },
-              {
-                label: copy.manualPpt,
-                icon: PlusSquare,
-                intent: { workspaceMode: 'ppt', entryMode: 'manual' },
-              },
-            ]
+          ? []
           : [
               {
                 label: copy.renpy,
@@ -299,30 +286,32 @@ export function ExportQuickMenu({ language, showLabel, onLaunch }: ExportQuickMe
               })}
             </div>
 
-            <div className="border-t border-[var(--toolbar-border)] p-2 pt-1.5">
-              <div
-                key={activeMode}
-                className={`animate-in fade-in grid gap-1 duration-100 ${
-                  secondaryItems.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
-                }`}
-              >
-                {secondaryItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => launch(item.intent)}
-                      className="flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-slate-100/80 px-2 text-[11px] font-bold text-[var(--text-secondary)] transition-[background-color,color,transform] hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 dark:bg-slate-800/80 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200"
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  );
-                })}
+            {secondaryItems.length > 0 && (
+              <div className="border-t border-[var(--toolbar-border)] p-2 pt-1.5">
+                <div
+                  key={activeMode}
+                  className={`animate-in fade-in grid gap-1 duration-100 ${
+                    secondaryItems.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                  }`}
+                >
+                  {secondaryItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => launch(item.intent)}
+                        className="flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-slate-100/80 px-2 text-[11px] font-bold text-[var(--text-secondary)] transition-[background-color,color,transform] hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 dark:bg-slate-800/80 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200"
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>,
           document.body,
         )}

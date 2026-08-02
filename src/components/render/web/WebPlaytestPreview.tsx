@@ -555,10 +555,9 @@ export function WebPlaytestPreview({
   }, [activeInlineAction, completedSwitchActions, presentation.characters, nodes]);
   const rawText = getNodeDisplayText(currentNode);
   const text = filterMentionTags(rawText, true, true);
-  const shouldHideCenteredSingleChoice =
-    settings.choicesPosition === 'center' && settings.skipSingleChoicePopup && outEdges.length <= 1;
+  const shouldHideSingleChoice = settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices =
-    !shouldHideCenteredSingleChoice && (animationDone || !settings.autoAdvance);
+    !shouldHideSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
   const hideCenteredTitle = false;
   const nameplateItems = useMemo(

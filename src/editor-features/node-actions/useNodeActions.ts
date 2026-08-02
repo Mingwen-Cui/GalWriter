@@ -3,9 +3,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
+import type { StoryCardVisualShape } from '../../domain/project';
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
-import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
 
 interface UseNodeActionsParams {
   nodes: Node[];
@@ -57,7 +58,7 @@ export const useNodeActions = ({
   backgroundCardTitle,
 }: UseNodeActionsParams) => {
   const addNewShape = useCallback(
-    (shape: 'square' | 'diamond' | 'rounded-rectangle') => {
+    (shape: StoryCardVisualShape) => {
       const center = getCenterPosition();
       let newX = center.x - 150;
       let newY = center.y - 110;
@@ -82,7 +83,30 @@ export const useNodeActions = ({
         style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
         data: {
           id: newId,
-          title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',
+          title:
+            language === 'zh'
+              ? shape === 'square'
+                ? '分支'
+                : shape === 'diamond'
+                  ? '判断'
+                  : shape === 'hexagon'
+                    ? '事件'
+                    : '状态'
+              : language === 'ja'
+                ? shape === 'square'
+                  ? '分岐'
+                  : shape === 'diamond'
+                    ? '判定'
+                    : shape === 'hexagon'
+                      ? 'イベント'
+                      : '状態'
+                : shape === 'square'
+                  ? 'Branch'
+                  : shape === 'diamond'
+                    ? 'Decision'
+                    : shape === 'hexagon'
+                      ? 'Event'
+                      : 'State',
           shape,
           color: '#ffffff',
           sizeMode: 'auto',
@@ -91,38 +115,49 @@ export const useNodeActions = ({
       };
       setNodes((currentNodes) => [...currentNodes, newNode]);
     },
-    [getCenterPosition, nodes, setNodes],
+    [getCenterPosition, language, nodes, setNodes],
   );
 
-  const addNewTextNode = useCallback(() => {
+  const addTextNode = useCallback((variant: 'body' | 'heading') => {
     const center = getCenterPosition();
     const newId = uuidv4();
+    const isHeading = variant === 'heading';
     const newNode: Node = {
       id: newId,
       type: 'textNode',
-      position: { x: center.x - 100, y: center.y - 30 },
+      position: { x: center.x - (isHeading ? 160 : 100), y: center.y - (isHeading ? 45 : 30) },
       selected: true,
       data: {
         id: newId,
         content:
           language === 'zh'
-            ? '在此处输入文本?..'
+            ? isHeading
+              ? '在此处输入标题...'
+              : '在此处输入文本?..'
             : language === 'ja'
-              ? 'ここにテキストを入力してください...'
-              : 'Enter text here...',
-        fontSize: 24,
+              ? isHeading
+                ? 'ここに見出しを入力してください...'
+                : 'ここにテキストを入力してください...'
+              : isHeading
+                ? 'Enter heading here...'
+                : 'Enter text here...',
+        fontSize: isHeading ? 48 : 24,
         color: '#334155',
         fontFamily: 'system-ui, sans-serif',
-        isBold: false,
+        isBold: isHeading,
+        textAlign: 'center',
         initialEditing: true,
       },
-      style: { width: 200, height: 60 },
+      style: { width: isHeading ? 320 : 200, height: isHeading ? 90 : 60 },
     };
     setNodes((currentNodes) => [
       ...currentNodes.map((node) => ({ ...node, selected: false })),
       newNode,
     ]);
   }, [getCenterPosition, language, setNodes]);
+
+  const addNewTextNode = useCallback(() => addTextNode('body'), [addTextNode]);
+  const addNewHeadingTextNode = useCallback(() => addTextNode('heading'), [addTextNode]);
 
   const addNewSummaryNode = useCallback(() => {
     const center = getCenterPosition();
@@ -467,6 +502,7 @@ export const useNodeActions = ({
   return {
     addNewShape,
     addNewTextNode,
+    addNewHeadingTextNode,
     addNewSummaryNode,
     addNewNumberConditionNode,
     addNewBatchReplaceNode,

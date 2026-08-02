@@ -858,7 +858,7 @@ export function usePlaytestRuntime({
       setAnimationCompleted(true);
     } else {
       // 如果打字完毕，且开启了“单选项隐藏居中弹窗”的设置，并且当前没有多分支选项（<= 1个分支）
-      if (choicesPosition === 'center' && skipSingleChoicePopup && outEdges.length <= 1) {
+      if (skipSingleChoicePopup && outEdges.length <= 1) {
         const nextTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
         advanceToTarget(nextTarget);
       }
@@ -867,6 +867,7 @@ export function usePlaytestRuntime({
 
   const renderChoices = (isImmersive: boolean) => {
     if (!choicesReady) return null;
+    if (skipSingleChoicePopup && outEdges.length <= 1) return null;
 
     const effectiveCols = choicesPosition === 'center' ? 1 : choicesColumns;
     const gridClass = `grid ${effectiveCols === 1 ? 'grid-cols-1' : effectiveCols === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-3 w-full mb-1 animate-in fade-in duration-300 ${

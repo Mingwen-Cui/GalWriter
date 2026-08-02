@@ -81,6 +81,13 @@ export const settingsModalZh = {
   directionDown: '下方',
   directionLeft: '左侧',
   directionRight: '右侧',
+  actualPreview: '实际预览',
+  nextCardPreview: '新卡片',
+  previewStoryTitle: '开始',
+  previewStoryBody: '从前有座山',
+  previewNextTitle: '分支',
+  previewNextBody: '山里有座庙',
+  valueLabel: '数值',
   interactions: '交互与显示',
   showLastSavedTime: '显示上次保存时间',
   saveAssistantConversations: '保存 AI 助手对话',
@@ -179,6 +186,7 @@ export const settingsModalZh = {
   videoAutoPlay: '视频自动播放',
   contactTitle: '联系作者 (崔铭文)',
   contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
-  freeNotice: '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
+  freeNotice:
+    '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
   cancel: '取消',
 } as const;

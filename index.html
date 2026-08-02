@@ -23,10 +23,141 @@
     <meta property="og:type" content="website" />
 
     <link rel="icon" type="image/png" href="./icon.png" />
+    <style>
+      #app-startup-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: #fcfcfe !important;
+        color-scheme: only light;
+        forced-color-adjust: none;
+        contain: strict;
+        isolation: isolate;
+        transition: opacity 160ms ease-out;
+      }
+
+      #app-startup-splash.is-exiting {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .app-startup-splash__graphic {
+        display: block;
+        width: min(68vw, 68dvh, 620px);
+        height: min(68vw, 68dvh, 620px);
+        transform-origin: 50% 50%;
+        will-change: transform, opacity;
+        animation: app-startup-enter 1.2s cubic-bezier(.2, .8, .2, 1) both;
+      }
+
+      .app-startup-splash__gif {
+        display: block;
+        width: min(68vw, 68dvh, 620px);
+        height: min(68vw, 68dvh, 620px);
+        object-fit: contain;
+        background: #fcfcfe;
+        filter: none !important;
+        mix-blend-mode: normal;
+        forced-color-adjust: none;
+      }
+
+      #app-startup-splash > .app-startup-splash__graphic {
+        display: none;
+      }
+
+      @keyframes app-startup-enter {
+        0% { opacity: 0; transform: translate3d(0, 36px, 0) scale(.94); }
+        24% { opacity: 1; }
+        72% { transform: translate3d(0, -5px, 0) scale(1.01); }
+        100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-startup-splash__graphic {
+          animation-duration: 250ms;
+        }
+      }
+    </style>
   </head>
 
   <body>
+    <div id="app-startup-splash" aria-hidden="true">
+      <img id="app-startup-animation" class="app-startup-splash__gif" src="./animation/startup-loading.gif" alt="" draggable="false" />
+      <svg class="app-startup-splash__graphic" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path transform="matrix(-1 0 0 1 662.563 376.467)" d="M0 70.9734C0 70.9734 11.7772 129.55 61.9854 129.55C119.012 129.55 150.935 90.1889 150.935 0" stroke="url(#app-startup-paint-0)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="translate(403.463 548.477)" d="M54.2373 0C19.8353 14.3545 0 57.9574 0 115.604V120.562" stroke="url(#app-startup-paint-1)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="matrix(-1 0 0 1 620.723 554.579)" d="M53.9274 0C19.5254 14.3545 0 52.1646 0 109.502V114.46" stroke="url(#app-startup-paint-2)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="translate(294.679 460.148)" d="M218.189 0C218.189 50.8188 194.307 97.2993 105.914 97.2993C36.7504 99.1586 18.1413 153.076 6.66569 188.401C4.85655 193.97 0 208.581 0 208.581" stroke="url(#app-startup-paint-3)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="matrix(-1 0 0 1 727.957 460.148)" d="M215.709 0C215.709 57.6465 191.845 103.516 103.516 103.516C34.4019 105.375 15.8063 159.303 4.33898 194.635L0 208.891" stroke="url(#app-startup-paint-4)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="translate(361.003 376.467)" d="M0 70.9734C0 70.9734 11.7772 129.55 61.9854 129.55C119.012 129.55 150.935 90.1889 150.935 0" stroke="url(#app-startup-paint-5)" stroke-width="20.4552" stroke-linecap="round" />
+        <path transform="translate(512.248 375.847)" d="M0 0V333.482L1.62568e-06 370.673" stroke="url(#app-startup-paint-6)" stroke-width="21.0751" stroke-linecap="round" />
+        <circle cx="361.779" cy="447.286" r="40.2906" fill="#05A3B8" />
+        <circle cx="662.625" cy="446.883" r="40.2906" fill="#6750B6" />
+        <circle cx="296.291" cy="665.692" r="40.2906" fill="#1EC8CF" />
+        <circle cx="620.723" cy="669.039" r="40.2906" fill="#FE8A25" />
+        <circle cx="403.154" cy="669.039" r="40.2906" fill="#52D09A" />
+        <circle cx="727.71" cy="669.039" r="40.2906" fill="#E64881" />
+        <circle cx="512.248" cy="746.521" r="40.2906" fill="#E94242" />
+        <circle cx="512" cy="333" r="54.2373" fill="#1927E2" />
+        <defs>
+          <linearGradient id="app-startup-paint-0" x1="141.017" y1="68.8039" x2="22.3148" y2="112.194" gradientUnits="userSpaceOnUse"><stop stop-color="#2473BF" /><stop offset="1" stop-color="#6750B6" /></linearGradient>
+          <linearGradient id="app-startup-paint-1" x1="54.2373" y1="-4.33898" x2="4.95885" y2="91.8366" gradientUnits="userSpaceOnUse"><stop stop-color="#66AF85" /><stop offset=".278846" stop-color="#76C078" /><stop offset=".634615" stop-color="#94D46E" /><stop offset="1" stop-color="#52D09A" /></linearGradient>
+          <linearGradient id="app-startup-paint-2" x1="44.3196" y1="-9.82082" x2="4.95886" y2="90.9068" gradientUnits="userSpaceOnUse"><stop stop-color="#B98B68" /><stop offset=".16188" stop-color="#C88A67" /><stop offset=".485577" stop-color="#FC8544" /><stop offset="1" stop-color="#FE8A25" /></linearGradient>
+          <linearGradient id="app-startup-paint-3" x1="214.157" y1="23.5503" x2="20.1254" y2="166.258" gradientUnits="userSpaceOnUse"><stop stop-color="#207ABE" /><stop offset=".0865385" stop-color="#4C989F" /><stop offset=".485577" stop-color="#7BC476" /><stop offset="1" stop-color="#1DC8CC" /></linearGradient>
+          <linearGradient id="app-startup-paint-4" x1="216.019" y1="30.6828" x2="17.6657" y2="172.32" gradientUnits="userSpaceOnUse"><stop offset=".00480769" stop-color="#277EBA" /><stop offset=".104335" stop-color="#589B9D" /><stop offset=".485577" stop-color="#EE8455" /><stop offset="1" stop-color="#EF5B8B" /></linearGradient>
+          <linearGradient id="app-startup-paint-5" x1="141.017" y1="68.8039" x2="22.3148" y2="112.194" gradientUnits="userSpaceOnUse"><stop stop-color="#2473BF" /><stop offset="1" stop-color="#05A3B8" /></linearGradient>
+          <linearGradient id="app-startup-paint-6" x1=".309927" y1="0" x2=".309927" y2="333.482" gradientUnits="userSpaceOnUse"><stop stop-color="#1D65BD" /><stop offset=".302885" stop-color="#207ABE" /><stop offset=".509615" stop-color="#75AC8B" /><stop offset=".735577" stop-color="#F8C140" /><stop offset="1" stop-color="#E94242" /></linearGradient>
+        </defs>
+      </svg>
+    </div>
     <div id="root"></div>
+    <script>
+      (() => {
+        const splash = document.getElementById('app-startup-splash');
+        const animation = document.getElementById('app-startup-animation');
+        if (!splash) return;
+
+        let animationDone = false;
+        let appReady = false;
+        let closed = false;
+
+        const close = () => {
+          if (closed) return;
+          closed = true;
+          splash.classList.add('is-exiting');
+          window.setTimeout(() => splash.remove(), 180);
+        };
+
+        const closeWhenReady = () => {
+          if (animationDone && appReady) close();
+        };
+
+        const markAnimationDone = () => {
+          const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 250 : 1320;
+          window.setTimeout(() => {
+            animationDone = true;
+            closeWhenReady();
+          }, duration);
+        };
+
+        if (animation instanceof HTMLImageElement) {
+          if (animation.complete) markAnimationDone();
+          else animation.addEventListener('load', markAnimationDone, { once: true });
+        } else {
+          markAnimationDone();
+        }
+
+        window.addEventListener('galwriter:app-ready', () => {
+          appReady = true;
+          closeWhenReady();
+        }, { once: true });
+
+        window.setTimeout(close, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

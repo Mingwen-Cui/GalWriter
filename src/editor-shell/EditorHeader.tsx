@@ -1,4 +1,13 @@
-import { Download, FolderOpen, PlayCircle, Save, Sparkles } from 'lucide-react';
+import {
+  Copy,
+  FileArchive,
+  FilePlus2,
+  FolderOpen,
+  PlayCircle,
+  Save,
+  Sparkles,
+  Upload,
+} from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -7,6 +16,7 @@ import type { RenderWorkspaceLaunchIntent } from '../components/render/video/sha
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
 import { ExportQuickMenu } from './ExportQuickMenu';
+import { HeaderActionMenu } from './HeaderActionMenu';
 import { editorHeaderCopy } from './i18n/editor-header';
 
 interface EditorHeaderProps {
@@ -32,7 +42,9 @@ interface EditorHeaderProps {
   openProjectHome: () => void;
   openImportPicker: () => void;
   handleSaveProject: () => void;
+  handleSaveProjectCopy: () => void;
   handleExportProject: () => void;
+  handleCreateProject: () => void;
   handleImportZIP: (event: ChangeEvent<HTMLInputElement>) => void;
   t: {
     playTest: string;
@@ -63,7 +75,9 @@ export function EditorHeader({
   openProjectHome,
   openImportPicker,
   handleSaveProject,
+  handleSaveProjectCopy,
   handleExportProject,
+  handleCreateProject,
   handleImportZIP,
   t,
 }: EditorHeaderProps) {
@@ -400,72 +414,69 @@ export function EditorHeader({
             <div
               className={`editor-header-desktop-actions ${showActionLabels ? 'editor-header-desktop-actions-with-labels' : ''} flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
             >
-              <button
-                type="button"
-                onClick={handleSaveProject}
+              <HeaderActionMenu
+                icon={Save}
+                label={headerCopy.save}
+                ariaLabel={t.save}
+                showLabel={showActionLabels}
+                onTrigger={handleSaveProject}
                 disabled={isSavingProject}
-                className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-none transition-colors ${
+                indicator={isDirty}
+                triggerClassName={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-none transition-colors ${
                   isDirty
                     ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
                     : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
                 } ${isSavingProject ? 'cursor-wait opacity-70' : ''}`}
-                title={
-                  isSavingProject
-                    ? language === 'zh'
-                      ? '正在保存...'
-                      : language === 'ja'
-                        ? '保存中...'
-                        : 'Saving...'
-                    : isDirty
-                      ? language === 'zh'
-                        ? '有未保存的更改 - 点击保存'
-                        : language === 'ja'
-                          ? '未保存の変更があります - クリックして保存'
-                          : 'Unsaved changes - Click to save'
-                      : t.save
-                }
-              >
-                <Save className="h-4 w-4" />
-                {showActionLabels && (
-                  <span className="editor-header-action-label">{headerCopy.save}</span>
-                )}
-                {isDirty && (
-                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleExportProject}
-                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                title={
-                  language === 'zh'
-                    ? '导出 ZIP 备份文件'
-                    : language === 'ja'
-                      ? 'ZIPバックアップファイルをエクスポート'
-                      : 'Export ZIP backup file'
-                }
-              >
-                <Download className="h-4 w-4" />
-                {showActionLabels && (
-                  <span className="editor-header-action-label">{headerCopy.backup}</span>
-                )}
-              </button>
-              <button
-                onClick={openProjectHome}
-                className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                title={
-                  language === 'zh'
-                    ? '项目列表'
-                    : language === 'ja'
-                      ? 'プロジェクト一覧'
-                      : 'Project home'
-                }
-              >
-                <FolderOpen className="h-4 w-4" />
-                {showActionLabels && (
-                  <span className="editor-header-action-label">{headerCopy.projects}</span>
-                )}
-              </button>
+                items={[
+                  {
+                    id: 'save-current',
+                    label: headerCopy.saveCurrent,
+                    icon: Save,
+                    onSelect: handleSaveProject,
+                  },
+                  {
+                    id: 'save-copy',
+                    label: headerCopy.saveCopy,
+                    icon: Copy,
+                    onSelect: handleSaveProjectCopy,
+                  },
+                ]}
+              />
+              <HeaderActionMenu
+                icon={FolderOpen}
+                label={headerCopy.projects}
+                ariaLabel={headerCopy.projectList}
+                showLabel={showActionLabels}
+                onTrigger={openProjectHome}
+                columns={2}
+                triggerClassName="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                items={[
+                  {
+                    id: 'create-project',
+                    label: headerCopy.createProject,
+                    icon: FilePlus2,
+                    onSelect: handleCreateProject,
+                  },
+                  {
+                    id: 'project-list',
+                    label: headerCopy.projectList,
+                    icon: FolderOpen,
+                    onSelect: openProjectHome,
+                  },
+                  {
+                    id: 'export-current',
+                    label: headerCopy.exportCurrent,
+                    icon: FileArchive,
+                    onSelect: handleExportProject,
+                  },
+                  {
+                    id: 'import-project',
+                    label: headerCopy.importProject,
+                    icon: Upload,
+                    onSelect: openImportPicker,
+                  },
+                ]}
+              />
               <button
                 onClick={() => setShowPlayTest(true)}
                 className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"

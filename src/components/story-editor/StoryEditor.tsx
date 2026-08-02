@@ -1392,6 +1392,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const {
     addNewShape,
     addNewTextNode,
+    addNewHeadingTextNode,
     addNewSummaryNode,
     addNewNumberConditionNode,
     addNewBatchReplaceNode,
@@ -1857,6 +1858,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     loadExampleTemplates,
     handleApplySettingsToOtherProjects,
     saveCurrentProject,
+    saveProjectAsCopy,
+    handleCreateProject,
     handleRenameProject,
     handleDeleteProject,
     handleDeleteProjects,
@@ -2257,8 +2260,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         handleSaveProject={() => {
           void saveCurrentProject();
         }}
+        handleSaveProjectCopy={() => {
+          void saveProjectAsCopy();
+        }}
         handleExportProject={() => {
           setShowSaveNameModal(true);
+        }}
+        handleCreateProject={() => {
+          void handleCreateProject();
         }}
         handleImportZIP={handleImportZIP}
         t={t}
@@ -2281,6 +2290,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             setInteractionMode={setInteractionMode}
             addNewShape={addNewShape}
             addNewTextNode={addNewTextNode}
+            addNewHeadingTextNode={addNewHeadingTextNode}
             addNewCharacterNode={addNewCharacterNode}
             addNewSceneNode={addNewSceneNode}
             addNewPlotStructureNode={addNewPlotStructureNode}

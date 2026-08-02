@@ -87,11 +87,20 @@ export function EditorRightToolbar({
     showDesktopLabels ? <span className="side-toolbar-action-label">{label}</span> : null;
   const titleButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleMenuRef = useRef<HTMLDivElement | null>(null);
+  const titleMenuCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTitleMenu, setShowTitleMenu] = useState(false);
   const [titleMenuPosition, setTitleMenuPosition] = useState({ left: 0, top: 0 });
 
-  const toggleTitleMenu = () => {
-    if (!showTitleMenu && titleButtonRef.current) {
+  const cancelTitleMenuClose = () => {
+    if (titleMenuCloseTimerRef.current !== null) {
+      clearTimeout(titleMenuCloseTimerRef.current);
+      titleMenuCloseTimerRef.current = null;
+    }
+  };
+
+  const openTitleMenu = () => {
+    cancelTitleMenuClose();
+    if (titleButtonRef.current) {
       const rect = titleButtonRef.current.getBoundingClientRect();
       const menuWidth = 420;
       const menuHeight = 122;
@@ -109,8 +118,25 @@ export function EditorRightToolbar({
       );
       setTitleMenuPosition({ left, top });
     }
-    setShowTitleMenu((value) => !value);
+    setShowTitleMenu(true);
   };
+
+  const scheduleTitleMenuClose = () => {
+    cancelTitleMenuClose();
+    titleMenuCloseTimerRef.current = setTimeout(() => {
+      setShowTitleMenu(false);
+      titleMenuCloseTimerRef.current = null;
+    }, 180);
+  };
+
+  useEffect(
+    () => () => {
+      if (titleMenuCloseTimerRef.current !== null) {
+        clearTimeout(titleMenuCloseTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!showTitleMenu) return;
@@ -233,9 +259,11 @@ export function EditorRightToolbar({
 
               <button
                 ref={titleButtonRef}
-                onClick={toggleTitleMenu}
+                onClick={() => setShowTitles((visible) => !visible)}
+                onPointerEnter={openTitleMenu}
+                onPointerLeave={scheduleTitleMenuClose}
                 className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                title={showTitles ? t.hideTitles : t.showTitles}
+                aria-label={showTitles ? t.hideTitles : t.showTitles}
                 aria-haspopup="dialog"
                 aria-expanded={showTitleMenu}
               >
@@ -303,6 +331,8 @@ export function EditorRightToolbar({
             ref={titleMenuRef}
             role="dialog"
             aria-label={t.showTitles}
+            onPointerEnter={cancelTitleMenuClose}
+            onPointerLeave={scheduleTitleMenuClose}
             className="animate-in fade-in zoom-in-95 fixed z-[10050] w-[420px] rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)]/95 p-2 shadow-2xl shadow-slate-950/20 backdrop-blur-xl duration-150 dark:shadow-black/40"
             style={{ left: titleMenuPosition.left, top: titleMenuPosition.top }}
           >

@@ -4,18 +4,37 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Bold,
   BrainCircuit,
   Check,
   Copy,
+  Diamond,
   Download,
+  EyeOff,
   ExternalLink,
+  GitFork,
   HelpCircle,
+  Hexagon,
   ImageIcon,
+  Italic,
   Layers,
   Mail,
+  Maximize,
   MessageCircle,
+  Mic,
+  Minus,
+  Palette,
   PlayCircle,
+  Play,
+  Plus,
+  RectangleHorizontal,
   ShieldAlert,
+  Square,
+  StepForward,
+  Trash2,
+  Triangle,
+  Underline,
+  Volume2,
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
@@ -483,6 +502,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const s = settingsModalCopy(language);
   const isDesktopApp = isTauriRuntime();
+  const plotDirectionOptions = [
+    { id: 'up' as const, label: s.directionUp, icon: ArrowUp },
+    { id: 'down' as const, label: s.directionDown, icon: ArrowDown },
+    { id: 'left' as const, label: s.directionLeft, icon: ArrowLeft },
+    { id: 'right' as const, label: s.directionRight, icon: ArrowRight },
+  ];
+  const selectedPlotDirection =
+    plotDirectionOptions.find((item) => item.id === plotStructureGenerateDirection) ??
+    plotDirectionOptions[1];
+  // StoryNode renders this toolbar at `zoom * 0.6 * cardToolbarScale`.
+  // The preview stage enlarges both the 300px card and toolbar by 1.2x so the
+  // relationship stays true to the canvas while remaining readable here.
+  const toolbarPreviewDisplayScale = 1.2;
+  const previewToolbarScale = cardToolbarScale * 0.6 * toolbarPreviewDisplayScale;
+  const cardToolbarScalePercent = ((cardToolbarScale - 0.5) / 2.5) * 100;
   const applyProjectCountLabel = s.applyProjectCount(selectedApplyProjectIds.length);
   const compactSegmentButtonClass = (active: boolean) =>
     `web-segment-button min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
@@ -672,7 +706,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Main Content Area */}
-            <div className={`settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto custom-scrollbar ${activeSettingsTab === 'playtest' ? 'p-5' : 'p-8 pt-7'}`}>
+            <div
+              className={`settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto custom-scrollbar ${activeSettingsTab === 'playtest' ? 'p-5' : 'p-8 pt-7'}`}
+            >
               {activeSettingsTab === 'appearance' && (
                 <div className="min-w-0 space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section>
@@ -1296,32 +1332,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 : 'bg-[var(--card-border)]'
                             }`}
                           >
-                            <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[left] ${showNodeActions ? 'left-6' : 'left-1'}`} />
+                            <span
+                              className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[left] ${showNodeActions ? 'left-6' : 'left-1'}`}
+                            />
                           </span>
                         </button>
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}>横向</span>
+                          <span
+                            className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}
+                          >
+                            横向
+                          </span>
                           <div className="min-w-0 flex-1">
-                            <DraggableNumberInput value={nodeHorizontalSpacing} onChange={setNodeHorizontalSpacing} min={40} max={360} step={5} unit="PX" disabled={!showNodeActions} />
+                            <DraggableNumberInput
+                              value={nodeHorizontalSpacing}
+                              onChange={setNodeHorizontalSpacing}
+                              min={40}
+                              max={360}
+                              step={5}
+                              unit="PX"
+                              disabled={!showNodeActions}
+                            />
                           </div>
                         </div>
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}>纵向</span>
+                          <span
+                            className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}
+                          >
+                            纵向
+                          </span>
                           <div className="min-w-0 flex-1">
-                            <DraggableNumberInput value={nodeVerticalSpacing} onChange={setNodeVerticalSpacing} min={40} max={360} step={5} unit="PX" disabled={!showNodeActions} />
+                            <DraggableNumberInput
+                              value={nodeVerticalSpacing}
+                              onChange={setNodeVerticalSpacing}
+                              min={40}
+                              max={360}
+                              step={5}
+                              unit="PX"
+                              disabled={!showNodeActions}
+                            />
                           </div>
                         </div>
                       </div>
-                      <div className={`relative h-24 w-32 shrink-0 overflow-hidden rounded-lg border bg-[var(--app-bg)]/40 transition-opacity ${showNodeActions ? 'border-[var(--card-border)]' : 'border-[var(--card-border)] opacity-35 grayscale'}`}>
-                        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 128 96" fill="none" aria-hidden="true">
+                      <div
+                        className={`relative h-24 w-32 shrink-0 overflow-hidden rounded-lg border bg-[var(--app-bg)]/40 transition-opacity ${showNodeActions ? 'border-[var(--card-border)]' : 'border-[var(--card-border)] opacity-35 grayscale'}`}
+                      >
+                        <svg
+                          className="absolute inset-0 h-full w-full overflow-visible"
+                          viewBox="0 0 128 96"
+                          fill="none"
+                          aria-hidden="true"
+                        >
                           <path d="M 25 29 L 25 64" stroke="var(--accent)" strokeWidth="1.5" />
-                          <path d="M 38 76 C 55 76, 62 76, 82 76" stroke="var(--accent)" strokeWidth="1.5" />
+                          <path
+                            d="M 38 76 C 55 76, 62 76, 82 76"
+                            stroke="var(--accent)"
+                            strokeWidth="1.5"
+                          />
                         </svg>
                         <span className="absolute left-2 top-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
                         <span className="absolute bottom-2 left-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
                         <span className="absolute bottom-2 right-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
-                        <span className="absolute left-8 top-[39px] rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">{nodeVerticalSpacing}px</span>
-                        <span className="absolute left-[49px] bottom-8 rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">{nodeHorizontalSpacing}px</span>
+                        <span className="absolute left-8 top-[39px] rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">
+                          {nodeVerticalSpacing}px
+                        </span>
+                        <span className="absolute left-[49px] bottom-8 rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">
+                          {nodeHorizontalSpacing}px
+                        </span>
                       </div>
                     </div>
                   </section>
@@ -1427,99 +1504,283 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </section>
 
-                  <section className={settingsRowClass}>
-                    <div className="min-w-0 flex-1">
+                  <section className="min-w-0 space-y-4">
+                    <div className={settingsRowClass}>
                       <h3 className={settingsRowTitleClass}>
                         {renderSettingHint(
                           <span>{s.cardToolbarScale}</span>,
                           s.cardToolbarScaleDesc,
                         )}
                       </h3>
-                      {!isDesktopApp && (
-                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                          {s.cardToolbarScaleDesc}
-                        </p>
-                      )}
+
+                      <div className="min-w-0 flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
+                        <div className="mb-4 flex items-center justify-between text-[10px] font-black tracking-wide text-[var(--text-muted)]">
+                          <span>0.50×</span>
+                          <span className="rounded-lg bg-[var(--accent)]/10 px-2.5 py-1 font-mono text-xs text-[var(--accent)]">
+                            {cardToolbarScale.toFixed(2)}×
+                          </span>
+                          <span>3.00×</span>
+                        </div>
+                        <div className="relative h-5">
+                          <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-[var(--card-border)]/70">
+                            <span
+                              className="block h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
+                              style={{ width: `${cardToolbarScalePercent}%` }}
+                            />
+                          </div>
+                          {[0, 20, 40, 60, 80, 100].map((tick) => (
+                            <span
+                              key={tick}
+                              className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--card-bg)]/90"
+                              style={{ left: `${tick}%` }}
+                            />
+                          ))}
+                          <span
+                            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[var(--card-bg)] bg-[var(--accent)] shadow-md transition-[left] duration-150"
+                            style={{ left: `${cardToolbarScalePercent}%` }}
+                          />
+                          <input
+                            type="range"
+                            min={0.5}
+                            max={3}
+                            step={0.05}
+                            value={cardToolbarScale}
+                            onChange={(event) =>
+                              setCardToolbarScale(parseFloat(event.target.value))
+                            }
+                            aria-label={s.cardToolbarScale}
+                            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex min-w-0 flex-1 items-center gap-4 rounded-lg border border-[var(--header-border)] bg-[var(--app-bg)]/50 p-2.5">
-                      <input
-                        type="range"
-                        min={0.5}
-                        max={3}
-                        step={0.05}
-                        value={cardToolbarScale}
-                        onChange={(event) => setCardToolbarScale(parseFloat(event.target.value))}
-                        className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-700"
-                      />
-                      <span className="shrink-0 text-xs font-mono font-bold text-[var(--accent)]">
-                        {cardToolbarScale.toFixed(2)}x
+
+                    <div className="relative h-[360px] w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/30 shadow-sm">
+                      <span className="absolute left-3 top-3 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)]/90 px-2 py-1 text-[10px] font-black text-[var(--text-muted)] shadow-sm">
+                        {s.actualPreview}
                       </span>
+
+                      <div className="absolute left-1/2 top-32 z-10 w-[360px] max-w-[calc(100%-48px)] -translate-x-1/2">
+                        <div className="relative aspect-[5/3] rounded-2xl border-2 border-blue-500 bg-[var(--card-bg)] px-5 py-4 shadow-lg">
+                          <span className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
+                          <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
+                          <span className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
+                          <span className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
+                          <span className="absolute -left-3 -top-6 flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-1 text-[10px] font-black text-white shadow">
+                            <Play className="h-3 w-3 fill-current" />
+                            {s.previewStoryTitle}
+                          </span>
+                          <div className="text-center text-xs font-black text-[var(--text-primary)]">
+                            {s.previewStoryTitle}
+                          </div>
+                          <p className="mt-5 text-sm font-medium text-[var(--text-primary)]">
+                            {s.previewStoryBody}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="contents">
+                        <div className="absolute left-1/2 top-6 z-30 w-max -translate-x-1/2">
+                          <div
+                            className="flex w-[572px] origin-bottom flex-col gap-1.5 rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-2 text-[var(--text-secondary)] shadow-2xl backdrop-blur-md transition-transform duration-200"
+                            style={{ transform: `scale(${previewToolbarScale})` }}
+                          >
+                            <div className="flex items-center justify-between gap-0 px-1">
+                              {['#ffffff', '#fe8a25', '#e64881', '#fd5c5c', '#1ec8cf'].map(
+                                (color) => (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    tabIndex={-1}
+                                    className="h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)]"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ),
+                              )}
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+                                style={{
+                                  background:
+                                    'linear-gradient(45deg, rgb(240, 147, 251), rgb(245, 87, 108))',
+                                }}
+                              >
+                                <Palette className="h-3 w-3" />
+                              </button>
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              {[Square, RectangleHorizontal, Diamond, Triangle, Hexagon].map(
+                                (Icon, index) => (
+                                  <button
+                                    type="button"
+                                    tabIndex={-1}
+                                    key={index}
+                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${index === 1 ? 'text-blue-400' : 'text-[var(--text-primary)]/80'}`}
+                                  >
+                                    <Icon className="h-4 w-4 fill-current" />
+                                  </button>
+                                ),
+                              )}
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              {[Bold, Italic, Underline].map((Icon, index) => (
+                                <button
+                                  type="button"
+                                  tabIndex={-1}
+                                  key={index}
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </button>
+                              ))}
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="flex h-7 w-7 items-center justify-center text-rose-500"
+                              >
+                                <Mic className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="flex h-7 w-7 items-center justify-center text-sky-600"
+                              >
+                                <Volume2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
+                            <div className="flex items-center gap-1.5 px-1">
+                              <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-500">
+                                {s.previewStoryTitle}
+                              </span>
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
+                                {s.valueLabel}
+                              </span>
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-1.5"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="h-1.5 min-w-[110px] flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]" />
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-1.5"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="w-14 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-2 py-1.5 text-center text-sm font-bold shadow-sm">
+                                0
+                              </span>
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              {[GitFork, StepForward, EyeOff, Maximize, Trash2].map(
+                                (Icon, index) => (
+                                  <button
+                                    type="button"
+                                    tabIndex={-1}
+                                    key={index}
+                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${index === 3 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15' : index === 4 ? 'text-red-400' : ''}`}
+                                  >
+                                    <Icon className="h-3.5 w-3.5" />
+                                  </button>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </section>
 
-                  <section className="space-y-3">
-                    <div className={settingsRowClass}>
-                      <div className="min-w-0 flex-1">
-                        <h3 className={settingsRowTitleClass}>
-                          {renderSettingHint(
-                            <span>{s.plotStructureDirection}</span>,
-                            s.plotStructureDirectionDesc,
-                          )}
-                        </h3>
-                        {!isDesktopApp && (
-                          <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                            {s.plotStructureDirectionDesc}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { id: 'up', label: s.directionUp, icon: ArrowUp },
-                        { id: 'down', label: s.directionDown, icon: ArrowDown },
-                        { id: 'left', label: s.directionLeft, icon: ArrowLeft },
-                        { id: 'right', label: s.directionRight, icon: ArrowRight },
-                      ].map((item) => {
-                        const selected = plotStructureGenerateDirection === item.id;
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() =>
-                              setPlotStructureGenerateDirection(
-                                item.id as PlotStructureGenerateDirection,
-                              )
-                            }
-                            className={`rounded-xl border p-3 text-left transition-all ${
-                              selected
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm'
-                                : 'border-[var(--header-border)] bg-[var(--app-bg)]/30 hover:border-[var(--accent)]/50'
+                  <section className={settingsRowClass}>
+                    <h3 className={settingsRowTitleClass}>
+                      {renderSettingHint(
+                        <span>{s.plotStructureDirection}</span>,
+                        s.plotStructureDirectionDesc,
+                      )}
+                    </h3>
+
+                    <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+                      <div className="relative h-[300px] overflow-hidden bg-[var(--app-bg)]/30">
+                        <div className="absolute left-1/2 top-1/2 h-[500px] w-[640px] origin-center -translate-x-1/2 -translate-y-1/2 scale-50">
+                          <div
+                            className={`absolute z-10 h-[150px] rounded-3xl border-4 border-blue-500 bg-[var(--card-bg)] shadow-xl ${
+                              plotStructureGenerateDirection === 'down'
+                                ? 'left-1/2 top-10 w-[300px] -translate-x-1/2'
+                                : plotStructureGenerateDirection === 'up'
+                                  ? 'bottom-10 left-1/2 w-[300px] -translate-x-1/2'
+                                  : plotStructureGenerateDirection === 'left'
+                                    ? 'right-20 top-1/2 w-[160px] -translate-y-1/2'
+                                    : 'left-20 top-1/2 w-[160px] -translate-y-1/2'
                             }`}
                           >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                                  selected
-                                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                                    : 'border-[var(--header-border)] text-[var(--text-muted)]'
-                                }`}
-                              >
-                                <Icon className="h-3.5 w-3.5" />
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div
-                                  className={`text-xs font-black ${
-                                    selected ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'
-                                  }`}
-                                >
-                                  {item.label}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                            <span className="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
+                            <span className="absolute -right-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
+                            <span className="absolute -bottom-2.5 -left-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
+                            <span className="absolute -bottom-2.5 -right-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
+                          </div>
+
+                          <div
+                            className={`absolute z-20 flex items-center justify-center text-indigo-500 ${
+                              plotStructureGenerateDirection === 'down'
+                                ? 'left-1/2 top-[210px] h-20 -translate-x-1/2'
+                                : plotStructureGenerateDirection === 'up'
+                                  ? 'bottom-[210px] left-1/2 h-20 -translate-x-1/2'
+                                  : plotStructureGenerateDirection === 'left'
+                                    ? 'left-[280px] top-1/2 w-20 -translate-y-1/2'
+                                    : 'left-[280px] top-1/2 w-20 -translate-y-1/2'
+                            }`}
+                          >
+                            {React.createElement(selectedPlotDirection.icon, {
+                              className: `${
+                                plotStructureGenerateDirection === 'up' ||
+                                plotStructureGenerateDirection === 'down'
+                                  ? 'h-20 w-10'
+                                  : 'h-10 w-20'
+                              } shrink-0`,
+                              strokeWidth: 3.25,
+                            })}
+                          </div>
+
+                          <div
+                            className={`absolute z-0 h-[150px] rounded-3xl border-4 border-[var(--card-border)] bg-[var(--card-bg)] shadow-lg ${
+                              plotStructureGenerateDirection === 'down'
+                                ? 'bottom-10 left-1/2 w-[300px] -translate-x-1/2'
+                                : plotStructureGenerateDirection === 'up'
+                                  ? 'left-1/2 top-10 w-[300px] -translate-x-1/2'
+                                  : plotStructureGenerateDirection === 'left'
+                                    ? 'left-20 top-1/2 w-[160px] -translate-y-1/2'
+                                    : 'right-20 top-1/2 w-[160px] -translate-y-1/2'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 border-t border-[var(--card-border)] bg-[var(--card-bg)] p-2">
+                        {plotDirectionOptions.map((item) => {
+                          const selected = plotStructureGenerateDirection === item.id;
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => setPlotStructureGenerateDirection(item.id)}
+                              className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-black ${
+                                selected
+                                  ? 'bg-[var(--accent)] text-white shadow-sm'
+                                  : 'text-[var(--text-muted)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]'
+                              }`}
+                            >
+                              <Icon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </section>
 

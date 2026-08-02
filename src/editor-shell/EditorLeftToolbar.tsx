@@ -1,10 +1,14 @@
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import {
+  AudioLines,
   BookOpen,
   Calculator,
   ChevronDown,
+  Diamond,
   Eye,
   FileText,
+  Heading1,
+  Hexagon,
   Image as ImageIcon,
   MapPin,
   MousePointer2,
@@ -13,6 +17,7 @@ import {
   SquareDashedMousePointer,
   Type,
   UserCircle2,
+  Video,
 } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,6 +29,7 @@ import batchReplaceAnimation from '../animation/patch place.lottie';
 import plotStructureAnimation from '../animation/plot structure.lottie';
 import sceneSettingCardAnimation from '../animation/scence setting card.lottie';
 import textSummaryAnimation from '../animation/test summary.lottie';
+import type { StoryCardVisualShape } from '../domain/project';
 import type { Language } from '../lib/i18n';
 import { getSideToolbarStrings } from './i18n/side-toolbar';
 
@@ -36,6 +42,12 @@ type HoverGuideKind =
   | 'numberCondition';
 
 const GUIDE_VIEWPORT_MARGIN = 16;
+const QUICK_MENU_ITEM_WIDTH = 82;
+const QUICK_MENU_HEIGHT = 88;
+const QUICK_MENU_GAP = 12;
+
+type MediaPickerKind = 'all' | 'image' | 'video' | 'audio';
+type QuickMenuKind = 'card' | 'text' | 'media';
 
 const hoverGuideAnimations: Record<
   HoverGuideKind,
@@ -90,8 +102,9 @@ interface EditorLeftToolbarProps {
   fileInputRef: MutableRefObject<HTMLInputElement | null>;
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
-  addNewShape: (shape: 'square' | 'diamond' | 'rounded-rectangle') => void;
+  addNewShape: (shape: StoryCardVisualShape) => void;
   addNewTextNode: () => void;
+  addNewHeadingTextNode: () => void;
   addNewCharacterNode: () => void;
   addNewSceneNode: () => void;
   addNewPlotStructureNode: () => void;
@@ -128,6 +141,7 @@ export function EditorLeftToolbar({
   setInteractionMode,
   addNewShape,
   addNewTextNode,
+  addNewHeadingTextNode,
   addNewCharacterNode,
   addNewSceneNode,
   addNewPlotStructureNode,
@@ -144,10 +158,13 @@ export function EditorLeftToolbar({
   const showDesktopLabels = showSideToolbarLabels && !isMobile;
   const renderToolbarLabel = (label: string) =>
     showDesktopLabels ? <span className="side-toolbar-action-label">{label}</span> : null;
-  const guideHoverDelayMs = 600;
+  const guideHoverDelayMs = 400;
   const guideDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guideRequestIdRef = useRef(0);
   const guideAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const quickMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const quickMenuRef = useRef<HTMLDivElement | null>(null);
+  const quickMenuCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeHoverGuide, setActiveHoverGuide] = useState<HoverGuideKind | null>(null);
   const [shouldRenderHoverGuide, setShouldRenderHoverGuide] = useState(false);
   const [showHoverGuide, setShowHoverGuide] = useState(false);
@@ -155,6 +172,65 @@ export function EditorLeftToolbar({
     left: 0,
     top: 0,
   });
+  const [activeQuickMenu, setActiveQuickMenu] = useState<QuickMenuKind | null>(null);
+  const [quickMenuPosition, setQuickMenuPosition] = useState({ left: 0, top: 0 });
+
+  const cancelQuickMenuClose = () => {
+    if (quickMenuCloseTimerRef.current !== null) {
+      clearTimeout(quickMenuCloseTimerRef.current);
+      quickMenuCloseTimerRef.current = null;
+    }
+  };
+
+  const openQuickMenu = (kind: QuickMenuKind, button: HTMLButtonElement) => {
+    if (isMobile) return;
+
+    cancelQuickMenuClose();
+    quickMenuAnchorRef.current = button;
+    const itemCount = kind === 'text' ? 2 : 3;
+    const menuWidth = itemCount * QUICK_MENU_ITEM_WIDTH + 16;
+    const rect = button.getBoundingClientRect();
+    const rightSideLeft = rect.right + QUICK_MENU_GAP;
+    const left =
+      rightSideLeft + menuWidth <= window.innerWidth - GUIDE_VIEWPORT_MARGIN
+        ? rightSideLeft
+        : Math.max(GUIDE_VIEWPORT_MARGIN, rect.left - menuWidth - QUICK_MENU_GAP);
+    const top = Math.max(
+      GUIDE_VIEWPORT_MARGIN,
+      Math.min(
+        rect.top + rect.height / 2 - QUICK_MENU_HEIGHT / 2,
+        window.innerHeight - QUICK_MENU_HEIGHT - GUIDE_VIEWPORT_MARGIN,
+      ),
+    );
+
+    setQuickMenuPosition({ left, top });
+    setActiveQuickMenu(kind);
+  };
+
+  const scheduleQuickMenuClose = () => {
+    cancelQuickMenuClose();
+    quickMenuCloseTimerRef.current = setTimeout(() => {
+      setActiveQuickMenu(null);
+      quickMenuAnchorRef.current = null;
+      quickMenuCloseTimerRef.current = null;
+    }, 180);
+  };
+
+  const openMediaPicker = (kind: MediaPickerKind) => {
+    const input = fileInputRef.current;
+    if (!input) return;
+
+    input.accept =
+      kind === 'all'
+        ? 'image/*,video/*,audio/*'
+        : kind === 'image'
+          ? 'image/*'
+          : kind === 'video'
+            ? 'video/*'
+            : 'audio/*';
+    setActiveQuickMenu(null);
+    input.click();
+  };
 
   const updateHoverGuidePosition = useCallback(
     (kind: HoverGuideKind, button: HTMLButtonElement) => {
@@ -244,8 +320,33 @@ export function EditorLeftToolbar({
       if (guideDelayTimerRef.current) {
         clearTimeout(guideDelayTimerRef.current);
       }
+      if (quickMenuCloseTimerRef.current !== null) {
+        clearTimeout(quickMenuCloseTimerRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeQuickMenu) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (quickMenuAnchorRef.current?.contains(target) || quickMenuRef.current?.contains(target)) {
+        return;
+      }
+      setActiveQuickMenu(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveQuickMenu(null);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [activeQuickMenu]);
 
   const activeHoverGuideConfig = activeHoverGuide ? hoverGuideAnimations[activeHoverGuide] : null;
   const hoverGuideText: Record<HoverGuideKind, string> = {
@@ -271,6 +372,71 @@ export function EditorLeftToolbar({
           ? '数値判定カード'
           : 'Number Condition',
   };
+  const quickMenuOptions =
+    activeQuickMenu === 'card'
+      ? [
+          {
+            id: 'standard-card',
+            label: sideToolbarStrings.standardCard,
+            Icon: Square,
+            onSelect: () => addNewShape('square'),
+          },
+          {
+            id: 'hexagon-card',
+            label: sideToolbarStrings.hexagonCard,
+            Icon: Hexagon,
+            onSelect: () => addNewShape('hexagon'),
+          },
+          {
+            id: 'diamond-card',
+            label: sideToolbarStrings.diamondCard,
+            Icon: Diamond,
+            onSelect: () => addNewShape('diamond'),
+          },
+        ]
+      : activeQuickMenu === 'text'
+        ? [
+            {
+              id: 'body-text',
+              label: sideToolbarStrings.bodyText,
+              Icon: Type,
+              onSelect: addNewTextNode,
+            },
+            {
+              id: 'heading-text',
+              label: sideToolbarStrings.headingText,
+              Icon: Heading1,
+              onSelect: addNewHeadingTextNode,
+            },
+          ]
+        : activeQuickMenu === 'media'
+          ? [
+              {
+                id: 'image',
+                label: sideToolbarStrings.image,
+                Icon: ImageIcon,
+                onSelect: () => openMediaPicker('image'),
+              },
+              {
+                id: 'video',
+                label: sideToolbarStrings.video,
+                Icon: Video,
+                onSelect: () => openMediaPicker('video'),
+              },
+              {
+                id: 'audio',
+                label: sideToolbarStrings.audio,
+                Icon: AudioLines,
+                onSelect: () => openMediaPicker('audio'),
+              },
+            ]
+          : [];
+  const quickMenuLabel =
+    activeQuickMenu === 'card'
+      ? sideToolbarStrings.card
+      : activeQuickMenu === 'text'
+        ? sideToolbarStrings.text
+        : sideToolbarStrings.media;
 
   return (
     <>
@@ -379,7 +545,11 @@ export function EditorLeftToolbar({
             <button
               className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => addNewShape('square')}
-              title={t.toolSquare}
+              onPointerEnter={(event) => openQuickMenu('card', event.currentTarget)}
+              onPointerLeave={scheduleQuickMenuClose}
+              aria-label={t.toolSquare}
+              aria-haspopup="menu"
+              aria-expanded={activeQuickMenu === 'card'}
             >
               <Square strokeWidth={3} className="h-5 w-5" />
               {renderToolbarLabel(sideToolbarStrings.card)}
@@ -389,7 +559,11 @@ export function EditorLeftToolbar({
               <button
                 className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={addNewTextNode}
-                title={t.toolText}
+                onPointerEnter={(event) => openQuickMenu('text', event.currentTarget)}
+                onPointerLeave={scheduleQuickMenuClose}
+                aria-label={t.toolText}
+                aria-haspopup="menu"
+                aria-expanded={activeQuickMenu === 'text'}
               >
                 <Type strokeWidth={2.5} className="h-5 w-5" />
                 {renderToolbarLabel(sideToolbarStrings.text)}
@@ -486,8 +660,12 @@ export function EditorLeftToolbar({
 
             <button
               className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => fileInputRef.current?.click()}
-              title={t.toolMedia}
+              onClick={() => openMediaPicker('all')}
+              onPointerEnter={(event) => openQuickMenu('media', event.currentTarget)}
+              onPointerLeave={scheduleQuickMenuClose}
+              aria-label={t.toolMedia}
+              aria-haspopup="menu"
+              aria-expanded={activeQuickMenu === 'media'}
             >
               <ImageIcon strokeWidth={2.5} className="h-5 w-5" />
               {renderToolbarLabel(sideToolbarStrings.media)}
@@ -564,6 +742,43 @@ export function EditorLeftToolbar({
             <div className="absolute inset-x-0 bottom-0 z-10 flex h-[50px] items-center justify-center border-t border-slate-200 bg-white px-5 text-center text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
               {hoverGuideText[activeHoverGuide]}
             </div>
+          </div>,
+          document.body,
+        )}
+
+      {activeQuickMenu &&
+        !isMobile &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={quickMenuRef}
+            role="menu"
+            aria-label={quickMenuLabel}
+            onPointerEnter={cancelQuickMenuClose}
+            onPointerLeave={scheduleQuickMenuClose}
+            className="animate-in fade-in zoom-in-95 fixed z-[10050] grid gap-1.5 rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)]/95 p-2 shadow-2xl shadow-slate-950/20 backdrop-blur-xl duration-150 dark:shadow-black/40"
+            style={{
+              left: quickMenuPosition.left,
+              top: quickMenuPosition.top,
+              width: quickMenuOptions.length * QUICK_MENU_ITEM_WIDTH + 16,
+              gridTemplateColumns: `repeat(${quickMenuOptions.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {quickMenuOptions.map(({ id, label, Icon, onSelect }) => (
+              <button
+                key={id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onSelect();
+                  setActiveQuickMenu(null);
+                }}
+                className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                <Icon className="h-7 w-7" strokeWidth={1.9} />
+                <span className="truncate text-[10px] font-black leading-3">{label}</span>
+              </button>
+            ))}
           </div>,
           document.body,
         )}

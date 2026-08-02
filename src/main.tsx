@@ -10,3 +10,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => window.dispatchEvent(new Event('galwriter:app-ready')));
+});

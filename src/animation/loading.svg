@@ -1,0 +1,521 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+svg { overflow: visible; }
+@keyframes kf_Upper_Branch_Right_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -1;
+    visibility: hidden;
+  }
+  33.651% {
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -1;
+    visibility: hidden;
+  }
+  33.958% {
+    animation-timing-function: ease-in;
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -1;
+    visibility: hidden;
+  }
+  49.035% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+}
+#Upper_Branch_Right {
+  animation: kf_Upper_Branch_Right_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Branch_Green_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  45.385% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  56.493% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+}
+#Ending_Branch_Green {
+  stroke-dashoffset: 0;
+  animation: kf_Ending_Branch_Green_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Branch_Orange_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  47.668% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  62.369% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+}
+#Ending_Branch_Orange {
+  stroke-dashoffset: 0;
+  animation: kf_Ending_Branch_Orange_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Branch_Cyan_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  38.462% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  53.846% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+}
+#Ending_Branch_Cyan {
+  stroke-dashoffset: 0;
+  animation: kf_Ending_Branch_Cyan_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Branch_Pink_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  40.955% {
+    animation-timing-function: ease-in-out;
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  56.339% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+}
+#Ending_Branch_Pink {
+  stroke-dashoffset: 0;
+  animation: kf_Ending_Branch_Pink_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Upper_Branch_Left_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -1;
+    visibility: hidden;
+  }
+  30.769% {
+    animation-timing-function: ease-in;
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -1;
+    visibility: hidden;
+  }
+  46.154% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+}
+#Upper_Branch_Left {
+  animation: kf_Upper_Branch_Left_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Trunk___Red_Branch_path-trim_0 {
+  0% {
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  31.96% {
+    animation-timing-function: cubic-bezier(0.205, 0, 0.5, 1);
+    stroke-dasharray: 0 1;
+    visibility: hidden;
+  }
+  61.692% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    visibility: visible;
+  }
+}
+#Trunk___Red_Branch {
+  stroke-dashoffset: 0;
+  animation: kf_Trunk___Red_Branch_path-trim_0 1.3s linear infinite;
+}
+@keyframes kf_Upper_Node_Cyan_transform_0 {
+  0% {
+    transform: translateX(321.488px) translateY(406.995px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  46.15% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(321.488px) translateY(406.995px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  61.54% {
+    transform: translateX(321.488px) translateY(406.995px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(321.488px) translateY(406.995px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Upper_Node_Cyan_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  46.08% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  46.15% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Upper_Node_Cyan {
+  transform-origin: 0 0;
+  animation:
+    kf_Upper_Node_Cyan_transform_0 1.3s linear infinite,
+    kf_Upper_Node_Cyan_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Upper_Node_Purple_transform_0 {
+  0% {
+    transform: translateX(622.334px) translateY(406.592px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  49.34% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(622.334px) translateY(406.592px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  64.73% {
+    transform: translateX(622.334px) translateY(406.592px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(622.334px) translateY(406.592px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Upper_Node_Purple_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  49.27% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  49.34% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Upper_Node_Purple {
+  transform-origin: 0 0;
+  animation:
+    kf_Upper_Node_Purple_transform_0 1.3s linear infinite,
+    kf_Upper_Node_Purple_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Node_Cyan_transform_0 {
+  0% {
+    transform: translateX(256px) translateY(625.401px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  52.69% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(256px) translateY(625.401px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  69.69% {
+    transform: translateX(256px) translateY(625.401px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(256px) translateY(625.401px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Ending_Node_Cyan_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  52.54% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  52.69% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Ending_Node_Cyan {
+  transform-origin: 0 0;
+  animation:
+    kf_Ending_Node_Cyan_transform_0 1.3s linear infinite,
+    kf_Ending_Node_Cyan_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Node_Orange_transform_0 {
+  0% {
+    transform: translateX(580.432px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  64.73% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(580.432px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  81.42% {
+    transform: translateX(580.432px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(580.432px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Ending_Node_Orange_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  64.42% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  64.73% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Ending_Node_Orange {
+  transform-origin: 0 0;
+  animation:
+    kf_Ending_Node_Orange_transform_0 1.3s linear infinite,
+    kf_Ending_Node_Orange_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Node_Green_transform_0 {
+  0% {
+    transform: translateX(362.863px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  61.54% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(362.863px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  78.24% {
+    transform: translateX(362.863px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(362.863px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Ending_Node_Green_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  61.24% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  61.39% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  61.54% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Ending_Node_Green {
+  transform-origin: 0 0;
+  animation:
+    kf_Ending_Node_Green_transform_0 1.3s linear infinite,
+    kf_Ending_Node_Green_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Node_Pink_transform_0 {
+  0% {
+    transform: translateX(687.419px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  56.49% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(687.419px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  73.49% {
+    transform: translateX(687.419px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(687.419px) translateY(628.748px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Ending_Node_Pink_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  56.34% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  56.49% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Ending_Node_Pink {
+  transform-origin: 0 0;
+  animation:
+    kf_Ending_Node_Pink_transform_0 1.3s linear infinite,
+    kf_Ending_Node_Pink_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Ending_Node_Red_transform_0 {
+  0% {
+    transform: translateX(471.957px) translateY(706.23px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  66.03% {
+    animation-timing-function: cubic-bezier(0.45, 1.45, 0.8, 1);
+    transform: translateX(471.957px) translateY(706.23px) translate(40.291px, 40.291px) scaleX(0.24) scaleY(0.24) translate(-40.291px, -40.291px);
+  }
+  83.21% {
+    transform: translateX(471.957px) translateY(706.23px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+  100% {
+    transform: translateX(471.957px) translateY(706.23px) translate(40.291px, 40.291px) scaleX(1) scaleY(1) translate(-40.291px, -40.291px);
+  }
+}
+@keyframes kf_Ending_Node_Red_opacity_0 {
+  0% {
+    animation-timing-function: linear;
+    opacity: 0;
+  }
+  66.19% {
+    animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+    opacity: 0;
+  }
+  66.34% {
+    animation-timing-function: linear;
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+#Ending_Node_Red {
+  transform-origin: 0 0;
+  animation:
+    kf_Ending_Node_Red_transform_0 1.3s linear infinite,
+    kf_Ending_Node_Red_opacity_0 1.3s linear infinite;
+}
+@keyframes kf_Root_Blue_transform_0 {
+  0% {
+    animation-timing-function: cubic-bezier(0.675, 0.008, 0.772, 1.714);
+    transform: translateX(399.434px) translateY(237px) translateX(58.266px) translateY(263.438px);
+  }
+  30.54% {
+    transform: translateX(399.434px) translateY(237px) translateX(58.266px) translateY(41.84px);
+  }
+  100% {
+    transform: translateX(399.434px) translateY(237px) translateX(58.266px) translateY(41.84px);
+  }
+}
+#Root_Blue {
+  transform-origin: 0 0;
+  animation: kf_Root_Blue_transform_0 1.3s linear infinite;
+}
+</style>
+<g id="______1______________">
+<path id="Upper_Branch_Right" transform="matrix(-1 0 0 1 662.563 376.467)" d="M0 70.9734C0 70.9734 11.7772 129.55 61.9854 129.55C119.012 129.55 150.935 90.1889 150.935 0" pathLength="1" stroke="url(#paint0_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Ending_Branch_Green" transform="translate(403.463 548.477)" d="M54.2373 0C19.8353 14.3545 0 57.9574 0 115.604V120.562" pathLength="1" stroke="url(#paint1_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Ending_Branch_Orange" transform="matrix(-1 0 0 1 620.723 554.579)" d="M53.9274 0C19.5254 14.3545 0 52.1646 0 109.502V114.46" pathLength="1" stroke="url(#paint2_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Ending_Branch_Cyan" transform="translate(294.679 460.148)" d="M218.189 0C218.189 50.8188 194.307 97.2993 105.914 97.2993C36.7504 99.1586 18.1413 153.076 6.66569 188.401C4.85655 193.97 0 208.581 0 208.581" pathLength="1" stroke="url(#paint3_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Ending_Branch_Pink" transform="matrix(-1 0 0 1 727.957 460.148)" d="M215.709 0C215.709 57.6465 191.845 103.516 103.516 103.516C34.4019 105.375 15.8063 159.303 4.33898 194.635L0 208.891" pathLength="1" stroke="url(#paint4_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Upper_Branch_Left" transform="translate(361.003 376.467)" d="M0 70.9734C0 70.9734 11.7772 129.55 61.9854 129.55C119.012 129.55 150.935 90.1889 150.935 0" pathLength="1" stroke="url(#paint5_linear_755_303)" stroke-width="20.4552" stroke-linecap="round" stroke-dasharray="1 1"/>
+<path id="Trunk___Red_Branch" transform="translate(512.248 375.847)" d="M0 0V333.482L1.62568e-06 370.673" pathLength="1" stroke="url(#paint6_linear_755_303)" stroke-width="21.0751" stroke-linecap="round" stroke-dasharray="1 1"/>
+<circle id="Upper_Node_Cyan" transform="translate(321.488 406.995)" cx="40.2906" cy="40.2906" r="40.2906" fill="#05A3B8"/>
+<circle id="Upper_Node_Purple" transform="translate(622.334 406.592)" cx="40.2906" cy="40.2906" r="40.2906" fill="#6750B6"/>
+<circle id="Ending_Node_Cyan" transform="translate(256 625.401)" cx="40.2906" cy="40.2906" r="40.2906" fill="#1EC8CF"/>
+<circle id="Ending_Node_Orange" transform="translate(580.432 628.748)" cx="40.2906" cy="40.2906" r="40.2906" fill="#FE8A25"/>
+<circle id="Ending_Node_Green" transform="translate(362.863 628.748)" cx="40.2906" cy="40.2906" r="40.2906" fill="#52D09A"/>
+<circle id="Ending_Node_Pink" transform="translate(687.419 628.748)" cx="40.2906" cy="40.2906" r="40.2906" fill="#E64881"/>
+<circle id="Ending_Node_Red" transform="translate(471.957 706.23)" cx="40.2906" cy="40.2906" r="40.2906" fill="#E94242"/>
+<circle id="Root_Blue" transform="translate(399.434 237)" cx="54.2373" cy="54.2373" r="54.2373" fill="#1927E2"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_755_303" x1="141.017" y1="68.8039" x2="22.3148" y2="112.194" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2473BF"/>
+<stop offset="1" stop-color="#6750B6"/>
+</linearGradient>
+<linearGradient id="paint1_linear_755_303" x1="54.2373" y1="-4.33898" x2="4.95885" y2="91.8366" gradientUnits="userSpaceOnUse">
+<stop stop-color="#66AF85"/>
+<stop offset="0.278846" stop-color="#76C078"/>
+<stop offset="0.634615" stop-color="#94D46E"/>
+<stop offset="1" stop-color="#52D09A"/>
+</linearGradient>
+<linearGradient id="paint2_linear_755_303" x1="44.3196" y1="-9.82082" x2="4.95886" y2="90.9068" gradientUnits="userSpaceOnUse">
+<stop stop-color="#B98B68"/>
+<stop offset="0.16188" stop-color="#C88A67"/>
+<stop offset="0.485577" stop-color="#FC8544"/>
+<stop offset="1" stop-color="#FE8A25"/>
+</linearGradient>
+<linearGradient id="paint3_linear_755_303" x1="214.157" y1="23.5503" x2="20.1254" y2="166.258" gradientUnits="userSpaceOnUse">
+<stop stop-color="#207ABE"/>
+<stop offset="0.0865385" stop-color="#4C989F"/>
+<stop offset="0.485577" stop-color="#7BC476"/>
+<stop offset="1" stop-color="#1DC8CC"/>
+</linearGradient>
+<linearGradient id="paint4_linear_755_303" x1="216.019" y1="30.6828" x2="17.6657" y2="172.32" gradientUnits="userSpaceOnUse">
+<stop offset="0.00480769" stop-color="#277EBA"/>
+<stop offset="0.104335" stop-color="#589B9D"/>
+<stop offset="0.485577" stop-color="#EE8455"/>
+<stop offset="1" stop-color="#EF5B8B"/>
+</linearGradient>
+<linearGradient id="paint5_linear_755_303" x1="141.017" y1="68.8039" x2="22.3148" y2="112.194" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2473BF"/>
+<stop offset="1" stop-color="#05A3B8"/>
+</linearGradient>
+<linearGradient id="paint6_linear_755_303" x1="0.309927" y1="0" x2="0.309927" y2="333.482" gradientUnits="userSpaceOnUse">
+<stop stop-color="#1D65BD"/>
+<stop offset="0.302885" stop-color="#207ABE"/>
+<stop offset="0.509615" stop-color="#75AC8B"/>
+<stop offset="0.735577" stop-color="#F8C140"/>
+<stop offset="1" stop-color="#E94242"/>
+</linearGradient>
+</defs>
+</svg>

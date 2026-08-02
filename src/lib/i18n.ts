@@ -109,7 +109,7 @@ export const translations = {
     skipForNow: '暂时跳过',
 
     // Save Modal
-    exportProject: '导出 ZIP 备份',
+    exportProject: '导出 ZIP 项目',
     saveProjectDesc:
       '请为您的项目命名。导出的 ZIP 压缩包包含剧本逻辑及所有多媒体素材，可随时重新导入。',
     projectName: '项目名称',
@@ -279,7 +279,7 @@ export const translations = {
     skipForNow: 'Skip for now',
 
     // Save Modal
-    exportProject: 'Export ZIP Backup',
+    exportProject: 'Export ZIP Project',
     saveProjectDesc:
       'Please name your project. The exported ZIP bundle contains script logic and all media assets.',
     projectName: 'Project Name',
@@ -446,7 +446,7 @@ export const translations = {
     skipForNow: 'とりあえずスキップ',
 
     // Save Modal
-    exportProject: 'ZIPバックアップをエクスポート',
+    exportProject: 'ZIPプロジェクトを書き出す',
     saveProjectDesc:
       'プロジェクト名を入力してください。エクスポートされたZIPにはスクリプト論理とすべてのメディア素材が含まれます。',
     projectName: 'プロジェクト名',

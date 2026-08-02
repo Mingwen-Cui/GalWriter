@@ -1687,7 +1687,7 @@ export const makeIndexHtml = (
     }
 
     function renderChoices(node, edges, position) {
-      if (settings.skipSingleChoicePopup && position === "center" && edges.length <= 1) return "";
+      if (settings.skipSingleChoicePopup && edges.length <= 1) return "";
       return choicesHtml(node, edges, position);
     }
 
