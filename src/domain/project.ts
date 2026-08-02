@@ -591,6 +591,7 @@ export interface EditorNodeCallbacks {
   ) => Promise<void> | void;
   onDeleteSettingLibrary?: (itemId: string) => Promise<void> | void;
   onPlotStructureGenerate?: (params: unknown) => Promise<void> | void;
+  onSendToAssistant?: (target: string | string[]) => void;
   onHighlightStoryline?: (id: string) => void;
 }
 

@@ -10,6 +10,7 @@ import {
   useUpdateNodeInternals,
 } from '@xyflow/react';
 import {
+  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -627,7 +628,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       data-agent-node-id={id}
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${
         isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
-      } border-[var(--card-border)] flex flex-col relative`}
+      } ${
+        selected
+          ? 'border-purple-500 shadow-purple-500/25 ring-2 ring-purple-500/20'
+          : 'border-[var(--card-border)]'
+      } flex flex-col relative`}
       style={{
         height: isMinimized ? 'auto' : '100%',
         minHeight: isMinimized ? 'auto' : effectiveMinHeight,
@@ -665,9 +670,25 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
               savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'character')}
               presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'character')}
               onSave={(mode) => data.onSaveSettingLibrary?.(id, 'character', mode)}
-              onUse={(itemId, source) => data.onUseSettingLibrary?.(id, 'character', itemId, source)}
+              onUse={(itemId, source) =>
+                data.onUseSettingLibrary?.(id, 'character', itemId, source)
+              }
               onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
             />
+            <button
+              type="button"
+              onClick={() => data.onSendToAssistant?.([id])}
+              className="flex items-center justify-center rounded px-1.5 py-1 text-indigo-600 transition-colors hover:bg-indigo-500/10 hover:text-indigo-700"
+              title={
+                lang === 'zh'
+                  ? '加入 AI 上下文'
+                  : lang === 'ja'
+                    ? 'AI コンテキストに追加'
+                    : 'Add to AI context'
+              }
+            >
+              <Bot className="h-3.5 w-3.5" />
+            </button>
             <button
               onClick={handleCopyExport}
               className={`px-1.5 py-1 rounded transition-colors flex items-center justify-center ${copied ? 'text-emerald-500 hover:bg-emerald-500/20' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--app-bg)]'}`}

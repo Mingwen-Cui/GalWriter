@@ -190,6 +190,7 @@ export const useCanvasInteractions = ({
 }: UseCanvasInteractionsParams) => {
   const [isRightDragging, setIsRightDragging] = useState(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
+  const selectionIdsRef = useRef<Set<string>>(new Set());
   const touchLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const quickConnectRef = useRef<{ sourceId: string } | null>(null);
@@ -509,13 +510,55 @@ export const useCanvasInteractions = ({
     (x: number, y: number) => {
       setIsRightDragging(true);
       startPosRef.current = { x, y };
+      selectionIdsRef.current = new Set(
+        nodes.filter((node) => node.selected).map((node) => node.id),
+      );
       if (selectionBoxRef.current) {
         selectionBoxRef.current.style.display = 'none';
         selectionBoxRef.current.style.width = '0px';
         selectionBoxRef.current.style.height = '0px';
       }
     },
-    [selectionBoxRef],
+    [nodes, selectionBoxRef],
+  );
+
+  const selectNodesInRect = useCallback(
+    (rect: { x: number; y: number; width: number; height: number }) => {
+      const nextSelectionIds = new Set(
+        getIntersectingNodes(rect, true)
+          .filter((node) => !node.data?.locked)
+          .map((node) => node.id),
+      );
+      const previousSelectionIds = selectionIdsRef.current;
+      const selectionChanged =
+        nextSelectionIds.size !== previousSelectionIds.size ||
+        [...nextSelectionIds].some((id) => !previousSelectionIds.has(id));
+
+      if (!selectionChanged) return;
+
+      selectionIdsRef.current = nextSelectionIds;
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          selected: nextSelectionIds.has(node.id) && !node.data?.locked,
+        })),
+      );
+    },
+    [getIntersectingNodes, setNodes],
+  );
+
+  const getSelectionRect = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const startPosition = screenToFlowPosition(start);
+      const endPosition = screenToFlowPosition(end);
+      return {
+        x: Math.min(startPosition.x, endPosition.x),
+        y: Math.min(startPosition.y, endPosition.y),
+        width: Math.abs(startPosition.x - endPosition.x),
+        height: Math.abs(startPosition.y - endPosition.y),
+      };
+    },
+    [screenToFlowPosition],
   );
 
   const updateSelection = useCallback(
@@ -534,9 +577,10 @@ export const useCanvasInteractions = ({
 
       if (width > 5 || height > 5) {
         selectionBoxRef.current.style.display = 'block';
+        selectNodesInRect(getSelectionRect(startPosRef.current, { x, y }));
       }
     },
-    [isRightDragging, selectionBoxRef],
+    [getSelectionRect, isRightDragging, selectNodesInRect, selectionBoxRef],
   );
 
   const endSelection = useCallback(
@@ -546,28 +590,7 @@ export const useCanvasInteractions = ({
         const dy = Math.abs(y - startPosRef.current.y);
 
         if (dx > 5 || dy > 5) {
-          const start = screenToFlowPosition({
-            x: startPosRef.current.x,
-            y: startPosRef.current.y,
-          });
-          const end = screenToFlowPosition({ x, y });
-
-          const rect = {
-            x: Math.min(start.x, end.x),
-            y: Math.min(start.y, end.y),
-            width: Math.abs(start.x - end.x),
-            height: Math.abs(start.y - end.y),
-          };
-
-          const nodesInRect = getIntersectingNodes(rect, true);
-          const nodeIds = new Set(nodesInRect.map((node) => node.id));
-
-          setNodes((nds) =>
-            nds.map((node) => ({
-              ...node,
-              selected: nodeIds.has(node.id) && !node.data?.locked,
-            })),
-          );
+          selectNodesInRect(getSelectionRect(startPosRef.current, { x, y }));
         }
       }
 
@@ -577,7 +600,7 @@ export const useCanvasInteractions = ({
       setIsRightDragging(false);
       startPosRef.current = null;
     },
-    [getIntersectingNodes, isRightDragging, screenToFlowPosition, selectionBoxRef, setNodes],
+    [getSelectionRect, isRightDragging, selectNodesInRect, selectionBoxRef],
   );
 
   const startQuickConnect = useCallback((event: ReactMouseEvent) => {

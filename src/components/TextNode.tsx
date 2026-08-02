@@ -44,7 +44,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   }, []);
 
   return (
-    <div className="w-full h-full relative group border border-transparent">
+    <div
+      className={`w-full h-full relative group border transition-[border-color,box-shadow,background-color] ${
+        selected
+          ? 'border-indigo-500 bg-indigo-500/5 shadow-lg shadow-indigo-500/15'
+          : 'border-transparent'
+      }`}
+    >
       <NodeResizer
         minWidth={50}
         minHeight={30}

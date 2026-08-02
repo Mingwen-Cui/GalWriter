@@ -282,7 +282,7 @@ export function SummaryNode({ id, data, selected }: NodeProps) {
               type="button"
               onClick={handleSendToAssistant}
               disabled={!content}
-              className="px-2.5 py-1.5 rounded text-[10px] font-bold transition-colors flex items-center gap-1 shadow-sm border border-violet-500/30 bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-violet-300"
+              className="summary-send-to-ai-button flex items-center gap-1 rounded px-2.5 py-1.5 text-[10px] font-bold transition-[background-color,border-color,box-shadow] disabled:cursor-not-allowed"
               title={tr(
                 '将实时文本发送给 AI 助手',
                 'リアルタイムテキストを AI アシスタントに送る',

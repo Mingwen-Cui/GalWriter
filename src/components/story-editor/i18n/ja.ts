@@ -24,6 +24,8 @@ export const storyEditorJa: typeof storyEditorEn = {
   selectionContext: '以下の選択したカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
   selectionLimit: 'AIアシスタントには最大10個のカードグループを追加できます。',
   selectionTitle: '選択したカード · {count}',
+  characterCardTitle: 'キャラクターカード',
+  sceneCardTitle: 'シーンカード',
   plotUnable: 'ストーリーを生成できません',
   plotNoCards: 'このエリアには続きから生成できるストーリーカードがありません。',
   plotBriefDetail: '各カードを1〜3文で簡潔に展開してください。',

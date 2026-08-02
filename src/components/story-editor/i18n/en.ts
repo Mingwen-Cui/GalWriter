@@ -23,6 +23,8 @@ export const storyEditorEn = {
     'Read and use the following selected cards as the current writing context.\n\n{content}',
   selectionLimit: 'You can attach up to 10 card groups to the AI assistant.',
   selectionTitle: 'Selected cards · {count}',
+  characterCardTitle: 'Character card',
+  sceneCardTitle: 'Scene card',
   plotUnable: 'Unable to generate',
   plotNoCards: 'No story cards were found in this area to continue from.',
   plotBriefDetail: 'Use 1-3 sentences per card and move the plot forward concisely.',

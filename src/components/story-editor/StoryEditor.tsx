@@ -2190,7 +2190,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     (summaryId: string, content: string) => {
       const text = content.trim();
       if (!text) return;
-      const summaryNode = nodes.find((node) => node.id === summaryId && node.type === 'summaryNode');
+      const summaryNode = nodes.find(
+        (node) => node.id === summaryId && node.type === 'summaryNode',
+      );
       const title = String(
         summaryNode?.data?.title ||
           (language === 'zh' ? '文本导出' : language === 'ja' ? 'テキスト書き出し' : 'Text Export'),
@@ -2938,6 +2940,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     selectionMenuLayout,
                     isMobile,
                     language,
+                    selectedNodeCount: selectedNodes.length,
                     ttsLoading,
                     onWrapDynamicGroup: wrapWithDynamicGroup,
                     onWrapBackground: wrapSelectedWithBackground,

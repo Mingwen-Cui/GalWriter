@@ -2794,7 +2794,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         data-agent-node-id={id}
         className={`w-full h-full flex flex-col items-center ${
           showTitleInside || imageUrl || videoUrl ? 'justify-start' : 'justify-center'
-        } shadow-sm relative overflow-hidden border-2 border-[var(--card-border)] transition-[background-color] duration-150`}
+        } relative overflow-hidden border-2 transition-[background-color,border-color,box-shadow] duration-150 ${
+          selected
+            ? 'border-indigo-500 shadow-lg shadow-indigo-500/25 ring-2 ring-indigo-500/20'
+            : 'border-[var(--card-border)] shadow-sm'
+        }`}
         style={{
           backgroundColor: nodeBg,
           color: nodeText,

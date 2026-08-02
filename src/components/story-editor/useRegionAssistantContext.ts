@@ -28,6 +28,31 @@ const readSize = (value: unknown, fallback: number) => {
 const readCardTitle = (node: Node) =>
   String(node.data?.title || node.data?.characterName || node.data?.sceneName || '').trim();
 
+const readCardPreviewImage = (node: Node) => {
+  const data = node.data as Record<string, unknown>;
+  const firstImageFrom = (value: unknown) => {
+    if (!Array.isArray(value)) return '';
+    return value
+      .map((item) => (item as { imageUrl?: unknown })?.imageUrl)
+      .find((url): url is string => typeof url === 'string' && url.trim().length > 0)
+      ?.trim();
+  };
+  const candidates =
+    node.type === 'characterNode'
+      ? [data.avatarUrl, firstImageFrom(data.outfits), data.threeViewUrl, data.tagSpriteUrl]
+      : node.type === 'sceneNode'
+        ? [data.coverImageUrl, firstImageFrom(data.images)]
+        : [data.imageUrl];
+
+  return candidates.find((url): url is string => typeof url === 'string' && url.trim().length > 0)?.trim();
+};
+
+const readCardTypeLabel = (node: Node, storyEditorCopy: StoryEditorCopy) => {
+  if (node.type === 'characterNode') return storyEditorCopy.characterCardTitle;
+  if (node.type === 'sceneNode') return storyEditorCopy.sceneCardTitle;
+  return undefined;
+};
+
 const readCardFirstLine = (node: Node) => {
   const text = String(
     node.data?.text || node.data?.description || node.data?.traits || node.data?.background || '',
@@ -123,6 +148,12 @@ export function useRegionAssistantContext({
         : undefined;
       const selectedPreviewLabel = selectedPreviewNode ? readCardTitle(selectedPreviewNode) : '';
       const selectedPreviewText = selectedPreviewNode ? readCardFirstLine(selectedPreviewNode) : '';
+      const selectedPreviewImage = selectedPreviewNode
+        ? readCardPreviewImage(selectedPreviewNode)
+        : undefined;
+      const selectedCardTypeLabel = selectedPreviewNode
+        ? readCardTypeLabel(selectedPreviewNode, storyEditorCopy)
+        : undefined;
       const hasMultipleSelectedCards = Boolean(selectedNodeIds && orderedIds.length > 1);
       const contextId = selectedNodeIds
         ? `selection:${orderedIds.join('|')}`
@@ -167,12 +198,16 @@ export function useRegionAssistantContext({
 
       const nextContext: AssistantInputContext = {
         id: contextId,
-        title: hasMultipleSelectedCards ? regionTitle : selectedPreviewText || regionTitle,
+        title: hasMultipleSelectedCards
+          ? regionTitle
+          : selectedPreviewLabel || selectedPreviewText || regionTitle,
         content: message,
         cardCount: orderedIds.length,
         source: selectedNodeIds ? 'selection' : 'region',
         nodeIds: orderedIds,
-        previewLabel: hasMultipleSelectedCards ? undefined : selectedPreviewLabel || undefined,
+        previewLabel: hasMultipleSelectedCards ? undefined : selectedCardTypeLabel,
+        previewImageUrl: hasMultipleSelectedCards ? undefined : selectedPreviewImage,
+        previewText: hasMultipleSelectedCards ? undefined : selectedPreviewText || undefined,
         assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
       };
       setAssistantInputContexts((contexts) => [

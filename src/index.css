@@ -161,6 +161,47 @@ button:disabled,
   cursor: default;
 }
 
+/* Text-export cards use this as their primary action. Keep the color independent
+ * from utility hover/focus styles so it never falls back to a browser highlight. */
+.summary-send-to-ai-button {
+  appearance: none;
+  border: 1px solid #c7d2fe !important;
+  outline: none;
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.12) !important;
+}
+
+.summary-send-to-ai-button svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.summary-send-to-ai-button:hover:not(:disabled) {
+  border-color: #a5b4fc !important;
+  background: #e0e7ff !important;
+  color: #4338ca !important;
+  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.16) !important;
+}
+
+.summary-send-to-ai-button:active:not(:disabled) {
+  background: #dbe4ff !important;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.12) !important;
+}
+
+.summary-send-to-ai-button:focus-visible {
+  outline: 2px solid #818cf8 !important;
+  outline-offset: 2px;
+}
+
+.summary-send-to-ai-button:disabled {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #94a3b8 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
 [data-theme='dark'] .bg-slate-950,
 [data-theme='dark'] .dark\:bg-slate-950 {
   background-color: #0d0d0f !important;
@@ -3140,6 +3181,66 @@ input[type='range']::-moz-range-track {
   justify-content: flex-start !important;
   min-height: 40px !important;
   padding: 6px 10px !important;
+}
+
+.selection-menu-vertical {
+  padding: 6px !important;
+}
+
+.selection-menu-vertical .selection-menu-summary {
+  margin: -1px -1px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--toolbar-border) 82%, transparent);
+  letter-spacing: 0.01em;
+}
+
+.selection-menu-vertical .selection-menu-section {
+  margin: 8px 8px 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
+.selection-menu-vertical .selection-menu-section:first-of-type {
+  margin-top: 2px;
+}
+
+.selection-menu-vertical .selection-menu-action,
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-action {
+  gap: 9px !important;
+  min-height: 38px !important;
+  padding: 7px 10px !important;
+}
+
+.selection-menu-vertical .selection-menu-ai-action,
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-ai-action {
+  border-left: 3px solid rgba(99, 102, 241, 0.72) !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  color: #4f46e5 !important;
+}
+
+.selection-menu-vertical .selection-menu-ai-action:hover,
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-ai-action:hover {
+  background: rgba(99, 102, 241, 0.14) !important;
+  color: #4338ca !important;
+}
+
+.selection-menu-vertical .selection-menu-danger-divider {
+  height: 1px;
+  margin: 7px 2px 2px;
+  background: color-mix(in srgb, #ef4444 28%, var(--toolbar-border));
+}
+
+.selection-menu-vertical .selection-menu-delete-action,
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-delete-action {
+  color: #dc2626 !important;
+}
+
+.selection-menu-vertical .selection-menu-delete-action:hover,
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-delete-action:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c !important;
 }
 
 .bubble-glass-mode .glass-toolbar.flex-row button:not(.exclude-glass),
