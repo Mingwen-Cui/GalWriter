@@ -50,6 +50,7 @@ type RenderHeaderProps = {
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
+  onWorkspaceIntent: (mode: RenderWorkspaceMode) => void;
   setCodeTarget: (target: CodeExportTarget) => void;
   setVideoWorkspaceMode: (mode: 'timeline' | 'interactive') => void;
   setError: (value: string) => void;
@@ -93,6 +94,7 @@ export function RenderHeader({
   selectedNodes,
   nodes,
   setWorkspaceMode,
+  onWorkspaceIntent,
   setCodeTarget,
   setVideoWorkspaceMode,
   setError,
@@ -134,6 +136,8 @@ export function RenderHeader({
             <button
               key={mode}
               type="button"
+              onPointerEnter={() => onWorkspaceIntent(mode)}
+              onFocus={() => onWorkspaceIntent(mode)}
               onClick={() => {
                 if (isRendering) return;
                 setWorkspaceMode(mode);

@@ -1,16 +1,11 @@
 import type { Node as FlowNode } from '@xyflow/react';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import { buildCodeProjectZip } from '../../code/codeExport/exportProject';
 import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
-import { CodeWorkspace } from '../../code/CodeWorkspace';
 import { formatCodeText, getCodeText } from '../../code/i18n';
-import { buildPptxBuffer } from '../../ppt/pptExport';
-import { PptWorkspace } from '../../ppt/PptWorkspace';
-import { WebWorkspace } from '../../web/WebWorkspace';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
 import {
@@ -39,6 +34,7 @@ import { VideoAssetSidebar } from '../panels/VideoAssetSidebar';
 import { VideoExportSettingsPanel } from '../panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from '../panels/VideoTimelinePanel';
+import { RenderWorkspaceContentSkeleton } from '../RenderWorkspaceSkeleton';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
@@ -80,6 +76,12 @@ import {
 import { getTimelineTickSettings } from '../timeline/timelineUtils';
 import { createContextMenuSectionBuilder } from './contextMenuSections';
 import {
+  LazyCodeWorkspace,
+  LazyPptWorkspace,
+  LazyWebWorkspace,
+  preloadRenderWorkspace,
+} from './lazyWorkspaces';
+import {
   mediaIcon as getMediaIcon,
   mediaKind as getMediaKind,
   segmentDurationLabel as getSegmentDurationLabel,
@@ -116,7 +118,6 @@ import {
   isAssetCardLayout,
   isExportFormat,
   isExportSettingsMode,
-  isRenderWorkspaceMode,
   isTimelineScaleMode,
   isTimelineWheelMode,
   isVideoTextScaleMode,
@@ -142,11 +143,7 @@ export function VideoRenderModal({
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
-  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(() =>
-    isRenderWorkspaceMode(persistedWorkspace?.workspaceMode)
-      ? persistedWorkspace.workspaceMode
-      : 'video',
-  );
+  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
   const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>(
     'forward',
   );
@@ -881,6 +878,7 @@ export function VideoRenderModal({
   const switchWorkspaceMode = (mode: RenderWorkspaceMode) => {
     if (mode === workspaceMode) return;
 
+    void preloadRenderWorkspace(mode).catch(() => undefined);
     saveWorkspaceImmediately();
     const direction =
       WORKSPACE_MODE_ORDER.indexOf(mode) > WORKSPACE_MODE_ORDER.indexOf(workspaceMode)
@@ -1918,6 +1916,7 @@ export function VideoRenderModal({
             : getCodeText(language, 'GalWriter IR JSON');
     setProgress(formatCodeText(language, 'Generating engine project', { engine: engineName }));
     try {
+      const { buildCodeProjectZip } = await import('../../code/codeExport/exportProject');
       const result = await buildCodeProjectZip(nodes, edges, exportTitle, codeSettings, codeTarget);
       const url = URL.createObjectURL(result.blob);
       const anchor = document.createElement('a');
@@ -1959,6 +1958,7 @@ export function VideoRenderModal({
     setProgressValue(20);
     setProgress(isZh ? '正在生成可编辑 PPTX...' : 'Building editable PPTX...');
     try {
+      const { buildPptxBuffer } = await import('../../ppt/pptExport');
       const buffer = await buildPptxBuffer({
         nodes,
         edges,
@@ -2178,6 +2178,9 @@ export function VideoRenderModal({
           }
           nodes={nodes}
           setWorkspaceMode={switchWorkspaceMode}
+          onWorkspaceIntent={(mode) => {
+            void preloadRenderWorkspace(mode).catch(() => undefined);
+          }}
           setCodeTarget={setCodeTarget}
           setVideoWorkspaceMode={setVideoWorkspaceMode}
           setError={setError}
@@ -2501,51 +2504,59 @@ export function VideoRenderModal({
                 />
               </>
             )
-          ) : workspaceMode === 'web' ? (
-            <WebWorkspace
-              nodes={nodes}
-              edges={edges}
-              language={language}
-              webRenderStyle={renderStyle}
-              webChoiceColor={webChoiceColor}
-              webChoiceTextColor={webChoiceTextColor}
-              webSettings={webSettings}
-              webProjectName={webProjectName}
-              progress={progress}
-              error={error}
-              progressValue={progressValue}
-              savedPath={savedPath}
-              updateWebSettings={updateWebSettings}
-              updateWebSettingsBulk={updateWebSettingsBulk}
-              updateWebChoiceTextColor={updateWebChoiceTextColor}
-              updateWebChoiceColor={updateWebChoiceColor}
-              updateWebRenderStyle={updateRenderStyle}
-              callAIForTextResult={callAIForTextResult}
-            />
-          ) : workspaceMode === 'code' ? (
-            <CodeWorkspace
-              nodes={nodes}
-              edges={edges}
-              language={language}
-              projectName={webProjectName || defaultWebProjectName}
-              target={codeTarget}
-              settings={codeSettings}
-              onSettingsChange={setCodeSettings}
-            />
           ) : (
-            <PptWorkspace
-              nodes={nodes}
-              edges={edges}
-              language={language}
-              projectName={webProjectName || defaultWebProjectName}
-              webSettings={webSettings}
-              renderStyle={renderStyle}
-              updateRenderStyle={updateRenderStyle}
-              pptSettings={pptSettings}
-              updatePptSettings={updatePptSettings}
-              ribbonTab={pptRibbonTab}
-              ribbonCollapsed={pptRibbonCollapsed}
-            />
+            <Suspense
+              fallback={<RenderWorkspaceContentSkeleton mode={workspaceMode} delayed />}
+            >
+              <div key={workspaceMode} className="render-workspace-mode-content">
+                {workspaceMode === 'web' ? (
+                  <LazyWebWorkspace
+                    nodes={nodes}
+                    edges={edges}
+                    language={language}
+                    webRenderStyle={renderStyle}
+                    webChoiceColor={webChoiceColor}
+                    webChoiceTextColor={webChoiceTextColor}
+                    webSettings={webSettings}
+                    webProjectName={webProjectName}
+                    progress={progress}
+                    error={error}
+                    progressValue={progressValue}
+                    savedPath={savedPath}
+                    updateWebSettings={updateWebSettings}
+                    updateWebSettingsBulk={updateWebSettingsBulk}
+                    updateWebChoiceTextColor={updateWebChoiceTextColor}
+                    updateWebChoiceColor={updateWebChoiceColor}
+                    updateWebRenderStyle={updateRenderStyle}
+                    callAIForTextResult={callAIForTextResult}
+                  />
+                ) : workspaceMode === 'code' ? (
+                  <LazyCodeWorkspace
+                    nodes={nodes}
+                    edges={edges}
+                    language={language}
+                    projectName={webProjectName || defaultWebProjectName}
+                    target={codeTarget}
+                    settings={codeSettings}
+                    onSettingsChange={setCodeSettings}
+                  />
+                ) : (
+                  <LazyPptWorkspace
+                    nodes={nodes}
+                    edges={edges}
+                    language={language}
+                    projectName={webProjectName || defaultWebProjectName}
+                    webSettings={webSettings}
+                    renderStyle={renderStyle}
+                    updateRenderStyle={updateRenderStyle}
+                    pptSettings={pptSettings}
+                    updatePptSettings={updatePptSettings}
+                    ribbonTab={pptRibbonTab}
+                    ribbonCollapsed={pptRibbonCollapsed}
+                  />
+                )}
+              </div>
+            </Suspense>
           )}
         </div>
       </div>

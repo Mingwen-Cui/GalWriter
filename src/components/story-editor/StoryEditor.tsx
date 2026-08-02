@@ -99,6 +99,7 @@ import { isTauriRuntime } from '../../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
+import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
 import {
   buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
@@ -3532,7 +3533,9 @@ ${layoutConfig.label}
       </Suspense>
 
       {/* 设置界面弹窗 */}
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={<RenderWorkspaceBootSkeleton onClose={() => setShowVideoRender(false)} />}
+      >
         {canRenderVideo && showVideoRender && (
           <VideoRenderModal
             nodes={nodes}
