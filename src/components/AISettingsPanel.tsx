@@ -2,9 +2,11 @@ import {
   ArrowLeft,
   BrainCircuit,
   Check,
+  Copy,
   Eraser,
   ExternalLink,
   Feather,
+  FolderOpen,
   ImageIcon,
   Lightbulb,
   Lock,
@@ -55,7 +57,7 @@ import {
   HOSTED_VOICE_PROXY_PROFILE,
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../lib/hostedProxy';
-import { isTauriRuntime } from '../lib/tauriRuntime';
+import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 
 type ProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
 type ProfileDraft = TextAIProfile | ImageAIProfile | BackgroundRemovalAIProfile | VoiceAIProfile;
@@ -109,6 +111,19 @@ type HostedQuotaInfo = {
   remaining: number | null;
 };
 type HostedProxyUsage = Partial<Record<HostedQuotaType, HostedQuotaInfo>>;
+type LocalRembgSetup = {
+  appDataDir: string;
+  runtimeDir: string;
+  runtimePath: string;
+  modelsDir: string;
+  defaultModelPath: string;
+  runtimeDownloadUrl: string;
+  modelDownloadUrl: string;
+};
+
+const LOCAL_REMBG_RUNTIME_RELEASE_URL = 'https://github.com/Mingwen-Cui/GalWriter/releases';
+const U2NETP_MODEL_DOWNLOAD_URL =
+  'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx';
 
 const DEFAULT_HOSTED_PROXY_USAGE: Record<HostedQuotaType, HostedQuotaInfo> = {
   chat: { used: 0, limit: 30, remaining: 30 },
@@ -1047,6 +1062,8 @@ export function AISettingsPanel({
   >('idle');
   const [localOllamaModels, setLocalOllamaModels] = React.useState<ModelOption[]>([]);
   const [hostedProxyUsage, setHostedProxyUsage] = React.useState<HostedProxyUsage>({});
+  const [localRembgSetup, setLocalRembgSetup] = React.useState<LocalRembgSetup | null>(null);
+  const [copiedLocalRembgPath, setCopiedLocalRembgPath] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || isTauriRuntime()) return;
@@ -1073,6 +1090,31 @@ export function AISettingsPanel({
       cancelled = true;
     };
   }, []);
+
+  React.useEffect(() => {
+    const isLocalRembg =
+      editorState?.kind === 'background-removal' && editorState.draft.provider === 'local-rembg';
+    if (!isLocalRembg || !isTauriRuntime()) {
+      setLocalRembgSetup(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const invoke = await getTauriInvoke();
+      if (!invoke) return;
+      try {
+        const setup = (await invoke('get_local_rembg_setup')) as LocalRembgSetup;
+        if (!cancelled) setLocalRembgSetup(setup);
+      } catch (error) {
+        console.warn('Unable to read local rembg setup paths:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editorState?.kind, editorState?.draft.provider]);
 
   React.useEffect(() => {
     if (editorState?.kind === 'text' && editorState.draft.provider === 'ollama') {
@@ -1289,6 +1331,27 @@ export function AISettingsPanel({
     }
   };
 
+  const copyLocalRembgPath = async (path: string) => {
+    if (!navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopiedLocalRembgPath(path);
+      window.setTimeout(() => setCopiedLocalRembgPath(null), 1800);
+    } catch {
+      // Clipboard access is optional; the path remains selectable in the UI.
+    }
+  };
+
+  const openLocalRembgSetupDirectory = async () => {
+    const invoke = await getTauriInvoke();
+    if (!invoke) return;
+    try {
+      await invoke('open_local_rembg_setup_dir');
+    } catch (error) {
+      console.warn('Unable to open local rembg setup directory:', error);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!editorState) return;
 
@@ -1431,6 +1494,14 @@ export function AISettingsPanel({
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
     const isLocalRembg = draft.kind === 'background-removal' && draft.provider === 'local-rembg';
+    const localRembgRuntimePath =
+      localRembgSetup?.runtimePath || '%APPDATA%\\com.galwriter.ai\\rembg\\rembg-sidecar.exe';
+    const localRembgModelPath =
+      localRembgSetup?.defaultModelPath || '%APPDATA%\\com.galwriter.ai\\rembg-models\\u2netp.onnx';
+    const localRembgRuntimeDownloadUrl =
+      localRembgSetup?.runtimeDownloadUrl || LOCAL_REMBG_RUNTIME_RELEASE_URL;
+    const localRembgModelDownloadUrl =
+      localRembgSetup?.modelDownloadUrl || U2NETP_MODEL_DOWNLOAD_URL;
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
@@ -1878,7 +1949,88 @@ export function AISettingsPanel({
               </>
             )}
 
-            {draft.kind === 'background-removal' &&
+            {draft.kind === 'background-removal' && isLocalRembg && (
+              <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
+                <p className="font-black">本机去背景组件按需下载</p>
+                <p className="mt-1 text-xs font-medium text-fuchsia-800 dark:text-fuchsia-100/80">
+                  为保持安装包小巧，GalWriter 不再内置运行器或模型。下载并放好一次后，图片只在本机处理，不会上传。
+                </p>
+                <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs font-medium text-fuchsia-900 dark:text-fuchsia-50">
+                  <li>下载 <code className="font-mono">rembg-sidecar.exe</code>（运行器，约 139 MB）。</li>
+                  <li>下载 <code className="font-mono">u2netp.onnx</code>（默认模型，约 4.6 MB）。</li>
+                  <li>将两个文件放入下方指定位置，再保存这个 AI 配置。</li>
+                </ol>
+
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-black">运行器路径</p>
+                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">{localRembgRuntimePath}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void copyLocalRembgPath(localRembgRuntimePath)}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
+                      >
+                        {copiedLocalRembgPath === localRembgRuntimePath ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedLocalRembgPath === localRembgRuntimePath ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-black">默认模型路径</p>
+                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">{localRembgModelPath}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void copyLocalRembgPath(localRembgModelPath)}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
+                      >
+                        {copiedLocalRembgPath === localRembgModelPath ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedLocalRembgPath === localRembgModelPath ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    href={localRembgRuntimeDownloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    下载运行器
+                  </a>
+                  <a
+                    href={localRembgModelDownloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    下载 u2netp 模型
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void openLocalRembgSetupDirectory()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    打开放置目录
+                  </button>
+                </div>
+                <p className="mt-3 text-[11px] font-medium leading-5 text-fuchsia-800 dark:text-fuchsia-100/80">
+                  选用 BiRefNet General Lite 前请确认其许可；该模型会由已安装的 rembg 运行器在首次使用时按需下载。
+                </p>
+              </div>
+            )}
+
+            {draft.kind === 'background-removal' && !isLocalRembg &&
               (isLocalRembg ? (
                 <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
                   <p className="font-black">本机去背景：图片不会上传到服务器</p>

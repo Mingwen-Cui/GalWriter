@@ -1020,41 +1020,58 @@ const LOCAL_REMBG_SUPPORTED_MODELS: &[&str] = &[
 ];
 
 #[cfg(target_os = "windows")]
-fn rembg_resource_path(app: &AppHandle, relative_path: &str) -> Option<PathBuf> {
-  let bundled_path = app
-    .path()
-    .resource_dir()
-    .ok()
-    .map(|resource_dir| resource_dir.join(relative_path));
-  if let Some(path) = bundled_path.filter(|path| path.is_file()) {
-    return Some(path);
-  }
+const LOCAL_REMBG_RUNTIME_RELEASE_URL: &str = "https://github.com/Mingwen-Cui/GalWriter/releases";
+#[cfg(target_os = "windows")]
+const U2NETP_MODEL_DOWNLOAD_URL: &str =
+  "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx";
 
-  let development_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative_path);
-  development_path.is_file().then_some(development_path)
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalRembgSetup {
+  app_data_dir: String,
+  runtime_dir: String,
+  runtime_path: String,
+  models_dir: String,
+  default_model_path: String,
+  runtime_download_url: String,
+  model_download_url: String,
+}
+
+#[cfg(target_os = "windows")]
+fn rembg_app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+  app
+    .path()
+    .app_data_dir()
+    .map_err(|error| format!("Unable to locate GalWriter's app-data directory: {error}"))
 }
 
 #[cfg(target_os = "windows")]
 fn rembg_models_dir(app: &AppHandle) -> Result<PathBuf, String> {
-  let models_dir = app
-    .path()
-    .app_data_dir()
-    .map_err(|error| format!("Unable to locate GalWriter's app-data directory: {error}"))?
-    .join("rembg-models");
+  let models_dir = rembg_app_data_dir(app)?.join("rembg-models");
   fs::create_dir_all(&models_dir)
     .map_err(|error| format!("Unable to create the local rembg model directory: {error}"))?;
+  Ok(models_dir)
+}
 
-  let bundled_model_path = rembg_resource_path(app, "resources/rembg/u2netp.onnx").ok_or_else(|| {
-    "The bundled u2netp model is missing. Rebuild the desktop app with `npm run rembg:prepare`."
-      .to_string()
-  })?;
-  let installed_model_path = models_dir.join("u2netp.onnx");
-  if !installed_model_path.is_file() {
-    fs::copy(&bundled_model_path, &installed_model_path)
-      .map_err(|error| format!("Unable to install the bundled u2netp model: {error}"))?;
+#[cfg(target_os = "windows")]
+fn rembg_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
+  let runtime_dir = rembg_app_data_dir(app)?.join("rembg");
+  fs::create_dir_all(&runtime_dir)
+    .map_err(|error| format!("Unable to create the local rembg runtime directory: {error}"))?;
+  Ok(runtime_dir)
+}
+
+#[cfg(target_os = "windows")]
+fn rembg_runtime_path(app: &AppHandle) -> Result<PathBuf, String> {
+  let runtime_path = rembg_runtime_dir(app)?.join("rembg-sidecar.exe");
+  if runtime_path.is_file() {
+    return Ok(runtime_path);
   }
 
-  Ok(models_dir)
+  Err(format!(
+    "The local rembg runtime is not installed. Download rembg-sidecar.exe from {LOCAL_REMBG_RUNTIME_RELEASE_URL} and place it at {}.",
+    runtime_path.display()
+  ))
 }
 
 #[cfg(target_os = "windows")]
@@ -1062,10 +1079,7 @@ fn start_local_rembg_sidecar(
   app: &AppHandle,
   models_dir: &Path,
 ) -> Result<LocalRembgSidecarProcess, String> {
-  let executable = rembg_resource_path(app, "binaries/rembg-sidecar.exe").ok_or_else(|| {
-    "The local rembg component is missing. Rebuild the desktop app with `npm run rembg:prepare`."
-      .to_string()
-  })?;
+  let executable = rembg_runtime_path(app)?;
 
   let mut command = Command::new(executable);
   command
@@ -1110,6 +1124,13 @@ fn remove_local_image_background_inner(
   }
 
   let models_dir = rembg_models_dir(app)?;
+  let default_model_path = models_dir.join("u2netp.onnx");
+  if !default_model_path.is_file() {
+    return Err(format!(
+      "The u2netp model is not installed. Download it from {U2NETP_MODEL_DOWNLOAD_URL} and place it at {}.",
+      default_model_path.display()
+    ));
+  }
   let mut process_guard = rembg_state
     .process
     .lock()
@@ -1170,6 +1191,36 @@ fn remove_local_image_background(
   remove_local_image_background_inner(&app, &rembg_state, image, model)
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn get_local_rembg_setup(app: AppHandle) -> Result<LocalRembgSetup, String> {
+  let app_data_dir = rembg_app_data_dir(&app)?;
+  let runtime_dir = rembg_runtime_dir(&app)?;
+  let models_dir = rembg_models_dir(&app)?;
+  Ok(LocalRembgSetup {
+    app_data_dir: app_data_dir.to_string_lossy().to_string(),
+    runtime_path: runtime_dir.join("rembg-sidecar.exe").to_string_lossy().to_string(),
+    runtime_dir: runtime_dir.to_string_lossy().to_string(),
+    default_model_path: models_dir.join("u2netp.onnx").to_string_lossy().to_string(),
+    models_dir: models_dir.to_string_lossy().to_string(),
+    runtime_download_url: LOCAL_REMBG_RUNTIME_RELEASE_URL.to_string(),
+    model_download_url: U2NETP_MODEL_DOWNLOAD_URL.to_string(),
+  })
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn open_local_rembg_setup_dir(app: AppHandle) -> Result<(), String> {
+  let app_data_dir = rembg_app_data_dir(&app)?;
+  rembg_runtime_dir(&app)?;
+  rembg_models_dir(&app)?;
+  Command::new("explorer")
+    .arg(&app_data_dir)
+    .spawn()
+    .map_err(|error| format!("Unable to open the local rembg setup directory: {error}"))?;
+  Ok(())
+}
+
 #[cfg(not(target_os = "windows"))]
 #[tauri::command]
 fn remove_local_image_background(
@@ -1179,6 +1230,18 @@ fn remove_local_image_background(
   _model: String,
 ) -> Result<String, String> {
   Err("Local rembg is currently bundled only with the Windows desktop app.".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn get_local_rembg_setup(_app: AppHandle) -> Result<LocalRembgSetup, String> {
+  Err("Local rembg setup is currently available only in the Windows desktop app.".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn open_local_rembg_setup_dir(_app: AppHandle) -> Result<(), String> {
+  Err("Local rembg setup is currently available only in the Windows desktop app.".to_string())
 }
 
 #[cfg(target_os = "windows")]
@@ -1776,6 +1839,8 @@ pub fn run() {
       proxy_aliyun_imageseg_request,
       proxy_volcengine_imagex_request,
       remove_local_image_background,
+      get_local_rembg_setup,
+      open_local_rembg_setup_dir,
       force_quit_app,
       set_close_button_minimizes,
       save_rendered_video,

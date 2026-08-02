@@ -19,7 +19,7 @@
     "tauri": "tauri",
     "rembg:prepare": "powershell -ExecutionPolicy Bypass -File .\\src-tauri\\rembg-sidecar\\prepare-release.ps1",
     "tauri:android:init": "tauri android init --ci",
-    "tauri:build:windows": "npm run rembg:prepare && tauri build",
+    "tauri:build:windows": "tauri build",
     "tauri:build:web": "vite build",
     "tauri:build:android": "tauri android build --apk --aab",
     "tauri:build:android:if-ready": "node build-scripts/build-android-if-ready.mjs",

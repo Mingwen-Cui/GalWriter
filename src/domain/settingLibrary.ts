@@ -79,6 +79,12 @@ export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
     dataUrl: '/presets/characters/wen-lan.json',
   },
   {
+    id: 'preset-character-micro-manager-jiang',
+    kind: 'character',
+    name: '老蒋（微操大师）',
+    dataUrl: '/presets/characters/jiang-jieshi.json',
+  },
+  {
     id: 'preset-scene-rainy-platform',
     kind: 'scene',
     name: '雨夜车站',
