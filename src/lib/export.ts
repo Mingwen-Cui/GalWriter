@@ -25,6 +25,7 @@ export function formatCharacterNodeText(data: CharacterNodeData | Record<string,
     addSection('性格', data.personality);
     addSection('习惯', data.habits);
     addSection('说话', data.speechStyle);
+    addSection('音色', data.voiceId);
     addSection('经历', data.experience || data.background);
     addSection('关系', data.relationships);
     addSection('补充', data.notes || data.other || data.traits);

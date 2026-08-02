@@ -18,6 +18,7 @@ export type CharacterSettingLibraryData = Pick<
   | 'relationships'
   | 'notes'
   | 'voiceProfileId'
+  | 'voiceId'
   | 'features'
   | 'background'
   | 'other'
@@ -51,77 +52,69 @@ export interface SettingLibraryItem {
   updatedAt: number;
 }
 
-const characterPreset = (
-  id: string,
-  name: string,
-  data: CharacterSettingLibraryData,
-): SettingLibraryItem => ({ id, kind: 'character', name, data, createdAt: 0, updatedAt: 0 });
+export interface SettingLibraryPresetManifestItem {
+  id: string;
+  kind: SettingLibraryKind;
+  name: string;
+  dataUrl: string;
+}
 
-const scenePreset = (id: string, name: string, data: SceneSettingLibraryData): SettingLibraryItem => ({
-  id,
-  kind: 'scene',
-  name,
-  data,
-  createdAt: 0,
-  updatedAt: 0,
-});
-
-export const SETTING_LIBRARY_PRESETS: SettingLibraryItem[] = [
-  characterPreset('preset-character-night-courier', '夜班跑腿员', {
-    characterName: '顾遥',
-    identity: '22岁 · 夜班跑腿员',
-    avatarUrl: '/presets/characters/gu-yao.png',
-    appearance: '深色雨衣，旧球鞋，常把头发随手扎起。',
-    traits: '',
-    personality: '对人礼貌，但不轻易解释自己。',
-    habits: '等红灯时会数路边亮着的窗户。',
-    speechStyle: '句子很短，偶尔会说出意外准确的比喻。',
-    experience: '熟悉城市里多数不愿被记住的小路。',
-    relationships: '与附近便利店店员互相认识。',
-    notes: '怕狗，却总会随身带一小包狗粮。',
-  }),
-  characterPreset('preset-character-old-bookshop-owner', '旧书店店主', {
-    characterName: '闻岚',
-    identity: '34岁 · 二手书店店主',
-    avatarUrl: '/presets/characters/wen-lan.png',
-    appearance: '总穿褪色衬衫，手指常沾着纸灰。',
-    traits: '',
-    personality: '温和而固执，对遗失的东西格外上心。',
-    habits: '会在每本卖出的旧书里夹一张空白书签。',
-    speechStyle: '说话慢，喜欢先反问一句。',
-    experience: '曾在不同城市的旧书店做过店员。',
-    relationships: '和常来避雨的邻居保持点头之交。',
-    notes: '记得每本书从哪一排离开。',
-  }),
-  scenePreset('preset-scene-rainy-platform', '雨夜车站', {
-    sceneName: '雨夜车站',
-    location: '城郊支线尽头的小站台。',
-    time: '深夜，末班车刚离开。',
-    weather: '持续小雨，空气潮冷。',
-    visual: '褪色站牌、积水和一盏闪烁的顶灯。',
-    sound: '雨滴敲铁皮，远处偶尔有货车经过。',
-    items: '自动售票机、折叠伞、停摆的时刻表。',
-    notes: '站台另一端没有照明。',
-    description: '',
-  }),
-  scenePreset('preset-scene-afternoon-archive-room', '午后资料室', {
-    sceneName: '午后资料室',
-    location: '学校旧楼二层的资料室。',
-    time: '下午三点，阳光斜照进来。',
-    weather: '窗外闷热，室内有纸张和灰尘的干燥气味。',
-    visual: '高书架遮住半扇窗，桌面堆着未归档的文件夹。',
-    sound: '风扇转动、纸页摩擦，走廊偶尔传来脚步声。',
-    items: '索引卡、木梯、旧风扇、上锁的铁柜。',
-    notes: '最里面一排书架后有一张窄桌。',
-    description: '',
-  }),
+/**
+ * Keep this manifest small: the editable text and its image live together in public/presets.
+ * Add a JSON file beside a new image, then add one line here so it appears in the library.
+ */
+export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
+  {
+    id: 'preset-character-night-courier',
+    kind: 'character',
+    name: '夜班跑腿员',
+    dataUrl: '/presets/characters/gu-yao.json',
+  },
+  {
+    id: 'preset-character-old-bookshop-owner',
+    kind: 'character',
+    name: '旧书店店主',
+    dataUrl: '/presets/characters/wen-lan.json',
+  },
+  {
+    id: 'preset-scene-rainy-platform',
+    kind: 'scene',
+    name: '雨夜车站',
+    dataUrl: '/presets/scenes/rainy-platform.json',
+  },
+  {
+    id: 'preset-scene-afternoon-archive-room',
+    kind: 'scene',
+    name: '午后资料室',
+    dataUrl: '/presets/scenes/afternoon-archive-room.json',
+  },
 ];
 
 export const getSettingLibraryPresets = (kind: SettingLibraryKind) =>
   SETTING_LIBRARY_PRESETS.filter((item) => item.kind === kind);
 
-export const getSettingLibraryPreset = (id: string) =>
-  SETTING_LIBRARY_PRESETS.find((item) => item.id === id) ?? null;
+export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibraryItem | null> => {
+  const manifestItem = SETTING_LIBRARY_PRESETS.find((item) => item.id === id);
+  if (!manifestItem) return null;
+
+  try {
+    const response = await fetch(manifestItem.dataUrl);
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { data?: unknown };
+    if (!payload.data || typeof payload.data !== 'object') return null;
+    return {
+      id: manifestItem.id,
+      kind: manifestItem.kind,
+      name: manifestItem.name,
+      data: payload.data as CharacterSettingLibraryData | SceneSettingLibraryData,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  } catch (error) {
+    console.error(`Failed to load setting-library preset: ${id}`, error);
+    return null;
+  }
+};
 
 export const toSettingLibraryListItem = (
   item: Pick<SettingLibraryItem, 'id' | 'kind' | 'name' | 'updatedAt'>,
@@ -148,6 +141,7 @@ export const toCharacterSettingLibraryData = (
   relationships: data.relationships,
   notes: data.notes,
   voiceProfileId: data.voiceProfileId,
+  voiceId: data.voiceId,
   features: data.features,
   background: data.background,
   other: data.other,

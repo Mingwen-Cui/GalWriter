@@ -1,0 +1,21 @@
+{
+  "data": {
+    "sceneName": "午后资料室",
+    "location": "学校旧楼二层的资料室。",
+    "time": "下午三点，阳光斜照进来。",
+    "weather": "窗外闷热，室内有纸张和灰尘的干燥气味。",
+    "visual": "高书架遮住半扇窗，桌面堆着未归档的文件夹。",
+    "sound": "风扇转动、纸页摩擦，走廊偶尔传来脚步声。",
+    "items": "索引卡、木梯、旧风扇、上锁的铁柜。",
+    "notes": "最里面一排书架后有一张影桌。",
+    "description": "",
+    "coverImageUrl": "/presets/scenes/afternoon-archive-room.png",
+    "images": [
+      {
+        "id": "afternoon-archive-room-background",
+        "name": "午后资料室背景",
+        "imageUrl": "/presets/scenes/afternoon-archive-room.png"
+      }
+    ]
+  }
+}

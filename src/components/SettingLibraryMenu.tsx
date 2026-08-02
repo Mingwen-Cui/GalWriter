@@ -1,4 +1,4 @@
-import { BookOpen, BookmarkPlus, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { BookOpen, BookmarkPlus, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 import type {
@@ -66,7 +66,17 @@ export function SettingLibraryMenu({
         >
           <div className="flex items-center justify-between border-b border-[var(--card-border)] px-3 py-2">
             <div className="text-xs font-bold text-[var(--text-primary)]">{kindLabel}设定库</div>
-            <button
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void run('save', () => onSave?.(sourceItemId ? 'update' : 'new'))}
+                disabled={!onSave || busyItemId !== null}
+                className={`flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-bold ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                <span>{'\u4fdd\u5b58\u5f53\u524d'}</span>
+              </button>
+              <button
               type="button"
               onClick={() => setOpen(false)}
               className="rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]"
@@ -74,41 +84,21 @@ export function SettingLibraryMenu({
             >
               <X className="h-3.5 w-3.5" />
             </button>
+            </div>
           </div>
 
-          <div
-            className={`${sourceItemId ? 'grid grid-cols-2 gap-1' : ''} border-b border-[var(--card-border)] p-2`}
-          >
-            {sourceItemId ? (
-              <button
-                type="button"
-                onClick={() => void run('update', () => onSave?.('update'))}
-                disabled={!onSave || busyItemId !== null}
-                className={`flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> 更新原设定
-              </button>
-            ) : (
+          {sourceItemId && (
+            <div className="border-b border-[var(--card-border)] p-2">
               <button
                 type="button"
                 onClick={() => void run('new', () => onSave?.('new'))}
                 disabled={!onSave || busyItemId !== null}
-                className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
-              >
-                <BookmarkPlus className="h-3.5 w-3.5" /> 保存当前
-              </button>
-            )}
-            {sourceItemId && (
-              <button
-                type="button"
-                onClick={() => void run('new', () => onSave?.('new'))}
-                disabled={!onSave || busyItemId !== null}
-                className="flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-50"
               >
                 <BookmarkPlus className="h-3.5 w-3.5" /> 另存为新设定
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex gap-1 px-2 pt-2">
             {([

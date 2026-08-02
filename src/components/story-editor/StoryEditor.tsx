@@ -69,6 +69,7 @@ import {
 import { translations } from '../../lib/i18n';
 import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
+import { getPlatformVoiceOptions, getPlatformVoicePlaceholder } from '../../lib/voiceCatalog';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import type { PlayTestDisplayMode, PlaytestWindowLayer } from '../render/playtest/types';
@@ -613,6 +614,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   }, []);
 
   const {
+    assistantContext: settingLibraryContext,
     deleteSettingLibrary,
     presetListItems,
     savedListItems,
@@ -1835,6 +1837,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     assistantMemorySkillEnabled,
     assistantMemoryNotes,
     setAssistantMemoryNotes,
+    settingLibraryContext,
     selectedAssistantTargetNodes,
     showToast,
     requestSettingsAttention,
@@ -2066,12 +2069,16 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     }
     return profiles.map((profile) => ({
       id: profile.id,
+      provider: profile.provider,
+      defaultVoice: profile.voice,
+      voiceOptions: getPlatformVoiceOptions(profile.provider, profile.voice),
+      voicePlaceholder: getPlatformVoicePlaceholder(profile.provider),
       label: profile.voice ? `${profile.name} · ${profile.voice}` : profile.name,
     }));
   }, [activeVoiceProfile, savedAIProfiles]);
 
   const handlePreviewCharacterVoice = useCallback(
-    async (nodeId: string, voiceProfileId?: string) => {
+    async (nodeId: string, voiceProfileId?: string, voiceId?: string) => {
       const selectedProfile = voiceProfileId
         ? savedAIProfiles.find(
             (profile): profile is VoiceAIProfile =>
@@ -2095,7 +2102,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           appKey: selectedProfile.appKey,
           appSecret: selectedProfile.appSecret || selectedProfile.apiKey,
           model: selectedProfile.model,
-          voice: selectedProfile.voice,
+          voice: voiceId?.trim() || selectedProfile.voice,
         });
         const player = new Audio(audio.url);
         await player.play();

@@ -71,6 +71,7 @@ interface UseAssistantSystemParams {
   assistantMemorySkillEnabled: boolean;
   assistantMemoryNotes: string[];
   setAssistantMemoryNotes: React.Dispatch<React.SetStateAction<string[]>>;
+  settingLibraryContext: string;
 
   selectedAssistantTargetNodes: Node[];
 
@@ -109,6 +110,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     assistantMemorySkillEnabled,
     assistantMemoryNotes,
     setAssistantMemoryNotes,
+    settingLibraryContext,
     selectedAssistantTargetNodes,
     showToast,
     requestSettingsAttention,
@@ -1859,6 +1861,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     assistantMemorySkillEnabled,
     assistantMemoryNotes,
     setAssistantMemoryNotes,
+    settingLibraryContext,
   });
 
   const miniMapOverlayStyle =

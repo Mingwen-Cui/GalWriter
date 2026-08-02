@@ -1,0 +1,21 @@
+{
+  "data": {
+    "sceneName": "雨夜车站",
+    "location": "城郊支线尽头的小站台。",
+    "time": "深夜，末班车刚离开。",
+    "weather": "持续小雨，空气潮冷。",
+    "visual": "褪色站牌、积水和一盏闪烁的顶灯。",
+    "sound": "雨滴敲铁皮，远处偶尔有货车经过。",
+    "items": "自动售票机、折叠伞、停摆的时刻表。",
+    "notes": "站台另一端没有照明。",
+    "description": "",
+    "coverImageUrl": "/presets/scenes/rainy-platform.png",
+    "images": [
+      {
+        "id": "rainy-platform-background",
+        "name": "雨夜车站背景",
+        "imageUrl": "/presets/scenes/rainy-platform.png"
+      }
+    ]
+  }
+}

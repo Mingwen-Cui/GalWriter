@@ -549,7 +549,11 @@ export interface EditorNodeCallbacks {
   onGenerateImage?: (id: string) => Promise<void> | void;
   onGenerateSpeech?: (id: string) => Promise<void> | void;
   onGenerateSettingImage?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
-  onPreviewCharacterVoice?: (id: string, voiceProfileId?: string) => Promise<void> | void;
+  onPreviewCharacterVoice?: (
+    id: string,
+    voiceProfileId?: string,
+    voiceId?: string,
+  ) => Promise<void> | void;
   onRemoveCharacterImageBackground?: (id: string, outfitId?: string) => Promise<void> | void;
   onAddTextToImage?: (id: string) => void;
   onRemoveTextFromImage?: (id: string) => void;
@@ -573,6 +577,10 @@ export interface EditorNodeCallbacks {
 export interface CharacterVoiceOption {
   id: string;
   label: string;
+  provider: string;
+  defaultVoice?: string;
+  voiceOptions?: string[];
+  voicePlaceholder?: string;
 }
 
 export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeCallbacks {
@@ -630,6 +638,7 @@ export interface CharacterNodeData extends BaseEditorNodeData {
   relationships?: string;
   notes?: string;
   voiceProfileId?: string;
+  voiceId?: string;
   libraryItemId?: string;
   voiceOptions?: CharacterVoiceOption[];
   /** Legacy fields retained so existing projects continue to load unchanged. */

@@ -62,7 +62,7 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
-  70 + 73 + 330 + 48 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
+  70 + 73 + 330 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
@@ -79,6 +79,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const notes =
     typeof data.notes === 'string' ? data.notes : data.other || data.traits || '';
   const voiceOptions = Array.isArray(data.voiceOptions) ? data.voiceOptions : [];
+  const selectedVoiceProfile = voiceOptions.find((option) => option.id === data.voiceProfileId);
+  const selectedVoiceId = data.voiceId || selectedVoiceProfile?.defaultVoice || '';
+  const voiceListId = `character-voice-options-${id}`;
   const avatarUrl = data.avatarUrl;
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
@@ -888,24 +891,51 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
               </div>
 
               <div className="flex items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5">
-                <span className="shrink-0 text-[10px] font-bold text-purple-500">音色</span>
+                <span className="shrink-0 text-[10px] font-bold text-purple-500">语音 API</span>
                 <select
                   data-agent-field="voice-profile"
                   value={data.voiceProfileId || ''}
-                  onChange={(event) => updateNodeData({ voiceProfileId: event.target.value || undefined })}
+                  onChange={(event) => {
+                    const voiceProfileId = event.target.value || undefined;
+                    const profile = voiceOptions.find((option) => option.id === voiceProfileId);
+                    updateNodeData({
+                      voiceProfileId,
+                      voiceId: voiceProfileId ? profile?.defaultVoice || undefined : undefined,
+                    });
+                  }}
                   className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none"
                 >
-                  <option value="">跟随项目默认音色</option>
+                  <option value="">请选择语音 API</option>
                   {voiceOptions.map((option) => (
                     <option key={option.id} value={option.id}>
                       {option.label}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5">
+                <span className="shrink-0 text-[10px] font-bold text-purple-500">音色</span>
+                <input
+                  data-agent-field="voice-id"
+                  list={voiceListId}
+                  value={selectedVoiceId}
+                  onChange={(event) => updateNodeData({ voiceId: event.target.value || undefined })}
+                  disabled={!selectedVoiceProfile}
+                  placeholder={selectedVoiceProfile?.voicePlaceholder || '请先选择语音 API'}
+                  className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-45"
+                />
+                <datalist id={voiceListId}>
+                  {(selectedVoiceProfile?.voiceOptions || []).map((voice) => (
+                    <option key={voice} value={voice} />
+                  ))}
+                </datalist>
                 <button
                   type="button"
-                  onClick={() => data.onPreviewCharacterVoice?.(id, data.voiceProfileId)}
-                  disabled={!data.onPreviewCharacterVoice}
+                  onClick={() =>
+                    data.onPreviewCharacterVoice?.(id, data.voiceProfileId, selectedVoiceId)
+                  }
+                  disabled={!data.onPreviewCharacterVoice || !selectedVoiceProfile}
                   className="rounded p-1 text-purple-500 transition-colors hover:bg-purple-500/10 disabled:cursor-not-allowed disabled:opacity-35"
                   title="试听音色"
                 >

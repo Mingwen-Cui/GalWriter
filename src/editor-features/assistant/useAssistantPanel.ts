@@ -135,6 +135,7 @@ interface UseAssistantPanelParams {
   assistantMemorySkillEnabled: boolean;
   assistantMemoryNotes: string[];
   setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
+  settingLibraryContext: string;
 }
 
 export interface AssistantInputContext {
@@ -222,6 +223,7 @@ export const useAssistantPanel = ({
   assistantMemorySkillEnabled,
   assistantMemoryNotes,
   setAssistantMemoryNotes,
+  settingLibraryContext,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const { alert: showDialogAlert } = useDialog();
   const [assistantOpen, setAssistantOpen] = useState(!isMobile);
@@ -1935,7 +1937,10 @@ ${selectedContext || '无'}
 ${documentContext || '无'}
 
 画布摘要：
-${canvasContext || '无'}`;
+${canvasContext || '无'}
+
+可用设定库：
+${settingLibraryContext || '无'}`;
 
       let preparedPlacement: AssistantCardPlacementResult | null = null;
       let preparedPlaceholderCards: AssistantCardDraft[] = [];
@@ -2186,6 +2191,7 @@ ${canvasContext || '无'}`;
       selectedAssistantTargetNodes,
       setAssistantMessages,
       setAssistantMemoryNotes,
+      settingLibraryContext,
       startAgentWaiting,
       stopAgentWaiting,
       updateStreamingAssistantCards,

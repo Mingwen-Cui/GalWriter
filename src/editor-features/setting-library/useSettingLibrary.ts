@@ -10,14 +10,15 @@ import type {
   SettingLibrarySource,
 } from '../../domain/project';
 import {
-  getSettingLibraryPreset,
   getSettingLibraryPresets,
+  loadSettingLibraryPreset,
   toCharacterSettingLibraryData,
   toSceneSettingLibraryData,
   toSettingLibraryListItem,
   type SettingLibraryItem,
 } from '../../domain/settingLibrary';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
+import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 
 type UseSettingLibraryParams = {
   nodes: Node[];
@@ -56,6 +57,7 @@ export const useSettingLibrary = ({
   showToast,
 }: UseSettingLibraryParams) => {
   const [savedItems, setSavedItems] = useState<SettingLibraryItem[]>([]);
+  const [presetItems, setPresetItems] = useState<SettingLibraryItem[]>([]);
 
   const refreshSettingLibrary = useCallback(async () => {
     const items = await localPersistenceService.listSettingLibraryItems();
@@ -67,6 +69,20 @@ export const useSettingLibrary = ({
       console.error('Failed to load setting library:', error);
     });
   }, [refreshSettingLibrary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(
+      (['character', 'scene'] as const)
+        .flatMap((kind) => getSettingLibraryPresets(kind))
+        .map((item) => loadSettingLibraryPreset(item.id)),
+    ).then((items) => {
+      if (!cancelled) setPresetItems(items.filter((item): item is SettingLibraryItem => Boolean(item)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const handleLibraryChange = () => {
@@ -85,10 +101,33 @@ export const useSettingLibrary = ({
   const presetListItems = useMemo(
     () =>
       (['character', 'scene'] as const).flatMap((kind) =>
-        getSettingLibraryPresets(kind).map((item) => toSettingLibraryListItem(item, 'preset')),
+        getSettingLibraryPresets(kind).map((item) => ({
+          id: item.id,
+          kind: item.kind,
+          name: item.name,
+          source: 'preset' as const,
+          updatedAt: 0,
+        })),
       ),
     [],
   );
+
+  const assistantContext = useMemo(() => {
+    const availableItems = [...savedItems, ...presetItems].slice(0, 20);
+    if (availableItems.length === 0) return '';
+    const formattedItems = availableItems.map((item, index) => {
+      const content =
+        item.kind === 'character'
+          ? formatCharacterNodeText(item.data as CharacterNodeData)
+          : formatSceneNodeText(item.data as SceneNodeData);
+      return `${index + 1}. [${item.kind}] ${item.name}\n${content}`;
+    });
+    return [
+      '【可用设定库】',
+      '下列设定可在回答、写作和生成新卡片时直接使用。若用户点名某个设定，优先保留其事实，不要随意改写核心信息。',
+      formattedItems.join('\n\n---\n\n'),
+    ].join('\n');
+  }, [presetItems, savedItems]);
 
   const saveSettingLibrary = useCallback(
     async (nodeId: string, kind: SettingLibraryKind, mode: 'new' | 'update') => {
@@ -151,7 +190,7 @@ export const useSettingLibrary = ({
     async (kind: SettingLibraryKind, itemId: string, source: SettingLibrarySource) => {
       const item =
         source === 'preset'
-          ? getSettingLibraryPreset(itemId)
+          ? await loadSettingLibraryPreset(itemId)
           : await localPersistenceService.getSettingLibraryItem(itemId);
       if (!item || item.kind !== kind) return;
 
@@ -209,6 +248,7 @@ export const useSettingLibrary = ({
 
   return {
     deleteSettingLibrary,
+    assistantContext,
     getListItems,
     presetListItems,
     refreshSettingLibrary,
