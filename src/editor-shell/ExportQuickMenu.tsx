@@ -25,6 +25,7 @@ import { exportQuickMenuCopy } from './i18n/export-quick-menu';
 
 type ExportQuickMenuProps = {
   language: Language;
+  showLabel: boolean;
   onLaunch: (intent: RenderWorkspaceLaunchIntent) => void;
 };
 
@@ -41,7 +42,7 @@ const DEFAULT_INTENTS: Record<RenderWorkspaceMode, RenderWorkspaceLaunchIntent> 
   code: { workspaceMode: 'code', codeTarget: 'renpy' },
 };
 
-export function ExportQuickMenu({ language, onLaunch }: ExportQuickMenuProps) {
+export function ExportQuickMenu({ language, showLabel, onLaunch }: ExportQuickMenuProps) {
   const copy = exportQuickMenuCopy(language);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -243,12 +244,13 @@ export function ExportQuickMenu({ language, onLaunch }: ExportQuickMenuProps) {
           openImmediately();
           window.requestAnimationFrame(() => firstPrimaryRef.current?.focus());
         }}
-        className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
+        className="header-glass-action header-glass-action-video flex h-9 items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-2.5 text-white transition-colors hover:bg-sky-700"
         aria-label={copy.title}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Film className="h-4 w-4" />
+        {showLabel && <span className="editor-header-action-label">{copy.triggerLabel}</span>}
       </button>
 
       {open &&

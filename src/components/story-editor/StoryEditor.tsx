@@ -241,6 +241,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showNodeActions, setShowNodeActions] = useState(true);
   const [showStats, setShowStats] = useState(true);
   const [showLastSavedTime, setShowLastSavedTime] = useState(true);
+  const [showHeaderActionLabels, setShowHeaderActionLabels] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [allowAssistantImageGeneration, setAllowAssistantImageGeneration] = useState(true);
@@ -841,6 +842,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       showTitles,
       storyTitlePlacement,
       showLastSavedTime,
+      showHeaderActionLabels,
       generateLength,
       aiProvider,
       imageApiUrl,
@@ -955,6 +957,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       showTitles,
       storyTitlePlacement,
       showLastSavedTime,
+      showHeaderActionLabels,
       thinkingMode,
       theme,
       toolbarLayout,
@@ -992,6 +995,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setShowTitles,
       setStoryTitlePlacement,
       setShowLastSavedTime,
+      setShowHeaderActionLabels,
       setGenerateLength,
       setTtsNarrationMode,
       setImageSize,
@@ -3183,6 +3187,7 @@ ${layoutConfig.label}
         projectName={currentProjectId ? projectTitle.trim() : ''}
         projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
         showLastSavedTime={showLastSavedTime}
+        showActionLabels={showHeaderActionLabels}
         lastSavedTime={lastSavedTime}
         onProjectNameChange={setProjectTitle}
         onProjectNameCommit={async (nextName) => {
@@ -3621,6 +3626,8 @@ ${layoutConfig.label}
           setShowStats={setShowStats}
           showLastSavedTime={showLastSavedTime}
           setShowLastSavedTime={setShowLastSavedTime}
+          showHeaderActionLabels={showHeaderActionLabels}
+          setShowHeaderActionLabels={setShowHeaderActionLabels}
           saveAssistantConversations={saveAssistantConversations}
           setSaveAssistantConversations={setSaveAssistantConversations}
           allowAssistantImageGeneration={allowAssistantImageGeneration}

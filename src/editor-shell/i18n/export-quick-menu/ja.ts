@@ -1,5 +1,6 @@
 export const exportQuickMenuJa = {
   title: '作品を書き出す',
+  triggerLabel: '書き出し',
   video: '動画',
   web: 'Web',
   ppt: 'PPT',

@@ -1,5 +1,6 @@
 export const exportQuickMenuEn = {
   title: 'Export work',
+  triggerLabel: 'Export',
   video: 'Video',
   web: 'Web',
   ppt: 'PPT',

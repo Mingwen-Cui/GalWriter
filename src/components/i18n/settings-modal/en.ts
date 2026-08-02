@@ -4,6 +4,7 @@ export const settingsModalEn = {
   systemTheme: 'System',
   accentColor: 'Accent Color',
   accentColorDescription: 'Applies to selected states, toggles, focus rings, and primary buttons',
+  showHeaderActionLabels: 'Show button labels',
   doubleClickToEditColor: 'Double-click to edit color',
   arrowStyle: 'Arrow Style',
   arrowLineColor: 'Arrow line color',

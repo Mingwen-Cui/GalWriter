@@ -4,6 +4,7 @@ export const settingsModalJa = {
   systemTheme: 'システム',
   accentColor: 'アクセントカラー',
   accentColorDescription: '選択状態、スイッチ、フォーカス、主要ボタンの色に反映されます',
+  showHeaderActionLabels: 'ボタン名を表示',
   doubleClickToEditColor: 'ダブルクリックして色を入力',
   arrowStyle: '矢印スタイル',
   arrowLineColor: '矢印線の色',

@@ -7,6 +7,7 @@ import type { RenderWorkspaceLaunchIntent } from '../components/render/video/sha
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
 import { ExportQuickMenu } from './ExportQuickMenu';
+import { editorHeaderCopy } from './i18n/editor-header';
 
 interface EditorHeaderProps {
   appTitle: string;
@@ -15,6 +16,7 @@ interface EditorHeaderProps {
   onProjectNameChange: (value: string) => void;
   onProjectNameCommit: (value: string) => Promise<void> | void;
   showLastSavedTime?: boolean;
+  showActionLabels: boolean;
   lastSavedTime?: number | null;
   language: Language;
   bubbleStyle: BubbleStyle;
@@ -45,6 +47,7 @@ export function EditorHeader({
   onProjectNameChange,
   onProjectNameCommit,
   showLastSavedTime,
+  showActionLabels,
   lastSavedTime,
   language,
   bubbleStyle,
@@ -162,6 +165,7 @@ export function EditorHeader({
 
   const defaultProjectName =
     language === 'zh' ? '新建项目' : language === 'ja' ? '新規プロジェクト' : 'New Project';
+  const headerCopy = editorHeaderCopy(language);
 
   return (
     <div
@@ -241,7 +245,7 @@ export function EditorHeader({
               type="button"
               onClick={handleSaveProject}
               disabled={isSavingProject}
-              className={`header-glass-action header-glass-action-save relative flex h-9 w-9 items-center justify-center rounded-none transition-colors ${
+              className={`header-glass-action header-glass-action-save mobile-editor-header-action relative flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-none transition-colors ${
                 isDirty
                   ? 'header-glass-action-active bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-white'
                   : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -263,13 +267,16 @@ export function EditorHeader({
               }
             >
               <Save className="h-4 w-4" />
+              {showActionLabels && (
+                <span className="mobile-editor-header-action-label">{headerCopy.save}</span>
+              )}
               {isDirty && (
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
               )}
             </button>
             <button
               onClick={openProjectHome}
-              className="header-glass-action flex h-9 w-9 items-center justify-center rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="header-glass-action mobile-editor-header-action flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
               title={
                 language === 'zh'
                   ? '项目列表'
@@ -279,16 +286,26 @@ export function EditorHeader({
               }
             >
               <FolderOpen className="h-4 w-4" />
+              {showActionLabels && (
+                <span className="mobile-editor-header-action-label">{headerCopy.projects}</span>
+              )}
             </button>
             <button
               onClick={() => setShowPlayTest(true)}
-              className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
+              className="header-glass-action header-glass-action-play mobile-editor-header-action flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
               title={t.playTest}
             >
               <PlayCircle className="h-4 w-4" />
+              {showActionLabels && (
+                <span className="mobile-editor-header-action-label">{headerCopy.test}</span>
+              )}
             </button>
             {canRenderVideo && !isMobile && (
-              <ExportQuickMenu language={language} onLaunch={onOpenRenderWorkspace} />
+              <ExportQuickMenu
+                language={language}
+                showLabel={showActionLabels}
+                onLaunch={onOpenRenderWorkspace}
+              />
             )}
           </div>
           <input
@@ -381,7 +398,7 @@ export function EditorHeader({
               </div>
             </div>
             <div
-              className={`flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
+              className={`editor-header-desktop-actions ${showActionLabels ? 'editor-header-desktop-actions-with-labels' : ''} flex shrink-0 items-center ${bubbleStyle === 'glass' ? '' : 'gap-1 pl-2'}`}
             >
               <button
                 type="button"
@@ -409,6 +426,9 @@ export function EditorHeader({
                 }
               >
                 <Save className="h-4 w-4" />
+                {showActionLabels && (
+                  <span className="editor-header-action-label">{headerCopy.save}</span>
+                )}
                 {isDirty && (
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
                 )}
@@ -426,6 +446,9 @@ export function EditorHeader({
                 }
               >
                 <Download className="h-4 w-4" />
+                {showActionLabels && (
+                  <span className="editor-header-action-label">{headerCopy.backup}</span>
+                )}
               </button>
               <button
                 onClick={openProjectHome}
@@ -439,6 +462,9 @@ export function EditorHeader({
                 }
               >
                 <FolderOpen className="h-4 w-4" />
+                {showActionLabels && (
+                  <span className="editor-header-action-label">{headerCopy.projects}</span>
+                )}
               </button>
               <button
                 onClick={() => setShowPlayTest(true)}
@@ -446,9 +472,16 @@ export function EditorHeader({
                 title={t.playTest}
               >
                 <PlayCircle className="h-4 w-4" />
+                {showActionLabels && (
+                  <span className="editor-header-action-label">{headerCopy.test}</span>
+                )}
               </button>
               {canRenderVideo && !isMobile && (
-                <ExportQuickMenu language={language} onLaunch={onOpenRenderWorkspace} />
+                <ExportQuickMenu
+                  language={language}
+                  showLabel={showActionLabels}
+                  onLaunch={onOpenRenderWorkspace}
+                />
               )}
             </div>
           </div>

@@ -467,6 +467,7 @@ const applyProjectSettings = (
     setters.setNodeVerticalSpacing(DEFAULT_NODE_SPACING);
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
+    setters.setShowHeaderActionLabels(true);
     return;
   }
 
@@ -517,6 +518,7 @@ const applyProjectSettings = (
     typeof incomingSettings.accentColor === 'string' ? incomingSettings.accentColor : '',
   );
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
+  setters.setShowHeaderActionLabels(incomingSettings.showHeaderActionLabels !== false);
   if (incomingSettings.storyTitlePlacement === 'inside') {
     setters.setStoryTitlePlacement('inside');
   } else if (incomingSettings.storyTitlePlacement === 'outside-left') {

@@ -4,6 +4,7 @@ export const settingsModalZh = {
   systemTheme: '跟随系统',
   accentColor: '强调色',
   accentColorDescription: '影响选中态、开关、焦点和主要按钮颜色',
+  showHeaderActionLabels: '显示按钮文字',
   doubleClickToEditColor: '双击输入颜色',
   arrowStyle: '箭头样式',
   arrowLineColor: '箭头线段颜色',

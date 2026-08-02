@@ -178,6 +178,8 @@ interface SettingsModalProps {
   setShowStats: (val: boolean) => void;
   showLastSavedTime: boolean;
   setShowLastSavedTime: (val: boolean) => void;
+  showHeaderActionLabels: boolean;
+  setShowHeaderActionLabels: (val: boolean) => void;
   saveAssistantConversations: boolean;
   setSaveAssistantConversations: (val: boolean) => void;
   allowAssistantImageGeneration: boolean;
@@ -353,6 +355,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setShowStats,
   showLastSavedTime,
   setShowLastSavedTime,
+  showHeaderActionLabels,
+  setShowHeaderActionLabels,
   saveAssistantConversations,
   setSaveAssistantConversations,
   allowAssistantImageGeneration,
@@ -760,6 +764,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {accentColor || effectiveAccentColor}
                               </button>
                             )}
+                          </div>
+                          <div className="ml-auto flex shrink-0 items-center gap-3 border-l border-[var(--header-border)] pl-4">
+                            <span className="whitespace-nowrap text-xs font-bold text-[var(--text-secondary)]">
+                              {s.showHeaderActionLabels}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowHeaderActionLabels(!showHeaderActionLabels)}
+                              className={`relative h-5 w-10 rounded-full transition-all duration-300 ${showHeaderActionLabels ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                              aria-pressed={showHeaderActionLabels}
+                              aria-label={s.showHeaderActionLabels}
+                            >
+                              <span
+                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${showHeaderActionLabels ? 'left-6' : 'left-1'}`}
+                              />
+                            </button>
                           </div>
                         </div>
                       </div>

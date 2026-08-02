@@ -1,5 +1,6 @@
 export const exportQuickMenuZh = {
   title: '导出作品',
+  triggerLabel: '导出',
   video: '视频',
   web: '网页',
   ppt: 'PPT',
