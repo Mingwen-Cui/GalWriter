@@ -3695,6 +3695,10 @@ ${layoutConfig.label}
           setPlayTestHideCharacterTags={setPlayTestHideCharacterTags}
           playTestHideSceneTags={playTestHideSceneTags}
           setPlayTestHideSceneTags={setPlayTestHideSceneTags}
+          playtestCanvasSettings={sharedCanvas.settings}
+          onPlaytestCanvasSettingsChange={sharedCanvas.update}
+          playtestNodes={nodes}
+          playtestEdges={edges}
           renderStyle={sharedRenderStyle}
           updateRenderStyle={updateSharedRenderStyle}
           onApplySettingsToOtherProjects={handleApplySettingsToOtherProjects}

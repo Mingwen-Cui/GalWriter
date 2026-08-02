@@ -19,11 +19,16 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { Edge, Node } from '@xyflow/react';
 
 import { AISettingsPanel } from './AISettingsPanel';
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { settingsModalCopy } from './i18n/settings-modal';
-import { PlaytestSettingsPanel } from './PlaytestSettingsPanel';
+import {
+  PlaytestSettingsWorkbench,
+  type PlaytestRuntimeSettings,
+} from './PlaytestSettingsWorkbench';
+import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
 import type { RenderStyle } from './render/video/shared/types';
 import {
@@ -261,6 +266,10 @@ interface SettingsModalProps {
   setPlayTestHideCharacterTags: (val: boolean) => void;
   playTestHideSceneTags: boolean;
   setPlayTestHideSceneTags: (val: boolean) => void;
+  playtestCanvasSettings: SharedCanvasSettings;
+  onPlaytestCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
+  playtestNodes: Node[];
+  playtestEdges: Edge[];
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
@@ -429,6 +438,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestHideCharacterTags,
   playTestHideSceneTags,
   setPlayTestHideSceneTags,
+  playtestCanvasSettings,
+  onPlaytestCanvasSettingsChange,
+  playtestNodes,
+  playtestEdges,
   renderStyle,
   updateRenderStyle,
   onApplySettingsToOtherProjects,
@@ -505,6 +518,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const segmentedControlClass =
     'flex min-w-0 flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
+  const playtestRuntimeSettings: PlaytestRuntimeSettings = {
+    choicesColumns: playTestChoicesColumns,
+    interactionMode: playTestInteractionMode === 'typewriter' ? 'typewriter' : 'immediate',
+    typewriterSpeed: playTestTypewriterSpeed,
+    choiceDelay: playTestChoiceDelay,
+    blurBackground: playTestBlurBackground,
+    blurText: playTestBlurText,
+    autoAdvanceDelay: playTestAutoAdvanceDelay,
+  };
+  const updatePlaytestRuntimeSettings = (patch: Partial<PlaytestRuntimeSettings>) => {
+    if (patch.choicesColumns !== undefined) setPlayTestChoicesColumns(patch.choicesColumns);
+    if (patch.interactionMode !== undefined) setPlayTestInteractionMode(patch.interactionMode);
+    if (patch.typewriterSpeed !== undefined) setPlayTestTypewriterSpeed(patch.typewriterSpeed);
+    if (patch.choiceDelay !== undefined) setPlayTestChoiceDelay(patch.choiceDelay);
+    if (patch.blurBackground !== undefined) setPlayTestBlurBackground(patch.blurBackground);
+    if (patch.blurText !== undefined) setPlayTestBlurText(patch.blurText);
+    if (patch.autoAdvanceDelay !== undefined) setPlayTestAutoAdvanceDelay(patch.autoAdvanceDelay);
+  };
   const applyTargetProjects = projectSummaries.filter((project) => project.id !== currentProjectId);
   const allApplyTargetsSelected =
     applyTargetProjects.length > 0 &&
@@ -544,7 +575,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div
         className={`settings-modal-overlay fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
       >
-        <div className="settings-modal-shell bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+        <div className="settings-modal-shell bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-[1380px] h-[860px] max-h-[94vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
           <div className="settings-modal-header h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
             <h2 className="flex-1 text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
               {s.settings}
@@ -630,7 +661,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Main Content Area */}
-            <div className="settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto p-8 pt-7 custom-scrollbar">
+            <div className={`settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto custom-scrollbar ${activeSettingsTab === 'playtest' ? 'p-5' : 'p-8 pt-7'}`}>
               {activeSettingsTab === 'appearance' && (
                 <div className="min-w-0 space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section>
@@ -1642,32 +1673,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'playtest' && (
-                <div className="space-y-5 animate-in slide-in-from-right-4 duration-500 pb-8">
-                  <PlaytestSettingsPanel
+                <div className="animate-in slide-in-from-right-4 duration-500 pb-6">
+                  <PlaytestSettingsWorkbench
                     language={language}
-                    isDarkMode={theme === 'dark'}
-                    choicesColumns={playTestChoicesColumns}
-                    setChoicesColumns={setPlayTestChoicesColumns}
-                    videoAutoPlay={playTestVideoAutoPlay}
-                    setVideoAutoPlay={setPlayTestVideoAutoPlay}
-                    layoutMode={playTestLayoutMode}
-                    setLayoutMode={setPlayTestLayoutMode}
-                    choicesPosition={playTestChoicesPosition}
-                    setChoicesPosition={setPlayTestChoicesPosition}
-                    blurBackground={playTestBlurBackground}
-                    setBlurBackground={setPlayTestBlurBackground}
-                    blurText={playTestBlurText}
-                    setBlurText={setPlayTestBlurText}
-                    skipSingleChoicePopup={playTestSkipSingleChoicePopup}
-                    setSkipSingleChoicePopup={setPlayTestSkipSingleChoicePopup}
-                    autoAdvance={playTestAutoAdvance}
-                    setAutoAdvance={setPlayTestAutoAdvance}
-                    hideCharacterTags={playTestHideCharacterTags}
-                    setHideCharacterTags={setPlayTestHideCharacterTags}
-                    hideSceneTags={playTestHideSceneTags}
-                    setHideSceneTags={setPlayTestHideSceneTags}
+                    canvasSettings={playtestCanvasSettings}
+                    onCanvasSettingsChange={onPlaytestCanvasSettingsChange}
+                    runtimeSettings={playtestRuntimeSettings}
+                    onRuntimeSettingsChange={updatePlaytestRuntimeSettings}
                     renderStyle={renderStyle}
                     updateRenderStyle={updateRenderStyle}
+                    nodes={playtestNodes}
+                    edges={playtestEdges}
                   />
                   {false && (
                     <>

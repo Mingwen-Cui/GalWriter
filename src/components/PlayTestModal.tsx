@@ -52,6 +52,10 @@ import {
 } from '../lib/presentation';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
+import {
+  PlaytestSettingsWorkbench,
+  type PlaytestRuntimeSettings,
+} from './PlaytestSettingsWorkbench';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import {
@@ -219,11 +223,11 @@ export function PlayTestModal({
   setLayoutMode,
 
   interactionMode,
-  setInteractionMode: _setInteractionMode,
+  setInteractionMode,
   typewriterSpeed,
-  setTypewriterSpeed: _setTypewriterSpeed,
+  setTypewriterSpeed,
   choiceDelay,
-  setChoiceDelay: _setChoiceDelay,
+  setChoiceDelay,
 
   choicesPosition,
   setChoicesPosition,
@@ -236,7 +240,7 @@ export function PlayTestModal({
   autoAdvance,
   setAutoAdvance,
   autoAdvanceDelay,
-  setAutoAdvanceDelay: _setAutoAdvanceDelay,
+  setAutoAdvanceDelay,
   hideCharacterTags,
   setHideCharacterTags: _setHideCharacterTags,
   hideSceneTags,
@@ -1633,6 +1637,24 @@ export function PlayTestModal({
   );
 
   const renderPlaytestSettingsPanel = () => {
+    const runtimeSettings: PlaytestRuntimeSettings = {
+      choicesColumns,
+      interactionMode: interactionMode === 'typewriter' ? 'typewriter' : 'immediate',
+      typewriterSpeed,
+      choiceDelay,
+      blurBackground,
+      blurText,
+      autoAdvanceDelay,
+    };
+    const updateRuntimeSettings = (patch: Partial<PlaytestRuntimeSettings>) => {
+      if (patch.choicesColumns !== undefined) setChoicesColumns(patch.choicesColumns);
+      if (patch.interactionMode !== undefined) setInteractionMode(patch.interactionMode);
+      if (patch.typewriterSpeed !== undefined) setTypewriterSpeed(patch.typewriterSpeed);
+      if (patch.choiceDelay !== undefined) setChoiceDelay(patch.choiceDelay);
+      if (patch.blurBackground !== undefined) setBlurBackground(patch.blurBackground);
+      if (patch.blurText !== undefined) setBlurText(patch.blurText);
+      if (patch.autoAdvanceDelay !== undefined) setAutoAdvanceDelay(patch.autoAdvanceDelay);
+    };
     const darkPanel = isDarkMode;
     const panelTone = darkPanel
       ? 'border-white/10 bg-slate-950/45'
@@ -1654,7 +1676,21 @@ export function PlayTestModal({
         : undefined
     ) as React.CSSProperties | undefined;
     return (
-      <div className="video-render-workspace space-y-4" style={workspaceStyle}>
+      <>
+        <PlaytestSettingsWorkbench
+          language={language}
+          canvasSettings={canvasSettings}
+          onCanvasSettingsChange={onCanvasSettingsChange}
+          runtimeSettings={runtimeSettings}
+          onRuntimeSettingsChange={updateRuntimeSettings}
+          renderStyle={renderStyle}
+          updateRenderStyle={updateRenderStyle}
+          nodes={nodes}
+          edges={edges}
+          showPreview={false}
+        />
+        {false && (
+          <div className="video-render-workspace space-y-4" style={workspaceStyle}>
         <PlaytestPanelTitle
           icon={Layout}
           title={
@@ -1814,7 +1850,9 @@ export function PlayTestModal({
             onCanvasSettingsChange={onCanvasSettingsChange}
           />
         </div>
-      </div>
+          </div>
+        )}
+      </>
     );
   };
 
