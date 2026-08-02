@@ -3,4 +3,6 @@ export const webSettingsCopy = {
   textSize: '文字サイズ',
   animationSpeed: 'アニメーション速度',
   sound: 'サウンド',
+  testTools: 'テストツール',
+  resizeTestTools: 'テストツールの幅を調整',
 };

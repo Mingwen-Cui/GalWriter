@@ -287,6 +287,7 @@ export function WebWorkspace({
   callAIForTextResult,
 }: WebWorkspaceProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const webCopy = getWebSettingsCopy(language);
   const [aiStartMenuDesigning, setAiStartMenuDesigning] = useState(false);
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
   const [savedTemplateLibrary, setSavedTemplateLibrary] = useState(readWebTemplateLibrary);
@@ -1579,6 +1580,7 @@ JSON schema:
                 onClick={() => setTestToolsOpen((open) => !open)}
                 className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-black transition-colors ${testToolsOpen ? 'bg-[var(--vr-accent)] text-white' : 'bg-[var(--vr-surface)] text-[var(--vr-text-soft)] ring-1 ring-[var(--vr-border)] hover:text-[var(--vr-text)]'}`}
                 aria-pressed={testToolsOpen}
+                title={webCopy.testTools}
               >
                 <Gamepad2 className="h-3.5 w-3.5" />
                 {t('测试工具', 'テストツール', 'Test tools')}
@@ -1638,7 +1640,7 @@ JSON schema:
 
       {(startMenuPreviewMode !== 'test' || testToolsOpen) && (
         <aside className="relative min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
-          {startMenuPreviewMode === 'test' && (
+          {true && (
             <div
               className="absolute inset-y-0 -left-1 z-40 w-2 cursor-col-resize touch-none"
               onPointerDown={beginTestPanelResize}

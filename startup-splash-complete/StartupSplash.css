@@ -1,0 +1,176 @@
+.startupSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #fff;
+  pointer-events: auto;
+  user-select: none;
+  contain: strict;
+  isolation: isolate;
+  touch-action: none;
+}
+
+.startupSplash--reveal {
+  background: transparent;
+}
+
+.startupLogoStage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--logo-size);
+  height: var(--logo-size);
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  transition: opacity 100ms ease-out;
+  will-change: opacity;
+}
+
+.startupSplash--handoff .startupLogoStage,
+.startupSplash--reveal .startupLogoStage {
+  opacity: 0;
+}
+
+.startupLogoStage > div,
+.startupLogoStage svg {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.startupCurtainLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.startupCurtainSlot {
+  position: absolute;
+  left: var(--slot-x);
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.startupDropTrack {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: translate(var(--start-dx), var(--start-dy));
+  animation: startupNodeDrop var(--drop-duration) cubic-bezier(0.16, 1, 0.3, 1) var(--drop-delay) forwards;
+  will-change: transform;
+}
+
+.startupWipeTrack {
+  position: absolute;
+  width: 0;
+  height: 0;
+  animation: startupWipeUp 500ms cubic-bezier(0.76, 0, 0.24, 1) var(--wipe-delay) forwards;
+  will-change: transform;
+}
+
+.startupCurtainShape {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--node-d);
+  height: var(--node-d);
+  border-radius: 999px;
+  background: var(--curtain-color);
+  transform: translate(-50%, -50%);
+  animation: startupCircleToCurtain 400ms cubic-bezier(0.65, 0, 0.35, 1) 400ms forwards;
+  will-change: width, height, border-radius;
+  backface-visibility: hidden;
+}
+
+.startupEdgeLine {
+  position: fixed;
+  inset: 0 0 auto;
+  display: flex;
+  height: 2px;
+  opacity: 0;
+  animation: startupEdgeOut 120ms ease-out 1430ms forwards;
+}
+
+.startupEdgeLine span {
+  display: block;
+  flex: 0 0 auto;
+  height: 2px;
+}
+
+.startupWipeClock {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.startupReducedLogo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(34vw, 180px);
+  height: min(34vw, 180px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: startupReducedInOut 450ms ease-out forwards;
+}
+
+@keyframes startupNodeDrop {
+  0% { transform: translate(var(--start-dx), var(--start-dy)) scaleY(1); }
+  78% { transform: translate(0, 0) scaleY(0.92); }
+  90% { transform: translate(0, 0) scaleY(1.025); }
+  100% { transform: translate(0, 0) scaleY(1); }
+}
+
+@keyframes startupCircleToCurtain {
+  0% {
+    width: var(--node-d);
+    height: var(--node-d);
+    border-radius: 999px;
+  }
+  38% {
+    width: var(--pill-width);
+    height: var(--pill-height);
+    border-radius: 999px;
+  }
+  100% {
+    width: var(--panel-width);
+    height: calc(100dvh + 4px);
+    border-radius: 0;
+  }
+}
+
+@keyframes startupWipeUp {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(-100dvh - 8px)); }
+}
+
+@keyframes startupEdgeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes startupReducedInOut {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  33% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  67% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startupLogoStage,
+  .startupCurtainLayer,
+  .startupWipeClock {
+    display: none;
+  }
+}
+

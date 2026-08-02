@@ -481,7 +481,13 @@ export function WebPlaytestPreview({
     currentNodeId && currentNodeId !== 'THE_END'
       ? runtimeNodes.find((node) => node.id === currentNodeId)
       : null;
-  useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
+  const storyPlaybackActive =
+    previewMode !== 'test' || (previewGameStarted && !isPreviewStartMenuOpen);
+  useRegionBackgroundMusic(
+    nodes,
+    storyPlaybackActive ? currentNode : null,
+    storyPlaybackActive && currentNodeId !== 'THE_END',
+  );
   const outEdges = currentNodeId ? edges.filter((edge) => edge.source === currentNodeId) : [];
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
@@ -608,17 +614,29 @@ export function WebPlaytestPreview({
   };
 
   React.useEffect(() => {
-    if (settings.soundEnabled && audioUrl && currentAudioRef.current) {
+    if (!storyPlaybackActive) {
+      currentAudioRef.current?.pause();
+      currentVideoRef.current?.pause();
+      return;
+    }
+    if (storyPlaybackActive && settings.soundEnabled && audioUrl && currentAudioRef.current) {
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current.play().catch(() => {
         // Browser autoplay policies may require the first playback to be user initiated.
       });
     }
-    if (settings.autoAdvance && currentVideoUrl && currentVideoRef.current) {
+    if (storyPlaybackActive && settings.autoAdvance && currentVideoUrl && currentVideoRef.current) {
       currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
-  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance, settings.soundEnabled]);
+  }, [
+    audioUrl,
+    currentNodeId,
+    currentVideoUrl,
+    settings.autoAdvance,
+    settings.soundEnabled,
+    storyPlaybackActive,
+  ]);
 
   React.useEffect(() => {
     if (!playlistAudioUrl || !playlistAudioRef.current) return;

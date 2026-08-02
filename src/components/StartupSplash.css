@@ -1,0 +1,20 @@
+.startup-splash { position: fixed; inset: 0; z-index: 9999; overflow: hidden; height: 100dvh; background: #fff; isolation: isolate; pointer-events: auto; touch-action: none; }
+.startup-splash--reveal { background: transparent; }
+.startup-splash__logo { position: absolute; top: 50%; left: 50%; width: var(--logo-size); height: var(--logo-size); transform: translate(-50%, -50%); transition: opacity 100ms ease-out; }
+.startup-splash--handoff .startup-splash__logo, .startup-splash--reveal .startup-splash__logo { opacity: 0; }
+.startup-splash__logo > div, .startup-splash__logo svg { display: block; width: 100% !important; height: 100% !important; }
+.startup-splash__curtains { position: absolute; inset: 0; overflow: hidden; }
+.startup-splash__slot { position: absolute; top: 50%; left: var(--slot-x); width: 0; height: 0; }
+.startup-splash__drop { position: absolute; transform: translate(var(--start-dx), var(--start-dy)); animation: startup-splash-drop var(--drop-duration) cubic-bezier(.16, 1, .3, 1) var(--drop-delay) forwards; }
+.startup-splash__wipe { position: absolute; animation: startup-splash-wipe 500ms cubic-bezier(.76, 0, .24, 1) var(--wipe-delay) forwards; }
+.startup-splash__shape { position: absolute; width: var(--node-d); height: var(--node-d); border-radius: 999px; background: var(--curtain-color); transform: translate(-50%, -50%); animation: startup-splash-morph 400ms cubic-bezier(.65, 0, .35, 1) 400ms forwards; }
+.startup-splash__edge { position: fixed; inset: 0 0 auto; display: flex; height: 2px; opacity: 0; animation: startup-splash-edge 120ms ease-out 1430ms forwards; }
+.startup-splash__edge span { display: block; flex: 0 0 auto; height: 2px; }
+.startup-splash__clock { position: absolute; top: -2px; left: -2px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.startup-splash__reduced-logo { position: absolute; top: 50%; left: 50%; width: min(34vw, 180px); height: min(34vw, 180px); transform: translate(-50%, -50%); opacity: 0; animation: startup-splash-reduced 450ms ease-out forwards; }
+@keyframes startup-splash-drop { 0% { transform: translate(var(--start-dx), var(--start-dy)) scaleY(1); } 78% { transform: translate(0, 0) scaleY(.92); } 90% { transform: translate(0, 0) scaleY(1.025); } 100% { transform: translate(0, 0) scaleY(1); } }
+@keyframes startup-splash-morph { 0% { width: var(--node-d); height: var(--node-d); border-radius: 999px; } 38% { width: var(--pill-width); height: var(--pill-height); border-radius: 999px; } 100% { width: var(--panel-width); height: calc(100dvh + 4px); border-radius: 0; } }
+@keyframes startup-splash-wipe { from { transform: translateY(0); } to { transform: translateY(calc(-100dvh - 8px)); } }
+@keyframes startup-splash-edge { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes startup-splash-reduced { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.96); } 33%, 67% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .startup-splash__logo, .startup-splash__curtains, .startup-splash__clock { display: none; } }
