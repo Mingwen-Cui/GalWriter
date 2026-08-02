@@ -37,6 +37,7 @@ export const translations = {
     // Footer
     nodes: '节点',
     paths: '路径',
+    selectedItems: '已选择卡片/节点',
     footerHint: '右击箭头线段删除。双击箭头线段反向。',
 
     // AI Actions
@@ -205,6 +206,7 @@ export const translations = {
     // Footer
     nodes: 'Nodes',
     paths: 'Paths',
+    selectedItems: 'Selected cards/nodes',
     footerHint:
       'Right-click arrows to delete. Click the lock icon on background cards to unlock/lock.',
 
@@ -372,6 +374,7 @@ export const translations = {
     // Footer
     nodes: 'ノード',
     paths: 'パス',
+    selectedItems: '選択したカード/ノード',
     footerHint: '矢印を右クリックして削除。背景カードのロックアイコンをクリックしてロック/解除。',
 
     // AI Actions

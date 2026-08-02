@@ -3483,6 +3483,12 @@ ${layoutConfig.label}
             <span className="flex items-center gap-1.5">
               <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}
             </span>
+            {selectedNodes.length > 0 && (
+              <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
+                <div className="h-1 w-1 rounded-full bg-[var(--accent)]" />
+                {t.selectedItems}: {selectedNodes.length}
+              </span>
+            )}
           </div>
           <div className="opacity-60 font-medium">{footerHint}</div>
         </footer>

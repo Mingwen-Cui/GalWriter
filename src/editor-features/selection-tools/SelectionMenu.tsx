@@ -65,7 +65,7 @@ export function SelectionMenu({
       ? 'px-3 py-1.5 text-xs gap-2 rounded-lg'
       : 'px-2.5 py-1 text-xs gap-1.5 rounded-lg';
   const iconSizeClass = isMobile ? 'h-3 w-3' : 'h-4 w-4';
-  const buttonBaseClass = `${buttonSizeClass} flex items-center font-bold transition-all shrink-0 ${itemWidthClass} ${
+  const buttonBaseClass = `${buttonSizeClass} flex items-center font-bold text-[var(--text-primary)] transition-all shrink-0 hover:bg-slate-100 dark:hover:bg-slate-800 ${itemWidthClass} ${
     isHorizontal || isMobileGrid ? 'justify-center' : 'justify-start text-left'
   }`;
 
@@ -97,7 +97,7 @@ export function SelectionMenu({
     >
       <button
         onClick={onWrapDynamicGroup}
-        className={`${buttonBaseClass} text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30`}
+        className={buttonBaseClass}
         title={dynamicWrapLabel}
       >
         <Layers className={`${iconSizeClass} shrink-0`} />
@@ -108,7 +108,7 @@ export function SelectionMenu({
 
       <button
         onClick={onWrapBackground}
-        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        className={buttonBaseClass}
         title={bgCardLabel}
       >
         <Square className={`${iconSizeClass} shrink-0`} />
@@ -119,7 +119,7 @@ export function SelectionMenu({
 
       <button
         onClick={onBatchExport}
-        className={`${buttonBaseClass} text-[var(--icon-color)] hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        className={buttonBaseClass}
         title={batchExportLabel}
       >
         <FileText className={`${iconSizeClass} shrink-0`} />
@@ -131,7 +131,7 @@ export function SelectionMenu({
       <button
         onClick={onNarrate}
         disabled={ttsLoading}
-        className={`${buttonBaseClass} text-sky-600 hover:bg-sky-50 disabled:opacity-50 dark:text-sky-400 dark:hover:bg-sky-900/30`}
+        className={`${buttonBaseClass} disabled:opacity-50`}
         title={narrationTitle}
       >
         <Volume2 className={`${iconSizeClass} shrink-0 ${ttsLoading ? 'animate-pulse' : ''}`} />
@@ -142,7 +142,7 @@ export function SelectionMenu({
 
       <button
         onClick={onArrange}
-        className={`${buttonBaseClass} text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30`}
+        className={buttonBaseClass}
         title={arrangeTitle}
       >
         <Grid3X3 className={`${iconSizeClass} shrink-0`} />
@@ -151,7 +151,7 @@ export function SelectionMenu({
 
       <button
         onClick={onDelete}
-        className={`${buttonBaseClass} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30`}
+        className={buttonBaseClass}
         title={deleteLabel}
       >
         <Trash2 className={`${iconSizeClass} shrink-0`} />
@@ -160,7 +160,7 @@ export function SelectionMenu({
 
       <button
         onClick={onCopy}
-        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        className={buttonBaseClass}
         title={copyLabel}
       >
         <Copy className={`${iconSizeClass} shrink-0`} />
@@ -169,7 +169,7 @@ export function SelectionMenu({
 
       <button
         onClick={onHide}
-        className={`${buttonBaseClass} text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-white dark:hover:bg-indigo-900/30 dark:hover:text-[var(--accent)]`}
+        className={buttonBaseClass}
         title={hideLabel}
       >
         <EyeOff className={`${iconSizeClass} shrink-0`} />

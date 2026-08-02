@@ -170,6 +170,11 @@ export const useAssistantPanel = ({
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const { alert: showDialogAlert } = useDialog();
   const [assistantOpen, setAssistantOpen] = useState(!isMobile);
+
+  useEffect(() => {
+    if (isMobile) setAssistantOpen(false);
+  }, [isMobile]);
+
   const [assistantWidth, setAssistantWidth] = useState(360);
   const [assistantResizing, setAssistantResizing] = useState(false);
   const assistantResizeRef = useRef<{
