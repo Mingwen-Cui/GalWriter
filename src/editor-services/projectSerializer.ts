@@ -6,6 +6,7 @@ import type {
   AIButtonsConfig,
   AIPromptsConfig,
   ImportedProjectSettings,
+  PlaytestWindowBounds,
   PresentationTemplates,
   StoryEdge,
   StoryNode,
@@ -54,18 +55,20 @@ const clampCardToolbarScale = (value: unknown) => {
 const normalizePlaytestWindowSettings = (
   value: ImportedProjectSettings['playTestWindowSettings'],
 ) => {
-  const bounds = value?.bounds;
-  const validBounds =
+  const normalizeBounds = (bounds: PlaytestWindowBounds | null | undefined) =>
     bounds &&
     Number.isFinite(bounds.x) &&
     Number.isFinite(bounds.y) &&
     Number.isFinite(bounds.width) &&
     Number.isFinite(bounds.height) &&
     bounds.width > 0 &&
-    bounds.height > 0;
+    bounds.height > 0
+      ? bounds
+      : null;
 
   return {
-    bounds: validBounds ? bounds : null,
+    bounds: normalizeBounds(value?.bounds),
+    mobileBounds: normalizeBounds(value?.mobileBounds),
     followSelectedCard: value?.followSelectedCard === true,
     autoScaleOnHover: value?.autoScaleOnHover === true,
   };

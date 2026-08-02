@@ -9,6 +9,7 @@ export const playtestWindowZh = {
   autoScaleInactive: '开启悬停自动缩放',
   switchToWindowed: '切换为小窗模式',
   switchToFullscreen: '切换为全屏模式',
+  moreActions: '更多测试操作',
   moveWindow: '拖动测试剧本小窗',
   resizeWindow: '按固定比例调整测试剧本小窗大小',
 } as const;

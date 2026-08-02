@@ -32,6 +32,7 @@ const getStoredString = <T extends string>(key: string, fallback: T, allowed?: r
 const getStoredWindowSettings = (): PlaytestWindowSettings => {
   const fallback: PlaytestWindowSettings = {
     bounds: null,
+    mobileBounds: null,
     followSelectedCard: false,
     autoScaleOnHover: false,
   };
@@ -54,6 +55,7 @@ const getStoredWindowSettings = (): PlaytestWindowSettings => {
 
     return {
       bounds,
+      mobileBounds: null,
       followSelectedCard: false,
       autoScaleOnHover: false,
     };

@@ -31,58 +31,115 @@ type ResizeState = {
   bounds: PlaytestWindowBounds;
 };
 
-const VIEWPORT_PADDING = 16;
-const DEFAULT_WIDTH = 760;
-const MIN_WIDTH = 520;
+type WindowVariant = 'desktop' | 'mobile' | 'mobile-settings';
+
+const DESKTOP_VIEWPORT_PADDING = 16;
+const MOBILE_VIEWPORT_PADDING = 12;
+const DESKTOP_DEFAULT_WIDTH = 760;
+const DESKTOP_MIN_WIDTH = 520;
+const MOBILE_MIN_WIDTH = 220;
+const MOBILE_DEFAULT_MAX_WIDTH = 280;
+const MOBILE_SETTINGS_MAX_WIDTH = 240;
 const HOVER_SCALE = 1.18;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const normalizeAspectRatio = (value: number) =>
   Number.isFinite(value) && value > 0 ? value : 16 / 9;
 
+const getViewportSize = () => ({
+  width: typeof window === 'undefined' ? 1440 : window.visualViewport?.width || window.innerWidth,
+  height: typeof window === 'undefined' ? 900 : window.visualViewport?.height || window.innerHeight,
+});
+
+const getSafeAreaInsets = () => {
+  if (typeof document === 'undefined') return { top: 0, bottom: 0 };
+  const styles = window.getComputedStyle(document.documentElement);
+  return {
+    top: Number.parseFloat(styles.getPropertyValue('--app-safe-area-top')) || 0,
+    bottom: Number.parseFloat(styles.getPropertyValue('--app-safe-area-bottom')) || 0,
+  };
+};
+
+const getWindowLimits = (
+  aspectRatio: number,
+  variant: WindowVariant,
+  viewportWidth: number,
+  viewportHeight: number,
+) => {
+  const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
+  const mobile = variant !== 'desktop';
+  const viewportPadding = mobile ? MOBILE_VIEWPORT_PADDING : DESKTOP_VIEWPORT_PADDING;
+  const safeArea = mobile ? getSafeAreaInsets() : { top: 0, bottom: 0 };
+  const topPadding = viewportPadding + safeArea.top;
+  const bottomPadding = viewportPadding + safeArea.bottom;
+  const availableWidth = Math.max(1, viewportWidth - viewportPadding * 2);
+  const availableHeight = Math.max(1, viewportHeight - topPadding - bottomPadding);
+  const profileMaximum =
+    variant === 'desktop'
+      ? Number.POSITIVE_INFINITY
+      : variant === 'mobile-settings'
+        ? MOBILE_SETTINGS_MAX_WIDTH
+        : viewportWidth * 0.86;
+  const maximum = Math.max(
+    1,
+    Math.min(availableWidth, availableHeight * normalizedAspectRatio, profileMaximum),
+  );
+  const minimum = Math.min(variant === 'desktop' ? DESKTOP_MIN_WIDTH : MOBILE_MIN_WIDTH, maximum);
+  const defaultTarget =
+    variant === 'desktop'
+      ? Math.min(DESKTOP_DEFAULT_WIDTH, viewportWidth * 0.5)
+      : variant === 'mobile-settings'
+        ? Math.min(MOBILE_SETTINGS_MAX_WIDTH, viewportWidth * 0.56)
+        : Math.min(MOBILE_DEFAULT_MAX_WIDTH, viewportWidth * 0.64);
+
+  return {
+    viewportPadding,
+    topPadding,
+    bottomPadding,
+    minimum,
+    maximum,
+    defaultWidth: clamp(defaultTarget, minimum, maximum),
+  };
+};
+
 const clampBounds = (
   bounds: PlaytestWindowBounds,
   aspectRatio: number,
-  viewportWidth = window.innerWidth,
-  viewportHeight = window.innerHeight,
+  variant: WindowVariant,
+  viewportWidth = getViewportSize().width,
+  viewportHeight = getViewportSize().height,
 ): PlaytestWindowBounds => {
-  const availableWidth = Math.max(280, viewportWidth - VIEWPORT_PADDING * 2);
-  const availableHeight = Math.max(240, viewportHeight - VIEWPORT_PADDING * 2);
   const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
-  const maxWidth = Math.min(availableWidth, availableHeight * normalizedAspectRatio);
-  const minWidth = Math.min(MIN_WIDTH, maxWidth);
-  const width = clamp(bounds.width, minWidth, maxWidth);
+  const limits = getWindowLimits(normalizedAspectRatio, variant, viewportWidth, viewportHeight);
+  const width = clamp(bounds.width, limits.minimum, limits.maximum);
   const height = width / normalizedAspectRatio;
-  const maxX = Math.max(VIEWPORT_PADDING, viewportWidth - width - VIEWPORT_PADDING);
-  const maxY = Math.max(VIEWPORT_PADDING, viewportHeight - height - VIEWPORT_PADDING);
+  const maxX = Math.max(limits.viewportPadding, viewportWidth - width - limits.viewportPadding);
+  const maxY = Math.max(limits.topPadding, viewportHeight - height - limits.bottomPadding);
 
   return {
-    x: clamp(bounds.x, VIEWPORT_PADDING, maxX),
-    y: clamp(bounds.y, VIEWPORT_PADDING, maxY),
+    x: clamp(bounds.x, limits.viewportPadding, maxX),
+    y: clamp(bounds.y, limits.topPadding, maxY),
     width,
     height,
   };
 };
 
-const createDefaultBounds = (aspectRatio: number): PlaytestWindowBounds => {
-  const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth;
-  const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
+const createDefaultBounds = (aspectRatio: number, variant: WindowVariant): PlaytestWindowBounds => {
+  const { width: viewportWidth, height: viewportHeight } = getViewportSize();
   const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
-  const availableWidth = Math.min(
-    viewportWidth - VIEWPORT_PADDING * 2,
-    (viewportHeight - VIEWPORT_PADDING * 2) * normalizedAspectRatio,
-  );
-  const width = clamp(viewportWidth * 0.5, Math.min(MIN_WIDTH, availableWidth), DEFAULT_WIDTH);
+  const limits = getWindowLimits(normalizedAspectRatio, variant, viewportWidth, viewportHeight);
+  const width = limits.defaultWidth;
   const height = width / normalizedAspectRatio;
 
   return clampBounds(
     {
-      x: viewportWidth - width - 24,
-      y: viewportHeight - height - 24,
+      x: viewportWidth - width - limits.viewportPadding,
+      y: viewportHeight - height - limits.bottomPadding,
       width,
       height,
     },
     normalizedAspectRatio,
+    variant,
     viewportWidth,
     viewportHeight,
   );
@@ -125,8 +182,10 @@ interface PlaytestFloatingWindowProps {
   aspectRatio: number;
   initialBounds: PlaytestWindowBounds | null;
   autoScaleOnHover: boolean;
+  isMobile: boolean;
   layer: PlaytestWindowLayer;
   onBoundsChange: (bounds: PlaytestWindowBounds) => void;
+  onDisplayBoundsChange?: (bounds: PlaytestWindowBounds) => void;
   children: ReactNode;
 }
 
@@ -135,43 +194,81 @@ export function PlaytestFloatingWindow({
   aspectRatio,
   initialBounds,
   autoScaleOnHover,
+  isMobile,
   layer,
   onBoundsChange,
+  onDisplayBoundsChange,
   children,
 }: PlaytestFloatingWindowProps) {
   const text = getPlaytestWindowText(language);
   const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
-  const [bounds, setBounds] = useState(() =>
+  const workspaceVariant: WindowVariant = isMobile ? 'mobile' : 'desktop';
+  const settingsOverlayActive = isMobile && layer === 'above-settings';
+  const [workspaceBounds, setWorkspaceBounds] = useState(() =>
     initialBounds
-      ? clampBounds(initialBounds, normalizedAspectRatio)
-      : createDefaultBounds(normalizedAspectRatio),
+      ? clampBounds(initialBounds, normalizedAspectRatio, workspaceVariant)
+      : createDefaultBounds(normalizedAspectRatio, workspaceVariant),
+  );
+  const [settingsBounds, setSettingsBounds] = useState(() =>
+    createDefaultBounds(normalizedAspectRatio, 'mobile-settings'),
   );
   const [hovered, setHovered] = useState(false);
   const [interacting, setInteracting] = useState(false);
-  const boundsRef = useRef(bounds);
+  const activeBounds = settingsOverlayActive ? settingsBounds : workspaceBounds;
+  const activeVariant: WindowVariant = settingsOverlayActive ? 'mobile-settings' : workspaceVariant;
+  const boundsRef = useRef(activeBounds);
   const onBoundsChangeRef = useRef(onBoundsChange);
+  const onDisplayBoundsChangeRef = useRef(onDisplayBoundsChange);
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
+
+  const updateActiveBounds = (updater: (current: PlaytestWindowBounds) => PlaytestWindowBounds) => {
+    if (settingsOverlayActive) {
+      setSettingsBounds(updater);
+    } else {
+      setWorkspaceBounds(updater);
+    }
+  };
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
   }, [onBoundsChange]);
 
   useEffect(() => {
-    boundsRef.current = bounds;
-    const persistTimer = window.setTimeout(() => {
-      onBoundsChangeRef.current(bounds);
-    }, 120);
-    return () => window.clearTimeout(persistTimer);
-  }, [bounds]);
+    onDisplayBoundsChangeRef.current = onDisplayBoundsChange;
+  }, [onDisplayBoundsChange]);
 
   useEffect(() => {
-    setBounds((current) => clampBounds(current, normalizedAspectRatio));
-    const handleViewportResize = () =>
-      setBounds((current) => clampBounds(current, normalizedAspectRatio));
+    boundsRef.current = activeBounds;
+    onDisplayBoundsChangeRef.current?.(activeBounds);
+  }, [activeBounds]);
+
+  useEffect(() => {
+    const persistTimer = window.setTimeout(() => {
+      onBoundsChangeRef.current(workspaceBounds);
+    }, 120);
+    return () => window.clearTimeout(persistTimer);
+  }, [workspaceBounds]);
+
+  useEffect(() => {
+    if (settingsOverlayActive) {
+      setSettingsBounds(createDefaultBounds(normalizedAspectRatio, 'mobile-settings'));
+    }
+  }, [normalizedAspectRatio, settingsOverlayActive]);
+
+  useEffect(() => {
+    setWorkspaceBounds((current) => clampBounds(current, normalizedAspectRatio, workspaceVariant));
+    const handleViewportResize = () => {
+      setWorkspaceBounds((current) =>
+        clampBounds(current, normalizedAspectRatio, workspaceVariant),
+      );
+      setSettingsBounds((current) =>
+        clampBounds(current, normalizedAspectRatio, 'mobile-settings'),
+      );
+    };
     window.addEventListener('resize', handleViewportResize);
     return () => window.removeEventListener('resize', handleViewportResize);
-  }, [normalizedAspectRatio]);
+  }, [normalizedAspectRatio, workspaceVariant]);
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -194,7 +291,7 @@ export function PlaytestFloatingWindow({
     const drag = dragRef.current;
     if (drag?.pointerId === event.pointerId) {
       const current = boundsRef.current;
-      setBounds(
+      updateActiveBounds(() =>
         clampBounds(
           {
             ...current,
@@ -202,6 +299,7 @@ export function PlaytestFloatingWindow({
             y: event.clientY - current.height * drag.anchorY,
           },
           normalizedAspectRatio,
+          activeVariant,
         ),
       );
       return;
@@ -246,7 +344,7 @@ export function PlaytestFloatingWindow({
           : resize.bounds.y + (resize.bounds.height - height) / 2,
     };
 
-    setBounds(clampBounds(next, normalizedAspectRatio));
+    updateActiveBounds(() => clampBounds(next, normalizedAspectRatio, activeVariant));
   };
 
   const endPointerInteraction = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -276,24 +374,32 @@ export function PlaytestFloatingWindow({
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const hoverScale = autoScaleOnHover && hovered && !interacting ? HOVER_SCALE : 1;
+  const hoverScale = !isMobile && autoScaleOnHover && hovered && !interacting ? HOVER_SCALE : 1;
+  const viewport = getViewportSize();
+  const activeLimits = getWindowLimits(
+    normalizedAspectRatio,
+    activeVariant,
+    viewport.width,
+    viewport.height,
+  );
   const horizontalOrigin =
-    bounds.x <= VIEWPORT_PADDING * 2
+    activeBounds.x <= activeLimits.viewportPadding * 2
       ? 'left'
-      : bounds.x + bounds.width >= window.innerWidth - VIEWPORT_PADDING * 2
+      : activeBounds.x + activeBounds.width >= viewport.width - activeLimits.viewportPadding * 2
         ? 'right'
         : 'center';
   const verticalOrigin =
-    bounds.y <= VIEWPORT_PADDING * 2
+    activeBounds.y <= activeLimits.topPadding + activeLimits.viewportPadding
       ? 'top'
-      : bounds.y + bounds.height >= window.innerHeight - VIEWPORT_PADDING * 2
+      : activeBounds.y + activeBounds.height >=
+          viewport.height - activeLimits.bottomPadding - activeLimits.viewportPadding
         ? 'bottom'
         : 'center';
   const style: CSSProperties = {
-    left: bounds.x,
-    top: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
+    left: activeBounds.x,
+    top: activeBounds.y,
+    width: activeBounds.width,
+    height: activeBounds.height,
     transform: `scale(${hoverScale})`,
     transformOrigin: `${horizontalOrigin} ${verticalOrigin}`,
   };
@@ -318,12 +424,14 @@ export function PlaytestFloatingWindow({
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
       >
-        {resizeEdges.map((edge) => (
+        {(isMobile ? (['bottom-right'] as ResizeEdge[]) : resizeEdges).map((edge) => (
           <div
             key={edge}
             role="separator"
             aria-label={text.resizeWindow}
-            className={`absolute z-[400] touch-none ${resizeHandleClass(edge)}`}
+            className={`absolute z-[400] touch-none ${
+              isMobile ? '-bottom-2 -right-2 h-8 w-8 cursor-nwse-resize' : resizeHandleClass(edge)
+            }`}
             onPointerDown={beginResize(edge)}
           />
         ))}
@@ -341,6 +449,7 @@ interface PlaytestWindowActionsProps {
   followSelectedCard: boolean;
   hasSelectedCard: boolean;
   autoScaleOnHover: boolean;
+  showAutoScale?: boolean;
   onFollowSelectedCardChange: (active: boolean) => void;
   onAutoScaleOnHoverChange: (active: boolean) => void;
 }
@@ -353,6 +462,7 @@ export function PlaytestWindowActions({
   followSelectedCard,
   hasSelectedCard,
   autoScaleOnHover,
+  showAutoScale = true,
   onFollowSelectedCardChange,
   onAutoScaleOnHoverChange,
 }: PlaytestWindowActionsProps) {
@@ -383,18 +493,20 @@ export function PlaytestWindowActions({
       >
         <ScanSearch className="h-5 w-5" />
       </button>
-      <button
-        type="button"
-        onClick={() => onAutoScaleOnHoverChange(!autoScaleOnHover)}
-        className={`${buttonClassName} transition-colors ${
-          autoScaleOnHover ? 'bg-violet-500/85 text-white hover:bg-violet-500' : idleClass
-        }`}
-        title={autoScaleOnHover ? text.autoScaleActive : text.autoScaleInactive}
-        aria-label={text.autoScale}
-        aria-pressed={autoScaleOnHover}
-      >
-        <ZoomIn className="h-5 w-5" />
-      </button>
+      {showAutoScale ? (
+        <button
+          type="button"
+          onClick={() => onAutoScaleOnHoverChange(!autoScaleOnHover)}
+          className={`${buttonClassName} transition-colors ${
+            autoScaleOnHover ? 'bg-violet-500/85 text-white hover:bg-violet-500' : idleClass
+          }`}
+          title={autoScaleOnHover ? text.autoScaleActive : text.autoScaleInactive}
+          aria-label={text.autoScale}
+          aria-pressed={autoScaleOnHover}
+        >
+          <ZoomIn className="h-5 w-5" />
+        </button>
+      ) : null}
     </>
   );
 }

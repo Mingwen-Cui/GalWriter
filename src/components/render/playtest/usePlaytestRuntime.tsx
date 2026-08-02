@@ -50,60 +50,76 @@ import {
   sliceHtmlByTextLength,
 } from './playtestUtils';
 import type { PlayTestProps } from './types';
-export function usePlaytestRuntime({
-  nodes,
-  edges,
-  onClose,
-  displayMode,
-  windowSettings,
-  language,
-  onLanguageChange: _onLanguageChange,
-  isDarkMode,
-  choicesColumns,
-  setChoicesColumns,
-  videoAutoPlay,
-  setVideoAutoPlay: _setVideoAutoPlay,
-  layoutMode,
-  setLayoutMode,
+export function usePlaytestRuntime(
+  {
+    nodes,
+    edges,
+    onClose,
+    displayMode,
+    windowSettings,
+    language,
+    onLanguageChange: _onLanguageChange,
+    isDarkMode,
+    choicesColumns,
+    setChoicesColumns,
+    videoAutoPlay,
+    setVideoAutoPlay: _setVideoAutoPlay,
+    layoutMode,
+    setLayoutMode,
 
-  interactionMode,
-  setInteractionMode,
-  typewriterSpeed,
-  setTypewriterSpeed,
-  choiceDelay,
-  setChoiceDelay,
+    interactionMode,
+    setInteractionMode,
+    typewriterSpeed,
+    setTypewriterSpeed,
+    choiceDelay,
+    setChoiceDelay,
 
-  choicesPosition,
-  setChoicesPosition,
-  blurBackground,
-  setBlurBackground,
-  blurText,
-  setBlurText,
-  skipSingleChoicePopup,
-  setSkipSingleChoicePopup,
-  autoAdvance,
-  setAutoAdvance,
-  autoAdvanceDelay,
-  setAutoAdvanceDelay,
-  hideCharacterTags,
-  setHideCharacterTags: _setHideCharacterTags,
-  hideSceneTags,
-  setHideSceneTags: _setHideSceneTags,
-  canvasSettings,
-  onCanvasSettingsChange,
-  renderStyle,
-  updateRenderStyle,
-  isMobile = false,
-}: PlayTestProps) {
+    choicesPosition,
+    setChoicesPosition,
+    blurBackground,
+    setBlurBackground,
+    blurText,
+    setBlurText,
+    skipSingleChoicePopup,
+    setSkipSingleChoicePopup,
+    autoAdvance,
+    setAutoAdvance,
+    autoAdvanceDelay,
+    setAutoAdvanceDelay,
+    hideCharacterTags,
+    setHideCharacterTags: _setHideCharacterTags,
+    hideSceneTags,
+    setHideSceneTags: _setHideSceneTags,
+    canvasSettings,
+    onCanvasSettingsChange,
+    renderStyle,
+    updateRenderStyle,
+    isMobile = false,
+  }: PlayTestProps,
+  { windowContentWidth }: { windowContentWidth?: number | null } = {},
+) {
   const t = translations[language];
   const playtestText = getPlaytestText(language);
+  const activeWindowBounds = isMobile ? windowSettings.mobileBounds : windowSettings.bounds;
+  const fallbackWindowWidth = isMobile
+    ? Math.min(
+        280,
+        Math.max(
+          200,
+          (typeof window === 'undefined'
+            ? 390
+            : window.visualViewport?.width || window.innerWidth) * 0.64,
+        ),
+      )
+    : 760;
   const windowContentScale =
     displayMode === 'windowed'
       ? Math.min(
           1,
           Math.max(
-            0.2,
-            (windowSettings.bounds?.width ?? 760) / Math.max(1, canvasSettings.canvasWidth),
+            0.08,
+            (windowContentWidth ?? activeWindowBounds?.width ?? fallbackWindowWidth) /
+              Math.max(1, canvasSettings.canvasWidth),
           ),
         )
       : 1;
@@ -139,8 +155,9 @@ export function usePlaytestRuntime({
     () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth,
   );
   const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
-  const mobileLandscapeActive = isMobile && layoutMode === 'immersive';
-  const mobileImmersiveLayout = isMobile && layoutMode === 'immersive';
+  const mobileFullscreen = isMobile && displayMode !== 'windowed';
+  const mobileLandscapeActive = mobileFullscreen && layoutMode === 'immersive';
+  const mobileImmersiveLayout = mobileFullscreen && layoutMode === 'immersive';
   const applyMobileLandscapeTransform = mobileLandscapeActive && isPortrait;
   const dismissRotateHint = React.useCallback(() => {
     setRotateHintDismissed(true);
@@ -148,7 +165,7 @@ export function usePlaytestRuntime({
   }, []);
   const showRotateHint =
     mobileLandscapeActive && isPortrait && !rotateHintDismissed && !showSettings;
-  const mobileClassicLayout = isMobile && layoutMode === 'classic';
+  const mobileClassicLayout = mobileFullscreen && layoutMode === 'classic';
   const lastSystemBackRef = useRef(0);
   const systemBackStateRef = useRef({
     showSettings: false,
@@ -892,12 +909,28 @@ export function usePlaytestRuntime({
     if (skipSingleChoicePopup && outEdges.length <= 1) return null;
 
     const effectiveCols = choicesPosition === 'center' ? 1 : choicesColumns;
-    const gridClass = `grid ${effectiveCols === 1 ? 'grid-cols-1' : effectiveCols === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-3 w-full mb-1 animate-in fade-in duration-300 ${
-      choicesPosition === 'center' ? 'px-3 py-3' : ''
+    const windowed = displayMode === 'windowed';
+    const gridClass = `grid ${effectiveCols === 1 ? 'grid-cols-1' : effectiveCols === 2 ? 'grid-cols-2' : 'grid-cols-3'} w-full animate-in fade-in duration-300 ${
+      windowed ? '' : `gap-3 mb-1 ${choicesPosition === 'center' ? 'px-3 py-3' : ''}`
     }`;
+    const windowedGridStyle: React.CSSProperties | undefined = windowed
+      ? {
+          gap: scaleWindowMetric(12),
+          marginBottom: scaleWindowMetric(4),
+          padding: choicesPosition === 'center' ? `${scaleWindowMetric(12)}px` : undefined,
+        }
+      : undefined;
+    const windowedButtonStyle: React.CSSProperties | undefined = windowed
+      ? {
+          padding: `${scaleWindowMetric(14)}px ${scaleWindowMetric(20)}px`,
+          borderRadius: Math.max(2, scaleWindowMetric(12)),
+          borderWidth: Math.max(1, scaleWindowMetric(2)),
+        }
+      : undefined;
+    const windowedIndicatorSize = Math.max(8, scaleWindowMetric(28));
 
     return (
-      <div className={gridClass} onClick={(e) => e.stopPropagation()}>
+      <div className={gridClass} style={windowedGridStyle} onClick={(e) => e.stopPropagation()}>
         {outEdges.length > 0 ? (
           outEdges.map((edge, index) => {
             let targetNode = nodes.find((n) => n.id === edge.target);
@@ -973,6 +1006,7 @@ export function usePlaytestRuntime({
                   onClick={() => handleChoiceClick(edge.target)}
                   className={btnClass}
                   style={{
+                    ...windowedButtonStyle,
                     backgroundColor: customBg,
                     borderColor: isWhite ? 'rgba(255, 255, 255, 0.25)' : nodeColor,
                   }}
@@ -986,8 +1020,17 @@ export function usePlaytestRuntime({
                     {label as string}
                   </span>
                   {choicesPosition !== 'center' && (
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-all">
-                      <ChevronRight className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" />
+                    <div
+                      className="rounded-full flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-all"
+                      style={{ width: windowedIndicatorSize, height: windowedIndicatorSize }}
+                    >
+                      <ChevronRight
+                        className="transform group-hover:translate-x-0.5 transition-transform"
+                        style={{
+                          width: Math.max(6, scaleWindowMetric(16)),
+                          height: Math.max(6, scaleWindowMetric(16)),
+                        }}
+                      />
                     </div>
                   )}
                 </button>
@@ -1005,6 +1048,7 @@ export function usePlaytestRuntime({
                   onClick={() => handleChoiceClick(edge.target)}
                   className={btnClass}
                   style={{
+                    ...windowedButtonStyle,
                     backgroundColor: isDarkMode && isWhite ? '#1e293b' : nodeColor,
                     borderColor: isWhite ? (isDarkMode ? '#334155' : '#e2e8f0') : nodeColor,
                     color: isWhite ? (isDarkMode ? '#f1f5f9' : '#334155') : '#1e293b',
@@ -1020,9 +1064,16 @@ export function usePlaytestRuntime({
                   </span>
                   {choicesPosition !== 'center' && (
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isWhite ? (isDarkMode ? 'bg-white/10' : 'bg-slate-200/50') : 'bg-black/10'}`}
+                      className={`rounded-full flex items-center justify-center transition-all ${isWhite ? (isDarkMode ? 'bg-white/10' : 'bg-slate-200/50') : 'bg-black/10'}`}
+                      style={{ width: windowedIndicatorSize, height: windowedIndicatorSize }}
                     >
-                      <ChevronRight className="w-5 h-5 transform group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight
+                        className="transform group-hover:translate-x-0.5 transition-transform"
+                        style={{
+                          width: Math.max(6, scaleWindowMetric(20)),
+                          height: Math.max(6, scaleWindowMetric(20)),
+                        }}
+                      />
                     </div>
                   )}
                 </button>
@@ -1037,6 +1088,7 @@ export function usePlaytestRuntime({
                 ? 'text-center justify-center'
                 : 'text-left justify-between'
             }`}
+            style={windowedButtonStyle}
           >
             <span
               className="font-bold italic text-sm md:text-base"
@@ -1056,6 +1108,7 @@ export function usePlaytestRuntime({
                 ? 'text-center justify-center'
                 : 'text-left justify-between'
             } ${isDarkMode ? 'border-white/20 hover:border-sky-500/50 hover:bg-sky-500/10 text-slate-400' : 'border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'}`}
+            style={windowedButtonStyle}
           >
             <span
               className="font-bold italic text-base"

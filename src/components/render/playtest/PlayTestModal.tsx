@@ -6,6 +6,7 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
+  MoreHorizontal,
   PictureInPicture2,
   PlayCircle,
   RotateCcw,
@@ -31,6 +32,7 @@ import type { PlayTestProps } from './types';
 import { usePlaytestRuntime } from './usePlaytestRuntime';
 
 export function PlayTestModal(props: PlayTestProps) {
+  const [windowContentWidth, setWindowContentWidth] = React.useState<number | null>(null);
   const {
     onClose,
     language,
@@ -124,9 +126,11 @@ export function PlayTestModal(props: PlayTestProps) {
     focusButtonStyle,
     classicMediaContainerStyle,
     classicMediaFrameStyle,
-  } = usePlaytestRuntime(props);
+  } = usePlaytestRuntime(props, { windowContentWidth });
   const isWindowed = props.displayMode === 'windowed';
+  const mobileWindowed = Boolean(isMobile && isWindowed);
   const { followSelectedCard, autoScaleOnHover } = props.windowSettings;
+  const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
 
   React.useEffect(() => {
     if (!isWindowed || !followSelectedCard || !props.selectedNodeId) return;
@@ -141,6 +145,14 @@ export function PlayTestModal(props: PlayTestProps) {
     }
   }, [containerRef, isWindowed, setShowSettings]);
 
+  React.useEffect(() => {
+    if (!mobileWindowed) setShowMobileWindowMenu(false);
+  }, [mobileWindowed]);
+
+  React.useEffect(() => {
+    if (!isWindowed) setWindowContentWidth(null);
+  }, [isWindowed]);
+
   const playtestText = getPlaytestText(language);
   const playtestWindowText = getPlaytestWindowText(language);
   const playtestRootClassName = `${isWindowed ? 'absolute inset-0 rounded-[18px]' : 'fixed inset-0'} ${
@@ -153,10 +165,18 @@ export function PlayTestModal(props: PlayTestProps) {
       <PlaytestFloatingWindow
         language={language}
         aspectRatio={canvasSettings.canvasWidth / canvasSettings.canvasHeight}
-        initialBounds={props.windowSettings.bounds}
+        initialBounds={
+          mobileWindowed ? props.windowSettings.mobileBounds : props.windowSettings.bounds
+        }
         autoScaleOnHover={autoScaleOnHover}
+        isMobile={mobileWindowed}
         layer={props.windowLayer}
-        onBoundsChange={(bounds) => props.setWindowSettings((current) => ({ ...current, bounds }))}
+        onBoundsChange={(bounds) =>
+          props.setWindowSettings((current) =>
+            mobileWindowed ? { ...current, mobileBounds: bounds } : { ...current, bounds },
+          )
+        }
+        onDisplayBoundsChange={(bounds) => setWindowContentWidth(bounds.width)}
       >
         {content}
       </PlaytestFloatingWindow>
@@ -210,8 +230,8 @@ export function PlayTestModal(props: PlayTestProps) {
 
   const classicFocusHidden =
     isFocusMode && mobileClassicLayout ? 'invisible pointer-events-none' : '';
-  const hideEntireHeaderInFocusMode = isFocusMode && !mobileClassicLayout;
-  const useInlineFocusButton = isMobile && layoutMode === 'immersive';
+  const hideEntireHeaderInFocusMode = isFocusMode && !mobileClassicLayout && !mobileWindowed;
+  const useInlineFocusButton = isMobile && !isWindowed && layoutMode === 'immersive';
   const reserveClassicMediaSlot = layoutMode === 'classic';
   const hasSceneMedia = Boolean(sceneImageUrl || sceneVideoUrl);
   const playtestHeaderToneClass =
@@ -220,13 +240,20 @@ export function PlayTestModal(props: PlayTestProps) {
       : isDarkMode
         ? 'bg-slate-900 border-b border-white/10 text-white'
         : 'bg-white border-b border-slate-200 text-slate-800';
-  const playtestRoundIconButtonClass =
-    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 leading-none md:h-9 md:w-9 [&>svg]:block [&>svg]:shrink-0';
+  const playtestRoundIconButtonClass = `inline-flex shrink-0 items-center justify-center rounded-full p-0 leading-none [&>svg]:block [&>svg]:shrink-0 ${
+    mobileWindowed ? 'h-7 w-7' : 'h-8 w-8 md:h-9 md:w-9'
+  }`;
 
   const renderPlaytestTitle = () => (
     <div className="playtest-header-title flex min-w-0 items-center gap-2 md:gap-3">
       <PlayCircle
-        className={`w-5 h-5 shrink-0 ${layoutMode === 'immersive' ? 'text-sky-400' : isDarkMode ? 'text-sky-400' : 'text-indigo-600'}`}
+        className={`h-5 w-5 shrink-0 ${
+          layoutMode === 'immersive'
+            ? 'text-sky-400'
+            : isDarkMode
+              ? 'text-sky-400'
+              : 'text-indigo-600'
+        }`}
       />
       <span
         className={`truncate font-bold tracking-wide text-sm md:text-base ${mobileClassicLayout ? 'max-w-none' : 'max-w-[120px] md:max-w-none'} ${layoutMode === 'immersive' ? 'text-white drop-shadow-sm' : isDarkMode ? 'text-white' : 'text-slate-800'}`}
@@ -292,6 +319,132 @@ export function PlayTestModal(props: PlayTestProps) {
     </button>
   );
 
+  const renderPlaytestDisplayModeButton = () => (
+    <button
+      type="button"
+      onClick={() => {
+        setShowSettings(false);
+        setShowAudioPlaylist(false);
+        setShowMobileWindowMenu(false);
+        props.onDisplayModeChange(isWindowed ? 'fullscreen' : 'windowed');
+      }}
+      className={`${playtestRoundIconButtonClass} transition-colors ${
+        layoutMode === 'immersive'
+          ? 'bg-white/10 text-white hover:bg-white/20'
+          : isDarkMode
+            ? 'bg-white/10 text-white hover:bg-white/20'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`}
+      title={
+        isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
+      }
+      aria-label={
+        isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
+      }
+    >
+      {isWindowed ? <Monitor className="h-5 w-5" /> : <PictureInPicture2 className="h-5 w-5" />}
+    </button>
+  );
+
+  const renderMobileWindowMoreActions = () => {
+    const idleClass =
+      layoutMode === 'immersive'
+        ? 'bg-white/10 text-white'
+        : isDarkMode
+          ? 'bg-white/10 text-white'
+          : 'bg-slate-100 text-slate-600';
+
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowMobileWindowMenu((visible) => !visible)}
+          className={`${playtestRoundIconButtonClass} transition-colors ${
+            showMobileWindowMenu
+              ? layoutMode === 'immersive'
+                ? 'bg-white/25 text-white'
+                : isDarkMode
+                  ? 'bg-white/20 text-white'
+                  : 'bg-indigo-100 text-indigo-600'
+              : idleClass
+          }`}
+          title={playtestWindowText.moreActions}
+          aria-label={playtestWindowText.moreActions}
+          aria-expanded={showMobileWindowMenu}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+
+        {showMobileWindowMenu ? (
+          <div
+            className={`absolute right-0 top-full z-[360] mt-1 flex gap-1 rounded-xl border p-1 shadow-xl backdrop-blur-xl ${
+              layoutMode === 'immersive' || isDarkMode
+                ? 'border-white/10 bg-slate-900/95'
+                : 'border-slate-200 bg-white/95'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setAutoAdvance(!autoAdvance)}
+              className={`${playtestRoundIconButtonClass} ${
+                autoAdvance ? 'bg-sky-500/85 text-white' : idleClass
+              }`}
+              title={playtestText.autoAdvance}
+              aria-label={playtestText.autoAdvance}
+              aria-pressed={autoAdvance}
+            >
+              <FastForward className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAudioPlaylist((visible) => !visible);
+                setShowMobileWindowMenu(false);
+              }}
+              className={`${playtestRoundIconButtonClass} ${
+                showAudioPlaylist ? 'bg-indigo-100 text-indigo-600' : idleClass
+              }`}
+              title={playtestText.audioPlaylist}
+              aria-label={playtestText.audioPlaylist}
+              aria-pressed={showAudioPlaylist}
+            >
+              <ListMusic className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsFocusMode((active) => !active);
+                setShowMobileWindowMenu(false);
+              }}
+              className={`${playtestRoundIconButtonClass} ${
+                isFocusMode ? 'bg-violet-500/85 text-white' : idleClass
+              }`}
+              title={isFocusMode ? t.exitZenMode : t.enterZenMode}
+              aria-label={isFocusMode ? t.exitZenMode : t.enterZenMode}
+              aria-pressed={isFocusMode}
+            >
+              {isFocusMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        ) : null}
+
+        <AudioPlaylistModal
+          open={showAudioPlaylist}
+          items={playedAudios}
+          activeUrl={playlistAudioUrl}
+          isPlaying={isPlaylistAudioPlaying}
+          title={playtestText.audioPlaylist}
+          hint={playtestText.audioPlaylistHint}
+          emptyText={playtestText.audioPlaylistEmpty}
+          closeLabel={t.close}
+          dark={isDarkMode || layoutMode === 'immersive'}
+          onClose={() => setShowAudioPlaylist(false)}
+          onToggleAudio={togglePlaylistAudio}
+        />
+      </div>
+    );
+  };
+
   const renderPlaytestSecondaryActions = ({ includeClose = true } = {}) => (
     <>
       <button
@@ -353,29 +506,7 @@ export function PlayTestModal(props: PlayTestProps) {
         />
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          setShowSettings(false);
-          setShowAudioPlaylist(false);
-          props.onDisplayModeChange(isWindowed ? 'fullscreen' : 'windowed');
-        }}
-        className={`${playtestRoundIconButtonClass} transition-colors ${
-          layoutMode === 'immersive'
-            ? 'bg-white/10 text-white hover:bg-white/20'
-            : isDarkMode
-              ? 'bg-white/10 text-white hover:bg-white/20'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-        }`}
-        title={
-          isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
-        }
-        aria-label={
-          isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
-        }
-      >
-        {isWindowed ? <Monitor className="h-5 w-5" /> : <PictureInPicture2 className="h-5 w-5" />}
-      </button>
+      {renderPlaytestDisplayModeButton()}
 
       {isWindowed && (
         <PlaytestWindowActions
@@ -386,6 +517,7 @@ export function PlayTestModal(props: PlayTestProps) {
           followSelectedCard={followSelectedCard}
           hasSelectedCard={Boolean(props.selectedNodeId)}
           autoScaleOnHover={autoScaleOnHover}
+          showAutoScale={!isMobile}
           onFollowSelectedCardChange={(active) =>
             props.setWindowSettings((current) => ({
               ...current,
@@ -470,8 +602,8 @@ export function PlayTestModal(props: PlayTestProps) {
           handleTextContainerClick();
         }}
         className={`playtest-modal-root ${isWindowed ? 'playtest-modal-root--windowed' : ''} ${
-          mobileImmersiveLayout ? 'playtest-modal-root--mobile-immersive' : ''
-        } absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
+          mobileWindowed ? 'playtest-modal-root--windowed-mobile' : ''
+        } ${mobileImmersiveLayout ? 'playtest-modal-root--mobile-immersive' : ''} absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
           showSettings && !isMobile && !isWindowed ? 'scale-[0.77]' : 'scale-100'
         } ${
           showSettings
@@ -488,34 +620,45 @@ export function PlayTestModal(props: PlayTestProps) {
           className={`playtest-header shrink-0 z-50 px-4 transition-all duration-300 md:px-6 ${
             hideEntireHeaderInFocusMode ? 'hidden' : ''
           } ${
-            mobileClassicLayout
-              ? 'playtest-header--classic-mobile flex flex-col gap-2 py-2'
-              : mobileImmersiveLayout
-                ? 'playtest-header--immersive-mobile flex flex-col gap-2 py-2'
+            mobileWindowed
+              ? 'playtest-header--windowed-mobile flex items-center justify-between'
+              : mobileClassicLayout || mobileImmersiveLayout
+                ? 'playtest-header--fullscreen-mobile flex min-h-14 items-center justify-between gap-2'
                 : 'playtest-header--compact-row flex min-h-14 items-center justify-between'
           } ${isWindowed ? 'cursor-move touch-none select-none' : ''} ${playtestHeaderToneClass}`}
         >
-          {mobileClassicLayout ? (
+          {mobileWindowed ? (
+            <div className="playtest-header-actions flex w-full min-w-0 items-center justify-end gap-1">
+              {renderPlaytestBackButton()}
+              <PlaytestWindowActions
+                language={language}
+                isDarkMode={isDarkMode}
+                immersive={layoutMode === 'immersive'}
+                buttonClassName={playtestRoundIconButtonClass}
+                followSelectedCard={followSelectedCard}
+                hasSelectedCard={Boolean(props.selectedNodeId)}
+                autoScaleOnHover={autoScaleOnHover}
+                showAutoScale={false}
+                onFollowSelectedCardChange={(active) =>
+                  props.setWindowSettings((current) => ({
+                    ...current,
+                    followSelectedCard: active,
+                  }))
+                }
+                onAutoScaleOnHoverChange={() => undefined}
+              />
+              {renderPlaytestDisplayModeButton()}
+              {renderMobileWindowMoreActions()}
+              {renderPlaytestCloseButton()}
+            </div>
+          ) : mobileClassicLayout || mobileImmersiveLayout ? (
             <>
-              <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
-                {renderPlaytestTitle()}
-                {renderPlaytestBackButton(classicFocusHidden)}
-              </div>
+              {renderPlaytestTitle()}
               <div
-                className={`playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-center gap-2 md:gap-4 ${classicFocusHidden}`}
+                className={`playtest-header-actions flex shrink-0 items-center gap-2 ${mobileClassicLayout ? classicFocusHidden : ''}`}
               >
-                {renderPlaytestSecondaryActions()}
-              </div>
-            </>
-          ) : mobileImmersiveLayout ? (
-            <>
-              <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
-                {renderPlaytestTitle()}
-                {renderPlaytestCloseButton()}
-              </div>
-              <div className="playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-start gap-3">
                 {renderPlaytestBackButton()}
-                {renderPlaytestSecondaryActions({ includeClose: false })}
+                {renderPlaytestSecondaryActions()}
               </div>
             </>
           ) : (
@@ -760,7 +903,7 @@ export function PlayTestModal(props: PlayTestProps) {
               <div
                 className={`flex-1 flex flex-col min-h-0 relative ${
                   reserveClassicMediaSlot
-                    ? `m-2 md:m-5 overflow-hidden rounded-xl border shadow-2xl ${
+                    ? `${mobileWindowed ? 'm-0.5 rounded-lg' : 'm-2 rounded-xl md:m-5'} overflow-hidden border shadow-2xl ${
                         isDarkMode
                           ? 'border-white/12 bg-slate-950/75 shadow-black/30'
                           : 'border-slate-200 bg-white/85 shadow-slate-900/10'
@@ -772,9 +915,11 @@ export function PlayTestModal(props: PlayTestProps) {
                 {reserveClassicMediaSlot && (
                   <div
                     className={`${
-                      mobileClassicLayout
-                        ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
-                        : 'flex-1 min-h-0 p-2 md:p-4'
+                      mobileWindowed
+                        ? 'flex-1 min-h-0 p-0'
+                        : mobileClassicLayout
+                          ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
+                          : 'flex-1 min-h-0 p-2 md:p-4'
                     } flex items-center justify-center relative group overflow-hidden ${showSettings && !renderStyle.selectedRenderObject ? 'ring-2 ring-inset ring-indigo-500' : ''} ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
                     style={{
                       ...classicMediaContainerStyle,
@@ -809,7 +954,9 @@ export function PlayTestModal(props: PlayTestProps) {
                     {/* Shared 1920x1080 presentation stage */}
                     <div
                       className={`relative z-10 overflow-hidden border ${
-                        mobileClassicLayout ? 'h-full w-full' : 'max-h-full max-w-full'
+                        mobileClassicLayout || mobileWindowed
+                          ? 'h-full w-full'
+                          : 'max-h-full max-w-full'
                       } ${
                         isDarkMode
                           ? 'border-white/20 bg-slate-900'
@@ -818,7 +965,7 @@ export function PlayTestModal(props: PlayTestProps) {
                       style={classicMediaFrameStyle}
                     >
                       <VirtualPresentationStage
-                        fit={mobileClassicLayout ? 'width' : 'cover'}
+                        fit={mobileClassicLayout || mobileWindowed ? 'width' : 'cover'}
                         className="h-full w-full"
                         width={canvasSettings.canvasWidth}
                         height={canvasSettings.canvasHeight}
@@ -879,9 +1026,11 @@ export function PlayTestModal(props: PlayTestProps) {
                       choicesReady &&
                       !(skipSingleChoicePopup && outEdges.length <= 1) && (
                         <div
-                          className={`absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
+                          className={`absolute inset-0 z-30 flex items-center justify-center ${mobileWindowed ? 'p-1' : 'p-4'} bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
                         >
-                          <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
+                          <div
+                            className={`w-full max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto ${mobileWindowed ? 'rounded-lg p-1' : 'rounded-2xl p-4'} bg-slate-900/95 border border-white/10 shadow-2xl`}
+                          >
                             {renderChoices(false)}
                           </div>
                         </div>
@@ -893,7 +1042,7 @@ export function PlayTestModal(props: PlayTestProps) {
                 {choicesPosition === 'aboveText' && choicesReady && (
                   <div
                     ref={choicesRef}
-                    className={`${isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
+                    className={`${mobileWindowed ? 'p-1' : isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
                   >
                     {renderChoices(false)}
                   </div>
@@ -911,17 +1060,21 @@ export function PlayTestModal(props: PlayTestProps) {
                   className={`${
                     !reserveClassicMediaSlot
                       ? 'flex-1'
-                      : mobileClassicLayout
-                        ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
-                        : 'h-32 md:h-48 shrink-0'
+                      : mobileWindowed
+                        ? 'h-12 shrink-0'
+                        : mobileClassicLayout
+                          ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
+                          : 'h-32 md:h-48 shrink-0'
                   } ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} ${
-                    isWindowed ? 'py-3' : 'py-4 md:py-8'
+                    mobileWindowed ? 'py-1' : isWindowed ? 'py-3' : 'py-4 md:py-8'
                   } ${
-                    mobileClassicLayout
-                      ? 'px-4'
-                      : isWindowed
+                    mobileWindowed
+                      ? 'px-2'
+                      : mobileClassicLayout
                         ? 'px-4'
-                        : 'px-6 md:px-12 lg:px-48 xl:px-64'
+                        : isWindowed
+                          ? 'px-4'
+                          : 'px-6 md:px-12 lg:px-48 xl:px-64'
                   } ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 transition-all duration-300 relative ${
                     choicesPosition === 'center' && choicesReady && blurBackground
                       ? isFullscreen
@@ -998,7 +1151,7 @@ export function PlayTestModal(props: PlayTestProps) {
                 {choicesPosition === 'belowText' && choicesReady && (
                   <div
                     ref={choicesRef}
-                    className={`${isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
+                    className={`${mobileWindowed ? 'p-1' : isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
                   >
                     {renderChoices(false)}
                   </div>
@@ -1023,7 +1176,8 @@ export function PlayTestModal(props: PlayTestProps) {
         </div>
 
         {/* 沉浸式模式切换按钮 */}
-        {!useInlineFocusButton &&
+        {!mobileWindowed &&
+          !useInlineFocusButton &&
           renderPlaytestFocusButton(
             `${isWindowed ? 'absolute' : 'fixed'} z-[260]`,
             focusButtonStyle,

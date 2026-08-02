@@ -9,16 +9,37 @@ export function formatCharacterNodeText(data: CharacterNodeData | Record<string,
     if (text) parts.push(`**${label}**\n${text}`);
   };
 
-  const useSplitTraits =
-    !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
+  const hasNewProfileFields = [
+    data.identity,
+    data.appearance,
+    data.habits,
+    data.speechStyle,
+    data.experience,
+    data.relationships,
+    data.notes,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
-  if (useSplitTraits) {
-    if (data.showPersonality) addSection('性格', data.personality);
-    if (data.showFeatures) addSection('人物特点', data.features);
-    if (data.showBackground) addSection('人物背景', data.background);
-    if (data.showOther) addSection('其他', data.other);
+  if (hasNewProfileFields) {
+    addSection('身份', data.identity);
+    addSection('外表', data.appearance || data.features);
+    addSection('性格', data.personality);
+    addSection('习惯', data.habits);
+    addSection('说话', data.speechStyle);
+    addSection('经历', data.experience || data.background);
+    addSection('关系', data.relationships);
+    addSection('补充', data.notes || data.other || data.traits);
   } else {
-    addSection('综合设定', data.traits);
+    const useSplitTraits =
+      !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
+
+    if (useSplitTraits) {
+      if (data.showPersonality) addSection('性格', data.personality);
+      if (data.showFeatures) addSection('人物特点', data.features);
+      if (data.showBackground) addSection('人物背景', data.background);
+      if (data.showOther) addSection('其他', data.other);
+    } else {
+      addSection('综合设定', data.traits);
+    }
   }
 
   const outfits = Array.isArray(data.outfits) ? (data.outfits as CharacterNodeData['outfits']) : [];
@@ -40,16 +61,39 @@ export function formatSceneNodeText(data: SceneNodeData | Record<string, unknown
     if (text) parts.push(`**${label}**\n${text}`);
   };
 
-  const useSplitDetails =
-    !!data.showLocation || !!data.showItems || !!data.showAtmosphere || !!data.showOther;
+  const useSceneProfile = [
+    data.location,
+    data.time,
+    data.weather,
+    data.visual,
+    data.sound,
+    data.items,
+    data.notes,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
-  if (useSplitDetails) {
-    if (data.showLocation) addSection('位置描写', data.location);
-    if (data.showItems) addSection('场景物品', data.items);
-    if (data.showAtmosphere) addSection('氛围环境', data.atmosphere);
-    if (data.showOther) addSection('其他', data.other);
+  if (useSceneProfile) {
+    addSection('地点', data.location);
+    addSection('时间', data.time);
+    addSection('天气', data.weather);
+    addSection('画面', data.visual || data.description);
+    addSection('声音', data.sound);
+    addSection('物件', data.items);
+    const legacyNotes = [data.other, data.atmosphere]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join('；');
+    addSection('补充', data.notes || legacyNotes);
   } else {
-    addSection('综合描述', data.description);
+    const useSplitDetails =
+      !!data.showLocation || !!data.showItems || !!data.showAtmosphere || !!data.showOther;
+
+    if (useSplitDetails) {
+      if (data.showLocation) addSection('位置描写', data.location);
+      if (data.showItems) addSection('场景物品', data.items);
+      if (data.showAtmosphere) addSection('氛围环境', data.atmosphere);
+      if (data.showOther) addSection('其他', data.other);
+    } else {
+      addSection('综合描述', data.description);
+    }
   }
 
   const images = Array.isArray(data.images) ? (data.images as SceneImage[]) : [];

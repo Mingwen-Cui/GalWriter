@@ -37,9 +37,11 @@ import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import { PanoramaModal, PanoramaViewer } from './PanoramaViewer';
 
-const DETAIL_TEXTAREA_CLASS =
-  'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-blue-600 placeholder:text-[var(--text-muted)] custom-scrollbar';
-const DETAIL_FIELD_CLASS = 'flex flex-col flex-1 min-h-min gap-1';
+const SCENE_TEXTAREA_CLASS =
+  'w-full min-h-[58px] resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-blue-600 placeholder:text-[var(--text-muted)] custom-scrollbar';
+const SCENE_FIELD_CLASS = 'flex min-w-0 flex-col gap-1';
+const DETAIL_TEXTAREA_CLASS = SCENE_TEXTAREA_CLASS;
+const DETAIL_FIELD_CLASS = SCENE_FIELD_CLASS;
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -55,18 +57,17 @@ const getNumericSize = (value: unknown) => {
   return undefined;
 };
 
-const getCalculatedSceneNodeMinHeight = (activeDetailsCount: number, imagesCount: number) =>
+const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
   70 +
   73 +
   24 +
-  26 +
-  activeDetailsCount * 79 +
-  Math.max(0, activeDetailsCount - 1) * 8 +
+  4 * 75 +
+  3 * 8 +
   24 +
   20 +
   (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
 
-const SCENE_NODE_MIN_WIDTH = 280;
+const SCENE_NODE_MIN_WIDTH = 440;
 const SCENE_NODE_HEIGHT_SAFETY = 8;
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
@@ -75,6 +76,17 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
 
   const name = data.sceneName || '';
   const description = data.description || '';
+  const location = data.location || '';
+  const time = data.time || '';
+  const weather = data.weather || '';
+  const visual = data.visual || description;
+  const sound = data.sound || '';
+  const items = data.items || '';
+  const notes =
+    data.notes ||
+    [data.other, data.atmosphere]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join('；');
   const coverImageUrl = data.coverImageUrl;
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false;
@@ -84,7 +96,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
   const contentFrameRef = useRef<HTMLDivElement>(null);
-  const [measuredMinHeight, setMeasuredMinHeight] = useState(getCalculatedSceneNodeMinHeight(1, 0));
+  const [measuredMinHeight, setMeasuredMinHeight] = useState(getCalculatedSceneNodeMinHeight(0));
   const [expandedPanorama, setExpandedPanorama] = useState<{ url: string; title: string } | null>(
     null,
   );
@@ -138,20 +150,11 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     [getOppositeHandleId, isHandleConnected],
   );
 
-  const activeDetailsCount =
-    [data.showLocation, data.showItems, data.showAtmosphere, data.showOther].filter(Boolean)
-      .length || 1;
-
-  const calculatedMinHeight = getCalculatedSceneNodeMinHeight(activeDetailsCount, images.length);
+  const calculatedMinHeight = getCalculatedSceneNodeMinHeight(images.length);
   const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
-  const hasSceneText = [
-    name,
-    description,
-    data.location,
-    data.items,
-    data.atmosphere,
-    data.other,
-  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+  const hasSceneText = [name, location, time, weather, visual, sound, items, notes].some(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  );
 
   const syncNodeHeightToMinimum = useCallback(
     (nextMinHeight = effectiveMinHeight, allowShrink = false) => {
@@ -221,31 +224,11 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     [data, id],
   );
 
+  // Kept for legacy markup below; the visible card now always shows its fixed place fields.
   const handleDetailVisibilityChange = (
     key: 'showLocation' | 'showItems' | 'showAtmosphere' | 'showOther',
     checked: boolean,
-  ) => {
-    const nextVisibility = {
-      showLocation: !!data.showLocation,
-      showItems: !!data.showItems,
-      showAtmosphere: !!data.showAtmosphere,
-      showOther: !!data.showOther,
-      [key]: checked,
-    };
-
-    const nextActiveDetailsCount = Object.values(nextVisibility).filter(Boolean).length || 1;
-    const nextMinHeight = Math.max(
-      getCalculatedSceneNodeMinHeight(nextActiveDetailsCount, images.length),
-      measureContentMinHeight(),
-    );
-
-    syncNodeHeightToMinimum(nextMinHeight);
-    updateNodeData({ [key]: checked });
-
-    requestAnimationFrame(() => {
-      updateNodeInternals(id);
-    });
-  };
+  ) => updateNodeData({ [key]: checked });
 
   const minimizedConnectedImages = images
     .map((image) => {
@@ -277,10 +260,13 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
   }, [
     calculatedMinHeight,
-    data.showLocation,
-    data.showItems,
-    data.showAtmosphere,
-    data.showOther,
+    data.location,
+    data.time,
+    data.weather,
+    data.visual,
+    data.sound,
+    data.items,
+    data.notes,
     images.length,
     isMinimized,
     measureContentMinHeight,
@@ -304,10 +290,13 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     images.length,
     isMinimized,
     isGlobal,
-    data.showLocation,
-    data.showItems,
-    data.showAtmosphere,
-    data.showOther,
+    data.location,
+    data.time,
+    data.weather,
+    data.visual,
+    data.sound,
+    data.items,
+    data.notes,
     minimizedConnectedImageHandleKey,
     id,
     updateNodeInternals,
@@ -681,6 +670,94 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
               </div>
 
               <div className="px-3 pt-3 pb-3 flex flex-col flex-1 min-h-min">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '地点' : lang === 'ja' ? '場所' : 'Location'}
+                    </label>
+                    <textarea
+                      data-agent-field="location"
+                      value={location}
+                      onChange={(e) => updateNodeData({ location: e.target.value })}
+                      placeholder={lang === 'zh' ? '这是什么地方' : 'Where is this place?'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '时间' : lang === 'ja' ? '時間' : 'Time'}
+                    </label>
+                    <textarea
+                      data-agent-field="time"
+                      value={time}
+                      onChange={(e) => updateNodeData({ time: e.target.value })}
+                      placeholder={lang === 'zh' ? '一天中的什么时候' : 'Time of day'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '天气' : lang === 'ja' ? '天気' : 'Weather'}
+                    </label>
+                    <textarea
+                      data-agent-field="weather"
+                      value={weather}
+                      onChange={(e) => updateNodeData({ weather: e.target.value })}
+                      placeholder={lang === 'zh' ? '天气或室内空气' : 'Weather or indoor air'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '画面' : lang === 'ja' ? '見た目' : 'Visuals'}
+                    </label>
+                    <textarea
+                      data-agent-field="visual"
+                      value={visual}
+                      onChange={(e) => updateNodeData({ visual: e.target.value })}
+                      placeholder={lang === 'zh' ? '光线、颜色、摆设' : 'Light, colors, layout'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '声音' : lang === 'ja' ? '音' : 'Sound'}
+                    </label>
+                    <textarea
+                      data-agent-field="sound"
+                      value={sound}
+                      onChange={(e) => updateNodeData({ sound: e.target.value })}
+                      placeholder={lang === 'zh' ? '环境里的声音' : 'Ambient sounds'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={SCENE_FIELD_CLASS}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '物件' : lang === 'ja' ? '物' : 'Items'}
+                    </label>
+                    <textarea
+                      data-agent-field="items"
+                      value={items}
+                      onChange={(e) => updateNodeData({ items: e.target.value })}
+                      placeholder={lang === 'zh' ? '值得注意的东西' : 'Notable objects'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                  <div className={`${SCENE_FIELD_CLASS} col-span-2`}>
+                    <label className="ml-1 text-[10px] font-bold text-blue-800">
+                      {lang === 'zh' ? '补充' : lang === 'ja' ? '補足' : 'Notes'}
+                    </label>
+                    <textarea
+                      data-agent-field="notes"
+                      value={notes}
+                      onChange={(e) => updateNodeData({ notes: e.target.value })}
+                      placeholder={lang === 'zh' ? '其他固定的地点细节' : 'Other stable place details'}
+                      className={SCENE_TEXTAREA_CLASS}
+                    />
+                  </div>
+                </div>
+
+                <div className="hidden">
                 <div className="flex flex-wrap items-center gap-3 ml-1 mb-2 shrink-0">
                   <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                     <input
@@ -815,6 +892,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                         />
                       </div>
                     )}
+                </div>
                 </div>
               </div>
 

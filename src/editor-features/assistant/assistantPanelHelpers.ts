@@ -410,10 +410,15 @@ export const getAssistantDraftType = (
   }
   if (
     cleanText(card.characterName) ||
+    cleanText(card.identity) ||
+    cleanText(card.appearance) ||
     cleanText(card.traits) ||
     cleanText(card.personality) ||
-    cleanText(card.features) ||
-    cleanText(card.background)
+    cleanText(card.habits) ||
+    cleanText(card.speechStyle) ||
+    cleanText(card.experience) ||
+    cleanText(card.relationships) ||
+    cleanText(card.notes)
   ) {
     return 'character';
   }
@@ -421,6 +426,10 @@ export const getAssistantDraftType = (
     cleanText(card.sceneName) ||
     cleanText(card.description) ||
     cleanText(card.location) ||
+    cleanText(card.time) ||
+    cleanText(card.weather) ||
+    cleanText(card.visual) ||
+    cleanText(card.sound) ||
     cleanText(card.items) ||
     cleanText(card.atmosphere)
   ) {
@@ -472,7 +481,7 @@ Allowed events:
 {"type":"field_set","index":0,"field":"branchTargets","value":[{"target":"ending_a","label":"Ending A"}]}
 {"type":"card_end","index":0}
 {"type":"done"}
-Use card indexes starting at 0. For character cards stream characterName, traits, personality, features, background, other. For scene cards stream sceneName, description, location, items, atmosphere, other. For story cards stream title and text.`;
+Use card indexes starting at 0. For character cards stream characterName, identity, appearance, personality, habits, speechStyle, experience, relationships, notes. For scene cards stream sceneName, location, time, weather, visual, sound, items, notes. For story cards stream title and text.`;
 
 export const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
   const priority = { character: 0, scene: 1, story: 2, 'number-condition': 3 } as const;
@@ -487,11 +496,15 @@ export const hasAssistantCardContent = (card: AssistantCardDraft) => {
   if (type === 'character') {
     return [
       card.characterName,
+      card.identity,
+      card.appearance,
       card.traits,
       card.personality,
-      card.features,
-      card.background,
-      card.other,
+      card.habits,
+      card.speechStyle,
+      card.experience,
+      card.relationships,
+      card.notes,
       card.title,
       card.text,
     ].some((value) => typeof value === 'string' && value.trim().length > 0);
@@ -499,9 +512,14 @@ export const hasAssistantCardContent = (card: AssistantCardDraft) => {
   if (type === 'scene') {
     return [
       card.sceneName,
+      card.time,
+      card.weather,
+      card.visual,
+      card.sound,
       card.description,
       card.location,
       card.items,
+      card.notes,
       card.atmosphere,
       card.other,
       card.title,

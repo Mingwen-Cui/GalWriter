@@ -139,14 +139,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           return 'number-condition';
         if (
           cleanText(card.characterName) ||
+          cleanText(card.identity) ||
+          cleanText(card.appearance) ||
           cleanText(card.personality) ||
-          cleanText(card.features) ||
-          cleanText(card.background)
+          cleanText(card.habits) ||
+          cleanText(card.speechStyle) ||
+          cleanText(card.experience) ||
+          cleanText(card.relationships) ||
+          cleanText(card.notes)
         )
           return 'character';
         if (
           cleanText(card.sceneName) ||
           cleanText(card.location) ||
+          cleanText(card.time) ||
+          cleanText(card.weather) ||
+          cleanText(card.visual) ||
+          cleanText(card.sound) ||
           cleanText(card.items) ||
           cleanText(card.atmosphere)
         )
@@ -168,11 +177,22 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               ? card.nodeValue
               : undefined,
           characterName: cleanText(card.characterName),
+          identity: cleanText(card.identity),
+          appearance: cleanText(card.appearance),
           traits: cleanText(card.traits),
           personality: cleanText(card.personality),
+          habits: cleanText(card.habits),
+          speechStyle: cleanText(card.speechStyle),
+          experience: cleanText(card.experience),
+          relationships: cleanText(card.relationships),
+          notes: cleanText(card.notes),
           features: cleanText(card.features),
           background: cleanText(card.background),
           sceneName: cleanText(card.sceneName),
+          time: cleanText(card.time),
+          weather: cleanText(card.weather),
+          visual: cleanText(card.visual),
+          sound: cleanText(card.sound),
           description: cleanText(card.description),
           location: cleanText(card.location),
           items: cleanText(card.items),
@@ -226,6 +246,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           if (card.type === 'scene') {
             return (
               card.sceneName ||
+              card.time ||
+              card.weather ||
+              card.visual ||
+              card.sound ||
               card.description ||
               card.location ||
               card.items ||
@@ -297,15 +321,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 data: {
                   ...node.data,
                   characterName: draft.characterName || draft.title || node.data.characterName,
-                  traits: draft.traits || draft.text || node.data.traits || '',
+                  identity: draft.identity || node.data.identity || '',
+                  appearance:
+                    draft.appearance || draft.features || node.data.appearance || node.data.features || '',
                   personality: draft.personality || node.data.personality || '',
-                  features: draft.features || node.data.features || '',
-                  background: draft.background || node.data.background || '',
-                  other: draft.other || node.data.other || '',
-                  showPersonality: !!(draft.personality || node.data.showPersonality),
-                  showFeatures: !!(draft.features || node.data.showFeatures),
-                  showBackground: !!(draft.background || node.data.showBackground),
-                  showOther: !!(draft.other || node.data.showOther),
+                  habits: draft.habits || node.data.habits || '',
+                  speechStyle: draft.speechStyle || node.data.speechStyle || '',
+                  experience:
+                    draft.experience || draft.background || node.data.experience || node.data.background || '',
+                  relationships: draft.relationships || node.data.relationships || '',
+                  notes:
+                    draft.notes ||
+                    draft.other ||
+                    draft.traits ||
+                    draft.text ||
+                    node.data.notes ||
+                    node.data.other ||
+                    '',
                 },
               };
             }
@@ -316,15 +348,25 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 data: {
                   ...node.data,
                   sceneName: draft.sceneName || draft.title || node.data.sceneName,
-                  description: draft.description || draft.text || node.data.description || '',
                   location: draft.location || node.data.location || '',
+                  time: draft.time || node.data.time || '',
+                  weather: draft.weather || node.data.weather || '',
+                  visual:
+                    draft.visual ||
+                    draft.description ||
+                    draft.text ||
+                    node.data.visual ||
+                    node.data.description ||
+                    '',
+                  sound: draft.sound || node.data.sound || '',
                   items: draft.items || node.data.items || '',
-                  atmosphere: draft.atmosphere || node.data.atmosphere || '',
-                  other: draft.other || node.data.other || '',
-                  showLocation: !!(draft.location || node.data.showLocation),
-                  showItems: !!(draft.items || node.data.showItems),
-                  showAtmosphere: !!(draft.atmosphere || node.data.showAtmosphere),
-                  showOther: !!(draft.other || node.data.showOther),
+                  notes:
+                    draft.notes ||
+                    draft.other ||
+                    node.data.notes ||
+                    node.data.other ||
+                    node.data.atmosphere ||
+                    '',
                 },
               };
             }
@@ -452,8 +494,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         AI_STORY_CARD_WIDTH * storyColumnCount + storyColumnGap * (storyColumnCount - 1);
       const rowGap = 200;
       const layoutColumns = [
-        { type: 'character' as const, indexes: characterIndexes, width: 280 },
-        { type: 'scene' as const, indexes: sceneIndexes, width: 280 },
+        { type: 'character' as const, indexes: characterIndexes, width: 440 },
+        { type: 'scene' as const, indexes: sceneIndexes, width: 440 },
         { type: 'story' as const, indexes: storyIndexes, width: storyLayoutWidth },
         { type: 'number-condition' as const, indexes: numberConditionIndexes, width: 300 },
       ].filter((column) => column.indexes.length > 0);
@@ -633,14 +675,17 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 card.title ||
                 (language === 'zh' ? 'AI 角色' : 'AI Character'),
               traits: card.traits || card.text || '',
+              identity: card.identity || '',
+              appearance: card.appearance || '',
               personality: card.personality || '',
+              habits: card.habits || '',
+              speechStyle: card.speechStyle || '',
+              experience: card.experience || '',
+              relationships: card.relationships || '',
+              notes: card.notes || card.other || card.traits || card.text || '',
               features: card.features || '',
               background: card.background || '',
               other: card.other || '',
-              showPersonality: !!card.personality,
-              showFeatures: !!card.features,
-              showBackground: !!card.background,
-              showOther: !!card.other,
               assistantCandidateKind: card.assistantCandidateKind,
               assistantCandidateGroupId: card.assistantCandidateGroupId,
               assistantTemplateId: card.assistantTemplateId,
@@ -664,7 +709,12 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene'),
               description: card.description || card.text || '',
               location: card.location || '',
+              time: card.time || '',
+              weather: card.weather || '',
+              visual: card.visual || card.description || card.text || '',
+              sound: card.sound || '',
               items: card.items || '',
+              notes: card.notes || card.other || card.atmosphere || '',
               atmosphere: card.atmosphere || '',
               other: card.other || '',
               showLocation: !!card.location,
@@ -1135,6 +1185,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       if (
         cleanText(card.sceneName) ||
         cleanText(card.location) ||
+        cleanText(card.time) ||
+        cleanText(card.weather) ||
+        cleanText(card.visual) ||
+        cleanText(card.sound) ||
         cleanText(card.items) ||
         cleanText(card.atmosphere)
       ) {
@@ -1174,7 +1228,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             type,
             ...graphMetadata,
             sceneName: language === 'zh' ? 'AI 场景' : 'AI Scene',
-            description: '',
+            visual: '',
           };
         }
         if (type === 'number-condition') {
@@ -1203,22 +1257,27 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       if (type === 'character') {
         const values: Record<string, string | undefined> = {
           'character-name': card.characterName || card.title,
-          traits: card.traits || card.text,
+          identity: card.identity,
+          appearance: card.appearance,
           personality: card.personality,
-          features: card.features,
-          background: card.background,
-          other: card.other,
+          habits: card.habits,
+          'speech-style': card.speechStyle,
+          experience: card.experience,
+          relationships: card.relationships,
+          notes: card.notes || card.traits || card.text,
         };
         return values[fieldKey] || '';
       }
       if (type === 'scene') {
         const values: Record<string, string | undefined> = {
           'scene-name': card.sceneName || card.title,
-          description: card.description || card.text,
           location: card.location,
+          time: card.time,
+          weather: card.weather,
+          visual: card.visual || card.description || card.text,
+          sound: card.sound,
           items: card.items,
-          atmosphere: card.atmosphere,
-          other: card.other,
+          notes: card.notes || card.other,
         };
         return values[fieldKey] || '';
       }
@@ -1241,22 +1300,25 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           if (node.type === 'characterNode') {
             const updates: Record<string, unknown> = {};
             if (fieldKey === 'character-name') updates.characterName = value;
-            if (fieldKey === 'traits') updates.traits = value;
+            if (fieldKey === 'identity') updates.identity = value;
+            if (fieldKey === 'appearance') updates.appearance = value;
             if (fieldKey === 'personality') {
               updates.personality = value;
-              updates.showPersonality = true;
             }
-            if (fieldKey === 'features') {
-              updates.features = value;
-              updates.showFeatures = true;
+            if (fieldKey === 'habits') {
+              updates.habits = value;
             }
-            if (fieldKey === 'background') {
-              updates.background = value;
-              updates.showBackground = true;
+            if (fieldKey === 'speech-style' || fieldKey === 'speechStyle') {
+              updates.speechStyle = value;
             }
-            if (fieldKey === 'other') {
-              updates.other = value;
-              updates.showOther = true;
+            if (fieldKey === 'experience') {
+              updates.experience = value;
+            }
+            if (fieldKey === 'relationships') {
+              updates.relationships = value;
+            }
+            if (fieldKey === 'notes') {
+              updates.notes = value;
             }
             return { ...node, data: { ...node.data, ...updates } };
           }
@@ -1264,22 +1326,14 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           if (node.type === 'sceneNode') {
             const updates: Record<string, unknown> = {};
             if (fieldKey === 'scene-name') updates.sceneName = value;
-            if (fieldKey === 'description') updates.description = value;
-            if (fieldKey === 'location') {
-              updates.location = value;
-              updates.showLocation = true;
-            }
-            if (fieldKey === 'items') {
-              updates.items = value;
-              updates.showItems = true;
-            }
-            if (fieldKey === 'atmosphere') {
-              updates.atmosphere = value;
-              updates.showAtmosphere = true;
-            }
-            if (fieldKey === 'other') {
-              updates.other = value;
-              updates.showOther = true;
+            if (fieldKey === 'location') updates.location = value;
+            if (fieldKey === 'time') updates.time = value;
+            if (fieldKey === 'weather') updates.weather = value;
+            if (fieldKey === 'visual' || fieldKey === 'description') updates.visual = value;
+            if (fieldKey === 'sound') updates.sound = value;
+            if (fieldKey === 'items') updates.items = value;
+            if (fieldKey === 'notes' || fieldKey === 'other' || fieldKey === 'atmosphere') {
+              updates.notes = value;
             }
             return { ...node, data: { ...node.data, ...updates } };
           }
@@ -1539,15 +1593,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               data: {
                 ...node.data,
                 characterName: card.characterName || card.title || node.data.characterName,
-                traits: card.traits || card.text || node.data.traits || '',
+                identity: card.identity || node.data.identity || '',
+                appearance:
+                  card.appearance || card.features || node.data.appearance || node.data.features || '',
                 personality: card.personality || node.data.personality || '',
-                features: card.features || node.data.features || '',
-                background: card.background || node.data.background || '',
-                other: card.other || node.data.other || '',
-                showPersonality: !!(card.personality || node.data.showPersonality),
-                showFeatures: !!(card.features || node.data.showFeatures),
-                showBackground: !!(card.background || node.data.showBackground),
-                showOther: !!(card.other || node.data.showOther),
+                habits: card.habits || node.data.habits || '',
+                speechStyle: card.speechStyle || node.data.speechStyle || '',
+                experience:
+                  card.experience || card.background || node.data.experience || node.data.background || '',
+                relationships: card.relationships || node.data.relationships || '',
+                notes:
+                  card.notes ||
+                  card.other ||
+                  card.traits ||
+                  card.text ||
+                  node.data.notes ||
+                  node.data.other ||
+                  '',
               },
             };
           }
@@ -1558,15 +1620,25 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               data: {
                 ...node.data,
                 sceneName: card.sceneName || card.title || node.data.sceneName,
-                description: card.description || card.text || node.data.description || '',
                 location: card.location || node.data.location || '',
+                time: card.time || node.data.time || '',
+                weather: card.weather || node.data.weather || '',
+                visual:
+                  card.visual ||
+                  card.description ||
+                  card.text ||
+                  node.data.visual ||
+                  node.data.description ||
+                  '',
+                sound: card.sound || node.data.sound || '',
                 items: card.items || node.data.items || '',
-                atmosphere: card.atmosphere || node.data.atmosphere || '',
-                other: card.other || node.data.other || '',
-                showLocation: !!(card.location || node.data.showLocation),
-                showItems: !!(card.items || node.data.showItems),
-                showAtmosphere: !!(card.atmosphere || node.data.showAtmosphere),
-                showOther: !!(card.other || node.data.showOther),
+                notes:
+                  card.notes ||
+                  card.other ||
+                  node.data.notes ||
+                  node.data.other ||
+                  node.data.atmosphere ||
+                  '',
               },
             };
           }

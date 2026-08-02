@@ -9,6 +9,7 @@ export const playtestWindowJa = {
   autoScaleInactive: 'ホバー時の自動拡大を有効にする',
   switchToWindowed: '小窓モードに切り替え',
   switchToFullscreen: '全画面モードに切り替え',
+  moreActions: 'その他のテスト操作',
   moveWindow: 'プレイテスト小窓を移動',
   resizeWindow: '縦横比を固定してプレイテスト小窓のサイズを変更',
 } as const;

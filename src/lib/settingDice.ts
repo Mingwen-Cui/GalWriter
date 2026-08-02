@@ -2,20 +2,25 @@ export type LanguageCode = 'zh' | 'en' | 'ja';
 
 export type GeneratedCharacterSetting = {
   characterName?: string;
+  identity?: string;
+  appearance?: string;
   personality?: string;
-  features?: string;
-  background?: string;
-  other?: string;
-  traits?: string;
+  habits?: string;
+  speechStyle?: string;
+  experience?: string;
+  relationships?: string;
+  notes?: string;
 };
 
 export type GeneratedSceneSetting = {
   sceneName?: string;
   location?: string;
+  time?: string;
+  weather?: string;
+  visual?: string;
+  sound?: string;
   items?: string;
-  atmosphere?: string;
-  other?: string;
-  description?: string;
+  notes?: string;
 };
 
 const asText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
@@ -34,35 +39,55 @@ const joinContext = (entries: Array<[string, unknown]>) => {
 export const hasUsefulCharacterInfo = (data: Record<string, unknown>) =>
   [
     data.characterName,
+    data.identity,
+    data.appearance,
     data.traits,
     data.personality,
+    data.habits,
+    data.speechStyle,
+    data.experience,
+    data.relationships,
+    data.notes,
     data.features,
     data.background,
     data.other,
   ].some((value) => asText(value).length > 0);
 
 export const hasUsefulSceneInfo = (data: Record<string, unknown>) =>
-  [data.sceneName, data.description, data.location, data.items, data.atmosphere, data.other].some(
-    (value) => asText(value).length > 0,
-  );
+  [
+    data.sceneName,
+    data.location,
+    data.time,
+    data.weather,
+    data.visual,
+    data.sound,
+    data.items,
+    data.notes,
+    data.description,
+    data.atmosphere,
+    data.other,
+  ].some((value) => asText(value).length > 0);
 
 export const buildCharacterSettingPrompt = (data: Record<string, unknown>, lang: LanguageCode) => {
   const useExisting = hasUsefulCharacterInfo(data);
   const context = joinContext([
     ['Name', data.characterName],
-    ['General setting', data.traits],
+    ['Identity', data.identity],
+    ['Appearance', data.appearance || data.features],
     ['Personality', data.personality],
-    ['Character features', data.features],
-    ['Background', data.background],
-    ['Other', data.other],
+    ['Habits', data.habits],
+    ['Speech style', data.speechStyle],
+    ['Past experience', data.experience || data.background],
+    ['Relationships', data.relationships],
+    ['Notes', data.notes || data.other || data.traits],
   ]);
   const outputLanguage =
     lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English';
 
   return `You are a visual novel character designer.
-Task: ${useExisting ? 'expand the available character information into a richer, coherent setting' : 'randomly create a fresh character setting'}.
+Task: ${useExisting ? 'fill in the missing parts of this character profile without changing the usable existing details' : 'create a fresh, distinct character profile'}.
 Output language: ${outputLanguage}.
-Preserve any usable existing details. Do not contradict them. Make the result specific, vivid, and directly usable in a galgame/visual novel project.
+Preserve any usable existing details. Do not contradict them. Keep every field short and concrete: one or two sentences at most. Describe the person only; do not add plot, scene events, goals, conflicts, or story development.
 
 Available information:
 ${context}
@@ -71,11 +96,14 @@ Return ONLY valid JSON, with no markdown fences and no extra text.
 JSON keys:
 {
   "characterName": "short name",
-  "personality": "detailed personality description",
-  "features": "appearance, habits, memorable traits",
-  "background": "origin, relationships, motivation, conflict",
-  "other": "extra useful notes",
-  "traits": "a complete integrated setting that combines the above"
+  "identity": "age, occupation, or social identity",
+  "appearance": "appearance and usual clothing",
+  "personality": "personality",
+  "habits": "small habits or usual reactions",
+  "speechStyle": "how this person speaks",
+  "experience": "one or two concise past experiences",
+  "relationships": "basic relationship notes with important people",
+  "notes": "other stable personal details"
 }`;
 };
 
@@ -83,19 +111,21 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
   const useExisting = hasUsefulSceneInfo(data);
   const context = joinContext([
     ['Name', data.sceneName],
-    ['General description', data.description],
     ['Location', data.location],
+    ['Time', data.time],
+    ['Weather', data.weather],
+    ['Visual details', data.visual || data.description],
+    ['Sound', data.sound],
     ['Items', data.items],
-    ['Atmosphere', data.atmosphere],
-    ['Other', data.other],
+    ['Notes', data.notes || [data.other, data.atmosphere].filter(asText).join('; ')],
   ]);
   const outputLanguage =
     lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English';
 
   return `You are a visual novel scene designer.
-Task: ${useExisting ? 'expand the available scene information into a richer, coherent setting' : 'randomly create a fresh scene setting'}.
+Task: ${useExisting ? 'fill in the missing parts of this place profile without changing usable existing details' : 'create a fresh, distinct place profile'}.
 Output language: ${outputLanguage}.
-Preserve any usable existing details. Do not contradict them. Make the result specific, sensory, and directly usable in a galgame/visual novel project.
+Preserve any usable existing details. Do not contradict them. Keep every field short and concrete: one or two sentences at most. Describe the place only; do not add characters, plot, events, goals, conflicts, or story development.
 
 Available information:
 ${context}
@@ -104,11 +134,13 @@ Return ONLY valid JSON, with no markdown fences and no extra text.
 JSON keys:
 {
   "sceneName": "short scene name",
-  "location": "detailed location description",
-  "items": "important objects and interactable details",
-  "atmosphere": "light, sound, smell, mood, time, weather",
-  "other": "extra useful notes",
-  "description": "a complete integrated scene description that combines the above"
+  "location": "where this place is",
+  "time": "time of day or season",
+  "weather": "weather or indoor air condition",
+  "visual": "visible layout, light, and colors",
+  "sound": "ambient sounds",
+  "items": "notable objects",
+  "notes": "other stable place details"
 }`;
 };
 
@@ -137,28 +169,37 @@ export const buildCharacterUpdates = (
     updates.characterName = asText(generated.characterName);
   }
 
+  if (asText(generated.identity)) {
+    updates.identity = asText(generated.identity);
+  }
+
+  if (asText(generated.appearance)) {
+    updates.appearance = asText(generated.appearance);
+  }
+
   if (asText(generated.personality)) {
     updates.showPersonality = true;
     updates.personality = asText(generated.personality);
   }
 
-  if (asText(generated.features)) {
-    updates.showFeatures = true;
-    updates.features = asText(generated.features);
+  if (asText(generated.habits)) {
+    updates.habits = asText(generated.habits);
   }
 
-  if (asText(generated.background)) {
-    updates.showBackground = true;
-    updates.background = asText(generated.background);
+  if (asText(generated.speechStyle)) {
+    updates.speechStyle = asText(generated.speechStyle);
   }
 
-  if (asText(generated.other)) {
-    updates.showOther = true;
-    updates.other = asText(generated.other);
+  if (asText(generated.experience)) {
+    updates.experience = asText(generated.experience);
   }
 
-  if (asText(generated.traits)) {
-    updates.traits = asText(generated.traits);
+  if (asText(generated.relationships)) {
+    updates.relationships = asText(generated.relationships);
+  }
+
+  if (asText(generated.notes)) {
+    updates.notes = asText(generated.notes);
   }
 
   return updates;
@@ -175,27 +216,31 @@ export const buildSceneUpdates = (
   }
 
   if (asText(generated.location)) {
-    updates.showLocation = true;
     updates.location = asText(generated.location);
   }
 
+  if (asText(generated.time)) {
+    updates.time = asText(generated.time);
+  }
+
+  if (asText(generated.weather)) {
+    updates.weather = asText(generated.weather);
+  }
+
+  if (asText(generated.visual)) {
+    updates.visual = asText(generated.visual);
+  }
+
+  if (asText(generated.sound)) {
+    updates.sound = asText(generated.sound);
+  }
+
   if (asText(generated.items)) {
-    updates.showItems = true;
     updates.items = asText(generated.items);
   }
 
-  if (asText(generated.atmosphere)) {
-    updates.showAtmosphere = true;
-    updates.atmosphere = asText(generated.atmosphere);
-  }
-
-  if (asText(generated.other)) {
-    updates.showOther = true;
-    updates.other = asText(generated.other);
-  }
-
-  if (asText(generated.description)) {
-    updates.description = asText(generated.description);
+  if (asText(generated.notes)) {
+    updates.notes = asText(generated.notes);
   }
 
   return updates;

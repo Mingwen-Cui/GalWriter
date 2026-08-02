@@ -132,6 +132,7 @@ export interface PlaytestWindowBounds {
 
 export interface PlaytestWindowSettings {
   bounds: PlaytestWindowBounds | null;
+  mobileBounds: PlaytestWindowBounds | null;
   followSelectedCard: boolean;
   autoScaleOnHover: boolean;
 }
@@ -537,6 +538,7 @@ export interface EditorNodeCallbacks {
   onGenerateImage?: (id: string) => Promise<void> | void;
   onGenerateSpeech?: (id: string) => Promise<void> | void;
   onGenerateSettingImage?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
+  onPreviewCharacterVoice?: (id: string, voiceProfileId?: string) => Promise<void> | void;
   onRemoveCharacterImageBackground?: (id: string, outfitId?: string) => Promise<void> | void;
   onAddTextToImage?: (id: string) => void;
   onRemoveTextFromImage?: (id: string) => void;
@@ -544,6 +546,11 @@ export interface EditorNodeCallbacks {
   onGenerateSettingText?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
   onPlotStructureGenerate?: (params: unknown) => Promise<void> | void;
   onHighlightStoryline?: (id: string) => void;
+}
+
+export interface CharacterVoiceOption {
+  id: string;
+  label: string;
 }
 
 export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeCallbacks {
@@ -589,8 +596,18 @@ export interface StoryNodeData extends BaseEditorNodeData {
 
 export interface CharacterNodeData extends BaseEditorNodeData {
   characterName: string;
+  identity?: string;
+  appearance?: string;
   traits: string;
   personality?: string;
+  habits?: string;
+  speechStyle?: string;
+  experience?: string;
+  relationships?: string;
+  notes?: string;
+  voiceProfileId?: string;
+  voiceOptions?: CharacterVoiceOption[];
+  /** Legacy fields retained so existing projects continue to load unchanged. */
   features?: string;
   background?: string;
   other?: string;
@@ -606,6 +623,13 @@ export interface CharacterNodeData extends BaseEditorNodeData {
 
 export interface SceneNodeData extends BaseEditorNodeData {
   sceneName: string;
+  /** New, place-only scene profile fields. */
+  time?: string;
+  weather?: string;
+  visual?: string;
+  sound?: string;
+  notes?: string;
+  /** Legacy scene fields retained so existing projects remain readable. */
   description: string;
   location?: string;
   items?: string;

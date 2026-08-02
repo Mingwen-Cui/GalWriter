@@ -25,6 +25,7 @@ import {
   Trash2,
   Upload,
   UserCircle2,
+  Volume2,
   WandSparkles,
 } from 'lucide-react';
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
@@ -36,8 +37,10 @@ import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 
-const TRAIT_TEXTAREA_CLASS =
-  'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
+const PROFILE_TEXTAREA_CLASS =
+  'w-full min-h-[54px] resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
+const PROFILE_FIELD_CLASS = 'flex flex-col gap-1 min-w-0';
+const TRAIT_TEXTAREA_CLASS = PROFILE_TEXTAREA_CLASS;
 const TRAIT_FIELD_CLASS = 'flex flex-col flex-1 min-h-min gap-1';
 
 const getNumericSize = (value: unknown) => {
@@ -56,18 +59,10 @@ const getNumericSize = (value: unknown) => {
   return undefined;
 };
 
-const getCalculatedCharacterNodeMinHeight = (activeTraitsCount: number, outfitsCount: number) =>
-  70 +
-  73 +
-  24 +
-  26 +
-  activeTraitsCount * 79 +
-  Math.max(0, activeTraitsCount - 1) * 8 +
-  24 +
-  20 +
-  (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
+const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
+  70 + 73 + 330 + 48 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
-const CHARACTER_NODE_MIN_WIDTH = 280;
+const CHARACTER_NODE_MIN_WIDTH = 440;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
 
 export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
@@ -77,6 +72,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   const name = data.characterName || '';
   const traits = data.traits || '';
+  const appearance = typeof data.appearance === 'string' ? data.appearance : data.features || '';
+  const experience = typeof data.experience === 'string' ? data.experience : data.background || '';
+  const notes =
+    typeof data.notes === 'string' ? data.notes : data.other || data.traits || '';
+  const voiceOptions = Array.isArray(data.voiceOptions) ? data.voiceOptions : [];
   const avatarUrl = data.avatarUrl;
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
@@ -94,7 +94,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
   const [measuredMinHeight, setMeasuredMinHeight] = useState(
-    getCalculatedCharacterNodeMinHeight(1, 0),
+    getCalculatedCharacterNodeMinHeight(0),
   );
 
   const storeApi = useStoreApi();
@@ -157,19 +157,19 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     [getOppositeHandleId, isHandleConnected],
   );
 
-  const activeTraitsCount =
-    [data.showPersonality, data.showFeatures, data.showBackground, data.showOther].filter(Boolean)
-      .length || 1;
-
-  const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(
-    activeTraitsCount,
-    outfits.length,
-  );
+  const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(outfits.length);
   const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
   const hasCharacterText = [
     name,
+    data.identity,
+    data.appearance,
     traits,
     data.personality,
+    data.habits,
+    data.speechStyle,
+    data.experience,
+    data.relationships,
+    data.notes,
     data.features,
     data.background,
     data.other,
@@ -257,7 +257,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
     const nextActiveTraitsCount = Object.values(nextVisibility).filter(Boolean).length || 1;
     const nextMinHeight = Math.max(
-      getCalculatedCharacterNodeMinHeight(nextActiveTraitsCount, outfits.length),
+      getCalculatedCharacterNodeMinHeight(outfits.length),
       measureContentMinHeight(),
     );
 
@@ -715,6 +715,14 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   placeholder="输入角色姓名..."
                   className="w-full bg-transparent text-sm font-bold text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-b-2 focus:border-purple-400"
                 />
+                <input
+                  data-agent-field="identity"
+                  type="text"
+                  value={data.identity || ''}
+                  onChange={(e) => updateNodeData({ identity: e.target.value })}
+                  placeholder="年龄 · 职业 · 身份"
+                  className="mt-1 w-full bg-transparent text-[11px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none focus:border-b focus:border-purple-400"
+                />
                 <div className="text-[10px] text-purple-500 font-medium flex items-center gap-1 mt-1">
                   <Settings2 className="w-3 h-3" />
                   {isGlobal
@@ -761,7 +769,108 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             </div>
 
             {/* Traits */}
-            <div className="px-3 pt-3 pb-3 flex flex-col flex-1 min-h-min">
+            <div className="px-3 pt-3 pb-3 flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">外表</span>
+                  <textarea
+                    data-agent-field="appearance"
+                    value={appearance}
+                    onChange={(event) => updateNodeData({ appearance: event.target.value })}
+                    placeholder="长相、穿着、明显特征"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">性格</span>
+                  <textarea
+                    data-agent-field="personality"
+                    value={data.personality || ''}
+                    onChange={(event) => updateNodeData({ personality: event.target.value })}
+                    placeholder="这个人平时是什么样子"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">习惯</span>
+                  <textarea
+                    data-agent-field="habits"
+                    value={data.habits || ''}
+                    onChange={(event) => updateNodeData({ habits: event.target.value })}
+                    placeholder="常见的小动作或反应"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">说话</span>
+                  <textarea
+                    data-agent-field="speech-style"
+                    value={data.speechStyle || ''}
+                    onChange={(event) => updateNodeData({ speechStyle: event.target.value })}
+                    placeholder="语气、用词、说话方式"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">经历</span>
+                  <textarea
+                    data-agent-field="experience"
+                    value={experience}
+                    onChange={(event) => updateNodeData({ experience: event.target.value })}
+                    placeholder="一两件影响过他的事"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={PROFILE_FIELD_CLASS}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">关系</span>
+                  <textarea
+                    data-agent-field="relationships"
+                    value={data.relationships || ''}
+                    onChange={(event) => updateNodeData({ relationships: event.target.value })}
+                    placeholder="和重要人物的基本关系"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+                <label className={`${PROFILE_FIELD_CLASS} col-span-2`}>
+                  <span className="text-[10px] font-bold text-purple-500 ml-1">补充</span>
+                  <textarea
+                    data-agent-field="notes"
+                    value={notes}
+                    onChange={(event) => updateNodeData({ notes: event.target.value })}
+                    placeholder="喜欢、害怕、身体特征等"
+                    className={PROFILE_TEXTAREA_CLASS}
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] px-2 py-1.5">
+                <span className="shrink-0 text-[10px] font-bold text-purple-500">音色</span>
+                <select
+                  data-agent-field="voice-profile"
+                  value={data.voiceProfileId || ''}
+                  onChange={(event) => updateNodeData({ voiceProfileId: event.target.value || undefined })}
+                  className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none"
+                >
+                  <option value="">跟随项目默认音色</option>
+                  {voiceOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => data.onPreviewCharacterVoice?.(id, data.voiceProfileId)}
+                  disabled={!data.onPreviewCharacterVoice}
+                  className="rounded p-1 text-purple-500 transition-colors hover:bg-purple-500/10 disabled:cursor-not-allowed disabled:opacity-35"
+                  title="试听音色"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden">
               <div className="flex flex-wrap items-center gap-3 ml-1 mb-2 shrink-0">
                 {/* <label className="text-[11px] font-bold text-[var(--text-secondary)]">开启设定项:</label> */}
                 <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">

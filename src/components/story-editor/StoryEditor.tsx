@@ -19,6 +19,7 @@ import type {
   VoiceAIProfile,
 } from '../../domain/project';
 import { useAIActions } from '../../editor-features/ai/useAIActions';
+import { ttsService } from '../../editor-services/ttsService';
 import { useCanvasDnD } from '../../editor-features/canvas/useCanvasDnD';
 import { useCanvasInteractions } from '../../editor-features/canvas/useCanvasInteractions';
 import {
@@ -2040,6 +2041,56 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [generateSetting],
   );
 
+  const characterVoiceOptions = useMemo(() => {
+    const profiles = savedAIProfiles.filter(
+      (profile): profile is VoiceAIProfile => profile.kind === 'voice',
+    );
+    if (activeVoiceProfile && !profiles.some((profile) => profile.id === activeVoiceProfile.id)) {
+      profiles.push(activeVoiceProfile);
+    }
+    return profiles.map((profile) => ({
+      id: profile.id,
+      label: profile.voice ? `${profile.name} · ${profile.voice}` : profile.name,
+    }));
+  }, [activeVoiceProfile, savedAIProfiles]);
+
+  const handlePreviewCharacterVoice = useCallback(
+    async (nodeId: string, voiceProfileId?: string) => {
+      const selectedProfile = voiceProfileId
+        ? savedAIProfiles.find(
+            (profile): profile is VoiceAIProfile =>
+              profile.kind === 'voice' && profile.id === voiceProfileId,
+          ) || (activeVoiceProfile?.id === voiceProfileId ? activeVoiceProfile : null)
+        : activeVoiceProfile;
+      if (!selectedProfile) {
+        requestSettingsAttention('voice');
+        showToast(language === 'zh' ? '请先在 AI 设置中配置语音 API' : 'Configure a voice API first', 'error');
+        return;
+      }
+
+      const character = nodes.find((node) => node.id === nodeId && node.type === 'characterNode');
+      const name = String(character?.data.characterName || (language === 'zh' ? '这个角色' : 'this character'));
+      try {
+        const audio = await ttsService.generate({
+          text: language === 'zh' ? `你好，我是${name}。` : `Hello, I am ${name}.`,
+          provider: selectedProfile.provider,
+          apiUrl: selectedProfile.apiUrl,
+          apiKey: selectedProfile.apiKey,
+          appKey: selectedProfile.appKey,
+          appSecret: selectedProfile.appSecret || selectedProfile.apiKey,
+          model: selectedProfile.model,
+          voice: selectedProfile.voice,
+        });
+        const player = new Audio(audio.url);
+        await player.play();
+      } catch (error) {
+        console.error('Character voice preview failed:', error);
+        showToast(language === 'zh' ? '音色试听失败，请检查语音 API 设置' : 'Voice preview failed', 'error');
+      }
+    },
+    [activeVoiceProfile, language, nodes, requestSettingsAttention, savedAIProfiles, showToast],
+  );
+
   const handlePlotStructureGenerate = usePlotStructureGeneration({
     callAIForText,
     generateLength,
@@ -2204,6 +2255,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onGenerateImage: handleGenerateStoryNodeImage,
       onGenerateSpeech: handleGenerateStoryNodeSpeech,
       onGenerateSettingImage: handleGenerateSettingNodeImage,
+      onPreviewCharacterVoice: handlePreviewCharacterVoice,
+      voiceOptions: characterVoiceOptions,
       onRemoveCharacterImageBackground: handleRemoveCharacterImageBackground,
       onAddTextToImage: handleAddTextToImage,
       onRemoveTextFromImage: handleRemoveTextFromImage,
@@ -2235,6 +2288,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       handleGenerateStoryNodeImage,
       handleGenerateStoryNodeSpeech,
       handleGenerateSettingNodeImage,
+      handlePreviewCharacterVoice,
+      characterVoiceOptions,
       handleRemoveCharacterImageBackground,
       handleAddTextToImage,
       handleRemoveTextFromImage,

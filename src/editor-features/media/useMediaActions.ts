@@ -68,16 +68,36 @@ const formatCharacterSpritePromptText = (
     const text = typeof value === 'string' ? value.trim() : '';
     if (text) sections.push(`${label}:\n${text}`);
   };
-  const usesSplitFields =
-    !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
+  const hasNewProfileFields = [
+    data.identity,
+    data.appearance,
+    data.habits,
+    data.speechStyle,
+    data.experience,
+    data.relationships,
+    data.notes,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
-  if (usesSplitFields) {
-    if (data.showPersonality) addSection('Personality', data.personality);
-    if (data.showFeatures) addSection('Appearance and distinctive features', data.features);
-    if (data.showBackground) addSection('Background', data.background);
-    if (data.showOther) addSection('Other requirements', data.other);
+  if (hasNewProfileFields) {
+    addSection('Identity', data.identity);
+    addSection('Appearance', data.appearance || data.features);
+    addSection('Personality', data.personality);
+    addSection('Habits', data.habits);
+    addSection('Speech style', data.speechStyle);
+    addSection('Past experience', data.experience || data.background);
+    addSection('Relationship notes', data.relationships);
+    addSection('Other stable details', data.notes || data.other || data.traits);
   } else {
-    addSection('Character description', data.traits);
+    const usesSplitFields =
+      !!data.showPersonality || !!data.showFeatures || !!data.showBackground || !!data.showOther;
+    if (usesSplitFields) {
+      if (data.showPersonality) addSection('Personality', data.personality);
+      if (data.showFeatures) addSection('Appearance and distinctive features', data.features);
+      if (data.showBackground) addSection('Background', data.background);
+      if (data.showOther) addSection('Other requirements', data.other);
+    } else {
+      addSection('Character description', data.traits);
+    }
   }
 
   return sections.join('\n\n').trim();

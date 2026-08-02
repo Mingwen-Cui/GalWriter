@@ -22,15 +22,24 @@ const inferCardType = (card: AssistantCardDraft): 'story' | 'character' | 'scene
   }
   if (
     hasValue(card.characterName) ||
+    hasValue(card.identity) ||
+    hasValue(card.appearance) ||
     hasValue(card.personality) ||
-    hasValue(card.features) ||
-    hasValue(card.background)
+    hasValue(card.habits) ||
+    hasValue(card.speechStyle) ||
+    hasValue(card.experience) ||
+    hasValue(card.relationships) ||
+    hasValue(card.notes)
   ) {
     return 'character';
   }
   if (
     hasValue(card.sceneName) ||
     hasValue(card.location) ||
+    hasValue(card.time) ||
+    hasValue(card.weather) ||
+    hasValue(card.visual) ||
+    hasValue(card.sound) ||
     hasValue(card.items) ||
     hasValue(card.atmosphere)
   ) {
@@ -44,27 +53,38 @@ const getTypingFields = (card: AssistantCardDraft): Array<[string, string, strin
   if (type === 'character') {
     return [
       ['character-name', '人物名', card.characterName || card.title],
-      ['traits', '综合设定', card.traits || card.text],
+      ['identity', '身份', card.identity],
+      ['appearance', '外表', card.appearance],
       ['personality', '性格', card.personality],
-      ['features', '人物特点', card.features],
-      ['background', '人物背景', card.background],
-      ['other', '其他设定', card.other],
+      ['habits', '习惯', card.habits],
+      ['speech-style', '说话', card.speechStyle],
+      ['experience', '经历', card.experience],
+      ['relationships', '关系', card.relationships],
+      ['notes', '补充', card.notes || card.traits || card.text],
     ].filter((field): field is [string, string, string] => hasValue(field[2]));
   }
 
   if (type === 'scene') {
     return [
       ['scene-name', '场景名', card.sceneName || card.title],
-      ['description', '综合描述', card.description || card.text],
       ['location', '位置'],
+      ['time', '时间'],
+      ['weather', '天气'],
+      ['visual', '画面', card.visual || card.description || card.text],
+      ['sound', '声音'],
       ['items', '物品'],
-      ['atmosphere', '氛围'],
-      ['other', '其他设定'],
+      ['notes', '补充', card.notes || card.other],
     ]
       .map(([fieldKey, label]) => [
         fieldKey,
         label,
-        card[fieldKey === 'scene-name' ? 'sceneName' : (fieldKey as keyof AssistantCardDraft)],
+        fieldKey === 'scene-name'
+          ? card.sceneName
+          : fieldKey === 'visual'
+            ? card.visual || card.description || card.text
+            : fieldKey === 'notes'
+              ? card.notes || card.other
+              : card[fieldKey as keyof AssistantCardDraft],
       ])
       .filter((field): field is [string, string, string] => hasValue(field[2]));
   }

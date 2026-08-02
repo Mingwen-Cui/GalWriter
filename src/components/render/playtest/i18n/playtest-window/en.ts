@@ -9,6 +9,7 @@ export const playtestWindowEn = {
   autoScaleInactive: 'Enable automatic hover scaling',
   switchToWindowed: 'Switch to windowed mode',
   switchToFullscreen: 'Switch to fullscreen mode',
+  moreActions: 'More playtest actions',
   moveWindow: 'Move playtest window',
   resizeWindow: 'Resize playtest window at a fixed aspect ratio',
 } as const;
