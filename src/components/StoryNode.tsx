@@ -101,7 +101,6 @@ const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C'];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
 const MEDIA_CARD_MIN_HEIGHT = 60;
-const AUTO_SIZE_TEXT_MIN_LINES = 7;
 const AUTO_SIZE_TEXT_VERTICAL_PADDING = 4;
 const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
 const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
@@ -268,7 +267,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const titleBlockRef = useRef<HTMLDivElement>(null);
   const textPanelRef = useRef<HTMLDivElement>(null);
   const lastAutoHeightRef = useRef<number | null>(null);
-  const initialAutoSizeSyncSettledRef = useRef(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
@@ -374,11 +372,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   );
   const hasDirectCardMedia = Boolean(imageUrl || videoUrl);
   const hasCardVisualContent = hasDirectCardMedia || hasPresentationVisualMedia;
-  const hasSettledAssistantHeight = data.assistantHeightState === 'settled';
-  const shouldEnforceTextMinimum =
-    (!hasCardVisualContent && !hasSettledAssistantHeight) ||
-    isGeneratingImage ||
-    Boolean(data.isAILoading);
+  // The card's baseline must not change when an assistant finishes streaming.
+  // It always starts from the same 200px floor and only grows when the actual
+  // rendered text needs more space.
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
@@ -857,6 +853,17 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id !== id) return node;
+        // A user-resized card keeps its chosen height. Only its hard lower
+        // bound is normalized so text can still expand it when necessary.
+        if (node.data?.sizeMode === 'custom') {
+          const currentMinHeight = getNumericSize(node.style?.minHeight);
+          if (currentMinHeight === FIXED_STORY_CARD_HEIGHT) return node;
+          changed = true;
+          return {
+            ...node,
+            style: { ...node.style, minHeight: FIXED_STORY_CARD_HEIGHT },
+          };
+        }
         const currentHeight =
           getNumericSize(node.style?.height) ??
           getNumericSize((node as any).height) ??
@@ -924,39 +931,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       if (!textPanelElement || !editorElement) return null;
 
       const panelStyles = window.getComputedStyle(textPanelElement);
-      const panelPaddingLeft = Number.parseFloat(panelStyles.paddingLeft || '0');
-      const panelPaddingRight = Number.parseFloat(panelStyles.paddingRight || '0');
       const panelVerticalPadding =
         Number.parseFloat(panelStyles.paddingTop || '0') +
         Number.parseFloat(panelStyles.paddingBottom || '0') +
         Number.parseFloat(panelStyles.borderTopWidth || '0') +
         Number.parseFloat(panelStyles.borderBottomWidth || '0');
       const mediaPreviewHeight = hasMediaTextLayout ? getCardMediaHeight(rootWidth) : 0;
-      const editorCandidateWidth = Math.max(1, rootWidth - panelPaddingLeft - panelPaddingRight);
       const editorStyles = window.getComputedStyle(editorElement);
       const editorFontSize = Number.parseFloat(editorStyles.fontSize || '14');
       const parsedLineHeight = Number.parseFloat(editorStyles.lineHeight || '');
       const editorLineHeight = Number.isFinite(parsedLineHeight)
         ? parsedLineHeight
         : editorFontSize * 1.625;
-      const minimumTextHeight = shouldEnforceTextMinimum
-        ? editorLineHeight * AUTO_SIZE_TEXT_MIN_LINES
-        : 0;
-      const editorClone = editorElement.cloneNode(true) as HTMLElement;
-      editorClone.style.position = 'absolute';
-      editorClone.style.left = '-10000px';
-      editorClone.style.top = '0';
-      editorClone.style.width = `${editorCandidateWidth}px`;
-      editorClone.style.height = 'auto';
-      editorClone.style.minHeight = '0';
-      editorClone.style.maxHeight = 'none';
-      editorClone.style.overflow = 'visible';
-      editorClone.style.visibility = 'hidden';
-      editorClone.style.pointerEvents = 'none';
-      editorClone.style.boxSizing = window.getComputedStyle(editorElement).boxSizing;
-      document.body.appendChild(editorClone);
-      let contentHeight = editorClone.scrollHeight || editorClone.getBoundingClientRect().height;
-      document.body.removeChild(editorClone);
+      const minimumTextHeight = editorLineHeight;
+      // Measure the visible editor itself. A detached clone can be measured
+      // with a different inherited layout while AI mention chips are being
+      // committed, then that incorrect value gets persisted on the Flow node.
+      // This editor is naturally sized (`overflow-visible`, no fixed height),
+      // so its scroll height is the real text requirement.
+      let contentHeight = Math.max(
+        editorElement.scrollHeight,
+        editorElement.getBoundingClientRect().height,
+      );
       contentHeight = Math.max(contentHeight, minimumTextHeight);
 
       if (!Number.isFinite(contentHeight) || contentHeight <= 0) return null;
@@ -966,7 +962,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         // Once an AI text card has finished, it should be allowed to shrink
         // all the way to its title plus real text. Reserve a media floor only
         // when the card actually contains visual media.
-        shouldEnforceTextMinimum || !hasCardVisualContent ? 0 : MEDIA_CARD_MIN_HEIGHT,
+        !hasCardVisualContent ? 0 : MEDIA_CARD_MIN_HEIGHT,
         Math.ceil(
           titleBlockHeight +
             mediaPreviewHeight +
@@ -984,7 +980,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       hasMediaTextLayout,
       showRichTextTools,
       showTitleInside,
-      shouldEnforceTextMinimum,
     ],
   );
 
@@ -1022,21 +1017,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       id === 'initial-branch' &&
       currentNode.data?.title === '分支' &&
       currentNode.data?.text === '山里有座庙';
-    const isEmptyStoryCard =
-      String(currentNode.data?.text || '')
-        .replace(/<[^>]*>/g, '')
-        .trim() === '' &&
-      !currentNode.data?.imageUrl &&
-      !currentNode.data?.videoUrl &&
-      !currentNode.data?.audioUrl;
-    const shouldNormalizeDefaultInitialCard =
-      isDefaultInitialRoot || isDefaultInitialBranch || isEmptyStoryCard;
-    const nextHeight =
-      shouldNormalizeDefaultInitialCard ||
-      hasSettledAssistantHeight ||
-      initialAutoSizeSyncSettledRef.current
-        ? targetHeight
-        : Math.max(currentHeight, targetHeight);
+    const isManuallySized = currentNode.data?.sizeMode === 'custom';
+    // Manual resizing may leave extra room, but never lets later text be
+    // clipped: new content can still grow the card past the manual height.
+    const nextHeight = isManuallySized
+      ? Math.max(currentHeight, targetHeight)
+      : targetHeight;
     const initialBranch = isDefaultInitialRoot
       ? storeApi
           .getState()
@@ -1061,7 +1047,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     lastAutoHeightRef.current = targetHeight;
     const changed =
       Math.abs(currentHeight - nextHeight) >= 1 ||
-      Math.abs((currentMinHeight ?? 0) - targetHeight) >= 1 ||
+      Math.abs((currentMinHeight ?? 0) - FIXED_STORY_CARD_HEIGHT) >= 1 ||
       shouldNormalizeInitialBranchPosition;
     if (!changed) return;
 
@@ -1073,7 +1059,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               style: {
                 ...node.style,
                 height: nextHeight,
-                minHeight: targetHeight,
+                // `height` follows the actual content. The minimum itself is
+                // deliberately constant, otherwise a transient streamed value
+                // becomes a persisted floor and leaves a blank lower half.
+                minHeight: FIXED_STORY_CARD_HEIGHT,
               },
             }
           : shouldNormalizeInitialBranchPosition && node.id === initialBranch?.id
@@ -1094,8 +1083,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     showRichTextTools,
     showTitleInside,
     storeApi,
-    shouldEnforceTextMinimum,
-    hasSettledAssistantHeight,
   ]);
 
   useLayoutEffect(() => {
@@ -1125,25 +1112,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     title,
     videoUrl,
   ]);
-
-  useEffect(() => {
-    if (!isAutoSizeMode) {
-      initialAutoSizeSyncSettledRef.current = false;
-      return;
-    }
-
-    initialAutoSizeSyncSettledRef.current = false;
-    const timeoutId = window.setTimeout(() => {
-      initialAutoSizeSyncSettledRef.current = true;
-      // A restored automatic card may temporarily retain its saved size while
-      // its rich text/media loads. Once measured, always return to content size.
-      syncAutoSizeHeight();
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [id, isAutoSizeMode, syncAutoSizeHeight]);
 
   useLayoutEffect(() => {
     if (!isAutoSizeMode || !data.assistantAutoHeightNonce) return;
@@ -1208,7 +1176,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               style: {
                 ...node.style,
                 height: targetHeight,
-                minHeight: targetHeight,
+                minHeight: FIXED_STORY_CARD_HEIGHT,
               },
               data: {
                 ...node.data,
@@ -1370,7 +1338,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const shouldResizeCard = useCallback<ShouldResize>(
     (_event, dimensions) => {
       updateResizeMinimumHeight(dimensions.width);
-      return dimensions.direction[1] === 0;
+      return true;
     },
     [updateResizeMinimumHeight],
   );
@@ -1387,9 +1355,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       setIsResizingCard(false);
 
       setNodeWidthForAutoSize(dimensions.width);
-      requestAnimationFrame(syncAutoSizeHeight);
+      const naturalHeight = computeAutoMinHeight(dimensions.width) ?? FIXED_STORY_CARD_HEIGHT;
+      const nextHeight = Math.max(dimensions.height, naturalHeight, FIXED_STORY_CARD_HEIGHT);
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                style: {
+                  ...node.style,
+                  width: dimensions.width,
+                  height: nextHeight,
+                  minHeight: FIXED_STORY_CARD_HEIGHT,
+                },
+                data: { ...node.data, sizeMode: 'custom' },
+              }
+            : node,
+        ),
+      );
     },
-    [setNodeWidthForAutoSize, syncAutoSizeHeight],
+    [computeAutoMinHeight, id, setNodeWidthForAutoSize, setNodes],
   );
 
   useEffect(
@@ -2345,7 +2330,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="top"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2357,7 +2341,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="right"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2369,7 +2352,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="bottom"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2381,7 +2363,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="left"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2392,7 +2373,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="top-left"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2403,7 +2383,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="top-right"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2414,7 +2393,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="bottom-left"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -2425,7 +2403,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="bottom-right"
-            resizeDirection="horizontal"
             minWidth={100}
             minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
@@ -3126,9 +3103,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,
-                    minHeight: shouldEnforceTextMinimum
-                      ? `${AUTO_SIZE_TEXT_MIN_LINES * 1.625}em`
-                      : '1.5em',
+                    minHeight: '1.5em',
                   }}
                   onMentionContextMenu={handleMentionContextMenu}
                 />
