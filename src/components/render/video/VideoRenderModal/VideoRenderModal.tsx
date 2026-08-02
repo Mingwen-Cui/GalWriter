@@ -7,6 +7,7 @@ import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
 import { CodeWorkspace } from '../../code/CodeWorkspace';
+import { formatCodeText, getCodeText } from '../../code/i18n';
 import { buildPptxBuffer } from '../../ppt/pptExport';
 import { PptWorkspace } from '../../ppt/PptWorkspace';
 import { WebWorkspace } from '../../web/WebWorkspace';
@@ -1909,13 +1910,13 @@ export function VideoRenderModal({
     setProgressValue(20);
     const engineName =
       codeTarget === 'renpy'
-        ? 'Ren’Py'
+        ? getCodeText(language, 'RenPy')
         : codeTarget === 'tyrano'
-          ? 'TyranoScript'
+          ? getCodeText(language, 'TyranoScript')
           : codeTarget === 'dialogic'
-            ? 'Godot Dialogic 2'
-            : 'GalWriter IR JSON';
-    setProgress(isZh ? `正在生成 ${engineName} 工程…` : `Generating ${engineName} project…`);
+            ? getCodeText(language, 'Godot Dialogic 2')
+            : getCodeText(language, 'GalWriter IR JSON');
+    setProgress(formatCodeText(language, 'Generating engine project', { engine: engineName }));
     try {
       const result = await buildCodeProjectZip(nodes, edges, exportTitle, codeSettings, codeTarget);
       const url = URL.createObjectURL(result.blob);
@@ -1929,16 +1930,14 @@ export function VideoRenderModal({
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       setStatus('done');
       setProgressValue(100);
-      setProgress(isZh ? `${engineName} 工程已导出` : `${engineName} project exported`);
+      setProgress(formatCodeText(language, 'Engine project exported', { engine: engineName }));
       setSavedPath(result.fileName);
     } catch (exportError) {
       setStatus('error');
       setError(
         exportError instanceof Error
           ? exportError.message
-          : isZh
-            ? '代码工程导出失败'
-            : 'Code project export failed',
+          : getCodeText(language, 'Code project export failed'),
       );
     }
   };
@@ -2532,8 +2531,6 @@ export function VideoRenderModal({
               target={codeTarget}
               settings={codeSettings}
               onSettingsChange={setCodeSettings}
-              onExport={exportCodeProject}
-              exporting={status === 'rendering'}
             />
           ) : (
             <PptWorkspace

@@ -4140,6 +4140,54 @@ button.web-segment-button:first-child {
   --render-context-page: var(--vr-surface-strong);
 }
 
+.render-context-tabs--code {
+  --render-context-page: var(--vr-surface-soft);
+}
+
+.render-context-tabs--code .render-context-tab {
+  min-width: 112px;
+  padding-inline: 18px;
+}
+
+.code-diagnostic-card {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--vr-border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--vr-surface-strong);
+  color: var(--vr-text);
+}
+
+.code-diagnostic-card--info {
+  border-color: color-mix(in srgb, #3b82f6 48%, var(--vr-border));
+  background: color-mix(in srgb, #3b82f6 8%, var(--vr-surface-strong));
+  color: color-mix(in srgb, #3b82f6 72%, var(--vr-text));
+}
+
+.code-diagnostic-card--warning {
+  border-color: color-mix(in srgb, #f59e0b 58%, var(--vr-border));
+  background: color-mix(in srgb, #f59e0b 9%, var(--vr-surface-strong));
+  color: color-mix(in srgb, #f59e0b 75%, var(--vr-text));
+}
+
+.code-diagnostic-card--error {
+  border-color: color-mix(in srgb, #ef4444 58%, var(--vr-border));
+  background: color-mix(in srgb, #ef4444 9%, var(--vr-surface-strong));
+  color: color-mix(in srgb, #ef4444 75%, var(--vr-text));
+}
+
+.code-diagnostic-level {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
 .toolbar-bubble-surface button.web-segment-button:last-child,
 button.web-segment-button:last-child {
   border-top-right-radius: 8px !important;

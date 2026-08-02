@@ -10,9 +10,18 @@ export const codeEn = {
   'Asset inspection': 'Asset inspection',
   'Source node': 'Source node',
   Type: 'Type',
+  Image: 'Image',
+  Audio: 'Audio',
+  Video: 'Video',
   'Export path': 'Export path',
   Compatibility: 'Compatibility',
   Referenced: 'Referenced',
+  Yes: 'Yes',
+  No: 'No',
+  Compatible: 'Compatible',
+  'Compatibility risk': 'Compatibility risk',
+  'Unknown compatibility': 'Unknown compatibility',
+  Unreadable: 'Unreadable',
   'No assets': 'No assets',
   'No character nodes in project': 'No character nodes in project',
   'Story and condition inspector': 'Story and condition inspector',
@@ -21,6 +30,9 @@ export const codeEn = {
   'Runtime nodes': 'Runtime nodes',
   Errors: 'Errors',
   Warnings: 'Warnings',
+  Error: 'Error',
+  Warning: 'Warning',
+  Info: 'Info',
   'Phase two: characters, variables, scenes, assets, and report':
     'Phase two: characters, variables, scenes, assets, and report',
   'Fix blocking errors': 'Fix blocking errors',
@@ -67,6 +79,10 @@ export const codeEn = {
   RenPy: 'Ren’Py',
   TyranoScript: 'TyranoScript',
   'Godot Dialogic 2': 'Godot Dialogic 2',
+  'GalWriter IR JSON': 'GalWriter IR JSON',
+  'Generating engine project': 'Generating {engine} project…',
+  'Engine project exported': '{engine} project exported',
+  'Code project export failed': 'Code project export failed',
   'Flow mapping': 'Flow mapping',
   'Capability support': 'Capability support',
   'Full support': 'Full support',
@@ -79,4 +95,27 @@ export const codeEn = {
   Backgrounds: 'Backgrounds',
   'GalWriter semantic IR': 'GalWriter semantic IR',
   'Target-specific presentation': 'Target-specific presentation',
+  'RenPy flow detail':
+    'Labels, jumps, choices, returns, variables and range conditions map directly.',
+  'RenPy characters detail': 'Dialogue speakers and static portraits are generated.',
+  'RenPy media detail': 'BGM, sound, voice and movie cutscenes are generated.',
+  'RenPy animation detail':
+    'Core fades and positions are kept; complex inline actions become TODO comments.',
+  'Tyrano flow detail':
+    'Labels, cross-file jumps, choices, variables and range conditions use native tags.',
+  'Tyrano characters detail':
+    'Static portraits are generated; precise left/center/right positioning is left as readable TODO comments.',
+  'Tyrano media detail':
+    'BGM, voice/sound and movie tags are generated into standard data folders.',
+  'Tyrano animation detail':
+    'Basic transition times are mapped; complex inline actions require manual tags.',
+  'Dialogic flow detail':
+    'Native timeline labels, jumps, choices, variables and indentation-based conditions are generated.',
+  'Dialogic characters detail':
+    'Join/update/leave syntax is supported, but .dch character resources and portrait presets must be created in Dialogic.',
+  'Dialogic background detail': 'Background events use Godot res:// asset paths.',
+  'Dialogic media detail':
+    'Dialogic project-specific audio/video events are emitted as explicit TODO comments and report items.',
+  'Dialogic animation detail':
+    'Basic fade and positions are kept; complex inline actions require manual Dialogic events.',
 } as const;

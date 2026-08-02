@@ -189,7 +189,7 @@ export function RenderHeader({
         </button>
         {workspaceMode === 'code' && (
           <div
-            className="ml-2 flex h-full items-end"
+            className="render-context-tabs render-context-tabs--code ml-2"
             role="tablist"
             aria-label={getCodeText(language, 'Target engine')}
           >
@@ -203,11 +203,7 @@ export function RenderHeader({
                   aria-selected={active}
                   disabled={isRendering}
                   onClick={() => setCodeTarget(value)}
-                  className={`relative -mb-px flex items-center justify-center whitespace-nowrap border px-5 text-xs font-black transition-[height,color,background-color,border-color] duration-150 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)]/40 ${
-                    active
-                      ? 'z-10 h-11 rounded-t-[16px] border-[var(--vr-accent)]/60 border-b-[var(--vr-bg)] bg-[var(--vr-bg)] text-[var(--vr-accent-strong)] after:absolute after:-bottom-px after:left-0 after:right-0 after:h-px after:bg-[var(--vr-bg)]'
-                      : 'h-9 border-transparent bg-transparent text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  }`}
+                  className={`render-context-tab ${active ? 'is-active' : ''}`}
                 >
                   {getCodeText(language, labelKey)}
                 </button>

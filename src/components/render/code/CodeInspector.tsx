@@ -12,10 +12,7 @@ import type {
   RenpyVariableChange,
   RenpyVariableConfig,
 } from './codeExport/types';
-import { type CodeTextKey, getCodeText } from './i18n';
-
-const tr = (language: Language, _zh: string, _ja: string, en: CodeTextKey) =>
-  getCodeText(language, en);
+import { getCodeText } from './i18n';
 const fieldClass =
   'h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-bg)] px-2 text-xs text-[var(--vr-text)]';
 
@@ -31,17 +28,15 @@ export function CharacterInspector({
   const invalid = validateRenpyIdentifier(character.codeName);
   return (
     <div className="space-y-3 p-3">
-      <h3 className="text-xs font-black">
-        {tr(language, '角色检查器', 'キャラクター設定', 'Character inspector')}
-      </h3>
-      <Field label={tr(language, '显示名', '表示名', 'Display name')}>
+      <h3 className="text-xs font-black">{getCodeText(language, 'Character inspector')}</h3>
+      <Field label={getCodeText(language, 'Display name')}>
         <input
           className={fieldClass}
           value={character.displayName}
           onChange={(event) => onChange({ ...character, displayName: event.target.value })}
         />
       </Field>
-      <Field label={tr(language, '代码名', 'コード名', 'Code name')}>
+      <Field label={getCodeText(language, 'Code name')}>
         <div className="flex gap-1">
           <input
             className={fieldClass}
@@ -50,7 +45,7 @@ export function CharacterInspector({
           />
           <button
             type="button"
-            title={tr(language, '自动修复', '自動修正', 'Auto-fix')}
+            title={getCodeText(language, 'Auto-fix')}
             onClick={() =>
               onChange({
                 ...character,
@@ -67,14 +62,14 @@ export function CharacterInspector({
         </div>
         {invalid && <p className="mt-1 text-[10px] text-red-400">{invalid}</p>}
       </Field>
-      <Field label={tr(language, '对白缩写', '台詞の略称', 'Dialogue abbreviation')}>
+      <Field label={getCodeText(language, 'Dialogue abbreviation')}>
         <input
           className={fieldClass}
           value={character.abbreviation}
           onChange={(event) => onChange({ ...character, abbreviation: event.target.value })}
         />
       </Field>
-      <Field label={tr(language, '默认立绘 URL', 'デフォルト立ち絵 URL', 'Default sprite URL')}>
+      <Field label={getCodeText(language, 'Default sprite URL')}>
         <input
           className={fieldClass}
           value={character.defaultSprite || ''}
@@ -136,7 +131,7 @@ export function CharacterInspector({
           className="mt-1 flex items-center gap-1 text-[11px] text-[var(--vr-accent-strong)]"
         >
           <Plus className="h-3 w-3" />
-          {tr(language, '添加表情', '表情を追加', 'Add expression')}
+          {getCodeText(language, 'Add expression')}
         </button>
       </div>
     </div>
@@ -157,30 +152,28 @@ export function VariableInspector({
   return (
     <div className="space-y-3 p-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-black">
-          {tr(language, '变量检查器', '変数設定', 'Variable inspector')}
-        </h3>
+        <h3 className="text-xs font-black">{getCodeText(language, 'Variable inspector')}</h3>
         {variable.id !== 'gw_score' && (
           <button type="button" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5 text-red-400" />
           </button>
         )}
       </div>
-      <Field label={tr(language, '显示名', '表示名', 'Display name')}>
+      <Field label={getCodeText(language, 'Display name')}>
         <input
           className={fieldClass}
           value={variable.displayName}
           onChange={(event) => onChange({ ...variable, displayName: event.target.value })}
         />
       </Field>
-      <Field label={tr(language, '代码名', 'コード名', 'Code name')}>
+      <Field label={getCodeText(language, 'Code name')}>
         <input
           className={fieldClass}
           value={variable.codeName}
           onChange={(event) => onChange({ ...variable, codeName: event.target.value })}
         />
       </Field>
-      <Field label={tr(language, '类型', '型', 'Type')}>
+      <Field label={getCodeText(language, 'Type')}>
         <select
           className={fieldClass}
           value={variable.type}
@@ -198,7 +191,7 @@ export function VariableInspector({
           <option value="string">string</option>
         </select>
       </Field>
-      <Field label={tr(language, '初始值', '初期値', 'Initial value')}>
+      <Field label={getCodeText(language, 'Initial value')}>
         {variable.type === 'boolean' ? (
           <select
             className={fieldClass}
@@ -257,9 +250,7 @@ export function NodeInspector({
       });
     return (
       <div className="space-y-3 p-3">
-        <h3 className="text-xs font-black">
-          {tr(language, '条件变量', '条件変数', 'Condition variable')}
-        </h3>
+        <h3 className="text-xs font-black">{getCodeText(language, 'Condition variable')}</h3>
         <select
           className={fieldClass}
           value={config.variableId}
@@ -283,7 +274,7 @@ export function NodeInspector({
         </Field>
         <div>
           <div className="mb-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
-            {tr(language, '区间规则', '範囲ルール', 'Interval rules')}
+            {getCodeText(language, 'Interval rules')}
           </div>
           {(config.ranges || []).map((range, index) => (
             <div key={range.id} className="mb-1 grid grid-cols-[1fr_1fr_28px] gap-1">
@@ -337,7 +328,7 @@ export function NodeInspector({
             className="mt-1 flex items-center gap-1 text-[11px] text-[var(--vr-accent-strong)]"
           >
             <Plus className="h-3 w-3" />
-            {tr(language, '添加区间', '範囲を追加', 'Add interval')}
+            {getCodeText(language, 'Add interval')}
           </button>
         </div>
         <p className="text-[10px] leading-4 text-[var(--vr-text-muted)]">
@@ -354,10 +345,8 @@ export function NodeInspector({
     });
   return (
     <div className="space-y-3 p-3">
-      <h3 className="text-xs font-black">
-        {tr(language, '剧情节点', 'ストーリーノード', 'Story node')}
-      </h3>
-      <Field label={tr(language, '说话者', '話者', 'Speaker')}>
+      <h3 className="text-xs font-black">{getCodeText(language, 'Story node')}</h3>
+      <Field label={getCodeText(language, 'Speaker')}>
         <select
           className={fieldClass}
           value={config.speakerId || ''}
@@ -375,7 +364,7 @@ export function NodeInspector({
             })
           }
         >
-          <option value="">{tr(language, '旁白', 'ナレーター', 'Narrator')}</option>
+          <option value="">{getCodeText(language, 'Narrator')}</option>
           {settings.characters.map((character) => (
             <option key={character.sourceNodeId} value={character.sourceNodeId}>
               {character.displayName}
@@ -384,7 +373,7 @@ export function NodeInspector({
         </select>
       </Field>
       {config.speakerId && (
-        <Field label={tr(language, '表情', '表情', 'Expression')}>
+        <Field label={getCodeText(language, 'Expression')}>
           <select
             className={fieldClass}
             value={config.expression || ''}
@@ -398,7 +387,7 @@ export function NodeInspector({
               })
             }
           >
-            <option value="">{tr(language, '默认立绘', 'デフォルト', 'Default sprite')}</option>
+            <option value="">{getCodeText(language, 'Default sprite')}</option>
             {Object.keys(
               settings.characters.find((item) => item.sourceNodeId === config.speakerId)
                 ?.expressions || {},
@@ -412,7 +401,7 @@ export function NodeInspector({
       )}
       <div>
         <div className="mb-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
-          {tr(language, '进入时变量变更', '入場時の変数変更', 'On-enter variable changes')}
+          {getCodeText(language, 'On-enter variable changes')}
         </div>
         {(config.variableChanges || []).map((change, index) => {
           const variable = settings.variables.find((item) => item.id === change.variableId);
@@ -505,7 +494,7 @@ export function NodeInspector({
           className="mt-1 flex items-center gap-1 text-[11px] text-[var(--vr-accent-strong)]"
         >
           <Plus className="h-3 w-3" />
-          {tr(language, '添加变更', '変更を追加', 'Add change')}
+          {getCodeText(language, 'Add change')}
         </button>
       </div>
     </div>

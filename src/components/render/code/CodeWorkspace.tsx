@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, FileCode2, Plus } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, FileCode2, Info, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -7,6 +7,7 @@ import { repairRenpyCodeNames } from './codeExport/model';
 import type { CodeExportTarget, TargetCapability } from './codeExport/targets/targetTypes';
 import type { CodeDiagnostic, RenpyExportSettings } from './codeExport/types';
 import { addVariable, CharacterInspector, NodeInspector, VariableInspector } from './CodeInspector';
+import { CodePreview } from './CodePreview';
 import { CodeRibbon, type CodeWorkspaceTab } from './CodeRibbon';
 import { type CodeTextKey, getCodeText } from './i18n';
 
@@ -18,12 +19,7 @@ type CodeWorkspaceProps = {
   target: CodeExportTarget;
   settings: RenpyExportSettings;
   onSettingsChange: (settings: RenpyExportSettings) => void;
-  onExport: () => void;
-  exporting: boolean;
 };
-
-const tr = (language: Language, _zh: string, _ja: string, en: CodeTextKey) =>
-  getCodeText(language, en);
 
 export function CodeWorkspace({
   nodes,
@@ -33,8 +29,6 @@ export function CodeWorkspace({
   target,
   settings,
   onSettingsChange,
-  onExport,
-  exporting,
 }: CodeWorkspaceProps) {
   const [tab, setTab] = useState<CodeWorkspaceTab>('project');
   const [selectedFile, setSelectedFile] = useState('game/script.rpy');
@@ -73,7 +67,7 @@ export function CodeWorkspace({
   const fileTree = (
     <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
       <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-[var(--vr-text-muted)]">
-        {tr(language, '工程树', 'プロジェクトツリー', 'Project tree')}
+        {getCodeText(language, 'Project tree')}
       </div>
       {preview.files.map((file) => (
         <button
@@ -101,12 +95,9 @@ export function CodeWorkspace({
         language={language}
         tab={tab}
         splitMode={settings.splitMode}
-        exporting={exporting}
-        disabled={errors.length > 0}
         onTab={setTab}
         onSplitMode={(splitMode) => setSettings({ ...settings, splitMode })}
         onRepairCodes={() => setSettings(repairRenpyCodeNames(settings))}
-        onExport={onExport}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {fileTree}
@@ -117,23 +108,15 @@ export function CodeWorkspace({
                 <span>{selected?.path}</span>
                 <span>
                   {selected?.generated === false
-                    ? tr(
-                        language,
-                        '用户文件（重新生成时保留）',
-                        'ユーザーファイル（再生成時に保持）',
-                        'User file (preserved on regeneration)',
-                      )
-                    : tr(
-                        language,
-                        '自动生成（只读）',
-                        '自動生成（読み取り専用）',
-                        'Generated (read-only)',
-                      )}
+                    ? getCodeText(language, 'User file (preserved on regeneration)')
+                    : getCodeText(language, 'Generated (read-only)')}
                 </span>
               </div>
-              <pre className="m-0 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-100">
-                {selected?.content}
-              </pre>
+              <CodePreview
+                content={selected?.content || ''}
+                path={selected?.path || ''}
+                target={target}
+              />
             </div>
           )}
           {tab === 'flow' && (
@@ -157,9 +140,7 @@ export function CodeWorkspace({
             </div>
           )}
           {tab === 'characters' && (
-            <ListView
-              title={tr(language, '角色与对白', 'キャラクターと台詞', 'Characters and dialogue')}
-            >
+            <ListView title={getCodeText(language, 'Characters and dialogue')}>
               {settings.characters.map((character) => (
                 <button
                   key={character.sourceNodeId}
@@ -173,7 +154,7 @@ export function CodeWorkspace({
                   </div>
                   <div className="mt-1 text-[10px] text-[var(--vr-text-muted)]">
                     {Object.keys(character.expressions).length}{' '}
-                    {tr(language, '个表情', '表情', 'expressions')}
+                    {getCodeText(language, 'expressions')}
                   </div>
                 </button>
               ))}
@@ -181,7 +162,7 @@ export function CodeWorkspace({
           )}
           {tab === 'variables' && (
             <ListView
-              title={tr(language, '变量模型', '変数モデル', 'Variable model')}
+              title={getCodeText(language, 'Variable model')}
               action={
                 <button
                   type="button"
@@ -189,7 +170,7 @@ export function CodeWorkspace({
                   className="flex items-center gap-1 text-xs text-[var(--vr-accent-strong)]"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {tr(language, '添加变量', '変数を追加', 'Add variable')}
+                  {getCodeText(language, 'Add variable')}
                 </button>
               }
             >
@@ -216,19 +197,17 @@ export function CodeWorkspace({
           {tab === 'assets' && (
             <div className="p-5">
               <h3 className="mb-4 text-sm font-black">
-                {tr(language, '素材检查', '素材チェック', 'Asset inspection')}
+                {getCodeText(language, 'Asset inspection')}
               </h3>
               <div className="overflow-hidden rounded-lg border border-[var(--vr-border)]">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[var(--vr-surface-strong)] text-[10px] text-[var(--vr-text-muted)]">
                     <tr>
-                      <th className="p-2">
-                        {tr(language, '来源节点', 'ソースノード', 'Source node')}
-                      </th>
-                      <th className="p-2">{tr(language, '类型', '種類', 'Type')}</th>
-                      <th className="p-2">{tr(language, '导出路径', '出力パス', 'Export path')}</th>
-                      <th className="p-2">{tr(language, '兼容状态', '互換性', 'Compatibility')}</th>
-                      <th className="p-2">{tr(language, '引用', '参照', 'Referenced')}</th>
+                      <th className="p-2">{getCodeText(language, 'Source node')}</th>
+                      <th className="p-2">{getCodeText(language, 'Type')}</th>
+                      <th className="p-2">{getCodeText(language, 'Export path')}</th>
+                      <th className="p-2">{getCodeText(language, 'Compatibility')}</th>
+                      <th className="p-2">{getCodeText(language, 'Referenced')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -237,7 +216,16 @@ export function CodeWorkspace({
                         <td className="p-2 font-mono text-[10px]">
                           {asset.sourceNodeIds.join(', ')}
                         </td>
-                        <td className="p-2">{asset.kind}</td>
+                        <td className="p-2">
+                          {getCodeText(
+                            language,
+                            asset.kind === 'image'
+                              ? 'Image'
+                              : asset.kind === 'audio'
+                                ? 'Audio'
+                                : 'Video',
+                          )}
+                        </td>
                         <td className="p-2 font-mono text-[10px]">
                           {preview.manifest.assets
                             .find((item) => item.sourcePath === asset.path)
@@ -247,27 +235,42 @@ export function CodeWorkspace({
                           className={`p-2 ${asset.compatibility === 'compatible' ? 'text-emerald-400' : asset.compatibility === 'unreadable' ? 'text-red-400' : 'text-amber-400'}`}
                           title={asset.note}
                         >
-                          {asset.compatibility}
+                          {getCodeText(
+                            language,
+                            asset.compatibility === 'compatible'
+                              ? 'Compatible'
+                              : asset.compatibility === 'risk'
+                                ? 'Compatibility risk'
+                                : asset.compatibility === 'unreadable'
+                                  ? 'Unreadable'
+                                  : 'Unknown compatibility',
+                          )}
                         </td>
-                        <td className="p-2">{asset.referenced ? '✓' : '—'}</td>
+                        <td className="p-2">
+                          {getCodeText(language, asset.referenced ? 'Yes' : 'No')}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {preview.assets.length === 0 && (
                   <div className="p-5 text-center text-[var(--vr-text-muted)]">
-                    {tr(language, '没有素材', '素材はありません', 'No assets')}
+                    {getCodeText(language, 'No assets')}
                   </div>
                 )}
               </div>
             </div>
           )}
           {tab === 'diagnostics' && (
-            <Diagnostics diagnostics={preview.diagnostics} language={language} />
+            <Diagnostics diagnostics={preview.diagnostics} language={language} target={target} />
           )}
         </section>
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
-          <CapabilityPanel capabilities={preview.capabilities} language={language} />
+          <CapabilityPanel
+            capabilities={preview.capabilities}
+            language={language}
+            target={target}
+          />
           {tab === 'characters' ? (
             (() => {
               const character =
@@ -287,14 +290,7 @@ export function CodeWorkspace({
                   }
                 />
               ) : (
-                <Empty
-                  text={tr(
-                    language,
-                    '项目中没有角色节点',
-                    'キャラクターノードがありません',
-                    'No character nodes in project',
-                  )}
-                />
+                <Empty text={getCodeText(language, 'No character nodes in project')} />
               );
             })()
           ) : tab === 'variables' ? (
@@ -326,12 +322,7 @@ export function CodeWorkspace({
           ) : (
             <div className="p-3">
               <h3 className="mb-3 text-xs font-black">
-                {tr(
-                  language,
-                  '剧情与条件检查器',
-                  'ストーリーと条件',
-                  'Story and condition inspector',
-                )}
+                {getCodeText(language, 'Story and condition inspector')}
               </h3>
               <select
                 className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-bg)] px-2 text-xs"
@@ -339,19 +330,14 @@ export function CodeWorkspace({
                 onChange={(event) => setSelectedNodeId(event.target.value)}
               >
                 <option value="">
-                  {tr(
-                    language,
-                    '选择剧情或条件节点',
-                    'ノードを選択',
-                    'Select a story or condition node',
-                  )}
+                  {getCodeText(language, 'Select a story or condition node')}
                 </option>
                 {runtimeNodes.map((node) => (
                   <option key={node.id} value={node.id}>
                     {String(
                       node.data?.title ||
                         (node.type === 'numberConditionNode'
-                          ? tr(language, '数值条件', '数値条件', 'Number condition')
+                          ? getCodeText(language, 'Number condition')
                           : node.id),
                     )}
                   </option>
@@ -386,18 +372,18 @@ export function CodeWorkspace({
               <div className="mt-4 space-y-2">
                 <Summary
                   icon={CheckCircle2}
-                  label={tr(language, '运行节点', '実行ノード', 'Runtime nodes')}
+                  label={getCodeText(language, 'Runtime nodes')}
                   value={String(runtimeNodes.length)}
                 />
                 <Summary
                   icon={AlertTriangle}
-                  label={tr(language, '错误', 'エラー', 'Errors')}
+                  label={getCodeText(language, 'Errors')}
                   value={String(errors.length)}
                   danger={errors.length > 0}
                 />
                 <Summary
                   icon={AlertTriangle}
-                  label={tr(language, '警告', '警告', 'Warnings')}
+                  label={getCodeText(language, 'Warnings')}
                   value={String(warnings.length)}
                 />
               </div>
@@ -409,8 +395,8 @@ export function CodeWorkspace({
         <span>{getCodeText(language, 'Phase three: shared IR and multi-engine export')}</span>
         <span className={errors.length ? 'text-red-400' : 'text-emerald-400'}>
           {errors.length
-            ? tr(language, '请先修复阻塞错误', 'エラーを修正してください', 'Fix blocking errors')
-            : tr(language, '可以导出工程', '出力できます', 'Ready to export')}
+            ? getCodeText(language, 'Fix blocking errors')
+            : getCodeText(language, 'Ready to export')}
         </span>
       </div>
     </main>
@@ -448,12 +434,29 @@ const capabilityLabelKeys: Partial<Record<string, CodeTextKey>> = {
   ir: 'GalWriter semantic IR',
   presentation: 'Target-specific presentation',
 };
+const capabilityDetailKeys: Partial<Record<string, CodeTextKey>> = {
+  'renpy:flow': 'RenPy flow detail',
+  'renpy:characters': 'RenPy characters detail',
+  'renpy:media': 'RenPy media detail',
+  'renpy:animation': 'RenPy animation detail',
+  'tyrano:flow': 'Tyrano flow detail',
+  'tyrano:characters': 'Tyrano characters detail',
+  'tyrano:media': 'Tyrano media detail',
+  'tyrano:animation': 'Tyrano animation detail',
+  'dialogic:flow': 'Dialogic flow detail',
+  'dialogic:characters': 'Dialogic characters detail',
+  'dialogic:background': 'Dialogic background detail',
+  'dialogic:media': 'Dialogic media detail',
+  'dialogic:animation': 'Dialogic animation detail',
+};
 function CapabilityPanel({
   capabilities,
   language,
+  target,
 }: {
   capabilities: TargetCapability[];
   language: Language;
+  target: CodeExportTarget;
 }) {
   return (
     <div className="border-b border-[var(--vr-border)] p-3">
@@ -486,7 +489,11 @@ function CapabilityPanel({
                 )}
               </span>
             </div>
-            <p className="mt-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{item.detail}</p>
+            <p className="mt-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+              {capabilityDetailKeys[`${target}:${item.id}`]
+                ? getCodeText(language, capabilityDetailKeys[`${target}:${item.id}`])
+                : item.detail}
+            </p>
           </div>
         ))}
       </div>
@@ -519,32 +526,56 @@ function Summary({
 function Diagnostics({
   diagnostics,
   language,
+  target,
 }: {
   diagnostics: CodeDiagnostic[];
   language: Language;
+  target: CodeExportTarget;
 }) {
+  const localizedMessage = (item: CodeDiagnostic) => {
+    const supportPrefix = `${target}-support-`;
+    if (!item.id.startsWith(supportPrefix)) return item.message;
+    const capabilityId = item.id.slice(supportPrefix.length);
+    const labelKey = capabilityLabelKeys[capabilityId];
+    const detailKey = capabilityDetailKeys[`${target}:${capabilityId}`];
+    if (!labelKey || !detailKey) return item.message;
+    return `${getCodeText(language, labelKey)}：${getCodeText(language, detailKey)}`;
+  };
   return (
     <div className="h-full overflow-auto p-5">
-      <h3 className="mb-4 text-sm font-black">
-        {tr(language, '导出诊断', 'エクスポート診断', 'Export diagnostics')}
-      </h3>
+      <h3 className="mb-4 text-sm font-black">{getCodeText(language, 'Export diagnostics')}</h3>
       {diagnostics.length === 0 ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-          {tr(language, '没有阻塞问题。', '問題はありません。', 'No blocking issues.')}
+          {getCodeText(language, 'No blocking issues.')}
         </div>
       ) : (
-        diagnostics.map((item) => (
-          <div
-            key={item.id}
-            className={`mb-2 rounded-lg border p-3 text-sm ${item.level === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-100'}`}
-          >
-            <b className="mr-2 text-[10px] uppercase">{item.level}</b>
-            {item.message}
-            {item.nodeId && (
-              <span className="ml-2 font-mono text-xs opacity-70">{item.nodeId}</span>
-            )}
-          </div>
-        ))
+        diagnostics.map((item) => {
+          const Icon =
+            item.level === 'error' ? AlertCircle : item.level === 'warning' ? AlertTriangle : Info;
+          const levelKey =
+            item.level === 'error' ? 'Error' : item.level === 'warning' ? 'Warning' : 'Info';
+          return (
+            <div
+              key={item.id}
+              className={`code-diagnostic-card code-diagnostic-card--${item.level}`}
+            >
+              <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-2">
+                  <b className="code-diagnostic-level">{getCodeText(language, levelKey)}</b>
+                  {item.nodeId && (
+                    <span className="font-mono text-[10px] text-[var(--vr-text-muted)]">
+                      {item.nodeId}
+                    </span>
+                  )}
+                </div>
+                <p className="m-0 break-words text-[13px] font-medium leading-5 text-[var(--vr-text)]">
+                  {localizedMessage(item)}
+                </p>
+              </div>
+            </div>
+          );
+        })
       )}
     </div>
   );

@@ -1,13 +1,4 @@
-import {
-  Boxes,
-  Bug,
-  FolderTree,
-  GitBranch,
-  PackageOpen,
-  Settings2,
-  Users,
-  Variable,
-} from 'lucide-react';
+import { Boxes, Bug, FolderTree, GitBranch, Settings2, Users, Variable } from 'lucide-react';
 
 import type { Language } from '../../../lib/i18n';
 import type { RenpySplitMode } from './codeExport/types';
@@ -34,22 +25,16 @@ export function CodeRibbon({
   language,
   tab,
   splitMode,
-  exporting,
-  disabled,
   onTab,
   onSplitMode,
   onRepairCodes,
-  onExport,
 }: {
   language: Language;
   tab: CodeWorkspaceTab;
   splitMode: RenpySplitMode;
-  exporting: boolean;
-  disabled: boolean;
   onTab: (tab: CodeWorkspaceTab) => void;
   onSplitMode: (mode: RenpySplitMode) => void;
   onRepairCodes: () => void;
-  onExport: () => void;
 }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-4 py-2">
@@ -93,15 +78,6 @@ export function CodeRibbon({
             <option value="background">{getCodeText(language, 'By background')}</option>
           </select>
         </label>
-        <button
-          type="button"
-          onClick={onExport}
-          disabled={exporting || disabled}
-          className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--vr-accent)] px-3 text-xs font-black text-white disabled:opacity-45"
-        >
-          <PackageOpen className="h-3.5 w-3.5" />
-          {getCodeText(language, exporting ? 'Exporting' : 'Export project')}
-        </button>
       </div>
     </div>
   );
