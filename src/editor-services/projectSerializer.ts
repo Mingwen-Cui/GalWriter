@@ -271,16 +271,8 @@ const restoreStoredPresentationTemplates = (templates: PresentationTemplates | u
   window.dispatchEvent(new Event('galwriter-templates-changed'));
 };
 
-const stripAutoStoryNodeRuntimeStyle = (style: Node['style'] | undefined): Node['style'] => {
-  if (!style) return style;
-  const { minHeight: _minHeight, ...rest } = style;
-  return rest;
-};
-
 const normalizeStoryNodeCardStyle = (style: Node['style'] | undefined): Node['style'] => ({
   ...style,
-  height: 60,
-  minHeight: 60,
 });
 
 const isEmbeddableMediaUrl = (value: string) =>
@@ -744,8 +736,7 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         ...(isStoryNode
           ? {
               measured: undefined,
-              height: 60,
-              style: normalizeStoryNodeCardStyle(stripAutoStoryNodeRuntimeStyle(node.style)),
+              style: normalizeStoryNodeCardStyle(node.style),
             }
           : {}),
         data: { ...node.data },
@@ -832,11 +823,11 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
         position: node.position,
         type: node.type,
         style: isStoryNode
-          ? normalizeStoryNodeCardStyle(stripAutoStoryNodeRuntimeStyle(node.style))
+          ? normalizeStoryNodeCardStyle(node.style)
           : node.style,
         data: { ...node.data },
         width: node.measured?.width || node.width,
-        height: isStoryNode ? 60 : node.measured?.height || node.height,
+        height: node.measured?.height || node.height,
         dragHandle: node.dragHandle,
       };
     }) as StoryNode[];

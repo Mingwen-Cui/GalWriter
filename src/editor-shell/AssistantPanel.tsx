@@ -210,13 +210,15 @@ const AssistantContextPreviewCard = ({
 
 type ArticleRolePickerProps = NonNullable<AssistantMessage['articleRolePicker']> & {
   onSelect: (nodeId: string) => void;
+  onConfirm: () => void;
 };
 
-const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePickerProps) => {
+const ArticleRolePicker = ({ candidates, selectedId, onSelect, onConfirm }: ArticleRolePickerProps) => {
   const [previewId, setPreviewId] = useState<string | null>(
     selectedId || candidates[0]?.nodeId || null,
   );
   const preview = candidates.find((candidate) => candidate.nodeId === previewId) || candidates[0];
+  const selectedCandidate = candidates.find((candidate) => candidate.nodeId === selectedId);
 
   if (!preview) {
     return (
@@ -230,7 +232,7 @@ const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePick
     <div className="mt-3 overflow-hidden rounded-2xl border border-indigo-200 bg-white p-2.5 dark:border-indigo-900 dark:bg-slate-950">
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
         <span className="text-xs font-black text-slate-800 dark:text-slate-100">人物设定库</span>
-        <span className="text-[10px] text-slate-500">悬停预览 · 选择后再确认</span>
+        <span className="text-[10px] text-slate-500">悬停预览 · 确认后开始讲解</span>
       </div>
       <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-2">
         <div className="custom-scrollbar max-h-64 space-y-1.5 overflow-y-auto pr-1">
@@ -242,7 +244,10 @@ const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePick
                 type="button"
                 onMouseEnter={() => setPreviewId(candidate.nodeId)}
                 onFocus={() => setPreviewId(candidate.nodeId)}
-                onClick={() => onSelect(candidate.nodeId)}
+                onClick={() => {
+                  setPreviewId(candidate.nodeId);
+                  onSelect(candidate.nodeId);
+                }}
                 className={`flex w-full items-center gap-2 rounded-xl border p-2 text-left transition-colors ${
                   selected
                     ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50'
@@ -265,7 +270,12 @@ const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePick
                     {candidate.name}
                   </span>
                   <span className="block truncate text-[10px] text-slate-500">
-                    {candidate.identity || '人物设定卡'}
+                    {candidate.identity ||
+                      (candidate.source === 'saved'
+                        ? '已保存设定'
+                        : candidate.source === 'preset'
+                          ? '预设人物'
+                          : '画布人物')}
                   </span>
                 </span>
                 {selected && (
@@ -294,6 +304,14 @@ const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePick
           </div>
         </article>
       </div>
+      <button
+        type="button"
+        disabled={!selectedCandidate}
+        onClick={onConfirm}
+        className="mt-2.5 w-full rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-800"
+      >
+        {selectedCandidate ? `确认 ${selectedCandidate.name}，开始讲解` : '请选择要讲解的人物'}
+      </button>
     </div>
   );
 };
@@ -686,15 +704,6 @@ export function AssistantPanel({
     setExpandedArticleAnalysisSteps(new Set());
   };
 
-  const selectArticleTeachingMode = (mode: 'interactive' | 'lecture') => {
-    setDocumentUploadOpen(false);
-    setDocumentDragActive(false);
-    setDocumentUploadIntent(null);
-    setArticleUploadStage('upload');
-    setExpandedArticleAnalysisSteps(new Set());
-    void handleAssistantOptionSelect(`__article_teach__:${mode}`);
-  };
-
   const toggleArticleAnalysisStep = (stepTitle: string) => {
     setExpandedArticleAnalysisSteps((current) => {
       const next = new Set(current);
@@ -752,6 +761,9 @@ export function AssistantPanel({
         ? 'analyzing'
         : articleUploadStage;
   const articleAnalysisSummary = assistantArticleAnalysis.summary || articleDocumentSummary;
+  const articleRolePickerMessage = [...visibleAssistantMessages]
+    .reverse()
+    .find((message) => message.role === 'assistant' && message.articleRolePicker);
 
   if (!shouldRender) return null;
 
@@ -1131,17 +1143,17 @@ export function AssistantPanel({
                     })}
                   </div>
                 </div>
-                {effectiveArticleStage === 'ready' && (
-                  <div className="assistant-article-teach-choice">
-                    <p>{ui.articleFlow.learningPrompt}</p>
-                    <button
-                      type="button"
-                      onClick={() => void handleAssistantOptionSelect('__article_roles_create__')}
-                    >
-                      <span>{ui.generateCharacters}</span>
-                      <small>{ui.articleFlow.characterDescription}</small>
-                    </button>
-                  </div>
+                {effectiveArticleStage === 'ready' && articleRolePickerMessage?.articleRolePicker && (
+                  <ArticleRolePicker
+                    {...articleRolePickerMessage.articleRolePicker}
+                    onSelect={(nodeId) =>
+                      void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
+                    }
+                    onConfirm={() => {
+                      closeDocumentUpload();
+                      void handleAssistantOptionSelect('__article_role_confirm__');
+                    }}
+                  />
                 )}
               </>
             )}
@@ -1267,6 +1279,7 @@ export function AssistantPanel({
                       onSelect={(nodeId) =>
                         void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
                       }
+                      onConfirm={() => void handleAssistantOptionSelect('__article_role_confirm__')}
                     />
                   )}
                   {message.role === 'assistant' &&

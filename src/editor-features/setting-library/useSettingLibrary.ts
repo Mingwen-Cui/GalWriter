@@ -12,10 +12,10 @@ import type {
 import {
   getSettingLibraryPresets,
   loadSettingLibraryPreset,
+  type SettingLibraryItem,
   toCharacterSettingLibraryData,
   toSceneSettingLibraryData,
   toSettingLibraryListItem,
-  type SettingLibraryItem,
 } from '../../domain/settingLibrary';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
@@ -258,12 +258,58 @@ export const useSettingLibrary = ({
   );
 
   const useSettingLibraryItem = useCallback(
-    async (kind: SettingLibraryKind, itemId: string, source: SettingLibrarySource) => {
+    async (
+      targetNodeId: string,
+      kind: SettingLibraryKind,
+      itemId: string,
+      source: SettingLibrarySource,
+    ) => {
       const item =
         source === 'preset'
           ? await loadSettingLibraryPreset(itemId)
           : await localPersistenceService.getSettingLibraryItem(itemId);
       if (!item || item.kind !== kind) return;
+
+      const targetNode = nodes.find((node) => node.id === targetNodeId);
+      const targetIsEmpty =
+        (kind === 'character' &&
+          targetNode?.type === 'characterNode' &&
+          !hasCharacterSettingContent({
+            ...(targetNode.data as CharacterNodeData),
+            characterName: '',
+          })) ||
+        (kind === 'scene' &&
+          targetNode?.type === 'sceneNode' &&
+          !hasSceneSettingContent({
+            ...(targetNode.data as SceneNodeData),
+            sceneName: '',
+          }));
+
+      if (targetIsEmpty) {
+        setNodes((currentNodes) =>
+          currentNodes.map((node) => {
+            if (node.id !== targetNodeId || node.type !== targetNode?.type) return node;
+            const libraryData = item.data as CharacterNodeData | SceneNodeData;
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                ...libraryData,
+                libraryItemId: source === 'saved' ? item.id : undefined,
+                ...(kind === 'character'
+                  ? { outfits: (libraryData as CharacterNodeData).outfits?.map((outfit) => ({ ...outfit })) }
+                  : { images: (libraryData as SceneNodeData).images?.map((image) => ({ ...image })) }),
+              },
+            };
+          }),
+        );
+        showToast(
+          language === 'zh'
+            ? `已将「${item.name}」填入当前${kind === 'character' ? '人物' : '场景'}设定`
+            : `Applied ${item.name} to the current ${kind === 'character' ? 'character' : 'scene'}.`,
+        );
+        return;
+      }
 
       const id = uuidv4();
       const center = getCenterPosition();
@@ -298,7 +344,7 @@ export const useSettingLibrary = ({
       ]);
       showToast(language === 'zh' ? `已添加「${item.name}」` : `Added ${item.name}`);
     },
-    [getCenterPosition, language, setNodes, showToast],
+    [getCenterPosition, language, nodes, setNodes, showToast],
   );
 
   const deleteSettingLibrary = useCallback(
@@ -321,8 +367,10 @@ export const useSettingLibrary = ({
     deleteSettingLibrary,
     assistantContext,
     getListItems,
+    presetItems,
     presetListItems,
     refreshSettingLibrary,
+    savedItems,
     savedListItems,
     saveSettingLibrary,
     useSettingLibraryItem,

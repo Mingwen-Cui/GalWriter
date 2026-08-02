@@ -1,4 +1,4 @@
-import { BookOpen, BookmarkPlus, Plus, Trash2, X } from 'lucide-react';
+import { BookOpen, BookmarkPlus, FilePenLine, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type {
@@ -147,9 +147,9 @@ export function SettingLibraryMenu({
                     onClick={() => void run(item.id, () => onUse?.(item.id, item.source))}
                     disabled={!onUse || busyItemId !== null}
                     className={`shrink-0 rounded p-1 ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
-                    title="添加到当前项目"
+                    title="使用此设定"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <FilePenLine className="h-3.5 w-3.5" />
                   </button>
                   {item.source === 'saved' && (
                     <button

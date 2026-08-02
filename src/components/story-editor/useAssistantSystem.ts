@@ -14,6 +14,7 @@ import type {
   SceneNodeData,
   StoryNodeData,
 } from '../../domain/project';
+import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import {
   type AssistantCardPlacementResult,
   useAssistantPanel,
@@ -72,6 +73,8 @@ interface UseAssistantSystemParams {
   assistantMemoryNotes: string[];
   setAssistantMemoryNotes: React.Dispatch<React.SetStateAction<string[]>>;
   settingLibraryContext: string;
+  savedSettingLibraryItems: SettingLibraryItem[];
+  presetSettingLibraryItems: SettingLibraryItem[];
 
   selectedAssistantTargetNodes: Node[];
 
@@ -111,6 +114,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     assistantMemoryNotes,
     setAssistantMemoryNotes,
     settingLibraryContext,
+    savedSettingLibraryItems,
+    presetSettingLibraryItems,
     selectedAssistantTargetNodes,
     showToast,
     requestSettingsAttention,
@@ -1866,6 +1871,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     assistantMemoryNotes,
     setAssistantMemoryNotes,
     settingLibraryContext,
+    savedSettingLibraryItems,
+    presetSettingLibraryItems,
   });
 
   const miniMapOverlayStyle =

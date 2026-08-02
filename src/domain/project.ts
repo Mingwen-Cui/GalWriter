@@ -108,6 +108,7 @@ export type AssistantMessage = {
       identity?: string;
       imageUrl?: string;
       summary: string;
+      source?: 'saved' | 'preset' | 'canvas';
     }>;
   };
   options?: AssistantMessageOption[];
@@ -556,6 +557,7 @@ export interface EditorNodeCallbacks {
   onUpdate?: (id: string, data: Record<string, unknown>) => void;
   onAddNode?: (sourceId: string, side: string) => void;
   onDelete?: (id: string) => void;
+  onShowToast?: (message: string, tone?: 'success' | 'error') => void;
   onZenMode?: Dispatch<SetStateAction<string | null>>;
   onAIGenerate?: (id: string, action?: AIActionType) => void;
   onAIAnalyze?: (id: string, mode?: string) => Promise<void> | void;
@@ -582,6 +584,7 @@ export interface EditorNodeCallbacks {
     mode: 'new' | 'update',
   ) => Promise<void> | void;
   onUseSettingLibrary?: (
+    targetNodeId: string,
     kind: SettingLibraryKind,
     itemId: string,
     source: SettingLibrarySource,

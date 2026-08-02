@@ -519,7 +519,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                 savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'scene')}
                 presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'scene')}
                 onSave={(mode) => data.onSaveSettingLibrary?.(id, 'scene', mode)}
-                onUse={(itemId, source) => data.onUseSettingLibrary?.('scene', itemId, source)}
+                onUse={(itemId, source) => data.onUseSettingLibrary?.(id, 'scene', itemId, source)}
                 onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
               />
               <button

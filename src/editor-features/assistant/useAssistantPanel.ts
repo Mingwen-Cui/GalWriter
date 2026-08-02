@@ -8,6 +8,8 @@ import type {
   AssistantCardPlacementMode,
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
+import type { CharacterNodeData } from '../../domain/project';
+import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { useDialog } from '../../editor-shell/DialogProvider';
@@ -43,8 +45,6 @@ import {
   cloneAssistantTasks,
   createArticleCustomSceneCards,
   createArticleDefaultSceneCards,
-  createArticleRoleCandidateCards,
-  createArticleRoleSelectionOptions,
   createArticleTeachingModeOptions,
   createAssistantStoryProfile,
   createAssistantWelcomeMessage,
@@ -63,23 +63,31 @@ import {
   parseAssistantGeneratedOptions,
 } from './assistantPanelHelpers';
 
-const createArticleRoleLibraryPicker = (nodes: Node[]) => ({
-  candidates: nodes
-    .filter((node) => node.type === 'characterNode')
+type ArticleRoleLibraryCandidate = {
+  node: Node;
+  source: 'saved' | 'preset' | 'canvas';
+};
+
+const createArticleRoleLibraryPicker = (candidates: ArticleRoleLibraryCandidate[]) => ({
+  candidates: candidates
     .map((node) => {
-      const data = node.data || {};
+      const data = node.node.data || {};
       const summary = [
         data.identity,
+        data.appearance,
         data.traits,
         data.personality,
+        data.habits,
+        data.speechStyle,
         data.features,
         data.background,
+        data.notes,
         data.other,
       ]
         .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         .join('\n');
       return {
-        nodeId: node.id,
+        nodeId: node.node.id,
         name: String(data.characterName || '未命名人物'),
         identity: typeof data.identity === 'string' ? data.identity : undefined,
         imageUrl:
@@ -89,9 +97,33 @@ const createArticleRoleLibraryPicker = (nodes: Node[]) => ({
               ? data.imageUrl
               : undefined,
         summary,
+        source: node.source,
       };
     }),
 });
+
+const createArticleRoleLibraryNodes = (
+  items: SettingLibraryItem[],
+  source: 'saved' | 'preset',
+): ArticleRoleLibraryCandidate[] =>
+  items
+    .filter((item) => item.kind === 'character')
+    .map((item) => {
+      const data = item.data as CharacterNodeData;
+      return {
+        source,
+        node: {
+          id: `article-library:${source}:${item.id}`,
+          type: 'characterNode',
+          position: { x: 0, y: 0 },
+          data: {
+            ...data,
+            characterName: data.characterName || item.name,
+            libraryItemId: item.id,
+          },
+        },
+      };
+    });
 export type {
   AssistantArticleAnalysisState,
   AssistantCardPlacementResult,
@@ -166,6 +198,8 @@ interface UseAssistantPanelParams {
   assistantMemoryNotes: string[];
   setAssistantMemoryNotes: Dispatch<SetStateAction<string[]>>;
   settingLibraryContext: string;
+  savedSettingLibraryItems: SettingLibraryItem[];
+  presetSettingLibraryItems: SettingLibraryItem[];
 }
 
 export interface AssistantInputContext {
@@ -256,6 +290,8 @@ export const useAssistantPanel = ({
   assistantMemoryNotes,
   setAssistantMemoryNotes,
   settingLibraryContext,
+  savedSettingLibraryItems,
+  presetSettingLibraryItems,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const { alert: showDialogAlert } = useDialog();
   const [assistantOpen, setAssistantOpen] = useState(!isMobile);
@@ -307,6 +343,7 @@ export const useAssistantPanel = ({
   const assistantWorkflowRef = useRef<AssistantWorkflowState>({ type: 'idle' });
   const [savedStoryProfile, setSavedStoryProfile] = useState<AssistantStoryProfile | null>(null);
   const assistantVisualizationRequestsRef = useRef(new Map<string, string[]>());
+  const articleRoleCandidatesRef = useRef(new Map<string, Node>());
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
   const assistantAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -320,6 +357,21 @@ export const useAssistantPanel = ({
     [assistantTasks, activeAssistantTaskId],
   );
   const assistantMessages = activeAssistantTask?.messages || [];
+
+  const buildArticleRoleLibraryPicker = useCallback(() => {
+    const libraryCandidates = [
+      ...createArticleRoleLibraryNodes(savedSettingLibraryItems, 'saved'),
+      ...createArticleRoleLibraryNodes(presetSettingLibraryItems, 'preset'),
+    ];
+    const candidates =
+      libraryCandidates.length > 0
+        ? libraryCandidates
+        : nodes
+            .filter((node) => node.type === 'characterNode')
+            .map((node) => ({ node, source: 'canvas' as const }));
+    articleRoleCandidatesRef.current = new Map(candidates.map(({ node }) => [node.id, node]));
+    return createArticleRoleLibraryPicker(candidates);
+  }, [nodes, presetSettingLibraryItems, savedSettingLibraryItems]);
 
   useEffect(() => {
     assistantTasksRef.current = assistantTasks;
@@ -932,45 +984,22 @@ ${documentContext}`);
             },
             'ready',
           );
-          setAssistantLoading(true);
-          try {
-            const placement = await createAssistantCards(
-              markArticleCandidateCards(createArticleRoleCandidateCards(), 'article-role'),
-              'append',
-            );
-            assistantWorkflowRef.current = {
-              type: 'article-role-awaiting',
-              candidateNodeIds: placement.nodeIds || [],
-            };
-            setAssistantMessages((messages) => [
-              ...messages,
-              {
-                id: uuidv4(),
-                role: 'assistant',
-                content:
-                  language === 'zh'
-                    ? '文章结构已解析完成。请直接从下方的人物设定库选择已有角色；悬停可预览真实设定，选中后再确认才会继续生成。'
-                    : 'Article analysis is complete. Choose an existing character from the setting library below, preview it on hover, then confirm to continue.',
-                cardPosition: placement.position,
-                cardNodeIds: placement.nodeIds,
-                articleRolePicker: createArticleRoleLibraryPicker(nodes),
-                options: [
-                  {
-                    id: uuidv4(),
-                    label: '使用当前选中的人物模板',
-                    value: '__article_role_confirm__',
-                  },
-                  {
-                    id: uuidv4(),
-                    label: '确认当前选中的人物卡',
-                    value: '__article_role_confirm__',
-                  },
-                ],
-              },
-            ]);
-          } finally {
-            setAssistantLoading(false);
-          }
+          assistantWorkflowRef.current = {
+            type: 'article-role-awaiting',
+            candidateNodeIds: [],
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                language === 'zh'
+                  ? '文章结构已解析完成。人物设定库已准备好：悬停可快速预览，选中人物后确认即可开始生成对应讲解。'
+                  : 'Article analysis is complete. The character setting library is ready: preview on hover, then confirm a character to start its explanation.',
+              articleRolePicker: buildArticleRoleLibraryPicker(),
+            },
+          ]);
           return;
         }
 
@@ -1030,6 +1059,7 @@ ${documentContext}`);
       }
     },
     [
+      buildArticleRoleLibraryPicker,
       createArticleAnalysisSteps,
       createAssistantCards,
       hasTextApiKey,
@@ -2576,9 +2606,8 @@ cards 必须正好有 3 张。`);
           {
             id: uuidv4(),
             role: 'assistant',
-            content: '请从当前人物设定库选择一名教学角色。悬停可查看真实设定；选中后点击确认，才会开始生成。',
-            articleRolePicker: createArticleRoleLibraryPicker(nodes),
-            options: [{ id: uuidv4(), label: '确认所选人物', value: '__article_role_confirm__' }],
+            content: '人物设定库已准备好。悬停可快速查看效果，确认人物后即开始生成对应讲解。',
+            articleRolePicker: buildArticleRoleLibraryPicker(),
           },
         ]);
         return;
@@ -2586,9 +2615,10 @@ cards 必须正好有 3 张。`);
 
       if (value.startsWith('__article_role_select__:')) {
         const selectedCharacterNodeId = value.slice('__article_role_select__:'.length);
-        const selectedRole = nodes.find(
-          (node) => node.id === selectedCharacterNodeId && node.type === 'characterNode',
-        );
+        const selectedRole =
+          nodes.find(
+            (node) => node.id === selectedCharacterNodeId && node.type === 'characterNode',
+          ) || articleRoleCandidatesRef.current.get(selectedCharacterNodeId);
         if (!selectedRole) return;
         const workflow = assistantWorkflowRef.current;
         if (workflow.type !== 'article-role-awaiting') return;
@@ -2864,32 +2894,19 @@ cards 必须正好有 3 张。`);
       }
 
       if (value === '__article_roles_create__') {
-        setAssistantLoading(true);
-        try {
-          const placement = await createAssistantCards(
-            markArticleCandidateCards(createArticleRoleCandidateCards(), 'article-role'),
-            'append',
-          );
-          assistantWorkflowRef.current = {
-            type: 'article-role-awaiting',
-            candidateNodeIds: placement.nodeIds || [],
-          };
-          setAssistantMessages((messages) => [
-            ...messages,
-            {
-              id: uuidv4(),
-              role: 'assistant',
-              content:
-                '请直接从下方的人物设定库选择已有角色；悬停可预览真实设定，选中后再确认才会继续生成。',
-              cardPosition: placement.position,
-              cardNodeIds: placement.nodeIds,
-              articleRolePicker: createArticleRoleLibraryPicker(nodes),
-              options: createArticleRoleSelectionOptions(),
-            },
-          ]);
-        } finally {
-          setAssistantLoading(false);
-        }
+        assistantWorkflowRef.current = {
+          type: 'article-role-awaiting',
+          candidateNodeIds: [],
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '人物设定库已准备好。悬停可快速查看效果，确认人物后即开始生成对应讲解。',
+            articleRolePicker: buildArticleRoleLibraryPicker(),
+          },
+        ]);
         return;
       }
 
@@ -2922,7 +2939,7 @@ cards 必须正好有 3 张。`);
           ? nodes.find(
               (node) =>
                 node.id === workflow.selectedCharacterNodeId && node.type === 'characterNode',
-            )
+            ) || articleRoleCandidatesRef.current.get(workflow.selectedCharacterNodeId)
           : undefined;
         if (!selectedRole) {
           setAssistantMessages((messages) => [
@@ -3233,11 +3250,13 @@ cards 必须正好有 3 张。`);
     },
     [
       askStoryProfileQuestion,
+      buildArticleRoleLibraryPicker,
       generateStoryProfileOpenings,
       getStoryProfileQuestionCopy,
       handleAssistantSend,
       language,
       onGenerateAssistantImagesRequest,
+      nodes,
       requestAssistantOptions,
       setAssistantMessages,
       setSavedStoryProfile,

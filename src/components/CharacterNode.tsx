@@ -665,7 +665,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
               savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'character')}
               presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'character')}
               onSave={(mode) => data.onSaveSettingLibrary?.(id, 'character', mode)}
-              onUse={(itemId, source) => data.onUseSettingLibrary?.('character', itemId, source)}
+              onUse={(itemId, source) => data.onUseSettingLibrary?.(id, 'character', itemId, source)}
               onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
             />
             <button
