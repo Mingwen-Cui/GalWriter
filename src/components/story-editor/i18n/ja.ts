@@ -20,6 +20,10 @@ export const storyEditorJa: typeof storyEditorEn = {
   regionContext:
     '以下の「{regionTitle}」エリア内のカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
   regionLimit: 'AIアシスタントには最大10個のエリアを追加できます。',
+  selectionEmpty: '選択範囲内にAIへ送信できるカードがありません。',
+  selectionContext: '以下の選択したカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
+  selectionLimit: 'AIアシスタントには最大10個のカードグループを追加できます。',
+  selectionTitle: '選択したカード · {count}',
   plotUnable: 'ストーリーを生成できません',
   plotNoCards: 'このエリアには続きから生成できるストーリーカードがありません。',
   plotBriefDetail: '各カードを1〜3文で簡潔に展開してください。',

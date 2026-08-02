@@ -18,6 +18,11 @@ export const storyEditorEn = {
   regionContext:
     'Read and use the cards in the "{regionTitle}" area as the current writing context.\n\n{content}',
   regionLimit: 'You can attach up to 10 area groups to the AI assistant.',
+  selectionEmpty: 'There are no selected cards to send to AI.',
+  selectionContext:
+    'Read and use the following selected cards as the current writing context.\n\n{content}',
+  selectionLimit: 'You can attach up to 10 card groups to the AI assistant.',
+  selectionTitle: 'Selected cards · {count}',
   plotUnable: 'Unable to generate',
   plotNoCards: 'No story cards were found in this area to continue from.',
   plotBriefDetail: 'Use 1-3 sentences per card and move the plot forward concisely.',

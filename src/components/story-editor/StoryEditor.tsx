@@ -1437,6 +1437,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     addNewCharacterNode,
     addNewSceneNode,
     handleMediaUpload,
+    addNewBackgroundCard,
+    addNewDynamicWrap,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
     convertBackgroundToDynamicGroup,
@@ -2510,6 +2512,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             setToolbarCollapsed={setToolbarCollapsed}
             setInteractionMode={setInteractionMode}
             addNewShape={addNewShape}
+            addNewBackgroundCard={addNewBackgroundCard}
+            addNewDynamicWrap={addNewDynamicWrap}
             addNewTextNode={addNewTextNode}
             addNewHeadingTextNode={addNewHeadingTextNode}
             addNewCharacterNode={addNewCharacterNode}
@@ -2613,6 +2617,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     ttsLoading,
                     onWrapDynamicGroup: wrapWithDynamicGroup,
                     onWrapBackground: wrapSelectedWithBackground,
+                    onSendToAssistant: () =>
+                      handlePrefillAssistantFromRegion(selectedNodes.map((node) => node.id)),
                     onArrange: arrangeSelected,
                     onBatchExport: connectSelectedToSummaryNode,
                     onNarrate: handleGenerateSelectedSpeech,

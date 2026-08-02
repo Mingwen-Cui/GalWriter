@@ -1,4 +1,4 @@
-import { Copy, EyeOff, FileText, Grid3X3, Layers, Square, Trash2, Volume2 } from 'lucide-react';
+import { Bot, Copy, EyeOff, FileText, Grid3X3, Layers, Square, Trash2, Volume2 } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import type { Language } from '../../lib/i18n';
@@ -12,6 +12,7 @@ interface SelectionMenuProps {
   ttsLoading: boolean;
   onWrapDynamicGroup: () => void;
   onWrapBackground: () => void;
+  onSendToAssistant: () => void;
   onBatchExport: () => void;
   onArrange: () => void;
   onNarrate: () => void;
@@ -37,6 +38,7 @@ export function SelectionMenu({
   ttsLoading,
   onWrapDynamicGroup,
   onWrapBackground,
+  onSendToAssistant,
   onBatchExport,
   onArrange,
   onNarrate,
@@ -71,6 +73,8 @@ export function SelectionMenu({
 
   const dynamicWrapLabel = language === 'zh' ? '\u52a8\u6001\u5305\u88f9' : t.dynamicWrap;
   const bgCardLabel = language === 'zh' ? '\u80cc\u666f\u5361\u7247' : t.bgCard;
+  const sendToAssistantLabel =
+    language === 'zh' ? '\u53d1\u9001\u7ed9 AI' : language === 'ja' ? 'AI\u306b\u9001\u4fe1' : 'Send to AI';
   const batchExportLabel =
     language === 'zh' ? '\u6279\u91cf\u6587\u672c\u5bfc\u51fa' : 'Batch Export';
   const narrationLabel = language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Narration';
@@ -113,6 +117,17 @@ export function SelectionMenu({
       >
         <Square className={`${iconSizeClass} shrink-0`} />
         <span className={nowrapClass}>{bgCardLabel}</span>
+      </button>
+
+      <Divider horizontal={isHorizontal} isMobile={isMobile} />
+
+      <button
+        onClick={onSendToAssistant}
+        className={buttonBaseClass}
+        title={sendToAssistantLabel}
+      >
+        <Bot className={`${iconSizeClass} shrink-0`} />
+        <span className={nowrapClass}>{sendToAssistantLabel}</span>
       </button>
 
       <Divider horizontal={isHorizontal} isMobile={isMobile} />

@@ -372,6 +372,32 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
     return fallbackHullPoints;
   }, [childNodes, groupPosition.x, groupPosition.y, groupGap, fallbackHullPoints]);
 
+  const [viewportX, viewportY, viewportZoom] = useStore((state) => state.transform);
+
+  /**
+   * NodeToolbar 是通过 Portal 渲染的，并会默认使用 GroupNode 创建时的 100 × 100 边界。
+   * 动态包裹不改写自己的边界，只把工具栏的屏幕坐标锚定到实时轮廓的顶部中心，
+   * 这样既不会出现工具栏留在远处，也不会因为反复写入节点尺寸而产生抖动。
+   */
+  const toolbarTransform = useMemo(() => {
+    if (hullPoints.length < 3) return undefined;
+
+    let minX = hullPoints[0].x;
+    let maxX = hullPoints[0].x;
+    let minY = hullPoints[0].y;
+
+    hullPoints.forEach((point) => {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+    });
+
+    const screenX = (groupPosition.x + (minX + maxX) / 2) * viewportZoom + viewportX;
+    const screenY = (groupPosition.y + minY) * viewportZoom + viewportY - 25;
+
+    return `translate(${screenX}px, ${screenY}px) translate(-50%, -100%)`;
+  }, [groupPosition.x, groupPosition.y, hullPoints, viewportX, viewportY, viewportZoom]);
+
   const batchToolSnapshots = useStore((state) => {
     const nodeLookup = (state as any).nodeLookup;
 
@@ -499,10 +525,14 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
           isVisible={selected && selectionCount === 1}
           position={Position.Top}
           offset={25}
+          style={toolbarTransform ? { transform: toolbarTransform } : undefined}
         >
           <div
-            className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] flex gap-2 items-center pointer-events-auto animate-in zoom-in-95 duration-200"
+            className="toolbar-bubble-surface nodrag nopan nowheel bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-2xl border border-[var(--toolbar-border)] flex gap-2 items-center pointer-events-auto animate-in zoom-in-95 duration-200"
             style={{ transform: `scale(${cardToolbarScale})`, transformOrigin: 'bottom center' }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerMove={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
           >
             <button
               onClick={toggleLock}

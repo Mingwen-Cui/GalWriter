@@ -20,6 +20,10 @@ export const storyEditorZh: typeof storyEditorEn = {
   regionContext:
     '请阅读并使用以下「{regionTitle}」区域内的卡片内容作为当前创作上下文：\n\n{content}',
   regionLimit: 'AI 助手最多可附加 10 组区域内容。',
+  selectionEmpty: '框选内容里还没有可发送给 AI 的卡片。',
+  selectionContext: '请阅读并使用以下框选卡片内容作为当前创作上下文：\n\n{content}',
+  selectionLimit: 'AI 助手最多可附加 10 组卡片内容。',
+  selectionTitle: '框选卡片 · {count}',
   plotUnable: '无法生成剧情',
   plotNoCards: '区域内没有找到可续写的剧情卡片。',
   plotBriefDetail: '每段 1-3 句话，简洁推进剧情。',

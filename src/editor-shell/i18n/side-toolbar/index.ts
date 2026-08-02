@@ -16,8 +16,8 @@ export interface SideToolbarStrings {
   replace: string;
   media: string;
   standardCard: string;
-  hexagonCard: string;
-  diamondCard: string;
+  backgroundCard: string;
+  dynamicWrap: string;
   bodyText: string;
   headingText: string;
   image: string;

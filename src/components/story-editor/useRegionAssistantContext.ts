@@ -37,33 +37,46 @@ export function useRegionAssistantContext({
   storyEditorCopy,
 }: UseRegionAssistantContextOptions) {
   return useCallback(
-    (regionId: string) => {
-      const region = nodes.find(
-        (node) =>
-          node.id === regionId && (node.type === 'backgroundNode' || node.type === 'groupNode'),
-      );
-      if (!region) return;
+    (regionIdOrSelectedNodeIds: string | string[]) => {
+      const selectedNodeIds = Array.isArray(regionIdOrSelectedNodeIds)
+        ? regionIdOrSelectedNodeIds
+        : null;
+      const region = selectedNodeIds
+        ? null
+        : nodes.find(
+            (node) =>
+              node.id === regionIdOrSelectedNodeIds &&
+              (node.type === 'backgroundNode' || node.type === 'groupNode'),
+          );
+      if (!selectedNodeIds && !region) return;
 
-      const regionNodeIds =
-        region.type === 'groupNode'
-          ? (Array.isArray(region.data?.childIds) ? region.data.childIds : []).filter((id) => {
+      const regionNodeIds = selectedNodeIds
+        ? selectedNodeIds.filter((id) => {
+            const node = nodes.find((item) => item.id === id);
+            return !!node && isRegionContentNode(node);
+          })
+        : region?.type === 'groupNode'
+          ? (Array.isArray(region!.data?.childIds) ? region!.data.childIds : []).filter((id) => {
               const child = nodes.find((node) => node.id === id);
               return !!child && isRegionContentNode(child);
             })
           : nodes
               .filter(isRegionContentNode)
               .filter((node) => {
-                const regionWidth = readSize(region.measured?.width ?? region.style?.width, 600);
-                const regionHeight = readSize(region.measured?.height ?? region.style?.height, 400);
+                const regionWidth = readSize(region!.measured?.width ?? region!.style?.width, 600);
+                const regionHeight = readSize(
+                  region!.measured?.height ?? region!.style?.height,
+                  400,
+                );
                 const nodeWidth = readSize(node.measured?.width ?? node.style?.width, 300);
                 const nodeHeight = readSize(node.measured?.height ?? node.style?.height, 200);
                 const centerX = node.position.x + nodeWidth / 2;
                 const centerY = node.position.y + nodeHeight / 2;
                 return (
-                  centerX >= region.position.x &&
-                  centerX <= region.position.x + regionWidth &&
-                  centerY >= region.position.y &&
-                  centerY <= region.position.y + regionHeight
+                  centerX >= region!.position.x &&
+                  centerX <= region!.position.x + regionWidth &&
+                  centerY >= region!.position.y &&
+                  centerY <= region!.position.y + regionHeight
                 );
               })
               .map((node) => node.id);
@@ -78,22 +91,30 @@ export function useRegionAssistantContext({
       const content = formatRegionStoryForPrompt(buildRegionStoryItems(nodes, edges, orderedIds));
 
       if (!content) {
-        showToast(storyEditorCopy.regionEmpty, 'error');
+        showToast(selectedNodeIds ? storyEditorCopy.selectionEmpty : storyEditorCopy.regionEmpty, 'error');
         return;
       }
 
-      const regionTitle = String(
-        region.data?.title || (region.type === 'groupNode' ? dynamicGroupLabel : backgroundLabel),
-      );
-      const message = formatStoryEditorText(storyEditorCopy.regionContext, {
-        regionTitle,
-        content,
-      });
+      const regionTitle = selectedNodeIds
+        ? formatStoryEditorText(storyEditorCopy.selectionTitle, { count: orderedIds.length })
+        : String(
+            region!.data?.title ||
+              (region!.type === 'groupNode' ? dynamicGroupLabel : backgroundLabel),
+          );
+      const contextId = selectedNodeIds
+        ? `selection:${orderedIds.join('|')}`
+        : region!.id;
+      const message = selectedNodeIds
+        ? formatStoryEditorText(storyEditorCopy.selectionContext, { content })
+        : formatStoryEditorText(storyEditorCopy.regionContext, {
+            regionTitle,
+            content,
+          });
       const replacingExistingContext = assistantInputContexts.some(
-        (context) => context.id === regionId,
+        (context) => context.id === contextId,
       );
       if (!replacingExistingContext && assistantInputContexts.length >= 10) {
-        showToast(storyEditorCopy.regionLimit, 'error');
+        showToast(selectedNodeIds ? storyEditorCopy.selectionLimit : storyEditorCopy.regionLimit, 'error');
         return;
       }
 
@@ -122,13 +143,13 @@ export function useRegionAssistantContext({
       });
 
       setAssistantInputContexts((contexts) => [
-        ...contexts.filter((context) => context.id !== regionId),
+        ...contexts.filter((context) => context.id !== contextId),
         {
-          id: regionId,
+          id: contextId,
           title: regionTitle,
           content: message,
           cardCount: orderedIds.length,
-          source: 'region',
+          source: selectedNodeIds ? 'selection' : 'region',
           nodeIds: orderedIds,
           assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
         },

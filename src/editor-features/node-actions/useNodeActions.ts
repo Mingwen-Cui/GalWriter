@@ -375,6 +375,61 @@ export const useNodeActions = ({
     ]);
   }, [backgroundCardTitle, nodes, setNodes]);
 
+  const addNewBackgroundCard = useCallback(() => {
+    const center = getCenterPosition();
+    const newId = uuidv4();
+    const newNode: Node = {
+      id: newId,
+      type: 'backgroundNode',
+      position: { x: center.x - 300, y: center.y - 200 },
+      dragHandle: '.custom-drag-handle',
+      selected: true,
+      style: { width: 600, height: 400, zIndex: -3 },
+      data: { id: newId, title: backgroundCardTitle, color: '#f1f5f9' },
+    };
+
+    setNodes((currentNodes) => [
+      ...currentNodes.map((node) => ({ ...node, selected: false })),
+      newNode,
+    ]);
+  }, [backgroundCardTitle, getCenterPosition, setNodes]);
+
+  const addNewDynamicWrap = useCallback(() => {
+    const center = getCenterPosition();
+    const contentId = uuidv4();
+    const groupId = uuidv4();
+    const contentNode: Node = {
+      id: contentId,
+      type: 'storyNode',
+      position: { x: center.x - 150, y: center.y - 110 },
+      style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
+      data: {
+        id: contentId,
+        title: language === 'zh' ? '分支' : language === 'ja' ? '分岐' : 'Branch',
+        shape: 'square',
+        color: '#ffffff',
+        sizeMode: 'auto',
+        text: '',
+      },
+    };
+    const groupNode: Node = {
+      id: groupId,
+      type: 'groupNode',
+      position: { x: 0, y: 0 },
+      selectable: true,
+      draggable: true,
+      selected: true,
+      data: { id: groupId, title: dynamicWrapTitle, color: '#6366f1', childIds: [contentId] },
+      style: { width: 100, height: 100, zIndex: -2 },
+    };
+
+    setNodes((currentNodes) => [
+      ...currentNodes.map((node) => ({ ...node, selected: false })),
+      contentNode,
+      groupNode,
+    ]);
+  }, [dynamicWrapTitle, getCenterPosition, language, setNodes]);
+
   const convertBackgroundToDynamicGroup = useCallback(
     (backgroundId: string) => {
       setNodes((currentNodes) => {
@@ -516,6 +571,8 @@ export const useNodeActions = ({
     addNewSceneNode,
     handleMediaUpload,
     handleExportJSON,
+    addNewBackgroundCard,
+    addNewDynamicWrap,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
     convertBackgroundToDynamicGroup,

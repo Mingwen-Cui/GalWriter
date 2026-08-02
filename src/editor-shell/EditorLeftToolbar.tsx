@@ -4,12 +4,12 @@ import {
   BookOpen,
   Calculator,
   ChevronDown,
-  Diamond,
   Eye,
   FileText,
+  GitFork,
   Heading1,
-  Hexagon,
   Image as ImageIcon,
+  Layers,
   MapPin,
   MousePointer2,
   Replace,
@@ -126,6 +126,8 @@ interface EditorLeftToolbarProps {
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
   addNewShape: (shape: StoryCardVisualShape) => void;
+  addNewBackgroundCard: () => void;
+  addNewDynamicWrap: () => void;
   addNewTextNode: () => void;
   addNewHeadingTextNode: () => void;
   addNewCharacterNode: () => void;
@@ -163,6 +165,8 @@ export function EditorLeftToolbar({
   setToolbarCollapsed,
   setInteractionMode,
   addNewShape,
+  addNewBackgroundCard,
+  addNewDynamicWrap,
   addNewTextNode,
   addNewHeadingTextNode,
   addNewCharacterNode,
@@ -438,16 +442,16 @@ export function EditorLeftToolbar({
             onSelect: () => addNewShape('square'),
           },
           {
-            id: 'hexagon-card',
-            label: sideToolbarStrings.hexagonCard,
-            Icon: Hexagon,
-            onSelect: () => addNewShape('hexagon'),
+            id: 'background-card',
+            label: sideToolbarStrings.backgroundCard,
+            Icon: Layers,
+            onSelect: addNewBackgroundCard,
           },
           {
-            id: 'diamond-card',
-            label: sideToolbarStrings.diamondCard,
-            Icon: Diamond,
-            onSelect: () => addNewShape('diamond'),
+            id: 'dynamic-wrap',
+            label: sideToolbarStrings.dynamicWrap,
+            Icon: GitFork,
+            onSelect: addNewDynamicWrap,
           },
         ]
       : activeQuickMenu === 'text'
