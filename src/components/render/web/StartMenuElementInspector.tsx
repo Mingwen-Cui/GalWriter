@@ -1745,7 +1745,7 @@ function StrokePositionIcon({ position }: { position: 'inside' | 'center' | 'out
   );
 }
 
-function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
+export function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
   return (
     <svg
       viewBox="0 0 24 24"

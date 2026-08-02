@@ -20,6 +20,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { LoadingAnimation } from '../../../LoadingAnimation';
@@ -118,6 +119,21 @@ export function RenderHeader({
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const pptCopy = getPptCopy(language);
   const isRendering = status === 'rendering';
+  const workspaceIntentTimerRef = useRef<number | null>(null);
+  const cancelWorkspaceIntent = () => {
+    if (workspaceIntentTimerRef.current === null) return;
+    window.clearTimeout(workspaceIntentTimerRef.current);
+    workspaceIntentTimerRef.current = null;
+  };
+  const scheduleWorkspaceIntent = (mode: RenderWorkspaceMode) => {
+    cancelWorkspaceIntent();
+    if (mode === workspaceMode || mode === 'video') return;
+    workspaceIntentTimerRef.current = window.setTimeout(() => {
+      workspaceIntentTimerRef.current = null;
+      onWorkspaceIntent(mode);
+    }, 120);
+  };
+  useEffect(() => cancelWorkspaceIntent, []);
   const codeEngineTabs = [
     ['renpy', 'RenPy'],
     ['tyrano', 'TyranoScript'],
@@ -136,7 +152,8 @@ export function RenderHeader({
             <button
               key={mode}
               type="button"
-              onPointerEnter={() => onWorkspaceIntent(mode)}
+              onPointerEnter={() => scheduleWorkspaceIntent(mode)}
+              onPointerLeave={cancelWorkspaceIntent}
               onFocus={() => onWorkspaceIntent(mode)}
               onClick={() => {
                 if (isRendering) return;

@@ -139,6 +139,13 @@ export function PlaytestSettingsWorkbench({
   }, [showPreview]);
 
   useEffect(() => {
+    const selectedObject = renderStyle.selectedRenderObject;
+    if (selectedObject && selection !== selectedObject) {
+      setSelection(selectedObject);
+    }
+  }, [renderStyle.selectedRenderObject, selection]);
+
+  useEffect(() => {
     if (!previewOpen) return;
     const keepPreviewVisible = () => {
       const bounds = previewWindowRef.current?.getBoundingClientRect();
@@ -277,7 +284,13 @@ export function PlaytestSettingsWorkbench({
 
   const inspector = (
     <div className="video-render-workspace min-w-0 space-y-4">
-      <div className="grid grid-cols-[28px_minmax(0,1fr)_32px] items-center gap-3">
+      <div
+        className={`grid items-center gap-3 ${
+          showPreview
+            ? 'grid-cols-[28px_minmax(0,1fr)_32px]'
+            : 'grid-cols-[28px_minmax(0,1fr)]'
+        }`}
+      >
         <button
           type="button"
           onClick={() => setShowParameterDescriptions((visible) => !visible)}
@@ -320,57 +333,105 @@ export function PlaytestSettingsWorkbench({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setPreviewOpen((open) => !open)}
-          aria-label={previewOpen ? text.hidePreview : text.openPreview}
-          title={previewOpen ? text.hidePreview : text.openPreview}
-          aria-pressed={previewOpen}
-          className={`inline-grid h-8 w-8 place-items-center rounded-lg border shadow-sm transition-colors ${
-            previewOpen
-              ? 'border-indigo-500/20 bg-indigo-600 text-white shadow-indigo-500/20'
-              : 'border-slate-200/80 bg-white/80 text-slate-500 hover:text-indigo-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-indigo-300'
-          }`}
-        >
-          <MonitorPlay className="h-4 w-4" />
-        </button>
+        {showPreview ? (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((open) => !open)}
+            aria-label={previewOpen ? text.hidePreview : text.openPreview}
+            title={previewOpen ? text.hidePreview : text.openPreview}
+            aria-pressed={previewOpen}
+            className={`inline-grid h-8 w-8 place-items-center rounded-lg border shadow-sm transition-colors ${
+              previewOpen
+                ? 'border-indigo-500/20 bg-indigo-600 text-white shadow-indigo-500/20'
+                : 'border-slate-200/80 bg-white/80 text-slate-500 hover:text-indigo-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-indigo-300'
+            }`}
+          >
+            <MonitorPlay className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
 
-      <div className="grid min-w-0 gap-x-4 gap-y-5 lg:grid-cols-2">
-        <section className="min-w-0">
-        <CanvasSettingsSection
-          language={language}
-          value={canvasSettings}
-          onChange={onCanvasSettingsChange}
-          showDescriptions={showParameterDescriptions}
-        />
-        </section>
+      {showPreview ? (
+        <div className="grid min-w-0 items-start gap-x-4 lg:grid-cols-2">
+          <div className="min-w-0 space-y-5">
+            <CanvasSettingsSection
+              language={language}
+              value={canvasSettings}
+              onChange={onCanvasSettingsChange}
+              showDescriptions={showParameterDescriptions}
+            />
+            <RenderObjectSettingsSection
+              language={language}
+              renderStyle={renderStyle}
+              updateRenderStyle={updateRenderStyle}
+              surface="playtest"
+              showDescriptions={showParameterDescriptions}
+              canvasSettings={canvasSettings}
+              onCanvasSettingsChange={onCanvasSettingsChange}
+              selection={selection}
+              onSelectionChange={setSelection}
+              hideSelectionBar
+              singleColumn
+              visibleGroups={['position', 'text', 'animation']}
+            />
+          </div>
 
-        <section className="min-w-0">
-        <PlaytestRuntimeSettingsSection
-          language={language}
-          value={runtimeSettings}
-          onChange={onRuntimeSettingsChange}
-          choicesPosition={canvasSettings.choicesPosition}
-          showDescriptions={showParameterDescriptions}
-        />
-        </section>
-
-        <section className="min-w-0 lg:col-span-2">
-        <RenderObjectSettingsSection
-          language={language}
-          renderStyle={renderStyle}
-          updateRenderStyle={updateRenderStyle}
-          surface="playtest"
-          showDescriptions={showParameterDescriptions}
-          canvasSettings={canvasSettings}
-          onCanvasSettingsChange={onCanvasSettingsChange}
-          selection={selection}
-          onSelectionChange={setSelection}
-          hideSelectionBar
-        />
-        </section>
-      </div>
+          <div className="min-w-0 space-y-5">
+            <PlaytestRuntimeSettingsSection
+              language={language}
+              value={runtimeSettings}
+              onChange={onRuntimeSettingsChange}
+              choicesPosition={canvasSettings.choicesPosition}
+              showDescriptions={showParameterDescriptions}
+            />
+            {selection !== 'scene' && selection !== 'background' ? (
+              <RenderObjectSettingsSection
+                language={language}
+                renderStyle={renderStyle}
+                updateRenderStyle={updateRenderStyle}
+                surface="playtest"
+                showDescriptions={showParameterDescriptions}
+                canvasSettings={canvasSettings}
+                onCanvasSettingsChange={onCanvasSettingsChange}
+                selection={selection}
+                onSelectionChange={setSelection}
+                hideSelectionBar
+                singleColumn
+                visibleGroups={['fill', 'stroke', 'shadow']}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="grid min-w-0 grid-cols-1 gap-y-5">
+          <CanvasSettingsSection
+            language={language}
+            value={canvasSettings}
+            onChange={onCanvasSettingsChange}
+            showDescriptions={showParameterDescriptions}
+          />
+          <PlaytestRuntimeSettingsSection
+            language={language}
+            value={runtimeSettings}
+            onChange={onRuntimeSettingsChange}
+            choicesPosition={canvasSettings.choicesPosition}
+            showDescriptions={showParameterDescriptions}
+          />
+          <RenderObjectSettingsSection
+            language={language}
+            renderStyle={renderStyle}
+            updateRenderStyle={updateRenderStyle}
+            surface="playtest"
+            showDescriptions={showParameterDescriptions}
+            canvasSettings={canvasSettings}
+            onCanvasSettingsChange={onCanvasSettingsChange}
+            selection={selection}
+            onSelectionChange={setSelection}
+            hideSelectionBar
+            singleColumn
+          />
+        </div>
+      )}
     </div>
   );
 

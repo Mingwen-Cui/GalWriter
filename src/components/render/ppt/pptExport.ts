@@ -507,6 +507,8 @@ export async function buildPptxBuffer({
         align: title.textAlign,
         margin: 0,
         breakLine: false,
+        fit: 'resize',
+        valign: 'top',
         rotate: title.rotation,
       });
       addAnimationTargets(objectName, 'dialog-title');
@@ -532,20 +534,16 @@ export async function buildPptxBuffer({
           const objectName = `ppt-dialog-body-${scene.id}-line-${index + 1}`;
           slide.addText(line, {
             objectName,
-            ...page.frame(
-              bodyX,
-              bodyY + index * lineHeight,
-              bodyW,
-              Math.min(lineHeight + 0.04, bodyH),
-            ),
+            ...page.frame(bodyX, bodyY + index * lineHeight, bodyW, lineHeight + 0.04),
             fontFace: toPptFontFace(body.fontFamily),
             fontSize: bodyFontSize,
             bold: body.fontWeight >= 700,
             color: hex(body.fill.color),
             align: body.textAlign,
             breakLine: false,
+            fit: 'resize',
             margin: 0,
-            valign: 'middle',
+            valign: 'top',
             rotate: body.rotation,
           });
           if (sceneSlideNumber) {
@@ -572,15 +570,16 @@ export async function buildPptxBuffer({
           color: hex(body.fill.color),
           align: body.textAlign,
           breakLine: false,
+          fit: 'resize',
           margin: 0,
-          valign: 'middle',
+          valign: 'top',
           rotate: body.rotation,
         });
         addAnimationTargets(objectName, 'dialog-body');
       }
     }
-    if (style.nameplateVisible && nameplate.visible) {
-      const name = scene.characters.find((character) => character.name)?.name || scene.title;
+    const speakerName = scene.characters.find((character) => character.name)?.name?.trim();
+    if (speakerName && style.nameplateVisible && nameplate.visible) {
       const x = Math.max(0, Math.min(11.8, 0.93 + nameplate.x / 100));
       const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
       const w = Math.max(1.1, Math.min(5, (13.333 * nameplate.width) / 100));
@@ -602,7 +601,7 @@ export async function buildPptxBuffer({
         rotate: nameplate.rotation,
       });
       addAnimationTargets(objectName, 'nameplate');
-      slide.addText(name, {
+      slide.addText(speakerName, {
         ...page.frame(x + 0.06, y + 0.05, w - 0.12, Math.max(0.16, h - 0.1)),
         fontFace: toPptFontFace(nameplate.fontFamily),
         fontSize: Math.max(8 * page.scale, nameplate.fontSize * 0.66 * page.scale),

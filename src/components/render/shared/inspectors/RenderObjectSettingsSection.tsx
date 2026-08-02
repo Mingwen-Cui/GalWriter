@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { SceneCanvasInspector } from '../../canvas/SceneCanvasInspector';
-import { RenderObjectInspector } from '../../video/objectInspector/RenderObjectInspector';
+import {
+  RenderObjectInspector,
+  type RenderObjectInspectorGroup,
+} from '../../video/objectInspector/RenderObjectInspector';
 import type { RenderEditableObjectKind, RenderStyle } from '../../video/shared/types';
 
 type RenderObjectSettingsSectionProps = {
@@ -17,6 +20,8 @@ type RenderObjectSettingsSectionProps = {
   selection?: 'scene' | 'background' | RenderEditableObjectKind;
   onSelectionChange?: (selection: 'scene' | 'background' | RenderEditableObjectKind) => void;
   hideSelectionBar?: boolean;
+  singleColumn?: boolean;
+  visibleGroups?: RenderObjectInspectorGroup[];
 };
 
 export function RenderObjectSettingsSection({
@@ -30,6 +35,8 @@ export function RenderObjectSettingsSection({
   selection,
   onSelectionChange,
   hideSelectionBar = false,
+  singleColumn = false,
+  visibleGroups,
 }: RenderObjectSettingsSectionProps) {
   type ActiveSelection = 'scene' | 'background' | RenderEditableObjectKind;
   const [activeSelection, setActiveSelection] = useState<ActiveSelection>(
@@ -82,7 +89,7 @@ export function RenderObjectSettingsSection({
       {(currentSelection === 'scene' || currentSelection === 'background') && canvasSettings && onCanvasSettingsChange ? (
         <SceneCanvasInspector language={language} value={canvasSettings} onChange={onCanvasSettingsChange} mode={currentSelection === 'scene' ? 'position' : 'background'} />
       ) : (
-        <RenderObjectInspector language={language} renderStyle={inspectorStyle} updateRenderStyle={updateRenderStyle} surface={surface} showDescriptions={showDescriptions} hideObjectSelector={hideSelectionBar || surface === 'video' || canvasSettings?.layoutMode === 'classic'} />
+        <RenderObjectInspector language={language} renderStyle={inspectorStyle} updateRenderStyle={updateRenderStyle} surface={surface} showDescriptions={showDescriptions} hideObjectSelector={hideSelectionBar || surface === 'video' || canvasSettings?.layoutMode === 'classic'} singleColumn={singleColumn} visibleGroups={visibleGroups} />
       )}
     </div>
   );

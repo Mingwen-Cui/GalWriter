@@ -27,7 +27,7 @@ import type { PlayTestProps } from './types';
 import { usePlaytestRuntime } from './usePlaytestRuntime';
 
 export function PlayTestModal(props: PlayTestProps) {
-  const { nodes, edges, onClose, language, isDarkMode, choicesColumns, setChoicesColumns, videoAutoPlay, layoutMode, interactionMode, setInteractionMode, typewriterSpeed, setTypewriterSpeed, choiceDelay, setChoiceDelay, choicesPosition, blurBackground, setBlurBackground, blurText, setBlurText, skipSingleChoicePopup, autoAdvance, setAutoAdvance, autoAdvanceDelay, setAutoAdvanceDelay, canvasSettings, onCanvasSettingsChange, renderStyle, updateRenderStyle, isMobile, t, videoRef, audioRef, playlistAudioRef, choicesRef, containerRef, immersiveDialogueRef, mobileImmersiveLayout, applyMobileLandscapeTransform, dismissRotateHint, showRotateHint, mobileClassicLayout, currentNode, currentTitle, sceneVideoUrl, sceneImageUrl, sceneVideoStartTime, dialogueBackgroundStyle, renderObjectSelectionClass, selectRenderObject, recordCurrentAudio, togglePlaylistAudio, outEdges, waitsForBranchVideo, choicesReady, stopVideoLimitTimer, startVideoLimitTimer, handleSceneVideoTimeUpdate, handleTextContainerClick, renderChoices, toggleFullscreen, handleBack, handleRestartClick, hasMedia, sceneStyle, renderPresentedCharacters, currentNodeId, history, showSettings, setShowSettings, showAudioPlaylist, setShowAudioPlaylist, playedAudios, playlistAudioUrl, isPlaylistAudioPlaying, setIsPlaylistAudioPlaying, setCurrentAudioEnded, setCurrentVideoEnded, isFullscreen, isFocusMode, setIsFocusMode, backExitHintVisible, displayedHtml, animationCompleted, timeLeft, emptyState, titleStyle, bodyStyle, dialogueShellStyle, dialogueFrameStyle, focusButtonStyle, classicMediaContainerStyle, classicMediaFrameStyle } = usePlaytestRuntime(props);
+  const { nodes, edges, onClose, language, isDarkMode, choicesColumns, setChoicesColumns, videoAutoPlay, layoutMode, interactionMode, setInteractionMode, typewriterSpeed, setTypewriterSpeed, choiceDelay, setChoiceDelay, choicesPosition, blurBackground, setBlurBackground, blurText, setBlurText, skipSingleChoicePopup, autoAdvance, setAutoAdvance, autoAdvanceDelay, setAutoAdvanceDelay, canvasSettings, onCanvasSettingsChange, renderStyle, updateRenderStyle, isMobile, t, videoRef, audioRef, playlistAudioRef, choicesRef, containerRef, immersiveDialogueRef, mobileImmersiveLayout, applyMobileLandscapeTransform, dismissRotateHint, showRotateHint, mobileClassicLayout, currentNode, currentTitle, sceneVideoUrl, sceneImageUrl, sceneVideoStartTime, dialogueBackgroundStyle, renderObjectSelectionClass, selectRenderObject, recordCurrentAudio, togglePlaylistAudio, outEdges, waitsForBranchVideo, choicesReady, stopVideoLimitTimer, startVideoLimitTimer, handleSceneVideoTimeUpdate, handleTextContainerClick, renderChoices, toggleFullscreen, handleBack, handleRestartClick, sceneStyle, renderPresentedCharacters, currentNodeId, history, showSettings, setShowSettings, showAudioPlaylist, setShowAudioPlaylist, playedAudios, playlistAudioUrl, isPlaylistAudioPlaying, setIsPlaylistAudioPlaying, setCurrentAudioEnded, setCurrentVideoEnded, isFullscreen, isFocusMode, setIsFocusMode, backExitHintVisible, displayedHtml, animationCompleted, timeLeft, emptyState, titleStyle, bodyStyle, dialogueShellStyle, dialogueFrameStyle, focusButtonStyle, classicMediaContainerStyle, classicMediaFrameStyle } = usePlaytestRuntime(props);
   const playtestText = getPlaytestText(language);
   if (emptyState) return emptyState;
   if (!currentNode && currentNodeId !== 'THE_END') return null;
@@ -73,6 +73,8 @@ export function PlayTestModal(props: PlayTestProps) {
     isFocusMode && mobileClassicLayout ? 'invisible pointer-events-none' : '';
   const hideEntireHeaderInFocusMode = isFocusMode && !mobileClassicLayout;
   const useInlineFocusButton = isMobile && layoutMode === 'immersive';
+  const reserveClassicMediaSlot = layoutMode === 'classic';
+  const hasSceneMedia = Boolean(sceneImageUrl || sceneVideoUrl);
   const playtestHeaderToneClass =
     layoutMode === 'immersive'
       ? 'absolute top-0 left-0 right-0 bg-gradient-to-b from-black/75 via-black/40 to-transparent text-white border-b-0'
@@ -283,7 +285,7 @@ export function PlayTestModal(props: PlayTestProps) {
         className={`playtest-modal-root ${
           mobileImmersiveLayout ? 'playtest-modal-root--mobile-immersive' : ''
         } absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
-          showSettings && !isMobile ? 'scale-75' : 'scale-100'
+          showSettings && !isMobile ? 'scale-[0.77]' : 'scale-100'
         } ${
           showSettings
             ? isDarkMode
@@ -561,7 +563,7 @@ export function PlayTestModal(props: PlayTestProps) {
               // 经典排版
               <div
                 className={`flex-1 flex flex-col min-h-0 relative ${
-                  hasMedia
+                  reserveClassicMediaSlot
                     ? `m-2 md:m-5 overflow-hidden rounded-xl border shadow-2xl ${
                         isDarkMode
                           ? 'border-white/12 bg-slate-950/75 shadow-black/30'
@@ -571,7 +573,7 @@ export function PlayTestModal(props: PlayTestProps) {
                 }`}
               >
                 {/* 1. Media Area */}
-                {hasMedia && (
+                {reserveClassicMediaSlot && (
                   <div
                     className={`${
                       mobileClassicLayout
@@ -580,7 +582,12 @@ export function PlayTestModal(props: PlayTestProps) {
                     } flex items-center justify-center relative group overflow-hidden ${showSettings && !renderStyle.selectedRenderObject ? 'ring-2 ring-inset ring-indigo-500' : ''} ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
                     style={{
                       ...classicMediaContainerStyle,
-                      ...getSceneBackgroundStyle(canvasSettings),
+                      ...(hasSceneMedia
+                        ? getSceneBackgroundStyle(canvasSettings)
+                        : {
+                            backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                            backgroundImage: 'none',
+                          }),
                     }}
                     onClick={() => {
                       if (showSettings) updateRenderStyle('selectedRenderObject', undefined);
@@ -605,8 +612,12 @@ export function PlayTestModal(props: PlayTestProps) {
 
                     {/* Shared 1920x1080 presentation stage */}
                     <div
-                      className={`relative z-10 ${
+                      className={`relative z-10 overflow-hidden border ${
                         mobileClassicLayout ? 'h-full w-full' : 'max-h-full max-w-full'
+                      } ${
+                        isDarkMode
+                          ? 'border-white/20 bg-slate-900'
+                          : 'border-slate-300 bg-white shadow-sm'
                       } animate-in zoom-in-95 duration-500`}
                       style={classicMediaFrameStyle}
                     >
@@ -702,7 +713,7 @@ export function PlayTestModal(props: PlayTestProps) {
                     handleTextContainerClick();
                   }}
                   className={`${
-                    !hasMedia
+                    !reserveClassicMediaSlot
                       ? 'flex-1'
                       : mobileClassicLayout
                         ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
@@ -731,8 +742,8 @@ export function PlayTestModal(props: PlayTestProps) {
                           boxShadow: 'none',
                           backdropFilter: 'none',
                         }),
-                    borderTopLeftRadius: hasMedia ? 0 : renderStyle.dialogRadius,
-                    borderTopRightRadius: hasMedia ? 0 : renderStyle.dialogRadius,
+                    borderTopLeftRadius: reserveClassicMediaSlot ? 0 : renderStyle.dialogRadius,
+                    borderTopRightRadius: reserveClassicMediaSlot ? 0 : renderStyle.dialogRadius,
                     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                     paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                   }}
@@ -793,7 +804,7 @@ export function PlayTestModal(props: PlayTestProps) {
 
                 {/* 选项区域 - 屏幕的中间（当全屏，或无媒体文件时挂载在整个视口中央） */}
                 {choicesPosition === 'center' &&
-                  (isFullscreen || !hasMedia) &&
+                  (isFullscreen || !reserveClassicMediaSlot) &&
                   choicesReady &&
                   !(skipSingleChoicePopup && outEdges.length <= 1) && (
                     <div
@@ -821,7 +832,7 @@ export function PlayTestModal(props: PlayTestProps) {
               ? `playtest-settings-mobile fixed inset-0 flex flex-col ${
                   isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'
                 }`
-              : `absolute bottom-0 right-0 top-0 w-[25vw] min-w-[360px] max-w-[520px] border-l p-4 ${
+              : `absolute bottom-0 right-0 top-0 flex w-[23vw] min-w-[340px] max-w-[480px] flex-col overflow-hidden border-l p-4 ${
                   isDarkMode
                     ? 'border-white/10 bg-slate-950/96 text-white shadow-black/35'
                     : 'border-slate-200 bg-white text-slate-800 shadow-slate-300/35'

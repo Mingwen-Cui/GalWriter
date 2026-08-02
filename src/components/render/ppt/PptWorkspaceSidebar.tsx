@@ -1,4 +1,13 @@
-import { Clock3, ListOrdered, Pause, Play, Presentation, Settings2, Sparkles } from 'lucide-react';
+import {
+  Clock3,
+  Info,
+  ListOrdered,
+  Pause,
+  Play,
+  Presentation,
+  Settings2,
+  Sparkles,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -83,6 +92,7 @@ export function PptSidebar({
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
+  const [showParameterDescriptions, setShowParameterDescriptions] = useState(false);
   const selectAnimation = (item: PptObjectAnimation) => {
     onSelectAnimation(item);
   };
@@ -175,13 +185,43 @@ export function PptSidebar({
               onDeleteElement={onDeleteManualElement}
             />
           ) : (
-            <RenderObjectInspector
-              language={language}
-              renderStyle={renderStyle}
-              updateRenderStyle={updateRenderStyle}
-              surface="web"
-              hideObjectSelector
-            />
+            <>
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowParameterDescriptions((current) => !current)}
+                  className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-colors ${
+                    showParameterDescriptions
+                      ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] ring-1 ring-[var(--vr-accent)]/25'
+                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                  }`}
+                  title={
+                    showParameterDescriptions
+                      ? copy.hideParameterDescriptions
+                      : copy.showParameterDescriptions
+                  }
+                  aria-label={
+                    showParameterDescriptions
+                      ? copy.hideParameterDescriptions
+                      : copy.showParameterDescriptions
+                  }
+                  aria-pressed={showParameterDescriptions}
+                >
+                  <Info className="h-3.5 w-3.5" />
+                  {showParameterDescriptions
+                    ? copy.hideParameterDescriptions
+                    : copy.showParameterDescriptions}
+                </button>
+              </div>
+              <RenderObjectInspector
+                language={language}
+                renderStyle={renderStyle}
+                updateRenderStyle={updateRenderStyle}
+                surface="web"
+                hideObjectSelector
+                showDescriptions={showParameterDescriptions}
+              />
+            </>
           )
         ) : null}
         {activeTab === 'export' ? (

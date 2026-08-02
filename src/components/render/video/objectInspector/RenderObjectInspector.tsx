@@ -25,7 +25,11 @@ import type React from 'react';
 import { useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import { InlineColorControl, InlineGradientControl } from '../../web/StartMenuElementInspector';
+import {
+  InlineColorControl,
+  InlineGradientControl,
+  ShadowModeIcon,
+} from '../../web/StartMenuElementInspector';
 import {
   AlignButtons,
   ControlRow,
@@ -55,6 +59,13 @@ import { GradientPopover, ImageFillPopover, SolidColorPopover } from './ColorPop
 import { renderObjectText } from './i18n';
 
 type Surface = 'video' | 'web' | 'playtest';
+export type RenderObjectInspectorGroup =
+  | 'position'
+  | 'text'
+  | 'fill'
+  | 'stroke'
+  | 'shadow'
+  | 'animation';
 type Popover = null | { group: 'fill' | 'stroke' | 'shadow'; type: 'solid' | 'gradient' | 'image' };
 
 const objectKinds: RenderEditableObjectKind[] = ['dialogBox', 'title', 'body', 'nameplate'];
@@ -73,6 +84,8 @@ export function RenderObjectInspector({
   surface = 'web',
   showDescriptions = false,
   hideObjectSelector = false,
+  singleColumn = false,
+  visibleGroups,
 }: {
   language: Language;
   renderStyle: RenderStyle;
@@ -80,6 +93,8 @@ export function RenderObjectInspector({
   surface?: Surface;
   showDescriptions?: boolean;
   hideObjectSelector?: boolean;
+  singleColumn?: boolean;
+  visibleGroups?: RenderObjectInspectorGroup[];
 }) {
   const text = renderObjectText(language);
   const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
@@ -102,6 +117,8 @@ export function RenderObjectInspector({
         ? { outer: '外側', inner: '内側', innerBlur: '内ぼかし' }
         : { outer: 'Outer', inner: 'Inner', innerBlur: 'Inner blur' };
   const [popover, setPopover] = useState<Popover>(null);
+  const showsGroup = (group: RenderObjectInspectorGroup) =>
+    !visibleGroups || visibleGroups.includes(group);
   const strokeLabels =
     language === 'zh'
       ? { style: '描边样式', color: '描边颜色与透明度' }
@@ -202,7 +219,7 @@ export function RenderObjectInspector({
     <div
       className={`${
         surface === 'playtest'
-          ? 'columns-1 gap-3 lg:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid'
+          ? `${singleColumn ? 'columns-1' : 'columns-1 lg:columns-2'} gap-3 [&>*]:mb-3 [&>*]:break-inside-avoid`
           : 'space-y-3'
       } text-[12px] text-slate-900`}
     >
@@ -223,6 +240,7 @@ export function RenderObjectInspector({
         ))}
       </div>}
 
+      {showsGroup('position') && (
       <InspectorGroup
         title={positionTitle}
         icon={<PositionVisibilityIcon visible={selected.visible} />}
@@ -320,8 +338,9 @@ export function RenderObjectInspector({
           </>
         )}
       </InspectorGroup>
+      )}
 
-      {textObject && (
+      {showsGroup('text') && textObject && (
         <InspectorGroup
           title={text.group.text}
           icon={<Type className="h-3.5 w-3.5" />}
@@ -408,6 +427,7 @@ export function RenderObjectInspector({
         </InspectorGroup>
       )}
 
+      {showsGroup('fill') && (
       <InspectorGroup
         title={text.group.fill}
         icon={<PaintBucket className="h-3.5 w-3.5" />}
@@ -489,7 +509,9 @@ export function RenderObjectInspector({
           </FloatingPopover>
         )}
       </InspectorGroup>
+      )}
 
+      {showsGroup('stroke') && (
       <InspectorGroup
         title={text.group.stroke}
         icon={<Minus className="h-3.5 w-3.5" />}
@@ -586,8 +608,9 @@ export function RenderObjectInspector({
           )}
         </div>
       </InspectorGroup>
+      )}
 
-      {shadowLayers.map((shadow, index) => (
+      {showsGroup('shadow') && shadowLayers.map((shadow, index) => (
         <InspectorGroup
           key={`${selectedKind}-shadow-${index}`}
           title={index === 0 ? text.group.shadow : `${text.group.shadow} ${index + 1}`}
@@ -641,7 +664,7 @@ export function RenderObjectInspector({
         </InspectorGroup>
       ))}
 
-      {(selectedKind === 'title' || selectedKind === 'body') && (
+      {showsGroup('animation') && (selectedKind === 'title' || selectedKind === 'body') && (
       <div className={surface === 'video' ? 'pointer-events-none select-none opacity-40 grayscale' : undefined}>
       <InspectorGroup
         title={text.group.animation}
@@ -958,13 +981,28 @@ function ShadowModeTabs({
   outerOnly?: boolean;
 }) {
   if (outerOnly) {
-    return <div className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-[10px] font-bold text-white">{labels.outer}</div>;
+    return (
+      <div
+        className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-white"
+        aria-label={labels.outer}
+        title={labels.outer}
+      >
+        <ShadowModeIcon mode="outer" />
+      </div>
+    );
   }
   return (
     <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
       {(['outer', 'inner', 'innerBlur'] as const).map((option) => (
-        <button key={option} type="button" onClick={() => onChange(option)} className={`text-[10px] font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-fuchsia-50'}`} title={option}>
-          {labels[option]}
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          className={`inline-grid place-items-center ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-fuchsia-50'}`}
+          aria-label={labels[option]}
+          title={labels[option]}
+        >
+          <ShadowModeIcon mode={option} />
         </button>
       ))}
     </div>

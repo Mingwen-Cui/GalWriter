@@ -117,6 +117,7 @@ export function usePlaytestRuntime({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const immersiveDialogueRef = useRef<HTMLDivElement>(null);
+  const restoreSettingsAfterFullscreenRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [focusButtonBottom, setFocusButtonBottom] = useState(24);
@@ -1034,12 +1035,18 @@ export function usePlaytestRuntime({
     dismissRotateHint();
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
+      restoreSettingsAfterFullscreenRef.current = showSettings;
+      if (showSettings) setShowSettings(false);
       containerRef.current
         .requestFullscreen()
         .then(() => {
           setIsFullscreen(true);
         })
         .catch((err) => {
+          if (restoreSettingsAfterFullscreenRef.current) {
+            restoreSettingsAfterFullscreenRef.current = false;
+            setShowSettings(true);
+          }
           console.error('Fullscreen error:', err);
         });
     } else {
@@ -1056,7 +1063,12 @@ export function usePlaytestRuntime({
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const fullscreenActive = !!document.fullscreenElement;
+      setIsFullscreen(fullscreenActive);
+      if (!fullscreenActive && restoreSettingsAfterFullscreenRef.current) {
+        restoreSettingsAfterFullscreenRef.current = false;
+        setShowSettings(true);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {

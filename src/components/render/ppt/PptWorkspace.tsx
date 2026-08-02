@@ -1025,6 +1025,7 @@ function ScenePreview({
   const body = objects.body;
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
+  const speakerName = scene.characters.find((character) => character.name)?.name?.trim();
   const bodyAnimations = findAnimation(animations, 'dialog-body');
   const bodyAnimation = bodyAnimations.find(
     (animation) => animation.textBuild?.mode === 'line-wipe',
@@ -1146,7 +1147,8 @@ function ScenePreview({
               left: `${title.x}px`,
               top: `${title.y}px`,
               width: `${title.width}%`,
-              height: `${title.height}px`,
+              minHeight: `${title.height}px`,
+              height: 'auto',
               ...titlePaint,
             }}
           >
@@ -1170,7 +1172,8 @@ function ScenePreview({
             left: `${body.x}px`,
             top: `calc(${hasTitle ? title.height + 8 : 0}px + ${body.y}px)`,
             width: `${body.width}%`,
-            height: `${body.height}px`,
+            minHeight: `${body.height}px`,
+            height: 'auto',
             ...bodyPaint,
           }}
         >
@@ -1188,7 +1191,7 @@ function ScenePreview({
           )}
         </PptEditableObject>
       </PptEditableObject>
-      {nameplate.visible && renderStyle.nameplateVisible ? (
+      {speakerName && nameplate.visible && renderStyle.nameplateVisible ? (
         <PptEditableObject
           kind="nameplate"
           target="nameplate"
@@ -1215,7 +1218,7 @@ function ScenePreview({
             ),
           }}
         >
-          {scene.characters.find((character) => character.name)?.name || scene.title}
+          {speakerName}
         </PptEditableObject>
       ) : null}
     </>
@@ -1327,7 +1330,9 @@ const textPaint = (
     textAlign: text.textAlign,
     textDecoration:
       `${text.underline ? 'underline' : ''} ${text.strikethrough ? 'line-through' : ''}`.trim(),
-    overflow: 'hidden',
+    overflow: 'visible',
+    overflowWrap: 'anywhere',
+    whiteSpace: 'pre-wrap',
     boxSizing: 'border-box',
     padding: 0,
     transform: `rotate(${text.rotation}deg) scale(${text.flipX ? -1 : 1}, ${text.flipY ? -1 : 1})`,
