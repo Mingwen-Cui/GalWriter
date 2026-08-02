@@ -100,6 +100,7 @@ import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
+import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
   buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
@@ -157,6 +158,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
   const [showPlayTest, setShowPlayTest] = useState(false);
   const [showVideoRender, setShowVideoRender] = useState(false);
+  const [renderLaunchIntent, setRenderLaunchIntent] =
+    useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
   const [showTitles, setShowTitles] = useState(true);
@@ -3195,7 +3198,10 @@ ${layoutConfig.label}
         assistantOpen={assistantOpen}
         jsonInputRef={jsonInputRef}
         setShowPlayTest={setShowPlayTest}
-        setShowVideoRender={setShowVideoRender}
+        onOpenRenderWorkspace={(intent) => {
+          setRenderLaunchIntent(intent);
+          setShowVideoRender(true);
+        }}
         setAssistantOpen={setAssistantOpen}
         openProjectHome={() => setShowProjectHome(true)}
         openImportPicker={openImportPicker}
@@ -3540,6 +3546,7 @@ ${layoutConfig.label}
           <VideoRenderModal
             nodes={nodes}
             edges={edges}
+            launchIntent={renderLaunchIntent}
             onClose={() => setShowVideoRender(false)}
             onUpdateNodeData={handleUpdateNode}
             language={language}

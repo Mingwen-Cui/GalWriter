@@ -68,6 +68,7 @@ import type {
   TimelineWheelMode,
   VideoRenderModalProps,
   VideoTextScaleMode,
+  VideoWorkspaceMode,
 } from '../shared/types';
 import {
   captureTimelineHistoryState,
@@ -126,8 +127,6 @@ import {
   writeRenderWorkspaceState,
 } from './workspaceStorage';
 
-type VideoWorkspaceMode = 'timeline' | 'interactive';
-
 const WORKSPACE_MODE_ORDER: RenderWorkspaceMode[] = ['video', 'web', 'ppt', 'code'];
 
 export function VideoRenderModal({
@@ -140,14 +139,19 @@ export function VideoRenderModal({
   updateRenderStyle,
   callAIForTextResult,
   voiceTtsConfig,
+  launchIntent,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
-  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>('video');
+  const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(
+    () => launchIntent?.workspaceMode || 'video',
+  );
   const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>(
     'forward',
   );
-  const [videoWorkspaceMode, setVideoWorkspaceMode] = useState<VideoWorkspaceMode>('timeline');
+  const [videoWorkspaceMode, setVideoWorkspaceMode] = useState<VideoWorkspaceMode>(() =>
+    launchIntent?.workspaceMode === 'video' ? launchIntent.videoWorkspaceMode : 'timeline',
+  );
   const defaultWebProjectName = useMemo(
     () => getNodeDisplayTitle(orderedNodes[0]) || 'galwriter-web',
     [orderedNodes],
@@ -176,9 +180,11 @@ export function VideoRenderModal({
     normalizeRenpyExportSettings(nodes, persistedWorkspace?.codeSettings),
   );
   const [codeTarget, setCodeTarget] = useState<CodeExportTarget>(() =>
-    persistedWorkspace?.codeTarget === 'tyrano' || persistedWorkspace?.codeTarget === 'dialogic'
-      ? persistedWorkspace.codeTarget
-      : 'renpy',
+    launchIntent?.workspaceMode === 'code'
+      ? launchIntent.codeTarget
+      : persistedWorkspace?.codeTarget === 'tyrano' || persistedWorkspace?.codeTarget === 'dialogic'
+        ? persistedWorkspace.codeTarget
+        : 'renpy',
   );
   const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
   const pushPptHistory = () => {
@@ -186,7 +192,9 @@ export function VideoRenderModal({
     setPptFuture([]);
   };
   const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>(
-    'animation',
+    launchIntent?.workspaceMode === 'ppt' && launchIntent.entryMode === 'manual'
+      ? 'insert'
+      : 'animation',
   );
   const [pptRibbonCollapsed, setPptRibbonCollapsed] = useState(false);
   const updatePptSettings = (patch: Partial<PptExportSettings>) => {
@@ -220,7 +228,12 @@ export function VideoRenderModal({
     projectName: persistedWorkspace?.webProjectName,
     choiceColor: persistedWorkspace?.webChoiceColor,
     choiceTextColor: persistedWorkspace?.webChoiceTextColor,
-    settings: persistedWorkspace?.webSettings,
+    settings: {
+      ...persistedWorkspace?.webSettings,
+      ...(launchIntent?.workspaceMode === 'web'
+        ? { showStartMenu: launchIntent.showStartMenu }
+        : {}),
+    },
     renderStyle,
     past: persistedWorkspace?.webPast,
     future: persistedWorkspace?.webFuture,

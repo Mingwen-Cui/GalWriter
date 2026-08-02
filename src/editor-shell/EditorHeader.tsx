@@ -1,10 +1,12 @@
-import { Download, Film, FolderOpen, PlayCircle, Save, Sparkles } from 'lucide-react';
+import { Download, FolderOpen, PlayCircle, Save, Sparkles } from 'lucide-react';
 import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
+import type { RenderWorkspaceLaunchIntent } from '../components/render/video/shared/types';
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
+import { ExportQuickMenu } from './ExportQuickMenu';
 
 interface EditorHeaderProps {
   appTitle: string;
@@ -23,7 +25,7 @@ interface EditorHeaderProps {
   assistantOpen: boolean;
   jsonInputRef: MutableRefObject<HTMLInputElement | null>;
   setShowPlayTest: Dispatch<SetStateAction<boolean>>;
-  setShowVideoRender: Dispatch<SetStateAction<boolean>>;
+  onOpenRenderWorkspace: (intent: RenderWorkspaceLaunchIntent) => void;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   openProjectHome: () => void;
   openImportPicker: () => void;
@@ -53,7 +55,7 @@ export function EditorHeader({
   assistantOpen,
   jsonInputRef,
   setShowPlayTest,
-  setShowVideoRender,
+  onOpenRenderWorkspace,
   setAssistantOpen,
   openProjectHome,
   openImportPicker,
@@ -286,19 +288,7 @@ export function EditorHeader({
               <PlayCircle className="h-4 w-4" />
             </button>
             {canRenderVideo && !isMobile && (
-              <button
-                onClick={() => setShowVideoRender(true)}
-                className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
-                title={
-                  language === 'zh'
-                    ? '导出为视频'
-                    : language === 'ja'
-                      ? '動画としてエクスポート'
-                      : 'Export Video'
-                }
-              >
-                <Film className="h-4 w-4" />
-              </button>
+              <ExportQuickMenu language={language} onLaunch={onOpenRenderWorkspace} />
             )}
           </div>
           <input
@@ -458,19 +448,7 @@ export function EditorHeader({
                 <PlayCircle className="h-4 w-4" />
               </button>
               {canRenderVideo && !isMobile && (
-                <button
-                  onClick={() => setShowVideoRender(true)}
-                  className="header-glass-action header-glass-action-video flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white transition-colors hover:bg-sky-700"
-                  title={
-                    language === 'zh'
-                      ? '导出为视频'
-                      : language === 'ja'
-                        ? '動画としてエクスポート'
-                        : 'Export Video'
-                  }
-                >
-                  <Film className="h-4 w-4" />
-                </button>
+                <ExportQuickMenu language={language} onLaunch={onOpenRenderWorkspace} />
               )}
             </div>
           </div>

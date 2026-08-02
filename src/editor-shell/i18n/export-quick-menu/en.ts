@@ -1,0 +1,16 @@
+export const exportQuickMenuEn = {
+  title: 'Export work',
+  video: 'Video',
+  web: 'Web',
+  ppt: 'PPT',
+  code: 'Code',
+  singleVideo: 'Single video',
+  batchVideo: 'Segment videos',
+  withMenu: 'With menu',
+  withoutMenu: 'Direct start',
+  storyPpt: 'Story deck',
+  manualPpt: 'Free edit',
+  renpy: "Ren'Py",
+  tyrano: 'TyranoScript',
+  dialogic: 'Godot',
+} as const;

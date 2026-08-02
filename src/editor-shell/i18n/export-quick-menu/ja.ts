@@ -1,0 +1,16 @@
+export const exportQuickMenuJa = {
+  title: '作品を書き出す',
+  video: '動画',
+  web: 'Web',
+  ppt: 'PPT',
+  code: 'コード',
+  singleVideo: '単一動画',
+  batchVideo: '分割動画',
+  withMenu: 'メニューあり',
+  withoutMenu: '直接開始',
+  storyPpt: 'ストーリー資料',
+  manualPpt: '自由編集',
+  renpy: "Ren'Py",
+  tyrano: 'TyranoScript',
+  dialogic: 'Godot',
+} as const;

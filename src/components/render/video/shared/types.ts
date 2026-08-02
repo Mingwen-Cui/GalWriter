@@ -18,6 +18,12 @@ export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
 export type ExportSettingsMode = 'video' | 'audio';
 export type RenderWorkspaceMode = 'video' | 'web' | 'ppt' | 'code';
+export type VideoWorkspaceMode = 'timeline' | 'interactive';
+export type RenderWorkspaceLaunchIntent =
+  | { workspaceMode: 'video'; videoWorkspaceMode: VideoWorkspaceMode }
+  | { workspaceMode: 'web'; showStartMenu: boolean }
+  | { workspaceMode: 'ppt'; entryMode: 'story' | 'manual' }
+  | { workspaceMode: 'code'; codeTarget: 'renpy' | 'tyrano' | 'dialogic' };
 export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type TimelineSegmentMetric = {
   node: FlowNode;
@@ -37,6 +43,7 @@ export type VideoRenderModalProps = {
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   voiceTtsConfig?: TTSConfig;
   callAIForTextResult?: (prompt: string) => Promise<{ content: string; reasoning?: string }>;
+  launchIntent?: RenderWorkspaceLaunchIntent;
 };
 
 export type RenderStyle = {

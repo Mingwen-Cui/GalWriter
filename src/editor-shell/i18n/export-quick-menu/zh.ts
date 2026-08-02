@@ -1,0 +1,16 @@
+export const exportQuickMenuZh = {
+  title: '导出作品',
+  video: '视频',
+  web: '网页',
+  ppt: 'PPT',
+  code: '代码',
+  singleVideo: '单个视频',
+  batchVideo: '批量分段',
+  withMenu: '有主界面',
+  withoutMenu: '无主界面',
+  storyPpt: '故事演示',
+  manualPpt: '自由编辑',
+  renpy: "Ren'Py",
+  tyrano: 'TyranoScript',
+  dialogic: 'Godot',
+} as const;
