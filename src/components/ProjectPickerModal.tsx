@@ -38,6 +38,7 @@ interface ProjectPickerModalProps {
   isMobile?: boolean;
   showCloseButton?: boolean;
   defaultProjectSaveDir?: string | null;
+  startupProjectId?: string | null;
   onClose: () => void;
   onCreateProject: () => void;
   onOpenProject: (projectId: string) => void;
@@ -46,6 +47,7 @@ interface ProjectPickerModalProps {
   onImportExample?: (template: ProjectExampleTemplate) => Promise<void> | void;
   onDownloadExample?: (template: ProjectExampleTemplate) => void;
   onChooseDefaultSaveLocation?: () => void;
+  onSetStartupProject?: (projectId: string | null) => Promise<void> | void;
   onRenameProject: (projectId: string, projectName: string) => Promise<void> | void;
   onDeleteProject: (projectId: string) => Promise<void> | void;
   onDeleteProjects?: (projectIds: string[]) => Promise<void> | void;
@@ -125,6 +127,7 @@ export function ProjectPickerModal({
   isMobile = false,
   showCloseButton = false,
   defaultProjectSaveDir,
+  startupProjectId = null,
   onClose,
   onCreateProject,
   onOpenProject,
@@ -133,6 +136,7 @@ export function ProjectPickerModal({
   onImportExample,
   onDownloadExample,
   onChooseDefaultSaveLocation,
+  onSetStartupProject,
   onRenameProject,
   onDeleteProject,
   onDeleteProjects,
@@ -859,6 +863,29 @@ export function ProjectPickerModal({
                               >
                                 <Download className="h-4 w-4" />
                                 <span>{isZh ? '下载项目' : 'Download'}</span>
+                              </button>
+                            )}
+                            {onSetStartupProject && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActionMenuProjectId(null);
+                                  void onSetStartupProject(
+                                    startupProjectId === project.id ? null : project.id,
+                                  );
+                                }}
+                                className="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-200 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+                              >
+                                <Clock3 className="h-4 w-4" />
+                                <span>
+                                  {startupProjectId === project.id
+                                    ? isZh
+                                      ? '取消下次直接打开'
+                                      : 'Cancel open on next launch'
+                                    : isZh
+                                      ? '下次直接打开'
+                                      : 'Open on next launch'}
+                                </span>
                               </button>
                             )}
                             <button

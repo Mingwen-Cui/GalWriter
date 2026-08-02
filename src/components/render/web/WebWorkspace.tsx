@@ -37,6 +37,8 @@ import {
 } from './webExperiencePresets';
 import { buildRehearsalTemplate } from './webExperienceTemplates';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
+import { getWebSettingsCopy } from './i18n';
+import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
 import type { WebPreviewSurface } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 
@@ -507,6 +509,29 @@ export function WebWorkspace({
   const settingsPageElements = webSettings.settingsPageElements?.length
     ? webSettings.settingsPageElements
     : defaultSettingsPageElements;
+  useEffect(() => {
+    if (!webSettings.settingsPageElements?.length) return;
+    const requiredRoles = new Set(['textSize', 'animationSpeed', 'sound']);
+    const existingRoles = new Set(webSettings.settingsPageElements.map((element) => element.role));
+    const missing = defaultSettingsPageElements.filter(
+      (element) => requiredRoles.has(element.role || '') && !existingRoles.has(element.role),
+    );
+    const compactLayout: Record<string, number> = {
+      auto: 34, speed: 42, textSize: 50, animationSpeed: 58, sound: 66, controls: 74,
+    };
+    const compacted = [...webSettings.settingsPageElements, ...missing].map((element) => {
+      const patch = element.role === 'back'
+        ? { text: getWebSettingsCopy(language).backToMainMenu }
+        : element.role && compactLayout[element.role] !== undefined
+          ? { x: 28, y: compactLayout[element.role], width: 44, height: 6 }
+          : null;
+      if (!patch || Object.entries(patch).every(([key, value]) => element[key as keyof typeof element] === value)) return element;
+      return { ...element, ...patch };
+    });
+    if (missing.length || compacted.some((element, index) => element !== webSettings.settingsPageElements[index])) {
+      updateWebSettings('settingsPageElements', compacted);
+    }
+  }, [defaultSettingsPageElements, t, updateWebSettings, webSettings.settingsPageElements]);
   const webExperiencePresets = useMemo(
     () =>
       buildWebExperiencePresets({
@@ -525,10 +550,13 @@ export function WebWorkspace({
         ),
         archiveNew: t('新游戏', '新規ゲーム', 'New Game'),
         settingsTitle: t('设置', '設定', 'Settings'),
-        settingsBack: t('返回', '戻る', 'Back'),
+        settingsBack: getWebSettingsCopy(language).backToMainMenu,
         settingsAuto: t('自动播放', '自動再生', 'Auto play'),
         settingsSpeed: t('打字速度', 'テキスト速度', 'Text speed'),
         settingsControls: t('显示控制栏', '操作表示', 'Show controls'),
+        settingsTextSize: getWebSettingsCopy(language).textSize,
+        settingsAnimationSpeed: getWebSettingsCopy(language).animationSpeed,
+        settingsSound: getWebSettingsCopy(language).sound,
       }),
     [language, webProjectName, webChoiceColor, webChoiceTextColor],
   );
@@ -623,6 +651,24 @@ export function WebWorkspace({
     );
   };
   const deleteStartMenuElement = (id: string) => {
+    const pageMatch = /^(archive|settings):(.*)$/.exec(id);
+    if (pageMatch) {
+      const key = pageMatch[1] === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+      const elementId = pageMatch[2];
+      const source = webSettings[key] || [];
+      const element = source.find((candidate) => candidate.id === elementId);
+      if (element?.role === 'back') return;
+      updateWebSettings(key, source.filter((candidate) => candidate.id !== elementId));
+      setSelectedStartMenuElementId(null);
+      return;
+    }
+    const element = (webSettings.startMenuElements || []).find((candidate) => candidate.id === id);
+    if (
+      element?.kind === 'button' &&
+      protectedStartMenuElementRoles.has(element.role || '')
+    ) {
+      return;
+    }
     updateWebSettings(
       'startMenuElements',
       (webSettings.startMenuElements || []).filter((element) => element.id !== id),

@@ -185,6 +185,6 @@ export const settingsModalEn = {
   contactTitle: 'Contact Author (Mingwen Cui)',
   contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
   freeNotice:
-    'This software is free to download and use. If you have paid for it, please request a refund immediately and report the seller.',
+    'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
   cancel: 'Cancel',
 } as const;

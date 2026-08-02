@@ -6,6 +6,7 @@ type SelectionBounds = {
   minX: number;
   minY: number;
   maxX: number;
+  maxY: number;
 };
 
 interface UseSelectionMenuParams {
@@ -54,17 +55,18 @@ export const useSelectionMenu = ({
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
+    let maxY = -Infinity;
 
     nodesToMeasure.forEach((node) => {
+      const nodeWidth = node.measured?.width || (node.style?.width as number) || 300;
+      const nodeHeight = node.measured?.height || (node.style?.height as number) || 200;
       minX = Math.min(minX, node.position.x);
       minY = Math.min(minY, node.position.y);
-      maxX = Math.max(
-        maxX,
-        node.position.x + (node.measured?.width || (node.style?.width as number) || 300),
-      );
+      maxX = Math.max(maxX, node.position.x + nodeWidth);
+      maxY = Math.max(maxY, node.position.y + nodeHeight);
     });
 
-    return { minX, minY, maxX };
+    return { minX, minY, maxX, maxY };
   }, []);
 
   const updateSelectionMenuPosition = useCallback(
@@ -77,11 +79,40 @@ export const useSelectionMenu = ({
       const [transformX, transformY, zoom] = transform ?? transformRef.current;
       const wrapperRect = wrapper.getBoundingClientRect();
       const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
-      const screenX = wrapperRect.left + centerX * zoom + transformX;
-      const screenY = wrapperRect.top + bounds.minY * zoom + transformY - 12;
+      const menuWidth = element.offsetWidth;
+      const menuHeight = element.offsetHeight;
+      const viewportPadding = 12;
+      const assistantPanel = document.querySelector<HTMLElement>(
+        '.assistant-panel-desktop.assistant-panel-entered',
+      );
+      const assistantPanelRect = assistantPanel?.getBoundingClientRect();
+      const usableRightEdge =
+        assistantPanelRect && assistantPanelRect.width > 0 && assistantPanelRect.left < window.innerWidth
+          ? Math.min(window.innerWidth - viewportPadding, assistantPanelRect.left - viewportPadding)
+          : window.innerWidth - viewportPadding;
+      const minimumMenuCenterX = viewportPadding + menuWidth / 2;
+      const maximumMenuCenterX = Math.max(
+        minimumMenuCenterX,
+        usableRightEdge - menuWidth / 2,
+      );
+      const screenX = Math.max(
+        minimumMenuCenterX,
+        Math.min(
+          maximumMenuCenterX,
+          wrapperRect.left + centerX * zoom + transformX,
+        ),
+      );
+      const selectedTop = wrapperRect.top + bounds.minY * zoom + transformY;
+      const selectedBottom = wrapperRect.top + bounds.maxY * zoom + transformY;
+      const preferredAboveY = selectedTop - viewportPadding;
+      const canPlaceAbove = preferredAboveY - menuHeight >= viewportPadding;
+      const screenY = canPlaceAbove
+        ? preferredAboveY
+        : Math.min(Math.max(viewportPadding, selectedBottom + viewportPadding), window.innerHeight - viewportPadding - menuHeight);
 
       element.style.setProperty('--selection-menu-x', `${screenX}px`);
       element.style.setProperty('--selection-menu-y', `${screenY}px`);
+      element.style.setProperty('--selection-menu-translate-y', canPlaceAbove ? '-100%' : '0');
     },
     [canvasWrapperRef],
   );
@@ -119,6 +150,35 @@ export const useSelectionMenu = ({
     const handleResize = () => scheduleSelectionMenuPosition();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, [scheduleSelectionMenuPosition, showSelectionMenu]);
+
+  useEffect(() => {
+    if (!showSelectionMenu) return;
+
+    let transitionTimer: number | undefined;
+    const observer = new MutationObserver((mutations) => {
+      const panelVisibilityChanged = mutations.some(
+        (mutation) =>
+          mutation.target instanceof HTMLElement &&
+          mutation.target.classList.contains('assistant-panel-desktop'),
+      );
+      if (!panelVisibilityChanged) return;
+
+      scheduleSelectionMenuPosition();
+      window.clearTimeout(transitionTimer);
+      transitionTimer = window.setTimeout(scheduleSelectionMenuPosition, 520);
+    });
+
+    observer.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(transitionTimer);
+    };
   }, [scheduleSelectionMenuPosition, showSelectionMenu]);
 
   useEffect(

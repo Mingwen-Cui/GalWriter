@@ -84,11 +84,13 @@ export async function buildPptxBuffer({
 }): Promise<ArrayBuffer> {
   const pptx = new PptxGenJS();
   pptx.layout = toPptxGenLayout(pptSettings.layout);
-  pptx.author = 'GalWriter AI';
+  pptx.author = 'GalWriter AI (Mingwen Cui)';
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
   const page = createPptPageMapper(pptSettings.layout);
   const fullContentFrame = page.frame(0, 0, WIDE_PAGE_WIDTH, WIDE_PAGE_HEIGHT);
+  const authorNote = 'Independent design and development: Mingwen Cui (崔铭文)\nhttps://mingwencui.com/AIwriter/?lang=zh';
+  let authorNoteWritten = false;
 
   const scenes = resolvePptScenes(nodes, edges, settings);
   const colors = pptSceneColors(style, settings);
@@ -232,6 +234,8 @@ export async function buildPptxBuffer({
       align: 'center',
       margin: 0,
     });
+    slide.addNotes(authorNote);
+    authorNoteWritten = true;
     await appendManualSlides('cover');
   }
 
@@ -523,11 +527,12 @@ export async function buildPptxBuffer({
         rotate: nameplate.rotation,
       });
     }
-    if (pptSettings.includeNotes) {
-      slide.addNotes(
-        pptSettings.speakerNotes?.[scene.id] ||
-          `节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`,
-      );
+    const sceneNotes =
+      pptSettings.speakerNotes?.[scene.id] ||
+      `节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`;
+    if (pptSettings.includeNotes || !authorNoteWritten) {
+      slide.addNotes(authorNoteWritten ? sceneNotes : `${authorNote}\n\n${sceneNotes}`);
+      authorNoteWritten = true;
     }
 
     await appendManualSlides(scene.id);

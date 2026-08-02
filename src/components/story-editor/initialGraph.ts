@@ -1,4 +1,4 @@
-import { MarkerType, type Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import {
   AI_STORY_CARD_HEIGHT,
@@ -21,7 +21,7 @@ export const INITIAL_NODES: Node[] = [
   {
     id: 'root',
     type: 'storyNode',
-    position: { x: 400, y: 250 },
+    position: { x: 200, y: 100 },
     style: { width: 300, height: AI_STORY_CARD_HEIGHT },
     data: {
       id: 'root',
@@ -32,5 +32,30 @@ export const INITIAL_NODES: Node[] = [
       sizeMode: 'auto',
       isRoot: true,
     },
+  },
+  {
+    id: 'initial-branch',
+    type: 'storyNode',
+    position: { x: 200, y: 560 },
+    style: { width: 300, height: AI_STORY_CARD_HEIGHT },
+    data: {
+      id: 'initial-branch',
+      title: '分支',
+      text: '山里有座庙',
+      shape: 'square',
+      color: '#ffffff',
+      sizeMode: 'auto',
+    },
+  },
+];
+
+export const INITIAL_EDGES: Edge[] = [
+  {
+    id: 'initial-root-to-branch',
+    source: 'root',
+    sourceHandle: 'bottom',
+    target: 'initial-branch',
+    targetHandle: 'top',
+    type: 'customEdge',
   },
 ];

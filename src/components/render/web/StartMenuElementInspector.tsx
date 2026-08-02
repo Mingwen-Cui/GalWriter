@@ -25,6 +25,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
+import { DraggableNumberInput } from '../../DraggableNumberInput';
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
@@ -109,7 +110,7 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
 > = {
   start: ['custom', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
   archive: ['custom', 'slot', 'slotContinue', 'slotDelete', 'new', 'back', 'settings', 'link', 'volume'],
-  settings: ['custom', 'back', 'auto', 'speed', 'controls', 'volume', 'link'],
+  settings: ['custom', 'back', 'auto', 'speed', 'textSize', 'animationSpeed', 'sound', 'controls', 'volume', 'link'],
   game: ['custom', 'audio', 'fullscreen', 'return', 'mainMenu', 'controlsToggle', 'volume', 'link'],
 };
 
@@ -127,6 +128,9 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       slotDelete: 'セーブを削除',
       auto: '自動再生',
       speed: '文字速度',
+      textSize: '文字サイズ',
+      animationSpeed: 'アニメーション速度',
+      sound: 'サウンド',
       controls: '操作表示',
       audio: '音声リスト',
       fullscreen: '全画面',
@@ -152,6 +156,9 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       slotDelete: 'Delete save',
       auto: 'Toggle auto play',
       speed: 'Text speed',
+      textSize: 'Text size',
+      animationSpeed: 'Animation speed',
+      sound: 'Sound',
       controls: 'Show controls',
       audio: 'Audio playlist',
       fullscreen: 'Fullscreen',
@@ -176,6 +183,9 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     slotDelete: '删除此存档',
     auto: '自动播放开关',
     speed: '打字速度',
+    textSize: '文本大小',
+    animationSpeed: '动画速度',
+    sound: '音效开关',
     controls: '显示控制栏',
     audio: '音频播放列表',
     fullscreen: '全屏',
@@ -193,6 +203,48 @@ const buttonFunctionDefaultText = (role: ButtonFunction, language: Language) => 
   const copy = buttonFunctionCopy(language);
   return role === 'custom' ? '' : copy[role];
 };
+
+function NumericButtonActionControl({
+  role,
+  language,
+  value,
+  inputMode = 'drag',
+  onChange,
+  onModeChange,
+}: {
+  role: 'speed' | 'textSize' | 'animationSpeed';
+  language: Language;
+  value?: number;
+  inputMode?: 'drag' | 'slider';
+  onChange: (value: number) => void;
+  onModeChange: (mode: 'drag' | 'slider') => void;
+}) {
+  const config = role === 'speed'
+    ? { min: 10, max: 200, step: 5, fallback: 65, unit: 'ms' }
+    : role === 'textSize'
+      ? { min: 85, max: 130, step: 5, fallback: 100, unit: '%' }
+      : { min: 0.5, max: 2, step: 0.5, fallback: 1, unit: '×' };
+  const label = role === 'speed'
+    ? language === 'zh' ? '数值' : language === 'ja' ? '数値' : 'Value'
+    : language === 'zh' ? '数值' : language === 'ja' ? '数値' : 'Value';
+  const current = value ?? config.fallback;
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-500">
+        <span>{label}</span>
+        <div className="flex overflow-hidden rounded-lg bg-slate-100 text-slate-600">
+          <button type="button" className={`px-2 py-1 ${inputMode === 'drag' ? 'bg-indigo-600 text-white' : ''}`} onClick={() => onModeChange('drag')}>↔</button>
+          <button type="button" className={`px-2 py-1 ${inputMode === 'slider' ? 'bg-indigo-600 text-white' : ''}`} onClick={() => onModeChange('slider')}>━</button>
+        </div>
+      </div>
+      {inputMode === 'drag' ? (
+        <DraggableNumberInput value={current} onChange={onChange} min={config.min} max={config.max} step={config.step} unit={config.unit} />
+      ) : (
+        <input className="w-full accent-indigo-600" type="range" min={config.min} max={config.max} step={config.step} value={current} onChange={(event) => onChange(Number(event.target.value))} />
+      )}
+    </div>
+  );
+}
 
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 
@@ -978,6 +1030,16 @@ export function StartMenuElementInspector({
                 onChange={(actionValue) => onUpdate({ actionValue })}
               />
             </div>
+          )}
+          {(['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(buttonFunction) && (
+            <NumericButtonActionControl
+              role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed'}
+              language={language}
+              value={element.actionValue}
+              inputMode={element.actionValueInputMode}
+              onChange={(actionValue) => onUpdate({ actionValue })}
+              onModeChange={(actionValueInputMode) => onUpdate({ actionValueInputMode })}
+            />
           )}
         </Group>
       )}

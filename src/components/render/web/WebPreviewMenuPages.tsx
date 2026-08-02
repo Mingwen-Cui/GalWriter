@@ -85,6 +85,7 @@ type WebPreviewMenuPagesProps = {
   onUpdateSettingsElement: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateArchiveElements: (elements: WebMenuElement[]) => void;
   onUpdateSettingsElements: (elements: WebMenuElement[]) => void;
+  onDeletePageElement?: (page: 'archive' | 'settings', id: string) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -127,6 +128,7 @@ export function WebPreviewMenuPages({
   onUpdateSettingsElement,
   onUpdateArchiveElements,
   onUpdateSettingsElements,
+  onDeletePageElement,
   onUpdateSettings,
 }: WebPreviewMenuPagesProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
@@ -497,6 +499,7 @@ export function WebPreviewMenuPages({
             choiceTextColor={choiceTextColor}
             onSelectElement={onSelectElement}
             onUpdateElement={onUpdateArchiveElement}
+            onDeleteElement={(id) => onDeletePageElement?.('archive', id)}
             onBeginElementDrag={beginElementDrag}
             slotPreviewActive={archiveShowsSaveExample}
             onToggleSlotPreview={() => setArchiveShowsSaveExample((shown) => !shown)}
@@ -546,17 +549,31 @@ export function WebPreviewMenuPages({
             choiceTextColor={choiceTextColor}
             onSelectElement={onSelectElement}
             onUpdateElement={onUpdateSettingsElement}
+            onDeleteElement={(id) => onDeletePageElement?.('settings', id)}
             onBeginElementDrag={beginElementDrag}
             onAction={(element) => {
               if (onButtonFunction(element)) return;
               if (element.role === 'back') onCloseSettings();
               if (element.role === 'auto') onUpdateSettings('autoAdvance', !settings.autoAdvance);
+              if (element.role === 'textSize') {
+                const values = [85, 100, 115, 130];
+                onUpdateSettings('textScale', values[(values.indexOf(settings.textScale) + 1) % values.length]);
+              }
+              if (element.role === 'animationSpeed') {
+                const values = [0.5, 1, 1.5, 2];
+                onUpdateSettings('animationSpeed', values[(values.indexOf(settings.animationSpeed) + 1) % values.length]);
+              }
+              if (element.role === 'sound') onUpdateSettings('soundEnabled', !settings.soundEnabled);
               if (element.role === 'controls') onToggleControls();
             }}
             renderSuffix={(element) => {
               if (element.role === 'auto')
                 return settings.autoAdvance ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
               if (element.role === 'speed') return `${settings.typewriterSpeed}ms`;
+              if (element.role === 'textSize') return `${settings.textScale}%`;
+              if (element.role === 'animationSpeed') return `${settings.animationSpeed}×`;
+              if (element.role === 'sound')
+                return settings.soundEnabled ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
               if (element.role === 'controls')
                 return previewControlsHidden ? t('关闭', 'オフ', 'Off') : t('开启', 'オン', 'On');
               return '';
@@ -579,6 +596,7 @@ type MenuPageElementLayerProps = {
   choiceTextColor: string;
   onSelectElement?: (id: string | null) => void;
   onUpdateElement: (id: string, patch: Partial<WebMenuElement>) => void;
+  onDeleteElement?: (id: string) => void;
   onBeginElementDrag: (
     page: 'archive' | 'settings',
     event: React.PointerEvent<HTMLElement>,
@@ -603,6 +621,7 @@ function MenuPageElementLayer({
   choiceTextColor,
   onSelectElement,
   onUpdateElement,
+  onDeleteElement,
   onBeginElementDrag,
   onAction,
   renderSuffix,
@@ -745,6 +764,11 @@ function MenuPageElementLayer({
                   )}
                   {suffix && <span className="text-xs opacity-70">{suffix}</span>}
                 </span>
+                {editable && element.role && (
+                  <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+                    {element.text || element.role}
+                  </span>
+                )}
                 {selected && (
                   <SelectedElementFrame
                     page={page}
@@ -757,6 +781,7 @@ function MenuPageElementLayer({
                         ? onToggleSlotPreview
                         : undefined
                     }
+                    onDelete={onDeleteElement}
                   />
                 )}
                 {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'fill' && element.backgroundType === 'gradient' && (
@@ -934,6 +959,7 @@ function SelectedElementFrame({
   onBeginElementDrag,
   onToggleSlotPreview,
   slotPreviewActive,
+  onDelete,
 }: {
   page: 'archive' | 'settings';
   element: WebMenuElement;
@@ -947,6 +973,7 @@ function SelectedElementFrame({
   ) => void;
   onToggleSlotPreview?: () => void;
   slotPreviewActive?: boolean;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <WebEditableElementFrame
@@ -958,6 +985,14 @@ function SelectedElementFrame({
       }}
       onResizePointerDown={(event, handle) =>
         onBeginElementDrag(page, event, element, 'resize', handle)
+      }
+      onDelete={
+        element.role === 'back'
+          ? undefined
+          : (event) => {
+              event.stopPropagation();
+              onDelete?.(element.id);
+            }
       }
       slotPreviewActive={slotPreviewActive}
       onToggleSlotPreview={

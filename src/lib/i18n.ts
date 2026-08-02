@@ -80,7 +80,7 @@ export const translations = {
     finish: '完成',
     contactTitle: '联系作者 (崔铭文)',
     contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
-    freeNotice: '本软件免费下载使用，如果您已经购买了这个软件，请立即退款并举报商家。',
+    freeNotice: '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
     author: '作者',
     apiKeyLocalOnly: '所有 API Key 均保存在您的本地设备中，不会上传至任何服务器。',
 
@@ -249,7 +249,7 @@ export const translations = {
     finish: 'Finish',
     contactTitle: 'Contact Author (Mingwen Cui)',
     contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
-    freeNotice: 'This software is free to download and use. If you have paid for it, please request a refund immediately and report the seller.',
+    freeNotice: 'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
     author: 'Author',
     apiKeyLocalOnly: 'All API keys are stored locally on your device and are never uploaded to any server.',
 
@@ -415,7 +415,7 @@ export const translations = {
     finish: '完了',
     contactTitle: '開発者に連絡 (崔銘文)',
     contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
-    freeNotice: '本ソフトウェアは無料でダウンロード・使用できます。もし購入された場合は、すぐに返金を申請し、販売者を報告してください。',
+    freeNotice: '本ソフトウェアは崔銘文が独立して設計・開発し、継続的に改善しています。製品協業、ライセンス、技術交流、採用に関するご相談を歓迎します。',
     author: '開発者',
     apiKeyLocalOnly: 'すべての API キーはお使いのデバイスにローカル保存され、サーバーにはアップロードされません。',
 

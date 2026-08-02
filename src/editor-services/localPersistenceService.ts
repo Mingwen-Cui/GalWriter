@@ -146,6 +146,10 @@ export const localPersistenceService = {
     await saveAppSettings({ lastProjectId: projectId });
   },
 
+  async saveStartupProjectId(startupProjectId: string | null) {
+    await saveAppSettings({ startupProjectId });
+  },
+
   async loadResumeState(): Promise<ResumeState> {
     const appSettings = await getAppSettings();
     const exactProject = appSettings.lastProjectId

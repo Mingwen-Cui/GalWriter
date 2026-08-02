@@ -124,7 +124,7 @@ import {
   PROJECT_TITLE_PLACEHOLDER,
 } from './constants';
 import { edgeTypes, nodeTypes } from './flowTypes';
-import { createDefaultEdgeOptions, INITIAL_NODES } from './initialGraph';
+import { createDefaultEdgeOptions, INITIAL_EDGES, INITIAL_NODES } from './initialGraph';
 import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
 import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
@@ -152,7 +152,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     useAgentRuntime();
 
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
-  const [edges, setEdges] = useEdgesState<Edge>([]);
+  const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
   const [showPlayTest, setShowPlayTest] = useState(false);
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
@@ -249,6 +249,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
   const [defaultProjectSaveDir, setDefaultProjectSaveDir] = useState<string | null>(null);
+  const [startupProjectId, setStartupProjectId] = useState<string | null>(null);
   const [projectIdToLoad, setProjectIdToLoad] = useState<string | null>(null);
   const [pendingHomeProjectId, setPendingHomeProjectId] = useState<string | null>(null);
   const [projectListLoading, setProjectListLoading] = useState(true);
@@ -744,7 +745,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     past: { nodes: Node[]; edges: Edge[] }[];
     future: { nodes: Node[]; edges: Edge[] }[];
   }>({ past: [], future: [] });
-  const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: [] as Edge[] });
+  const lastHistoryState = useRef({ nodes: INITIAL_NODES, edges: INITIAL_EDGES });
   const isUndoRedoAction = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
@@ -2441,6 +2442,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleExportProjectFromList,
     handleExportProjectsBundleFromList,
     handleOpenProject,
+    handleSetStartupProject,
     handleImportProjectFromHome,
     handleImportExampleTemplate,
     handleDownloadExampleTemplate,
@@ -2498,6 +2500,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     createCurrentProjectThumbnail,
     defaultProjectSaveDir,
     setDefaultProjectSaveDir,
+    setStartupProjectId,
     defaultEdgeOptions,
     currentProjectId,
     setCurrentProjectId,
@@ -3740,6 +3743,7 @@ ${layoutConfig.label}
         isMobile={isMobile}
         showCloseButton={Boolean(currentProjectId)}
         defaultProjectSaveDir={defaultProjectSaveDir}
+        startupProjectId={startupProjectId}
         onClose={() => setShowProjectHome(false)}
         onCreateProject={() => {
           requestProjectAction({ type: 'create' });
@@ -3752,6 +3756,7 @@ ${layoutConfig.label}
         onImportExample={!isTauriRuntime() ? handleImportExampleTemplate : undefined}
         onDownloadExample={!isTauriRuntime() ? handleDownloadExampleTemplate : undefined}
         onChooseDefaultSaveLocation={handleChooseDefaultProjectSaveLocation}
+        onSetStartupProject={handleSetStartupProject}
         onRenameProject={async (projectId, projectName) => {
           await handleRenameProject(projectId, projectName);
         }}

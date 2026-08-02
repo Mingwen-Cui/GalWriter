@@ -1025,18 +1025,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   }, []);
 
   const handleResizeStoryNodeEnd = useCallback(
-    (_event: unknown, params: { height: number }) => {
+    (_event: unknown, params: { width: number; height: number }) => {
       const startHeight = resizeStartHeightRef.current;
       resizeStartHeightRef.current = null;
-      if (
-        startHeight !== null &&
-        Math.abs(params.height - startHeight) >= 1 &&
-        data.sizeMode !== 'custom'
-      ) {
-        updateNodeData({ sizeMode: 'custom' });
+      if (startHeight === null || Math.abs(params.height - startHeight) < 1) return;
+
+      // Returning a manually resized card to its current automatic minimum
+      // should opt it back into auto sizing instead of preserving a redundant
+      // custom height.
+      const automaticMinimum = computeAutoMinHeight(params.width) ?? autoMinHeight;
+      const hasReturnedToAutomaticMinimum =
+        Math.abs(params.height - automaticMinimum) <= 1;
+
+      if (hasReturnedToAutomaticMinimum) {
+        if (data.sizeMode === 'custom') updateNodeData({ sizeMode: 'auto' });
+        return;
       }
+
+      if (data.sizeMode !== 'custom') updateNodeData({ sizeMode: 'custom' });
     },
-    [data.sizeMode, updateNodeData],
+    [autoMinHeight, computeAutoMinHeight, data.sizeMode, updateNodeData],
   );
 
   const syncImageNodeHeight = useCallback(

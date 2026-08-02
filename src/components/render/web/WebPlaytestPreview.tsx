@@ -372,8 +372,11 @@ export function WebPlaytestPreview({
     lastJumpedNodeRef.current = null;
   }, [clearPlaybackTimers]);
 
-  const titleStyle = buildTitleStyle(renderStyle, settings.canvasHeight);
-  const bodyStyle = buildBodyStyle(renderStyle, settings.canvasHeight);
+  const textScale = Math.max(0.7, Math.min(1.4, (settings.textScale ?? 100) / 100));
+  const baseTitleStyle = buildTitleStyle(renderStyle, settings.canvasHeight);
+  const baseBodyStyle = buildBodyStyle(renderStyle, settings.canvasHeight);
+  const titleStyle = { ...baseTitleStyle, fontSize: Number(baseTitleStyle.fontSize) * textScale };
+  const bodyStyle = { ...baseBodyStyle, fontSize: Number(baseBodyStyle.fontSize) * textScale };
   const dialogueShellStyle = buildDialogueShellStyle(
     renderStyle,
     settings.canvasWidth,
@@ -578,7 +581,7 @@ export function WebPlaytestPreview({
   };
 
   React.useEffect(() => {
-    if (audioUrl && currentAudioRef.current) {
+    if (settings.soundEnabled && audioUrl && currentAudioRef.current) {
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current.play().catch(() => {
         // Browser autoplay policies may require the first playback to be user initiated.
@@ -588,7 +591,7 @@ export function WebPlaytestPreview({
       currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
-  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance]);
+  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance, settings.soundEnabled]);
 
   React.useEffect(() => {
     if (!playlistAudioUrl || !playlistAudioRef.current) return;
@@ -610,7 +613,7 @@ export function WebPlaytestPreview({
       return;
     }
     if (presentationExiting) return;
-    const exitDuration = getPresentationExitDuration(presentation);
+    const exitDuration = getPresentationExitDuration(presentation) / Math.max(0.5, settings.animationSpeed ?? 1);
     const sessionId = playbackSessionRef.current;
     setPresentationExiting(true);
     transitionTimerRef.current = window.setTimeout(() => {
@@ -691,7 +694,7 @@ export function WebPlaytestPreview({
             stepIndex += 1;
             playNext();
           },
-          Math.max(0, step.action.duration || 0),
+          Math.max(0, step.action.duration || 0) / Math.max(0.5, settings.animationSpeed ?? 1),
         );
         return;
       }
@@ -715,7 +718,7 @@ export function WebPlaytestPreview({
           stepIndex += 1;
           playNext();
         }
-      }, settings.typewriterSpeed);
+      }, settings.typewriterSpeed / Math.max(0.5, settings.animationSpeed ?? 1));
     };
     playNext();
     return () => {
@@ -729,6 +732,7 @@ export function WebPlaytestPreview({
     settings.interactionMode,
     settings.hideCharacterTags,
     settings.hideSceneTags,
+    settings.animationSpeed,
     settings.typewriterSpeed,
     rawText,
     text,
@@ -849,7 +853,13 @@ export function WebPlaytestPreview({
       savedAt: now,
       currentId: currentNodeId,
       history,
-      settings: { autoAdvance: settings.autoAdvance, typewriterSpeed: settings.typewriterSpeed },
+      settings: {
+        autoAdvance: settings.autoAdvance,
+        typewriterSpeed: settings.typewriterSpeed,
+        textScale: settings.textScale,
+        animationSpeed: settings.animationSpeed,
+        soundEnabled: settings.soundEnabled,
+      },
       controlsHidden: previewControlsHidden,
       playedAudios: playedAudios.map((audio) => audio.url),
     };
@@ -864,6 +874,11 @@ export function WebPlaytestPreview({
     if (!save || save.currentId === 'THE_END' || !runtimeNodes.some((node) => node.id === save.currentId)) return;
     setCurrentNodeId(save.currentId);
     setHistory(save.history);
+    onUpdateSettings('autoAdvance', save.settings.autoAdvance);
+    onUpdateSettings('typewriterSpeed', save.settings.typewriterSpeed);
+    onUpdateSettings('textScale', save.settings.textScale);
+    onUpdateSettings('animationSpeed', save.settings.animationSpeed);
+    onUpdateSettings('soundEnabled', save.settings.soundEnabled);
     setPreviewControlsHidden(save.controlsHidden);
     setActivePreviewSaveId(save.id);
     setPreviewGameStarted(true);
@@ -956,10 +971,19 @@ export function WebPlaytestPreview({
       return true;
     }
     if (element.role === 'speed') {
-      const speeds = [25, 50, 75, 100, 150, 200];
-      const current = settings.typewriterSpeed;
-      const next = speeds.find((speed) => speed > current) || speeds[0];
-      onUpdateSettings('typewriterSpeed', next);
+      onUpdateSettings('typewriterSpeed', Math.max(10, Math.min(200, element.actionValue ?? 65)));
+      return true;
+    }
+    if (element.role === 'textSize') {
+      onUpdateSettings('textScale', Math.max(85, Math.min(130, element.actionValue ?? 100)));
+      return true;
+    }
+    if (element.role === 'animationSpeed') {
+      onUpdateSettings('animationSpeed', Math.max(0.5, Math.min(2, element.actionValue ?? 1)));
+      return true;
+    }
+    if (element.role === 'sound') {
+      onUpdateSettings('soundEnabled', !settings.soundEnabled);
       return true;
     }
     return false;
@@ -1687,6 +1711,7 @@ export function WebPlaytestPreview({
           onUpdateSettingsElements={(elements) => {
             onUpdateSettings('settingsPageElements', elements);
           }}
+          onDeletePageElement={(page, id) => onDeleteStartMenuElement?.(`${page}:${id}`)}
           onUpdateSettings={onUpdateSettings}
         />
       </div>

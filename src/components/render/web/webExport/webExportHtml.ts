@@ -85,6 +85,9 @@ export const makeIndexHtml = (
         </div>
         <input id="settingSpeedInput" type="range" min="10" max="200" step="5" />
       </label>
+      <label class="settings-row"><div class="settings-label"><span id="settingTextSizeLabel"></span><span class="settings-value" id="settingTextSizeValue"></span></div><input id="settingTextSizeInput" type="range" min="85" max="130" step="5" /></label>
+      <label class="settings-row"><div class="settings-label"><span id="settingAnimationSpeedLabel"></span><span class="settings-value" id="settingAnimationSpeedValue"></span></div><input id="settingAnimationSpeedInput" type="range" min="0.5" max="2" step="0.5" /></label>
+      <div class="settings-row"><div class="settings-label"><span id="settingSoundLabel"></span><button class="settings-toggle" id="settingSoundButton" type="button"></button></div></div>
       <div class="settings-row">
         <div class="settings-label">
           <span id="settingControlsLabel"></span>
@@ -191,6 +194,9 @@ export const makeIndexHtml = (
     settings.interactionMode = settings.interactionMode || "typewriter";
     settings.typewriterSpeed = Math.max(0, Number(settings.typewriterSpeed) || 65);
     settings.autoAdvance = Boolean(settings.autoAdvance);
+    settings.textScale = clamp(settings.textScale, 85, 130, 100);
+    settings.animationSpeed = clamp(settings.animationSpeed, 0.5, 2, 1);
+    settings.soundEnabled = settings.soundEnabled !== false;
     settings.videoAutoPlay = Boolean(settings.videoAutoPlay);
     settings.blurBackground = Boolean(settings.blurBackground);
     settings.skipSingleChoicePopup = settings.skipSingleChoicePopup !== false;
@@ -469,7 +475,7 @@ export const makeIndexHtml = (
       };
     }
     const resolvedDialogLayout = dialogueLayout();
-    const presentationTextScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720));
+    const presentationTextScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720)) * (settings.textScale / 100);
     document.documentElement.style.setProperty("--title-size", Math.max(18, (Number(titleObject.fontSize ?? style.titleFontSize) || 18) * presentationTextScale) + "px");
     document.documentElement.style.setProperty("--body-size", Math.max(16, (Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) * presentationTextScale) + "px");
     document.documentElement.style.setProperty("--title-color", objectFill(titleObject, "#f8fafc"));
@@ -577,6 +583,14 @@ export const makeIndexHtml = (
     const settingSpeedLabel = document.getElementById("settingSpeedLabel");
     const settingSpeedValue = document.getElementById("settingSpeedValue");
     const settingSpeedInput = document.getElementById("settingSpeedInput");
+    const settingTextSizeLabel = document.getElementById("settingTextSizeLabel");
+    const settingTextSizeValue = document.getElementById("settingTextSizeValue");
+    const settingTextSizeInput = document.getElementById("settingTextSizeInput");
+    const settingAnimationSpeedLabel = document.getElementById("settingAnimationSpeedLabel");
+    const settingAnimationSpeedValue = document.getElementById("settingAnimationSpeedValue");
+    const settingAnimationSpeedInput = document.getElementById("settingAnimationSpeedInput");
+    const settingSoundLabel = document.getElementById("settingSoundLabel");
+    const settingSoundButton = document.getElementById("settingSoundButton");
     const settingControlsLabel = document.getElementById("settingControlsLabel");
     const settingControlsButton = document.getElementById("settingControlsButton");
     titleEl.textContent = content.title || "GalWriter";
@@ -613,6 +627,9 @@ export const makeIndexHtml = (
     settingsTitle.textContent = labels.settings;
     settingAutoLabel.textContent = labels.autoPlay;
     settingSpeedLabel.textContent = labels.textSpeed;
+    settingTextSizeLabel.textContent = content.language === "zh" ? "文本大小" : content.language === "ja" ? "文字サイズ" : "Text size";
+    settingAnimationSpeedLabel.textContent = content.language === "zh" ? "动画速度" : content.language === "ja" ? "アニメーション速度" : "Animation speed";
+    settingSoundLabel.textContent = content.language === "zh" ? "音效" : content.language === "ja" ? "サウンド" : "Sound";
     settingControlsLabel.textContent = labels.controls;
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
@@ -621,7 +638,8 @@ export const makeIndexHtml = (
     playlistButton.innerHTML = '<span aria-hidden="true">&#9835;</span><span>' + labels.playlist + '</span>';
     playlistTitle.textContent = labels.playlist;
     playlistHint.textContent = labels.playlistHint;
-    makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + labels.make + '</span>';
+    makeButton.href = 'https://mingwencui.com/AIwriter/?lang=' + (content.language === 'ja' ? 'ja' : content.language === 'en' ? 'en' : 'zh');
+    makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + (content.language === 'zh' ? '作者网站' : content.language === 'ja' ? '作者サイト' : 'Author website') + '</span>';
     updateAutoButton();
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
     let typewriterTimers = [];
@@ -692,6 +710,9 @@ export const makeIndexHtml = (
           settings: {
             autoAdvance: Boolean(settings.autoAdvance),
             typewriterSpeed: Number(settings.typewriterSpeed) || 65,
+            textScale: Number(settings.textScale) || 100,
+            animationSpeed: Number(settings.animationSpeed) || 1,
+            soundEnabled: settings.soundEnabled !== false,
           },
           controlsHidden: Boolean(controlsHidden),
           playedAudios,
@@ -716,6 +737,9 @@ export const makeIndexHtml = (
         if (Number.isFinite(Number(save.settings.typewriterSpeed))) {
           settings.typewriterSpeed = Math.max(0, Number(save.settings.typewriterSpeed));
         }
+        if (Number.isFinite(Number(save.settings.textScale))) settings.textScale = clamp(save.settings.textScale, 85, 130, 100);
+        if (Number.isFinite(Number(save.settings.animationSpeed))) settings.animationSpeed = clamp(save.settings.animationSpeed, 0.5, 2, 1);
+        if (typeof save.settings.soundEnabled === "boolean") settings.soundEnabled = save.settings.soundEnabled;
       }
       controlsHidden = Boolean(save.controlsHidden);
       playedAudios = Array.isArray(save.playedAudios) ? save.playedAudios : [];
@@ -1046,6 +1070,12 @@ export const makeIndexHtml = (
       settingAutoButton.setAttribute("aria-pressed", String(Boolean(settings.autoAdvance)));
       settingSpeedInput.value = String(Math.max(10, Math.min(200, Number(settings.typewriterSpeed) || 65)));
       settingSpeedValue.textContent = settingSpeedInput.value + "ms";
+      settingTextSizeInput.value = String(settings.textScale);
+      settingTextSizeValue.textContent = settings.textScale + "%";
+      settingAnimationSpeedInput.value = String(settings.animationSpeed);
+      settingAnimationSpeedValue.textContent = settings.animationSpeed + "×";
+      settingSoundButton.classList.toggle("on", Boolean(settings.soundEnabled));
+      settingSoundButton.setAttribute("aria-pressed", String(Boolean(settings.soundEnabled)));
       settingControlsButton.classList.toggle("on", !controlsHidden);
       settingControlsButton.setAttribute("aria-pressed", String(!controlsHidden));
     }
@@ -1992,6 +2022,9 @@ export const makeIndexHtml = (
       updateSettingsPanel();
       writeSave();
     });
+    settingTextSizeInput.addEventListener("input", () => { settings.textScale = clamp(settingTextSizeInput.value, 85, 130, 100); updateSettingsPanel(); render(); writeSave(); });
+    settingAnimationSpeedInput.addEventListener("input", () => { settings.animationSpeed = clamp(settingAnimationSpeedInput.value, 0.5, 2, 1); updateSettingsPanel(); writeSave(); });
+    settingSoundButton.addEventListener("click", () => { settings.soundEnabled = !settings.soundEnabled; if (!settings.soundEnabled) { playlistAudio.pause(); startMenuAudio.pause(); document.getElementById("nodeAudio")?.pause(); } updateSettingsPanel(); writeSave(); });
     settingControlsButton.addEventListener("click", () => {
       controlsHidden = !controlsHidden;
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);

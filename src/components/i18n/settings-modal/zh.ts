@@ -177,6 +177,6 @@ export const settingsModalZh = {
   videoAutoPlay: '视频自动播放',
   contactTitle: '联系作者 (崔铭文)',
   contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
-  freeNotice: '本软件免费下载使用，如果您已经购买了这个软件，请立即退款并举报商家。',
+  freeNotice: '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
   cancel: '取消',
 } as const;

@@ -1,6 +1,7 @@
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { getWebSettingsCopy } from './i18n';
 
 export type WebPresetScope = 'all' | 'current';
 export type WebPresetSurface = 'start' | 'archive' | 'settings' | 'game';
@@ -32,6 +33,9 @@ type PresetLabels = {
   settingsAuto: string;
   settingsSpeed: string;
   settingsControls: string;
+  settingsTextSize: string;
+  settingsAnimationSpeed: string;
+  settingsSound: string;
 };
 
 type StartCopyTheme = 'night' | 'campus' | 'minimal';
@@ -431,28 +435,22 @@ const makeSettingsElements = (
     id: 'settings-auto',
     role: 'auto',
     text: labels.settingsAuto,
-    x: 25,
-    y: 38,
-    width: 50,
-    height: 10,
+    x: 28, y: 34, width: 44, height: 6,
   }),
   buttonElement({
     id: 'settings-speed',
     role: 'speed',
     text: labels.settingsSpeed,
-    x: 25,
-    y: 52,
-    width: 50,
-    height: 12,
+    x: 28, y: 42, width: 44, height: 6,
   }),
+  buttonElement({ id: 'settings-text-size', role: 'textSize', text: labels.settingsTextSize, x: 28, y: 50, width: 44, height: 6 }),
+  buttonElement({ id: 'settings-animation-speed', role: 'animationSpeed', text: labels.settingsAnimationSpeed, x: 28, y: 58, width: 44, height: 6 }),
+  buttonElement({ id: 'settings-sound', role: 'sound', text: labels.settingsSound, x: 28, y: 66, width: 44, height: 6 }),
   buttonElement({
     id: 'settings-controls',
     role: 'controls',
     text: labels.settingsControls,
-    x: 25,
-    y: 68,
-    width: 50,
-    height: 10,
+    x: 28, y: 74, width: 44, height: 6,
     primary: true,
     textColor: choiceTextColor,
     backgroundColor: choiceColor,
@@ -725,10 +723,13 @@ export const buildDefaultWebExperiencePreset = (
     archiveSlot: renderCopy(language, '尚无存档\n导出后的网页会在这里记录进度。', 'セーブデータはありません\n書き出し後のWeb版では進行状況がここに表示されます。', 'No saves yet\nExported web builds record progress here.'),
     archiveNew: renderCopy(language, '开始新篇', '新しく始める', 'New game'),
     settingsTitle: renderCopy(language, '设置', '設定', 'Settings'),
-    settingsBack: renderCopy(language, '返回', '戻る', 'Back'),
+    settingsBack: getWebSettingsCopy(language).backToMainMenu,
     settingsAuto: renderCopy(language, '自动播放', '自動再生', 'Auto play'),
     settingsSpeed: renderCopy(language, '打字速度', 'テキスト速度', 'Text speed'),
     settingsControls: renderCopy(language, '显示控制栏', '操作表示', 'Show controls'),
+    settingsTextSize: getWebSettingsCopy(language).textSize,
+    settingsAnimationSpeed: getWebSettingsCopy(language).animationSpeed,
+    settingsSound: getWebSettingsCopy(language).sound,
   })[0];
 
 export const pickPresetSettingsForScope = (

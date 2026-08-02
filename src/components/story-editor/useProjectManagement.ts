@@ -25,7 +25,7 @@ import type { ProjectExampleTemplate } from '../ProjectPickerModal';
 import type { CloseButtonBehavior } from './constants';
 import { DEFAULT_PROJECT_FILE_NAME } from './constants';
 import { EXAMPLES_MANIFEST_URL, normalizeExampleTemplates } from './exampleTemplates';
-import { INITIAL_NODES } from './initialGraph';
+import { INITIAL_EDGES, INITIAL_NODES } from './initialGraph';
 import { buildAutoProjectName, getPersistedProjectName } from './projectNames';
 import type { PendingProjectAction, ThemePreference } from './types';
 import { syncCloseButtonBehavior } from './windowBehavior';
@@ -102,6 +102,7 @@ interface UseProjectManagementParams {
   createCurrentProjectThumbnail: () => Promise<string>;
   defaultProjectSaveDir: string | null;
   setDefaultProjectSaveDir: React.Dispatch<React.SetStateAction<string | null>>;
+  setStartupProjectId: React.Dispatch<React.SetStateAction<string | null>>;
   defaultEdgeOptions: any;
 
   // Shared state (declared in StoryEditor, used before this hook is called)
@@ -186,6 +187,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     createCurrentProjectThumbnail,
     defaultProjectSaveDir,
     setDefaultProjectSaveDir,
+    setStartupProjectId,
     defaultEdgeOptions,
 
     currentProjectId,
@@ -448,9 +450,10 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   // =========================================================================
   const resetEditorToBlankState = useCallback(() => {
     const blankNodes = INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[];
+    const blankEdges = INITIAL_EDGES.map((edge) => ({ ...edge })) as Edge[];
     const blankSnapshot = {
       nodes: blankNodes,
-      edges: [] as Edge[],
+      edges: blankEdges,
       settings: {
         ...editorProjectSettings,
         projectTitle: '',
@@ -468,8 +471,8 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setProjectTitle('');
     resetAssistantTasks(undefined, null);
     setNodes(blankNodes);
-    setEdges([]);
-    lastHistoryState.current = { nodes: blankNodes, edges: [] as Edge[] };
+    setEdges(blankEdges);
+    lastHistoryState.current = { nodes: blankNodes, edges: blankEdges };
     setHistory({ past: [], future: [] });
     lastSavedSnapshot.current = stableStringify(blankSnapshot);
     setIsDirty(false);
@@ -579,7 +582,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     const projectName = DEFAULT_PROJECT_FILE_NAME;
     const emptyProject = {
       nodes: INITIAL_NODES.map((node) => ({ ...node, data: { ...node.data } })) as Node[],
-      edges: [] as Edge[],
+      edges: INITIAL_EDGES.map((edge) => ({ ...edge })) as Edge[],
       settings: {
         ...editorProjectSettings,
         projectTitle: '',
@@ -970,6 +973,24 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     [requestProjectAction],
   );
 
+  const handleSetStartupProject = useCallback(
+    async (projectId: string | null) => {
+      await localPersistenceService.saveStartupProjectId(projectId);
+      setStartupProjectId(projectId);
+      showToast(
+        projectId
+          ? language === 'zh'
+            ? '已设为下次启动时直接打开的项目'
+            : 'This project will open on next launch'
+          : language === 'zh'
+            ? '已取消下次直接打开'
+            : 'Open on next launch cancelled',
+        'success',
+      );
+    },
+    [language, setStartupProjectId, showToast],
+  );
+
   const handleImportProjectFromHome = useCallback(() => {
     requestProjectAction({ type: 'import-new' });
   }, [requestProjectAction]);
@@ -1038,7 +1059,15 @@ export function useProjectManagement(params: UseProjectManagementParams) {
         if (cancelled) return;
         setProjectSummaries(projects);
         setProjectListLoading(false);
-        setShowProjectHome(!isMobile && projects.length > 0);
+        const startupProjectExists = Boolean(
+          appSettings.startupProjectId &&
+            projects.some((project) => project.id === appSettings.startupProjectId),
+        );
+        setStartupProjectId(startupProjectExists ? appSettings.startupProjectId : null);
+        setShowProjectHome(!startupProjectExists && !isMobile && projects.length > 0);
+        if (startupProjectExists && appSettings.startupProjectId) {
+          setProjectIdToLoad(appSettings.startupProjectId);
+        }
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
         if (!isTauriRuntime()) {
           void loadExampleTemplates();
@@ -1086,6 +1115,8 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     isMobile,
     setShowProjectHome,
     setDefaultProjectSaveDir,
+    setStartupProjectId,
+    setProjectIdToLoad,
     setSavedAIProfiles,
     setActiveTextProfileId,
     setActiveImageProfileId,
@@ -1210,6 +1241,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     handleExportProjectFromList,
     handleExportProjectsBundleFromList,
     handleOpenProject,
+    handleSetStartupProject,
     handleImportProjectFromHome,
     handleImportExampleTemplate,
     handleDownloadExampleTemplate,

@@ -218,6 +218,9 @@ export type WebMenuElement = {
     | 'slotDelete'
     | 'auto'
     | 'speed'
+    | 'textSize'
+    | 'animationSpeed'
+    | 'sound'
     | 'controls'
     | 'audio'
     | 'fullscreen'
@@ -311,6 +314,7 @@ export type WebMenuElement = {
   linkUrl?: string;
   linkTarget?: '_blank' | '_self';
   actionValue?: number;
+  actionValueInputMode?: 'drag' | 'slider';
 };
 
 export type WebExportSettings = {
@@ -448,6 +452,9 @@ export type WebExportSettings = {
   interactionMode: 'immediate' | 'typewriter';
   typewriterSpeed: number;
   autoAdvance: boolean;
+  textScale: number;
+  animationSpeed: number;
+  soundEnabled: boolean;
   videoAutoPlay: boolean;
   hideCharacterTags: boolean;
   hideSceneTags: boolean;

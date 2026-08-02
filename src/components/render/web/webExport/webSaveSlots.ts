@@ -7,6 +7,9 @@ export type WebSaveSlot = {
   settings: {
     autoAdvance: boolean;
     typewriterSpeed: number;
+    textScale: number;
+    animationSpeed: number;
+    soundEnabled: boolean;
   };
   controlsHidden: boolean;
   playedAudios: string[];
@@ -50,6 +53,13 @@ const normalizeSlot = (value: LegacyWebSave, nodeIds?: ReadonlySet<string>): Web
       typewriterSpeed: Number.isFinite(Number(value.settings?.typewriterSpeed))
         ? Math.max(0, Number(value.settings?.typewriterSpeed))
         : 65,
+      textScale: Number.isFinite(Number(value.settings?.textScale))
+        ? Math.max(85, Math.min(130, Number(value.settings?.textScale)))
+        : 100,
+      animationSpeed: Number.isFinite(Number(value.settings?.animationSpeed))
+        ? Math.max(0.5, Math.min(2, Number(value.settings?.animationSpeed)))
+        : 1,
+      soundEnabled: value.settings?.soundEnabled !== false,
     },
     controlsHidden: Boolean(value.controlsHidden),
     playedAudios: Array.isArray(value.playedAudios)

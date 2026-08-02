@@ -84,7 +84,7 @@ export function SelectionMenu({
       } bg-[var(--toolbar-bg)] backdrop-blur-md ${shellSizeClass} shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
       style={{
         transform:
-          'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)',
+          'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, var(--selection-menu-translate-y, -100%))',
         willChange: 'transform',
       }}
     >

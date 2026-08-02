@@ -31,6 +31,7 @@ export interface LocalProjectSummary {
 export interface LocalAppSettings {
   theme: 'light' | 'dark' | 'system' | null;
   lastProjectId: string | null;
+  startupProjectId: string | null;
   closeButtonBehavior: 'minimize' | 'quit';
   projectFilePaths: Record<string, string>;
   defaultProjectSaveDir: string | null;
@@ -105,6 +106,7 @@ const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
   lastProjectId: null,
+  startupProjectId: null,
   closeButtonBehavior: 'quit',
   projectFilePaths: {},
   defaultProjectSaveDir: null,
@@ -551,12 +553,13 @@ export const deleteLocalProject = async (id: string): Promise<void> => {
   await Promise.all([db.delete('localProjects', id), db.delete('autosave', id)]);
 
   const appSettings = await db.get('appSettings', APP_SETTINGS_KEY);
-  if (appSettings?.lastProjectId === id) {
+  if (appSettings?.lastProjectId === id || appSettings?.startupProjectId === id) {
     await db.put(
       'appSettings',
       {
         ...appSettings,
-        lastProjectId: null,
+        lastProjectId: appSettings.lastProjectId === id ? null : appSettings.lastProjectId,
+        startupProjectId: appSettings.startupProjectId === id ? null : appSettings.startupProjectId,
       },
       APP_SETTINGS_KEY,
     );

@@ -1,6 +1,7 @@
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { getWebSettingsCopy } from './i18n';
 
 /**
  * The single source of truth for the built-in web rehearsal experience.
@@ -86,12 +87,13 @@ export const buildRehearsalArchivePageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const settingsCopy = getWebSettingsCopy(language);
   const elements: WebMenuElement[] = [
     text('archive-title', 'title', t('存档', 'セーブ', 'Save'), 10, 8, 32, 8, 28),
     button(
       'archive-back',
       'back',
-      t('返回', '戻る', 'Back'),
+      settingsCopy.backToMainMenu,
       78,
       8,
       14,
@@ -185,6 +187,7 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
+  const settingsCopy = getWebSettingsCopy(language);
   return [
     text('settings-title', 'title', t('设置', '設定', 'Settings'), 10, 8, 32, 8, 28),
     button(
@@ -202,10 +205,10 @@ export const buildRehearsalSettingsPageElements = (
       'settings-auto',
       'auto',
       t('自动播放', '自動再生', 'Auto play'),
-      24,
-      37,
-      52,
-      9,
+      28,
+      34,
+      44,
+      6,
       choiceColor,
       choiceTextColor,
     ),
@@ -213,21 +216,24 @@ export const buildRehearsalSettingsPageElements = (
       'settings-speed',
       'speed',
       t('打字速度', 'テキスト速度', 'Text speed'),
-      24,
-      50,
-      52,
-      11,
+      28,
+      42,
+      44,
+      6,
       choiceColor,
       choiceTextColor,
     ),
+    button('settings-text-size', 'textSize', settingsCopy.textSize, 28, 50, 44, 6, choiceColor, choiceTextColor),
+    button('settings-animation-speed', 'animationSpeed', settingsCopy.animationSpeed, 28, 58, 44, 6, choiceColor, choiceTextColor),
+    button('settings-sound', 'sound', settingsCopy.sound, 28, 66, 44, 6, choiceColor, choiceTextColor),
     button(
       'settings-controls',
       'controls',
       t('显示控制栏', '操作表示', 'Show controls'),
-      24,
-      65,
-      52,
-      9,
+      28,
+      74,
+      44,
+      6,
       choiceColor,
       choiceTextColor,
       true,

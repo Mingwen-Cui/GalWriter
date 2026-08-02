@@ -16,7 +16,10 @@ import type {
   StartMenuElement,
   StartMenuResizeHandle,
 } from './webPlaytestStartMenuTools';
-import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import {
+  protectedStartMenuElementRoles,
+  readStartMenuImageFile,
+} from './webPlaytestStartMenuTools';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
   return webColorWithAlpha(color, alpha, '#ffffff');
@@ -102,6 +105,8 @@ export function WebPlaytestStartMenuElement({
   const cropResizeRef = useRef<{ centerX: number; centerY: number; distance: number; scale: number } | null>(null);
   const [backgroundImageNaturalSize, setBackgroundImageNaturalSize] = useState({ width: 0, height: 0 });
   if (!element.visible && previewMode !== 'edit') return null;
+  const isProtectedMainMenuButton =
+    element.kind === 'button' && protectedStartMenuElementRoles.has(element.role || '');
 
   const elementBackground =
     element.fillEnabled === false
@@ -552,10 +557,14 @@ export function WebPlaytestStartMenuElement({
             event.stopPropagation();
             onUpdateElement(element.id, { visible: !element.visible });
           }}
-          onDelete={(event) => {
-            event.stopPropagation();
-            onDeleteElement?.(element.id);
-          }}
+          onDelete={
+            isProtectedMainMenuButton
+              ? undefined
+              : (event) => {
+                  event.stopPropagation();
+                  onDeleteElement?.(element.id);
+                }
+          }
           onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
         />
       )}
