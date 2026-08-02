@@ -116,9 +116,27 @@ type WebPlaytestPreviewProps = {
   onUpdateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   selectedCanvasObject?: 'scene' | 'background';
   onSelectCanvasObject?: (selection: 'scene' | 'background' | RenderEditableObjectKind) => void;
+  testAction?: WebPlaytestTestAction | null;
+  onTestStateChange?: (state: WebPlaytestTestState) => void;
+  showTestDebugInfo?: boolean;
 };
 
 export type WebPreviewSurface = 'start' | 'archive' | 'settings' | 'game';
+
+export type WebPlaytestTestState = {
+  currentNodeId: string | null;
+  currentNodeTitle: string;
+  currentNodeType: string;
+  entryCount: number;
+  path: Array<{ id: string; title: string; type: string }>;
+  nodeValues: Array<{ id: string; title: string; value: number }>;
+  conditionResult: { total: number; label: string } | null;
+  saves: Array<{ id: string; savedAt: number; title: string }>;
+};
+
+export type WebPlaytestTestAction =
+  | { id: number; type: 'restart' | 'clearSaves' }
+  | { id: number; type: 'jump'; nodeId: string };
 
 export function WebPlaytestPreview({
   nodes,
@@ -143,6 +161,9 @@ export function WebPlaytestPreview({
   onUpdateRenderStyle: _onUpdateRenderStyle,
   selectedCanvasObject,
   onSelectCanvasObject,
+  testAction = null,
+  onTestStateChange,
+  showTestDebugInfo = false,
 }: WebPlaytestPreviewProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const playableNodes = useMemo(
@@ -163,6 +184,9 @@ export function WebPlaytestPreview({
   );
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => root?.id || null);
   const [history, setHistory] = useState<string[]>([]);
+  const [conditionResult, setConditionResult] = useState<{ total: number; label: string } | null>(
+    null,
+  );
   const [previewSaves, setPreviewSaves] = useState<WebSaveCollection | null>(null);
   const [activePreviewSaveId, setActivePreviewSaveId] = useState<string | null>(null);
   const [previewGameStarted, setPreviewGameStarted] = useState(!settings.showStartMenu);
@@ -182,12 +206,15 @@ export function WebPlaytestPreview({
   // transient runtime page state hide that surface while applying a preset.
   const controlledEditSurface =
     previewMode === 'edit' && settings.showStartMenu ? requestedSurface : undefined;
-  const isPreviewStartMenuOpen =
-    controlledEditSurface ? controlledEditSurface !== 'game' : previewStartMenuOpen;
-  const isPreviewStartSettingsOpen =
-    controlledEditSurface ? controlledEditSurface === 'settings' : previewStartSettingsOpen;
-  const isPreviewArchiveOpen =
-    controlledEditSurface ? controlledEditSurface === 'archive' : previewArchiveOpen;
+  const isPreviewStartMenuOpen = controlledEditSurface
+    ? controlledEditSurface !== 'game'
+    : previewStartMenuOpen;
+  const isPreviewStartSettingsOpen = controlledEditSurface
+    ? controlledEditSurface === 'settings'
+    : previewStartSettingsOpen;
+  const isPreviewArchiveOpen = controlledEditSurface
+    ? controlledEditSurface === 'archive'
+    : previewArchiveOpen;
   const [displayedPreviewText, setDisplayedPreviewText] = useState('');
   const previewRootRef = useRef<HTMLDivElement>(null);
   const dialogueBoxRef = useRef<HTMLDivElement>(null);
@@ -613,7 +640,8 @@ export function WebPlaytestPreview({
       return;
     }
     if (presentationExiting) return;
-    const exitDuration = getPresentationExitDuration(presentation) / Math.max(0.5, settings.animationSpeed ?? 1);
+    const exitDuration =
+      getPresentationExitDuration(presentation) / Math.max(0.5, settings.animationSpeed ?? 1);
     const sessionId = playbackSessionRef.current;
     setPresentationExiting(true);
     transitionTimerRef.current = window.setTimeout(() => {
@@ -708,17 +736,20 @@ export function WebPlaytestPreview({
             ? source.match(/[^。！？.!?\n]+[。！？.!?]*|\n+/g) || Array.from(source)
             : Array.from(source);
       let index = 0;
-      timer = window.setInterval(() => {
-        index += 1;
-        const visibleText = revealUnits.slice(0, index).join('');
-        setDisplayedPreviewText(committedHtml + visibleText);
-        if (index >= revealUnits.length) {
-          window.clearInterval(timer);
-          committedHtml += source;
-          stepIndex += 1;
-          playNext();
-        }
-      }, settings.typewriterSpeed / Math.max(0.5, settings.animationSpeed ?? 1));
+      timer = window.setInterval(
+        () => {
+          index += 1;
+          const visibleText = revealUnits.slice(0, index).join('');
+          setDisplayedPreviewText(committedHtml + visibleText);
+          if (index >= revealUnits.length) {
+            window.clearInterval(timer);
+            committedHtml += source;
+            stepIndex += 1;
+            playNext();
+          }
+        },
+        settings.typewriterSpeed / Math.max(0.5, settings.animationSpeed ?? 1),
+      );
     };
     playNext();
     return () => {
@@ -811,6 +842,14 @@ export function WebPlaytestPreview({
         : sum >= threshold
           ? 'out-greater'
           : 'out-less-equal';
+      setConditionResult({
+        total: sum,
+        label: matchedRange
+          ? `${matchedRange.min}–${matchedRange.max}`
+          : sum >= threshold
+            ? `≥ ${threshold}`
+            : `< ${threshold}`,
+      });
       const nextEdge = edges.find(
         (edge) => edge.source === currentNodeId && edge.sourceHandle === sourceHandle,
       );
@@ -844,7 +883,13 @@ export function WebPlaytestPreview({
   }, [previewMode, projectTitle, runtimeNodes]);
 
   const savePreviewProgress = () => {
-    if (previewMode !== 'test' || !previewGameStarted || !currentNodeId || currentNodeId === 'THE_END') return;
+    if (
+      previewMode !== 'test' ||
+      !previewGameStarted ||
+      !currentNodeId ||
+      currentNodeId === 'THE_END'
+    )
+      return;
     const now = Date.now();
     const existing = getActiveWebSaveSlot(previewSaves);
     const slot: WebSaveSlot = {
@@ -871,7 +916,12 @@ export function WebPlaytestPreview({
 
   const continuePreviewSave = () => {
     const save = getActiveWebSaveSlot(previewSaves);
-    if (!save || save.currentId === 'THE_END' || !runtimeNodes.some((node) => node.id === save.currentId)) return;
+    if (
+      !save ||
+      save.currentId === 'THE_END' ||
+      !runtimeNodes.some((node) => node.id === save.currentId)
+    )
+      return;
     setCurrentNodeId(save.currentId);
     setHistory(save.history);
     onUpdateSettings('autoAdvance', save.settings.autoAdvance);
@@ -897,8 +947,81 @@ export function WebPlaytestPreview({
     restartPlaybackSession();
     autoAdvanceHoldNodeRef.current = root?.id || null;
     setHistory([]);
+    setConditionResult(null);
     setCurrentNodeId(root?.id || null);
   };
+
+  React.useEffect(() => {
+    if (!testAction || previewMode !== 'test') return;
+    if (testAction.type === 'restart') {
+      reset();
+      return;
+    }
+    if (testAction.type === 'jump') {
+      if (!runtimeNodes.some((node) => node.id === testAction.nodeId)) return;
+      restartPlaybackSession();
+      autoAdvanceHoldNodeRef.current = testAction.nodeId;
+      setHistory([]);
+      setConditionResult(null);
+      setCurrentNodeId(testAction.nodeId);
+      setPreviewGameStarted(true);
+      setPreviewStartMenuOpen(false);
+      setPreviewArchiveOpen(false);
+      return;
+    }
+    const empty: WebSaveCollection = { version: 2, activeSlotId: null, slots: [] };
+    setPreviewSaves(empty);
+    setActivePreviewSaveId(null);
+    writeWebSaveCollection(projectTitle, empty);
+  }, [previewMode, projectTitle, restartPlaybackSession, runtimeNodes, testAction]);
+
+  React.useEffect(() => {
+    if (previewMode !== 'test' || !onTestStateChange) return;
+    const titleFor = (nodeId: string) => {
+      const node = runtimeNodes.find((item) => item.id === nodeId);
+      return (
+        getNodeDisplayTitle(node) ||
+        stripHtml(getNodeDisplayText(node)).trim().slice(0, 32) ||
+        nodeId
+      );
+    };
+    const pathIds = [...history, ...(currentNodeId ? [currentNodeId] : [])];
+    onTestStateChange({
+      currentNodeId,
+      currentNodeTitle: currentNode
+        ? titleFor(currentNode.id)
+        : t('剧本结束', 'シナリオ終了', 'The End'),
+      currentNodeType: currentNode?.type || 'end',
+      entryCount: pathIds.filter((id) => id === currentNodeId).length,
+      path: pathIds.map((id) => {
+        const node = runtimeNodes.find((item) => item.id === id);
+        return { id, title: titleFor(id), type: node?.type || 'end' };
+      }),
+      nodeValues: history.flatMap((id) => {
+        const node = runtimeNodes.find((item) => item.id === id);
+        const value = node?.data?.nodeValue;
+        return typeof value === 'number' && Number.isFinite(value)
+          ? [{ id, title: titleFor(id), value }]
+          : [];
+      }),
+      conditionResult,
+      saves: (previewSaves?.slots || []).map((slot) => ({
+        id: slot.id,
+        savedAt: slot.savedAt,
+        title: titleFor(slot.currentId),
+      })),
+    });
+  }, [
+    conditionResult,
+    currentNode,
+    currentNodeId,
+    history,
+    onTestStateChange,
+    previewMode,
+    previewSaves,
+    runtimeNodes,
+    t,
+  ]);
 
   const startPreviewNewGame = () => {
     if (!root) return;
@@ -1455,41 +1578,41 @@ export function WebPlaytestPreview({
     return background.type === 'video' && !background.videoUrl
       ? { background: '#000000' }
       : background.type === 'image' && background.imageUrl
-      ? {
-          backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
-        }
-      : background.type === 'gradient'
         ? {
-            background: gradientFromStops(
-              background.gradientShape,
-              background.gradientAngle,
-              normalizeGradientStops(
-                background.gradientStops,
-                background.gradientStart,
-                background.gradientEnd,
-                '#0f172a',
-                '#0891b2',
-              ),
-              surface === 'start'
-                ? {
-                    startX: settings.startMenuBackgroundGradientStartX,
-                    startY: settings.startMenuBackgroundGradientStartY,
-                    endX: settings.startMenuBackgroundGradientEndX,
-                    endY: settings.startMenuBackgroundGradientEndY,
-                  }
-                : {
-                    startX: background.gradientStartX,
-                    startY: background.gradientStartY,
-                    endX: background.gradientEndX,
-                    endY: background.gradientEndY,
-                  },
-            ),
+            backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
           }
-        : background.type === 'solid'
-          ? { background: background.color }
-          : undefined;
+        : background.type === 'gradient'
+          ? {
+              background: gradientFromStops(
+                background.gradientShape,
+                background.gradientAngle,
+                normalizeGradientStops(
+                  background.gradientStops,
+                  background.gradientStart,
+                  background.gradientEnd,
+                  '#0f172a',
+                  '#0891b2',
+                ),
+                surface === 'start'
+                  ? {
+                      startX: settings.startMenuBackgroundGradientStartX,
+                      startY: settings.startMenuBackgroundGradientStartY,
+                      endX: settings.startMenuBackgroundGradientEndX,
+                      endY: settings.startMenuBackgroundGradientEndY,
+                    }
+                  : {
+                      startX: background.gradientStartX,
+                      startY: background.gradientStartY,
+                      endX: background.gradientEndX,
+                      endY: background.gradientEndY,
+                    },
+              ),
+            }
+          : background.type === 'solid'
+            ? { background: background.color }
+            : undefined;
   };
   const startMenuBackgroundStyle = buildSurfaceBackgroundStyle('start');
   const archiveBackgroundStyle = buildSurfaceBackgroundStyle('archive');
@@ -1540,16 +1663,17 @@ export function WebPlaytestPreview({
             className="hidden"
           />
         )}
-        {getSurfaceBackground(settings, 'start').type === 'video' && getSurfaceBackground(settings, 'start').videoUrl && (
-          <video
-            src={getSurfaceBackground(settings, 'start').videoUrl}
-            autoPlay
-            playsInline
-            loop={getSurfaceBackground(settings, 'start').videoLoop}
-            muted={getSurfaceBackground(settings, 'start').videoMuted}
-            className={`pointer-events-none absolute inset-0 h-full w-full ${getSurfaceBackground(settings, 'start').videoFit === 'fit' ? 'object-contain' : 'object-cover'}`}
-          />
-        )}
+        {getSurfaceBackground(settings, 'start').type === 'video' &&
+          getSurfaceBackground(settings, 'start').videoUrl && (
+            <video
+              src={getSurfaceBackground(settings, 'start').videoUrl}
+              autoPlay
+              playsInline
+              loop={getSurfaceBackground(settings, 'start').videoLoop}
+              muted={getSurfaceBackground(settings, 'start').videoMuted}
+              className={`pointer-events-none absolute inset-0 h-full w-full ${getSurfaceBackground(settings, 'start').videoFit === 'fit' ? 'object-contain' : 'object-cover'}`}
+            />
+          )}
         <div
           ref={startMenuEditorRef}
           className={`absolute overflow-hidden ${startMenuPanelSurfaceClass}`}
@@ -2046,23 +2170,36 @@ export function WebPlaytestPreview({
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}
       </style>
-      {previewMode === 'edit' && gradientEditingSurface === 'game' && getSurfaceBackground(settings, 'game').type === 'gradient' && (
-        <GradientCanvasControl
-          shape={getSurfaceBackground(settings, 'game').gradientShape}
-          angle={getSurfaceBackground(settings, 'game').gradientAngle}
-          startX={getSurfaceBackground(settings, 'game').gradientStartX}
-          startY={getSurfaceBackground(settings, 'game').gradientStartY}
-          endX={getSurfaceBackground(settings, 'game').gradientEndX}
-          endY={getSurfaceBackground(settings, 'game').gradientEndY}
-          onGeometryChange={(geometry) => {
-            onUpdateSettings('dialogueBackgroundGradientStartX', geometry.startX);
-            onUpdateSettings('dialogueBackgroundGradientStartY', geometry.startY);
-            onUpdateSettings('dialogueBackgroundGradientEndX', geometry.endX);
-            onUpdateSettings('dialogueBackgroundGradientEndY', geometry.endY);
-            onUpdateSettings('dialogueBackgroundGradientAngle', geometry.angle);
-          }}
-        />
+      {previewMode === 'test' && showTestDebugInfo && (
+        <div className="pointer-events-none absolute left-3 top-3 z-[90] rounded-lg bg-slate-950/80 px-2.5 py-2 font-mono text-[10px] leading-4 text-white shadow-lg">
+          <div>node: {currentNodeId || 'none'}</div>
+          <div>path: {history.length + (currentNodeId ? 1 : 0)}</div>
+          {conditionResult && (
+            <div>
+              condition: {conditionResult.total} → {conditionResult.label}
+            </div>
+          )}
+        </div>
       )}
+      {previewMode === 'edit' &&
+        gradientEditingSurface === 'game' &&
+        getSurfaceBackground(settings, 'game').type === 'gradient' && (
+          <GradientCanvasControl
+            shape={getSurfaceBackground(settings, 'game').gradientShape}
+            angle={getSurfaceBackground(settings, 'game').gradientAngle}
+            startX={getSurfaceBackground(settings, 'game').gradientStartX}
+            startY={getSurfaceBackground(settings, 'game').gradientStartY}
+            endX={getSurfaceBackground(settings, 'game').gradientEndX}
+            endY={getSurfaceBackground(settings, 'game').gradientEndY}
+            onGeometryChange={(geometry) => {
+              onUpdateSettings('dialogueBackgroundGradientStartX', geometry.startX);
+              onUpdateSettings('dialogueBackgroundGradientStartY', geometry.startY);
+              onUpdateSettings('dialogueBackgroundGradientEndX', geometry.endX);
+              onUpdateSettings('dialogueBackgroundGradientEndY', geometry.endY);
+              onUpdateSettings('dialogueBackgroundGradientAngle', geometry.angle);
+            }}
+          />
+        )}
       {currentImageUrl && settings.layoutMode === 'immersive' && (
         <div
           className={`absolute inset-0 bg-cover bg-center opacity-35 scale-105 ${settings.blurBackground ? 'blur-sm' : ''}`}
