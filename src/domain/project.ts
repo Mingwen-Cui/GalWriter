@@ -80,6 +80,12 @@ export type AssistantMessage = {
   role: 'user' | 'assistant' | 'thought';
   content: string;
   collapsed?: boolean;
+  contextPreviews?: Array<{
+    id: string;
+    title: string;
+    imageUrl?: string;
+    text?: string;
+  }>;
   cardPosition?: { x: number; y: number; zoom?: number };
   cardNodeIds?: string[];
   options?: AssistantMessageOption[];
@@ -97,6 +103,12 @@ export type AssistantTask = {
   title: string;
   createdAt: number;
   updatedAt: number;
+  kind?: 'conversation' | 'card-review';
+  parentTaskId?: string;
+  loading?: boolean;
+  unread?: boolean;
+  targetNodeIds?: string[];
+  reviewContext?: string;
   messages: AssistantMessage[];
 };
 

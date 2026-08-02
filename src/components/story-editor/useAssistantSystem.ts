@@ -344,11 +344,18 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       if (remainingCards.length === 0) return { count: filledCount, nodeIds: filledTargetNodeIds };
 
       const selectedStories = nodes.filter((n) => n.selected && n.type === 'storyNode');
-      const selectedCanvasTarget = nodes.find(
-        (node) =>
-          node.selected &&
-          (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
-      );
+      const explicitCanvasTarget = options?.targetNodeIds?.length
+        ? nodes.find((node) => node.id === options.targetNodeIds?.[0])
+        : undefined;
+      const selectedCanvasTarget =
+        explicitCanvasTarget ||
+        nodes.find(
+          (node) =>
+            node.selected &&
+            (node.type === 'storyNode' ||
+              node.type === 'characterNode' ||
+              node.type === 'sceneNode'),
+        );
       const center = getCenterPosition();
       const targetNode =
         mode === 'bridge-to-target' && options?.targetNodeId
@@ -369,7 +376,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           ),
       );
       const sourceNode =
-        (mode === 'adjacent-revision' ? selectedCanvasTarget : null) ||
+        (mode === 'adjacent-revision' || (mode === 'append' && explicitCanvasTarget)
+          ? selectedCanvasTarget
+          : null) ||
         selectedStories.find(
           (node) =>
             node.id !== targetNode?.id &&
@@ -1657,9 +1666,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     setAssistantTasks,
     activeAssistantTaskId,
     setActiveAssistantTaskId,
+    handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleStartCardReview,
     handleRenameAssistantTask,
     handleRequestCloseAssistantTask,
     handleConfirmCloseAssistantTask,
@@ -1731,9 +1742,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     setAssistantTasks,
     activeAssistantTaskId,
     setActiveAssistantTaskId,
+    handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleStartCardReview,
     handleRenameAssistantTask,
     handleRequestCloseAssistantTask,
     handleConfirmCloseAssistantTask,

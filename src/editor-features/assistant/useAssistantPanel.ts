@@ -95,6 +95,10 @@ export interface AssistantInputContext {
   title: string;
   content: string;
   cardCount: number;
+  source?: 'region' | 'selection';
+  nodeIds?: string[];
+  previewImageUrl?: string;
+  previewText?: string;
   assetCounts: {
     images: number;
     videos: number;
@@ -119,9 +123,11 @@ interface UseAssistantPanelResult {
   setAssistantTasks: Dispatch<SetStateAction<AssistantTask[]>>;
   activeAssistantTaskId: string;
   setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
+  handleSelectAssistantTask: (taskId: string) => void;
   assistantMessages: AssistantMessage[];
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
   handleNewAssistantTask: () => void;
+  handleStartCardReview: (context: AssistantInputContext) => Promise<void>;
   handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleRequestCloseAssistantTask: (taskId: string) => void;
   handleConfirmCloseAssistantTask: () => void;
@@ -209,6 +215,10 @@ export const useAssistantPanel = ({
   const assistantTasksRef = useRef<AssistantTask[]>([]);
   const activeAssistantTaskIdRef = useRef(activeAssistantTaskId);
   const assistantInputRef = useRef(assistantInput);
+  const assistantInputContextsRef = useRef(assistantInputContexts);
+  const assistantTaskComposerStateRef = useRef(
+    new Map<string, { input: string; contexts: AssistantInputContext[] }>(),
+  );
   const assistantHistoryPastRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantHistoryFutureRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantWorkflowRef = useRef<AssistantWorkflowState>({ type: 'idle' });
@@ -237,6 +247,10 @@ export const useAssistantPanel = ({
   useEffect(() => {
     assistantInputRef.current = assistantInput;
   }, [assistantInput]);
+
+  useEffect(() => {
+    assistantInputContextsRef.current = assistantInputContexts;
+  }, [assistantInputContexts]);
 
   const createAssistantHistorySnapshot = useCallback(
     (): AssistantHistorySnapshot => ({
@@ -315,7 +329,12 @@ export const useAssistantPanel = ({
           const firstUserMessage = nextMessages
             .find((message) => message.role === 'user')
             ?.content.trim();
-          const nextTitle = firstUserMessage ? firstUserMessage.slice(0, 18) : task.title;
+          const nextTitle =
+            task.kind === 'card-review'
+              ? task.title
+              : firstUserMessage
+                ? firstUserMessage.slice(0, 18)
+                : task.title;
           return {
             ...task,
             title: nextTitle,
@@ -328,10 +347,59 @@ export const useAssistantPanel = ({
     [activeAssistantTaskId],
   );
 
-  const createArticleAnalysisSteps = useCallback(
-    (): AssistantArticleAnalysisStep[] => {
-      const { steps } = assistantPanelCopy(language).articleFlow;
-      return [
+  const updateAssistantTaskMessages = useCallback(
+    (
+      taskId: string,
+      updater: (messages: AssistantMessage[]) => AssistantMessage[],
+      updates: Partial<AssistantTask> = {},
+    ) => {
+      setAssistantTasks((tasks) =>
+        tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                ...updates,
+                updatedAt: Date.now(),
+                messages: updater(task.messages),
+              }
+            : task,
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleSelectAssistantTask = useCallback((taskId: string) => {
+    const currentTaskId = activeAssistantTaskIdRef.current;
+    if (taskId === currentTaskId) {
+      setAssistantTasks((tasks) =>
+        tasks.map((task) => (task.id === taskId ? { ...task, unread: false } : task)),
+      );
+      return;
+    }
+
+    assistantTaskComposerStateRef.current.set(currentTaskId, {
+      input: assistantInputRef.current,
+      contexts: assistantInputContextsRef.current,
+    });
+    const nextComposer = assistantTaskComposerStateRef.current.get(taskId) || {
+      input: '',
+      contexts: [],
+    };
+    activeAssistantTaskIdRef.current = taskId;
+    assistantInputRef.current = nextComposer.input;
+    assistantInputContextsRef.current = nextComposer.contexts;
+    setActiveAssistantTaskId(taskId);
+    setAssistantInput(nextComposer.input);
+    setAssistantInputContexts(nextComposer.contexts);
+    setAssistantTasks((tasks) =>
+      tasks.map((task) => (task.id === taskId ? { ...task, unread: false } : task)),
+    );
+  }, []);
+
+  const createArticleAnalysisSteps = useCallback((): AssistantArticleAnalysisStep[] => {
+    const { steps } = assistantPanelCopy(language).articleFlow;
+    return [
       {
         title: steps.reading.title,
         status: 'pending',
@@ -362,10 +430,8 @@ export const useAssistantPanel = ({
         status: 'pending',
         detail: steps.teachingStyle.pending,
       },
-      ];
-    },
-    [language],
-  );
+    ];
+  }, [language]);
 
   const updateArticleAnalysisStep = useCallback(
     (
@@ -399,6 +465,117 @@ export const useAssistantPanel = ({
     [callAIForTextResult],
   );
 
+  const handleStartCardReview = useCallback(
+    async (context: AssistantInputContext) => {
+      if (!hasTextApiKey) {
+        onMissingTextApiKeyRequest?.();
+        return;
+      }
+
+      const taskId = uuidv4();
+      const parentTaskId = activeAssistantTaskIdRef.current;
+      const now = Date.now();
+      const reviewCopy = assistantPanelCopy(language).cardReview;
+      const reviewTitle = `${reviewCopy.taskTitlePrefix} · ${context.title}`;
+
+      const reviewTask: AssistantTask = {
+        id: taskId,
+        title: reviewTitle.slice(0, 36),
+        createdAt: now,
+        updatedAt: now,
+        kind: 'card-review',
+        parentTaskId,
+        loading: true,
+        unread: false,
+        targetNodeIds: context.nodeIds || [],
+        reviewContext: context.content,
+        messages: [
+          {
+            id: uuidv4(),
+            role: 'user',
+            content: reviewCopy.requestText,
+            contextPreviews: [
+              {
+                id: context.id,
+                title: context.title,
+                imageUrl: context.previewImageUrl,
+                text: context.previewText,
+              },
+            ],
+          },
+        ],
+      };
+      setAssistantTasks((tasks) => [reviewTask, ...tasks]);
+      setAssistantOpen(true);
+
+      try {
+        const result = await callAIForTextResult(
+          formatLocalizedCopy(reviewCopy.prompt, { context: context.content }),
+        );
+        const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
+          diagnosis?: string;
+          options?: Array<{ label?: string; description?: string }>;
+        };
+        const suggestions = (parsed.options || [])
+          .map((option) => ({
+            label: String(option.label || '').trim(),
+            description: String(option.description || '').trim(),
+          }))
+          .filter((option) => option.label && option.description)
+          .slice(0, 3);
+        if (suggestions.length !== 3) {
+          throw new Error(reviewCopy.exactlyThreeError);
+        }
+        updateAssistantTaskMessages(
+          taskId,
+          (messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: parsed.diagnosis || reviewCopy.fallbackDiagnosis,
+              options: suggestions.map((suggestion) => ({
+                id: uuidv4(),
+                label: suggestion.label,
+                description: suggestion.description,
+                value: `__card_review_suggestion__:${suggestion.description}`,
+              })),
+            },
+          ],
+          {
+            loading: false,
+            unread: activeAssistantTaskIdRef.current !== taskId,
+          },
+        );
+      } catch (error: any) {
+        updateAssistantTaskMessages(
+          taskId,
+          (messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: formatLocalizedCopy(reviewCopy.failure, {
+                reason: error.message || reviewCopy.retry,
+              }),
+            },
+          ],
+          {
+            loading: false,
+            unread: activeAssistantTaskIdRef.current !== taskId,
+          },
+        );
+      }
+    },
+    [
+      callAIForTextResult,
+      hasTextApiKey,
+      language,
+      onMissingTextApiKeyRequest,
+      updateAssistantTaskMessages,
+    ],
+  );
+
   const handleNewAssistantTask = useCallback(() => {
     if (assistantThoughtTimerRef.current !== null) {
       window.clearInterval(assistantThoughtTimerRef.current);
@@ -422,13 +599,11 @@ export const useAssistantPanel = ({
       },
       ...tasks,
     ]);
-    setActiveAssistantTaskId(id);
-    setAssistantInput('');
-    setAssistantInputContexts([]);
+    handleSelectAssistantTask(id);
     assistantHistoryPastRef.current = [];
     assistantHistoryFutureRef.current = [];
     setAssistantHistoryVersion((version) => version + 1);
-  }, [language]);
+  }, [handleSelectAssistantTask, language]);
 
   const resetAssistantTasks = useCallback(
     (tasks?: AssistantTask[], activeTaskId?: string | null) => {
@@ -443,6 +618,10 @@ export const useAssistantPanel = ({
           ? activeTaskId
           : nextTasks[0].id;
 
+      assistantTaskComposerStateRef.current.clear();
+      activeAssistantTaskIdRef.current = nextActiveTaskId;
+      assistantInputRef.current = '';
+      assistantInputContextsRef.current = [];
       setAssistantTasks(nextTasks);
       setActiveAssistantTaskId(nextActiveTaskId);
       setAssistantInput('');
@@ -762,30 +941,38 @@ ${documentContext}`);
         assistantThoughtTimerRef.current = null;
       }
 
-      setAssistantTasks((tasks) => {
-        if (tasks.length <= 1) {
-          const id = uuidv4();
-          const now = Date.now();
-          setActiveAssistantTaskId(id);
-          return [
-            {
-              id,
-              title: language === 'zh' ? '对话 1' : language === 'ja' ? '対話 1' : 'Conversation 1',
-              createdAt: now,
-              updatedAt: now,
-              messages: [createAssistantWelcomeMessage(language)],
-            },
-          ];
-        }
+      const currentTasks = assistantTasksRef.current;
+      const taskIndex = currentTasks.findIndex((item) => item.id === taskId);
+      let nextTasks = currentTasks.filter((item) => item.id !== taskId);
+      if (nextTasks.length === 0) {
+        const id = uuidv4();
+        const now = Date.now();
+        nextTasks = [
+          {
+            id,
+            title: language === 'zh' ? '对话 1' : language === 'ja' ? '対話 1' : 'Conversation 1',
+            createdAt: now,
+            updatedAt: now,
+            messages: [createAssistantWelcomeMessage(language)],
+          },
+        ];
+      }
 
-        const taskIndex = tasks.findIndex((item) => item.id === taskId);
-        const nextTasks = tasks.filter((item) => item.id !== taskId);
-        if (taskId === activeAssistantTaskId) {
-          const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
-          setActiveAssistantTaskId(nextActiveTask.id);
-        }
-        return nextTasks;
-      });
+      assistantTaskComposerStateRef.current.delete(taskId);
+      if (taskId === activeAssistantTaskId) {
+        const nextActiveTask = nextTasks[Math.min(Math.max(taskIndex, 0), nextTasks.length - 1)];
+        const nextComposer = assistantTaskComposerStateRef.current.get(nextActiveTask.id) || {
+          input: '',
+          contexts: [],
+        };
+        activeAssistantTaskIdRef.current = nextActiveTask.id;
+        assistantInputRef.current = nextComposer.input;
+        assistantInputContextsRef.current = nextComposer.contexts;
+        setActiveAssistantTaskId(nextActiveTask.id);
+        setAssistantInput(nextComposer.input);
+        setAssistantInputContexts(nextComposer.contexts);
+      }
+      setAssistantTasks(nextTasks);
     },
     [activeAssistantTaskId, language],
   );
@@ -1075,15 +1262,51 @@ The previous streaming response did not complete every placeholder card. Return 
   const handleAssistantSend = useCallback(
     async (overrideText?: string) => {
       const draftText = (overrideText ?? assistantInput).trim();
-      const contextTexts = assistantInputContexts.map((context) => context.content.trim()).filter(Boolean);
-      const userText = [...contextTexts, draftText].filter(Boolean).join('\n\n');
-      if (!userText || assistantLoading) return;
+      const taskReviewContext =
+        activeAssistantTask?.kind === 'card-review' ? activeAssistantTask.reviewContext || '' : '';
+      const contextTexts = assistantInputContexts
+        .map((context) => context.content.trim())
+        .filter(Boolean);
+      const attachedTargetNodeIds = Array.from(
+        new Set([
+          ...(activeAssistantTask?.kind === 'card-review'
+            ? activeAssistantTask.targetNodeIds || []
+            : []),
+          ...assistantInputContexts
+            .filter((context) => context.source === 'selection')
+            .flatMap((context) => context.nodeIds || []),
+        ]),
+      );
+      const userText = [taskReviewContext, ...contextTexts, draftText].filter(Boolean).join('\n\n');
+      if (!userText || assistantLoading || activeAssistantTask?.loading) return;
 
       pushAssistantHistory();
       setAssistantInput('');
       setAssistantInputContexts([]);
       setAssistantLoading(true);
-      const userMessage: AssistantMessage = { id: uuidv4(), role: 'user', content: userText };
+      const attachedContextSummary = assistantInputContexts
+        .map((context) => context.title)
+        .join('、');
+      const visibleUserText =
+        draftText ||
+        (language === 'zh'
+          ? `请处理已附加的内容：${attachedContextSummary}`
+          : language === 'ja'
+            ? `添付した内容を処理してください：${attachedContextSummary}`
+            : `Please work with the attached context: ${attachedContextSummary}`);
+      const userMessage: AssistantMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content: visibleUserText,
+        contextPreviews: assistantInputContexts
+          .filter((context) => context.source === 'selection')
+          .map((context) => ({
+            id: context.id,
+            title: context.title,
+            imageUrl: context.previewImageUrl,
+            text: context.previewText,
+          })),
+      };
       setAssistantMessages((messages) => [...messages, userMessage]);
 
       const workflow = assistantWorkflowRef.current;
@@ -1227,7 +1450,7 @@ The previous streaming response did not complete every placeholder card. Return 
       };
 
       const selectedContext = selectedAssistantTargetNodes
-        .filter((node) => !isDefaultRootStoryNode(node))
+        .filter((node) => !isDefaultRootStoryNode(node) && !attachedTargetNodeIds.includes(node.id))
         .map((node, index) => describeAssistantNode(node, index))
         .join('\n\n---\n\n');
 
@@ -1311,6 +1534,13 @@ ${templateInstruction}
 5. 剧情卡要适合 galgame 演出，短句、分步、可交互，不要把整篇文章直接塞进单张卡。
 用户补充要求：${userText}`;
         assistantWorkflowRef.current = { type: 'idle' };
+      }
+
+      if (attachedTargetNodeIds.length > 0) {
+        placementOptions = {
+          ...placementOptions,
+          targetNodeIds: attachedTargetNodeIds,
+        };
       }
 
       const wantsCards =
@@ -1623,6 +1853,7 @@ ${canvasContext || '无'}`;
       assistantInputContexts,
       assistantInput,
       assistantLoading,
+      activeAssistantTask,
       assistantDocuments,
       assistantMessages,
       callAIForTextResult,
@@ -1893,6 +2124,12 @@ cards 必须正好有 3 张。`);
 
   const handleAssistantOptionSelect = useCallback(
     async (value: string) => {
+      const cardReviewSuggestionPrefix = '__card_review_suggestion__:';
+      if (value.startsWith(cardReviewSuggestionPrefix)) {
+        setAssistantInput(value.slice(cardReviewSuggestionPrefix.length));
+        return;
+      }
+
       const visualizeOptionPrefix = value.startsWith(ASSISTANT_VISUALIZE_OPTION_PREFIX)
         ? ASSISTANT_VISUALIZE_OPTION_PREFIX
         : value.startsWith(LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX)
@@ -2428,7 +2665,7 @@ cards 必须正好有 3 张。`);
   useEffect(() => {
     const element = assistantMessagesRef.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [assistantLoading, assistantMessages]);
+  }, [assistantInputContexts, assistantLoading, assistantMessages]);
 
   useEffect(
     () => () => {
@@ -2448,7 +2685,7 @@ cards 必须正好有 3 张。`);
     setAssistantInput,
     assistantInputContexts,
     setAssistantInputContexts,
-    assistantLoading,
+    assistantLoading: assistantLoading || Boolean(activeAssistantTask?.loading),
     assistantListening,
     assistantDocuments,
     assistantDocumentLoading,
@@ -2457,9 +2694,11 @@ cards 必须正好有 3 张。`);
     setAssistantTasks,
     activeAssistantTaskId,
     setActiveAssistantTaskId,
+    handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleStartCardReview,
     handleRenameAssistantTask,
     handleRequestCloseAssistantTask,
     handleConfirmCloseAssistantTask,

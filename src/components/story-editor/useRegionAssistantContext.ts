@@ -128,6 +128,8 @@ export function useRegionAssistantContext({
           title: regionTitle,
           content: message,
           cardCount: orderedIds.length,
+          source: 'region',
+          nodeIds: orderedIds,
           assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
         },
       ]);

@@ -53,7 +53,6 @@ interface AssistantPanelProps {
   assistantArticleAnalysis: AssistantArticleAnalysisState;
   assistantInput: string;
   assistantInputContexts: AssistantInputContext[];
-  selectedAssistantTargetNodesCount: number;
   assistantTasks: AssistantTask[];
   activeAssistantTaskId: string;
   assistantMessages: AssistantMessage[];
@@ -61,7 +60,7 @@ interface AssistantPanelProps {
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setAssistantInput: Dispatch<SetStateAction<string>>;
   setAssistantInputContexts: Dispatch<SetStateAction<AssistantInputContext[]>>;
-  setActiveAssistantTaskId: Dispatch<SetStateAction<string>>;
+  handleSelectAssistantTask: (taskId: string) => void;
   handleNewAssistantTask: () => void;
   handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
@@ -136,6 +135,56 @@ const getShortDramaTestPrompts = (language: Language) =>
       ? SHORT_DRAMA_TEST_PROMPTS.ja
       : SHORT_DRAMA_TEST_PROMPTS.en;
 
+type AssistantContextPreviewCardProps = {
+  title: string;
+  contextBadge: string;
+  imageUrl?: string;
+  text?: string;
+  onRemove?: () => void;
+  removeLabel?: string;
+};
+
+const AssistantContextPreviewCard = ({
+  title,
+  contextBadge,
+  imageUrl,
+  text,
+  onRemove,
+  removeLabel,
+}: AssistantContextPreviewCardProps) => (
+  <article className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <header className="flex items-center justify-between gap-3 px-3.5 py-3">
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-500">
+          {contextBadge}
+        </div>
+        <h3 className="mt-0.5 truncate text-sm font-black text-slate-900 dark:text-slate-100">
+          {title}
+        </h3>
+      </div>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+          title={removeLabel}
+          aria-label={removeLabel}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </header>
+    {imageUrl && (
+      <img src={imageUrl} alt="" className="aspect-video w-full bg-slate-100 object-cover" />
+    )}
+    {text && (
+      <p className="m-0 whitespace-pre-wrap px-3.5 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+        {text}
+      </p>
+    )}
+  </article>
+);
+
 export function AssistantPanel({
   assistantOpen,
   isMobile,
@@ -147,7 +196,6 @@ export function AssistantPanel({
   assistantArticleAnalysis,
   assistantInput,
   assistantInputContexts,
-  selectedAssistantTargetNodesCount,
   assistantTasks,
   activeAssistantTaskId,
   assistantMessages,
@@ -155,7 +203,7 @@ export function AssistantPanel({
   setAssistantOpen,
   setAssistantInput,
   setAssistantInputContexts,
-  setActiveAssistantTaskId,
+  handleSelectAssistantTask,
   handleNewAssistantTask,
   handleRenameAssistantTask,
   handleCloseAssistantTask,
@@ -178,6 +226,7 @@ export function AssistantPanel({
   language,
 }: AssistantPanelProps) {
   const ui = assistantPanelCopy(language);
+  const activeAssistantTask = assistantTasks.find((task) => task.id === activeAssistantTaskId);
   const [shouldRender, setShouldRender] = useState(assistantOpen);
   const [panelVisible, setPanelVisible] = useState(assistantOpen);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -220,7 +269,12 @@ export function AssistantPanel({
   const showArticleUploadPage = documentUploadOpen && documentUploadIntent === 'article-to-galgame';
   const assistantInputExpanded =
     assistantInputFocused || assistantInput.trim().length > 0 || assistantInputContexts.length > 0;
-
+  const selectedCardContexts = assistantInputContexts.filter(
+    (context) => context.source === 'selection',
+  );
+  const composerInputContexts = assistantInputContexts.filter(
+    (context) => context.source !== 'selection',
+  );
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
       window.clearTimeout(closeAnimationTimerRef.current);
@@ -694,11 +748,24 @@ export function AssistantPanel({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setActiveAssistantTaskId(task.id)}
+                    onClick={() => handleSelectAssistantTask(task.id)}
                     onDoubleClick={() => startRenamingTask(task)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <div className="truncate text-[11px] font-black">{task.title}</div>
+                    <div className="flex items-center gap-1.5 text-[11px] font-black">
+                      {task.loading ? (
+                        <Loader2
+                          className="h-3 w-3 shrink-0 animate-spin"
+                          aria-label={ui.cardReview.analyzing}
+                        />
+                      ) : task.unread ? (
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full bg-indigo-500"
+                          aria-label={ui.cardReview.complete}
+                        />
+                      ) : null}
+                      <span className="truncate">{task.title}</span>
+                    </div>
                     <div className="truncate text-[9px] opacity-60">
                       {new Date(task.updatedAt).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -933,7 +1000,9 @@ export function AssistantPanel({
               </>
             )}
           </section>
-        ) : visibleAssistantMessages.length === 0 && !assistantLoading ? (
+        ) : visibleAssistantMessages.length === 0 &&
+          selectedCardContexts.length === 0 &&
+          !assistantLoading ? (
           <section className="assistant-welcome-card">
             <div className="assistant-welcome-hero">
               <div className="assistant-welcome-copy">
@@ -1014,13 +1083,34 @@ export function AssistantPanel({
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`assistant-message-bubble max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                    message.role === 'user'
-                      ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
-                      : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
-                  }`}
+                  className={`assistant-message-bubble whitespace-pre-wrap text-sm leading-relaxed ${
+                    message.contextPreviews?.length
+                      ? 'w-full max-w-[94%]'
+                      : message.role === 'user'
+                        ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                        : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                  } ${message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
                 >
-                  {message.content}
+                  {message.contextPreviews && message.contextPreviews.length > 0 && (
+                    <div className="grid gap-2">
+                      {message.contextPreviews.map((preview) => (
+                        <AssistantContextPreviewCard
+                          key={preview.id}
+                          title={preview.title}
+                          contextBadge={ui.cardReview.contextBadge}
+                          imageUrl={preview.imageUrl}
+                          text={preview.text}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {message.contextPreviews?.length ? (
+                    <div className="mt-2 ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-indigo-600 px-3.5 py-2.5 text-white">
+                      {message.content}
+                    </div>
+                  ) : (
+                    message.content
+                  )}
                   {message.role === 'assistant' &&
                     message.options &&
                     message.options.length > 0 && (
@@ -1072,15 +1162,36 @@ export function AssistantPanel({
               </div>
             ),
           )}
+        {!showArticleUploadPage &&
+          selectedCardContexts.map((context) => (
+            <div key={`pending:${context.id}`} className="flex w-full justify-start">
+              <div className="w-full max-w-[94%]">
+                <AssistantContextPreviewCard
+                  title={context.title}
+                  contextBadge={ui.cardReview.contextBadge}
+                  imageUrl={context.previewImageUrl}
+                  text={context.previewText}
+                  onRemove={() =>
+                    setAssistantInputContexts((contexts) =>
+                      contexts.filter((item) => item.id !== context.id),
+                    )
+                  }
+                  removeLabel={ui.cardReview.removeAttachment}
+                />
+              </div>
+            </div>
+          ))}
         {!showArticleUploadPage && assistantLoading && (
           <div className="flex justify-start">
             <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {language === 'zh'
-                ? '正在思考和整理卡片...'
-                : language === 'ja'
-                  ? '考え中およびカード整理中...'
-                  : 'Thinking and organizing cards...'}
+              {activeAssistantTask?.kind === 'card-review'
+                ? ui.cardReview.analyzing
+                : language === 'zh'
+                  ? '正在思考和整理卡片...'
+                  : language === 'ja'
+                    ? '考え中およびカード整理中...'
+                    : 'Thinking and organizing cards...'}
             </div>
           </div>
         )}
@@ -1196,9 +1307,9 @@ export function AssistantPanel({
           >
             {assistantInputExpanded ? (
               <>
-                {assistantInputContexts.length > 0 && (
+                {composerInputContexts.length > 0 && (
                   <div className="custom-scrollbar flex min-w-0 items-center gap-2 overflow-x-auto pb-1">
-                    {assistantInputContexts.map((context) => (
+                    {composerInputContexts.map((context) => (
                       <div
                         key={context.id}
                         className="flex shrink-0 items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-xs text-indigo-900 dark:border-indigo-400/30 dark:bg-indigo-500/10 dark:text-indigo-100"

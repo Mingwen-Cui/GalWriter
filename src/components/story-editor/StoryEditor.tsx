@@ -36,7 +36,6 @@ import { useSelectionActions } from '../../editor-features/selection-tools/useSe
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { createProjectThumbnail } from '../../editor-services/projectThumbnail';
-import { AIActionModal } from '../../editor-shell/AIActionModal';
 import { AssistantPanel } from '../../editor-shell/AssistantPanel';
 import { AutoSaveRecoveryModal } from '../../editor-shell/AutoSaveRecoveryModal';
 import { ConfirmActionModal } from '../../editor-shell/ConfirmActionModal';
@@ -45,6 +44,7 @@ import { EditorHeader } from '../../editor-shell/EditorHeader';
 import { EditorLeftToolbar } from '../../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../../editor-shell/EditorRightToolbar';
 import { EditorToast } from '../../editor-shell/EditorToast';
+import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
 import { ProjectSavePromptModal } from '../../editor-shell/ProjectSavePromptModal';
 import { SaveProjectModal } from '../../editor-shell/SaveProjectModal';
 import {
@@ -66,6 +66,7 @@ import {
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
 import { isTauriRuntime } from '../../lib/tauriRuntime';
+import { htmlToSpeechText } from '../../lib/tts';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
@@ -195,11 +196,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [generateLength, setGenerateLength] = useState<string>(
     () => getStoryEditorCopy(appLanguage).plotStandardDetail,
   );
-  // AI续写操作选择弹窗状态
-  const [showAIActionModal, setShowAIActionModal] = useState(false);
-  const [pendingAINodeId, setPendingAINodeId] = useState<string | null>(null);
+  // AI 助手与禅模式共享当前剧情卡片上下文。
   const [zenModeNodeId, setZenModeNodeId] = useState<string | null>(null);
-  const [aiLoadingNodeId, setAiLoadingNodeId] = useState<string | null>(null);
   const [horizontalGuides, setHorizontalGuides] = useState<number[]>([]);
   const [verticalGuides, setVerticalGuides] = useState<number[]>([]);
 
@@ -1218,7 +1216,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     callAIForTextResult,
     callAIForTextStream,
     generateSetting,
-    handleAIGenerate: runAIGenerate,
     handleAIAnalyze: runAIAnalyze,
   } = useAIActions({
     nodes,
@@ -1724,37 +1721,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [nodes, edges, highlightedPath, showToast, storyEditorCopy.storylineTraced],
   );
 
-  // NOTE: 用户点击AI按钮时先弹出选项弹窗
-  const handleAIButtonClick = useCallback((nodeId: string) => {
-    setPendingAINodeId(nodeId);
-    setShowAIActionModal(true);
-  }, []);
-
-  const handleAIGenerate = useCallback(
-    async (
-      nodeId: string,
-      action: 'continue' | 'creative' | 'rewrite' | 'interpolate' | 'scene_only' | 'dialogue_only',
-    ) => {
-      setShowAIActionModal(false);
-      setPendingAINodeId(null);
-      setAiLoadingNodeId(nodeId);
-
-      try {
-        await runAIGenerate(nodeId, action);
-      } catch (error: any) {
-        console.error('AI Generation failed:', error);
-        await showDialogAlert({
-          title: storyEditorCopy.aiGenerationFailed,
-          description: error.message || storyEditorCopy.checkApiNetwork,
-          tone: 'warning',
-        });
-      } finally {
-        setAiLoadingNodeId(null);
-      }
-    },
-    [runAIGenerate, showDialogAlert, storyEditorCopy],
-  );
-
+  // NOTE: 卡片 AI 操作现在统一进入右侧助手，不再使用独立操作弹窗。
   // =========================================================================
   // Assistant System (extracted to useAssistantSystem)
   // =========================================================================
@@ -1776,9 +1743,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     activeAssistantTaskId,
     setAssistantTasks,
     setActiveAssistantTaskId,
+    handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
     handleNewAssistantTask,
+    handleStartCardReview,
     handleRenameAssistantTask,
     handleRequestCloseAssistantTask,
     handleConfirmCloseAssistantTask,
@@ -1832,6 +1801,81 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
     requestSettingsAttention,
   });
+
+  const handleAIButtonClick = useCallback(
+    (nodeId: string) => {
+      const targetNode = nodes.find(
+        (node) =>
+          node.id === nodeId &&
+          (node.type === 'storyNode' || node.type === 'characterNode' || node.type === 'sceneNode'),
+      );
+      if (!targetNode) return;
+
+      const incomingStoryIds = edges
+        .filter((edge) => edge.target === nodeId)
+        .map((edge) => edge.source);
+      const outgoingStoryIds = edges
+        .filter((edge) => edge.source === nodeId)
+        .map((edge) => edge.target);
+      const relatedStoryNodes = [
+        ...nodes.filter((node) => incomingStoryIds.includes(node.id) && node.type === 'storyNode'),
+        targetNode,
+        ...nodes.filter((node) => outgoingStoryIds.includes(node.id) && node.type === 'storyNode'),
+      ];
+      const uniqueRelatedNodes = relatedStoryNodes.filter(
+        (node, index, items) => items.findIndex((item) => item.id === node.id) === index,
+      );
+      const cardReviewCopy = assistantPanelCopy(language).cardReview;
+      const targetTitle = String(
+        targetNode.data?.title ||
+          targetNode.data?.characterName ||
+          targetNode.data?.sceneName ||
+          cardReviewCopy.selectedCard,
+      );
+      const content = `${cardReviewCopy.adjacentContext}:\n${uniqueRelatedNodes
+        .map((node) => {
+          const title = String(
+            node.data?.title || node.data?.characterName || node.data?.sceneName || '',
+          );
+          const text = htmlToSpeechText(
+            String(node.data?.text || node.data?.description || node.data?.traits || ''),
+          );
+          const marker = node.id === nodeId ? '[TARGET]' : '[CONTEXT]';
+          return `${marker} ${title}\n${text}`.trim();
+        })
+        .join('\n\n---\n\n')}`;
+      const imageUrls = new Set<string>();
+      const videoUrls = new Set<string>();
+      uniqueRelatedNodes.forEach((node) => {
+        const imageUrl = node.data?.imageUrl;
+        const videoUrl = node.data?.videoUrl;
+        if (typeof imageUrl === 'string' && imageUrl.trim()) imageUrls.add(imageUrl);
+        if (typeof videoUrl === 'string' && videoUrl.trim()) videoUrls.add(videoUrl);
+      });
+      const targetPreviewImageUrl =
+        typeof targetNode.data?.imageUrl === 'string' && targetNode.data.imageUrl.trim()
+          ? targetNode.data.imageUrl
+          : imageUrls.values().next().value;
+      const targetPreviewText = htmlToSpeechText(
+        String(
+          targetNode.data?.text || targetNode.data?.description || targetNode.data?.traits || '',
+        ),
+      );
+
+      void handleStartCardReview({
+        id: `selection:${nodeId}`,
+        title: targetTitle,
+        content,
+        cardCount: 1,
+        source: 'selection',
+        nodeIds: [nodeId],
+        previewImageUrl: targetPreviewImageUrl,
+        previewText: targetPreviewText,
+        assetCounts: { images: imageUrls.size, videos: videoUrls.size },
+      });
+    },
+    [edges, handleStartCardReview, language, nodes],
+  );
 
   const handlePrefillAssistantFromRegion = useRegionAssistantContext({
     assistantInputContexts,
@@ -2197,7 +2241,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     nodes,
     edges,
     nodeRenderData,
-    aiLoadingNodeId,
+    aiLoadingNodeId: null,
     highlightedPath,
     edgeStyle,
     edgeColor,
@@ -2415,7 +2459,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           assistantArticleAnalysis={assistantArticleAnalysis}
           assistantInput={assistantInput}
           assistantInputContexts={assistantInputContexts}
-          selectedAssistantTargetNodesCount={selectedAssistantTargetNodes.length}
           assistantTasks={assistantTasks}
           activeAssistantTaskId={activeAssistantTaskId}
           assistantMessages={assistantMessages}
@@ -2423,7 +2466,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           setAssistantOpen={setAssistantOpen}
           setAssistantInput={setAssistantInput}
           setAssistantInputContexts={setAssistantInputContexts}
-          setActiveAssistantTaskId={setActiveAssistantTaskId}
+          handleSelectAssistantTask={handleSelectAssistantTask}
           handleNewAssistantTask={handleNewAssistantTask}
           handleRenameAssistantTask={handleRenameAssistantTask}
           handleCloseAssistantTask={handleRequestCloseAssistantTask}
@@ -2456,22 +2499,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           labels={{ nodes: t.nodes, paths: t.paths, selectedItems: t.selectedItems }}
         />
       )}
-
-      {/* AI 操作选择弹窗 */}
-      <AIActionModal
-        visible={showAIActionModal}
-        pendingAINodeId={pendingAINodeId}
-        aiButtonsConfig={aiButtonsConfig}
-        language={language}
-        onClose={() => {
-          setShowAIActionModal(false);
-          setPendingAINodeId(null);
-        }}
-        onGenerate={(nodeId, action) => {
-          void handleAIGenerate(nodeId, action);
-        }}
-        t={t}
-      />
 
       {/* 剧本测试模态弹窗*/}
       <Suspense fallback={null}>
@@ -2839,7 +2866,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         nodes={nodes}
         edges={edges}
         zenModeNodeId={zenModeNodeId}
-        aiLoadingNodeId={aiLoadingNodeId}
+        aiLoadingNodeId={null}
         onAIGenerate={handleAIButtonClick}
         onGenerateImage={handleGenerateStoryNodeImage}
         onGenerateAudio={handleGenerateStoryNodeSpeech}

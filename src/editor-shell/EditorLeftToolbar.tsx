@@ -46,6 +46,28 @@ const QUICK_MENU_ITEM_WIDTH = 82;
 const QUICK_MENU_HEIGHT = 88;
 const QUICK_MENU_GAP = 12;
 
+const hoverGuideDataCache = new Map<string, Promise<ArrayBuffer>>();
+
+const loadHoverGuideData = (src: string) => {
+  const cached = hoverGuideDataCache.get(src);
+  if (cached) return cached;
+
+  const request = fetch(src)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to preload hover guide: ${response.status}`);
+      }
+      return response.arrayBuffer();
+    })
+    .catch((error) => {
+      hoverGuideDataCache.delete(src);
+      throw error;
+    });
+
+  hoverGuideDataCache.set(src, request);
+  return request;
+};
+
 type MediaPickerKind = 'all' | 'image' | 'video' | 'audio';
 type QuickMenuKind = 'card' | 'text' | 'media';
 
@@ -168,6 +190,9 @@ export function EditorLeftToolbar({
   const [activeHoverGuide, setActiveHoverGuide] = useState<HoverGuideKind | null>(null);
   const [shouldRenderHoverGuide, setShouldRenderHoverGuide] = useState(false);
   const [showHoverGuide, setShowHoverGuide] = useState(false);
+  const [hoverGuideData, setHoverGuideData] = useState<
+    Partial<Record<HoverGuideKind, ArrayBuffer | null>>
+  >({});
   const [hoverGuidePosition, setHoverGuidePosition] = useState({
     left: 0,
     top: 0,
@@ -303,6 +328,35 @@ export function EditorLeftToolbar({
   }, [showHoverButtonAnimations]);
 
   useEffect(() => {
+    if (!showHoverButtonAnimations || isMobile) return;
+
+    let cancelled = false;
+    const entries = Object.entries(hoverGuideAnimations) as Array<
+      [HoverGuideKind, (typeof hoverGuideAnimations)[HoverGuideKind]]
+    >;
+
+    for (const [kind, config] of entries) {
+      void loadHoverGuideData(config.src).then(
+        (data) => {
+          if (!cancelled) {
+            setHoverGuideData((current) => ({ ...current, [kind]: data }));
+          }
+        },
+        () => {
+          if (!cancelled) {
+            // A direct URL remains as a fallback if preloading is rejected by the host.
+            setHoverGuideData((current) => ({ ...current, [kind]: null }));
+          }
+        },
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMobile, showHoverButtonAnimations]);
+
+  useEffect(() => {
     const handleResize = () => {
       if (activeHoverGuide && guideAnchorRef.current) {
         updateHoverGuidePosition(activeHoverGuide, guideAnchorRef.current);
@@ -349,6 +403,7 @@ export function EditorLeftToolbar({
   }, [activeQuickMenu]);
 
   const activeHoverGuideConfig = activeHoverGuide ? hoverGuideAnimations[activeHoverGuide] : null;
+  const activeHoverGuideData = activeHoverGuide ? hoverGuideData[activeHoverGuide] : undefined;
   const hoverGuideText: Record<HoverGuideKind, string> = {
     character:
       language === 'zh'
@@ -723,21 +778,25 @@ export function EditorLeftToolbar({
                 height: `${activeHoverGuideConfig.animationHeight - 50}px`,
               }}
             >
-              <DotLottieReact
-                key={`${activeHoverGuide}-${activeHoverGuideConfig.src}`}
-                src={activeHoverGuideConfig.src}
-                loop
-                autoplay
-                width={activeHoverGuideConfig.width}
-                height={activeHoverGuideConfig.animationHeight}
-                className="block max-w-none"
-                renderConfig={{ autoResize: false }}
-                style={{
-                  width: `${activeHoverGuideConfig.width}px`,
-                  height: `${activeHoverGuideConfig.animationHeight}px`,
-                }}
-                aria-hidden="true"
-              />
+              {activeHoverGuideData !== undefined && (
+                <DotLottieReact
+                  key={`${activeHoverGuide}-${activeHoverGuideConfig.src}`}
+                  {...(activeHoverGuideData === null
+                    ? { src: activeHoverGuideConfig.src }
+                    : { data: activeHoverGuideData })}
+                  loop
+                  autoplay
+                  width={activeHoverGuideConfig.width}
+                  height={activeHoverGuideConfig.animationHeight}
+                  className="block max-w-none"
+                  renderConfig={{ autoResize: false }}
+                  style={{
+                    width: `${activeHoverGuideConfig.width}px`,
+                    height: `${activeHoverGuideConfig.animationHeight}px`,
+                  }}
+                  aria-hidden="true"
+                />
+              )}
             </div>
             <div className="absolute inset-x-0 bottom-0 z-10 flex h-[50px] items-center justify-center border-t border-slate-200 bg-white px-5 text-center text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
               {hoverGuideText[activeHoverGuide]}
