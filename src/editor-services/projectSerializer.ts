@@ -468,6 +468,7 @@ const applyProjectSettings = (
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
     setters.setShowHeaderActionLabels(true);
+    setters.setShowSideToolbarLabels(true);
     return;
   }
 
@@ -519,6 +520,7 @@ const applyProjectSettings = (
   );
   if (incomingSettings.showTitles !== undefined) setters.setShowTitles(incomingSettings.showTitles);
   setters.setShowHeaderActionLabels(incomingSettings.showHeaderActionLabels !== false);
+  setters.setShowSideToolbarLabels(incomingSettings.showSideToolbarLabels !== false);
   if (incomingSettings.storyTitlePlacement === 'inside') {
     setters.setStoryTitlePlacement('inside');
   } else if (incomingSettings.storyTitlePlacement === 'outside-left') {

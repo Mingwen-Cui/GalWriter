@@ -8,9 +8,13 @@ import {
   Undo2,
 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
+import type { StoryTitlePlacement } from '../domain/project';
 import type { ToolbarLayout } from '../editor-state/editorConfig';
 import type { Language } from '../lib/i18n';
+import { getSideToolbarStrings } from './i18n/side-toolbar';
 
 interface EditorRightToolbarProps {
   isMobile: boolean;
@@ -21,7 +25,9 @@ interface EditorRightToolbarProps {
   bubbleStyle: 'glass' | 'flat';
   rightToolbarCollapsed: boolean;
   toolbarLayout: ToolbarLayout;
+  showSideToolbarLabels: boolean;
   showTitles: boolean;
+  storyTitlePlacement: StoryTitlePlacement;
   canvasBg: string;
   presetColors: string[];
   showPresetColors: boolean;
@@ -34,6 +40,7 @@ interface EditorRightToolbarProps {
   setRightToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
   setShowTitles: Dispatch<SetStateAction<boolean>>;
+  setStoryTitlePlacement: Dispatch<SetStateAction<StoryTitlePlacement>>;
   setCanvasBg: Dispatch<SetStateAction<string>>;
   undo: () => void;
   redo: () => void;
@@ -53,7 +60,9 @@ export function EditorRightToolbar({
   bubbleStyle,
   rightToolbarCollapsed,
   toolbarLayout,
+  showSideToolbarLabels,
   showTitles,
+  storyTitlePlacement,
   canvasBg,
   presetColors,
   showPresetColors,
@@ -66,15 +75,69 @@ export function EditorRightToolbar({
   setRightToolbarCollapsed,
   setShowSettings,
   setShowTitles,
+  setStoryTitlePlacement,
   setCanvasBg,
   undo,
   redo,
   t,
 }: EditorRightToolbarProps) {
+  const sideToolbarStrings = getSideToolbarStrings(language);
+  const showDesktopLabels = showSideToolbarLabels && !isMobile;
+  const renderToolbarLabel = (label: string) =>
+    showDesktopLabels ? <span className="side-toolbar-action-label">{label}</span> : null;
+  const titleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleMenuRef = useRef<HTMLDivElement | null>(null);
+  const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [titleMenuPosition, setTitleMenuPosition] = useState({ left: 0, top: 0 });
+
+  const toggleTitleMenu = () => {
+    if (!showTitleMenu && titleButtonRef.current) {
+      const rect = titleButtonRef.current.getBoundingClientRect();
+      const menuWidth = 420;
+      const menuHeight = 122;
+      const margin = 12;
+      const left = Math.max(
+        margin,
+        Math.min(rect.left - menuWidth - margin, window.innerWidth - menuWidth - margin),
+      );
+      const top = Math.max(
+        margin,
+        Math.min(
+          rect.top + rect.height / 2 - menuHeight / 2,
+          window.innerHeight - menuHeight - margin,
+        ),
+      );
+      setTitleMenuPosition({ left, top });
+    }
+    setShowTitleMenu((value) => !value);
+  };
+
+  useEffect(() => {
+    if (!showTitleMenu) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (titleButtonRef.current?.contains(target) || titleMenuRef.current?.contains(target)) return;
+      setShowTitleMenu(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowTitleMenu(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showTitleMenu]);
+
   return (
     <div
-      className={`toolbar-bubble-surface glass-toolbar absolute right-6 top-4 z-20 flex max-[510px]:top-20 ${
-        toolbarLayout === 'horizontal' ? 'h-[52px] flex-row-reverse' : 'w-[52px] flex-col'
+      className={`toolbar-bubble-surface glass-toolbar ${showDesktopLabels ? 'side-toolbar-with-labels' : ''} absolute right-6 top-4 z-20 flex max-[510px]:top-20 ${
+        toolbarLayout === 'horizontal'
+          ? `${showDesktopLabels ? 'h-[60px]' : 'h-[52px]'} flex-row-reverse`
+          : `${showDesktopLabels ? 'w-[64px]' : 'w-[52px]'} flex-col`
       } overflow-hidden rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1.5 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
         rightToolbarCollapsed
           ? toolbarLayout === 'horizontal'
@@ -107,11 +170,12 @@ export function EditorRightToolbar({
         }
       >
         <Sparkles className="h-5 w-5" />
+        {renderToolbarLabel(sideToolbarStrings.assistant)}
       </button>
 
       <button
         onClick={() => setRightToolbarCollapsed((value) => !value)}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 transition-all duration-300 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-white ${
+        className={`side-toolbar-collapse-button flex h-10 w-10 shrink-0 items-center justify-center text-slate-400 transition-all duration-300 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-white ${
           bubbleStyle === 'flat'
             ? 'm-0'
             : toolbarLayout === 'horizontal'
@@ -161,21 +225,26 @@ export function EditorRightToolbar({
             title={t.settings}
           >
             <Settings className="h-5 w-5" />
+            {renderToolbarLabel(sideToolbarStrings.settings)}
             {(missingTextApiKey || settingsAttentionTarget) && (
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 shadow-sm" />
             )}
           </button>
 
               <button
-                onClick={() => setShowTitles((value) => !value)}
+                ref={titleButtonRef}
+                onClick={toggleTitleMenu}
                 className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
                 title={showTitles ? t.hideTitles : t.showTitles}
+                aria-haspopup="dialog"
+                aria-expanded={showTitleMenu}
               >
                 {showTitles ? (
                   <CaptionsOff className="h-5 w-5" />
                 ) : (
                   <Captions className="h-5 w-5" />
                 )}
+                {renderToolbarLabel(sideToolbarStrings.titles)}
               </button>
 
               <div className={`my-1 h-px w-full bg-[var(--toolbar-border)]/50 ${toolbarLayout === 'horizontal' ? 'hidden' : ''}`} />
@@ -187,6 +256,7 @@ export function EditorRightToolbar({
                 title="撤销 (Ctrl+Z)"
               >
                 <Undo2 className="h-5 w-5" />
+                {renderToolbarLabel(sideToolbarStrings.undo)}
               </button>
 
               <button
@@ -196,6 +266,7 @@ export function EditorRightToolbar({
                 title="重做 (Ctrl+Y)"
               >
                 <Redo2 className="h-5 w-5" />
+                {renderToolbarLabel(sideToolbarStrings.redo)}
               </button>
 
           {!isMobile && showPresetColors && (
@@ -225,6 +296,100 @@ export function EditorRightToolbar({
           )}
         </div>
       )}
+      {showTitleMenu &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={titleMenuRef}
+            role="dialog"
+            aria-label={t.showTitles}
+            className="animate-in fade-in zoom-in-95 fixed z-[10050] w-[420px] rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)]/95 p-2 shadow-2xl shadow-slate-950/20 backdrop-blur-xl duration-150 dark:shadow-black/40"
+            style={{ left: titleMenuPosition.left, top: titleMenuPosition.top }}
+          >
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { id: 'hidden', label: sideToolbarStrings.hideTitles },
+                { id: 'inside', label: sideToolbarStrings.titleInside },
+                { id: 'outside-left', label: sideToolbarStrings.titleOutsideLeft },
+                { id: 'outside-right', label: sideToolbarStrings.titleOutsideRight },
+              ].map((item) => {
+                const active =
+                  item.id === 'hidden'
+                    ? !showTitles
+                    : showTitles && storyTitlePlacement === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (item.id === 'hidden') {
+                        setShowTitles(false);
+                      } else {
+                        setShowTitles(true);
+                        setStoryTitlePlacement(item.id as StoryTitlePlacement);
+                      }
+                      setShowTitleMenu(false);
+                    }}
+                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-xl px-1.5 py-2 text-center transition-colors ${
+                      active
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent)] ring-1 ring-[var(--accent)]/25'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {item.id === 'hidden' ? (
+                      <div className="flex h-12 items-center justify-center">
+                        <CaptionsOff className="h-8 w-8" strokeWidth={1.8} />
+                      </div>
+                    ) : (
+                      <svg
+                        viewBox="0 0 88 64"
+                        className="h-12 w-full overflow-visible"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="13"
+                          y="17"
+                          width="62"
+                          height="42"
+                          rx="6"
+                          fill="currentColor"
+                          fillOpacity="0.08"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M24 38H64M24 45H56M24 52H48"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          opacity="0.45"
+                        />
+                        {item.id === 'inside' && (
+                          <path d="M24 27H52" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                        )}
+                        {item.id === 'outside-left' && (
+                          <>
+                            <path d="M13 8H41" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                            <path d="M13 12V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+                          </>
+                        )}
+                        {item.id === 'outside-right' && (
+                          <>
+                            <path d="M47 8H75" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                            <path d="M75 12V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+                          </>
+                        )}
+                      </svg>
+                    )}
+                    <span className="truncate text-[10px] font-black leading-3">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

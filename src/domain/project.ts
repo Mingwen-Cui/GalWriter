@@ -249,6 +249,7 @@ export interface ProjectSettings extends PlaytestSettings {
   storyTitlePlacement: StoryTitlePlacement;
   showLastSavedTime: boolean;
   showHeaderActionLabels: boolean;
+  showSideToolbarLabels: boolean;
   generateLength: string;
   aiProvider: AiProvider;
   imageApiUrl: string;
@@ -309,6 +310,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setStoryTitlePlacement: Dispatch<SetStateAction<StoryTitlePlacement>>;
   setShowLastSavedTime: Dispatch<SetStateAction<boolean>>;
   setShowHeaderActionLabels: Dispatch<SetStateAction<boolean>>;
+  setShowSideToolbarLabels: Dispatch<SetStateAction<boolean>>;
   setGenerateLength: Dispatch<SetStateAction<string>>;
   setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;

@@ -242,6 +242,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showStats, setShowStats] = useState(true);
   const [showLastSavedTime, setShowLastSavedTime] = useState(true);
   const [showHeaderActionLabels, setShowHeaderActionLabels] = useState(true);
+  const [showSideToolbarLabels, setShowSideToolbarLabels] = useState(true);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveAssistantConversations, setSaveAssistantConversations] = useState(true);
   const [allowAssistantImageGeneration, setAllowAssistantImageGeneration] = useState(true);
@@ -843,6 +844,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       storyTitlePlacement,
       showLastSavedTime,
       showHeaderActionLabels,
+      showSideToolbarLabels,
       generateLength,
       aiProvider,
       imageApiUrl,
@@ -958,6 +960,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       storyTitlePlacement,
       showLastSavedTime,
       showHeaderActionLabels,
+      showSideToolbarLabels,
       thinkingMode,
       theme,
       toolbarLayout,
@@ -996,6 +999,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setStoryTitlePlacement,
       setShowLastSavedTime,
       setShowHeaderActionLabels,
+      setShowSideToolbarLabels,
       setGenerateLength,
       setTtsNarrationMode,
       setImageSize,
@@ -3228,6 +3232,7 @@ ${layoutConfig.label}
             toolbarCollapsed={toolbarCollapsed}
             interactionMode={interactionMode}
             showHoverButtonAnimations={showHoverButtonAnimations}
+            showSideToolbarLabels={showSideToolbarLabels}
             historyPastLength={history.past.length}
             historyFutureLength={history.future.length}
             hasHiddenNodes={nodes.some((node) => node.data?.hidden)}
@@ -3258,7 +3263,9 @@ ${layoutConfig.label}
             bubbleStyle={bubbleStyle}
             rightToolbarCollapsed={rightToolbarCollapsed}
             toolbarLayout={toolbarLayout}
+            showSideToolbarLabels={showSideToolbarLabels}
             showTitles={showTitles}
+            storyTitlePlacement={storyTitlePlacement}
             canvasBg={canvasBg}
             presetColors={presetColors}
             showPresetColors={showPresetColors}
@@ -3271,6 +3278,7 @@ ${layoutConfig.label}
             setRightToolbarCollapsed={setRightToolbarCollapsed}
             setShowSettings={setShowSettings}
             setShowTitles={setShowTitles}
+            setStoryTitlePlacement={setStoryTitlePlacement}
             setCanvasBg={setCanvasBg}
             undo={undo}
             redo={redo}
@@ -3628,6 +3636,8 @@ ${layoutConfig.label}
           setShowLastSavedTime={setShowLastSavedTime}
           showHeaderActionLabels={showHeaderActionLabels}
           setShowHeaderActionLabels={setShowHeaderActionLabels}
+          showSideToolbarLabels={showSideToolbarLabels}
+          setShowSideToolbarLabels={setShowSideToolbarLabels}
           saveAssistantConversations={saveAssistantConversations}
           setSaveAssistantConversations={setSaveAssistantConversations}
           allowAssistantImageGeneration={allowAssistantImageGeneration}

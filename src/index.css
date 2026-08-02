@@ -3067,6 +3067,33 @@ input[type='range']::-moz-range-track {
   transform: none !important;
 }
 
+.side-toolbar-with-labels button:not(.exclude-glass) {
+  flex-direction: column !important;
+  gap: 2px !important;
+  padding: 4px 2px !important;
+}
+
+.side-toolbar-with-labels.flex-col
+  button:not(.exclude-glass):not(.side-toolbar-collapse-button) {
+  width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1;
+}
+
+.side-toolbar-action-label {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 [data-theme='dark'] .bubble-glass-mode .glass-toolbar button:not(.exclude-glass):hover {
   background: rgba(255, 255, 255, 0.1) !important;
   transform: none !important;

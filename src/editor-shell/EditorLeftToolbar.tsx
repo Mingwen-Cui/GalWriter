@@ -14,9 +14,9 @@ import {
   Type,
   UserCircle2,
 } from 'lucide-react';
+import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import characterCardAnimation from '../animation/character card.lottie';
 import numberConditionAnimation from '../animation/math.lottie';
@@ -25,6 +25,7 @@ import plotStructureAnimation from '../animation/plot structure.lottie';
 import sceneSettingCardAnimation from '../animation/scence setting card.lottie';
 import textSummaryAnimation from '../animation/test summary.lottie';
 import type { Language } from '../lib/i18n';
+import { getSideToolbarStrings } from './i18n/side-toolbar';
 
 type HoverGuideKind =
   | 'character'
@@ -82,6 +83,7 @@ interface EditorLeftToolbarProps {
   toolbarCollapsed: boolean;
   interactionMode: 'select' | 'box';
   showHoverButtonAnimations: boolean;
+  showSideToolbarLabels: boolean;
   historyPastLength: number;
   historyFutureLength: number;
   hasHiddenNodes: boolean;
@@ -117,6 +119,7 @@ export function EditorLeftToolbar({
   toolbarCollapsed,
   interactionMode,
   showHoverButtonAnimations,
+  showSideToolbarLabels,
   historyPastLength,
   historyFutureLength,
   hasHiddenNodes,
@@ -137,6 +140,10 @@ export function EditorLeftToolbar({
   unhideAllNodes,
   t,
 }: EditorLeftToolbarProps) {
+  const sideToolbarStrings = getSideToolbarStrings(language);
+  const showDesktopLabels = showSideToolbarLabels && !isMobile;
+  const renderToolbarLabel = (label: string) =>
+    showDesktopLabels ? <span className="side-toolbar-action-label">{label}</span> : null;
   const guideHoverDelayMs = 600;
   const guideDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guideRequestIdRef = useRef(0);
@@ -268,7 +275,7 @@ export function EditorLeftToolbar({
   return (
     <>
       <div
-        className={`toolbar-bubble-surface glass-toolbar absolute left-6 top-20 z-20 flex w-[52px] flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
+        className={`toolbar-bubble-surface glass-toolbar ${showDesktopLabels ? 'side-toolbar-with-labels w-[64px]' : 'w-[52px]'} absolute left-6 top-20 z-20 flex flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
           // NOTE: 移动端折叠时保留3个按钮（选择+框选+最小化），高度约156px；桌面端仅显示最小化按钮52px
           isMobile && toolbarCollapsed ? 'h-[156px] overflow-hidden' : !isMobile && toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
         }`}
@@ -277,7 +284,7 @@ export function EditorLeftToolbar({
         {!isMobile && (
           <button
             onClick={() => setToolbarCollapsed((value) => !value)}
-            className="mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
+            className="side-toolbar-collapse-button mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
             title={
               toolbarCollapsed
                 ? language === 'zh'
@@ -340,7 +347,7 @@ export function EditorLeftToolbar({
             {/* 移动端：最小化按钮在框选下方 */}
             <button
               onClick={() => setToolbarCollapsed((value) => !value)}
-              className="mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
+            className="side-toolbar-collapse-button mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
               title={
                 toolbarCollapsed
                   ? language === 'zh'
@@ -375,6 +382,7 @@ export function EditorLeftToolbar({
               title={t.toolSquare}
             >
               <Square strokeWidth={3} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.card)}
             </button>
 
             {!isMobile && (
@@ -384,6 +392,7 @@ export function EditorLeftToolbar({
                 title={t.toolText}
               >
                 <Type strokeWidth={2.5} className="h-5 w-5" />
+                {renderToolbarLabel(sideToolbarStrings.text)}
               </button>
             )}
 
@@ -399,6 +408,7 @@ export function EditorLeftToolbar({
               aria-label={hoverGuideText.character}
             >
               <UserCircle2 strokeWidth={2.5} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.character)}
             </button>
 
             <button
@@ -411,6 +421,7 @@ export function EditorLeftToolbar({
               aria-label={hoverGuideText.scene}
             >
               <MapPin strokeWidth={2.5} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.scene)}
             </button>
 
             <button
@@ -423,6 +434,7 @@ export function EditorLeftToolbar({
               aria-label={hoverGuideText.plotStructure}
             >
               <BookOpen strokeWidth={2.5} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.plot)}
             </button>
 
             <button
@@ -435,6 +447,7 @@ export function EditorLeftToolbar({
               aria-label={hoverGuideText.numberCondition}
             >
               <Calculator strokeWidth={2.5} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.condition)}
             </button>
 
             {!isMobile && <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />}
@@ -450,6 +463,7 @@ export function EditorLeftToolbar({
                 aria-label={hoverGuideText.textSummary}
               >
                 <FileText strokeWidth={2.5} className="h-5 w-5" />
+                {renderToolbarLabel(sideToolbarStrings.summary)}
               </button>
             )}
 
@@ -464,6 +478,7 @@ export function EditorLeftToolbar({
                 aria-label={hoverGuideText.batchReplace}
               >
                 <Replace strokeWidth={2.5} className="h-5 w-5" />
+                {renderToolbarLabel(sideToolbarStrings.replace)}
               </button>
             )}
 
@@ -475,6 +490,7 @@ export function EditorLeftToolbar({
               title={t.toolMedia}
             >
               <ImageIcon strokeWidth={2.5} className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.media)}
             </button>
 
           </div>
@@ -497,6 +513,7 @@ export function EditorLeftToolbar({
               title={t.unhideAll}
             >
               <Eye className="h-5 w-5" />
+              {renderToolbarLabel(sideToolbarStrings.restore)}
             </button>
           </div>
         )}
